@@ -13,10 +13,8 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('lines', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('name')->nullable()->unique();
-            $table->timestamps();
+        Schema::table('mutations', function (Blueprint $table) {
+            $table->integer('qty')->nullable()->after('part_id');
         });
     }
 
@@ -27,6 +25,8 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('lines');
+        Schema::table('mutations', function (Blueprint $table) {
+            //
+        });
     }
 };

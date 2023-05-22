@@ -36,9 +36,9 @@
                             <div class="row mt-1">
                                 <div class="col-md-12" style="padding: 15px;">
                                     <h4>Scan Qr Code</h4>
-
                                     <input style="height: 4rem; width: 100%; background-color: white; border-radius: 20px;"
-                                        height=60 id="detail_no" class="form-control" name="detail_no" required>
+                                        height=60 id="code" class="form-control" name="code" required
+                                        autocomplete="off">
                                 </div>
                             </div>
                             <div class="row" style="margin-top: 3rem;">
@@ -65,7 +65,7 @@
                 <div class="modal-body">
 
                     <h3 class="text-center"><b>LINE</b></h3><br>
-                    <input type="text" class="form-control" id="input-line">
+                    <input type="text" class="form-control" id="input-line" autocomplete="off">
                     <br>
                 </div>
             </div>
@@ -80,7 +80,7 @@
                 <div class="modal-body">
 
                     <h3 class="text-center"><b>MASTER SAMPLE</b></h3><br>
-                    <input type="text" class="form-control" id="input-sample">
+                    <input type="text" class="form-control" id="input-sample" autocomplete="off">
                     <br>
                 </div>
             </div>
@@ -103,17 +103,17 @@
     let line = '';
 
     function initApp() {
-        let line_number = localStorage.getItem('line');
-        let sample = localStorage.getItem('avi_sample');
-        if (line_number == null || line_number == undefined) {
+        let line = localStorage.getItem('line');
+        let sample = localStorage.getItem('sample');
+        if (!line) {
             $('#modalLineScan').on('shown.bs.modal', function() {
                 $('#input-line').focus();
             })
             $('#modalLineScan').modal('show');
 
         } else {
-            $('#line-display').text(line_number);
-            if (sample == null || sample == undefined) {
+            $('#line-display').text(line);
+            if (!sample) {
                 $('#modalSampleScan').modal('show');
                 setInterval(() => {
                     $('#input-sample').focus();
@@ -121,13 +121,13 @@
             } else {
                 $('#sample-display').text(sample);
                 setInterval(() => {
-                    $('#detail_no').focus();
+                    $('#code').focus();
                 }, 1000);
             }
 
         }
 
-        $('#detail_no').focus();
+        $('#code').focus();
     }
 
     function notif(color, text) {
@@ -137,22 +137,58 @@
             textNotif.text(text);
             $('#divNotif').css("background-color", "#FF2A00");
             $('#notifModal').modal('show');
+            setTimeout(() => {
+                $('#notifModal').modal('hide');
+            }, 1000);
         } else {
             textNotif.text(text);
             $('#divNotif').css("background-color", "#32a852");
             $('#notifModal').modal('show');
+            setTimeout(() => {
+                $('#notifModal').modal('hide');
+            }, 1000);
 
         }
+    }
+
+    function sampleModal() {
+        let sample = localStorage.getItem('sample');
+
+        $('#input-sample').val('');
+        setTimeout(() => {
+            if (!sample) {
+                $('#modalSampleScan').on('shown.bs.modal',
+                    function() {
+                        $('#input-sample').focus();
+                    })
+                $('#modalSampleScan').modal('show');
+            }
+        }, 1500);
+    }
+
+    function lineModal() {
+        $('#input-line').val('');
+        setTimeout(() => {
+            if (!line) {
+                $('#modalLineScan').on('shown.bs.modal',
+                    function() {
+                        $('#input-line').focus();
+                    })
+                $('#modalLineScan').modal('show');
+            }
+        }, 1500);
     }
 
     $(document).ready(function() {
         initApp();
         $(document).on('click', function() {
-            $('#detail_no').focus();
+            $('#code').focus();
         });
         $('#input-line').keypress(function(e) {
+            let line = localStorage.getItem('line');
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
+
                 //Check Line
                 $.ajax({
                     type: 'get',
@@ -161,68 +197,145 @@
                     dataType: 'json',
                     success: function(data) {
                         console.log(data);
+                        if (data.status == 'success') {
+                            localStorage.setItem('line', data.line);
+                            initApp();
+                        } else {
+                            notif('error', data.message);
+                            lineModal();
+                        }
                     },
-                    error: function(xhr) {}
+                    error: function(xhr) {
+                        if (xhr.status == 0) {
+                            notif("error", 'Connection Error');
+                            lineModal();
+                            return;
+                        }
+                        notif("error", 'Internal Server Error');
+                        lineModal();
+                    }
                 });
 
-
-                localStorage.setItem('line', $(this).val());
-                initApp();
                 $('#modalLineScan').modal('hide');
             }
         });
 
         $('#done').on('click', function() {
-            $('#detail_no').focus();
+            $('#code').focus();
             localStorage.removeItem("line");
-            localStorage.removeItem("avi_sample");
+            localStorage.removeItem("sample");
             window.location.reload();
         });
 
+        $('#sample-display').on('click', function() {
+            sampleModal();
+        });
+
         $('#input-sample').keypress(function(e) {
+            let line = localStorage.getItem('line');
+            let sample = localStorage.getItem('sample');
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
-                localStorage.setItem('avi_sample', $(this).val());
+
+                //Check sample 
+                $.ajax({
+                    type: 'get',
+                    url: "{{ url('production/sample-check/') }}" + '/' + line + '/' +
+                        $(this).val(),
+                    _token: "{{ csrf_token() }}",
+                    dataType: 'json',
+                    success: function(data) {
+                        console.log(data);
+                        if (data.status == 'success') {
+                            localStorage.setItem('sample', data.sample);
+                            initApp();
+                        } else {
+                            notif('error', data.message);
+                            sampleModal();
+                        }
+                    },
+                    error: function(xhr) {
+                        console.log(xhr);
+                        if (xhr.status == 0) {
+                            notif("error", 'Connection Error');
+                            sampleModal();
+                            return;
+                        }
+                        notif("error", 'Internal Server Error');
+                        sampleModal();
+                    }
+                });
+
                 initApp();
                 $('#modalSampleScan').modal('hide');
-                $('#detail_no').focus();
+                $('#code').focus();
             }
         });
 
         var barcode = "";
         var rep2 = "";
-        var detail_no = $('#detail_no');
+        var code = $('#code');
         let total = 0;
 
-        $('#detail_no').keypress(function(e) {
+        $('#code').keypress(function(e) {
             e.preventDefault();
             var code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) // Enter key hit 
             {
                 barcodecomplete = barcode;
-
-                let a = barcodecomplete.substr(41, 12);
-                console.log(a);
                 barcode = "";
 
-                if (a == localStorage.getItem('avi_sample')) {
+                let partNumber = barcodecomplete.substr(41, 12);
+                console.log(partNumber);
 
-                    notif("success", "Part Sesuai Dengan Sample");
-                    let interval = setInterval(function() {
-                        $('#notifModal').modal('hide');
-                        clearInterval(interval);
-                        $('#detail_no').focus();
-                        total = total + 1;
-                        console.log(total);
-                        $('#qty-display').text(total);
+                if (partNumber == localStorage.getItem('sample')) {
 
-                    }, 1500);
+                    //insert to mutation 
+                    $.ajax({
+                        type: 'get',
+                        url: "{{ url('production/store/') }}",
+                        _token: "{{ csrf_token() }}",
+                        data: {
+                            partNumber: partNumber
+                        },
+                        dataType: 'json',
+                        success: function(data) {
+                            console.log(data);
+                            if (data.status == 'success') {
+                                notif("success", data.message);
+                                let interval = setInterval(function() {
+                                    $('#notifModal').modal('hide');
+                                    clearInterval(interval);
+                                    $('#code').focus();
+                                    total = total + 1;
+                                    console.log(total);
+                                    $('#qty-display').text(total);
+
+                                }, 1500);
+                            } else {
+                                notif("error", data.message);
+                                let interval = setInterval(function() {
+                                    $('#notifModal').modal('hide');
+                                    clearInterval(interval);
+                                    $('#code').focus();
+                                }, 1500);
+                            }
+                        },
+                        error: function(xhr) {
+                            if (xhr.status == 0) {
+                                notif("error", 'Connection Error');
+                                return;
+                            }
+                            notif("error", 'Internal Server Error');
+                        }
+                    });
+
                 } else {
                     notif("error", "Part Tidak Sesuai Dengan Sample !");
                     let interval = setInterval(function() {
                         $('#notifModal').modal('hide');
                         clearInterval(interval);
-                        $('#detail_no').focus();
+                        $('#code').focus();
                     }, 1500);
                 }
             } else {

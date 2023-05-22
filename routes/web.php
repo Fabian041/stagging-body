@@ -35,5 +35,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
-    Route::get('/scan/production', [ProductionController::class, 'index'])->name('production.index');
+    Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
+    Route::get('/production/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
+    Route::get('/production/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
+
+    // insert
+    Route::get('/production/store', [ProductionController::class, 'store'])->name('production.store');
+
 });

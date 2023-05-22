@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
 use App\Models\Line;
+
+use App\Models\Part;
+use App\Models\Mutation;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProductionController extends Controller
 {
@@ -36,7 +40,36 @@ class ProductionController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $partNumber = $request->partNumber;
+
+        // double check to master sample
+        $part = Part::where('part_number', $partNumber)->first();
+        if(!$part){
+            return [
+                'status' => 'error',
+                'message' => 'Part Tidak Sesuai Dengan Sample !'
+            ];
+        }
+
+        try {
+            DB::beginTransaction();
+            // insert into mutation table
+            Mutation::create([
+                'part_id' => $part->id,
+                'qty' => $part->qty_per_box,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+        }
+
+        return [
+            'status' => 'success',
+            'message' => 'Part Sesuai Dengan Sample'
+        ];
     }
 
     /**
@@ -91,17 +124,46 @@ class ProductionController extends Controller
      */
     public function lineCheck($line)
     {
-        // $lineData = Line::where('name', $line)->first();
-        // $data = "no data";
-        // $status = "error";
-        // if ($lineData) {
-        //     $status = "success";
-        //     $data = $lineData;
-        // }
+        $line = Line::where('name', $line)->first();
+        if (!$line) {
+            return [
+                'status' => 'error',
+                'message' => 'Line tidak ditemukan'
+            ];
+        }
 
-        // return [
-        //     "status" => $status,
-        //     "data" => $data
-        // ];
+        return [
+            "status" => 'success',
+            "line" => $line->name,
+        ];
     }
+
+    /**
+     * check available line on table.
+     *
+     * @param  string  $line
+     */
+    public function sampleCheck($line, $sample)
+    {
+
+        // get line id
+        $line = Line::select('id')->where('name', $line)->first();
+
+        // check if the sample is in the correct line id
+        $sampleCheck = Part::where('line_id', $line->id)
+                    ->where('part_number', $sample)
+                    ->first();
+
+        if (!$sampleCheck) {
+            return [
+                'status' => 'error',
+                'message' => 'Master sample tidak ditemukan'
+            ];
+        }
+
+        return [
+            "status" => 'success',
+            "sample" => $sample,
+        ];
+    }    
 }

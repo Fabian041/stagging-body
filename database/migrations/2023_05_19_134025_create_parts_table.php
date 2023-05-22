@@ -16,10 +16,9 @@ return new class extends Migration
         Schema::create('parts', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->bigInteger('line_id')->unsigned()->nullable();
-            $table->foreign('line_id')->references('id')->on('parts');
-            $table->string('part_number')->nullable();
+            $table->foreign('line_id')->references('id')->on('lines');
+            $table->string('part_number')->nullable()->unique();
             $table->string('part_name')->nullable();
-            $table->string('line_id')->nullable();
             $table->integer('qty_per_box')->nullable();
             $table->timestamps();
         });
