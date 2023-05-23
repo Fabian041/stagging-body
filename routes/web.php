@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\PullingController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\TraceabilityController;
 use Illuminate\Support\Facades\Route;
@@ -35,11 +36,13 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
+    // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
     Route::get('/production/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
     Route::get('/production/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
-
-    // insert
     Route::get('/production/store', [ProductionController::class, 'store'])->name('production.store');
+
+    // pulling
+    Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
 
 });

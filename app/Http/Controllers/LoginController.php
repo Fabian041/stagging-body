@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 
 class LoginController extends Controller
 {
@@ -23,7 +24,32 @@ class LoginController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            return redirect()->intended('/scan/production');
+            if(auth()->user()->role == 'prod'){
+                // redirect to prod
+                return redirect()->intended('/production');
+            }else if(auth()->user()->role == 'ppic'){
+
+                // Perform login and obtain the Bearer token (API Dea)
+                $response = Http::post('http://api-dea-dev/api/v1/auth/login', [
+                    'npk' => Auth::user()->npk,
+                    'password' => '123456'
+                ]);
+
+                if($response->successful()){
+                    $token = json_decode($response, true)['data']['access_token'];
+    
+                    // store  token to session
+                    session(['token' => $token]);
+
+                }else{
+                    return redirect()->intended('/pulling', [
+                        'message' => 'failed to generate token'
+                    ]);
+                }
+                // redirect to ppic
+                return redirect()->intended('/pulling');
+            }
+
         }
 
         return redirect()->back()->with('error', 'Email or password do not match our records!');
