@@ -44,5 +44,7 @@ Route::middleware(['auth'])->group(function () {
 
     // pulling
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
+    Route::get('/pulling/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
+    Route::get('/pulling/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
 
 });

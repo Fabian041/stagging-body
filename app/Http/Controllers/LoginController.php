@@ -36,10 +36,10 @@ class LoginController extends Controller
                 ]);
 
                 if($response->successful()){
-                    $token = json_decode($response, true)['data']['access_token'];
+                    $token = json_decode($response->body(), true)['data']['access_token'];
     
                     // store  token to session
-                    session(['token' => $token]);
+                    session()->put('token', $token);
 
                 }else{
                     return redirect()->intended('/pulling', [

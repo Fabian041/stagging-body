@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
+use App\Models\Part;
 use Illuminate\Http\Request;
 
 class PullingController extends Controller
@@ -80,5 +82,39 @@ class PullingController extends Controller
     public function destroy($id)
     {
         //
+    }
+    
+    public function customerCheck($customer)
+    {
+        // check customer 
+        $check = Customer::select('name')->where('code', $customer)->first();
+        if(!$check){
+            return [
+                'status' => 'error',
+                'message' => 'Customer tidak ditemukan'
+            ];
+        }
+
+        return [
+            'status' => 'success',
+            'customer' => $check->name
+        ];
+    }
+
+    public function internalCheck($internal)
+    {
+        // check internal 
+        $check = Part::select('part_number','back_number')->where('part_number', $internal)->first();
+        if(!$check){
+            return [
+                'status' => 'error',
+                'message' => 'Part atau Kanban tidak ditemukan'
+            ];
+        }
+
+        return [
+            'status' => 'success',
+            'customer' => $check->part_number
+        ];
     }
 }

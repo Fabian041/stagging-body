@@ -5,80 +5,81 @@
         <section class="section">
             <div class="row">
                 <div class="col-12 col-sm-12 col-md-12 p-0" style="height: 100%;">
-                    <div class="shadow hero bg-white text-dark" style="padding: 3rem; height: 100%;">
+                    <div class="shadow hero bg-white text-dark" style="padding: 1.5rem; height: 100%;">
                         <div class="hero-inner">
                             <div class="row">
-                                <div class="col-md-12 mt-3">
-                                    <span style="font-size: 1.5rem;">Siap Pulling, {{ auth()->user()->name }}</span>
+                                <div class="col-md-12">
+                                    <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
+                                </div>
+                            </div>
+                            <div class="row mt-1">
+                                <div class="col-9" style="padding-left: 1rem; padding-right: 0px">
+                                    <h6>Loading List</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                                            id="loadingList-display">Loading List</h5>
+                                    </div>
+                                </div>
+                                <div class="col-3" style="padding-right: 0px">
+                                    <h6>Qty</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"><span
+                                                id="qty-display">-</span></h5>
+                                    </div>
                                 </div>
                             </div>
                             <div class="row mt-3">
-                                <div class="col-sm-9" style="padding: 15px;">
-                                    <h4>Loading List</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="qty-display">
-                                            Loading List</h3>
+                                <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
+                                    <h6>Customer</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                                            id="customer-display">Customer</h5>
                                     </div>
                                 </div>
-
-                                <div class="col-sm-3" style="padding: 15px;">
-                                    <h4>Qty</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="qty-display">
-                                            1/28</h3>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mt-1">
-                                <div class="col-sm-6" style="padding: 15px;">
-                                    <h4>Customer</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="qty-display">
-                                            Customer</h3>
-                                    </div>
-                                </div>
-
-                                <div class="col-sm-6" style="padding: 15px;">
-                                    <h4>Cycle</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="qty-display">
-                                            Cycle</h3>
+                                <div class="col-6" style="padding-right: 0px">
+                                    <h6>Cycle</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                                            id="cycle-display">Cycle</h5>
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mt-1">
-                                <div class="col-sm-6" style="padding: 15px;">
-                                    <h4>Kanban Internal</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="int-display">-
-                                        </h3>
+                            <div class="row mt-3">
+                                <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
+                                    <h6>Internal</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;" id="int-display">
+                                            -
+                                        </h5>
                                     </div>
                                 </div>
 
-                                <div class="col-sm-6" style="padding: 15px;">
-                                    <h4>Kanban Customer</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="int-cust">-
-                                        </h3>
+                                <div class="col-6" style="padding-right: 0px">
+                                    <h6>Customer</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                                            id="cust-display">-
+                                        </h5>
                                     </div>
                                 </div>
                             </div>
                             <div class="row mt-1">
                                 <div class="col-md-12" style="padding: 15px;">
-                                    <h4>Scan Qr Code</h4>
+                                    <h6>Scan Qr Code</h6>
 
-                                    <input style="height: 4rem; width: 100%; background-color: white; border-radius: 20px;"
-                                        height=60 id="detail_no" class="form-control" name="code" required>
+                                    <input style="height: 3rem; width: 100%; background-color: white; border-radius: 20px;"
+                                        height=60 id="code" class="form-control" name="code" required
+                                        autocomplete="off">
                                 </div>
 
 
                             </div>
-                            <div class="row" style="margin-top: 3rem;">
+                            <div class="row" style="margin-top: 1rem;">
                                 <div class="col-md-12" style="padding: 15px;">
 
-                                    <div style="height: 4rem; width: 100%; border-radius: 20px;">
+                                    <div style="height: 3rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
-                                            style="border-radius: 3rem; height: 4rem; width: 100%; font-size: 1.5rem;"
+                                            style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.5rem;"
                                             id="done">Selesai</button>
                                     </div>
                                 </div>
@@ -91,30 +92,15 @@
         </section>
     </div>
 
-    <div class="modal fade" id="modalLineScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
+    <div class="modal fade" id="modalLoadingListScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                 </div>
                 <div class="modal-body">
 
-                    <h3 class="text-center"><b>LINE</b></h3><br>
-                    <input type="text" class="form-control" id="input-line">
-                    <br>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalSampleScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                </div>
-                <div class="modal-body">
-
-                    <h3 class="text-center"><b>MASTER SAMPLE</b></h3><br>
-                    <input type="text" class="form-control" id="input-sample">
+                    <h5 class="text-center"><b>LOADING LIST</b></h5><br>
+                    <input type="text" class="form-control" id="input-loadingList" autocomplete="off">
                     <br>
                 </div>
             </div>
@@ -135,15 +121,19 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
     let line = '';
+    let partDetail = {};
+    let part = 'part';
+    let partNumber;
+    let loadingListItem = [];
+    let loadinglistDetail = [];
 
     function initApp() {
-        let line = localStorage.getItem('line');
-        let sample = localStorage.getItem('sample');
-        if (!line) {
-            $('#modalLineScan').on('shown.bs.modal', function() {
-                $('#input-line').focus();
+        let loadingList = localStorage.getItem('loadingList');
+        if (!loadingList) {
+            $('#modalLoadingListScan').on('shown.bs.modal', function() {
+                $('#input-loadingList').focus();
             })
-            $('#modalLineScan').modal('show');
+            $('#modalLoadingListScan').modal('show');
 
         } else {
             $('#line-display').text(line);
@@ -158,7 +148,6 @@
                     $('#code').focus();
                 }, 1000);
             }
-
         }
 
         $('#code').focus();
@@ -185,125 +174,129 @@
         }
     }
 
-    function sampleModal() {
-        let sample = localStorage.getItem('sample');
-
-        $('#input-sample').val('');
+    function loadingListModal() {
+        let loadingList = localStorage.getItem('loadingList');
+        $('#input-loadingList').val('');
         setTimeout(() => {
-            if (!sample) {
-                $('#modalSampleScan').on('shown.bs.modal',
+            if (!loadingList) {
+                $('#modalLoadingListScan').on('shown.bs.modal',
                     function() {
-                        $('#input-sample').focus();
+                        $('#input-loadingList').focus();
                     })
-                $('#modalSampleScan').modal('show');
+                $('#modalLoadingListScan').modal('show');
             }
         }, 1500);
     }
 
-    function lineModal() {
-        $('#input-line').val('');
-        setTimeout(() => {
-            if (!line) {
-                $('#modalLineScan').on('shown.bs.modal',
-                    function() {
-                        $('#input-line').focus();
-                    })
-                $('#modalLineScan').modal('show');
-            }
-        }, 1500);
+    function customerCheck(customer) {
+        return new Promise(function(resolve, reject) {
+            $.ajax({
+                type: 'GET',
+                url: "{{ url('pulling/customer-check/') }}" + '/' + customer,
+                _token: "{{ csrf_token() }}",
+                dataType: 'json',
+                success: function(data) {
+                    console.log(data);
+                    if (data.status == 'success') {
+                        // display customer
+                        $('#customer-display').text(data.customer);
+                        resolve();
+                    } else {
+                        reject();
+                    }
+                },
+                error: function(xhr) {
+                    reject(new Error(xhr.statusText));
+                }
+            });
+        });
     }
 
     $(document).ready(function() {
+        var token = "{{ session()->get('token') }}";
         initApp();
         $(document).on('click', function() {
             $('#code').focus();
         });
-        $('#input-line').keypress(function(e) {
-            let line = localStorage.getItem('line');
+
+        $('#input-loadingList').keypress(function(e) {
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
 
                 //Check Line
                 $.ajax({
-                    type: 'get',
-                    url: "{{ url('production/line-check/') }}" + '/' + $(this).val(),
+                    type: 'GET',
+                    url: 'http://api-dea-dev/api/v1/loading-lists/' + $(
+                        this).val(),
                     _token: "{{ csrf_token() }}",
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    },
                     dataType: 'json',
                     success: function(data) {
                         console.log(data);
                         if (data.status == 'success') {
-                            localStorage.setItem('line', data.line);
+
+                            // set loading list state
+                            localStorage.setItem('loadingList', 'true');
+
+                            // loading list display
+                            $('#loadingList-display').text(data.data.number);
+
+                            // insert loading list to an array
+                            data.data.items.map((item) => {
+                                loadingListItem.push([
+                                    item.part_number_int,
+                                    item.part_number_cust,
+                                    item.actual_kanban_qty,
+                                    item.total_kanban_qty
+                                ])
+
+                                // make an empty array based on part number
+                                partDetail[part + partNumber] = [];
+                            });
+
+                            console.log(loadingListItem);
+
+                            // check customer if exist 
+                            customerCheck(data.data.customer_code)
+                                .then(function() {
+                                    // cycle display
+                                    $('#cycle-display').text(data.data.cycle);
+
+                                    // scan kanban
+                                    $('#code').focus();
+
+                                })
+                                .catch(function(err) {
+                                    notif('error', data.message);
+                                })
+
                             initApp();
                         } else {
                             notif('error', data.message);
-                            lineModal();
+                            loadingListModal();
                         }
                     },
                     error: function(xhr) {
+                        console.log(xhr)
                         if (xhr.status == 0) {
                             notif("error", 'Connection Error');
-                            lineModal();
+                            loadingListModal();
                             return;
                         }
-                        notif("error", 'Internal Server Error');
-                        lineModal();
+                        notif("error", xhr.responseJSON.errors);
+                        loadingListModal();
                     }
                 });
 
-                $('#modalLineScan').modal('hide');
+                $('#modalLoadingListScan').modal('hide');
             }
         });
 
         $('#done').on('click', function() {
-            $('#code').focus();
-            localStorage.removeItem("line");
-            localStorage.removeItem("sample");
+            localStorage.removeItem("loadingList");
             window.location.reload();
-        });
-
-        $('#sample-display').on('click', function() {
-            sampleModal();
-        });
-
-        $('#input-sample').keypress(function(e) {
-            let line = localStorage.getItem('line');
-            let sample = localStorage.getItem('sample');
-            let code = (e.keyCode ? e.keyCode : e.which);
-            if (code == 13) {
-
-                //Check sample 
-                $.ajax({
-                    type: 'get',
-                    url: "{{ url('production/sample-check/') }}" + '/' + line + '/' +
-                        $(this).val(),
-                    _token: "{{ csrf_token() }}",
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log(data);
-                        if (data.status == 'success') {
-                            localStorage.setItem('sample', data.sample);
-                            initApp();
-                        } else {
-                            notif('error', data.message);
-                            sampleModal();
-                        }
-                    },
-                    error: function(xhr) {
-                        console.log(xhr);
-                        if (xhr.status == 0) {
-                            notif("error", 'Connection Error');
-                            sampleModal();
-                            return;
-                        }
-                        notif("error", 'Internal Server Error');
-                        sampleModal();
-                    }
-                });
-
-                initApp();
-                $('#modalSampleScan').modal('hide');
-                $('#code').focus();
-            }
         });
 
         var barcode = "";
@@ -319,53 +312,65 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                let partNumber = barcodecomplete.substr(41, 12);
-                console.log(partNumber);
+                console.log(barcodecomplete.length);
 
-                if (partNumber == localStorage.getItem('sample')) {
+                if (barcodecomplete.length == 218 || barcodecomplete.length == 230) {
+                    let internal = barcodecomplete.substr(41, 12);
+                    let seri = barcodecomplete.substr(123, 4);
 
-                    //insert to mutation 
-                    $.ajax({
-                        type: 'get',
-                        url: "{{ url('production/store/') }}",
-                        _token: "{{ csrf_token() }}",
-                        data: {
-                            partNumber: partNumber
-                        },
-                        dataType: 'json',
-                        success: function(data) {
-                            console.log(data);
-                            if (data.status == 'success') {
-                                notif("success", data.message);
-                                let interval = setInterval(function() {
-                                    $('#notifModal').modal('hide');
-                                    clearInterval(interval);
-                                    $('#code').focus();
-                                    total = total + 1;
-                                    console.log(total);
-                                    $('#qty-display').text(total);
+                    localStorage.setItem('seri', seri);
 
-                                }, 1500);
-                            } else {
-                                notif("error", data.message);
-                                let interval = setInterval(function() {
-                                    $('#notifModal').modal('hide');
-                                    clearInterval(interval);
-                                    $('#code').focus();
-                                }, 1500);
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status == 0) {
-                                notif("error", 'Connection Error');
-                                return;
-                            }
-                            notif("error", 'Internal Server Error');
+                    // check if kanban internal exist in loading list array
+                    loadingListItem.map(function(item, index) {
+                        if (internal == item[0]) {
+                            // display qty
+                            $('#int-display').text(item[[0]]);
+
+                            $('#qty-display').text(`
+                                ${loadinglistDetail.length}/${item[3]}
+                            `);
+                            // set target
+                            localStorage.setItem('target', item[3]);
+                            localStorage.setItem('internal', item[0]);
                         }
+                    })
+
+                } else if (barcodecomplete.length == 12) {
+                    // check if kanban customer exist in the same array with kanban internal
+                    let checkPair = loadingListItem.some(function(item) {
+                        return (
+                            item.includes(localStorage.getItem('internal')) &&
+                            item.includes(barcodecomplete)
+                        );
                     });
 
+                    if (checkPair) {
+                        if (loadinglistDetail.length == 0 || loadinglistDetail[
+                                loadinglistDetail.length - 1].length == localStorage.getItem(
+                                'target')) {
+
+                            // push new empty array
+                            loadinglistDetail.push([]);
+                        }
+                        // insert serial number to it
+                        loadinglistDetail[loadinglistDetail.length - 1].push(localStorage.getItem(
+                            'seri'));
+
+                        // display qty
+                        loadingListItem.map(function(item, index) {
+                            if (localStorage.getItem('internal') == item[0]) {
+                                $('#qty-display').text(`
+                                        ${loadinglistDetail[index].length}/${localStorage.getItem('target')}
+                                    `);
+                            }
+                        });
+                        // display qty
+                        $('#cust-display').text(barcodecomplete);
+                    } else {
+                        notif('error', 'Kanban tidak sesuai!');
+                    }
                 } else {
-                    notif("error", "Part Tidak Sesuai Dengan Sample !");
+                    notif("error", "Kanban tidak dikenali !");
                     let interval = setInterval(function() {
                         $('#notifModal').modal('hide');
                         clearInterval(interval);
