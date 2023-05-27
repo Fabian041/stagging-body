@@ -126,30 +126,27 @@
     let partNumber;
     let loadingListItem = [];
     let loadinglistDetail = [];
+    let request;
 
     function initApp() {
         let loadingList = localStorage.getItem('loadingList');
+        let customer = localStorage.getItem('customer');
+        let cycle = localStorage.getItem('cycle');
+
         if (!loadingList) {
             $('#modalLoadingListScan').on('shown.bs.modal', function() {
                 $('#input-loadingList').focus();
             })
             $('#modalLoadingListScan').modal('show');
 
+            // empty text
+            $('#customer-display').text('customer');
+            $('#cycle-display').text('cycle');
         } else {
-            $('#line-display').text(line);
-            if (!sample) {
-                $('#modalSampleScan').modal('show');
-                setInterval(() => {
-                    $('#input-sample').focus();
-                }, 10);
-            } else {
-                $('#sample-display').text(sample);
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
-            }
+            $('#loadingList-display').text(loadingList);
+            $('#customer-display').text(customer);
+            $('#cycle-display').text(cycle);
         }
-
         $('#code').focus();
     }
 
@@ -200,6 +197,7 @@
                     if (data.status == 'success') {
                         // display customer
                         $('#customer-display').text(data.customer);
+                        localStorage.setItem('customer', data.customer);
                         resolve();
                     } else {
                         reject();
@@ -213,11 +211,8 @@
     }
 
     $(document).ready(function() {
-        var token = "{{ session()->get('token') }}";
         initApp();
-        $(document).on('click', function() {
-            $('#code').focus();
-        });
+        var token = "{{ session()->get('token') }}";
 
         $('#input-loadingList').keypress(function(e) {
             let code = (e.keyCode ? e.keyCode : e.which);
@@ -236,43 +231,74 @@
                     success: function(data) {
                         console.log(data);
                         if (data.status == 'success') {
-
-                            // set loading list state
-                            localStorage.setItem('loadingList', 'true');
+                            // create database indexed db
+                            request = window.indexedDB.open("sanTenShogo");
 
                             // loading list display
                             $('#loadingList-display').text(data.data.number);
+                            localStorage.setItem('loadingList', data.data.number);
 
-                            // insert loading list to an array
-                            data.data.items.map((item) => {
-                                loadingListItem.push([
-                                    item.part_number_int,
-                                    item.part_number_cust,
-                                    item.actual_kanban_qty,
-                                    item.total_kanban_qty
-                                ])
+                            // create database schema
+                            request.onupgradeneeded = function(event) {
+                                const database = event.target.result;
+                                const objectStore = database.createObjectStore(
+                                    'loadingList');
+                                var index = objectStore.createIndex('loadingListDetail',
+                                    'seri');
+                            }
 
-                                // make an empty array based on part number
-                                partDetail[part + partNumber] = [];
-                            });
+                            // transaction
+                            request.onsuccess = function(event) {
+                                const database = event.target.result;
+                                const transaction = database.transaction([
+                                        'loadingList'
+                                    ],
+                                    'readwrite');
+                                const objectStore = transaction.objectStore(
+                                    'loadingList');
+                                var index = objectStore.index('loadingListDetail');
 
-                            console.log(loadingListItem);
+                                data.data.items.map((item, index) => {
+                                    const key = item.part_number_int;
+                                    // insert into
+                                    objectStore.put({
+                                        key: key,
+                                        internal: item.part_number_int,
+                                        customer: item.part_number_cust,
+                                        actual_qty: item
+                                            .actual_kanban_qty,
+                                        total_qty: item
+                                            .total_kanban_qty,
+                                        seri: []
+                                    }, key);
+                                });
 
-                            // check customer if exist 
-                            customerCheck(data.data.customer_code)
-                                .then(function() {
-                                    // cycle display
-                                    $('#cycle-display').text(data.data.cycle);
+                                // check customer if exist 
+                                customerCheck(data.data.customer_code)
+                                    .then(function() {
+                                        // cycle display
+                                        $('#cycle-display').text(data.data.cycle);
+                                        localStorage.setItem('cycle', data
+                                            .data.cycle);
 
-                                    // scan kanban
-                                    $('#code').focus();
+                                        // scan kanban
+                                        $('#code').focus();
 
-                                })
-                                .catch(function(err) {
-                                    notif('error', data.message);
-                                })
+                                    })
+                                    .catch(function(err) {
+                                        notif('error', data.message);
+                                    })
 
-                            initApp();
+                                // Close the db when the transaction is done
+                                transaction.oncomplete = function() {
+                                    database.close();
+                                };
+                                $('#code').focus();
+                            }
+                            // create handler
+                            request.onerror = function(event) {
+                                console.log("error: " + event.message);
+                            }
                         } else {
                             notif('error', data.message);
                             loadingListModal();
@@ -296,6 +322,10 @@
 
         $('#done').on('click', function() {
             localStorage.removeItem("loadingList");
+            localStorage.removeItem("customer");
+            localStorage.removeItem("internal");
+            localStorage.removeItem("cycle");
+            localStorage.removeItem("seri");
             window.location.reload();
         });
 
@@ -312,62 +342,153 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                console.log(barcodecomplete.length);
-
                 if (barcodecomplete.length == 218 || barcodecomplete.length == 230) {
                     let internal = barcodecomplete.substr(41, 12);
                     let seri = barcodecomplete.substr(123, 4);
 
-                    localStorage.setItem('seri', seri);
+                    // initiate database
+                    request = window.indexedDB.open("sanTenShogo");
 
-                    // check if kanban internal exist in loading list array
-                    loadingListItem.map(function(item, index) {
-                        if (internal == item[0]) {
-                            // display qty
-                            $('#int-display').text(item[[0]]);
+                    // transaction
+                    request.onsuccess = function(event) {
+                        const database = event.target.result;
+                        const transaction = database.transaction([
+                                'loadingList'
+                            ],
+                            'readonly');
+                        const objectStore = transaction.objectStore(
+                            'loadingList');
 
-                            $('#qty-display').text(`
-                                ${loadinglistDetail.length}/${item[3]}
-                            `);
-                            // set target
-                            localStorage.setItem('target', item[3]);
-                            localStorage.setItem('internal', item[0]);
+                        objectStore.openCursor().onsuccess = function(event) {
+                            const cursor = event.target.result;
+                            if (cursor) {
+                                const record = cursor.value;
+
+                                // check if kanban internal exist in loading list record
+                                if (internal == record.internal) {
+                                    // display internal
+                                    $('#int-display').text(record.internal);
+
+                                    // display current qty
+                                    $('#qty-display').text(`
+                                        ${record.seri.length}/${record.total_qty}
+                                    `);
+                                    // set local storage for internal kanban and serial number
+                                    localStorage.setItem('internal', record.internal);
+                                    localStorage.setItem('seri', seri);
+                                }
+                                cursor.continue();
+                            } else {
+                                console.log('iteration complete');
+                            }
                         }
-                    })
+
+                        // when complete
+                        request.oncomplete = function(event) {
+                            database.close();
+                        }
+                    }
+                    // Event handler for a failed database connection
+                    request.onerror = function(event) {
+                        console.log('Failed to open database');
+                    };
 
                 } else if (barcodecomplete.length == 12) {
-                    // check if kanban customer exist in the same array with kanban internal
-                    let checkPair = loadingListItem.some(function(item) {
-                        return (
-                            item.includes(localStorage.getItem('internal')) &&
-                            item.includes(barcodecomplete)
-                        );
-                    });
 
-                    if (checkPair) {
-                        if (loadinglistDetail.length == 0 || loadinglistDetail[
-                                loadinglistDetail.length - 1].length == localStorage.getItem(
-                                'target')) {
+                    // check if already scan internal kanban
+                    if (localStorage.getItem('internal')) {
+                        // initialize databae connection
+                        request = window.indexedDB.open("sanTenShogo");
 
-                            // push new empty array
-                            loadinglistDetail.push([]);
-                        }
-                        // insert serial number to it
-                        loadinglistDetail[loadinglistDetail.length - 1].push(localStorage.getItem(
-                            'seri'));
-
-                        // display qty
-                        loadingListItem.map(function(item, index) {
-                            if (localStorage.getItem('internal') == item[0]) {
-                                $('#qty-display').text(`
-                                        ${loadinglistDetail[index].length}/${localStorage.getItem('target')}
-                                    `);
-                            }
-                        });
-                        // display qty
+                        // display customer
                         $('#cust-display').text(barcodecomplete);
+
+                        request.onsuccess = function(event) {
+                            const database = event.target.result;
+                            const transaction = database.transaction(['loadingList'], 'readwrite');
+                            const objectStore = transaction.objectStore('loadingList');
+
+                            objectStore.openCursor().onsuccess = function(event) {
+                                const cursor = event.target.result;
+                                if (cursor) {
+                                    // get spesific primary key
+                                    const primaryKey = cursor.primaryKey
+                                    if (primaryKey == localStorage.getItem('internal')) {
+                                        // check pair only in spesific key
+                                        objectStore.get(primaryKey).onsuccess = function(
+                                            event) {
+                                            const cursor = event.target.result;
+                                            if (cursor) {
+                                                // check if kanban internal and customer in the same object or record
+                                                if (cursor['internal'] == localStorage
+                                                    .getItem(
+                                                        'internal') && cursor['customer'] ==
+                                                    barcodecomplete) {
+                                                    // check actual qty of spesific part number
+                                                    if (cursor['seri'].length < cursor[
+                                                            'total_qty']) {
+                                                        // check if serial number is not scanned before
+                                                        if (!cursor['seri'].includes(
+                                                                localStorage
+                                                                .getItem('seri'))) {
+                                                            // push kanban serial number to array seri
+                                                            cursor['seri'].push(localStorage
+                                                                .getItem(
+                                                                    'seri'));
+                                                            // update the object
+                                                            objectStore.put(cursor,
+                                                                    primaryKey)
+                                                                .onsuccess = function(
+                                                                    event) {
+                                                                    // udpate the qty display
+                                                                    $('#qty-display').text(`
+                                                                            ${cursor.seri.length}/${cursor['total_qty']}
+                                                                        `);
+                                                                    // reset internal and customer display
+                                                                    localStorage.removeItem(
+                                                                        'internal');
+                                                                    localStorage.removeItem(
+                                                                        'seri');
+                                                                    $('#int-display').text(
+                                                                        '-');
+                                                                    $('#cust-display').text(
+                                                                        '-');
+                                                                }
+                                                            // error handling
+                                                            objectStore.put(cursor,
+                                                                    primaryKey)
+                                                                .onerror = function(event) {
+                                                                    notif('error',
+                                                                        'Kanban tidak sesuai!'
+                                                                    );
+                                                                }
+                                                        } else {
+                                                            notif('error',
+                                                                'Seri kanban sudah discan!'
+                                                            );
+                                                        }
+                                                    }
+                                                } else {
+                                                    notif('error',
+                                                        'Kanban tidak sesuai!');
+                                                }
+                                            }
+                                        }
+                                        // error handling
+                                        objectStore.get(primaryKey).onerror = function(event) {
+                                            notif('error',
+                                                'Kanban tidak sesuai!');
+                                        }
+                                    }
+                                    cursor.continue();
+                                } else {
+                                    console.log('iteration complete');
+                                }
+                            }
+                        }
                     } else {
-                        notif('error', 'Kanban tidak sesuai!');
+                        notif('error',
+                            'Scan kanban internal dulu!');
                     }
                 } else {
                     notif("error", "Kanban tidak dikenali !");
