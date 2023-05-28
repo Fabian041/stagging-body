@@ -334,6 +334,50 @@
         var code = $('#code');
         let total = 0;
 
+        function checkInternalAndCustomer(cursor, barcodecomplete, primaryKey) {
+            let internal = cursor['internal'];
+            let customer = cursor['customer'];
+            let arraySeri = cursor['seri'];
+            let totalQty = cursor['total_qty'];
+            let currentSeri = localStorage.getItem('seri');
+
+            // check if kanban internal and customer in the same object
+            if (internal != localStorage.getItem('internal') && customer != barcodecomplete) {
+                notif('error', 'Kanban tidak sesuai!');
+                return;
+            }
+
+            // check actual qty of spesific part number by compare the current length seri and total_qty
+            if (arraySeri.length >= totalQty) {
+                notif('error', 'Kanban sudah penuh!');
+                return;
+            }
+
+            // check if kanban already scanned
+            if (arraySeri.include(currentSeri)) {
+                notif('error', 'Seri kanban sudah discan!');
+                return;
+            }
+
+            // push kanban serial number to array seri
+            arraySeri.push(currentSeri);
+            // update the object
+            objectStore.put(cursor, primaryKey).onsuccess = function(event) {
+                // udpate the qty display
+                $('#qty-display').text(`${arraySeri.length}/${total_qty}`);
+
+                // reset internal and customer display
+                localStorage.removeItem('internal');
+                localStorage.removeItem('seri');
+                $('#int-display').text('-');
+                $('#cust-display').text('-');
+            }
+            // error handling
+            objectStore.put(cursor, primaryKey).onerror = function(event) {
+                notif('error', 'Kanban tidak sesuai!');
+            };
+        }
+
         $('#code').keypress(function(e) {
             e.preventDefault();
             var code = (e.keyCode ? e.keyCode : e.which);
@@ -397,98 +441,62 @@
 
                     // check if already scan internal kanban
                     if (localStorage.getItem('internal')) {
-                        // initialize databae connection
-                        request = window.indexedDB.open("sanTenShogo");
+                        notif('error', 'Scan kanban internal dulu!');
+                        return;
+                    }
 
-                        // display customer
-                        $('#cust-display').text(barcodecomplete);
+                    // initialize databae connection
+                    request = window.indexedDB.open("sanTenShogo");
 
-                        request.onsuccess = function(event) {
-                            const database = event.target.result;
-                            const transaction = database.transaction(['loadingList'], 'readwrite');
-                            const objectStore = transaction.objectStore('loadingList');
+                    // display customer
+                    $('#cust-display').text(barcodecomplete);
 
-                            objectStore.openCursor().onsuccess = function(event) {
-                                const cursor = event.target.result;
-                                if (cursor) {
-                                    // get spesific primary key
-                                    const primaryKey = cursor.primaryKey
-                                    if (primaryKey == localStorage.getItem('internal')) {
-                                        // check pair only in spesific key
-                                        objectStore.get(primaryKey).onsuccess = function(
-                                            event) {
-                                            const cursor = event.target.result;
-                                            if (cursor) {
-                                                // check if kanban internal and customer in the same object or record
-                                                if (cursor['internal'] == localStorage
-                                                    .getItem(
-                                                        'internal') && cursor['customer'] ==
-                                                    barcodecomplete) {
-                                                    // check actual qty of spesific part number
-                                                    if (cursor['seri'].length < cursor[
-                                                            'total_qty']) {
-                                                        // check if serial number is not scanned before
-                                                        if (!cursor['seri'].includes(
-                                                                localStorage
-                                                                .getItem('seri'))) {
-                                                            // push kanban serial number to array seri
-                                                            cursor['seri'].push(localStorage
-                                                                .getItem(
-                                                                    'seri'));
-                                                            // update the object
-                                                            objectStore.put(cursor,
-                                                                    primaryKey)
-                                                                .onsuccess = function(
-                                                                    event) {
-                                                                    // udpate the qty display
-                                                                    $('#qty-display').text(`
-                                                                            ${cursor.seri.length}/${cursor['total_qty']}
-                                                                        `);
-                                                                    // reset internal and customer display
-                                                                    localStorage.removeItem(
-                                                                        'internal');
-                                                                    localStorage.removeItem(
-                                                                        'seri');
-                                                                    $('#int-display').text(
-                                                                        '-');
-                                                                    $('#cust-display').text(
-                                                                        '-');
-                                                                }
-                                                            // error handling
-                                                            objectStore.put(cursor,
-                                                                    primaryKey)
-                                                                .onerror = function(event) {
-                                                                    notif('error',
-                                                                        'Kanban tidak sesuai!'
-                                                                    );
-                                                                }
-                                                        } else {
-                                                            notif('error',
-                                                                'Seri kanban sudah discan!'
-                                                            );
-                                                        }
-                                                    }
-                                                } else {
-                                                    notif('error',
-                                                        'Kanban tidak sesuai!');
-                                                }
-                                            }
-                                        }
-                                        // error handling
-                                        objectStore.get(primaryKey).onerror = function(event) {
-                                            notif('error',
-                                                'Kanban tidak sesuai!');
+                    request.onsuccess = function(event) {
+                        const database = event.target.result;
+                        const transaction = database.transaction(['loadingList'], 'readwrite');
+                        const objectStore = transaction.objectStore('loadingList');
+
+                        objectStore.openCursor().onsuccess = function(event) {
+                            const cursor = event.target.result;
+                            if (cursor) {
+                                // get spesific primary key
+                                const primaryKey = cursor.primaryKey
+                                if (primaryKey == localStorage.getItem('internal')) {
+                                    // check pair only in spesific key
+                                    objectStore.get(primaryKey).onsuccess = function(
+                                        event) {
+                                        const cursor = event.target.result;
+                                        if (cursor) {
+                                            checkInternalAndCustomer(cursor,
+                                                barcodecomplete, primaryKey);
+                                        } else {
+                                            console.log('Iteration complete');
                                         }
                                     }
-                                    cursor.continue();
+                                    // error handling
+                                    objectStore.get(primaryKey).onerror = function(event) {
+                                        notif('error',
+                                            'Kanban tidak sesuai: ' + event.target.error
+                                        );
+                                    }
                                 } else {
-                                    console.log('iteration complete');
+                                    notif("error", "Kanban tidak dikenali !");
                                 }
+                                cursor.continue();
+                            } else {
+                                console.log('iteration complete');
                             }
                         }
-                    } else {
-                        notif('error',
-                            'Scan kanban internal dulu!');
+
+                        // error handling
+                        objectStore.openCursor().onerror = function(event) {
+                            notif('error', event.target.error);
+                        }
+                    }
+
+                    // error handling
+                    request.onerror = function(event) {
+                        notif('error', event.target.error);
                     }
                 } else {
                     notif("error", "Kanban tidak dikenali !");
