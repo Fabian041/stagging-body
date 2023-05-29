@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
+use Carbon\Carbon;
 use App\Models\Part;
+use App\Models\Pulling;
+use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PullingController extends Controller
 {
@@ -36,7 +39,38 @@ class PullingController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $customer = $request->customer;
+        $loadingList = $request->loadingList;
+        $pdsNumber = $request->pdsNumber;
+        $cycle = $request->cycle;
+
+        // get customer id
+        $customerId = Customer::select('id')->where('name', $customer)->first();
+
+        try {
+            DB::beginTransaction();
+
+            // insert into pulling
+            Pulling::create([
+                'customer_id' => $customerId->id,
+                'loading_list' => $loadingList,
+                'pds_number' => $pdsNumber,
+                'pulling_data' => Carbon::now()->format('Y-m-d H:i:s'),
+                'cycler_id' => $cycle
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            
+            return [
+                'status' => 'error',
+            ];
+        }
+        
+        return [
+            'status' => 'success',
+        ];
     }
 
     /**
