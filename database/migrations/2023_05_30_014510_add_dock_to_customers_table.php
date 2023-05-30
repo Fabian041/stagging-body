@@ -13,8 +13,8 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('parts', function (Blueprint $table) {
-            $table->string('back_number')->unique()->after('part_number');
+        Schema::table('customers', function (Blueprint $table) {
+            $table->string('dock')->after('code')->nullable();
         });
     }
 
@@ -25,7 +25,7 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::table('parts', function (Blueprint $table) {
+        Schema::table('customers', function (Blueprint $table) {
             //
         });
     }

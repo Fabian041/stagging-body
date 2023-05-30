@@ -1,11 +1,12 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PullingController;
 use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\TraceabilityController;
-use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,6 +36,11 @@ Route::middleware(['guest'])->group(function () {
 Route::middleware(['auth'])->group(function () {
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
+
+    // dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    Route::post('/dashboard/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
+    Route::post('/dashboard/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
 
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');

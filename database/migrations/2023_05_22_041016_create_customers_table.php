@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('customers', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('code')->unique();
-            $table->string('name');
+            $table->string('code')->unique()->nullable();
+            $table->string('name')->nullable();
             $table->timestamps();
         });
     }

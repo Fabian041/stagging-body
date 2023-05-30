@@ -14,7 +14,9 @@ return new class extends Migration
     public function up()
     {
         Schema::table('mutations', function (Blueprint $table) {
-            $table->integer('qty')->nullable()->after('part_id');
+            $table->bigInteger('internal_part_id')->unsigned()->nullable()->after('id');
+            $table->foreign('internal_part_id')->references('id')->on('internal_parts');
+            $table->integer('qty')->nullable()->after('internal_part_id');
         });
     }
 

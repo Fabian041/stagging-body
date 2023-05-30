@@ -17,10 +17,10 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->bigInteger('customer_id')->unsigned();
             $table->foreign('customer_id')->references('id')->on('customers')->onDelete('CASCADE')->onUpdate('CASCADE');
-            $table->string('loading_list')->unique();
-            $table->string('pds_number');
-            $table->timestamp('pulling_date');
-            $table->integer('cycle');
+            $table->string('loading_list')->nullable();
+            $table->string('pds_number')->nullable();
+            $table->timestamp('pulling_date')->nullable();
+            $table->integer('cycle')->nullable();
             $table->timestamps();
         });
     }

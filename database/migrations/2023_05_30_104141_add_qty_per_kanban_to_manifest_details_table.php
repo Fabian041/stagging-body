@@ -13,11 +13,8 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('mutations', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('npk');
-            $table->timestamp('date');
-            $table->timestamps();
+        Schema::table('manifest_details', function (Blueprint $table) {
+            $table->integer('qty_per_kanban')->nullable()->after('kanban_qty');
         });
     }
 
@@ -28,6 +25,8 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('mutations');
+        Schema::table('manifest_details', function (Blueprint $table) {
+            //
+        });
     }
 };

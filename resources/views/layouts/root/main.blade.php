@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
-    <title>Electric</title>
+    <title>BODY</title>
 
     <!-- General CSS Files -->
     <link rel="stylesheet" href={{ asset('assets/modules/bootstrap/css/bootstrap.min.css') }}>
@@ -74,6 +74,7 @@
 
     <!-- Page Specific JS File -->
     <script src={{ asset('assets/js/page/index.js') }}></script>
+    <script src={{ asset('assets/js/page/bootstrap-modal.js') }}></script>
     <script src={{ asset('assets/modules/izitoast/js/iziToast.min.js') }}></script>
 
     <!-- Template JS File -->
