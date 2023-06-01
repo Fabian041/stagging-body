@@ -153,7 +153,6 @@
 
     function sampleModal() {
         let sample = localStorage.getItem('sample');
-
         $('#input-sample').val('');
         setTimeout(() => {
             if (!sample) {

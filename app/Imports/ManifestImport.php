@@ -29,21 +29,40 @@ class ManifestImport implements ToCollection, WithHeadingRow, WithStartRow
 
             foreach ($rows as $row) {
 
-                $pdsNumber = $row['pds_manifest'];
-                $customerDock = $row['dock_code'];
-                $partNumberCustomer = $row['part_no'];
+                $pdsNumber = $row['pds'];
+                $customerCode = $row['customer'];
+                $partNumberCustomer = $row['customer_parts'];
                 $cycle = $row['cycle'];
-                $deliveryDate = $row['delivery_date_etd_aiia'];  
-                $shippingDate = $row['delivery_date_eta_tmmin'];
-                $kanbanQty = $row['order_kbn'];
-                $totalQty = $row['order_pcs'];
-                $qtyPerKanban = $row['qtykbn'];
+                $deliveryDate = $row['first_shipping'];  
+                $shippingDate = $row['shipping_result'];
+                $totalQty = $row['order_qty'];
+                $qtyPerKanban = $row['qtybox'];
+                $kanbanQty = $totalQty/$qtyPerKanban;
+
+                // get part number length
+                $codeLength = strlen($partNumberCustomer);
+
+                // check last two digit of partNumber 
+                $lastDigit = substr($partNumberCustomer, -2);
+
+                // check part number customer length
+                if($codeLength == 12){
+                    // TMMIN
+                    if($lastDigit != '00'){
+                        $convertedPartNumber = substr($partNumberCustomer, 0, 5) . '-' . substr($partNumberCustomer, 5, 5) . '-' . substr($partNumberCustomer, -2);
+                    }else{
+                        $convertedPartNumber = substr(substr_replace($partNumberCustomer, '-', 5, 0), 0, -2);
+                    }
+                }else if($codeLength == 10){
+                    // TBINA
+                    $convertedPartNumber = substr_replace($partNumberCustomer, '-', 5, 0);
+                }
                 
                 // get cutomer id by dock number
-                $customer = Customer::select('id')->where('dock', $customerDock)->first();
+                $customer = Customer::select('id')->where('code', $customerCode)->first();
 
                 // get customer part id by part number customer
-                $customerPart = CustomerPart::select('id')->where('part_number', $partNumberCustomer)->first();
+                $customerPart = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
 
                 if(!isset($manifests[$pdsNumber])){
                     // insert into manifest master
@@ -56,7 +75,6 @@ class ManifestImport implements ToCollection, WithHeadingRow, WithStartRow
                     ]);
                     $manifests[$pdsNumber] = $manifest->id;
                 }
-
                 // insert the manifest detail
                 ManifestDetail::create([
                     'manifest_id' => $manifests[$pdsNumber],
@@ -67,7 +85,6 @@ class ManifestImport implements ToCollection, WithHeadingRow, WithStartRow
                     'actual_qty' => 0
                 ]);
             }
-
             DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();

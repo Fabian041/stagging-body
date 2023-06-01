@@ -12,31 +12,25 @@
                                     <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
                                 </div>
                             </div>
-                            <div class="row mt-1">
-                                <div class="col-9" style="padding-left: 1rem; padding-right: 0px">
-                                    <h6>Loading List</h6>
+                            <div class="row mt-1" id="list">
+                                <h6 id="loadingList" style="padding-left: 1rem">Loading List</h6>
+                                <li class="col-12" style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
+                                    id="loadingListContainerSample">
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
                                         <h5 class="text-center " style="padding-top: .8rem; color: white;"
-                                            id="loadingList-display">Loading List</h5>
+                                            id="loadingList-display"></h5>
+                                    </div>
+                                </li>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-9" style="padding-left: 1rem; padding-right: 0px">
+                                    <h6>Customer</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h6 class="text-center " style="padding-top: .9rem; color: white;"
+                                            id="customer-display">Customer</h6>
                                     </div>
                                 </div>
                                 <div class="col-3" style="padding-right: 0px">
-                                    <h6>Qty</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"><span
-                                                id="qty-display">-</span></h5>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
-                                    <h6>Customer</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
-                                            id="customer-display">Customer</h5>
-                                    </div>
-                                </div>
-                                <div class="col-6" style="padding-right: 0px">
                                     <h6>Cycle</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
                                         <h5 class="text-center " style="padding-top: .8rem; color: white;"
@@ -45,6 +39,18 @@
                                 </div>
                             </div>
                             <div class="row mt-3">
+                                <div class="col-12" style="padding-right: 0px">
+                                    <div
+                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px; padding:10.5px; padding-left:12px">
+                                        <small class="badge badge-dark"
+                                            style="color:#ffffff; display:inline;">Quantity</small>
+                                        <h5 style="color: #ffffff; display:inline; padding-left:4.5rem">
+                                            <span id="qty-display">-</span>
+                                        </h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
                                 <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
                                     <h6>Internal</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
@@ -63,27 +69,27 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mt-1">
+                            <div class="row">
                                 <div class="col-md-12" style="padding: 15px;">
-                                    <h6>Scan Qr Code</h6>
-
-                                    <input style="height: 3rem; width: 100%; background-color: white; border-radius: 20px;"
+                                    <input
+                                        style="height: 2.4rem; width: 100%; background-color: white; border-radius: 20px;"
                                         height=60 id="code" class="form-control" name="code" required
                                         autocomplete="off">
                                 </div>
-
-
                             </div>
-                            <div class="row" style="margin-top: 1rem;">
-                                <div class="col-md-12" style="padding: 15px;">
-
-                                    <div style="height: 3rem; width: 100%; border-radius: 20px;">
+                            <div class="row">
+                                <div class="col-md-12" style="padding: 15px; padding-top:0">
+                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
                                             style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.5rem;"
                                             id="done">Selesai</button>
                                     </div>
                                 </div>
-
+                            </div>
+                            <div class="row text-center mt-2">
+                                <div class="col">
+                                    <span class="badge badge-pill badge-danger">0/20 <span> - Belum Lengkap</span></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -91,14 +97,12 @@
             </div>
         </section>
     </div>
-
     <div class="modal fade" id="modalLoadingListScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                 </div>
                 <div class="modal-body">
-
                     <h5 class="text-center"><b>LOADING LIST</b></h5><br>
                     <input type="text" class="form-control" id="input-loadingList" autocomplete="off">
                     <br>
@@ -167,7 +171,6 @@
             setTimeout(() => {
                 $('#notifModal').modal('hide');
             }, 1000);
-
         }
     }
 
@@ -182,6 +185,17 @@
                     })
                 $('#modalLoadingListScan').modal('show');
             }
+        }, 1500);
+    }
+
+    function loadingListModal2() {
+        $('#input-loadingList').val('');
+        setTimeout(() => {
+            $('#modalLoadingListScan').on('shown.bs.modal',
+                function() {
+                    $('#input-loadingList').focus();
+                })
+            $('#modalLoadingListScan').modal('show');
         }, 1500);
     }
 
@@ -212,6 +226,11 @@
 
     $(document).ready(function() {
         initApp();
+
+        $('#loadingList').on('click', function() {
+            loadingListModal2();
+        });
+
         var token = "{{ session()->get('token') }}";
 
         $('#input-loadingList').keypress(function(e) {
@@ -233,9 +252,32 @@
                             // create database indexed db
                             request = window.indexedDB.open("sanTenShogo");
 
+                            // check if loading list have same manifest code (pds number)
+                            if (localStorage.getItem('pdsNumber')) {
+                                if (data.data.pds_number != localStorage.getItem(
+                                        'pdsNumber')) {
+                                    notif('error', 'Loading list tidak sesuai!');
+                                    return;
+                                }
+                            }
+
+                            // remove example display
+                            $('#loadingListContainerSample').remove();
+
                             // loading list display
-                            $('#loadingList-display').text(data.data.number);
-                            localStorage.setItem('loadingList', data.data.number);
+                            $('#list').append(
+                                `<li class="col-12 mt-2"
+                                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
+                                    id="loadingListContainer">
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                                        id="loadingList">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                                            id="loadingList-display">${data.data.number}</h5>
+                                    </div>
+                                </li>`
+                            );
+
+                            localStorage.setItem(data.data.number, data.data.number);
                             localStorage.setItem('pdsNumber', data.data.pds_number);
 
                             // create database schema

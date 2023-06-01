@@ -48,9 +48,9 @@ class PartImport implements ToCollection, WithHeadingRow, WithStartRow
                     // insert internalPart table id into spesific part number in array assoc
                     $internalParts[$partNumberInternal] = $internalPart->id;
                 }
-                
+
                 // insert the customer part
-                $customerPart = CustomerPart::create([
+                $customerPart = \App\Models\CustomerPart::create([
                     'internal_part_id' => $internalParts[$partNumberInternal],
                     'customer_id' => $customerId,
                     'part_number' => $partNumberCustomer,

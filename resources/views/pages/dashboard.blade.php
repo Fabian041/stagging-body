@@ -1,9 +1,6 @@
 @extends('layouts.root.main')
 
 @section('main')
-    {{-- <div class="row mt-3">
-
-    </div> --}}
     <div class="row mt-4">
         <div class="col-12">
             <div class="card shadow" style="border-radius:8px">
@@ -17,12 +14,11 @@
                         <div class="col-md-12">
                             {{-- <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#partModal">Upload
                                 Part</button> --}}
-                            <button class="btn btn-lg btn-warning" data-toggle="modal" data-target="#manifestModal">Upload
+                            <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#manifestModal">Upload
                                 Manifest</button>
                         </div>
                     </div>
                 </div>
-
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table" id="table-1">
@@ -51,7 +47,7 @@
     </div>
 @endsection
 {{-- modal --}}
-{{-- <div class="modal fade" tabindex="-1" role="dialog" id="partModal">
+<div class="modal fade" tabindex="-1" role="dialog" id="partModal">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <form action="{{ route('dashboard.part.import') }}" method="POST" enctype="multipart/form-data">
@@ -76,7 +72,7 @@
             </form>
         </div>
     </div>
-</div> --}}
+</div>
 {{-- end of modal --}}
 
 {{-- modal --}}
