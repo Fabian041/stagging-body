@@ -77,10 +77,17 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-12" style="padding: 15px; padding-top:0">
+                                <div class="col-5" style="padding: 15px; padding-top:0">
+                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
+                                        <button type="button" class="btn btn-xl btn-outline-warning"
+                                            style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.2rem;"
+                                            id="delay">Delay</button>
+                                    </div>
+                                </div>
+                                <div class="col-7" style="padding: 15px; padding-top:0">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
-                                            style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.5rem;"
+                                            style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.2rem;"
                                             id="done">Selesai</button>
                                     </div>
                                 </div>
@@ -113,8 +120,8 @@
         </div>
     </div>
 
-    <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle"
-        aria-hidden="true">
+    <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog"
+        aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content" id="divNotif" style="border-radius: 15px !important;">
                 <div class="modal-body text-center">
@@ -132,7 +139,6 @@
     let partNumber;
     let loadingListItem = [];
     let loadinglistDetail = [];
-    let request;
 
     // sextract the loading list number from the key
     function extractLoadingListNumber(key) {
@@ -155,9 +161,10 @@
 
     function initApp() {
 
-        let loadingList = getLoadingListNumber();
         let customer = localStorage.getItem('customer');
         let cycle = localStorage.getItem('cycle');
+        let loadingList = getLoadingListNumber();
+        console.log(loadingList);
         // iterate local storage
         for (key in loadingList) {
             // remove example display
@@ -265,18 +272,17 @@
     }
 
     function pullingQuantity() {
-
+        let pds = localStorage.getItem('pds_local');
         // initialize database
-        request = window.indexedDB.open("sanTenShogo");
+        request = window.indexedDB.open(pds);
 
         // transaction 
+        let totalActual = 0;
+        let totalTarget = 0;
         request.onsuccess = function(event) {
             const database = event.target.result;
-            const transaction = database.transaction(['loadingList'], 'readonly');
-            const objectStore = transaction.objectStore('loadingList');
-
-            let totalActual = 0;
-            let totalTarget = 0;
+            const transaction = database.transaction(["loadingList"], 'readonly');
+            const objectStore = transaction.objectStore("loadingList");
 
             objectStore.openCursor().onsuccess = function(event) {
                 let cursor = event.target.result;
@@ -284,12 +290,13 @@
                     const record = cursor.value;
 
                     // get total seri scanned
-                    totalActual += record.seri.length;
+                    totalActual += parseInt(record.seri.length);
 
                     // get total target
-                    totalTarget += record.total_qty
+                    totalTarget += parseInt(record.total_qty);
 
                     cursor.continue();
+                    console.log(totalActual);
                 } else {
                     // display the total and target
                     $('#pullingQty').text(`${totalActual}/${totalTarget}`);
@@ -329,6 +336,7 @@
 
     $(document).ready(function() {
         initApp();
+        $('#code').focus();
 
         $('#loadingList').on('click', function() {
             loadingListModal2();
@@ -337,6 +345,7 @@
         var token = "{{ session()->get('token') }}";
 
         $('#input-loadingList').keypress(function(e) {
+            let loadingList = getLoadingListNumber();
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
                 //Check Line
@@ -352,8 +361,18 @@
                     success: function(data) {
                         console.log(data);
                         if (data.status == 'success') {
+                            // objectStor name is based on pds_number
+                            let pds = data.data.pds_number
+                            let pdsLocal = localStorage.setItem('pds_local', pds);
+
                             // create database indexed db
-                            request = window.indexedDB.open("sanTenShogo");
+                            request = window.indexedDB.open(pds);
+
+                            // check if loading list already exists
+                            if (loadingList.includes(data.data.number)) {
+                                notif('error', 'Loading list sudah discan!');
+                                return;
+                            }
 
                             // check if loading list have same manifest code (pds number)
                             if (localStorage.getItem('pdsNumber')) {
@@ -386,6 +405,7 @@
 
                             // create database schema
                             request.onupgradeneeded = function(event) {
+                                console.log('prcessing');
                                 const database = event.target.result;
                                 const objectStore = database.createObjectStore(
                                     'loadingList');
@@ -406,17 +426,32 @@
 
                                 data.data.items.map((item, index) => {
                                     const key = item.part_number_cust;
-                                    // insert into
-                                    objectStore.put({
-                                        key: key,
-                                        internal: item.part_number_int,
-                                        customer: item.part_number_cust,
-                                        actual_qty: item
-                                            .actual_kanban_qty,
-                                        total_qty: item
-                                            .total_kanban_qty,
-                                        seri: []
-                                    }, key);
+
+                                    const getRequest = objectStore.get(key);
+
+                                    getRequest.onsuccess = function(event) {
+                                        const existingData = event.target
+                                            .result;
+
+                                        if (!existingData) {
+                                            objectStore.put({
+                                                key: key,
+                                                internal: item
+                                                    .part_number_int,
+                                                customer: item
+                                                    .part_number_cust,
+                                                actual_qty: item
+                                                    .actual_kanban_qty,
+                                                total_qty: item
+                                                    .total_kanban_qty,
+                                                seri: []
+                                            }, key);
+                                        }
+                                    };
+
+                                    getRequest.onerror = function(event) {
+                                        notif(event.data.error);
+                                    };
                                 });
 
                                 // check customer if exist 
@@ -469,15 +504,21 @@
             }
         });
 
+        $('#delay').on('click', function() {
+            localStorage.clear();
+            window.location.reload();
+        });
+
         $('#done').on('click', function() {
             let loadingList = getLoadingListNumber();
-            request = window.indexedDB.open("sanTenShogo");
+            let pds = localStorage.getItem('pds_local');
+            request = window.indexedDB.open(pds);
 
             // transaction
             request.onsuccess = function(event) {
                 const database = event.target.result;
-                const transaction = database.transaction(['loadingList'], 'readonly');
-                const objectStore = transaction.objectStore('loadingList');
+                const transaction = database.transaction(["loadingList"], 'readonly');
+                const objectStore = transaction.objectStore("loadingList");
                 let flag = true;
 
                 objectStore.openCursor().onsuccess = function(event) {
@@ -594,6 +635,7 @@
         }
 
         $('#code').keypress(function(e) {
+            let pds = localStorage.getItem('pds_local');
             e.preventDefault();
             var code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) // Enter key hit 
@@ -604,13 +646,13 @@
                 if (barcodecomplete.length == 12) {
 
                     // initiate database
-                    request = window.indexedDB.open("sanTenShogo");
+                    request = window.indexedDB.open(pds);
 
                     // transaction
                     request.onsuccess = function(event) {
                         const database = event.target.result;
-                        const transaction = database.transaction(['loadingList'], 'readonly');
-                        const objectStore = transaction.objectStore('loadingList');
+                        const transaction = database.transaction(["loadingList"], 'readonly');
+                        const objectStore = transaction.objectStore("loadingList");
                         let isAvailable = false;
 
                         objectStore.openCursor().onsuccess = function(event) {
@@ -669,13 +711,15 @@
                     let internal = barcodecomplete.substr(41, 12);
                     let seri = barcodecomplete.substr(123, 4);
 
+                    console.log(internal);
+
                     // initialize databae connection
-                    request = window.indexedDB.open("sanTenShogo");
+                    request = window.indexedDB.open(pds);
 
                     request.onsuccess = function(event) {
                         const database = event.target.result;
-                        const transaction = database.transaction(['loadingList'], 'readwrite');
-                        const objectStore = transaction.objectStore('loadingList');
+                        const transaction = database.transaction(["loadingList"], 'readwrite');
+                        const objectStore = transaction.objectStore("loadingList");
                         let isAvailable = false;
 
                         objectStore.openCursor().onsuccess = function(event) {

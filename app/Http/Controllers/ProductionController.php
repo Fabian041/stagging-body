@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InternalPart;
 use App\Models\Line;
 
 use App\Models\Part;
@@ -43,11 +44,11 @@ class ProductionController extends Controller
         $partNumber = $request->partNumber;
 
         // double check to master sample
-        $part = Part::where('part_number', $partNumber)->first();
+        $part = InternalPart::where('part_number', $partNumber)->first();
         if(!$part){
             return [
                 'status' => 'error',
-                'message' => 'Part Tidak Sesuai Dengan Sample !'
+                'message' => 'Part Tidak Sesuai Dengan Sample!'
             ];
         }
 
@@ -145,12 +146,11 @@ class ProductionController extends Controller
      */
     public function sampleCheck($line, $sample)
     {
-
         // get line id
         $line = Line::select('id')->where('name', $line)->first();
 
         // check if the sample is in the correct line id
-        $sampleCheck = Part::where('line_id', $line->id)
+        $sampleCheck = InternalPart::where('line_id', $line->id)
                     ->where('part_number', $sample)
                     ->first();
 
