@@ -33,8 +33,8 @@
                                 <div class="col-3" style="padding-right: 0px">
                                     <h6>Cycle</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
-                                            id="cycle-display">Cycle</h5>
+                                        <h6 class="text-center " style="padding-top: .8rem; color: white;"
+                                            id="cycle-display">Cycle</h6>
                                     </div>
                                 </div>
                             </div>
@@ -51,20 +51,19 @@
                                 </div>
                             </div>
                             <div class="row mt-2">
-                                <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
-                                    <h6>Internal</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;" id="int-display">
-                                            -
-                                        </h5>
-                                    </div>
-                                </div>
-
                                 <div class="col-6" style="padding-right: 0px">
                                     <h6>Customer</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
                                         <h5 class="text-center " style="padding-top: .8rem; color: white;"
                                             id="cust-display">-
+                                        </h5>
+                                    </div>
+                                </div>
+                                <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
+                                    <h6>Internal</h6>
+                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                        <h5 class="text-center " style="padding-top: .8rem; color: white;" id="int-display">
+                                            -
                                         </h5>
                                     </div>
                                 </div>
@@ -88,7 +87,10 @@
                             </div>
                             <div class="row text-center mt-2">
                                 <div class="col">
-                                    <span class="badge badge-pill badge-danger">0/20 <span> - Belum Lengkap</span></span>
+                                    <span class="badge badge-pill" id="pullingStatusContainer">
+                                        <span id="pullingQty" style="color: #ffffff"></span> <span id="pullingStatus"
+                                            style="color: #ffffff"></span>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -132,12 +134,54 @@
     let loadinglistDetail = [];
     let request;
 
+    // sextract the loading list number from the key
+    function extractLoadingListNumber(key) {
+        const prefix = "ll_";
+        return key.substring(prefix.length);
+    }
+
+    // retrieve the loading list number from localStorage
+    function getLoadingListNumber() {
+        let loadingListNumber = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith("ll_")) {
+                loadingListNumber.push(extractLoadingListNumber(key));
+            }
+        }
+        // Return a default value if no loading list number is found
+        return loadingListNumber;
+    }
+
     function initApp() {
-        let loadingList = localStorage.getItem('loadingList');
+
+        let loadingList = getLoadingListNumber();
         let customer = localStorage.getItem('customer');
         let cycle = localStorage.getItem('cycle');
+        // iterate local storage
+        for (key in loadingList) {
+            // remove example display
+            $('#loadingListContainerSample').remove();
 
-        if (!loadingList) {
+            // loading list display
+            $('#list').append(
+                `<li class="col-12 mt-2"
+                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
+                    id="loadingListContainer">
+                        <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                        id="loadingList">
+                            <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                            id="loadingList-display">${loadingList[key]}</h5>
+                        </div>
+                    </li>`
+            );
+
+            pullingQuantity();
+            $('#customer-display').text(customer);
+            $('#cycle-display').text(cycle);
+        }
+
+        if (getLoadingListNumber().length == 0) {
             $('#modalLoadingListScan').on('shown.bs.modal', function() {
                 $('#input-loadingList').focus();
             })
@@ -146,10 +190,6 @@
             // empty text
             $('#customer-display').text('customer');
             $('#cycle-display').text('cycle');
-        } else {
-            $('#loadingList-display').text(loadingList);
-            $('#customer-display').text(customer);
-            $('#cycle-display').text(cycle);
         }
         $('#code').focus();
     }
@@ -224,6 +264,69 @@
         });
     }
 
+    function pullingQuantity() {
+
+        // initialize database
+        request = window.indexedDB.open("sanTenShogo");
+
+        // transaction 
+        request.onsuccess = function(event) {
+            const database = event.target.result;
+            const transaction = database.transaction(['loadingList'], 'readonly');
+            const objectStore = transaction.objectStore('loadingList');
+
+            let totalActual = 0;
+            let totalTarget = 0;
+
+            objectStore.openCursor().onsuccess = function(event) {
+                let cursor = event.target.result;
+                if (cursor) {
+                    const record = cursor.value;
+
+                    // get total seri scanned
+                    totalActual += record.seri.length;
+
+                    // get total target
+                    totalTarget += record.total_qty
+
+                    cursor.continue();
+                } else {
+                    // display the total and target
+                    $('#pullingQty').text(`${totalActual}/${totalTarget}`);
+
+                    // check qty for pulling statuss
+                    if (totalActual == 0) {
+                        $('#pullingStatusContainer').addClass('bg-danger');
+                        $('#pullingStatus').text(' - Ayo Pulling!')
+                    } else if (totalActual > 0 && totalActual < totalTarget) {
+                        $('#pullingStatusContainer').removeClass('bg-danger');
+                        $('#pullingStatusContainer').addClass('bg-warning');
+                        $('#pullingStatus').text(' - Belum Lengkap!')
+                    } else {
+                        $('#pullingStatusContainer').removeClass('bg-warning');
+                        $('#pullingStatusContainer').addClass('bg-success');
+                        $('#pullingStatus').text(' - Pulling Selesai!')
+                    }
+                }
+            }
+
+            objectStore.openCursor().onerror = function(event) {
+                notif('error', event.message);
+                return;
+            }
+
+            // Close the db when the transaction is done
+            transaction.oncomplete = function() {
+                database.close();
+            };
+        }
+
+        request.onerror = function(event) {
+            notif('error', 'Failed to connect to database!')
+            return;
+        }
+    }
+
     $(document).ready(function() {
         initApp();
 
@@ -277,7 +380,8 @@
                                 </li>`
                             );
 
-                            localStorage.setItem(data.data.number, data.data.number);
+                            localStorage.setItem('ll_' + data.data.number, data.data
+                                .number);
                             localStorage.setItem('pdsNumber', data.data.pds_number);
 
                             // create database schema
@@ -301,7 +405,7 @@
                                 var index = objectStore.index('loadingListDetail');
 
                                 data.data.items.map((item, index) => {
-                                    const key = item.part_number_int;
+                                    const key = item.part_number_cust;
                                     // insert into
                                     objectStore.put({
                                         key: key,
@@ -322,6 +426,9 @@
                                         $('#cycle-display').text(data.data.cycle);
                                         localStorage.setItem('cycle', data
                                             .data.cycle);
+
+                                        // calculate total quantity of the orders
+                                        pullingQuantity();
 
                                         // scan kanban
                                         $('#code').focus();
@@ -363,7 +470,7 @@
         });
 
         $('#done').on('click', function() {
-
+            let loadingList = getLoadingListNumber();
             request = window.indexedDB.open("sanTenShogo");
 
             // transaction
@@ -396,7 +503,7 @@
                             _token: "{{ csrf_token() }}",
                             data: {
                                 customer: localStorage.getItem('customer'),
-                                loadingList: localStorage.getItem('loadingList'),
+                                loadingList: loadingList,
                                 pdsNumber: localStorage.getItem('pdsNumber'),
                                 cycle: localStorage.getItem('cycle'),
                             },
@@ -428,18 +535,16 @@
         var code = $('#code');
         let total = 0;
 
-        function checkInternalAndCustomer(objectStore, cursor, barcodecomplete, primaryKey) {
-            let internal = cursor['internal'];
+        function checkInternalAndCustomer(objectStore, cursor, internal, primaryKey, seri) {
             let customer = cursor['customer'];
             let arraySeri = cursor['seri'];
             let totalQty = cursor['total_qty'];
-            let currentSeri = localStorage.getItem('seri');
             let isSameObject = false;
 
             for (const key in cursor) {
-                if (cursor[key] === localStorage.getItem('internal')) {
+                if (cursor[key] === localStorage.getItem('customerPart')) {
                     // Value1 found, check if Value2 is also in the object
-                    if (Object.values(cursor).includes(barcodecomplete)) {
+                    if (Object.values(cursor).includes(internal)) {
                         isSameObject = true;
                         break;
                     }
@@ -452,6 +557,12 @@
                 return;
             }
 
+            // check if serial number kanban exist in spesific part number
+            if (arraySeri.includes(seri)) {
+                notif('error', 'Seri kanban sudah discan!');
+                return;
+            }
+
             // check actual qty of spesific part number by compare the current length seri and total_qty
             if (arraySeri.length >= totalQty) {
                 notif('error', 'Part number sudah complete!');
@@ -459,20 +570,22 @@
             }
 
             // push kanban serial number to array seri
-            arraySeri.push(currentSeri);
+            arraySeri.push(seri);
+
             // update the object
             objectStore.put(cursor, primaryKey).onsuccess = function(event) {
                 // udpate the qty display
                 $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
-                // display customer
-                $('#cust-display').text(barcodecomplete);
-
-                // reset internal and customer display
-                localStorage.removeItem('internal');
-                localStorage.removeItem('seri');
-                $('#int-display').text('-');
+                // display internal
+                $('#int-display').text(internal);
                 $('#cust-display').text('-');
+
+                // display total quantity
+                pullingQuantity();
+
+                // reset customer local storage
+                localStorage.removeItem('customerPart');
             }
             // error handling
             objectStore.put(cursor, primaryKey).onerror = function(event) {
@@ -488,11 +601,7 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                if (barcodecomplete.length == 218 || barcodecomplete.length == 230) {
-                    let internal = barcodecomplete.substr(41, 12);
-                    let seri = barcodecomplete.substr(123, 4);
-
-                    console.log(seri);
+                if (barcodecomplete.length == 12) {
 
                     // initiate database
                     request = window.indexedDB.open("sanTenShogo");
@@ -509,45 +618,37 @@
                             if (cursor) {
                                 const record = cursor.value;
 
-                                // check if kanban internal exist in loading list record
-                                if (internal == record.internal) {
+                                // check if kanban customer exist in loading list record
+                                if (barcodecomplete == record.customer) {
                                     // check quantity in spesific part number
                                     if (record.seri.length >= record.total_qty) {
                                         notif('error', 'Part number sudah complete!');
                                         return;
                                     }
-
-                                    // check if serial number kanban exist in spesific part number
-                                    if (record.seri.includes(seri)) {
-                                        notif('error', 'Seri kanban sudah discan!');
-                                        return;
-                                    }
-
                                     // set flag
                                     isAvailable = true;
 
-                                    // display internal
-                                    $('#int-display').text(record.internal);
+                                    // display customer
+                                    $('#cust-display').text(record.customer);
+                                    $('#int-display').text('-');
 
                                     // display current qty
                                     $('#qty-display').text(`
                                         ${record.seri.length}/${record.total_qty}
                                     `);
-                                    // set local storage for internal kanban and serial number
-                                    localStorage.setItem('internal', record.internal);
-                                    localStorage.setItem('seri', seri);
+                                    // set local storage for customer kanban
+                                    localStorage.setItem('customerPart', record.customer);
                                 }
                                 cursor.continue();
                             } else {
                                 console.log('iteration complete');
 
-                                // check if the kanban internal is available
+                                // check if the kanban customer is available
                                 if (!isAvailable) {
                                     notif('error', 'Kanban tidak sesuai!')
                                 }
                             }
                         }
-
                         // when complete
                         request.oncomplete = function(event) {
                             database.close();
@@ -558,14 +659,15 @@
                         console.log('Failed to open database');
                     };
 
-                } else if (barcodecomplete.length == 12) {
-
-                    console.log(barcodecomplete);
-                    // check if already scan internal kanban
-                    if (!localStorage.getItem('internal')) {
-                        notif('error', 'Scan kanban internal dulu!');
+                } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230) {
+                    // check if already scan customer kanban
+                    if (!localStorage.getItem('customerPart')) {
+                        notif('error', 'Scan kanban customer dulu!');
                         return;
                     }
+
+                    let internal = barcodecomplete.substr(41, 12);
+                    let seri = barcodecomplete.substr(123, 4);
 
                     // initialize databae connection
                     request = window.indexedDB.open("sanTenShogo");
@@ -581,7 +683,7 @@
                             if (cursor) {
                                 // get spesific primary key
                                 let primaryKey = cursor.primaryKey
-                                if (primaryKey == localStorage.getItem('internal')) {
+                                if (primaryKey == localStorage.getItem('customerPart')) {
                                     // set flag
                                     isAvailable = true;
 
@@ -590,7 +692,7 @@
                                         const cursor = event.target.result;
                                         if (cursor) {
                                             checkInternalAndCustomer(objectStore, cursor,
-                                                barcodecomplete, primaryKey);
+                                                internal, primaryKey, seri);
                                             return;
                                         } else {
                                             console.log('Iteration complete');
