@@ -388,8 +388,9 @@
                         console.log(data);
                         if (data.status == 'success') {
                             // objectStor name is based on pds_number
-                            let pds = data.data.pds_number
+                            let pds = data.data.pds_number;
                             let pdsLocal = localStorage.setItem('pds_local', pds);
+                            let ll = data.data.number;
 
                             // create database indexed db
                             request = window.indexedDB.open(pds);
@@ -462,6 +463,7 @@
                                         if (!existingData) {
                                             objectStore.put({
                                                 key: key,
+                                                loading_list_number: ll,
                                                 internal: item
                                                     .part_number_int,
                                                 customer: item
@@ -541,6 +543,7 @@
         $('#done').on('click', function() {
             let loadingList = getLoadingListNumber();
             let pds = localStorage.getItem('pds_local');
+            let formData = new FormData();
             request = window.indexedDB.open(pds);
 
             // transaction
@@ -555,25 +558,37 @@
                     if (cursor) {
                         const record = cursor.value;
                         // check if the loading list is fullfilled by check each array seri
-                        if (record.seri.length < record.total_qty) {
-                            flag = false;
-                            return;
+                        // if (record.seri.length < record.total_qty) {
+                        //     flag = false;
+                        //     return;
+                        // } 
+                        let items = [];
+                        for (let i = 0; i < record.seri.length; i++) {
+                            let item = {
+                                part_number_internal: record.internal,
+                                part_number_customer: record.customer,
+                                serial_number: record.seri[i]
+                            };
+                            items.push(item);
                         }
+                        formData.append('loading_list_number', record.loading_list_number);
+                        formData.append('items', items);
+                        console.log(formData);
 
                         $.ajax({
                             type: 'POST',
+                            processData: false,
+                            contentType: false,
+                            cache: false,
                             url: "http://api-dea-dev/api/v1/kanbans",
                             _token: "{{ csrf_token() }}",
-                            data: {
-                                loading_list_number: ,
-                                items: [{
-                                    part_number_internal: ,
-                                    part_number_customer: ,
-                                    serial_number:
-                                }]
+                            headers: {
+                                "Authorization": "Bearer " + token
                             },
-                            dataType: 'json',
+                            data: formData,
+                            enctype: 'multipart/form-data',
                             success: function(data) {
+                                console.log(data);
                                 notif('success', 'Pulling berhasil!');
                             },
                             error: function(xhr) {
@@ -589,32 +604,32 @@
                 transaction.oncomplete = function() {
                     if (flag) {
                         // save to database 
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ url('pulling/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                customer: localStorage.getItem('customer'),
-                                loadingList: loadingList,
-                                pdsNumber: localStorage.getItem('pdsNumber'),
-                                cycle: localStorage.getItem('cycle'),
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                console.log(data);
-                                localStorage.removeItem("loadingList");
-                                localStorage.removeItem("customer");
-                                localStorage.removeItem("internal");
-                                localStorage.removeItem("cycle");
-                                localStorage.removeItem("seri");
-                                window.location.reload();
+                        // $.ajax({
+                        //     type: 'GET',
+                        //     url: "{{ url('pulling/store/') }}",
+                        //     _token: "{{ csrf_token() }}",
+                        //     data: {
+                        //         customer: localStorage.getItem('customer'),
+                        //         loadingList: loadingList,
+                        //         pdsNumber: localStorage.getItem('pdsNumber'),
+                        //         cycle: localStorage.getItem('cycle'),
+                        //     },
+                        //     dataType: 'json',
+                        //     success: function(data) {
+                        //         console.log(data);
+                        //         localStorage.removeItem("loadingList");
+                        //         localStorage.removeItem("customer");
+                        //         localStorage.removeItem("internal");
+                        //         localStorage.removeItem("cycle");
+                        //         localStorage.removeItem("seri");
+                        //         window.location.reload();
 
-                                notif('success', 'Pulling berhasil!');
-                            },
-                            error: function(xhr) {
-                                notif('eror', xhr.message);
-                            }
-                        });
+                        //         notif('success', 'Pulling berhasil!');
+                        //     },
+                        //     error: function(xhr) {
+                        //         notif('eror', xhr.message);
+                        //     }
+                        // });
                     } else {
                         notif('error', 'loading list belum lengkap!');
                     }
