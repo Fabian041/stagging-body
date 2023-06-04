@@ -121,7 +121,7 @@ class PullingController extends Controller
     public function customerCheck($customer)
     {
         // check customer 
-        $check = Customer::select('name')->where('code', $customer)->first();
+        $check = Customer::where('code', $customer)->first();
         if(!$check){
             return [
                 'status' => 'error',
@@ -131,7 +131,10 @@ class PullingController extends Controller
 
         return [
             'status' => 'success',
-            'customer' => $check->name
+            'customer' => $check->name,
+            'first' => $check->char_first,
+            'length' => $check->char_length,
+            'total' => $check->char_total
         ];
     }
 

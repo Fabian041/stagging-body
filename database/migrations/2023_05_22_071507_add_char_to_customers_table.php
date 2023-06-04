@@ -16,6 +16,7 @@ return new class extends Migration
         Schema::table('customers', function (Blueprint $table) {
             $table->integer('char_first')->after('name');
             $table->integer('char_length')->after('char_first');
+            $table->intger('char_total')->after('char_length');
         });
     }
 

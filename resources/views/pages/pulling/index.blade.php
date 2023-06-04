@@ -271,6 +271,32 @@
         });
     }
 
+    function customerCharStore(customer) {
+        $.ajax({
+            type: 'GET',
+            url: "{{ url('pulling/customer-check/') }}" + '/' + customer,
+            _token: "{{ csrf_token() }}",
+            dataType: 'json',
+            success: function(data) {
+                console.log(data);
+                if (data.status == 'success') {
+
+                    // save all data about customer in local storage
+                    localStorage.setItem('char_first', data.first);
+                    localStorage.setItem('char_length', data.length);
+                    localStorage.setItem('char_total', data.total);
+
+                } else {
+                    notif('error', data.message);
+                    loadingListModal();
+                }
+            },
+            error: function(xhr) {
+                reject(new Error(xhr.statusText));
+            }
+        });
+    }
+
     function pullingQuantity() {
         let pds = localStorage.getItem('pds_local');
         // initialize database
@@ -473,6 +499,9 @@
                                         notif('error', data.message);
                                     })
 
+                                // customer check char
+                                customerCharStore(data.data.customer_code);
+
                                 // Close the db when the transaction is done
                                 transaction.oncomplete = function() {
                                     database.close();
@@ -530,6 +559,28 @@
                             flag = false;
                             return;
                         }
+
+                        $.ajax({
+                            type: 'POST',
+                            url: "http://api-dea-dev/api/v1/kanbans",
+                            _token: "{{ csrf_token() }}",
+                            data: {
+                                loading_list_number: ,
+                                items: [{
+                                    part_number_internal: ,
+                                    part_number_customer: ,
+                                    serial_number:
+                                }]
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                notif('success', 'Pulling berhasil!');
+                            },
+                            error: function(xhr) {
+                                notif('eror', xhr.message);
+                            }
+                        });
+
                         cursor.continue();
                     }
                 }
@@ -585,7 +636,7 @@
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
                     // Value1 found, check if Value2 is also in the object
-                    if (Object.values(cursor).includes(internal)) {
+                    if (Object.values(cursor).includes(internal.trimEnd())) {
                         isSameObject = true;
                         break;
                     }
@@ -642,9 +693,19 @@
             {
                 barcodecomplete = barcode;
                 barcode = "";
+                console.log(barcodecomplete);
 
-                if (barcodecomplete.length == 12) {
+                if (barcodecomplete.length == localStorage.getItem('char_total')) {
 
+                    if (localStorage.getItem('char_length') != 0) {
+                        // substring
+                        barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
+                            localStorage.getItem('char_length'))
+                        console.log(barcodecomplete);
+                        barcodecomplete = barcodecomplete.trim();
+                        barcodecomplete = barcodecomplete.replace(/-/g, '');
+                    }
+                    console.log(barcodecomplete);
                     // initiate database
                     request = window.indexedDB.open(pds);
 
@@ -659,7 +720,6 @@
                             const cursor = event.target.result;
                             if (cursor) {
                                 const record = cursor.value;
-
                                 // check if kanban customer exist in loading list record
                                 if (barcodecomplete == record.customer) {
                                     // check quantity in spesific part number
@@ -708,7 +768,7 @@
                         return;
                     }
 
-                    let internal = barcodecomplete.substr(41, 12);
+                    let internal = barcodecomplete.substr(41, 19);
                     let seri = barcodecomplete.substr(123, 4);
 
                     console.log(internal);
