@@ -14,9 +14,12 @@
                             </div>
                             <div class="row mt-1" id="list">
                                 <h6 id="loadingList" style="padding-left: 1rem">Loading List</h6>
-                                <li class="col-12" style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
+                                <small class="text-right badge badge-primary ml-2" style="color:#ffffff; display:inline;"
+                                    id="total-ll">0</small>
+                                <li class="col-12 mt-2"
+                                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                                     id="loadingListContainerSample">
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
                                         <h5 class="text-center " style="padding-top: .8rem; color: white;"
                                             id="loadingList-display"></h5>
                                     </div>
@@ -33,7 +36,7 @@
                                 <div class="col-3" style="padding-right: 0px">
                                     <h6>Cycle</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h6 class="text-center " style="padding-top: .8rem; color: white;"
+                                        <h6 class="text-center " style="padding-top: .9rem; color: white;"
                                             id="cycle-display">Cycle</h6>
                                     </div>
                                 </div>
@@ -47,6 +50,10 @@
                                         <h5 style="color: #ffffff; display:inline; padding-left:4.5rem">
                                             <span id="qty-display">-</span>
                                         </h5>
+                                        <div class="bg-warning"
+                                            style="display:inline-block; margin-left:300px; margin-top:-20px; border-radius:80%; width: 20px; height:20px"
+                                            id="indicator">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -54,17 +61,17 @@
                                 <div class="col-6" style="padding-right: 0px">
                                     <h6>Customer</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
+                                        <h6 class="text-center " style="padding-top: .9rem; color: white;"
                                             id="cust-display">-
-                                        </h5>
+                                        </h6>
                                     </div>
                                 </div>
                                 <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
                                     <h6>Internal</h6>
                                     <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;" id="int-display">
+                                        <h6 class="text-center " style="padding-top: .9rem; color: white;" id="int-display">
                                             -
-                                        </h5>
+                                        </h6>
                                     </div>
                                 </div>
                             </div>
@@ -119,7 +126,6 @@
             </div>
         </div>
     </div>
-
     <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog"
         aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
@@ -164,7 +170,7 @@
         let customer = localStorage.getItem('customer');
         let cycle = localStorage.getItem('cycle');
         let loadingList = getLoadingListNumber();
-        console.log(loadingList);
+        checkLoadingList();
         // iterate local storage
         for (key in loadingList) {
             // remove example display
@@ -175,10 +181,10 @@
                 `<li class="col-12 mt-2"
                     style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                     id="loadingListContainer">
-                        <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
                         id="loadingList">
-                            <h5 class="text-center " style="padding-top: .8rem; color: white;"
-                            id="loadingList-display">${loadingList[key]}</h5>
+                            <h6 class="text-center " style="padding-top: .5rem; color: white;"
+                            id="loadingList-display">${loadingList[key]}</h6>
                         </div>
                     </li>`
             );
@@ -271,6 +277,44 @@
         });
     }
 
+    function checkLoadingList() {
+        let pds = localStorage.getItem('pds_local');
+        let ll = [];
+        // initialize database
+        request = window.indexedDB.open(pds);
+
+        request.onsuccess = function(event) {
+            const database = event.target.result;
+            const transaction = database.transaction(["loadingList"], 'readonly');
+            const objectStore = transaction.objectStore("loadingList");
+
+            objectStore.openCursor().onsuccess = function(event) {
+                let cursor = event.target.result;
+                if (cursor) {
+
+                    // check each loading list
+                    if (!ll.includes(cursor.value.loading_list_number)) {
+                        ll.push(cursor.value.loading_list_number);
+                    }
+
+                    cursor.continue();
+                } else {
+                    $('#total-ll').text(ll.length);
+                }
+            }
+
+            // Close the db when the transaction is done
+            transaction.oncomplete = function() {
+                database.close();
+            };
+
+            objectStore.openCursor().onerror = function(event) {
+                notif('error', event.message);
+                return;
+            }
+        }
+    }
+
     function customerCharStore(customer) {
         $.ajax({
             type: 'GET',
@@ -322,7 +366,6 @@
                     totalTarget += parseInt(record.total_qty);
 
                     cursor.continue();
-                    console.log(totalActual);
                 } else {
                     // display the total and target
                     $('#pullingQty').text(`${totalActual}/${totalTarget}`);
@@ -385,11 +428,9 @@
                     },
                     dataType: 'json',
                     success: function(data) {
-                        console.log(data);
                         if (data.status == 'success') {
                             // objectStor name is based on pds_number
                             let pds = data.data.pds_number;
-                            let pdsLocal = localStorage.setItem('pds_local', pds);
                             let ll = data.data.number;
 
                             // create database indexed db
@@ -406,9 +447,13 @@
                                 if (data.data.pds_number != localStorage.getItem(
                                         'pdsNumber')) {
                                     notif('error', 'Loading list tidak sesuai!');
-                                    return;
+                                    return false;
                                 }
                             }
+                            let pdsLocal = localStorage.setItem('pds_local', pds);
+                            localStorage.setItem('ll_' + data.data.number, data.data
+                                .number);
+                            localStorage.setItem('pdsNumber', data.data.pds_number);
 
                             // remove example display
                             $('#loadingListContainerSample').remove();
@@ -418,21 +463,16 @@
                                 `<li class="col-12 mt-2"
                                     style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                                     id="loadingListContainer">
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
                                         id="loadingList">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
-                                            id="loadingList-display">${data.data.number}</h5>
+                                        <h6 class="text-center " style="padding-top: .5rem; color: white;"
+                                            id="loadingList-display">${data.data.number}</h6>
                                     </div>
                                 </li>`
                             );
 
-                            localStorage.setItem('ll_' + data.data.number, data.data
-                                .number);
-                            localStorage.setItem('pdsNumber', data.data.pds_number);
-
                             // create database schema
                             request.onupgradeneeded = function(event) {
-                                console.log('prcessing');
                                 const database = event.target.result;
                                 const objectStore = database.createObjectStore(
                                     'loadingList');
@@ -501,6 +541,9 @@
                                         notif('error', data.message);
                                     })
 
+                                // loadingList qty
+                                checkLoadingList();
+
                                 // customer check char
                                 customerCharStore(data.data.customer_code);
 
@@ -558,10 +601,11 @@
                     if (cursor) {
                         const record = cursor.value;
                         // check if the loading list is fullfilled by check each array seri
-                        // if (record.seri.length < record.total_qty) {
-                        //     flag = false;
-                        //     return;
-                        // } 
+                        if (record.seri.length < record.total_qty) {
+                            flag = false;
+                            return;
+                        }
+
                         let items = [];
                         for (let i = 0; i < record.seri.length; i++) {
                             let item = {
@@ -573,7 +617,6 @@
                         }
                         formData.append('loading_list_number', record.loading_list_number);
                         formData.append('items', items);
-                        console.log(formData);
 
                         $.ajax({
                             type: 'POST',
@@ -588,7 +631,6 @@
                             data: formData,
                             enctype: 'multipart/form-data',
                             success: function(data) {
-                                console.log(data);
                                 notif('success', 'Pulling berhasil!');
                             },
                             error: function(xhr) {
@@ -604,32 +646,32 @@
                 transaction.oncomplete = function() {
                     if (flag) {
                         // save to database 
-                        // $.ajax({
-                        //     type: 'GET',
-                        //     url: "{{ url('pulling/store/') }}",
-                        //     _token: "{{ csrf_token() }}",
-                        //     data: {
-                        //         customer: localStorage.getItem('customer'),
-                        //         loadingList: loadingList,
-                        //         pdsNumber: localStorage.getItem('pdsNumber'),
-                        //         cycle: localStorage.getItem('cycle'),
-                        //     },
-                        //     dataType: 'json',
-                        //     success: function(data) {
-                        //         console.log(data);
-                        //         localStorage.removeItem("loadingList");
-                        //         localStorage.removeItem("customer");
-                        //         localStorage.removeItem("internal");
-                        //         localStorage.removeItem("cycle");
-                        //         localStorage.removeItem("seri");
-                        //         window.location.reload();
+                        $.ajax({
+                            type: 'GET',
+                            url: "{{ url('pulling/store/') }}",
+                            _token: "{{ csrf_token() }}",
+                            data: {
+                                customer: localStorage.getItem('customer'),
+                                loadingList: loadingList,
+                                pdsNumber: localStorage.getItem('pdsNumber'),
+                                cycle: localStorage.getItem('cycle'),
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                console.log(data);
+                                localStorage.removeItem("loadingList");
+                                localStorage.removeItem("customer");
+                                localStorage.removeItem("internal");
+                                localStorage.removeItem("cycle");
+                                localStorage.removeItem("seri");
+                                window.location.reload();
 
-                        //         notif('success', 'Pulling berhasil!');
-                        //     },
-                        //     error: function(xhr) {
-                        //         notif('eror', xhr.message);
-                        //     }
-                        // });
+                                notif('success', 'Pulling berhasil!');
+                            },
+                            error: function(xhr) {
+                                notif('eror', xhr.message);
+                            }
+                        });
                     } else {
                         notif('error', 'loading list belum lengkap!');
                     }
@@ -660,18 +702,30 @@
 
             // check if kanban internal and customer in the same object
             if (!isSameObject) {
+                // error indicator
+                $('#indicator').removeClass('bg-success');
+                $('#indicator').removeClass('bg-warning');
+                $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
                 return;
             }
 
             // check if serial number kanban exist in spesific part number
             if (arraySeri.includes(seri)) {
+                // error indicator
+                $('#indicator').removeClass('bg-success');
+                $('#indicator').removeClass('bg-warning');
+                $('#indicator').addClass('bg-danger');
                 notif('error', 'Seri kanban sudah discan!');
                 return;
             }
 
             // check actual qty of spesific part number by compare the current length seri and total_qty
             if (arraySeri.length >= totalQty) {
+                // error indicator
+                $('#indicator').removeClass('bg-success');
+                $('#indicator').removeClass('bg-warning');
+                $('#indicator').addClass('bg-danger');
                 notif('error', 'Part number sudah complete!');
                 return;
             }
@@ -688,6 +742,10 @@
                 $('#int-display').text(internal);
                 $('#cust-display').text('-');
 
+                // success indicator
+                $('#indicator').removeClass('bg-warning');
+                $('#indicator').addClass('bg-success');
+
                 // display total quantity
                 pullingQuantity();
 
@@ -696,10 +754,13 @@
             }
             // error handling
             objectStore.put(cursor, primaryKey).onerror = function(event) {
+                // error indicator
+                $('#indicator').removeClass('bg-success');
+                $('#indicator').removeClass('bg-warning');
+                $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
             };
         }
-
         $('#code').keypress(function(e) {
             let pds = localStorage.getItem('pds_local');
             e.preventDefault();
@@ -709,6 +770,7 @@
                 barcodecomplete = barcode;
                 barcode = "";
                 console.log(barcodecomplete);
+                console.log(barcodecomplete.length);
 
                 if (barcodecomplete.length == localStorage.getItem('char_total')) {
 
@@ -776,7 +838,8 @@
                         console.log('Failed to open database');
                     };
 
-                } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230) {
+                } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
+                    barcodecomplete.length == 220) {
                     // check if already scan customer kanban
                     if (!localStorage.getItem('customerPart')) {
                         notif('error', 'Scan kanban customer dulu!');
@@ -785,8 +848,6 @@
 
                     let internal = barcodecomplete.substr(41, 19);
                     let seri = barcodecomplete.substr(123, 4);
-
-                    console.log(internal);
 
                     // initialize databae connection
                     request = window.indexedDB.open(pds);
@@ -819,8 +880,12 @@
                                     }
                                     // error handling
                                     objectStore.get(primaryKey).onerror = function(event) {
+                                        // error indicator
+                                        $('#indicator').removeClass('bg-success');
+                                        $('#indicator').removeClass('bg-warning');
+                                        $('#indicator').addClass('bg-danger');
                                         notif('error',
-                                            'Kanban tidak sesuai: ' + event.target.error
+                                            'Kanban tidak sesuai'
                                         );
                                     }
                                 }
@@ -829,6 +894,10 @@
                                 console.log('iteration complete');
 
                                 if (!isAvailable) {
+                                    // error indicator
+                                    $('#indicator').removeClass('bg-success');
+                                    $('#indicator').removeClass('bg-warning');
+                                    $('#indicator').addClass('bg-danger');
                                     notif('error', 'Kanban tidak ditemukan!')
                                 }
                             }
@@ -839,7 +908,6 @@
                             notif('error', event.target.error);
                         }
                     }
-
                     // error handling
                     request.onerror = function(event) {
                         notif('error', event.target.error);
