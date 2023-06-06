@@ -631,6 +631,8 @@
                             data: formData,
                             enctype: 'multipart/form-data',
                             success: function(data) {
+                                console.log(data);
+                                console.log('test dea');
                                 const deleteRequest = indexedDB.deleteDatabase(pds);
 
                                 deleteRequest.onsuccess = function() {
@@ -666,6 +668,7 @@
                             },
                             dataType: 'json',
                             success: function(data) {
+                                console.log('test db successfully');
                                 console.log(data);
                                 localStorage.clear();
                                 window.location.reload();
