@@ -39,12 +39,12 @@ class PullingController extends Controller
      */
     public function store(Request $request)
     {
+        dd($request->data);
         $customer = $request->customer;
         $loadingList = $request->loadingList;
         $pdsNumber = $request->pdsNumber;
         $cycle = $request->cycle;
 
-        dd($loadingList);
         // get customer id
         $customerId = Customer::select('id')->where('name', $customer)->first();
 
