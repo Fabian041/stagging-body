@@ -752,6 +752,7 @@
                 $('#cust-display').text('-');
 
                 // success indicator
+                $('#indicator').removeClass('bg-danger');
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-success');
 
