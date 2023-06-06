@@ -44,6 +44,7 @@ class PullingController extends Controller
         $pdsNumber = $request->pdsNumber;
         $cycle = $request->cycle;
 
+        dd($loadingList);
         // get customer id
         $customerId = Customer::select('id')->where('name', $customer)->first();
 
@@ -65,6 +66,7 @@ class PullingController extends Controller
             
             return [
                 'status' => 'error',
+                'message' => $th->getMessage(),
             ];
         }
         
