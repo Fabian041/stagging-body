@@ -655,12 +655,38 @@
                 // when transaction complete
                 transaction.oncomplete = function() {
                     if (flag) {
-                        // save to database 
+                        let ll = [];
                         let data = [];
-                        for (let index = 0; index < loadingList.length; index++) {
+
+                        // initialize database
+                        request = window.indexedDB.open(pds);
+
+                        request.onsuccess = function(event) {
+                            const database = event.target.result;
+                            const transaction = database.transaction(["loadingList"],
+                                'readonly');
+                            const objectStore = transaction.objectStore("loadingList");
+
+                            objectStore.openCursor().onsuccess = function(event) {
+                                let cursor = event.target.result;
+                                if (cursor) {
+
+                                    // check each loading list
+                                    if (!ll.includes(cursor.value
+                                            .loading_list_number)) {
+                                        ll.push(cursor.value.loading_list_number);
+                                    }
+
+                                    cursor.continue();
+                                } else {
+                                    console.log('iteration complete');
+                                }
+                            }
+                        }
+                        for (let index = 0; index < ll.length; index++) {
                             item = {
                                 customer: localStorage.getItem('customer'),
-                                loadingList: loadingList[index],
+                                loadingList: ll[index],
                                 pdsNumber: localStorage.getItem('pdsNumber'),
                                 cycle: localStorage.getItem('cycle'),
                             }
