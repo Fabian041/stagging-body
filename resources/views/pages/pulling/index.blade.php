@@ -683,6 +683,9 @@
                                 }
                             }
                         }
+                        console.log(ll)
+                        console.log(ll.length)
+                        console.log(ll[0])
                         for (let index = 0; index < ll.length; index++) {
                             item = {
                                 customer: localStorage.getItem('customer'),
