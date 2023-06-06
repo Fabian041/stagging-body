@@ -1021,6 +1021,8 @@
 
                 } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
                     barcodecomplete.length == 220) {
+                    let internal;
+                    let seri;
                     // check if already scan customer kanban
                     if (!localStorage.getItem('customerPart')) {
                         notif('error', 'Scan kanban customer dulu!');
@@ -1029,8 +1031,18 @@
                         }, 1000);
                         return;
                     }
-                    let internal = barcodecomplete.substr(41, 19);
-                    let seri = barcodecomplete.substr(123, 4);
+
+                    if (barcodecomplete.length == 230) {
+                        // normal kanban proccess
+                        internal = barcodecomplete.substr(41, 19);
+                        eri = barcodecomplete.substr(123, 4);
+                    } else if (barcodecomplete.length == 220) {
+                        // kanban buffer
+                        internal = barcodecomplete.substr(35, 12);
+                        seri = barcodecomplete.substr(130, 4);
+                    }
+
+                    console.log(internal);
 
                     // initialize databae connection
                     request = window.indexedDB.open(pds);
