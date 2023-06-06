@@ -702,7 +702,8 @@
                                                     .loadingList,
                                                 pdsNumber: data[index]
                                                     .pdsNumber,
-                                                cycle: data[index].cycle
+                                                cycle: parseInt(data[index]
+                                                    .cycle)
                                             },
                                             dataType: 'json',
                                             success: function(data) {

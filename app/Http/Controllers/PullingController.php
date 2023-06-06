@@ -55,7 +55,7 @@ class PullingController extends Controller
                 'customer_id' => $customerId->id,
                 'loading_list' => $loadingList,
                 'pds_number' => $pdsNumber,
-                'pulling_data' => Carbon::now()->format('Y-m-d H:i:s'),
+                'pulling_date' => Carbon::now()->format('Y-m-d H:i:s'),
                 'cycler_id' => $cycle
             ]);
 
