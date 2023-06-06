@@ -1035,14 +1035,14 @@
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
-                        eri = barcodecomplete.substr(123, 4);
+                        seri = barcodecomplete.substr(123, 4);
                     } else if (barcodecomplete.length == 220) {
                         // kanban buffer
                         internal = barcodecomplete.substr(35, 12);
                         seri = barcodecomplete.substr(130, 4);
                     }
 
-                    console.log(internal);
+                    console.log(seri);
 
                     // initialize databae connection
                     request = window.indexedDB.open(pds);
@@ -1107,6 +1107,22 @@
                     request.onerror = function(event) {
                         notif('error', event.target.error);
                     }
+                } else if (barcodecomplete == "DONE") {
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "{{ url('/logout') }}";
+
+                    // Add a CSRF token field to the form
+                    var csrfToken = document.createElement('input');
+                    csrfToken.type = 'hidden';
+                    csrfToken.name = '_token';
+                    csrfToken.value = '{{ csrf_token() }}';
+                    form.appendChild(csrfToken);
+
+                    // Append the form to the body and submit it
+                    document.body.appendChild(form);
+                    form.submit();
+
                 } else {
                     notif("error", "Kanban tidak dikenali !");
                     let interval = setInterval(function() {

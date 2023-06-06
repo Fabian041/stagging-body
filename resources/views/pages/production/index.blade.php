@@ -8,7 +8,7 @@
                     <div class="shadow hero bg-white text-dark" style="padding: 3rem; height: 100%;">
                         <div class="hero-inner">
                             <div class="row">
-                                <div class="col-md-12 mt-3">
+                                <div class="col-md-12">
                                     <span style="font-size: 1.5rem;">Welcome, {{ auth()->user()->name }}</span>
                                     <h1 class="text-dark" id="line-display">Line</h1>
                                 </div>
@@ -18,30 +18,32 @@
                                     <h4> Master Sample </h4>
                                 </div>
                                 <div class="col-md-12">
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;"
-                                            id="sample-display">Master Sample</h3>
+                                    <div
+                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px; padding:10px; padding-left:12px">
+                                        <h4 class="text-center " style="padding-top: .02rem; color: white;"
+                                            id="sample-display">Master Sample</h4>
                                     </div>
                                 </div>
                             </div>
                             <div class="row mt-1">
                                 <div class="col-md-12" style="padding: 15px;">
                                     <h4>Qty Scan</h4>
-                                    <div style="height: 4rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h3 class="text-center " style="padding-top: 1rem; color: white;" id="qty-display">0
-                                        </h3>
+                                    <div
+                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px; padding:10px; padding-left:12px">
+                                        <h4 class="text-center " style="padding-top: .02rem; color: white;"
+                                            id="qty-display">0
+                                        </h4>
                                     </div>
                                 </div>
                             </div>
                             <div class="row mt-1">
                                 <div class="col-md-12" style="padding: 15px;">
-                                    <h4>Scan Qr Code</h4>
-                                    <input style="height: 4rem; width: 100%; background-color: white; border-radius: 20px;"
+                                    <input style="height: 3rem; width: 100%; background-color: white; border-radius: 20px;"
                                         height=60 id="code" class="form-control" name="code" required
-                                        autocomplete="off">
+                                        autocomplete="off" readonly>
                                 </div>
                             </div>
-                            <div class="row" style="margin-top: 3rem;">
+                            <div class="row">
                                 <div class="col-md-12" style="padding: 15px;">
                                     <div style="height: 4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
