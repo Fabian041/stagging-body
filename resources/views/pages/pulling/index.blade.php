@@ -656,16 +656,21 @@
                 transaction.oncomplete = function() {
                     if (flag) {
                         // save to database 
+                        let data = [];
+                        for (let index = 0; index < loadingList().length; index++) {
+                            item = {
+                                customer: localStorage.getItem('customer'),
+                                loadingList: loadingList[index],
+                                pdsNumber: localStorage.getItem('pdsNumber'),
+                                cycle: localStorage.getItem('cycle'),
+                            }
+                            data.push(item)
+                        }
                         $.ajax({
                             type: 'GET',
                             url: "{{ url('pulling/store/') }}",
                             _token: "{{ csrf_token() }}",
-                            data: {
-                                customer: localStorage.getItem('customer'),
-                                loadingList: loadingList,
-                                pdsNumber: localStorage.getItem('pdsNumber'),
-                                cycle: localStorage.getItem('cycle'),
-                            },
+                            data: data,
                             dataType: 'json',
                             success: function(data) {
                                 console.log('test db successfully');
