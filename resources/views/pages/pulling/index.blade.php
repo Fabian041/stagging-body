@@ -631,7 +631,15 @@
                             data: formData,
                             enctype: 'multipart/form-data',
                             success: function(data) {
-                                notif('success', 'Pulling berhasil!');
+                                const deleteRequest = indexedDB.deleteDatabase(pds);
+
+                                deleteRequest.onsuccess = function() {
+                                    notif('success', 'Pulling berhasil!');
+                                };
+
+                                deleteRequest.onerror = function(event) {
+                                    notif('error: ', event);
+                                };
                             },
                             error: function(xhr) {
                                 notif('eror', xhr.message);
@@ -659,11 +667,7 @@
                             dataType: 'json',
                             success: function(data) {
                                 console.log(data);
-                                localStorage.removeItem("loadingList");
-                                localStorage.removeItem("customer");
-                                localStorage.removeItem("internal");
-                                localStorage.removeItem("cycle");
-                                localStorage.removeItem("seri");
+                                localStorage.clear();
                                 window.location.reload();
 
                                 notif('success', 'Pulling berhasil!');
