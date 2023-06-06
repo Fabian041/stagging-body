@@ -690,9 +690,6 @@
                                         }
                                         data.push(item)
                                     }
-                                    console.log(data.length);
-                                    console.log(data);
-                                    console.log(data[0]);
                                     $.ajax({
                                         type: 'GET',
                                         url: "{{ url('pulling/store/') }}",
