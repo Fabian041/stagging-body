@@ -76,22 +76,22 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-12" style="padding: 15px;">
+                                <div class="col-md-12" style="padding: 15px; padding-right: 0px">
                                     <input
                                         style="height: 2.4rem; width: 100%; background-color: white; border-radius: 20px;"
                                         height=60 id="code" class="form-control" name="code" required
-                                        autocomplete="off">
+                                        autocomplete="off" readonly>
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-5" style="padding: 15px; padding-top:0">
+                                <div class="col-5" style="padding: 15px; padding-top:0; padding-right: 0px">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-outline-warning"
                                             style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.2rem;"
                                             id="delay">Delay</button>
                                     </div>
                                 </div>
-                                <div class="col-7" style="padding: 15px; padding-top:0">
+                                <div class="col-7" style="padding: 15px; padding-top:0; padding-right: 0px">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
                                             style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.2rem;"
@@ -461,14 +461,14 @@
                             // loading list display
                             $('#list').append(
                                 `<li class="col-12 mt-2"
-                                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
-                                    id="loadingListContainer">
-                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
-                                        id="loadingList">
-                                        <h6 class="text-center " style="padding-top: .5rem; color: white;"
-                                            id="loadingList-display">${data.data.number}</h6>
-                                    </div>
-                                </li>`
+                                        style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
+                                        id="loadingListContainer">
+                                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                                            id="loadingList">
+                                            <h6 class="text-center " style="padding-top: .5rem; color: white;"
+                                                id="loadingList-display">${data.data.number}</h6>
+                                        </div>
+                                    </li>`
                             );
 
                             // create database schema
@@ -707,6 +707,9 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
                 return;
             }
 
@@ -717,6 +720,9 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Seri kanban sudah discan!');
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
                 return;
             }
 
@@ -727,6 +733,9 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Part number sudah complete!');
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
                 return;
             }
 
@@ -759,8 +768,12 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
             };
         }
+
         $('#code').keypress(function(e) {
             let pds = localStorage.getItem('pds_local');
             e.preventDefault();
@@ -770,10 +783,166 @@
                 barcodecomplete = barcode;
                 barcode = "";
                 console.log(barcodecomplete);
-                console.log(barcodecomplete.length);
+                console.log(barcodecomplete.charAt(0));
 
-                if (barcodecomplete.length == localStorage.getItem('char_total')) {
+                if (barcodecomplete.charAt(0) == 'C') {
+                    let loadingList = getLoadingListNumber();
+                    $.ajax({
+                        type: 'GET',
+                        url: 'http://api-dea-dev/api/v1/loading-lists/' + barcodecomplete,
+                        _token: "{{ csrf_token() }}",
+                        headers: {
+                            "Authorization": "Bearer " + token
+                        },
+                        dataType: 'json',
+                        success: function(data) {
+                            if (data.status == 'success') {
+                                // objectStor name is based on pds_number
+                                let pds = data.data.pds_number;
+                                let ll = data.data.number;
 
+                                // create database indexed db
+                                request = window.indexedDB.open(pds);
+
+                                // check if loading list already exists
+                                if (loadingList.includes(data.data.number)) {
+                                    notif('error', 'Loading list sudah discan!');
+                                    return;
+                                }
+
+                                // check if loading list have same manifest code (pds number)
+                                if (localStorage.getItem('pdsNumber')) {
+                                    if (data.data.pds_number != localStorage.getItem(
+                                            'pdsNumber')) {
+                                        notif('error', 'Loading list tidak sesuai!');
+                                        return false;
+                                    }
+                                }
+                                let pdsLocal = localStorage.setItem('pds_local', pds);
+                                localStorage.setItem('ll_' + data.data.number, data.data
+                                    .number);
+                                localStorage.setItem('pdsNumber', data.data.pds_number);
+
+                                // remove example display
+                                $('#loadingListContainerSample').remove();
+
+                                // loading list display
+                                $('#list').append(
+                                    `<li class="col-12 mt-2"
+                                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
+                                    id="loadingListContainer">
+                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                                        id="loadingList">
+                                        <h6 class="text-center " style="padding-top: .5rem; color: white;"
+                                            id="loadingList-display">${data.data.number}</h6>
+                                    </div>
+                                </li>`
+                                );
+
+                                // create database schema
+                                request.onupgradeneeded = function(event) {
+                                    const database = event.target.result;
+                                    const objectStore = database.createObjectStore(
+                                        'loadingList');
+                                    var index = objectStore.createIndex(
+                                        'loadingListDetail',
+                                        'seri');
+                                }
+
+                                // transaction
+                                request.onsuccess = function(event) {
+                                    const database = event.target.result;
+                                    const transaction = database.transaction([
+                                            'loadingList'
+                                        ],
+                                        'readwrite');
+                                    const objectStore = transaction.objectStore(
+                                        'loadingList');
+                                    var index = objectStore.index('loadingListDetail');
+
+                                    data.data.items.map((item, index) => {
+                                        const key = item.part_number_cust;
+
+                                        const getRequest = objectStore.get(key);
+
+                                        getRequest.onsuccess = function(event) {
+                                            const existingData = event
+                                                .target
+                                                .result;
+
+                                            if (!existingData) {
+                                                objectStore.put({
+                                                    key: key,
+                                                    loading_list_number: ll,
+                                                    internal: item
+                                                        .part_number_int,
+                                                    customer: item
+                                                        .part_number_cust,
+                                                    actual_qty: item
+                                                        .actual_kanban_qty,
+                                                    total_qty: item
+                                                        .total_kanban_qty,
+                                                    seri: []
+                                                }, key);
+                                            }
+                                        };
+
+                                        getRequest.onerror = function(event) {
+                                            notif(event.data.error);
+                                        };
+                                    });
+
+                                    // check customer if exist 
+                                    customerCheck(data.data.customer_code)
+                                        .then(function() {
+                                            // cycle display
+                                            $('#cycle-display').text(data.data
+                                                .cycle);
+                                            localStorage.setItem('cycle', data
+                                                .data.cycle);
+
+                                            // calculate total quantity of the orders
+                                            pullingQuantity();
+
+                                            // scan kanban
+                                            $('#code').focus();
+
+                                        })
+                                        .catch(function(err) {
+                                            notif('error', data.message);
+                                        })
+
+                                    // loadingList qty
+                                    checkLoadingList();
+
+                                    // customer check char
+                                    customerCharStore(data.data.customer_code);
+
+                                    // Close the db when the transaction is done
+                                    transaction.oncomplete = function() {
+                                        database.close();
+                                    };
+                                    $('#code').focus();
+                                }
+                                // create handler
+                                request.onerror = function(event) {
+                                    console.log("error: " + event.message);
+                                }
+                            } else {
+                                notif('error', data.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            console.log(xhr)
+                            if (xhr.status == 0) {
+                                notif("error", 'Connection Error');
+                                loadingListModal();
+                                return;
+                            }
+                            notif("error", xhr.responseJSON.errors);
+                        }
+                    });
+                } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
@@ -802,14 +971,24 @@
                                     // check quantity in spesific part number
                                     if (record.seri.length >= record.total_qty) {
                                         notif('error', 'Part number sudah complete!');
+                                        $('#indicator').removeClass('bg-success');
+                                        $('#indicator').removeClass('bg-warning');
+                                        $('#indicator').addClass('bg-danger');
+                                        setInterval(() => {
+                                            $('#code').focus();
+                                        }, 1000);
                                         return;
                                     }
                                     // set flag
                                     isAvailable = true;
-
                                     // display customer
                                     $('#cust-display').text(record.customer);
                                     $('#int-display').text('-');
+
+                                    // set indicator
+                                    $('#indicator').removeClass('bg-success');
+                                    $('#indicator').removeClass('bg-danger');
+                                    $('#indicator').addClass('bg-warning');
 
                                     // display current qty
                                     $('#qty-display').text(`
@@ -821,10 +1000,12 @@
                                 cursor.continue();
                             } else {
                                 console.log('iteration complete');
-
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
-                                    notif('error', 'Kanban tidak sesuai!')
+                                    notif('error', 'Kanban tidak sesuai!');
+                                    setInterval(() => {
+                                        $('#code').focus();
+                                    }, 1000);
                                 }
                             }
                         }
@@ -843,9 +1024,11 @@
                     // check if already scan customer kanban
                     if (!localStorage.getItem('customerPart')) {
                         notif('error', 'Scan kanban customer dulu!');
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
                         return;
                     }
-
                     let internal = barcodecomplete.substr(41, 19);
                     let seri = barcodecomplete.substr(123, 4);
 
