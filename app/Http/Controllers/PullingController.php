@@ -39,7 +39,7 @@ class PullingController extends Controller
      */
     public function store(Request $request)
     {
-        dd($request);
+        dd($request->data);
         $customer = $request->customer;
         $loadingList = $request->loadingList;
         $pdsNumber = $request->pdsNumber;

@@ -692,7 +692,7 @@
                                     }
                                     $.ajax({
                                         type: 'GET',
-                                        url: "{{ url('pulling/store/') }}",
+                                        url: "{{ url('pulling/store') }}",
                                         _token: "{{ csrf_token() }}",
                                         data: data,
                                         dataType: 'json',
