@@ -691,26 +691,36 @@
                                         data.push(item)
                                     }
                                     console.log(data);
-                                    $.ajax({
-                                        type: 'GET',
-                                        url: "{{ url('pulling/store') }}",
-                                        _token: "{{ csrf_token() }}",
-                                        data: data,
-                                        dataType: 'json',
-                                        success: function(data) {
-                                            console.log(
-                                                'test db successfully');
-                                            console.log(data);
-                                            localStorage.clear();
-                                            // window.location.reload();
+                                    for (let index = 0; index < data.length; index++) {
+                                        $.ajax({
+                                            type: 'GET',
+                                            url: "{{ url('pulling/store') }}",
+                                            _token: "{{ csrf_token() }}",
+                                            data: {
+                                                customer: data[index].customer,
+                                                loadingList: data[index]
+                                                    .loadingList,
+                                                pdsNumber: data[index]
+                                                    .pdsNumber,
+                                                cycle: data[index].cycle
+                                            },
+                                            dataType: 'json',
+                                            success: function(data) {
+                                                console.log(
+                                                    'test db successfully'
+                                                );
+                                                console.log(data);
+                                                localStorage.clear();
+                                                // window.location.reload();
 
-                                            notif('success',
-                                                'Pulling berhasil!');
-                                        },
-                                        error: function(xhr) {
-                                            notif('eror', xhr.message);
-                                        }
-                                    });
+                                                notif('success',
+                                                    'Pulling berhasil!');
+                                            },
+                                            error: function(xhr) {
+                                                notif('eror', xhr.message);
+                                            }
+                                        });
+                                    }
                                 }
                             }
                         }
