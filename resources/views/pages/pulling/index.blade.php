@@ -656,29 +656,29 @@
                 transaction.oncomplete = function() {
                     if (flag) {
                         // save to database 
-                        // $.ajax({
-                        //     type: 'GET',
-                        //     url: "{{ url('pulling/store/') }}",
-                        //     _token: "{{ csrf_token() }}",
-                        //     data: {
-                        //         customer: localStorage.getItem('customer'),
-                        //         loadingList: loadingList,
-                        //         pdsNumber: localStorage.getItem('pdsNumber'),
-                        //         cycle: localStorage.getItem('cycle'),
-                        //     },
-                        //     dataType: 'json',
-                        //     success: function(data) {
-                        //         console.log('test db successfully');
-                        //         console.log(data);
-                        //         localStorage.clear();
-                        //         window.location.reload();
+                        $.ajax({
+                            type: 'GET',
+                            url: "{{ url('pulling/store/') }}",
+                            _token: "{{ csrf_token() }}",
+                            data: {
+                                customer: localStorage.getItem('customer'),
+                                loadingList: loadingList,
+                                pdsNumber: localStorage.getItem('pdsNumber'),
+                                cycle: localStorage.getItem('cycle'),
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                console.log('test db successfully');
+                                console.log(data);
+                                localStorage.clear();
+                                // window.location.reload();
 
-                        //         notif('success', 'Pulling berhasil!');
-                        //     },
-                        //     error: function(xhr) {
-                        //         notif('eror', xhr.message);
-                        //     }
-                        // });
+                                notif('success', 'Pulling berhasil!');
+                            },
+                            error: function(xhr) {
+                                notif('eror', xhr.message);
+                            }
+                        });
                     } else {
                         notif('error', 'loading list belum lengkap!');
                     }
