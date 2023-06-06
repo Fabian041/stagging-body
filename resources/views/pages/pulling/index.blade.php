@@ -690,30 +690,32 @@
                                         }
                                         data.push(item)
                                     }
+                                    console.log(data.length);
+                                    console.log(data);
+                                    console.log(data[0]);
+                                    $.ajax({
+                                        type: 'GET',
+                                        url: "{{ url('pulling/store/') }}",
+                                        _token: "{{ csrf_token() }}",
+                                        data: data,
+                                        dataType: 'json',
+                                        success: function(data) {
+                                            console.log(
+                                                'test db successfully');
+                                            console.log(data);
+                                            localStorage.clear();
+                                            // window.location.reload();
+
+                                            notif('success',
+                                                'Pulling berhasil!');
+                                        },
+                                        error: function(xhr) {
+                                            notif('eror', xhr.message);
+                                        }
+                                    });
                                 }
                             }
                         }
-                        console.log(data.length);
-                        console.log(data);
-                        console.log(data[0]);
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ url('pulling/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: data,
-                            dataType: 'json',
-                            success: function(data) {
-                                console.log('test db successfully');
-                                console.log(data);
-                                localStorage.clear();
-                                // window.location.reload();
-
-                                notif('success', 'Pulling berhasil!');
-                            },
-                            error: function(xhr) {
-                                notif('eror', xhr.message);
-                            }
-                        });
                     } else {
                         notif('error', 'loading list belum lengkap!');
                     }
