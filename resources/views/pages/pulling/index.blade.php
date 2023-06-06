@@ -679,25 +679,23 @@
 
                                     cursor.continue();
                                 } else {
-                                    console.log(ll)
-                                    console.log(ll.length)
-                                    console.log(ll[0])
+                                    for (let index = 0; index < ll.length; index++) {
+                                        item = {
+                                            customer: localStorage.getItem(
+                                                'customer'),
+                                            loadingList: ll[index],
+                                            pdsNumber: localStorage.getItem(
+                                                'pdsNumber'),
+                                            cycle: localStorage.getItem('cycle'),
+                                        }
+                                        data.push(item)
+                                    }
                                 }
                             }
                         }
-
-                        for (let index = 0; index < ll.length; index++) {
-                            item = {
-                                customer: localStorage.getItem('customer'),
-                                loadingList: ll[index],
-                                pdsNumber: localStorage.getItem('pdsNumber'),
-                                cycle: localStorage.getItem('cycle'),
-                            }
-                            data.push(item)
-                        }
-                        console.log(loadingList.length);
-                        console.log(loadingList);
-                        console.log(loadingList[0]);
+                        console.log(data.length);
+                        console.log(data);
+                        console.log(data[0]);
                         $.ajax({
                             type: 'GET',
                             url: "{{ url('pulling/store/') }}",
