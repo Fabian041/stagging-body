@@ -657,7 +657,7 @@
                     if (flag) {
                         // save to database 
                         let data = [];
-                        for (let index = 0; index < loadingList().length; index++) {
+                        for (let index = 0; index < loadingList.length; index++) {
                             item = {
                                 customer: localStorage.getItem('customer'),
                                 loadingList: loadingList[index],
