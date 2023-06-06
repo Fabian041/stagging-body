@@ -56,7 +56,7 @@ class PullingController extends Controller
                 'loading_list' => $loadingList,
                 'pds_number' => $pdsNumber,
                 'pulling_date' => Carbon::now()->format('Y-m-d H:i:s'),
-                'cycler_id' => (int) $cycle
+                'cycler' => (int) $cycle
             ]);
 
             DB::commit();
