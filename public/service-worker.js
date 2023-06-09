@@ -41,6 +41,20 @@ self.addEventListener('install', function(event) {
   );
 });
 
+// Define the manifest object
+const manifest = {
+  name: 'Bella',
+  short_name: 'Bella',
+  start_url: '/',
+  icons: [
+    {
+      src: '/icons/logo.png',
+      sizes: '128x128',
+      type: 'image/png'
+    }
+  ],
+};
+
 // Fetch event
 self.addEventListener('fetch', function(event) {
   if (event.request.url.endsWith('manifest.json')) {
