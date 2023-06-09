@@ -43,10 +43,18 @@ self.addEventListener('install', function(event) {
 
 // Fetch event
 self.addEventListener('fetch', function(event) {
-  event.respondWith(
-    caches.match(event.request)
-      .then(function(response) {
-        return response || fetch(event.request);
+  if (event.request.url.endsWith('manifest.json')) {
+    event.respondWith(
+      new Response(JSON.stringify(manifest), {
+        headers: { 'Content-Type': 'application/json' }
       })
-  );
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request)
+        .then(function(response) {
+          return response || fetch(event.request);
+        })
+    );
+  }
 });
