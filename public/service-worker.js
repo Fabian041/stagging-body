@@ -46,6 +46,7 @@ const manifest = {
   name: 'Bella',
   short_name: 'Bella',
   start_url: '/',
+  display: 'standalone',
   icons: [
     {
       src: '/icons/logo.png',
