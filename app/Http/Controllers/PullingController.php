@@ -172,8 +172,8 @@ class PullingController extends Controller
 
                 if(array_key_exists($loadingList, $loadingLists) && array_key_exists($item, $loadingLists[$loadingList])){
                     $result [] = [
-                        'part_number_internal' => $val['part_number_internal'],
-                        'part_number_customer' => $val['part_number_customer'],
+                        'part_number_int' => $val['part_number_internal'],
+                        'part_number_cust' => $val['part_number_customer'],
                         'serial_number' => $val['serial_number']
                     ];
                 }
