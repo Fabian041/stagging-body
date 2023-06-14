@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Models\Part;
 use App\Models\Pulling;
 use App\Models\Customer;
+use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -154,5 +155,38 @@ class PullingController extends Controller
             'status' => 'success',
             'customer' => $check->part_number
         ];
+    }
+
+    public function post(Request $request)
+    {
+        $loadingLists = $request->loadingList;
+        $token = $request->token;
+        
+        // loop the loading list & restructure the array
+        foreach($loadingLists as $loadingList => $items){
+            foreach($items as $item => $val){
+                $data = [
+                    'loading_list' => $loadingList,
+                    'items' => [
+                        'part_number_internal' => $val['part_number_internal'],
+                        'part_number_customer' => $val['part_number_customer'],
+                        'serial_number' => $val['serial_number']
+                    ]
+                ];
+            }
+        }
+
+        // initialize new client
+        $client = new Client();
+        
+        // post data
+        $response = $client->post('http://api-dea-dev/api/v1/kanbans',[
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+            'Authorization' => 'Bearer ' . $token,
+            'body' => json_encode($data),
+        ]);
+
+        return ['status' => $response];
     }
 }

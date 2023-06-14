@@ -53,6 +53,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pulling/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
     Route::get('/pulling/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
     Route::get('/pulling/store', [PullingController::class, 'store'])->name('pulling.store');
+    Route::get('/pulling/post', [PullingController::class, 'post'])->name('pulling.post');
 
     // get manifest
     Route::get('/manifest/{pdsNumber}', [ManifestController::class, 'show'])->name('manifest.show');
