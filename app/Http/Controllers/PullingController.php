@@ -161,31 +161,38 @@ class PullingController extends Controller
     {
         $loadingLists = $request->loadingList;
         $token = $request->token;
+        $data = [];
+        $result = [];
         
         // loop the loading list & restructure the array
         foreach($loadingLists as $loadingList => $items){
+            array_push($data, (object) ['loading_list_number' => $loadingList]);
+            // check if items belongs to loading list based on index of the array
             foreach($items as $item => $val){
-                $data = [
-                    'loading_list' => $loadingList,
-                    'items' => [
+
+                if(array_key_exists($loadingList, $loadingLists) && array_key_exists($item, $loadingLists[$loadingList])){
+                    $result [] = [
                         'part_number_internal' => $val['part_number_internal'],
                         'part_number_customer' => $val['part_number_customer'],
                         'serial_number' => $val['serial_number']
-                    ]
-                ];
+                    ];
+                }
             }
+            $data[count($data) - 1]->items = (object) $result;
+            $result = [];
         }
-
         // initialize new client
         $client = new Client();
         
         // post data
-        $response = $client->post('http://api-dea-dev/api/v1/kanbans',[
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-            'Authorization' => 'Bearer ' . $token,
-            'body' => json_encode($data),
-        ]);
+        for($i = 0; $i<count($data); $i++){
+            $response = $client->post('http://api-dea-dev/api/v1/kanbans',[
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+                'Authorization' => 'Bearer ' . $token,
+                'body' => $data[$i],
+            ]);
+        }
 
         return ['status' => $response];
     }
