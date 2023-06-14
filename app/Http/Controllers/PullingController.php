@@ -187,10 +187,12 @@ class PullingController extends Controller
         // post data
         for($i = 0; $i<count($data); $i++){
             $response = $client->post('http://api-dea-dev/api/v1/kanbans',[
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-                'Authorization' => 'Bearer ' . $token,
-                'body' => $data[$i],
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'Authorization' => 'Bearer ' . $token,
+                ],
+                'json' => $data[$i],
             ]);
         }
 
