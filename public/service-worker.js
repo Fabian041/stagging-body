@@ -13,6 +13,7 @@ self.addEventListener('install', function(event) {
         '/dist/assets/sounds/scan-customer-first.mp3',
         '/dist/assets/sounds/already-scan-ll.mp3',
         '/dist/assets/sounds/already-scan.mp3',
+        '/dist/assets/sounds/already-pulled.mp3',
         '/dist/assets/sounds/fullfilled.mp3',
         '/dist/assets/sounds/notMatch-ll.mp3',
         '/dist/assets/sounds/notMatch.mp3',

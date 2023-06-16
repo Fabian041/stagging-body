@@ -181,6 +181,10 @@
         <source src={{ asset('assets/sounds/finish-pulling.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+    <audio id="already-pulled-sound">
+        <source src={{ asset('assets/sounds/already-pulled.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
@@ -214,6 +218,11 @@
 
     function alreadyScanSound() {
         var sound = document.getElementById("already-scan-sound");
+        sound.play();
+    }
+
+    function alreadyPulledSound() {
+        var sound = document.getElementById("already-pulled-sound");
         sound.play();
     }
 
@@ -566,6 +575,7 @@
                                     'Loading list sudah pernah dipulling'
                                 );
                                 loadingListModal();
+                                alreadyPulledSound();
                                 return;
                             }
 
