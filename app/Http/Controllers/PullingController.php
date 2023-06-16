@@ -169,7 +169,6 @@ class PullingController extends Controller
             array_push($data, (object) ['loading_list_number' => $loadingList]);
             // check if items belongs to loading list based on index of the array
             foreach($items as $item => $val){
-
                 if(array_key_exists($loadingList, $loadingLists) && array_key_exists($item, $loadingLists[$loadingList])){
                     $result [] = [
                         'part_number_int' => $val['part_number_internal'],

@@ -19,7 +19,7 @@
                                 <li class="col-12 mt-2"
                                     style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                                     id="loadingListContainerSample">
-                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
+                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
                                         <h5 class="text-center " style="padding-top: .8rem; color: white;"
                                             id="loadingList-display"></h5>
                                     </div>
@@ -27,31 +27,33 @@
                             </div>
                             <div class="row mt-2">
                                 <div class="col-9" style="padding-left: 1rem; padding-right: 0px">
-                                    <h6>Customer</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h6 class="text-center " style="padding-top: .9rem; color: white;"
+                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                        <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
+                                            Customer</h6>
+                                        <h6 class="text-center " style="padding-top: 0rem; color: white;"
                                             id="customer-display">Customer</h6>
                                     </div>
                                 </div>
-                                <div class="col-3" style="padding-right: 0px">
-                                    <h6>Cycle</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h6 class="text-center " style="padding-top: .9rem; color: white;"
+                                <div class="col-3" style="padding-left: .5rem; padding-right: 0px">
+                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                        <h6 class="p-2" style="color: #ffffff;font-size:12px; font-weight:lighter">Cycle
+                                        </h6>
+                                        <h6 class="text-center " style="padding-top: 0rem; color: white;"
                                             id="cycle-display">Cycle</h6>
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mt-3">
+                            <div class="row mt-2">
                                 <div class="col-12" style="padding-right: 0px">
                                     <div
-                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px; padding:10.5px; padding-left:12px">
+                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
                                         <small class="badge badge-dark"
-                                            style="color:#ffffff; display:inline;">Quantity</small>
+                                            style="color:#ffffff; display:inline; border-radius:4px !important;">Quantity</small>
                                         <h5 style="color: #ffffff; display:inline; padding-left:4.5rem">
                                             <span id="qty-display">-</span>
                                         </h5>
                                         <div class="bg-warning"
-                                            style="display:inline-block; margin-left:300px; margin-top:-20px; border-radius:80%; width: 20px; height:20px"
+                                            style="display:inline-block; margin-left:260px; margin-top:-25px; border-radius:10%; width: 60px; height:30px"
                                             id="indicator">
                                         </div>
                                     </div>
@@ -59,17 +61,19 @@
                             </div>
                             <div class="row mt-2">
                                 <div class="col-6" style="padding-right: 0px">
-                                    <h6>Customer</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h6 class="text-center " style="padding-top: .9rem; color: white;"
-                                            id="cust-display">-
+                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                        <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
+                                            Kanban Customer</h6>
+                                        <h6 class="text-center " style="padding-top: 0rem; color: white;" id="cust-display">
+                                            -
                                         </h6>
                                     </div>
                                 </div>
-                                <div class="col-6" style="padding-left: 1rem; padding-right: 0px">
-                                    <h6>Internal</h6>
-                                    <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px;">
-                                        <h6 class="text-center " style="padding-top: .9rem; color: white;" id="int-display">
+                                <div class="col-6" style="padding-left: .5rem; padding-right: 0px">
+                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                        <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
+                                            Kanban Internal</h6>
+                                        <h6 class="text-center " style="padding-top: 0rem; color: white;" id="int-display">
                                             -
                                         </h6>
                                     </div>
@@ -77,8 +81,7 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-12" style="padding: 15px; padding-right: 0px">
-                                    <input
-                                        style="height: 2.4rem; width: 100%; background-color: white; border-radius: 20px;"
+                                    <input style="height: 2.4rem; width: 100%; background-color: white; border-radius: 4px;"
                                         height=60 id="code" class="form-control" name="code" required
                                         autocomplete="off" readonly>
                                 </div>
@@ -86,22 +89,23 @@
                             <div class="row">
                                 <div class="col-5" style="padding: 15px; padding-top:0; padding-right: 0px">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
-                                        <button type="button" class="btn btn-xl btn-outline-warning"
-                                            style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.2rem;"
+                                        <button type="button" class="btn btn-xl btn-outline-danger"
+                                            style="border-radius: .2rem; height: 3rem; width: 100%; font-size: 1.2rem;"
                                             id="delay">Delay</button>
                                     </div>
                                 </div>
                                 <div class="col-7" style="padding: 15px; padding-top:0; padding-right: 0px">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
-                                            style="border-radius: 3rem; height: 3rem; width: 100%; font-size: 1.2rem;"
+                                            style="border-radius: .2rem; height: 3rem; width: 100%; font-size: 1.2rem; box-shadow: rgba(0, 0, 0, 0.45) 0px 25px 20px -20px;"
                                             id="done">Selesai</button>
                                     </div>
                                 </div>
                             </div>
                             <div class="row text-center mt-2">
                                 <div class="col">
-                                    <span class="badge badge-pill" id="pullingStatusContainer">
+                                    <span class="badge badge-pill" id="pullingStatusContainer"
+                                        style="border-radius: .2rem;">
                                         <span id="pullingQty" style="color: #ffffff"></span> <span id="pullingStatus"
                                             style="color: #ffffff"></span>
                                     </span>
@@ -113,7 +117,8 @@
             </div>
         </section>
     </div>
-    <div class="modal fade" id="modalLoadingListScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
+    <div class="modal fade" id="modalLoadingListScan" aria-hidden="true" aria-labelledby="modalToggleLabel2"
+        tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -136,6 +141,46 @@
             </div>
         </div>
     </div>
+    <audio id="not-match-sound">
+        <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="not-match-ll-sound">
+        <source src={{ asset('assets/sounds/notMatch-ll.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="unknown-sound">
+        <source src={{ asset('assets/sounds/unknown.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="unknown-ll-sound">
+        <source src={{ asset('assets/sounds/unknown-ll.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="already-scan-sound">
+        <source src={{ asset('assets/sounds/already-scan.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="already-scan-ll-sound">
+        <source src={{ asset('assets/sounds/already-scan-ll.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="uncomplete-ll-sound">
+        <source src={{ asset('assets/sounds/uncomplete-ll.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="fullfilled-sound">
+        <source src={{ asset('assets/sounds/fullfilled.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="scan-customer-first-sound">
+        <source src={{ asset('assets/sounds/scan-customer-first.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="finish-pulling-sound">
+        <source src={{ asset('assets/sounds/finish-pulling.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
@@ -145,6 +190,57 @@
     let partNumber;
     let loadingListItem = [];
     let loadinglistDetail = [];
+
+
+    function notMatchSound() {
+        var sound = document.getElementById("not-match-sound");
+        sound.play();
+    }
+
+    function notMatchLlSound() {
+        var sound = document.getElementById("not-match-ll-sound");
+        sound.play();
+    }
+
+    function unknownSound() {
+        var sound = document.getElementById("unknown-sound");
+        sound.play();
+    }
+
+    function unknownLlSound() {
+        var sound = document.getElementById("unknown-ll-sound");
+        sound.play();
+    }
+
+    function alreadyScanSound() {
+        var sound = document.getElementById("already-scan-sound");
+        sound.play();
+    }
+
+    function alreadyScanLlSound() {
+        var sound = document.getElementById("already-scan-ll-sound");
+        sound.play();
+    }
+
+    function uncompleteLlSound() {
+        var sound = document.getElementById("uncomplete-ll-sound");
+        sound.play();
+    }
+
+    function fullfilledSound() {
+        var sound = document.getElementById("fullfilled-sound");
+        sound.play();
+    }
+
+    function scanCustomerFirstSound() {
+        var sound = document.getElementById("scan-customer-first-sound");
+        sound.play();
+    }
+
+    function finishPullingSound() {
+        var sound = document.getElementById("finish-pulling-sound");
+        sound.play();
+    }
 
     // sextract the loading list number from the key
     function extractLoadingListNumber(key) {
@@ -181,7 +277,7 @@
                 `<li class="col-12 mt-2"
                     style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                     id="loadingListContainer">
-                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
                         id="loadingList">
                             <h6 class="text-center " style="padding-top: .5rem; color: white;"
                             id="loadingList-display">${loadingList[key]}</h6>
@@ -341,6 +437,25 @@
         });
     }
 
+    function errorStore(code, message) {
+        $.ajax({
+            type: 'GET',
+            url: "{{ route('error.pulling') }}",
+            _token: "{{ csrf_token() }}",
+            data: {
+                code: code,
+                message: message,
+            },
+            dataType: 'json',
+            success: function(data) {
+                console.log("Error recorded");
+            },
+            error: function(xhr) {
+                console.log(xhr);
+            }
+        });
+    }
+
     function pullingQuantity() {
         let pds = localStorage.getItem('pds_local');
         // initialize database
@@ -364,6 +479,7 @@
 
                     // get total target
                     totalTarget += parseInt(record.total_qty);
+
 
                     cursor.continue();
                 } else {
@@ -439,6 +555,17 @@
                             // check if loading list already exists
                             if (loadingList.includes(data.data.number)) {
                                 notif('error', 'Loading list sudah discan!');
+                                alreadyScanLlSound();
+                                return;
+                            }
+
+                            // check if already pulled
+                            if (!data.data.items[0].hasOwnProperty(
+                                    'total_kanban_qty')) {
+                                notif('error',
+                                    'Loading list sudah pernah dipulling'
+                                );
+                                loadingListModal();
                                 return;
                             }
 
@@ -447,9 +574,14 @@
                                 if (data.data.pds_number != localStorage.getItem(
                                         'pdsNumber')) {
                                     notif('error', 'Loading list tidak sesuai!');
+
+                                    // unknown ll sound
+                                    notMatchLlSound();
+
                                     return false;
                                 }
                             }
+
                             let pdsLocal = localStorage.setItem('pds_local', pds);
                             localStorage.setItem('ll_' + data.data.number, data.data
                                 .number);
@@ -463,7 +595,7 @@
                                 `<li class="col-12 mt-2"
                                         style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                                         id="loadingListContainer">
-                                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
                                             id="loadingList">
                                             <h6 class="text-center " style="padding-top: .5rem; color: white;"
                                                 id="loadingList-display">${data.data.number}</h6>
@@ -492,6 +624,7 @@
                                 var index = objectStore.index('loadingListDetail');
 
                                 data.data.items.map((item, index) => {
+
                                     const key = item.part_number_cust;
 
                                     const getRequest = objectStore.get(key);
@@ -606,7 +739,7 @@
                             flag = false;
                             return;
                         }
-                        
+
                         let items = [];
                         for (let i = 0; i < record.seri.length; i++) {
                             let item = {
@@ -639,7 +772,7 @@
                             url: "{{ route('pulling.post') }}",
                             _token: "{{ csrf_token() }}",
                             data: {
-                                loadingList : loadingList,
+                                loadingList: loadingList,
                                 token: token
                             },
                             dataType: 'json',
@@ -649,6 +782,7 @@
 
                                 deleteRequest.onsuccess = function() {
                                     notif('success', 'Pulling berhasil!');
+                                    finishPullingSound();
                                 };
 
                                 deleteRequest.onerror = function(event) {
@@ -695,7 +829,6 @@
                                         }
                                         data.push(item)
                                     }
-                                    console.log(data);
                                     for (let index = 0; index < data.length; index++) {
                                         $.ajax({
                                             type: 'GET',
@@ -711,15 +844,9 @@
                                             },
                                             dataType: 'json',
                                             success: function(data) {
-                                                console.log(
-                                                    'test db successfully'
-                                                );
                                                 console.log(data);
                                                 // localStorage.clear();
                                                 // window.location.reload();
-
-                                                notif('success',
-                                                    'Pulling berhasil!');
                                             },
                                             error: function(xhr) {
                                                 notif('eror', xhr.message);
@@ -731,6 +858,10 @@
                         }
                     } else {
                         notif('error', 'loading list belum lengkap!');
+                        uncompleteLlSound();
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
                     }
                 }
             }
@@ -764,6 +895,10 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
+
+                // notification sound
+                notMatchSound();
+
                 setInterval(() => {
                     $('#code').focus();
                 }, 1000);
@@ -776,6 +911,7 @@
                 $('#indicator').removeClass('bg-success');
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
+                alreadyScanSound();
                 notif('error', 'Seri kanban sudah discan!');
                 setInterval(() => {
                     $('#code').focus();
@@ -790,6 +926,7 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Part number sudah complete!');
+                fullfilledSound();
                 setInterval(() => {
                     $('#code').focus();
                 }, 1000);
@@ -826,6 +963,10 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
+
+                // notification sound
+                notMatchSound();
+
                 setInterval(() => {
                     $('#code').focus();
                 }, 1000);
@@ -864,6 +1005,7 @@
                                     // check quantity in spesific part number
                                     if (record.seri.length >= record.total_qty) {
                                         notif('error', 'Part number sudah complete!');
+                                        fullfilledSound();
                                         $('#indicator').removeClass('bg-success');
                                         $('#indicator').removeClass('bg-warning');
                                         $('#indicator').addClass('bg-danger');
@@ -896,6 +1038,10 @@
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
                                     notif('error', 'Kanban tidak sesuai!');
+
+                                    // notification sound
+                                    notMatchSound();
+
                                     setInterval(() => {
                                         $('#code').focus();
                                     }, 1000);
@@ -935,6 +1081,10 @@
                                 // check if loading list already exists
                                 if (loadingList.includes(data.data.number)) {
                                     notif('error', 'Loading list sudah discan!');
+                                    alreadyScanLlSound();
+                                    setInterval(() => {
+                                        $('#code').focus();
+                                    }, 1000);
                                     return;
                                 }
 
@@ -943,6 +1093,10 @@
                                     if (data.data.pds_number != localStorage.getItem(
                                             'pdsNumber')) {
                                         notif('error', 'Loading list tidak sesuai!');
+
+                                        // unknown ll sound
+                                        notMatchLlSound();
+
                                         return false;
                                     }
                                 }
@@ -959,7 +1113,7 @@
                                     `<li class="col-12 mt-2"
                                     style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                                     id="loadingListContainer">
-                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 20px;"
+                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
                                         id="loadingList">
                                         <h6 class="text-center " style="padding-top: .5rem; color: white;"
                                             id="loadingList-display">${data.data.number}</h6>
@@ -1099,6 +1253,7 @@
                                     // check quantity in spesific part number
                                     if (record.seri.length >= record.total_qty) {
                                         notif('error', 'Part number sudah complete!');
+                                        fullfilledSound();
                                         $('#indicator').removeClass('bg-success');
                                         $('#indicator').removeClass('bg-warning');
                                         $('#indicator').addClass('bg-danger');
@@ -1131,6 +1286,11 @@
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
                                     notif('error', 'Kanban tidak sesuai!');
+
+                                    // notification sound
+                                    notMatchSound();
+
+
                                     setInterval(() => {
                                         $('#code').focus();
                                     }, 1000);
@@ -1154,6 +1314,7 @@
                     // check if already scan customer kanban
                     if (!localStorage.getItem('customerPart')) {
                         notif('error', 'Scan kanban customer dulu!');
+                        scanCustomerFirstSound();
                         setInterval(() => {
                             $('#code').focus();
                         }, 1000);
@@ -1208,7 +1369,11 @@
                                         $('#indicator').removeClass('bg-success');
                                         $('#indicator').removeClass('bg-warning');
                                         $('#indicator').addClass('bg-danger');
-                                        notif('error','Kanban tidak sesuai');
+                                        notif('error', 'Kanban tidak sesuai');
+
+                                        // notification sound
+                                        notMatchSound();
+
                                     }
                                 }
                                 cursor.continue();
@@ -1220,7 +1385,8 @@
                                     $('#indicator').removeClass('bg-success');
                                     $('#indicator').removeClass('bg-warning');
                                     $('#indicator').addClass('bg-danger');
-                                    notif('error', 'Kanban tidak ditemukan!')
+                                    notif('error', 'Kanban tidak ditemukan!');
+                                    unknownSound();
                                 }
                             }
                         }
@@ -1252,6 +1418,10 @@
 
                 } else {
                     notif("error", "Kanban tidak dikenali !");
+
+                    // notification sound
+                    unknownSound();
+
                     let interval = setInterval(function() {
                         $('#notifModal').modal('hide');
                         clearInterval(interval);

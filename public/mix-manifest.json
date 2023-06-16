@@ -5233,5 +5233,16 @@
     "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.svg": "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.svg?id=ed0943f224d6a39871066f569a18fa60",
     "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.ttf": "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.ttf?id=d2178707abd40a0ea31d07bd092127cc",
     "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.woff": "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.woff?id=b2810d32c1db1e577b92108983951ef7",
-    "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.woff2": "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.woff2?id=5eaa668ba74747a121e3295022571dbc"
+    "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.woff2": "/dist/assets/modules/weather-icon/font/weathericons-regular-webfont.woff2?id=5eaa668ba74747a121e3295022571dbc",
+    "/dist/assets/sounds/already-scan-ll.mp3": "/dist/assets/sounds/already-scan-ll.mp3?id=3916fb3bd81eda449be269eeec939a78",
+    "/dist/assets/sounds/already-scan.mp3": "/dist/assets/sounds/already-scan.mp3?id=a7f1cbd5cc8a39986e3359c120405ad9",
+    "/dist/assets/sounds/finish-pulling.mp3": "/dist/assets/sounds/finish-pulling.mp3?id=0564e8bffcf9c1b51562842d20ba1472",
+    "/dist/assets/sounds/fullfilled.mp3": "/dist/assets/sounds/fullfilled.mp3?id=197a6f02ed6406d8382e819d98cf0761",
+    "/dist/assets/sounds/notMatch-ll.mp3": "/dist/assets/sounds/notMatch-ll.mp3?id=f65659522a18b93b8efd6e0d32ca2667",
+    "/dist/assets/sounds/notMatch.mp3": "/dist/assets/sounds/notMatch.mp3?id=840ca5c207126a38b2d32f5de00aca39",
+    "/dist/assets/sounds/scan-customer-first.mp3": "/dist/assets/sounds/scan-customer-first.mp3?id=f6389ff5b18b449b2d98451e17aa3e0c",
+    "/dist/assets/sounds/uncomplete-ll.mp3": "/dist/assets/sounds/uncomplete-ll.mp3?id=93329d00fc89e003ad6be4e7bc9af24a",
+    "/dist/assets/sounds/unknown-ll.mp3": "/dist/assets/sounds/unknown-ll.mp3?id=dfc508e0359d4243a22389f8258dda6f",
+    "/dist/assets/sounds/unknown.mp3": "/dist/assets/sounds/unknown.mp3?id=79a77971b3839513785ab924e74d5d5d",
+    "/dist/assets/sounds/unkown-ll.mp3": "/dist/assets/sounds/unkown-ll.mp3?id=dfc508e0359d4243a22389f8258dda6f"
 }

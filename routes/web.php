@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\PullingController;
+use App\Http\Controllers\ErrorLogController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
@@ -58,4 +59,9 @@ Route::middleware(['auth'])->group(function () {
     // get manifest
     Route::get('/manifest/{pdsNumber}', [ManifestController::class, 'show'])->name('manifest.show');
 
+    // error log
+    Route::prefix('error')->group(function(){
+        Route::get('/pulling/store', [ErrorLogController::class, 'pulling'])->name('error.pulling');
+        Route::get('/production/store', [ErrorLogController::class, 'production'])->name('error.production');
+    });
 });

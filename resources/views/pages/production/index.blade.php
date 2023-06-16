@@ -19,7 +19,7 @@
                                 </div>
                                 <div class="col-md-12">
                                     <div
-                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px; padding:10px; padding-left:12px">
+                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10px; padding-left:12px">
                                         <h4 class="text-center " style="padding-top: .02rem; color: white;"
                                             id="sample-display">Master Sample</h4>
                                     </div>
@@ -29,7 +29,7 @@
                                 <div class="col-md-12" style="padding: 15px;">
                                     <h4>Qty Scan</h4>
                                     <div
-                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 20px; padding:10px; padding-left:12px">
+                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10px; padding-left:12px">
                                         <h4 class="text-center " style="padding-top: .02rem; color: white;"
                                             id="qty-display">0
                                         </h4>
@@ -38,7 +38,7 @@
                             </div>
                             <div class="row mt-1">
                                 <div class="col-md-12" style="padding: 15px;">
-                                    <input style="height: 3rem; width: 100%; background-color: white; border-radius: 20px;"
+                                    <input style="height: 3rem; width: 100%; background-color: white; border-radius: 4px;"
                                         height=60 id="code" class="form-control" name="code" required
                                         autocomplete="off" readonly>
                                 </div>
@@ -47,7 +47,7 @@
                                 <div class="col-md-12" style="padding: 15px;">
                                     <div style="height: 4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-success"
-                                            style="border-radius: 3rem; height: 4rem; width: 100%; font-size: 1.5rem;"
+                                            style="border-radius: .2rem; height: 4rem; width: 100%; font-size: 1.5rem;"
                                             id="done">Selesai</button>
                                     </div>
                                 </div>
