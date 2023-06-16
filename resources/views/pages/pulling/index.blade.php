@@ -778,7 +778,7 @@
                             dataType: 'json',
                             success: function(data) {
                                 console.log(data);
-                                // const deleteRequest = indexedDB.deleteDatabase(pds);
+                                const deleteRequest = indexedDB.deleteDatabase(pds);
 
                                 deleteRequest.onsuccess = function() {
                                     notif('success', 'Pulling berhasil!');
@@ -845,8 +845,8 @@
                                             dataType: 'json',
                                             success: function(data) {
                                                 console.log(data);
-                                                // localStorage.clear();
-                                                // window.location.reload();
+                                                localStorage.clear();
+                                                window.location.reload();
                                             },
                                             error: function(xhr) {
                                                 notif('eror', xhr.message);
