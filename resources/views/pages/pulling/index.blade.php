@@ -992,7 +992,7 @@
                 barcodecomplete = barcode;
                 barcode = "";
                 console.log(barcodecomplete);
-                console.log(barcodecomplete.charAt(0));
+                console.log(barcodecomplete.length);
 
                 // check for MMKI
                 if (localStorage.getItem('customer') == 'MMKI') {
@@ -1318,7 +1318,7 @@
                     };
 
                 } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
-                    barcodecomplete.length == 220 || barcodecomplete.length == 212) {
+                    barcodecomplete.length == 220 || barcodecomplete.length == 241) {
                     let internal;
                     let seri;
                     // check if already scan customer kanban
@@ -1339,10 +1339,10 @@
                         // kanban buffer
                         internal = barcodecomplete.substr(35, 12);
                         seri = barcodecomplete.substr(130, 4);
-                    } else if (barcodecomplete.length == 212) {
+                    } else if (barcodecomplete.length == 241) {
                         // kanban passtrough
-                        internal = barcodecomplete.substr(30, 12);
-                        seri = barcodecomplete.substr(87, 4);
+                        internal = barcodecomplete.substr(35, 12);
+                        seri = barcodecomplete.substr(127, 4);
                     }
 
                     console.log(seri);
