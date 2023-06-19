@@ -1318,7 +1318,7 @@
                     };
 
                 } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
-                    barcodecomplete.length == 220) {
+                    barcodecomplete.length == 220 || barcodecomplete.length == 212) {
                     let internal;
                     let seri;
                     // check if already scan customer kanban
@@ -1339,6 +1339,10 @@
                         // kanban buffer
                         internal = barcodecomplete.substr(35, 12);
                         seri = barcodecomplete.substr(130, 4);
+                    } else if (barcodecomplete.length == 212) {
+                        // kanban passtrough
+                        internal = barcodecomplete.substr(30, 12);
+                        seri = barcodecomplete.substr(87, 4);
                     }
 
                     console.log(seri);
