@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\InternalPart;
+use Carbon\Carbon;
 use App\Models\Line;
 
 use App\Models\Part;
 use App\Models\Mutation;
-use Carbon\Carbon;
+use App\Models\CustomerPart;
+use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -44,8 +45,12 @@ class ProductionController extends Controller
         $partNumber = $request->partNumber;
 
         // double check to master sample
-        $part = InternalPart::where('part_number', $partNumber)->first();
-        if(!$part){
+        $internalPart = InternalPart::where('part_number', $partNumber)->first();
+
+        // get customer internalPart based on internal internalPart id
+        $customerPart = CustomerPart::select('qty_per_kanban')->where('internalPart_id', $internalPart->id)->first();
+        
+        if(!$internalPart){
             return [
                 'status' => 'error',
                 'message' => 'Part Tidak Sesuai Dengan Sample!'
@@ -56,8 +61,8 @@ class ProductionController extends Controller
             DB::beginTransaction();
             // insert into mutation table
             Mutation::create([
-                'part_id' => $part->id,
-                'qty' => $part->qty_per_box,
+                'part_id' => $internalPart->id,
+                'qty' => $customerPart->qty_per_box,
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);

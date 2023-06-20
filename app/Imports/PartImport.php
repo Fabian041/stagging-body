@@ -31,7 +31,7 @@ class PartImport implements ToCollection, WithHeadingRow, WithStartRow
                 $partNumberCustomer = $row['part_no_customer'];
                 $backNumberInternal = $row['aiia_back_no'];
                 $backNumberCustomer = $row['cust_back_no'];
-                $qtyPerKanban = $row['kbn_qty'];
+                $qtyPerKanban = $row['qty_per_kbn'];
                 $lineId = $row['line_id'];
                 $customerId = $row['customer_id'];
 
