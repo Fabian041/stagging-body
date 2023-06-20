@@ -12,10 +12,10 @@
                     </div>
                     <div class="col mt-3 text-right">
                         <div class="col-md-12">
-                            {{-- <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#partModal">Upload
-                                Part</button> --}}
-                            <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#manifestModal">Upload
-                                Manifest</button>
+                            <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#partModal">Upload
+                                Part</button>
+                            {{-- <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#manifestModal">Upload
+                                Manifest</button> --}}
                         </div>
                     </div>
                 </div>
