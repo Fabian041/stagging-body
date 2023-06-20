@@ -16,8 +16,7 @@ return new class extends Migration
         Schema::create('error_logs', function (Blueprint $table) {
             $table->id();
             $table->string('area')->nullable();
-            $table->string('code')->nullable();
-            $table->string('message')->nullable();
+            $table->timestamp('date');
             $table->timestamps();
         });
     }

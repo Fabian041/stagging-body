@@ -11,37 +11,14 @@ class ErrorLogController extends Controller
 {
     public function pulling(Request $request)
     {
-        $code = $request->code;
-        $message = $request->message;
+        // get user dept
+        $dept = auth()->user()->role;
 
         try {
             DB::beginTransaction();
 
             ErrorLog::create([
-                'area' => 'pulling',
-                'code' => $code,
-                'message' => $message,
-                'date' => Carbon::now()->format('Y-m-d H:i:s')
-            ]);
-
-            DB::commit();
-        } catch (\Throwable $th) {
-            DB::rollBack();
-        }
-    }
-    
-    public function production(Request $request)
-    {
-        $code = $request->code;
-        $message = $request->message;
-
-        try {
-            DB::beginTransaction();
-
-            ErrorLog::create([
-                'area' => 'pulling',
-                'code' => $code,
-                'message' => $message,
+                'area' => $dept,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
 

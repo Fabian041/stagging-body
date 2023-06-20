@@ -61,7 +61,6 @@ Route::middleware(['auth'])->group(function () {
 
     // error log
     Route::prefix('error')->group(function(){
-        Route::get('/pulling/store', [ErrorLogController::class, 'pulling'])->name('error.pulling');
-        Route::get('/production/store', [ErrorLogController::class, 'production'])->name('error.production');
+        Route::get('/store', [ErrorLogController::class, 'error'])->name('error.store');
     });
 });

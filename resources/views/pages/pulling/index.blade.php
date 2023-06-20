@@ -446,15 +446,11 @@
         });
     }
 
-    function errorStore(code, message) {
+    function errorStore() {
         $.ajax({
             type: 'GET',
-            url: "{{ route('error.pulling') }}",
+            url: "{{ route('error.store') }}",
             _token: "{{ csrf_token() }}",
-            data: {
-                code: code,
-                message: message,
-            },
             dataType: 'json',
             success: function(data) {
                 console.log("Error recorded");
@@ -905,6 +901,9 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Kanban tidak sesuai!');
+
+                // error log
+                errorStore();
 
                 // notification sound
                 notMatchSound();
