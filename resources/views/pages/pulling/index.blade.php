@@ -1238,10 +1238,16 @@
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
                             localStorage.getItem('char_length'))
-                        console.log(barcodecomplete);
                         barcodecomplete = barcodecomplete.trim();
                         barcodecomplete = barcodecomplete.replace(/-/g, '');
+
+                        console.log(barcodecomplete);
+
+                        // if (localStorage.getItem('char_length') == 17) {
+                        //     let getLast =
+                        // }
                     }
+
                     console.log(barcodecomplete);
                     // initiate database
                     request = window.indexedDB.open(pds);
