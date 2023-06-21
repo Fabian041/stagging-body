@@ -326,61 +326,62 @@
                         initApp();
                         $('#code').focus();
                     }
-                }
-
-                let partNumber = barcodecomplete.substr(41, 19);
-                partNumber = partNumber.trimEnd();
-                console.log(partNumber);
-
-                if (partNumber == localStorage.getItem('sample')) {
-
-                    //insert to mutation 
-                    $.ajax({
-                        type: 'get',
-                        url: "{{ url('production/store/') }}",
-                        _token: "{{ csrf_token() }}",
-                        data: {
-                            partNumber: partNumber
-                        },
-                        dataType: 'json',
-                        success: function(data) {
-                            console.log(data);
-                            if (data.status == 'success') {
-                                notif("success", data.message);
-                                let interval = setInterval(function() {
-                                    $('#notifModal').modal('hide');
-                                    clearInterval(interval);
-                                    $('#code').focus();
-                                    total = total + 1;
-                                    console.log(total);
-                                    $('#qty-display').text(total);
-
-                                }, 1500);
-                            } else {
-                                notif("error", data.message);
-                                let interval = setInterval(function() {
-                                    $('#notifModal').modal('hide');
-                                    clearInterval(interval);
-                                    $('#code').focus();
-                                }, 1500);
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status == 0) {
-                                notif("error", 'Connection Error');
-                                return;
-                            }
-                            notif("error", 'Internal Server Error');
-                        }
-                    });
-
                 } else {
-                    notif("error", "Part Tidak Sesuai Dengan Sample !");
-                    let interval = setInterval(function() {
-                        $('#notifModal').modal('hide');
-                        clearInterval(interval);
-                        $('#code').focus();
-                    }, 1500);
+
+                    let partNumber = barcodecomplete.substr(41, 19);
+                    partNumber = partNumber.trimEnd();
+                    console.log(partNumber);
+
+                    if (partNumber == localStorage.getItem('sample')) {
+
+                        //insert to mutation 
+                        $.ajax({
+                            type: 'get',
+                            url: "{{ url('production/store/') }}",
+                            _token: "{{ csrf_token() }}",
+                            data: {
+                                partNumber: partNumber
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                console.log(data);
+                                if (data.status == 'success') {
+                                    notif("success", data.message);
+                                    let interval = setInterval(function() {
+                                        $('#notifModal').modal('hide');
+                                        clearInterval(interval);
+                                        $('#code').focus();
+                                        total = total + 1;
+                                        console.log(total);
+                                        $('#qty-display').text(total);
+
+                                    }, 1500);
+                                } else {
+                                    notif("error", data.message);
+                                    let interval = setInterval(function() {
+                                        $('#notifModal').modal('hide');
+                                        clearInterval(interval);
+                                        $('#code').focus();
+                                    }, 1500);
+                                }
+                            },
+                            error: function(xhr) {
+                                if (xhr.status == 0) {
+                                    notif("error", 'Connection Error');
+                                    return;
+                                }
+                                notif("error", 'Internal Server Error');
+                            }
+                        });
+
+                    } else {
+                        notif("error", "Part Tidak Sesuai Dengan Sample !");
+                        let interval = setInterval(function() {
+                            $('#notifModal').modal('hide');
+                            clearInterval(interval);
+                            $('#code').focus();
+                        }, 1500);
+                    }
                 }
             } else {
                 barcode = barcode + String.fromCharCode(e.which);
