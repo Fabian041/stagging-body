@@ -62,7 +62,7 @@ class ProductionController extends Controller
             // insert into mutation table
             Mutation::create([
                 'internal_part_id' => $internalPart->id,
-                'qty' => $customerPart->qty_per_box,
+                'qty' => $customerPart->qty_per_kanban,
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
