@@ -286,6 +286,9 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                console.log(barcodecomplete);
+                console.log(barcodecomplete.length);
+
                 if (barcodecomplete.length <= 19) {
                     let line = localStorage.getItem('line');
                     let code = (e.keyCode ? e.keyCode : e.which);
