@@ -1243,9 +1243,12 @@
 
                         console.log(barcodecomplete);
 
-                        // if (localStorage.getItem('char_length') == 17) {
-                        //     let getLast =
-                        // }
+                        if (localStorage.getItem('char_length') == 17) {
+                            if (barcodecomplete.substr(10, 3) == '000') {
+                                // delete 3 lastest characters
+                                barcodecomplete = barcodecomplete.slice(0, -3);
+                            }
+                        }
                     }
 
                     console.log(barcodecomplete);
