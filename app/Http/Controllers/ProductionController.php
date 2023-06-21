@@ -48,7 +48,7 @@ class ProductionController extends Controller
         $internalPart = InternalPart::where('part_number', $partNumber)->first();
 
         // get customer internalPart based on internal internalPart id
-        $customerPart = CustomerPart::select('qty_per_kanban')->where('internalPart_id', $internalPart->id)->first();
+        $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
         
         if(!$internalPart){
             return [
