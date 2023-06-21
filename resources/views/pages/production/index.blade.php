@@ -182,6 +182,9 @@
 
     $(document).ready(function() {
         initApp();
+        $(document).on('click', function() {
+            initApp();
+        });
         $('#input-line').keypress(function(e) {
             let line = localStorage.getItem('line');
             let code = (e.keyCode ? e.keyCode : e.which);
