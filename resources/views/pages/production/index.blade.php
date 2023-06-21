@@ -295,7 +295,7 @@
                         $.ajax({
                             type: 'get',
                             url: "{{ url('production/sample-check') }}" + '/' + line + '/' +
-                                $(this).val(),
+                                barcodecomplete,
                             _token: "{{ csrf_token() }}",
                             dataType: 'json',
                             success: function(data) {
