@@ -286,7 +286,7 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                let partNumber = barcodecomplete.substr(41, 19);
+                let partNumber = barcodecomplete.substr(41, 16);
                 console.log(partNumber);
 
                 if (partNumber == localStorage.getItem('sample')) {
