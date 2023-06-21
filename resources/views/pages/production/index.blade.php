@@ -286,6 +286,45 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                if (barcodecomplete.length <= 19) {
+                    let line = localStorage.getItem('line');
+                    let code = (e.keyCode ? e.keyCode : e.which);
+                    if (code == 13) {
+
+                        //Check sample 
+                        $.ajax({
+                            type: 'get',
+                            url: "{{ url('production/sample-check/') }}" + '/' + line + '/' +
+                                $(this).val(),
+                            _token: "{{ csrf_token() }}",
+                            dataType: 'json',
+                            success: function(data) {
+                                console.log(data);
+                                if (data.status == 'success') {
+                                    localStorage.setItem('sample', data.sample);
+                                    initApp();
+                                } else {
+                                    notif('error', data.message);
+                                    sampleModal();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.log(xhr);
+                                if (xhr.status == 0) {
+                                    notif("error", 'Connection Error');
+                                    sampleModal();
+                                    return;
+                                }
+                                notif("error", 'Internal Server Error');
+                                sampleModal();
+                            }
+                        });
+
+                        initApp();
+                        $('#code').focus();
+                    }
+                }
+
                 let partNumber = barcodecomplete.substr(41, 19);
                 partNumber = partNumber.trimEnd();
                 console.log(partNumber);
