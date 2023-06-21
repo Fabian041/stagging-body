@@ -294,7 +294,7 @@
                         //Check sample 
                         $.ajax({
                             type: 'get',
-                            url: "{{ url('production/sample-check/') }}" + '/' + line + '/' +
+                            url: "{{ url('production/sample-check') }}" + '/' + line + '/' +
                                 $(this).val(),
                             _token: "{{ csrf_token() }}",
                             dataType: 'json',
