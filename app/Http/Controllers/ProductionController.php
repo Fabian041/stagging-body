@@ -43,6 +43,7 @@ class ProductionController extends Controller
     public function store(Request $request)
     {
         $partNumber = $request->partNumber;
+        $seri = $request->seri;
 
         // double check to master sample
         $internalPart = InternalPart::where('part_number', $partNumber)->first();
@@ -62,6 +63,7 @@ class ProductionController extends Controller
             // insert into mutation table
             Mutation::create([
                 'internal_part_id' => $internalPart->id,
+                'kanban_seri' => $seri,
                 'qty' => $customerPart->qty_per_kanban,
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')

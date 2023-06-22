@@ -1241,8 +1241,7 @@
                         barcodecomplete = barcodecomplete.trim();
                         barcodecomplete = barcodecomplete.replace(/-/g, '');
 
-                        console.log(barcodecomplete);
-
+                        // for suzuki case
                         if (localStorage.getItem('char_length') == 17) {
                             if (barcodecomplete.substr(10, 3) == '000') {
                                 // delete 3 lastest characters
@@ -1303,10 +1302,10 @@
                                 console.log('iteration complete');
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
-                                    notif('error', 'Kanban tidak sesuai!');
+                                    notif('error', 'Kanban tidak dikenali / sesuai!');
 
                                     // notification sound
-                                    notMatchSound();
+                                    unknownSound();
 
 
                                     setInterval(() => {

@@ -329,6 +329,7 @@
                 } else {
 
                     let partNumber = barcodecomplete.substr(41, 19);
+                    let seri = barcodecomplete.substr(123, 4);
                     partNumber = partNumber.trimEnd();
                     console.log(partNumber);
 
@@ -340,7 +341,8 @@
                             url: "{{ url('production/store/') }}",
                             _token: "{{ csrf_token() }}",
                             data: {
-                                partNumber: partNumber
+                                partNumber: partNumber,
+                                seri: seri
                             },
                             dataType: 'json',
                             success: function(data) {
