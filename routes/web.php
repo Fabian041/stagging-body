@@ -63,4 +63,6 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('error')->group(function(){
         Route::get('/store', [ErrorLogController::class, 'error'])->name('error.store');
     });
+
+    Route::get('/test', [ProductionController::class, 'test'])->name('test');
 });

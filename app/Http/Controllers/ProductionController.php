@@ -3,14 +3,21 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
-use App\Models\Line;
+use Monolog\Logger;
 
+use App\Models\Line;
 use App\Models\Part;
 use App\Models\Mutation;
+use PhpMqtt\ClientBuilder;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
+use PhpMqtt\Client\MqttClient;
 use Illuminate\Support\Facades\DB;
+use Monolog\Handler\StreamHandler;
+use Illuminate\Support\Facades\View;
+use PhpMqtt\Client\ConnectionSettings;
+
 
 class ProductionController extends Controller
 {
@@ -34,6 +41,69 @@ class ProductionController extends Controller
         //
     }
 
+    public function mqttConnect($topic, $message)
+    {
+        $server   = 'broker.emqx.io';
+        $port     = 1883;
+        $clientId = '1234';
+        $username = 'fabian';
+        $password = '1234';
+        $clean_session = false;
+        $mqtt_version = MqttClient::MQTT_3_1_1;
+
+        $connectionSettings = (new ConnectionSettings())
+            ->setUsername($username)
+            ->setPassword($password)
+            ->setKeepAliveInterval(60)
+            ->setLastWillTopic('test')
+            ->setLastWillMessage('client disconnect')
+            ->setLastWillQualityOfService(1);
+
+        $mqtt = new MqttClient($server, $port, $clientId, $mqtt_version);
+
+        try {
+            $mqtt->connect($connectionSettings, $clean_session);
+            printf("Client connected\n");
+
+            $mqtt->publish(
+                // topic
+                $topic,
+                // payload
+                json_encode($message),
+                // qos
+                0,
+                // retain
+                false
+            );
+            sleep(1);
+        } catch (\Exception $e) {
+            // Handle the exception appropriately
+            echo "Exception: " . $e->getMessage() . "\n";
+        } finally {
+            $mqtt->disconnect();
+        }
+    }
+
+    public function test()
+    {
+        $data[] = [
+            'line' => "AS526",
+            'items' => [
+                [
+                    'back_number' => 'MP22',
+                    'qty' => 129
+                ],
+                [
+                    'back_number' => 'KP46',
+                    'qty' => 80
+                ]
+            ],
+            
+        ];
+        
+        $this->mqttConnect('prod/quantity' , $data);
+    }
+
     /**
      * Store a newly created resource in storage.
      *
@@ -47,6 +117,9 @@ class ProductionController extends Controller
 
         // double check to master sample
         $internalPart = InternalPart::where('part_number', $partNumber)->first();
+
+        // get line of internal part based on internal part id
+        $line = Line::select('name')->where('id', $internalPart->line_id)->first();
 
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
@@ -68,6 +141,14 @@ class ProductionController extends Controller
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
+
+            $data[] = [
+                'line' => $line->name,
+                'back_number' => $internalPart->back_number,
+                'qty' => $customerPart->qty_per_kanban
+            ];
+
+            $this->mqttConnect('prod/qty' , $data);
 
             DB::commit();
         } catch (\Throwable $th) {

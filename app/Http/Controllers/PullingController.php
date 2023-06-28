@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Models\Part;
+use GuzzleHttp\Client;
 use App\Models\Pulling;
 use App\Models\Customer;
-use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -166,7 +166,7 @@ class PullingController extends Controller
         
         // loop the loading list & restructure the array
         foreach($loadingLists as $loadingList => $items){
-            array_push($data, (object) ['loading_list_number' => $loadingList]);
+            array_push($data, (object) ['loading_list_number' => $loadingList]);    
             // check if items belongs to loading list based on index of the array
             foreach($items as $item => $val){
                 if(array_key_exists($loadingList, $loadingLists) && array_key_exists($item, $loadingLists[$loadingList])){
