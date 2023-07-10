@@ -15,7 +15,7 @@
                 <div class="card shadow" style="border-radius:8px">
                     <div class="row">
                         <div class="col">
-                            <div class="card p-3">
+                            <div class="card p-3text-center">
                                 <h1>Belum ada part yang terdaftar</h1>
                             </div>
                         </div>
