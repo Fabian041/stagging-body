@@ -11,11 +11,11 @@
     </div>
     <div class="row mt-4">
         @empty($lines)
-            <div class="col-6">
+            <div class="col-12">
                 <div class="card shadow" style="border-radius:8px">
                     <div class="row">
                         <div class="col">
-                            <div class="card">
+                            <div class="card p-3">
                                 <h1>Belum ada part yang terdaftar</h1>
                             </div>
                         </div>
