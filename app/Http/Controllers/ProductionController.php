@@ -63,7 +63,6 @@ class ProductionController extends Controller
 
         try {
             $mqtt->connect($connectionSettings, $clean_session);
-            printf("Client connected\n");
 
             $mqtt->publish(
                 // topic
@@ -82,26 +81,6 @@ class ProductionController extends Controller
         } finally {
             $mqtt->disconnect();
         }
-    }
-
-    public function test()
-    {
-        $data[] = [
-            'line' => "AS526",
-            'items' => [
-                [
-                    'back_number' => 'MP22',
-                    'qty' => 129
-                ],
-                [
-                    'back_number' => 'KP46',
-                    'qty' => 80
-                ]
-            ],
-            
-        ];
-        
-        $this->mqttConnect('prod/quantity' , $data);
     }
 
     /**
@@ -136,29 +115,66 @@ class ProductionController extends Controller
             // insert into mutation table
             Mutation::create([
                 'internal_part_id' => $internalPart->id,
-                'kanban_seri' => $seri,
+                'serial_number' => $seri,
+                'type' => 'supply',
                 'qty' => $customerPart->qty_per_kanban,
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
 
-            $data[] = [
-                'line' => $line->name,
-                'back_number' => $internalPart->back_number,
-                'qty' => $customerPart->qty_per_kanban
-            ];
+        $result = [];
+        
+        // get all current qty of all internal parts 
+        $data = DB::table('internal_parts')
+                ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+                ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+                ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
+                ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+                ->get();
 
-            $this->mqttConnect('prod/qty' , $data);
+                foreach ($data as $value) {
+                    $lineFound = false;
+                    // Check if line already exists in $lines array
+                    foreach ($result as $line) {
+                        if ($line->line === $value->name) {
+                            $lineFound = true;
+                            $line->items[] = [
+                                'id' => $value->id,
+                                'part_number' => $value->part_number,
+                                'back_number' => $value->back_number,
+                                'qty' => $value->current_stock,
+                            ];
+                            break;
+                        }
+                    }
+                    // If line doesn't exist, create a new object and add it to $result array
+                    if (!$lineFound) {
+                        $lineObject = (object) [
+                            'line' => $value->name,
+                            'items' => [
+                                [
+                                    'id' => $value->id,
+                                    'part_number' => $value->part_number,
+                                    'back_number' => $value->back_number,
+                                    'qty' => $value->current_stock,
+                                ],
+                            ],
+                        ];
+                        $result[] = $lineObject;
+                    }
+                }  
+
+            $this->mqttConnect('prod/quantity' , $data);
 
             DB::commit();
+
+            return [
+                'status' => 'success',
+                'message' => 'Part Sesuai Dengan Sample'
+            ];
         } catch (\Throwable $th) {
             DB::rollBack();
         }
-
-        return [
-            'status' => 'success',
-            'message' => 'Part Sesuai Dengan Sample'
-        ];
     }
 
     /**

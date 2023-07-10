@@ -7,11 +7,56 @@ use App\Models\Part;
 use GuzzleHttp\Client;
 use App\Models\Pulling;
 use App\Models\Customer;
+use App\Models\Mutation;
+use App\Models\InternalPart;
 use Illuminate\Http\Request;
+use PhpMqtt\Client\MqttClient;
 use Illuminate\Support\Facades\DB;
+use PhpMqtt\Client\ConnectionSettings;
 
 class PullingController extends Controller
 {
+    public function mqttConnect($topic, $message)
+    {
+        $server   = 'broker.emqx.io';
+        $port     = 1883;
+        $clientId = '1234';
+        $username = 'fabian';
+        $password = '1234';
+        $clean_session = false;
+        $mqtt_version = MqttClient::MQTT_3_1_1;
+
+        $connectionSettings = (new ConnectionSettings())
+            ->setUsername($username)
+            ->setPassword($password)
+            ->setKeepAliveInterval(60)
+            ->setLastWillTopic('test')
+            ->setLastWillMessage('client disconnect')
+            ->setLastWillQualityOfService(1);
+
+        $mqtt = new MqttClient($server, $port, $clientId, $mqtt_version);
+
+        try {
+            $mqtt->connect($connectionSettings, $clean_session);
+            
+            $mqtt->publish(
+                // topic
+                $topic,
+                // payload
+                json_encode($message),
+                // qos
+                0,
+                // retain
+                false
+            );
+            sleep(1);
+        } catch (\Exception $e) {
+            // Handle the exception appropriately
+            echo "Exception: " . $e->getMessage() . "\n";
+        } finally {
+            $mqtt->disconnect();
+        }
+    }
     /**
      * Display a listing of the resource.
      *
@@ -69,10 +114,6 @@ class PullingController extends Controller
                 'message' => $th->getMessage(),
             ];
         }
-        
-        return [
-            'status' => 'success',
-        ];
     }
 
     /**
@@ -155,6 +196,91 @@ class PullingController extends Controller
             'status' => 'success',
             'customer' => $check->part_number
         ];
+    }
+
+    public function mutation(Request $request)
+    {
+        $internal = $request->internalPart;
+        $seri = $request->serialNumber;
+        $qty = $request->qty_per_kbn;
+        
+        // get internal part id
+        $internalPart = InternalPart::where('part_number', $internal)->first();
+
+        if(!$internalPart){
+            return [
+                'status' => 'notExists',
+                'message' => 'Part atau Kanban tidak ditemukan!'
+            ];
+        }
+
+        try {
+            DB::beginTransaction();
+            // insert into mutation table
+            Mutation::create([
+                'internal_part_id' => $internalPart->id,
+                'serial_number' => $seri,
+                'type' => 'checkout',
+                'qty' => $qty,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
+        $result = [];
+        
+        // get all current qty of all internal parts 
+        $data = DB::table('internal_parts')
+                ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+                ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+                ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
+                ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+                ->get();
+                
+                foreach ($data as $value) {
+                    $lineFound = false;
+                    // Check if line already exists in $lines array
+                    foreach ($result as $line) {
+                        if ($line->line === $value->name) {
+                            $lineFound = true;
+                            $line->items[] = [
+                                'id' => $value->id,
+                                'part_number' => $value->part_number,
+                                'back_number' => $value->back_number,
+                                'qty' => $value->current_stock,
+                            ];
+                            break;
+                        }
+                    }
+                    // If line doesn't exist, create a new object and add it to $result array
+                    if (!$lineFound) {
+                        $lineObject = (object) [
+                            'line' => $value->name,
+                            'items' => [
+                                [
+                                    'id' => $value->id,
+                                    'part_number' => $value->part_number,
+                                    'back_number' => $value->back_number,
+                                    'qty' => $value->current_stock,
+                                ],
+                            ],
+                        ];
+                        $result[] = $lineObject;
+                    }
+                }
+                    
+            $this->mqttConnect('prod/quantity' , $result);
+            
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success'
+            ]);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return [
+                'status' => 'error',
+                'message' => $th->getMessage(),
+            ];
+        }
     }
 
     public function post(Request $request)

@@ -55,6 +55,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pulling/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
     Route::get('/pulling/store', [PullingController::class, 'store'])->name('pulling.store');
     Route::get('/pulling/post', [PullingController::class, 'post'])->name('pulling.post');
+    Route::get('/pulling/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
 
     // get manifest
     Route::get('/manifest/{pdsNumber}', [ManifestController::class, 'show'])->name('manifest.show');

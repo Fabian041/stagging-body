@@ -15,13 +15,13 @@ class DashboardController extends Controller
     {
         $lines = [];
         
-        // get all qty of all internal parts
+         // get all current qty of all internal parts 
         $data = DB::table('internal_parts')
-                ->join('mutations', 'mutations.internal_part_id', '=', 'internal_parts.id')
-                ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-                ->select('lines.name','mutations.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', DB::raw('SUM(qty) as qty'))
-                ->groupBy('internal_parts.part_number','internal_parts.back_number', 'mutations.internal_part_id', 'lines.name')
-                ->get();
+            ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+            ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+            ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
+            ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+            ->get();
 
                 foreach ($data as $value) {
                     $lineFound = false;
@@ -33,7 +33,7 @@ class DashboardController extends Controller
                                 'id' => $value->id,
                                 'part_number' => $value->part_number,
                                 'back_number' => $value->back_number,
-                                'qty' => $value->qty,
+                                'qty' => $value->current_stock,
                             ];
                             break;
                         }
@@ -47,15 +47,13 @@ class DashboardController extends Controller
                                     'id' => $value->id,
                                     'part_number' => $value->part_number,
                                     'back_number' => $value->back_number,
-                                    'qty' => $value->qty,
+                                    'qty' => $value->current_stock,
                                 ],
                             ],
                         ];
                         $lines[] = $lineObject;
                     }
                 }
-
-                // dd($lines);
                 
         return view('pages.dashboard',[
             'lines' => $lines,

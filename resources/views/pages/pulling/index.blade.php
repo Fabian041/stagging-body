@@ -630,7 +630,6 @@
                                 var index = objectStore.index('loadingListDetail');
 
                                 data.data.items.map((item, index) => {
-
                                     const key = item.part_number_cust;
 
                                     const getRequest = objectStore.get(key);
@@ -647,6 +646,10 @@
                                                     .part_number_int,
                                                 customer: item
                                                     .part_number_cust,
+                                                qty_per_kbn: item
+                                                    .total_qty /
+                                                    item
+                                                    .total_kanban_qty,
                                                 actual_qty: item
                                                     .actual_kanban_qty,
                                                 total_qty: item
@@ -880,6 +883,7 @@
 
         function checkInternalAndCustomer(objectStore, cursor, internal, primaryKey, seri) {
             let customer = cursor['customer'];
+            let qty_per_kbn = cursor['qty_per_kbn'];
             let arraySeri = cursor['seri'];
             let totalQty = cursor['total_qty'];
             let isSameObject = false;
@@ -947,24 +951,50 @@
 
             // update the object
             objectStore.put(cursor, primaryKey).onsuccess = function(event) {
-                // udpate the qty display
-                $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
+                // hit API to create checkout transaction after pulling
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ route('pulling.mutation') }}",
+                    _token: "{{ csrf_token() }}",
+                    data: {
+                        internalPart: internal.trimEnd(),
+                        serialNumber: seri,
+                        qty_per_kbn: qty_per_kbn,
+                    },
+                    contentType: 'application/json',
+                    success: function(data) {
+                        console.log(data.status);
+                        if (data.status == 'success') {
+                            // udpate the qty display
+                            $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
-                // display internal
-                $('#int-display').text(internal);
-                $('#cust-display').text('-');
+                            // display internal
+                            $('#int-display').text(internal);
+                            $('#cust-display').text('-');
 
-                // success indicator
-                $('#indicator').removeClass('bg-danger');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-success');
+                            // success indicator
+                            $('#indicator').removeClass('bg-danger');
+                            $('#indicator').removeClass('bg-warning');
+                            $('#indicator').addClass('bg-success');
 
-                // display total quantity
-                pullingQuantity();
+                            // display total quantity
+                            pullingQuantity();
 
-                // reset customer local storage
-                localStorage.removeItem('customerPart');
+                            // reset customer local storage
+                            localStorage.removeItem('customerPart');
+                        } else if (data.status == 'error') {
+                            notif('error', data.message);
+                        } else if (data.status == 'notExists') {
+                            notif('error', data.message);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.log(xhr.responseText);
+                        notif('error', xhr.getResponseHeader());
+                    }
+                })
             }
+
             // error handling
             objectStore.put(cursor, primaryKey).onerror = function(event) {
                 // error indicator
@@ -1169,6 +1199,10 @@
                                                         .part_number_int,
                                                     customer: item
                                                         .part_number_cust,
+                                                    qty_per_kbn: item
+                                                        .total_qty /
+                                                        item
+                                                        .total_kanban_qty,
                                                     actual_qty: item
                                                         .actual_kanban_qty,
                                                     total_qty: item

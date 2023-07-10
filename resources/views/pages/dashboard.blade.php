@@ -10,8 +10,8 @@
         </div>
     </div>
     <div class="row mt-4">
-        <div class="col-12">
-            @foreach ($lines as $line)
+        @foreach ($lines as $line)
+            <div class="col-6">
                 <div class="card shadow" style="border-radius:8px">
                     <div class="row">
                         <div class="col">
@@ -35,8 +35,8 @@
                         </div>
                     </div>
                 </div>
-            @endforeach
-        </div>
+            </div>
+        @endforeach
     </div>
 @endsection
 {{-- modal --}}

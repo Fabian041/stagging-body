@@ -14,7 +14,8 @@ return new class extends Migration
     public function up()
     {
         Schema::table('mutations', function (Blueprint $table) {
-            $table->string('kanban_seri')->nullable()->after('internal_part_id');
+            $table->string('type')->nullable()->after('qty');
+            $table->string('serial_number')->nullable()->after('internal_part_id');
         });
     }
 
