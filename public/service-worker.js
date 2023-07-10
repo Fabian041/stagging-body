@@ -17,6 +17,7 @@ self.addEventListener('install', function(event) {
         '/dist/assets/sounds/fullfilled.mp3',
         '/dist/assets/sounds/notMatch-ll.mp3',
         '/dist/assets/sounds/notMatch.mp3',
+        '/dist/assets/sounds/notExist.mp3',
         '/dist/assets/sounds/uncomplete-ll.mp3',
         '/dist/assets/sounds/unknown.mp3',
         '/dist/assets/css/components.css.map',

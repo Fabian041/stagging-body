@@ -185,6 +185,10 @@
         <source src={{ asset('assets/sounds/already-pulled.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+    <audio id="not-exist-sound">
+        <source src={{ asset('assets/sounds/notExist.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
@@ -195,6 +199,11 @@
     let loadingListItem = [];
     let loadinglistDetail = [];
 
+
+    function notExist() {
+        var sound = document.getElementById("not-exist-sound");
+        sound.play();
+    }
 
     function notMatchSound() {
         var sound = document.getElementById("not-match-sound");
@@ -946,9 +955,6 @@
                 return;
             }
 
-            // push kanban serial number to array seri
-            arraySeri.push(seri);
-
             // update the object
             objectStore.put(cursor, primaryKey).onsuccess = function(event) {
                 // hit API to create checkout transaction after pulling
@@ -965,6 +971,9 @@
                     success: function(data) {
                         console.log(data.status);
                         if (data.status == 'success') {
+                            // push kanban serial number to array seri
+                            arraySeri.push(seri);
+
                             // udpate the qty display
                             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
@@ -984,8 +993,18 @@
                             localStorage.removeItem('customerPart');
                         } else if (data.status == 'error') {
                             notif('error', data.message);
+
+                            setInterval(() => {
+                                $('#code').focus();
+                            }, 1000);
                         } else if (data.status == 'notExists') {
                             notif('error', data.message);
+
+                            notExist();
+
+                            setInterval(() => {
+                                $('#code').focus();
+                            }, 1000);
                         }
                     },
                     error: function(xhr) {
