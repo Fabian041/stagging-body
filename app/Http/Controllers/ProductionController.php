@@ -54,7 +54,8 @@ class ProductionController extends Controller
         $connectionSettings = (new ConnectionSettings())
             ->setUsername($username)
             ->setPassword($password)
-            ->setKeepAliveInterval(60)
+            ->setKeepAliveInterval(600)
+            ->setConnectTimeout(10)
             ->setLastWillTopic('test')
             ->setLastWillMessage('client disconnect')
             ->setLastWillQualityOfService(1);

@@ -29,7 +29,8 @@ class PullingController extends Controller
         $connectionSettings = (new ConnectionSettings())
             ->setUsername($username)
             ->setPassword($password)
-            ->setKeepAliveInterval(60)
+            ->setKeepAliveInterval(600)
+            ->setConnectTimeout(10)
             ->setLastWillTopic('test')
             ->setLastWillMessage('client disconnect')
             ->setLastWillQualityOfService(1);
@@ -50,6 +51,7 @@ class PullingController extends Controller
                 false
             );
             sleep(1);
+            
         } catch (\Exception $e) {
             // Handle the exception appropriately
             echo "Exception: " . $e->getMessage() . "\n";

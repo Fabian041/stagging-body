@@ -40,22 +40,28 @@ Route::middleware(['auth'])->group(function () {
 
     // dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
-    Route::post('/dashboard/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
-    Route::post('/dashboard/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
+    Route::prefix('dashboard')->group(function(){
+        Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
+        Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
+    });
 
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
-    Route::get('/production/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
-    Route::get('/production/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
-    Route::get('/production/store', [ProductionController::class, 'store'])->name('production.store');
+    Route::prefix('production')->group(function(){
+        Route::get('/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
+        Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
+        Route::get('/store', [ProductionController::class, 'store'])->name('production.store');
+    });
 
     // pulling
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
-    Route::get('/pulling/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
-    Route::get('/pulling/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
-    Route::get('/pulling/store', [PullingController::class, 'store'])->name('pulling.store');
-    Route::get('/pulling/post', [PullingController::class, 'post'])->name('pulling.post');
-    Route::get('/pulling/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
+    Route::prefix('pulling')->group(function(){
+        Route::get('/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
+        Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
+        Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
+        Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
+        Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
+    });
 
     // get manifest
     Route::get('/manifest/{pdsNumber}', [ManifestController::class, 'show'])->name('manifest.show');
