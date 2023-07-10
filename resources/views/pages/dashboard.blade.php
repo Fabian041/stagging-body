@@ -10,24 +10,40 @@
         </div>
     </div>
     <div class="row mt-4">
-        @foreach ($lines as $line)
+        @if ($lines->isEmpty())
             <div class="col-6">
                 <div class="card shadow" style="border-radius:8px">
                     <div class="row">
                         <div class="col">
                             <div class="card">
-                                <div class="card-header">
-                                    <h4 class="text-dark" style="font-weight: bolder !important">LINE {{ $line->line }}
-                                    </h4>
-                                    <div class="card-header-action">
-                                        <a data-collapse="#mycard-collapse-{{ $line->line }}"
-                                            class="btn btn-icon btn-primary" href="#"><i class="fas fa-minus"></i></a>
+                                <h1>Belum ada part yang terdaftar</h1>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @else
+            @foreach ($lines as $line)
+                <div class="col-6">
+                    <div class="card shadow" style="border-radius:8px">
+                        <div class="row">
+                            <div class="col">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4 class="text-dark" style="font-weight: bolder !important">LINE
+                                            {{ $line->line }}
+                                        </h4>
+                                        <div class="card-header-action">
+                                            <a data-collapse="#mycard-collapse-{{ $line->line }}"
+                                                class="btn btn-icon btn-primary" href="#"><i
+                                                    class="fas fa-minus"></i></a>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="collapse show" id="mycard-collapse-{{ $line->line }}">
-                                    <div class="card-body">
-                                        <!-- Place the chart element inside this container -->
-                                        <div id="{{ $line->line }}-chart" style="justify-content: center;">
+                                    <div class="collapse show" id="mycard-collapse-{{ $line->line }}">
+                                        <div class="card-body">
+                                            <!-- Place the chart element inside this container -->
+                                            <div id="{{ $line->line }}-chart" style="justify-content: center;">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -35,8 +51,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        @endforeach
+            @endforeach
+        @endif
     </div>
 @endsection
 {{-- modal --}}
