@@ -10,7 +10,7 @@
         </div>
     </div>
     <div class="row mt-4">
-        @if ($lines->isEmpty())
+        @empty($lines)
             <div class="col-6">
                 <div class="card shadow" style="border-radius:8px">
                     <div class="row">
@@ -35,8 +35,7 @@
                                         </h4>
                                         <div class="card-header-action">
                                             <a data-collapse="#mycard-collapse-{{ $line->line }}"
-                                                class="btn btn-icon btn-primary" href="#"><i
-                                                    class="fas fa-minus"></i></a>
+                                                class="btn btn-icon btn-primary" href="#"><i class="fas fa-minus"></i></a>
                                         </div>
                                     </div>
                                     <div class="collapse show" id="mycard-collapse-{{ $line->line }}">
@@ -52,7 +51,7 @@
                     </div>
                 </div>
             @endforeach
-        @endif
+        @endempty
     </div>
 @endsection
 {{-- modal --}}
