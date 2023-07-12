@@ -180,7 +180,6 @@
             updateChart(item.line, item.items);
         });
     });
-    const mqtt = require('mqtt');
 
     let client;
 
