@@ -954,28 +954,26 @@
                 }, 1000);
                 return;
             }
+            // push kanban serial number to array seri
+            arraySeri.push(seri);
 
-            // hit API to create checkout transaction after pulling
-            $.ajax({
-                type: 'GET',
-                url: "{{ route('pulling.mutation') }}",
-                _token: "{{ csrf_token() }}",
-                data: {
-                    internalPart: internal.trimEnd(),
-                    serialNumber: seri,
-                    qty_per_kbn: qty_per_kbn,
-                },
-                contentType: 'application/json',
-                success: function(data) {
-                    console.log(data.status);
-                    if (data.status == 'success') {
-                        // push kanban serial number to array seri
-                        arraySeri.push(seri);
+            // update the object
+            objectStore.put(cursor, primaryKey).onsuccess = function(event) {
+                // hit API to create checkout transaction after pulling
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ route('pulling.mutation') }}",
+                    _token: "{{ csrf_token() }}",
+                    data: {
+                        internalPart: internal.trimEnd(),
+                        serialNumber: seri,
+                        qty_per_kbn: qty_per_kbn,
+                    },
+                    contentType: 'application/json',
+                    success: function(data) {
+                        console.log(data.status);
+                        if (data.status == 'success') {
 
-                        // update the object
-                        let request = objectStore.put(cursor, primaryKey);
-
-                        request.onsuccess = function(event) {
                             // udpate the qty display
                             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
@@ -993,44 +991,44 @@
 
                             // reset customer local storage
                             localStorage.removeItem('customerPart');
-                        }
-
-                        request.onerror = function(event) {
-                            // error indicator
-                            $('#indicator').removeClass('bg-success');
-                            $('#indicator').removeClass('bg-warning');
-                            $('#indicator').addClass('bg-danger');
-                            notif('error', 'Kanban tidak sesuai!');
-
-                            // notification sound
-                            notMatchSound();
+                        } else if (data.status == 'error') {
+                            notif('error', data.message);
 
                             setInterval(() => {
                                 $('#code').focus();
                             }, 1000);
-                        };
+                        } else if (data.status == 'notExists') {
+                            notif('error', data.message);
 
-                    } else if (data.status == 'error') {
-                        notif('error', data.message);
+                            notExist();
 
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
-                    } else if (data.status == 'notExists') {
-                        notif('error', data.message);
-
-                        notExist();
-
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
+                            setInterval(() => {
+                                $('#code').focus();
+                            }, 1000);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.log(xhr.responseText);
+                        notif('error', xhr.getResponseHeader());
                     }
-                },
-                error: function(xhr) {
-                    console.log(xhr.responseText);
-                    notif('error', xhr.getResponseHeader());
-                }
-            })
+                })
+            }
+
+            // error handling
+            objectStore.put(cursor, primaryKey).onerror = function(event) {
+                // error indicator
+                $('#indicator').removeClass('bg-success');
+                $('#indicator').removeClass('bg-warning');
+                $('#indicator').addClass('bg-danger');
+                notif('error', 'Kanban tidak sesuai!');
+
+                // notification sound
+                notMatchSound();
+
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
+            };
         }
 
         $('#code').keypress(function(e) {
