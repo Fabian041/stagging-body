@@ -179,6 +179,7 @@
             updateChart(item.line, item.items);
         });
     });
+    Paho.MQTT.DEBUG = true;
 
     let client;
 
