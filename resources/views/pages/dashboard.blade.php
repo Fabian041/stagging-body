@@ -83,7 +83,6 @@
 </div>
 {{-- end of modal --}}
 
-
 {{-- mqtt --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
@@ -186,7 +185,7 @@
     function connectMQTT() {
         // Create an MQTT client instance
         clientId = "client_" + Math.random().toString(16).substr(2, 8);
-        client = new Paho.MQTT.Client("172.18.3.70", Number(1883), clientId);
+        client = new Paho.MQTT.Client("172.18.3.70", Number(8083), clientId);
 
         // Set callback handlers
         client.onConnectionLost = onConnectionLost;
