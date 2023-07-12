@@ -43,7 +43,7 @@ class ProductionController extends Controller
 
     public function mqttConnect($topic, $message)
     {
-        $server   = 'broker.emqx.io';
+        $server   = '172.18.3.70';
         $port     = 1883;
         $clientId = '1234';
         $username = 'fabian';

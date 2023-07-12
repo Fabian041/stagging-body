@@ -185,7 +185,7 @@
     function connectMQTT() {
         // Create an MQTT client instance
         clientId = "client_" + Math.random().toString(16).substr(2, 8);
-        client = new Paho.MQTT.Client("broker.emqx.io", 1883, clientId);
+        client = new Paho.MQTT.Client("172.18.3.70", Number(1883), clientId);
 
         // Set callback handlers
         client.onConnectionLost = onConnectionLost;
