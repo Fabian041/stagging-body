@@ -973,7 +973,9 @@
                         arraySeri.push(seri);
 
                         // update the object
-                        objectStore.put(cursor, primaryKey).onsuccess = function(event) {
+                        let request = objectStore.put(cursor, primaryKey);
+
+                        request.onsuccess = function(event) {
                             // udpate the qty display
                             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
@@ -993,8 +995,7 @@
                             localStorage.removeItem('customerPart');
                         }
 
-                        // error handling
-                        objectStore.put(cursor, primaryKey).onerror = function(event) {
+                        request.onerror = function(event) {
                             // error indicator
                             $('#indicator').removeClass('bg-success');
                             $('#indicator').removeClass('bg-warning');
