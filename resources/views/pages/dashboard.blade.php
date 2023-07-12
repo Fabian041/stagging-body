@@ -196,8 +196,8 @@
         client.connect({
             onSuccess: onConnect,
             onFailure: onFailure,
-            userName: "fabian",
-            password: "1234"
+            // userName: "fabian",
+            // password: "1234"
         });
     }
 
@@ -208,6 +208,7 @@
 
     function onFailure(error) {
         console.error('Failed to connect to MQTT broker:', error.errorMessage);
+        console.log(error);
         // Implement your own logic for handling connection failure, e.g., retry after a certain interval
         setTimeout(connectMQTT, 5000);
     }

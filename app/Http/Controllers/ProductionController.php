@@ -46,14 +46,14 @@ class ProductionController extends Controller
         $server   = '172.18.3.70';
         $port     = 1883;
         $clientId = '1234';
-        $username = 'fabian';
-        $password = '1234';
+        // $username = 'fabian';
+        // $password = '1234';
         $clean_session = false;
         $mqtt_version = MqttClient::MQTT_3_1_1;
 
         $connectionSettings = (new ConnectionSettings())
-            ->setUsername($username)
-            ->setPassword($password)
+            // ->setUsername($username)
+            // ->setPassword($password)
             ->setKeepAliveInterval(600)
             ->setConnectTimeout(10)
             ->setLastWillTopic('test')
