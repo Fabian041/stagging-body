@@ -179,52 +179,48 @@
             updateChart(item.line, item.items);
         });
     });
-    Paho.MQTT.DEBUG = true;
+    const mqtt = require('mqtt');
 
     let client;
 
     function connectMQTT() {
         // Create an MQTT client instance
-        clientId = "client_" + Math.random().toString(16).substr(2, 8);
-        client = new Paho.MQTT.Client("172.18.3.70", Number(1883), clientId);
+        const clientId = "client_" + Math.random().toString(16).substr(2, 8);
+        client = mqtt.connect('mqtt://172.18.3.70:1883', {
+            clientId: clientId,
+            // username: 'fabian',
+            // password: '1234'
+        });
 
         // Set callback handlers
-        client.onConnectionLost = onConnectionLost;
-        client.onMessageArrived = onMessageArrived;
-
-        // Connect the client, providing an onConnect callback
-        client.connect({
-            onSuccess: onConnect,
-            onFailure: onFailure,
-            // userName: "fabian",
-            // password: "1234"
-        });
+        client.on('connect', onConnect);
+        client.on('message', onMessageArrived);
+        client.on('close', onConnectionLost);
+        client.on('error', onFailure);
     }
 
     function onConnect() {
         console.log('Connected');
-        client.subscribe("prod/quantity");
+        client.subscribe('prod/quantity');
     }
 
     function onFailure(error) {
-        console.error('Failed to connect to MQTT broker:', error.errorMessage);
-        console.log(error);
+        console.error('Failed to connect to MQTT broker:', error.message);
         // Implement your own logic for handling connection failure, e.g., retry after a certain interval
         setTimeout(connectMQTT, 5000);
     }
 
-    function onConnectionLost(responseObject) {
-        if (responseObject.errorCode !== 0) {
-            console.log("Connection Lost: " + responseObject.errorMessage);
-            // Implement your own logic for handling connection loss, e.g., retry after a certain interval
-            setTimeout(connectMQTT, 5000);
-        }
+    function onConnectionLost() {
+        console.log('Connection Lost');
+        // Implement your own logic for handling connection loss, e.g., retry after a certain interval
+        setTimeout(connectMQTT, 5000);
     }
 
-    function onMessageArrived(data) {
+    function onMessageArrived(topic, message) {
         // update chart
-        let line = JSON.parse(data.payloadString)[0].line;
-        let items = JSON.parse(data.payloadString);
+        const payload = JSON.parse(message.toString());
+        let line = payload[0].line;
+        let items = payload;
         console.log(items);
         items.forEach(function(item) {
             if (item.line === line) {
