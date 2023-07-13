@@ -220,7 +220,7 @@
     }
 
     function onMessageArrived(data) {
-        console.log(data);
+        console.log(data.payloadString);
         // update chart
         let line = JSON.parse(data.payloadString)[0].line;
         let items = JSON.parse(data.payloadString);
