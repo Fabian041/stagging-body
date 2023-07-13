@@ -147,15 +147,29 @@
     }
 
     function updateChart(line, data) {
+        var chartData = data.map(function(item) {
+            var color;
+
+            // Set different colors based on qty value
+            if (item.qty < 20) {
+                color = '#ff0000'; // Red color
+            } else if (item.qty < 40) {
+                color = '#00ff00'; // Green color
+            } else {
+                color = '#0000ff'; // Blue color
+            }
+
+            return {
+                x: item.back_number,
+                y: item.qty,
+                fillColor: color // Add the fillColor property with the corresponding color
+            };
+        });
+
         charts[line].updateOptions({
             series: [{
                 name: 'Stock',
-                data: data.map(function(item) {
-                    return {
-                        x: item.back_number,
-                        y: item.qty
-                    }
-                })
+                data: chartData
             }]
         });
     }
