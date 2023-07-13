@@ -147,8 +147,6 @@
     }
 
     function updateChart(line, data) {
-        console.log(line, data);
-        console.log(data[0].qty);
         charts[line].updateOptions({
             series: [{
                 name: 'Stock',
@@ -228,7 +226,7 @@
         console.log(items);
         items.forEach(function(item) {
             if (item.line === line) {
-                console.log(item.items[0].qty)
+                console.log(item.line)
                 updateChart(item.line, item.items);
             }
         });
