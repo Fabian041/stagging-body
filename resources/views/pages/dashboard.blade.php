@@ -222,6 +222,7 @@
     function onMessageArrived(data) {
         // update chart
         let line = JSON.parse(data.payloadString)[0].line;
+        console.log(line);
         let items = JSON.parse(data.payloadString);
         console.log(items);
         items.forEach(function(item) {
