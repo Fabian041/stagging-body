@@ -220,15 +220,10 @@
     }
 
     function onMessageArrived(data) {
-        console.log(data.payloadString);
         // update chart
-        let line = JSON.parse(data.payloadString)[0].line;
         let items = JSON.parse(data.payloadString);
-        console.log(items);
         items.forEach(function(item) {
-            if (item.line === line) {
-                updateChart(item.line, item.items);
-            }
+            updateChart(item.line, item.items);
         });
     }
 
