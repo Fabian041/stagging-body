@@ -151,9 +151,9 @@
             var color;
 
             // Set different colors based on qty value
-            if (item.qty < 20) {
+            if (item.qty <= 40) {
                 color = '#ff0000'; // Red color
-            } else if (item.qty < 40) {
+            } else if (item.qty > 40) {
                 color = '#00ff00'; // Green color
             } else {
                 color = '#0000ff'; // Blue color
