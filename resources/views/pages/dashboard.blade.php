@@ -228,6 +228,7 @@
         console.log(items);
         items.forEach(function(item) {
             if (item.line === line) {
+                console.log(item.items[0].qty)
                 updateChart(item.line, item.items);
             }
         });
