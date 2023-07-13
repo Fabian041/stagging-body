@@ -88,10 +88,10 @@
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
     integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="<https://unpkg.com/mqtt/dist/mqtt.min.js>"></script>
 <script>
     // chart option
     var lineData = @json($lines);
-
     // Declare a global object to store chart instances
     var charts = {};
 
@@ -148,6 +148,7 @@
 
     function updateChart(line, data) {
         console.log(line, data);
+        console.log(data[0].qty);
         charts[line].updateOptions({
             series: [{
                 name: 'Stock',
