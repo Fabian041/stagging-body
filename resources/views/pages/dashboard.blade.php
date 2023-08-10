@@ -3,9 +3,12 @@
 @section('main')
     <div class="row">
         <div class="col mt-3 text-right">
-            <div class="col-md-12">
+            {{-- <div class="col-md-12">
                 <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#partModal">Upload
                     Part</button>
+            </div> --}}
+            <div class="col-md-12">
+                <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#stockModal">Import Stock</button>
             </div>
         </div>
     </div>
@@ -83,6 +86,35 @@
 </div>
 {{-- end of modal --}}
 
+{{-- modal --}}
+<div class="modal fade" tabindex="-1" role="dialog" id="stockModal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ route('dashboard.stock.import') }}" method="POST" enctype="multipart/form-data">
+                @method('POST')
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Stock</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body mt-3">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="customFile" name="file">
+                        <label class="custom-file-label" for="customFile">Choose file</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{-- end of modal --}}
+
 {{-- mqtt --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
@@ -99,7 +131,8 @@
     function generateOptions(line) {
         return {
             chart: {
-                height: 200,
+                height: 300,
+                columnWidth: 500,
                 type: 'bar',
                 animations: {
                     enabled: true,
@@ -151,10 +184,10 @@
             var color;
 
             // Set different colors based on qty value
-            if (item.qty <= 40) {
+            if (item.qty <= 200) {
                 color = '#ff0000'; // Red color
-            } else if (item.qty > 40) {
-                color = '#00ff00'; // Green color
+            } else if (item.qty > 200) {
+                color = '#20c997'; // Green color
             } else {
                 color = '#0000ff'; // Blue color
             }

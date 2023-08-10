@@ -149,7 +149,7 @@ class ProductionController extends Controller
                         }
                     }
                     // If line doesn't exist, create a new object and add it to $result array
-                    if (!$lineFound) {
+                    if (!$lineFound) {  
                         $lineObject = (object) [
                             'line' => $value->name,
                             'items' => [

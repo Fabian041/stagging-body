@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Imports\PartImport;
+use App\Imports\StockImport;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use App\Imports\ManifestImport;
@@ -72,5 +73,12 @@ class DashboardController extends Controller
         Excel::import(new ManifestImport, $request->file('file')->store('files'));
 
         return redirect()->back()->with('success', 'Manifest berhasil diupload!');
+    }
+    
+    public function importStock(Request $request)
+    {
+        Excel::import(new StockImport, $request->file('file')->store('files'));
+
+        return redirect()->back()->with('success', 'Stock berhasil diupload!');
     }
 }

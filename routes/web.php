@@ -43,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard')->group(function(){
         Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
+        Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
     });
 
     // production

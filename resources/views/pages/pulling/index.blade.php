@@ -141,6 +141,26 @@
             </div>
         </div>
     </div>
+
+    {{-- confirmation modal --}}
+    <div class="modal fade" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2"
+        tabindex="-1" data-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                </div>
+                <div class="modal-body">
+                    <h5 class="text-center"><b>JP or Leader Confirmation</b></h5>
+                    <p class="text-center" style="color: red">*hubungi JP atau Leader</p><br>
+                    <input type="text" class="form-control" id="input-confirmation" placeholder="scan barcode..."
+                        autocomplete="off" autofocus>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- end of modal --}}
+
     <audio id="not-match-sound">
         <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
@@ -260,7 +280,7 @@
         sound.play();
     }
 
-    // sextract the loading list number from the key
+    // extract the loading list number from the key
     function extractLoadingListNumber(key) {
         const prefix = "ll_";
         return key.substring(prefix.length);
@@ -280,6 +300,13 @@
     }
 
     function initApp() {
+        // check solve status
+        if (localStorage.getItem('status')) {
+            $('#modalConfirmation').on('shown.bs.modal', function() {
+                $('#input-confirmation').focus();
+            })
+            $('#modalConfirmation').modal('show');
+        }
 
         let customer = localStorage.getItem('customer');
         let cycle = localStorage.getItem('cycle');
@@ -351,6 +378,20 @@
                         $('#input-loadingList').focus();
                     })
                 $('#modalLoadingListScan').modal('show');
+            }
+        }, 1500);
+    }
+
+    function confirmationModal() {
+        let status = localStorage.getItem('status');
+        $('#input-confirmation').val('');
+        setTimeout(() => {
+            if (status) {
+                $('#modalConfirmation').on('shown.bs.modal',
+                    function() {
+                        $('#input-confirmation').focus();
+                    })
+                $('#modalConfirmation').modal('show');
             }
         }, 1500);
     }
@@ -494,7 +535,6 @@
                     // get total target
                     totalTarget += parseInt(record.total_qty);
 
-
                     cursor.continue();
                 } else {
                     // display the total and target
@@ -540,6 +580,12 @@
         $('#loadingList').on('click', function() {
             loadingListModal2();
         });
+
+        if (localStorage.getItem('status')) {
+            $(document).on('click', function() {
+                $('#input-confirmation').focus();
+            });
+        }
 
         var token = "{{ session()->get('token') }}";
 
@@ -726,6 +772,40 @@
                 });
 
                 $('#modalLoadingListScan').modal('hide');
+            }
+        });
+
+
+        $('#input-confirmation').keypress(function(e) {
+            e.preventDefault();
+            let code = (e.keyCode ? e.keyCode : e.which);
+            if (code == 13) {
+                barcodecomplete = barcode;
+                barcode = "";
+                console.log(barcodecomplete);
+                console.log(barcodecomplete.length);
+
+                if (barcodecomplete.length === 6) {
+                    if (barcodecomplete == '000453' || barcodecomplete == '002484') {
+                        localStorage.removeItem('status');
+                        $('#modalConfirmation').modal('hide');
+                        notif('success', 'Selamat melanjutkan pulling!');
+
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
+                    } else {
+                        $('#modalConfirmation').modal('hide');
+                        notif('error', `NPK ${barcodecomplete} tidak memiliki hak akses`);
+                        confirmationModal();
+                    }
+                } else {
+                    $('#modalConfirmation').modal('hide');
+                    notif('error', 'Scan barcode NPK');
+                    confirmationModal();
+                }
+            } else {
+                barcode = barcode + String.fromCharCode(e.which);
             }
         });
 
@@ -918,12 +998,15 @@
                 // error log
                 errorStore();
 
-                // notification sound
+                // notification sound   
                 notMatchSound();
 
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
+                // set local storage
+                localStorage.setItem('status', 'true');
+
+                // check solve status
+                // show modal for leader or JP confirmation
+                confirmationModal();
                 return;
             }
 
