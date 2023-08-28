@@ -5,16 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class InternalPart extends Model
+class KanbanAfterProd extends Model
 {
     use HasFactory;
 
-    protected $table = 'internal_parts';
+    protected $table = 'kanban_after_prods';
 
     protected $guarded = ['id'];
-
-    public function customerPart()
-    {
-        return $this->hasOne(customerPart::class);
-    }
 }

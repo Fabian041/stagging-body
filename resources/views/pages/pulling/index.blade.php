@@ -209,6 +209,18 @@
         <source src={{ asset('assets/sounds/notExist.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+    <audio id="kanban-not-exist-sound">
+        <source src={{ asset('assets/sounds/kanbanNotExist.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="part-not-exist-sound">
+        <source src={{ asset('assets/sounds/partNotExist.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="not-scanned-sound">
+        <source src={{ asset('assets/sounds/notScanned.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
@@ -219,6 +231,21 @@
     let loadingListItem = [];
     let loadinglistDetail = [];
 
+
+    function kanbanNotExistSound() {
+        var sound = document.getElementById("kanban-not-exist-sound");
+        sound.play();
+    }
+
+    function partNotExistSound() {
+        var sound = document.getElementById("part-not-exist-sound");
+        sound.play();
+    }
+
+    function notScannedSound() {
+        var sound = document.getElementById("not-scanned-sound");
+        sound.play();
+    }
 
     function notExist() {
         var sound = document.getElementById("not-exist-sound");
@@ -596,7 +623,7 @@
                 //Check Line
                 $.ajax({
                     type: 'GET',
-                    url: 'http://api-dea-dev/api/v1/loading-lists/' + $(
+                    url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' + $(
                         this).val(),
                     _token: "{{ csrf_token() }}",
                     headers: {
@@ -608,6 +635,32 @@
                             // objectStor name is based on pds_number
                             let pds = data.data.pds_number;
                             let ll = data.data.number;
+                            let cycle = data.data.cycle;
+                            let customerCode = data.data.customer_code;
+                            let deliveryDate = data.data.delivery_date;
+                            let shippingDate = data.data.shipping_date;
+
+                            //insert loading list
+                            $.ajax({
+                                type: 'GET',
+                                url: "{{ url('/loading-list/store') }}" + '/' +
+                                    ll + '/' + pds + '/' + cycle + '/' +
+                                    customerCode + '/' + deliveryDate + '/' +
+                                    shippingDate,
+                                _token: "{{ csrf_token() }}",
+                                dataType: 'json',
+                                success: function(response) {
+                                    console.log(response.status);
+                                },
+                                error: function(xhr) {
+                                    console.log(xhr)
+                                    if (xhr.status == 0) {
+                                        notif("error", 'Connection Error');
+                                        return;
+                                    }
+                                    notif("error", xhr.responseJSON.errors);
+                                }
+                            })
 
                             // create database indexed db
                             request = window.indexedDB.open(pds);
@@ -713,6 +766,32 @@
                                             }, key);
                                         }
                                     };
+
+                                    // qty per kanban is total qty product devided kanban qty
+                                    let qty_per_kbn = item.total_qty / item
+                                        .total_kanban_qty;
+
+                                    //insert each loading list details
+                                    $.ajax({
+                                        type: 'GET',
+                                        url: "{{ url('/loading-list/storeDetail') }}" +
+                                            '/' + ll + '/' + item
+                                            .part_number_cust +
+                                            '/' + item
+                                            .total_kanban_qty +
+                                            '/' +
+                                            qty_per_kbn + '/' + item
+                                            .total_qty + '/' + item
+                                            .actual_kanban_qty,
+                                        _token: "{{ csrf_token() }}",
+                                        dataType: 'json',
+                                        success: function(data) {
+                                            console.log(data.status)
+                                        },
+                                        error: function(xhr) {
+                                            console.log(xhr);
+                                        }
+                                    })
 
                                     getRequest.onerror = function(event) {
                                         notif(event.data.error);
@@ -1042,6 +1121,24 @@
 
             // update the object
             objectStore.put(cursor, primaryKey).onsuccess = function(event) {
+                // hit API to create data at kanban after pull table
+                $.ajax({
+                    type: 'GET',
+                    url: '/kanban/check',
+                    _token: "{{ csrf_token() }}",
+                    data: {
+                        seri: seri,
+                        internal: internal.trimEnd()
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        console.log(data.status);
+                    },
+                    error: function(xhr) {
+                        notif('error', xhr.getResponse);
+                    }
+                })
+
                 // hit API to create checkout transaction after pulling
                 $.ajax({
                     type: 'GET',
@@ -1114,6 +1211,48 @@
             };
         }
 
+        function checkKanban(seri, internal) {
+            $.ajax({
+                type: 'GET',
+                url: '/kanban/check',
+                _token: "{{ csrf_token() }}",
+                data: {
+                    seri: seri,
+                    internal: internal.trimEnd()
+                },
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status == 'success') {
+                        console.log(data.status);
+                    } else if (data.status == 'partNotExist') {
+                        notif('error', data.message)
+                        partNotExistSound();
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
+                        return false;
+                    } else if (data.status == 'kanbanNotExist') {
+                        notif('error', data.message)
+                        kanbanNotExistSound();
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
+                        return false;
+                    } else if (data.status == 'notScanned') {
+                        notif('error', data.message)
+                        notScannedSound();
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
+                        return false;
+                    }
+                },
+                error: function(xhr) {
+                    console.log(xhr.getResponse);
+                }
+            });
+        }
+
         $('#code').keypress(function(e) {
             let pds = localStorage.getItem('pds_local');
             e.preventDefault();
@@ -1122,8 +1261,6 @@
             {
                 barcodecomplete = barcode;
                 barcode = "";
-                console.log(barcodecomplete);
-                console.log(barcodecomplete.length);
 
                 // check for MMKI
                 if (localStorage.getItem('customer') == 'MMKI') {
@@ -1204,7 +1341,8 @@
                     let loadingList = getLoadingListNumber();
                     $.ajax({
                         type: 'GET',
-                        url: 'http://api-dea-dev/api/v1/loading-lists/' + barcodecomplete,
+                        url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' +
+                            barcodecomplete,
                         _token: "{{ csrf_token() }}",
                         headers: {
                             "Authorization": "Bearer " + token
@@ -1215,6 +1353,32 @@
                                 // objectStor name is based on pds_number
                                 let pds = data.data.pds_number;
                                 let ll = data.data.number;
+                                let cycle = data.data.cycle;
+                                let customerCode = data.data.customer_code;
+                                let deliveryDate = data.data.delivery_date;
+                                let shippingDate = data.data.shipping_date;
+
+                                //insert loading list
+                                $.ajax({
+                                    type: 'GET',
+                                    url: "{{ url('/loading-list/store') }}" + '/' +
+                                        ll + '/' + pds + '/' + cycle + '/' +
+                                        customerCode + '/' + deliveryDate + '/' +
+                                        shippingDate,
+                                    _token: "{{ csrf_token() }}",
+                                    dataType: 'json',
+                                    success: function(response) {
+                                        console.log(response.status);
+                                    },
+                                    error: function(xhr) {
+                                        console.log(xhr)
+                                        if (xhr.status == 0) {
+                                            notif("error", 'Connection Error');
+                                            return;
+                                        }
+                                        notif("error", xhr.responseJSON.errors);
+                                    }
+                                })
 
                                 // create database indexed db
                                 request = window.indexedDB.open(pds);
@@ -1313,6 +1477,33 @@
                                                 }, key);
                                             }
                                         };
+
+                                        // qty per kanban is total qty product devided kanban qty
+                                        let qty_per_kbn = item.total_qty / item
+                                            .total_kanban_qty;
+
+                                        //insert each loading list details
+                                        $.ajax({
+                                            type: 'GET',
+                                            url: "{{ url('/loading-list/storeDetail') }}" +
+                                                '/' + ll + '/' + item
+                                                .part_number_cust +
+                                                '/' + item
+                                                .total_kanban_qty +
+                                                '/' +
+                                                qty_per_kbn + '/' + item
+                                                .total_qty + '/' + item
+                                                .actual_kanban_qty,
+                                            _token: "{{ csrf_token() }}",
+                                            dataType: 'json',
+                                            success: function(data) {
+                                                console.log(data
+                                                    .status)
+                                            },
+                                            error: function(xhr) {
+                                                console.log(xhr);
+                                            }
+                                        })
 
                                         getRequest.onerror = function(event) {
                                             notif(event.data.error);
@@ -1473,19 +1664,29 @@
                         }, 1000);
                         return;
                     }
-
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
                         seri = barcodecomplete.substr(123, 4);
+
+                        // check existence of kanban and check if it already scanned by prod
+                        checkKanban(seri, internal);
+
                     } else if (barcodecomplete.length == 220) {
                         // kanban buffer
                         internal = barcodecomplete.substr(35, 12);
                         seri = barcodecomplete.substr(130, 4);
+
+                        // check existence of kanban and check if it already scanned by prod
+                        checkKanban(seri, internal);
+
                     } else if (barcodecomplete.length == 241) {
                         // kanban passtrough
                         internal = barcodecomplete.substr(35, 12);
                         seri = barcodecomplete.substr(127, 4);
+
+                        // check existence of kanban and check if it already scanned by prod
+                        checkKanban(seri, internal);
                     }
 
                     console.log(seri);

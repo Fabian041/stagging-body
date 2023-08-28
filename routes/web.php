@@ -4,9 +4,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\PullingController;
 use App\Http\Controllers\ErrorLogController;
+use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
 
 /*
@@ -38,6 +40,18 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
+    // kanban
+    Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');
+    Route::get('/kanban/afterPull', [PullingController::class, 'kanbanAfterPull'])->name('kanban.afterPull');
+
+    // loading list
+    Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
+    Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
+    Route::prefix('loading-list')->group(function(){
+        Route::get('/store/{loadingList}/{pds}/{cycle}/{customerCode}/{deliveryDate}/{shippingDate}', [LoadingListController::class, 'store'])->name('loadingList.store');
+        Route::get('/storeDetail/{loadingList}/{customerPart}/{kbnQty}/{qtyPerKanban}/{totalQty}/{actualKanbanQty}', [LoadingListController::class, 'storeDetail'])->name('loadingList.storeDetail');
+    });
+
     // dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::prefix('dashboard')->group(function(){
@@ -65,7 +79,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // get manifest
-    Route::get('/manifest/{pdsNumber}', [ManifestController::class, 'show'])->name('manifest.show');
+    // Route::get('/manifest/{pdsNumber}', [ManifestController::class, 'show'])->name('manifest.show');
 
     // error log
     Route::prefix('error')->group(function(){

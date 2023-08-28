@@ -119,6 +119,8 @@ $(function() {
   var toggle_sidebar_mini = function(mini) {
     let body = $('body');
 
+  body.addClass('sidebar-mini');
+
     if(!mini) {
       body.removeClass('sidebar-mini');
       $(".main-sidebar").css({

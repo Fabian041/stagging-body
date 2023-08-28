@@ -30,7 +30,7 @@ class LoginController extends Controller
             }else if(auth()->user()->role == 'ppic'){
 
                 // Perform login and obtain the Bearer token (API Dea)
-                $response = Http::post('http://api-dea-dev/api/v1/auth/login', [
+                $response = Http::withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
                     'npk' => Auth::user()->npk,
                     'password' => '123456'
                 ]);

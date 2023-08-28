@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Imports\PartImport;
 use App\Imports\StockImport;
 use App\Models\InternalPart;

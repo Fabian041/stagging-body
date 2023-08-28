@@ -28,7 +28,7 @@
         @else
             @foreach ($lines as $line)
                 <div class="col-12">
-                    <div class="card shadow" style="border-radius:8px">
+                    <div class="card card-info shadow" style="border-radius:10px">
                         <div class="row">
                             <div class="col">
                                 <div class="card">

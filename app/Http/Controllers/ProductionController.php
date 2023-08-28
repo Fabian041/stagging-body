@@ -7,12 +7,15 @@ use Monolog\Logger;
 
 use App\Models\Line;
 use App\Models\Part;
+use App\Models\Kanban;
 use App\Models\Mutation;
 use PhpMqtt\ClientBuilder;
+use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
+use App\Models\KanbanAfterProd;
 use Illuminate\Support\Facades\DB;
 use Monolog\Handler\StreamHandler;
 use Illuminate\Support\Facades\View;
@@ -97,13 +100,6 @@ class ProductionController extends Controller
 
         // double check to master sample
         $internalPart = InternalPart::where('part_number', $partNumber)->first();
-
-        // get line of internal part based on internal part id
-        $line = Line::select('name')->where('id', $internalPart->line_id)->first();
-
-        // get customer internalPart based on internal internalPart id
-        $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
-        
         if(!$internalPart){
             return [
                 'status' => 'error',
@@ -111,6 +107,27 @@ class ProductionController extends Controller
             ];
         }
 
+        // get line of internal part based on internal part id
+        $line = Line::select('name')->where('id', $internalPart->line_id)->first();
+
+        // get customer internalPart based on internal internalPart id
+        $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
+
+        // get kanban_id based on internal part id
+        $kanban = Kanban::select('id')
+                    ->where('internal_part_id', $internalPart->id)
+                    ->where('serial_number', $seri)
+                    ->first();
+        if(!$kanban){
+            return [
+                'status' => 'error',
+                'message' => 'Kanban tidak terdaftar!'
+            ]; 
+        }
+
+        // check if kanban after prod is empty
+        
+        
         try {
             DB::beginTransaction();
             // insert into mutation table
@@ -122,6 +139,21 @@ class ProductionController extends Controller
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
+
+            // insert into kanban after prod
+            for($i=0; $i<$customerPart->qty_per_kanban; $i++){
+
+                $randomString = Str::rand(7);
+                $currDate = Carbon::now()->format('Ymd');
+
+                KanbanAfterProd::create([
+                    'kanban_id' => $kanban->id,
+                    'internal_part_id' => $internalPart->id,
+                    'code' => $currDate . $randomString,
+                    'npk' => auth()->user()->npk,
+                    'date' => Carbon::now()->format('Y-m-d')
+                ]);
+            }
 
         $result = [];
         

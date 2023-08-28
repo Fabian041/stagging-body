@@ -15,17 +15,13 @@ return new class extends Migration
     {
         Schema::create('loading_lists', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('customer_id')->unsigned()->nullable();
+            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('CASCADE')->onUpdate('CASCADE');
             $table->string('number')->unique()->nullable();
             $table->string('pds_number')->nullable();
             $table->string('cycle')->nullable();
-            $table->bigInteger('customer_id')->unsigned()->nullable();
-            $table->bigInteger('customer_part_id')->unsigned()->nullable();
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('CASCADE')->onUpdate('CASCADE');
-            $table->foreign('customer_part_id')->references('id')->on('customer_parts')->onDelete('CASCADE')->onUpdate('CASCADE');
-            $table->integer('kanbann_qty')->nullable();
-            $table->integer('qty_per_kanban')->nullable();
-            $table->integer('total_qty')->nullable();
-            $table->integer('actual_qty')->nullable();
+            $table->timestamp('delivery_date')->nullable();
+            $table->timestamp('shipping_date')->nullable();
             $table->timestamps();
         });
     }

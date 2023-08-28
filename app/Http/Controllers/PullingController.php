@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Models\Part;
+use App\Models\Kanban;
 use GuzzleHttp\Client;
 use App\Models\Pulling;
 use App\Models\Customer;
@@ -11,6 +12,8 @@ use App\Models\Mutation;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
+use App\Models\KanbanAfterProd;
+use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
 use PhpMqtt\Client\ConnectionSettings;
 
@@ -324,5 +327,95 @@ class PullingController extends Controller
         }
 
         return ['status' => $response];
+    }
+
+    public function kanbanCheck(Request $request)
+    {
+        //get all req
+        $internal = $request->internal;
+        $seri = $request->seri;
+
+        // get internal part number id
+        $internalPart = InternalPart::select('id')->where('part_number', $internal)->first();
+        if(!$internalPart){
+            return response()->json([
+                'status' => 'partNotExist',
+                'message' => 'Part number tidak terdaftar'
+            ], 404);
+        }
+
+        // check if kanban exist
+        $kanban = Kanban::select('id')
+                    ->where('internal_part_id', $internalPart->id)
+                    ->where('serial_number', $seri)
+                    ->first();
+        if(!$kanban){
+            return response()->json([
+                'status' => 'kanbanNotExist',
+                'message' => 'Kanban tidak terdaftar'
+            ], 404);
+        }
+
+        // check if kanban already scanned by production
+        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id);
+        if(!$kanbanAfterProd->first()){
+            return response()->json([
+                'status' => 'notScanned',
+                'message' => 'Kanban belum discan produksi'
+            ],404);
+        }
+
+        return ['status' => 'success'];
+    }
+
+    public function kanbanAfterPull(Request $request)
+    {
+        //get all req
+        $internal = $request->internal;
+        $seri = $request->seri;
+
+        // get internal part number id
+        $internalPart = InternalPart::select('id')->where('part_number', $internal)->first();
+
+        // check if kanban exist
+        $kanban = Kanban::select('id')
+                    ->where('internal_part_id', $internalPart->id)
+                    ->where('serial_number', $seri)
+                    ->first();
+
+        // check if kanban already scanned by production
+        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->first();
+        
+        try {
+            DB::beginTransaction();
+
+            // delete kanban id at kanban after prod table
+            $kanbanAfterProd->update([
+                'kanban_id' => null
+            ]);
+
+            // create data at kanban after pulls table
+            KanbanAfterPulling::create([
+                'kanban_id' => $kanban->id,
+                'internal_part_id' => $internalPart->id,
+                'code' => $kanbanAfterProd->code,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d')
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $kanban->id
+            ],200);
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $th->getMessage(),
+            ],500);
+        }
     }
 }

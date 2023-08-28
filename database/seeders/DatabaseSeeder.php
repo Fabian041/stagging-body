@@ -3,6 +3,9 @@
 namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+
+use App\Models\Kanban;
+use App\Models\InternalPart;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -14,11 +17,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
-        // \App\Models\User::factory(10)->create();
+        // get all part number internal id
+        $internalCount = InternalPart::count();
+        $internalPart = InternalPart::select('id')->get();
 
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        for($i= 0; $i < $internalCount; $i++){
+            for($j= 1; $j<=1000; $j++){
+                $formattedSerial = sprintf('%04d', $j);
+                Kanban::create([
+                    'serial_number' => $formattedSerial,
+                    'internal_part_id' => $internalPart[$i]->id,
+                ]);
+            }
+        }
+
     }
 }

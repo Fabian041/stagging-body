@@ -3,8 +3,8 @@
 namespace App\Imports;
 
 use App\Models\Customer;
-use App\Models\CustomerPart;
 use App\Models\Manifest;
+use App\Models\CustomerPart;
 use App\Models\ManifestDetail;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +46,7 @@ class ManifestImport implements ToCollection, WithHeadingRow, WithStartRow
                 $lastDigit = substr($partNumberCustomer, -2);
 
                 // check part number customer length
-                if($codeLength == 12){
+                if($codeLength == 12 || $codeLength == 14){
                     // TMMIN
                     if($lastDigit != '00'){
                         $convertedPartNumber = substr($partNumberCustomer, 0, 5) . '-' . substr($partNumberCustomer, 5, 5) . '-' . substr($partNumberCustomer, -2);

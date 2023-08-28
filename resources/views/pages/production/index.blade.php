@@ -180,6 +180,34 @@
         }, 1500);
     }
 
+    // extract the master sample from counter
+    function extractMasterSample(key) {
+        const prefix = "counter_";
+        return key.substring(prefix.length);
+    }
+
+    // retrieve the loading list number from localStorage
+    function getMasterSample() {
+        let masterSample = false;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith("counter_")) {
+                masterSample = extractMasterSample(key);
+            }
+        }
+        // Return a default value if no loading list number is found
+        return masterSample;
+    }
+
+    function deleteMasterSampleCounter() {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith("counter_")) {
+                localStorage.removeItem(key);
+            }
+        }
+    }
+
     $(document).ready(function() {
         initApp();
         $(document).on('click', function() {
@@ -237,6 +265,10 @@
             let sample = localStorage.getItem('sample');
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
+                // check if there is current counter in local storage or the master sample scanned not same as the current master sample
+                if (getMasterSample() !== false || $(this).val() !== getMasterSample()) {
+                    deleteMasterSampleCounter();
+                }
 
                 //Check sample 
                 $.ajax({
@@ -248,7 +280,12 @@
                     success: function(data) {
                         console.log(data);
                         if (data.status == 'success') {
+                            // set master sample to local storage
                             localStorage.setItem('sample', data.sample);
+
+                            // set counter to local storage based on sample
+                            localStorage.setItem(`counter_${data.sample}`, 0);
+
                             initApp();
                         } else {
                             notif('error', data.message);
@@ -290,6 +327,11 @@
                 console.log(barcodecomplete.length);
 
                 if (barcodecomplete.length <= 19) {
+                    // check if there is current counter in local storage or the master sample scanned not same as the current master sample
+                    if (getMasterSample() !== false || $(this).val() !== getMasterSample()) {
+                        deleteMasterSampleCounter();
+                    }
+
                     let line = localStorage.getItem('line');
                     let code = (e.keyCode ? e.keyCode : e.which);
                     if (code == 13) {
@@ -304,7 +346,11 @@
                             success: function(data) {
                                 console.log(data);
                                 if (data.status == 'success') {
+                                    // set master sample to local storage
                                     localStorage.setItem('sample', data.sample);
+
+                                    // set counter to local storage based on sample
+                                    localStorage.setItem(`counter_${data.sample}`, 0);
                                     initApp();
                                 } else {
                                     notif('error', data.message);
@@ -334,8 +380,7 @@
                     console.log(partNumber);
 
                     if (partNumber == localStorage.getItem('sample')) {
-
-                        //insert to mutation 
+                        //insert to mutation & store it to kanban
                         $.ajax({
                             type: 'get',
                             url: "{{ url('production/store/') }}",
@@ -346,16 +391,20 @@
                             },
                             dataType: 'json',
                             success: function(data) {
-                                console.log(data);
                                 if (data.status == 'success') {
                                     notif("success", data.message);
+
+                                    // get current counter value
+                                    let currentCounter = localStorage.getItem(
+                                        `counter_${getMasterSample()}`);
+                                    currentCounter = parseInt(currentCounter);
+                                    currentCounter++;
+
                                     let interval = setInterval(function() {
                                         $('#notifModal').modal('hide');
                                         clearInterval(interval);
                                         $('#code').focus();
-                                        total = total + 1;
-                                        console.log(total);
-                                        $('#qty-display').text(total);
+                                        $('#qty-display').text(currentCounter);
 
                                     }, 1500);
                                 } else {
