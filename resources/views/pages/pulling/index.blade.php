@@ -640,6 +640,9 @@
                             let deliveryDate = data.data.delivery_date;
                             let shippingDate = data.data.shipping_date;
 
+                            deliveryDate ? deliveryDate : null;
+                            shippingDate ? deliveryDate : null;
+
                             //insert loading list
                             $.ajax({
                                 type: 'GET',
@@ -650,7 +653,7 @@
                                 _token: "{{ csrf_token() }}",
                                 dataType: 'json',
                                 success: function(response) {
-                                    console.log(response.status);
+                                    console.log(response.message);
                                 },
                                 error: function(xhr) {
                                     console.log(xhr)
@@ -1358,6 +1361,9 @@
                                 let deliveryDate = data.data.delivery_date;
                                 let shippingDate = data.data.shipping_date;
 
+                                deliveryDate ? deliveryDate : null;
+                                shippingDate ? deliveryDate : null;
+
                                 //insert loading list
                                 $.ajax({
                                     type: 'GET',
@@ -1405,6 +1411,7 @@
                                         return false;
                                     }
                                 }
+
                                 let pdsLocal = localStorage.setItem('pds_local', pds);
                                 localStorage.setItem('ll_' + data.data.number, data.data
                                     .number);
