@@ -12,29 +12,88 @@
                         <th class="text-center">Customer</th>
                         <th class="text-center">Cycle</th>
                         <th class="text-center">Delivery Date</th>
-                        <th class="text-center">Status</th>
+                        <th class="text-center">Progress</th>
                         <th class="text-center"></th>
                     </tr>
                 </thead>
                 <tbody class="text-center">
                     @foreach ($loadingLists as $loadingList)
+                        @php
+                            // sum kanban qty
+                            $totalKanban = 0;
+                            $actualKanban = 0;
+                            for ($i = 0; $i < count($loadingList->detail); $i++) {
+                                $totalKanban = $totalKanban + $loadingList->detail[$i]->kanban_qty;
+                                $actualKanban = $actualKanban + $loadingList->detail[$i]->actual_kanban_qty;
+                            
+                                // percentage
+                                $progressPercentage = ($actualKanban / $totalKanban) * 100;
+                                $progressPercentage = round($progressPercentage);
+                            }
+                        @endphp
                         <tr>
                             <td class="text-center">{{ $loadingList->number }}</td>
                             <td class="text-center">{{ $loadingList->pds_number }}</td>
                             <td class="text-center">{{ $loadingList->customer_id }}</td>
                             <td class="text-center">{{ $loadingList->cycle }}</td>
                             <td class="text-center">{{ $loadingList->delivery_date }}</td>
-
                             @if ($loadingList->detail[0]->actual_kanban_qty >= $loadingList->detail[0]->kanban_qty)
-                                <td class="text-center"><span class="badge badge-success">COMPLETE</span></td>
-                            @elseif ($loadingList->detail[0]->actual_kanban_qty == 0)
-                                <td class="text-center"><span class="badge badge-danger">NOT STARTED</span></td>
-                            @elseif ($loadingList->detail[0]->actual_kanban_qty < $loadingList->detail[0]->kanban_qty)
-                                <td class="text-center"><span class="badge badge-warning">ON PROGRESS</span></td>
-                            @endif
+                                <td class="text-center">
+                                    <div class="text-small float-right font-weight-bold text-muted ml-3">
+                                        {{ $actualKanban }}/{{ $totalKanban }}</div>
+                                    <div class="progress" data-height="20" style="height: 5px;">
+                                        <div class="progress-bar" role="progressbar" data-width="100%" aria-valuenow="100"
+                                            aria-valuemin="0" aria-valuemax="100"
+                                            style="width: 100%; background-color: lightgreen !important">
+                                        </div>
+                                    </div>
+                                </td>
 
+                                {{-- <td class="text-center"><span class="badge badge-success">COMPLETE</span></td> --}}
+                            @elseif ($loadingList->detail[0]->actual_kanban_qty == 0)
+                                <td class="text-center">
+                                    <div class="text-small float-right font-weight-bold text-muted ml-3">
+                                        {{ $actualKanban }}/{{ $totalKanban }}</div>
+                                    <div class="progress" data-height="20" style="height: 5px;">
+                                        <div class="progress-bar" role="progressbar" data-width="0%" aria-valuenow="100"
+                                            aria-valuemin="0" aria-valuemax="100"
+                                            style="width: 100%; background-color: red !important">
+                                        </div>
+                                    </div>
+                                </td>
+                                {{-- <td class="text-center"><span class="badge badge-danger">NOT STARTED</span></td> --}}
+                            @elseif ($loadingList->detail[0]->actual_kanban_qty < $loadingList->detail[0]->kanban_qty)
+                                @if ($progressPercentage <= 50)
+                                    <td class="text-center">
+                                        <div class="text-small float-right font-weight-bold text-muted ml-3">
+                                            {{ $actualKanban }}/{{ $totalKanban }}</div>
+                                        <div class="progress" data-height="20" style="height: 5px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                data-width="{{ $progressPercentage }}" aria-valuenow="100"
+                                                aria-valuemin="0" aria-valuemax="100"
+                                                style="width: 100%; background-color: red !important">
+                                            </div>
+                                        </div>
+                                    </td>
+                                @elseif($progressPercentage > 50)
+                                    <td class="text-center">
+                                        <div class="text-small float-right font-weight-bold text-muted ml-3">
+                                            {{ $actualKanban }}/{{ $totalKanban }}</div>
+                                        <div class="progress" data-height="20" style="height: 5px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                data-width="{{ $progressPercentage }}" aria-valuenow="100"
+                                                aria-valuemin="0" aria-valuemax="100"
+                                                style="width: 100%; background-color: yellow !important">
+                                            </div>
+                                        </div>
+                                    </td>
+                                @endif
+                                {{-- <td class="text-center"><span class="badge badge-warning">ON PROGRESS</span></td> --}}
+                            @endif
                             <td class="text-center">
-                                <a href="/loading-list/{{ $loadingList->id }}" class="btn btn-info text-white">DETAIL</a>
+                                <a href="/loading-list/{{ $loadingList->id }}" class="btn btn-info text-white">
+                                    <i class="fas fa-info-circle mr-2"></i>
+                                    DETAIL</a>
                             </td>
                         </tr>
                     @endforeach
