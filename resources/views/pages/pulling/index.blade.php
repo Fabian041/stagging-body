@@ -1125,22 +1125,22 @@
             // update the object
             objectStore.put(cursor, primaryKey).onsuccess = function(event) {
                 // hit API to create data at kanban after pull table
-                $.ajax({
-                    type: 'GET',
-                    url: '/kanban/afterPull',
-                    _token: "{{ csrf_token() }}",
-                    data: {
-                        seri: seri,
-                        internal: internal.trimEnd()
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log(data.status);
-                    },
-                    error: function(xhr) {
-                        notif('error', xhr.getResponse);
-                    }
-                })
+                // $.ajax({
+                //     type: 'GET',
+                //     url: '/kanban/afterPull',
+                //     _token: "{{ csrf_token() }}",
+                //     data: {
+                //         seri: seri,
+                //         internal: internal.trimEnd()
+                //     },
+                //     dataType: 'json',
+                //     success: function(data) {
+                //         console.log(data.status);
+                //     },
+                //     error: function(xhr) {
+                //         notif('error', xhr.getResponse);
+                //     }
+                // })
 
                 // hit API to create checkout transaction after pulling
                 $.ajax({
@@ -1677,7 +1677,7 @@
                         seri = barcodecomplete.substr(123, 4);
 
                         // check existence of kanban and check if it already scanned by prod
-                        checkKanban(seri, internal);
+                        // checkKanban(seri, internal);
 
                     } else if (barcodecomplete.length == 220) {
                         // kanban buffer
@@ -1685,7 +1685,7 @@
                         seri = barcodecomplete.substr(130, 4);
 
                         // check existence of kanban and check if it already scanned by prod
-                        checkKanban(seri, internal);
+                        // checkKanban(seri, internal);
 
                     } else if (barcodecomplete.length == 241) {
                         // kanban passtrough
@@ -1693,7 +1693,7 @@
                         seri = barcodecomplete.substr(127, 4);
 
                         // check existence of kanban and check if it already scanned by prod
-                        checkKanban(seri, internal);
+                        // checkKanban(seri, internal);
                     }
 
                     console.log(seri);
