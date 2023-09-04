@@ -119,7 +119,6 @@
         $('#loadingList').DataTable({
             lengthMenu: [
                 ['All'],
-                ['All']
             ],
             columnDefs: [{
                 targets: [6],
