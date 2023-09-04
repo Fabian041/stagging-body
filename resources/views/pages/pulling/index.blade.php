@@ -1127,7 +1127,7 @@
                 // hit API to create data at kanban after pull table
                 $.ajax({
                     type: 'GET',
-                    url: '/kanban/check',
+                    url: '/kanban/afterPull',
                     _token: "{{ csrf_token() }}",
                     data: {
                         seri: seri,
