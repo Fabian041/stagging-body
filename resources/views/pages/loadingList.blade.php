@@ -117,6 +117,10 @@
 <script>
     $(document).ready(function() {
         $('#loadingList').DataTable({
+            lengthMenu: [
+                ['All'],
+                ['All']
+            ],
             columnDefs: [{
                 targets: [6],
                 orderable: false
