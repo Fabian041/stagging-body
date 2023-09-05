@@ -182,14 +182,14 @@ class LoadingListController extends Controller
         }
 
         // get current actual kanban qty
-        $currentQty = LoadingListDetail::select('actual_kanban_qty')
+        $currentQty = LoadingListDetail::select('actual_kanban_qty','loading_list_id')
                         ->where('loading_list_id', $loadingListId->id)
                         ->where('customer_part_id', $customerPartId->id)
                         ->first();
                         
+                        dd($currentQty);
         $currentQty = (int) $currentQty->actual_kanban_qty;
 
-        dd($currentQty);
 
         try {
             DB::beginTransaction();
