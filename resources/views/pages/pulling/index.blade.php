@@ -1151,7 +1151,7 @@
                             internalPart: internal.trimEnd(),
                             serialNumber: seri,
                             qty_per_kbn: qty_per_kbn,
-                        }
+                        },
                         dataType: 'json',
                     }),
                     // API to store data pulling
@@ -1162,7 +1162,7 @@
                         data: {
                             loadingList: loadingList,
                             customerPart: localStorage.getItem('customerPart')
-                        }
+                        },
                         dataType: 'json',
                     }),
                 ];
