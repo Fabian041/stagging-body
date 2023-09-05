@@ -116,7 +116,7 @@ class LoadingListController extends Controller
                 ->where('customer_part_id', $customerPartId->id)
                 ->get();
 
-        if(!$loadingListCheck){
+        if(!$loadingListCheck == false){
             try {
                 LoadingListDetail::create([
                     'loading_list_id' => $loadingListId->id,
@@ -133,7 +133,7 @@ class LoadingListController extends Controller
                 ];
             } 
         }
-        
+
         return response()->json([
             'status' => 'success',
             'message' => 'Detail loading list tersimpan!'
