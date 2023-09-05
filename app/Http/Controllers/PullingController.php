@@ -316,7 +316,7 @@ class PullingController extends Controller
         
         // post data
         for($i = 0; $i<count($data); $i++){
-            $response = $client->post('http://api-dea-dev/api/v1/kanbans',[
+            $response = $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans',[
                 'headers' => [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',

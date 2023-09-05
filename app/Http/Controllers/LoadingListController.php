@@ -211,7 +211,7 @@ class LoadingListController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $currentQty
+            'data' => $customerPartId->id
         ],200);
     }
 }

@@ -1170,6 +1170,7 @@
                     .done(function(response1, response2) {
                         // Process response1, response2, response3 here
                         if (response1[0].status === 'success' && response2[0].status === 'success') {
+
                             // udpate the qty display
                             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
