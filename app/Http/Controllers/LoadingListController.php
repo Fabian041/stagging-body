@@ -116,7 +116,7 @@ class LoadingListController extends Controller
                 ->where('customer_part_id', $customerPartId->id)
                 ->get();
 
-                dd($loadingListCheck);
+                dd($loadingListCheck == null);
 
         if($loadingListCheck == null){
             try {
