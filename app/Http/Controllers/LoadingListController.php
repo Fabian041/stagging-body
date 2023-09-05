@@ -189,6 +189,8 @@ class LoadingListController extends Controller
                         
         $currentQty = (int) $currentQty->actual_kanban_qty;
 
+        dd($currentQty);
+
         try {
             DB::beginTransaction();
 
