@@ -199,11 +199,6 @@ class LoadingListController extends Controller
                                 'actual_kanban_qty' => $currentQty + 1
                             ]);
 
-            return response()->json([
-                'status' => 'success',
-                'data' => $currentQty
-            ],200);
-
             DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -214,5 +209,9 @@ class LoadingListController extends Controller
             ],500);
         }
 
+        return response()->json([
+            'status' => 'success',
+            'data' => $currentQty
+        ],200);
     }
 }
