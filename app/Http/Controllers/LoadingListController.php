@@ -153,7 +153,7 @@ class LoadingListController extends Controller
                 'message' => 'Loading list tidak terdaftar!'
             ];
         }
-
+        dd($customerPart);
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number', $customerPart)->first();
         if(!$customerPartId){
