@@ -3,7 +3,7 @@
 @section('main')
     <div class="card card-info mt-3 shadow" style="border-radius:10px">
         <div class="card-body">
-            <h4 class="card-title mt-3 text-dark text-center">DELIVERY MONITORING</h4>
+            <h4 class="card-title mt-3 mb-3 text-dark text-center">DELIVERY MONITORING</h4>
             <table class="table table-responsive-lg" id="loadingList">
                 <thead>
                     <tr>
@@ -113,9 +113,7 @@
 <script>
     $(document).ready(function() {
         $('#loadingList').DataTable({
-            lengthMenu: [
-                ['All'],
-            ],
+            paging: false,
             columnDefs: [{
                 targets: [6],
                 orderable: false

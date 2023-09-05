@@ -333,6 +333,10 @@
                 $('#input-confirmation').focus();
             })
             $('#modalConfirmation').modal('show');
+
+            $(document).on('click', function() {
+                $('#input-confirmation').focus();
+            })
         }
 
         let customer = localStorage.getItem('customer');
