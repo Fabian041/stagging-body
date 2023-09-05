@@ -43,8 +43,9 @@ Route::middleware(['auth'])->group(function () {
     // kanban
     Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');
     Route::get('/kanban/afterPull', [PullingController::class, 'kanbanAfterPull'])->name('kanban.afterPull');
-
+    
     // loading list
+    Route::get('/kanban/scanned', [LoadingListController::class, 'kanbanScanned'])->name('kanban.scanned');
     Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
     Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
     Route::prefix('loading-list')->group(function(){

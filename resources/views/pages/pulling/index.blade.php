@@ -1057,6 +1057,7 @@
         let total = 0;
 
         function checkInternalAndCustomer(objectStore, cursor, internal, primaryKey, seri) {
+            let loadingList = getLoadingListNumber();
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];
             let arraySeri = cursor['seri'];
@@ -1128,38 +1129,48 @@
 
             // update the object
             objectStore.put(cursor, primaryKey).onsuccess = function(event) {
-                // hit API to create data at kanban after pull table
-                // $.ajax({
-                //     type: 'GET',
-                //     url: '/kanban/afterPull',
-                //     _token: "{{ csrf_token() }}",
-                //     data: {
-                //         seri: seri,
-                //         internal: internal.trimEnd()
-                //     },
-                //     dataType: 'json',
-                //     success: function(data) {
-                //         console.log(data.status);
-                //     },
-                //     error: function(xhr) {
-                //         notif('error', xhr.getResponse);
-                //     }
-                // })
+                // hit all api
+                const requests = [
+                    // API to store kanban after pull
+                    // $.ajax({
+                    //     type: 'GET',
+                    //     url: `/kanban/afterPull`,
+                    //     _token: "{{ csrf_token() }}",
+                    //     data: {
+                    //         seri: seri,
+                    //         internal: internal.trimEnd()
+                    //     }
+                    //     dataType: 'json', // Specify the expected response data type
+                    // }),
+                    // API to store mutation
+                    $.ajax({
+                        type: 'GET',
+                        url: "{{ route('pulling.mutation') }}",
+                        _token: "{{ csrf_token() }}",
+                        data: {
+                            internalPart: internal.trimEnd(),
+                            serialNumber: seri,
+                            qty_per_kbn: qty_per_kbn,
+                        }
+                        dataType: 'json',
+                    }),
+                    // API to store data pulling
+                    $.ajax({
+                        type: 'GET',
+                        url: "{{ route('kanban.scanned') }}",
+                        _token: "{{ csrf_token() }}",
+                        data: {
+                            loadingList: loadingList,
+                            customerPart: localStorage.getItem('customerPart')
+                        }
+                        dataType: 'json',
+                    }),
+                ];
 
-                // hit API to create checkout transaction after pulling
-                $.ajax({
-                    type: 'GET',
-                    url: "{{ route('pulling.mutation') }}",
-                    _token: "{{ csrf_token() }}",
-                    data: {
-                        internalPart: internal.trimEnd(),
-                        serialNumber: seri,
-                        qty_per_kbn: qty_per_kbn,
-                    },
-                    contentType: 'application/json',
-                    success: function(data) {
-                        console.log(data.status);
-                        if (data.status == 'success') {
+                $.when(...requests)
+                    .done(function(response1, response2) {
+                        // Process response1, response2, response3 here
+                        if (response1[0].status === 'success' && response2[0].status === 'success') {
 
                             // udpate the qty display
                             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
@@ -1178,14 +1189,15 @@
 
                             // reset customer local storage
                             localStorage.removeItem('customerPart');
-                        } else if (data.status == 'error') {
-                            notif('error', data.message);
+                        } else if (response1[0].status === 'error' || response2[0].status === 'error') {
+                            notif('error', 'Data gagal diproses!');
 
                             setInterval(() => {
                                 $('#code').focus();
                             }, 1000);
-                        } else if (data.status == 'notExists') {
-                            notif('error', data.message);
+                        } else if (response1[0].status === 'notExists' || response2[0].status ===
+                            'notExists') {
+                            notif('error', 'Part atau Kanban tidak ditemukan!');
 
                             notExist();
 
@@ -1193,12 +1205,65 @@
                                 $('#code').focus();
                             }, 1000);
                         }
-                    },
-                    error: function(xhr) {
+                    })
+                    .fail(function(error) {
                         console.log(xhr.responseText);
                         notif('error', xhr.getResponseHeader());
-                    }
-                })
+                    });
+
+                // hit API to create checkout transaction after pulling
+                // $.ajax({
+                //     type: 'GET',
+                //     url: "{{ route('pulling.mutation') }}",
+                //     _token: "{{ csrf_token() }}",
+                //     data: {
+                //         internalPart: internal.trimEnd(),
+                //         serialNumber: seri,
+                //         qty_per_kbn: qty_per_kbn,
+                //     },
+                //     contentType: 'application/json',
+                //     success: function(data) {
+                //         console.log(data.status);
+                //         if (data.status == 'success') {
+
+                //             // udpate the qty display
+                //             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
+
+                //             // display internal
+                //             $('#int-display').text(internal);
+                //             $('#cust-display').text('-');
+
+                //             // success indicator
+                //             $('#indicator').removeClass('bg-danger');
+                //             $('#indicator').removeClass('bg-warning');
+                //             $('#indicator').addClass('bg-success');
+
+                //             // display total quantity
+                //             pullingQuantity();
+
+                //             // reset customer local storage
+                //             localStorage.removeItem('customerPart');
+                //         } else if (data.status == 'error') {
+                //             notif('error', data.message);
+
+                //             setInterval(() => {
+                //                 $('#code').focus();
+                //             }, 1000);
+                //         } else if (data.status == 'notExists') {
+                //             notif('error', data.message);
+
+                //             notExist();
+
+                //             setInterval(() => {
+                //                 $('#code').focus();
+                //             }, 1000);
+                //         }
+                //     },
+                //     error: function(xhr) {
+                //         console.log(xhr.responseText);
+                //         notif('error', xhr.getResponseHeader());
+                //     }
+                // })
             }
 
             // error handling

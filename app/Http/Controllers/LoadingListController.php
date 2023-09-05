@@ -139,4 +139,61 @@ class LoadingListController extends Controller
             'message' => 'Detail loading list tersimpan!'
         ], 200);        
     }
+
+    public function kanbanScanned(Request $request)
+    {
+        $loadingList = $request->loadingList;
+        $customerPart = $request->customerPart;
+
+        // get loadingList id
+        $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
+        if(!$loadingListId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Loading list tidak terdaftar!'
+            ];
+        }
+
+        // get customer part id
+        $customerPartId = CustomerPart::select('id')->where('part_number', $customerPart)->first();
+        if(!$customerPartId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Part number customer tidak terdaftar!'
+            ];
+        }
+
+        // get current actual kanban qty
+        $currentQty = LoadingListDetail::select('actual_kanban_qty')
+                        ->where('loading_list_id', $loadingListId->id)
+                        ->where('customer_part_id', $customerPartId->id)
+                        ->first();
+                        
+        $currentQty = (int) $currentQty->actual_kanban_qty;
+
+        try {
+            DB::beginTransaction();
+
+            // update actual kanban quantity or scanned kanban quantity
+            LoadingListDetail::where('loading_list_id', $loadingListId->id)
+                            ->where('customer_part_id', $customerPartId->id)
+                            ->update([
+                                'actual_kanban_quantity' => $currentQty + 1
+                            ]);
+
+            return response()->json([
+                'status' => 'success',
+            ],200);
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $th->getMessage(),
+            ],500);
+        }
+
+    }
 }
