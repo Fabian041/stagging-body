@@ -145,6 +145,25 @@ class LoadingListController extends Controller
         $loadingList = $request->loadingList;
         $customerPart = $request->customerPart;
 
+        // get part number length
+        $codeLength = strlen($customerPart);
+
+        // check last two digit of partNumber 
+        $lastDigit = substr($customerPart, -2);
+
+        // check part number customer length
+        if($codeLength == 12){
+            // TMMIN
+            if($lastDigit != '00'){
+                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -2);
+            }else{
+                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
+            }
+        }else if($codeLength == 10){
+            // TBINA
+            $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
+        }
+
         // get loadingList id
         $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
         if(!$loadingListId){
@@ -153,9 +172,8 @@ class LoadingListController extends Controller
                 'message' => 'Loading list tidak terdaftar!'
             ];
         }
-        dd($customerPart);
         // get customer part id
-        $customerPartId = CustomerPart::select('id')->where('part_number', $customerPart)->first();
+        $customerPartId = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
         if(!$customerPartId){
             return [
                 'status' => 'notExists',

@@ -1163,7 +1163,6 @@
                             loadingList: loadingList,
                             customerPart: localStorage.getItem('customerPart')
                         },
-                        dataType: 'json',
                     }),
                 ];
 
