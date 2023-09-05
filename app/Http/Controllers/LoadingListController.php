@@ -116,9 +116,7 @@ class LoadingListController extends Controller
                 ->where('customer_part_id', $customerPartId->id)
                 ->get();
 
-                dd(!$loadingListCheck);
-
-        if($loadingListCheck == null){
+        if(!$loadingListCheck == false){
             try {
                 LoadingListDetail::create([
                     'loading_list_id' => $loadingListId->id,
