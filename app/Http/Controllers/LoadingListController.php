@@ -201,6 +201,7 @@ class LoadingListController extends Controller
 
             return response()->json([
                 'status' => 'success',
+                'data' => $currentQty
             ],200);
 
             DB::commit();

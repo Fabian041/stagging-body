@@ -1171,6 +1171,8 @@
                         // Process response1, response2, response3 here
                         if (response1[0].status === 'success' && response2[0].status === 'success') {
 
+                            console.log(response2);
+
                             // udpate the qty display
                             $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
 
