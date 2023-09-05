@@ -196,7 +196,7 @@ class LoadingListController extends Controller
             LoadingListDetail::where('loading_list_id', $loadingListId->id)
                             ->where('customer_part_id', $customerPartId->id)
                             ->update([
-                                'actual_kanban_quantity' => $currentQty + 1
+                                'actual_kanban_qty' => $currentQty + 1
                             ]);
 
             return response()->json([
