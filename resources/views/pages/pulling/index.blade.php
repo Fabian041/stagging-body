@@ -1016,16 +1016,12 @@
                                     for (let index = 0; index < data.length; index++) {
                                         $.ajax({
                                             type: 'GET',
-                                            url: "{{ url('pulling/store') }}",
+                                            url: "{{ url('pulling/store') }}" +
+                                                '/' + data[index].customer +
+                                                '/' + data[index].loadingList +
+                                                '/' + data[index].pdsNumber +
+                                                '/' + data[index].cycle,
                                             _token: "{{ csrf_token() }}",
-                                            data: {
-                                                customer: data[index].customer,
-                                                loadingList: data[index]
-                                                    .loadingList,
-                                                pdsNumber: data[index]
-                                                    .pdsNumber,
-                                                cycle: data[index].cycle
-                                            },
                                             dataType: 'json',
                                             success: function(data) {
                                                 console.log(data);

@@ -88,13 +88,8 @@ class PullingController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store($customer, $loadingList, $pdsNumber, $cycle)
     {
-        $customer = $request->customer;
-        $loadingList = $request->loadingList;
-        $pdsNumber = $request->pdsNumber;
-        $cycle = $request->cycle;
-
         // get customer id
         $customerId = Customer::select('id')->where('name', $customer)->first();
 
