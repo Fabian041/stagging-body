@@ -99,14 +99,11 @@
                                 <a href="/loading-list/{{ $loadingList->id }}" class="btn btn-info text-white">
                                     <i class="fas fa-info-circle mr-2"></i>
                                     DETAIL</a>
-                            </td>
-                            @if ($actualKanban >= $totalKanban)
-                                <td class="text-center">
-                                    <button class="btn btn-info text-white">
-                                        <i class="fas fa-success-circle mr-2"></i>
+                                @if ($actualKanban >= $totalKanban)
+                                    <button class="btn btn-success text-white">
                                         FINISH</button>
-                                </td>
-                            @endif
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
