@@ -37,7 +37,7 @@
                             <td class="text-center">{{ $loadingList->customer_id }}</td>
                             <td class="text-center">{{ $loadingList->cycle }}</td>
                             <td class="text-center">{{ $loadingList->delivery_date }}</td>
-                            @if ($loadingList->detail[0]->actual_kanban_qty >= $loadingList->detail[0]->kanban_qty)
+                            @if ($actualKanban >= $totalKanban)
                                 <td class="text-center">
                                     <div class="text-small float-right font-weight-bold text-muted ml-3">
                                         {{ $actualKanban }}/{{ $totalKanban }}</div>
@@ -50,7 +50,7 @@
                                 </td>
 
                                 {{-- <td class="text-center"><span class="badge badge-success">COMPLETE</span></td> --}}
-                            @elseif ($loadingList->detail[0]->actual_kanban_qty == 0)
+                            @elseif ($actualKanban == 0)
                                 <td class="text-center">
                                     <div class="text-small float-right font-weight-bold text-muted ml-3">
                                         {{ $actualKanban }}/{{ $totalKanban }}</div>
@@ -62,7 +62,7 @@
                                     </div>
                                 </td>
                                 {{-- <td class="text-center"><span class="badge badge-danger">NOT STARTED</span></td> --}}
-                            @elseif ($loadingList->detail[0]->actual_kanban_qty < $loadingList->detail[0]->kanban_qty)
+                            @elseif ($actualKanban < $totalKanban)
                                 @if ($progressPercentage <= 50)
                                     <td class="text-center">
                                         <div class="text-small float-right font-weight-bold text-muted ml-3">
