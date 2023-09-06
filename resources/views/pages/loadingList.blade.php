@@ -101,6 +101,9 @@
                                 @if ($actualKanban >= $totalKanban)
                                     <button class="btn btn-success text-white">
                                         FINISH</button>
+                                @else
+                                    <button class="btn btn-success text-white" style="background-color: white !important">
+                                        FINISH</button>
                                 @endif
                             </td>
                         </tr>
