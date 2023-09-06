@@ -119,6 +119,8 @@ class PullingController extends Controller
                 'message' => $th->getMessage(),
             ];
         }
+
+        return ['status' => 'success'];
     }
 
     /**
