@@ -112,11 +112,12 @@ class LoadingListController extends Controller
         } 
 
         // check and insert if the loading list exist and customer part does not exist
-        $loadingListCheck = LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                ->where('customer_part_id', $customerPartId->id)
-                ->get();
+        $loadingListCheck = LoadingListDetail::firstOrNew([
+            'loading_list_id' => $loadingListId->id,
+            'customer_part_id' => $customerPartId->id,
+        ]);
 
-        if(!$loadingListCheck == false){
+        if(!$loadingListCheck->exists){
             try {
                 LoadingListDetail::create([
                     'loading_list_id' => $loadingListId->id,
