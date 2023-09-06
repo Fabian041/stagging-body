@@ -9,10 +9,11 @@
                     <tr>
                         <th class="text-center">Loading List Number</th>
                         <th class="text-center">PDS Number</th>
-                        <th class="text-center">Customer</th>
+                        {{-- <th class="text-center">Customer</th> --}}
                         <th class="text-center">Cycle</th>
                         <th class="text-center">Delivery Date</th>
                         <th class="text-center">Progress</th>
+                        <th class="text-center"></th>
                         <th class="text-center"></th>
                     </tr>
                 </thead>
@@ -34,7 +35,7 @@
                         <tr>
                             <td class="text-center">{{ $loadingList->number }}</td>
                             <td class="text-center">{{ $loadingList->pds_number }}</td>
-                            <td class="text-center">{{ $loadingList->customer_id }}</td>
+                            {{-- <td class="text-center">{{ $loadingList->customer_id }}</td> --}}
                             <td class="text-center">{{ $loadingList->cycle }}</td>
                             <td class="text-center">{{ $loadingList->delivery_date }}</td>
                             @if ($actualKanban >= $totalKanban)
@@ -99,6 +100,9 @@
                                     <i class="fas fa-info-circle mr-2"></i>
                                     DETAIL</a>
                             </td>
+                            @if ($actualKanban >= $totalKanban)
+                                <td class="text-center"><span class="badge badge-success">FINISH</span></td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>
