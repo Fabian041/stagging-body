@@ -1057,7 +1057,7 @@
         let total = 0;
 
         function checkInternalAndCustomer(objectStore, cursor, internal, primaryKey, seri) {
-            let loadingList = getLoadingListNumber();
+            let loadingList;
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];
             let arraySeri = cursor['seri'];
@@ -1071,6 +1071,9 @@
                         isSameObject = true;
                         break;
                     }
+
+                    // get loading list
+                    loadingList = cursor['loading_list_number'];
                 }
             }
 
