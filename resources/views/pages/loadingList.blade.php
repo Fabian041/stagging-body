@@ -102,7 +102,8 @@
                                     <button class="btn btn-success text-white">
                                         FINISH</button>
                                 @else
-                                    <button class="btn btn-success text-white" style="background-color: white !important">
+                                    <button class="btn btn-success text-white"
+                                        style="background-color: white !important; box-shadow: none !important">
                                         FINISH</button>
                                 @endif
                             </td>
