@@ -974,7 +974,7 @@
                                 };
                             },
                             error: function(xhr) {
-                                notif('error', xhr);
+                                notif('error', xhr.getResponseText());
                             }
                         });
 
@@ -1033,7 +1033,8 @@
                                                 window.location.reload();
                                             },
                                             error: function(xhr) {
-                                                notif('error', xhr);
+                                                notif('error', xhr
+                                                    .getResponseText());
                                             }
                                         });
                                     }
