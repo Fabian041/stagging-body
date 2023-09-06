@@ -105,6 +105,7 @@
                                 @else
                                     <button class="btn btn-success text-white"
                                         style="background-color: white !important; box-shadow: none !important; border-color:white !important">
+                                        <i class="fas fa-solid fa-check mr-2"></i>
                                         FINISH</button>
                                 @endif
                             </td>
