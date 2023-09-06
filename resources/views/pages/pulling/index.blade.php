@@ -1030,7 +1030,7 @@
                                             },
                                             error: function(xhr) {
                                                 notif('error', xhr
-                                                    .status);
+                                                    .statusText);
                                             }
                                         });
                                     }
