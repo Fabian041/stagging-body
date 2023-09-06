@@ -1033,7 +1033,7 @@
                                                 window.location.reload();
                                             },
                                             error: function(xhr) {
-                                                notif('eror', xhr.message);
+                                                notif('error', xhr.message);
                                             }
                                         });
                                     }
