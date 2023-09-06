@@ -1016,7 +1016,7 @@
                                     for (let index = 0; index < data.length; index++) {
                                         $.ajax({
                                             type: 'GET',
-                                            url: "{{ url('pulling/store') }}",
+                                            url: "{{ route('pulling.store') }}",
                                             _token: "{{ csrf_token() }}",
                                             data: {
                                                 customer: data[index].customer,
