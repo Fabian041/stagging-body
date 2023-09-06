@@ -312,7 +312,9 @@ class PullingController extends Controller
             $result = [];
         }
         // initialize new client
-        $client = new Client();
+        $client = new Client([
+            'verify' => false, // Temporarily disabling SSL verification
+        ]);
         
         // post data
         for($i = 0; $i<count($data); $i++){
