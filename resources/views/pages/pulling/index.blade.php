@@ -974,7 +974,7 @@
                                 };
                             },
                             error: function(xhr) {
-                                notif('error', xhr.getResponseText());
+                                notif('error', xhr.getResponseText);
                             }
                         });
 
@@ -1034,7 +1034,7 @@
                                             },
                                             error: function(xhr) {
                                                 notif('error', xhr
-                                                    .getResponseText());
+                                                    .getResponseText);
                                             }
                                         });
                                     }
