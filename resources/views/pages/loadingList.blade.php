@@ -103,7 +103,7 @@
                                         FINISH</button>
                                 @else
                                     <button class="btn btn-success text-white"
-                                        style="background-color: white !important; box-shadow: none !important">
+                                        style="background-color: white !important; box-shadow: none !important; border-color:white !important">
                                         FINISH</button>
                                 @endif
                             </td>
