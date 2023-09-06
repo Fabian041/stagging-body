@@ -101,7 +101,11 @@
                                     DETAIL</a>
                             </td>
                             @if ($actualKanban >= $totalKanban)
-                                <td class="text-center"><span class="badge badge-success">FINISH</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-info text-white">
+                                        <i class="fas fa-success-circle mr-2"></i>
+                                        FINISH</button>
+                                </td>
                             @endif
                         </tr>
                     @endforeach
