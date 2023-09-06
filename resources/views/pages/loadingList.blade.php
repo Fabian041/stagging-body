@@ -14,7 +14,6 @@
                         <th class="text-center">Delivery Date</th>
                         <th class="text-center">Progress</th>
                         <th class="text-center"></th>
-                        <th class="text-center"></th>
                     </tr>
                 </thead>
                 <tbody class="text-center">
