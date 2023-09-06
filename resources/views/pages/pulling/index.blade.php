@@ -1034,7 +1034,7 @@
                                             },
                                             error: function(xhr) {
                                                 notif('error', xhr
-                                                    .statusText);
+                                                    .status);
                                             }
                                         });
                                     }
