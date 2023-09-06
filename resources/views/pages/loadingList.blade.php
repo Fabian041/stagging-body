@@ -55,8 +55,8 @@
                                     <div class="text-small float-right font-weight-bold text-muted ml-3">
                                         {{ $actualKanban }}/{{ $totalKanban }}</div>
                                     <div class="progress" data-height="20" style="height: 5px;">
-                                        <div class="progress-bar" role="progressbar" data-width="0%" aria-valuenow="100"
-                                            aria-valuemin="0" aria-valuemax="100"
+                                        <div class="progress-bar" role="progressbar" data-width="{{ $progressPercentage }}"
+                                            aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
                                             style="width: 100%; background-color: red !important">
                                         </div>
                                     </div>
