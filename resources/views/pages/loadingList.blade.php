@@ -104,7 +104,7 @@
                                     </button>
                                 @elseif ($actualKanban < $totalKanban && $actualKanban > 0)
                                     <button class="btn btn-outline-warning">
-                                        ON GOING
+                                        INPROGRESS
                                     </button>
                                 @elseif ($actualKanban == 0)
                                     <button class="btn btn-outline-danger">
