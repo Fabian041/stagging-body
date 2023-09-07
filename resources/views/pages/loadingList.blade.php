@@ -6,7 +6,7 @@
             <div class=" card shadow" style="padding: 2rem; border-radius:8px">
                 <div class="form-group">
                     <label>Cycle</label>
-                    <select class="" name="state">
+                    <select class="cycle" name="state">
                         <option value="AL">Alabama</option>
                         <option value="WY">Wyoming</option>
                     </select>
