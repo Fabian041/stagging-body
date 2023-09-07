@@ -5,9 +5,9 @@
         <div class="col-md-12">
             <div class=" card shadow" style="padding: 2rem; border-radius:8px">
                 <label>Cycle</label>
-                <select class="cycle" name="state">
-                    <option value="AL">Alabama</option>
-                    <option value="WY">Wyoming</option>
+                <select class="cycle" name="cycle">
+                    <option value="AL">Cycle 1</option>
+                    <option value="WY">Cycle 2</option>
                 </select>
             </div>
         </div>
