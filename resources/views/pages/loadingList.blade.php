@@ -1,7 +1,7 @@
 @extends('layouts.root.main')
 
 @section('main')
-    <div class="row">
+    <div class="row mt-3">
         <div class="col-md-12">
             <div class=" card" style="padding: 2rem; border-radius:8px">
                 <input id="code" type="text" class="form-control" name="code" tabindex="1"
@@ -9,7 +9,7 @@
             </div>
         </div>
     </div>
-    <div class="card card-info mt-3 shadow" style="border-radius:10px">
+    <div class="card card-info mt-2 shadow" style="border-radius:10px">
         <div class="card-body">
             <h4 class="card-title mt-3 mb-3 text-dark text-center">DELIVERY MONITORING</h4>
             <table class="table table-responsive-lg" id="loadingList">
