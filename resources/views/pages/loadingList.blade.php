@@ -99,7 +99,7 @@
                                 </a>
                                 @if ($actualKanban >= $totalKanban)
                                     <button class="btn btn-outline-success">
-                                        <i class="fas fa-solid fa-check" style="margin-right: 1px"></i>
+                                        <i class="fas fa-solid fa-check" style="padding-right: 0.8px"></i>
                                         COMPLETE
                                     </button>
                                 @elseif ($actualKanban < $totalKanban && $actualKanban > 0)
