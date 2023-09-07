@@ -91,17 +91,20 @@
                             <td class="text-center">
                                 <a href="/loading-list/{{ $loadingList->id }}" class="btn btn-info text-white">
                                     <i class="fas fa-info-circle mr-2"></i>
-                                    DETAIL</a>
-                                {{-- @if ($actualKanban >= $totalKanban)
+                                    DETAIL
+                                </a>
+                                @if ($actualKanban >= $totalKanban)
                                     <button class="btn btn-success text-white">
                                         <i class="fas fa-solid fa-check mr-2"></i>
-                                        FINISH</button>
+                                        FINISH
+                                    </button>
                                 @else
                                     <button class="btn btn-success text-white"
                                         style="background-color: white !important; box-shadow: none !important; border-color:white !important">
                                         <i class="fas fa-solid fa-check mr-2"></i>
-                                        FINISH</button>
-                                @endif --}}
+                                        FINISH
+                                    </button>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -123,7 +126,7 @@
         $('#loadingList').DataTable({
             paging: false,
             columnDefs: [{
-                targets: [6],
+                targets: [5],
                 orderable: false
             }]
         });
