@@ -5,8 +5,11 @@
         <div class="col-md-12">
             <div class=" card shadow" style="padding: 2rem; border-radius:8px">
                 <div class="form-group">
-                    <label>Text</label>
-                    <input type="text" class="form-control">
+                    <label>Cycle</label>
+                    <select class="" name="state">
+                        <option value="AL">Alabama</option>
+                        <option value="WY">Wyoming</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -139,6 +142,8 @@
 
 <script>
     $(document).ready(function() {
+        $('.cycle').select2();
+
         $('#loadingList').DataTable({
             paging: false,
             columnDefs: [{

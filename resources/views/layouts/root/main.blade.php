@@ -11,6 +11,8 @@
     <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
     <link rel="stylesheet"
         href={{ asset('assets/modules/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}>
+    <link rel="stylesheet" href={{ asset('assets/modules/select2/css/select2.min.css') }}>
+
 
     <!-- CSS Libraries -->
     <link rel="stylesheet" href={{ asset('assets/modules/jqvmap/dist/jqvmap.min.css') }}>
@@ -65,6 +67,7 @@
     <script src={{ asset('assets/modules/moment.min.js') }}></script>
     <script src={{ asset('assets/js/stisla.js') }}></script>
     <script src={{ asset('assets/modules/datatables/datatables.min.js') }}></script>
+    <script src={{ asset('assets/modules/select2/select2.min.js') }}></script>
 
     @yield('custom-script')
 
