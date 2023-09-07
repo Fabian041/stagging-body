@@ -100,7 +100,7 @@
                                 @if ($actualKanban >= $totalKanban)
                                     <button class="btn btn-outline-success">
                                         <i class="fas fa-solid fa-check mr-2"></i>
-                                        FINISH
+                                        COMPLETE
                                     </button>
                                 @elseif ($actualKanban < $totalKanban && $actualKanban > 0)
                                     <button class="btn btn-outline-warning">
@@ -108,7 +108,7 @@
                                     </button>
                                 @elseif ($actualKanban == 0)
                                     <button class="btn btn-outline-danger">
-                                        UNSTARTED
+                                        INCOMPLETE
                                     </button>
                                 @endif
                             </td>
