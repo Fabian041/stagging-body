@@ -4,13 +4,11 @@
     <div class="row mt-3">
         <div class="col-md-12">
             <div class=" card shadow" style="padding: 2rem; border-radius:8px">
-                <div class="form-group">
-                    <label>Cycle</label>
-                    <select class="cycle" name="state">
-                        <option value="AL">Alabama</option>
-                        <option value="WY">Wyoming</option>
-                    </select>
-                </div>
+                <label>Cycle</label>
+                <select class="cycle" name="state">
+                    <option value="AL">Alabama</option>
+                    <option value="WY">Wyoming</option>
+                </select>
             </div>
         </div>
     </div>
