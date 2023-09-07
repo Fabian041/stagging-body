@@ -3,9 +3,11 @@
 @section('main')
     <div class="row mt-3">
         <div class="col-md-12">
-            <div class=" card" style="padding: 2rem; border-radius:8px">
-                <input id="code" type="text" class="form-control" name="code" tabindex="1"
-                    placeholder="scan or type part here..." required autofocus autocomplete="off">
+            <div class=" card shadow" style="padding: 2rem; border-radius:8px">
+                <div class="form-group">
+                    <label>Text</label>
+                    <input type="text" class="form-control">
+                </div>
             </div>
         </div>
     </div>
