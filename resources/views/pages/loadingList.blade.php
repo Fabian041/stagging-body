@@ -4,28 +4,26 @@
     <div class="row mt-3">
         <div class="col-md-12">
             <div class=" card shadow" style="padding: 2rem; border-radius:8px">
-                <div class="row">
-                    <div class="col-4">
-                        <label class="text-dark">Cycle</label>
-                        <select class="cycle" name="cycle">
-                            <option value="AL">Cycle 1</option>
-                            <option value="WY">Cycle 2</option>
-                        </select>
-                    </div>
-                    <div class="col-4">
-                        <label class="text-dark">Customer</label>
-                        <select class="cycle" name="cycle">
-                            <option value="AL">Cycle 1</option>
-                            <option value="WY">Cycle 2</option>
-                        </select>
-                    </div>
-                    <div class="col-4">
-                        <label class="text-dark">Number</label>
-                        <select class="cycle" name="cycle">
-                            <option value="AL">Cycle 1</option>
-                            <option value="WY">Cycle 2</option>
-                        </select>
-                    </div>
+                <div class="col-4">
+                    <label class="text-dark">Cycle</label>
+                    <select class="cycle" name="cycle">
+                        <option value="AL">Cycle 1</option>
+                        <option value="WY">Cycle 2</option>
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="text-dark">Customer</label>
+                    <select class="cycle" name="cycle">
+                        <option value="AL">Cycle 1</option>
+                        <option value="WY">Cycle 2</option>
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="text-dark">Number</label>
+                    <select class="cycle" name="cycle">
+                        <option value="AL">Cycle 1</option>
+                        <option value="WY">Cycle 2</option>
+                    </select>
                 </div>
             </div>
         </div>
