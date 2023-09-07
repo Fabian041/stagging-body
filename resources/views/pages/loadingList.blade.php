@@ -98,7 +98,7 @@
                                     DETAIL
                                 </a>
                                 @if ($actualKanban >= $totalKanban)
-                                    <button class="btn btn-info text-white">
+                                    <button class="btn btn-outline-success text-white">
                                         <i class="fas fa-solid fa-check mr-2"></i>
                                         FINISH
                                     </button>
