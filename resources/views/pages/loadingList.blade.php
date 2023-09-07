@@ -105,7 +105,7 @@
                                 @elseif ($actualKanban < $totalKanban)
                                     <button class="btn btn-outline-warning">
                                         <i class="fas fa-solid fa-check mr-2"></i>
-                                        ON PROGRESS
+                                        PROGRESS
                                     </button>
                                 @endif
                             </td>
