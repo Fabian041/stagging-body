@@ -102,11 +102,10 @@
                                         <i class="fas fa-solid fa-check mr-2"></i>
                                         FINISH
                                     </button>
-                                @else
-                                    <button class="btn btn-success text-white"
-                                        style="background-color: white !important; box-shadow: none !important; border-color:white !important">
+                                @elseif ($actualKanban < $totalKanban)
+                                    <button class="btn btn-outline-warning">
                                         <i class="fas fa-solid fa-check mr-2"></i>
-                                        FINISH
+                                        ON PROGRESS
                                     </button>
                                 @endif
                             </td>
