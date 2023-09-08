@@ -284,6 +284,7 @@ class LoadingListController extends Controller
             }
         }
 
+
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
         if(!$customerPartId){

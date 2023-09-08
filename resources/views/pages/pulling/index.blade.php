@@ -1740,6 +1740,8 @@
                         }, 1000);
                         return;
                     }
+
+                    console.log(barcodecomplete.length);
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
@@ -1765,7 +1767,7 @@
                         // checkKanban(seri, internal);
                     }
 
-                    console.log(seri);
+                    console.log(internal);
 
                     // initialize databae connection
                     request = window.indexedDB.open(pds);
