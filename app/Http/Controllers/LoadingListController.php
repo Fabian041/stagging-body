@@ -271,9 +271,10 @@ class LoadingListController extends Controller
             if($loadingListId->customer_id == 14){
                 // SUZUKI
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+            }else{
+                // TBINA
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
             }
-            // TBINA
-            $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
         }else if($codeLength == 13){
             // SUZUKI
             if($lastDigit != '000'){
