@@ -251,6 +251,14 @@ class LoadingListController extends Controller
         // check last two digit of partNumber 
         $lastDigit = substr($customerPart, -2);
 
+        // get loading list id
+        $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        if(!$loadingListId){
+            return [
+                'status' => 'llNotExists',
+            ];
+        } 
+
         // check part number customer length
         if($codeLength == 12){
             // TMMIN
@@ -260,6 +268,10 @@ class LoadingListController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
         }else if($codeLength == 10){
+            if($loadingListId->customer_id == 14){
+                // SUZUKI
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+            }
             // TBINA
             $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
         }else if($codeLength == 13){
@@ -270,16 +282,6 @@ class LoadingListController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
             }
         }
-
-        dd($convertedPartNumber);
-
-        // get loading list id
-        $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
-        if(!$loadingListId){
-            return [
-                'status' => 'llNotExists',
-            ];
-        } 
 
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
