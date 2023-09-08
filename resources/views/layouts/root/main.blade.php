@@ -67,7 +67,6 @@
     <script src={{ asset('assets/modules/moment.min.js') }}></script>
     <script src={{ asset('assets/js/stisla.js') }}></script>
     <script src={{ asset('assets/modules/datatables/datatables.min.js') }}></script>
-    <script src={{ asset('assets/modules/select2/dist/js/select2.min.js') }}></script>
 
     @yield('custom-script')
 
@@ -77,6 +76,7 @@
     <script src={{ asset('assets/modules/owlcarousel2/dist/owl.carousel.min.js') }}></script>
     <script src={{ asset('assets/modules/summernote/summernote-bs4.js') }}></script>
     <script src={{ asset('assets/modules/chocolat/dist/js/jquery.chocolat.min.js') }}></script>
+    <script src={{ asset('assets/modules/select2/dist/js/select2.min.js') }}></script>
 
     <!-- Page Specific JS File -->
     <script src={{ asset('assets/js/page/index.js') }}></script>

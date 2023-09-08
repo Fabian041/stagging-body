@@ -52,25 +52,38 @@
             <table class="table table-responsive-lg" id="loadingList">
                 <thead>
                     <tr>
-                        <th class="text-left">Part Name</th>
+                        {{-- <th class="text-left">Part Name</th> --}}
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
                         <th class="text-center">Internal Back No.</th>
                         <th class="text-center">Kanban Qty</th>
                         <th class="text-center">Total Scan</th>
+                        <th class="text-center"></th>
                     </tr>
                 </thead>
                 <tbody class="text-center">
                     @foreach ($details as $detail)
                         <tr>
-                            <td class="text-left">{{ $detail->part_name }}</td>
+                            {{-- <td class="text-left">{{ $detail->part_name }}</td> --}}
                             <td class="text-center">{{ $detail->pn_customer }}</td>
                             <td class="text-center">{{ $detail->pn_internal }}</td>
                             <td class="text-center">{{ $detail->bn_customer }}</td>
                             <td class="text-center">{{ $detail->bn_internal }}</td>
                             <td class="text-center">{{ $detail->kanban_qty }}</td>
-                            <td class="text-center">{{ $detail->actual_kanban_qty }}</td>
+                            <td class="text-center">
+                                <span id="actual">{{ $detail->actual_kanban_qty }}</span>
+                                <input id="editActual" class="form-control" type="number"
+                                    value="{{ $detail->actual_kanban_qty }}" data-width="100"
+                                    style="border-radius:6px; display:none">
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-icon btn-primary edit"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-icon btn-success save" style="display: none"><i
+                                        class="fas fa-check"></i></button>
+                                <button class="btn btn-icon btn-danger cancel" style="display: none"><i
+                                        class="fas fa-times"></i></button>
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -97,6 +110,27 @@
                 targets: [6],
                 orderable: false
             }]
+        });
+
+        $('.edit').on('click', function() {
+            // hide span
+            $(this).closest('tr').find('#actual').hide();
+
+            // show input
+            $(this).closest('tr').find('#editActual').show();
+
+            // show save button
+            $(this).closest('tr').find('.save').css({
+                display: 'inline'
+            });
+
+            // show cancel button
+            $(this).closest('tr').find('.cancel').show({
+                display: 'inline'
+            });
+
+            // hide edit button
+            $(this).closest('tr').find('.edit').hide();
         });
     });
 </script>

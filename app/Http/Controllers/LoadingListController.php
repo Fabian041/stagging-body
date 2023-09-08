@@ -15,7 +15,8 @@ class LoadingListController extends Controller
     {
         return view('pages.loadingList',[
             'loadingLists' => LoadingList::all(),
-            'customers' => Customer::all()
+            'customers' => Customer::all(),
+            'manifests' => LoadingList::select('pds_number')->distinct()->get()
         ]);
     }
 

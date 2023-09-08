@@ -1,25 +1,12 @@
 <nav class="navbar navbar-expand-lg main-navbar">
-    <ul class="navbar-nav mr-auto mt-4">
+    <ul class="navbar-nav mr-auto mt-2">
         <li><a href="#" data-toggle="sidebar" class="nav-link nav-link-lg mt-3"><i class="fas fa-bars"></i></a>
         </li>
-        @isset($customers)
-            <div class="form-group mt-3">
-                <select class="form-control" style="border-radius: 6px; width:300px">
-                    <option selected>Select Customer</option>
-                    @foreach ($customers as $customer)
-                        <option value="{{ $customer->id }}">{{ $customer->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <button class="btn btn-danger mt-3 ml-3"
-                style="width: 100px; height:42px; border-radius:6px !important; box-shadow: none !important">Filter</button>
-        @else
-            <div class="search-element mt-2">
-                <input class="form-control" type="search" placeholder="Search" aria-label="Search" data-width="250"
-                    style="border-radius:6px">
-                <div class="search-backdrop"></div>
-            </div>
-        @endisset()
+        <div class="search-element mt-2">
+            <input class="form-control" type="search" placeholder="Search" aria-label="Search" data-width="250"
+                style="border-radius:6px">
+            <div class="search-backdrop"></div>
+        </div>
     </ul>
     <ul class="navbar-nav navbar-right">
         <li class="dropdown"><a href="#" data-toggle="dropdown"

@@ -3,32 +3,47 @@
 @section('main')
     <div class="row mt-3">
         <div class="col-md-12">
-            <div class=" card shadow" style="padding: 2rem; border-radius:8px">
-                <div class="col-4">
-                    <label class="text-dark">Cycle</label>
-                    <select class="cycle" name="cycle">
-                        <option value="AL">Cycle 1</option>
-                        <option value="WY">Cycle 2</option>
-                    </select>
-                </div>
-                <div class="col-4">
-                    <label class="text-dark">Customer</label>
-                    <select class="cycle" name="cycle">
-                        <option value="AL">Cycle 1</option>
-                        <option value="WY">Cycle 2</option>
-                    </select>
-                </div>
-                <div class="col-4">
-                    <label class="text-dark">Number</label>
-                    <select class="cycle" name="cycle">
-                        <option value="AL">Cycle 1</option>
-                        <option value="WY">Cycle 2</option>
-                    </select>
+            <div class="card card-info shadow" style="padding: 40px;padding-top:60px; border-radius:16px">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="form-group">
+                            <div class="input-group">
+                                @isset($manifests)
+                                    <select class="custom-select" id="manifest">
+                                        <option selected disabled>-- Select manifest --</option>
+                                        @foreach ($manifests as $manifest)
+                                            <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
+                                        @endforeach
+                                    </select>
+                                @endisset()
+                                <select class="custom-select" id="cycle">
+                                    <option selected disabled>-- Select cycle --</option>
+                                    <option value="1">cycle 1</option>
+                                    <option value="2">cycle 2</option>
+                                    <option value="3">cycle 3</option>
+                                    <option value="4">cycle 4</option>
+                                    <option value="5">cycle 5</option>
+                                </select>
+                                @isset($customers)
+                                    <select class="custom-select" id="customer">
+                                        <option selected disabled>-- Select customer --</option>
+                                        @foreach ($customers as $customer)
+                                            <option value="{{ $customer->name }}">{{ $customer->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @endisset()
+                                <input id="date" type="date" class="form-control" placeholder="Delivery date">
+                                <div class="input-group-append" id="reset">
+                                    <button class="btn btn-lg btn-danger" type="button">RESET</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="card card-info mt-2 shadow" style="border-radius:10px">
+    <div class="card card-danger mt-2 shadow" style="border-radius:10px">
         <div class="card-body">
             <h4 class="card-title mt-3 mb-3 text-dark text-center">DELIVERY MONITORING</h4>
             <table class="table table-responsive-lg" id="loadingList">
@@ -36,6 +51,7 @@
                     <tr>
                         <th class="text-center">Loading List Number</th>
                         <th class="text-center">PDS Number</th>
+                        <th class="text-center">Customer</th>
                         <th class="text-center">Cycle</th>
                         <th class="text-center">Delivery Date</th>
                         <th class="text-center">Progress</th>
@@ -60,6 +76,7 @@
                         <tr>
                             <td class="text-center">{{ $loadingList->number }}</td>
                             <td class="text-center">{{ $loadingList->pds_number }}</td>
+                            <td class="text-center">{{ $loadingList->customer->name }}</td>
                             <td class="text-center">{{ $loadingList->cycle }}</td>
                             <td class="text-center">{{ $loadingList->delivery_date }}</td>
                             @if ($actualKanban >= $totalKanban)
@@ -125,7 +142,7 @@
                                     DETAIL
                                 </a>
                                 @if ($actualKanban >= $totalKanban)
-                                    <button class="btn btn-outline-success">
+                                    <button class="btn btn-success">
                                         <i class="fas fa-solid fa-check" style="padding-right: 1px"></i>
                                         COMPLETE
                                     </button>
@@ -156,14 +173,77 @@
 
 <script>
     $(document).ready(function() {
-        $('.cycle').select2();
-
         $('#loadingList').DataTable({
             paging: false,
             columnDefs: [{
                 targets: [5],
                 orderable: false
             }]
+        });
+
+        let table = $('#loadingList').DataTable();
+
+        $('#customer').on('change', function() {
+            // get all filter values
+            let customer = $('#customer').val();
+
+            if (customer) {
+                table.column(2).search(customer);
+            } else {
+                table.column(2).search('');
+            }
+
+            table.draw();
+        })
+
+        $('#manifest').on('change', function() {
+            // get all filter values
+            let manifest = $('#manifest').val();
+
+            if (manifest) {
+                table.column(1).search(manifest);
+            } else {
+                table.column(1).search('');
+            }
+
+            table.draw();
+        })
+
+        $('#cycle').on('change', function() {
+            // get all filter values
+            let cycle = $('#cycle').val();
+
+            if (cycle) {
+                table.column(3).search(cycle);
+            } else {
+                table.column(3).search('');
+            }
+
+            table.draw();
+        })
+
+        $('#date').on('change', function() {
+            // get all filter values
+            let date = $('#date').val();
+
+            if (date) {
+                table.column(4).search(date);
+            } else {
+                table.column(4).search('');
+            }
+
+            table.draw();
+        })
+
+        $('#reset').on('click', function() {
+            $('#cycle').val('-- Select cycle --').trigger(
+                'change'); // Reset the filter and trigger change event
+            $('#customer').val('-- Select customer --').trigger(
+                'change'); // Reset the filter and trigger change event
+            $('#manifest').val('-- Select manifest --').trigger(
+                'change'); // Reset the filter and trigger change event
+            $('#date').val('').trigger(
+                'change'); // Reset the filter and trigger change event
         });
     });
 </script>
