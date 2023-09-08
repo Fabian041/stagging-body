@@ -1765,6 +1765,13 @@
 
                         // check existence of kanban and check if it already scanned by prod
                         // checkKanban(seri, internal);
+                    } else if (barcodecomplete.length == 218) {
+                        // kanban suzuki
+                        internal = barcodecomplete.substr(40, 17);
+                        seri = barcodecomplete.substr(123, 4);
+
+                        // check existence of kanban and check if it already scanned by prod
+                        // checkKanban(seri, internal);
                     }
 
                     console.log(internal);
