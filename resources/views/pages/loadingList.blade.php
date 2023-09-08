@@ -46,120 +46,24 @@
     <div class="card card-danger mt-2 shadow" style="border-radius:10px">
         <div class="card-body">
             <h4 class="card-title mt-3 mb-3 text-dark text-center">DELIVERY MONITORING</h4>
-            <table class="table table-responsive-lg" id="loadingList">
-                <thead>
-                    <tr>
-                        <th class="text-center">Loading List Number</th>
-                        <th class="text-center">PDS Number</th>
-                        <th class="text-center">Customer</th>
-                        <th class="text-center">Cycle</th>
-                        <th class="text-center">Delivery Date</th>
-                        <th class="text-center">Progress</th>
-                        <th class="text-center"></th>
-                    </tr>
-                </thead>
-                <tbody class="text-center">
-                    @foreach ($loadingLists as $loadingList)
-                        @php
-                            // sum kanban qty
-                            $totalKanban = 0;
-                            $actualKanban = 0;
-                            for ($i = 0; $i < count($loadingList->detail); $i++) {
-                                $totalKanban = $totalKanban + $loadingList->detail[$i]->kanban_qty;
-                                $actualKanban = $actualKanban + $loadingList->detail[$i]->actual_kanban_qty;
-                            
-                                // percentage
-                                $progressPercentage = ($actualKanban / $totalKanban) * 100;
-                                $progressPercentage = round($progressPercentage);
-                            }
-                        @endphp
+            <div class="table-responsive-lg">
+                <table class="table" id="loadingList" style="width: 100%">
+                    <thead>
                         <tr>
-                            <td class="text-center">{{ $loadingList->number }}</td>
-                            <td class="text-center">{{ $loadingList->pds_number }}</td>
-                            <td class="text-center">{{ $loadingList->customer->name }}</td>
-                            <td class="text-center">{{ $loadingList->cycle }}</td>
-                            <td class="text-center">{{ $loadingList->delivery_date }}</td>
-                            @if ($actualKanban >= $totalKanban)
-                                <td class="text-center">
-                                    <div class="text-small float-right font-weight-bold text-muted ml-3">
-                                        {{ $actualKanban }}/{{ $totalKanban }}</div>
-                                    <div class="font-weight-bold mb-1" style="color: white">-</div>
-                                    <div class="progress" data-height="20" style="height: 5px;">
-                                        <div class="progress-bar" role="progressbar" data-width="100%" aria-valuenow="100"
-                                            aria-valuemin="0" aria-valuemax="100"
-                                            style="width: 100%; background-color: lightgreen !important">
-                                        </div>
-                                    </div>
-                                </td>
-
-                                {{-- <td class="text-center"><span class="badge badge-success">COMPLETE</span></td> --}}
-                            @elseif ($actualKanban == 0)
-                                <td class="text-center">
-                                    <div class="text-small float-right font-weight-bold text-muted ml-3">
-                                        {{ $actualKanban }}/{{ $totalKanban }}</div>
-                                    <div class="font-weight-bold mb-1" style="color: white">-</div>
-                                    <div class="progress" data-height="20" style="height: 5px;">
-                                        <div class="progress-bar" role="progressbar" data-width="{{ $progressPercentage }}"
-                                            aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                                            style="width: 100%; background-color: red !important">
-                                        </div>
-                                    </div>
-                                </td>
-                                {{-- <td class="text-center"><span class="badge badge-danger">NOT STARTED</span></td> --}}
-                            @elseif ($actualKanban < $totalKanban)
-                                @if ($progressPercentage <= 50)
-                                    <td class="text-center">
-                                        <div class="text-small float-right font-weight-bold text-muted ml-3">
-                                            {{ $actualKanban }}/{{ $totalKanban }}</div>
-                                        <div class="font-weight-bold mb-1" style="color: white">-</div>
-                                        <div class="progress" data-height="20" style="height: 5px;">
-                                            <div class="progress-bar" role="progressbar"
-                                                data-width="{{ $progressPercentage }}" aria-valuenow="100"
-                                                aria-valuemin="0" aria-valuemax="100"
-                                                style="width: 100%; background-color: red !important">
-                                            </div>
-                                        </div>
-                                    </td>
-                                @elseif($progressPercentage > 50)
-                                    <td class="text-center">
-                                        <div class="text-small text-small float-right font-weight-bold text-muted ml-3">
-                                            {{ $actualKanban }}/{{ $totalKanban }}</div>
-                                        <div class="font-weight-bold mb-1" style="color: white">-</div>
-                                        <div class="progress" data-height="20" style="height: 5px;">
-                                            <div class="progress-bar" role="progressbar"
-                                                data-width="{{ $progressPercentage }}" aria-valuenow="100"
-                                                aria-valuemin="0" aria-valuemax="100"
-                                                style="width: 100%; background-color: yellow !important">
-                                            </div>
-                                        </div>
-                                    </td>
-                                @endif
-                                {{-- <td class="text-center"><span class="badge badge-warning">ON PROGRESS</span></td> --}}
-                            @endif
-                            <td class="text-center">
-                                <a href="/loading-list/{{ $loadingList->id }}" class="btn btn-info text-white">
-                                    <i class="fas fa-info-circle mr-2"></i>
-                                    DETAIL
-                                </a>
-                                @if ($actualKanban >= $totalKanban)
-                                    <button class="btn btn-success">
-                                        <i class="fas fa-solid fa-check" style="padding-right: 1px"></i>
-                                        COMPLETE
-                                    </button>
-                                @elseif ($actualKanban < $totalKanban && $actualKanban > 0)
-                                    <button class="btn btn-outline-warning">
-                                        INPROGRESS
-                                    </button>
-                                @elseif ($actualKanban == 0)
-                                    <button class="btn btn-outline-danger">
-                                        INCOMPLETE
-                                    </button>
-                                @endif
-                            </td>
+                            <th class="text-center">Loading List Number</th>
+                            <th class="text-center">PDS Number</th>
+                            <th class="text-center">Customer</th>
+                            <th class="text-center">Cycle</th>
+                            <th class="text-center">Delivery Date</th>
+                            <th class="text-center">Progress</th>
+                            <th class="text-center"></th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="text-center">
+
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 @endsection
@@ -174,11 +78,41 @@
 <script>
     $(document).ready(function() {
         $('#loadingList').DataTable({
-            paging: false,
-            columnDefs: [{
-                targets: [5],
-                orderable: false
-            }]
+            scrollX: false,
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: `{{ url('dashboard/getLoadingList') }}`,
+                dataType: 'json',
+            },
+            columns: [{
+                    data: 'number'
+                },
+                {
+                    data: 'pds_number'
+                },
+                {
+                    data: 'customer_name'
+                },
+                {
+                    data: 'cycle'
+                },
+                {
+                    data: 'delivery_date'
+                },
+                {
+                    data: 'progress'
+                },
+                {
+                    data: 'detail',
+                    orderable: false,
+                    searchable: false
+                },
+            ],
+            lengthMenu: [
+                [5, 10, 'All'],
+                [5, 10, 'All']
+            ],
         });
 
         let table = $('#loadingList').DataTable();

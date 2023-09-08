@@ -49,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
     Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
     Route::prefix('loading-list')->group(function(){
+        Route::get('/edit/{loadingList}/{customerPart}/{newActual}', [LoadingListController::class, 'editLoadingListDetail'])->name('loadingListDetail.edit');
         Route::get('/store/{loadingList}/{pds}/{cycle}/{customerCode}/{deliveryDate}/{shippingDate}', [LoadingListController::class, 'store'])->name('loadingList.store');
         Route::get('/storeDetail/{loadingList}/{customerPart}/{kbnQty}/{qtyPerKanban}/{totalQty}/{actualKanbanQty}', [LoadingListController::class, 'storeDetail'])->name('loadingList.storeDetail');
     });
@@ -56,6 +57,11 @@ Route::middleware(['auth'])->group(function () {
     // dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::prefix('dashboard')->group(function(){
+
+        // datatable
+        Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');
+        Route::get('/getLoadingListDetail/{loadingList}', [LoadingListController::class, 'getLoadingListDetail'])->name('dashboard.getLoadingListDetail');
+        
         Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');

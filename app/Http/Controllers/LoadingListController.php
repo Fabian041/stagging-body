@@ -8,16 +8,99 @@ use App\Models\CustomerPart;
 use Illuminate\Http\Request;
 use App\Models\LoadingListDetail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
+use Yajra\DataTables\Facades\DataTables;
 
 class LoadingListController extends Controller
 {
     public function index()
     {
         return view('pages.loadingList',[
-            'loadingLists' => LoadingList::all(),
             'customers' => Customer::all(),
             'manifests' => LoadingList::select('pds_number')->distinct()->get()
         ]);
+    }
+
+    public function getLoadingList()
+    {
+        $input = LoadingList::all();
+
+        return DataTables::of($input)
+                ->addColumn('customer_name', function ($loadingList) {
+                    return $loadingList->customer->name;
+                })
+                ->addColumn('detail', function($loadingList){
+
+                    $totalKanban = 0;
+                    $actualKanban = 0;
+                    foreach ($loadingList->detail as $detail) {
+                        $totalKanban += $detail->kanban_qty;
+                        $actualKanban += $detail->actual_kanban_qty;
+                    }
+
+                    $detailButton = '<a href="/loading-list/'. $loadingList->id.'" class="btn btn-info text-white mr-2">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        DETAIL
+                                    </a>';
+
+                    if ($actualKanban >= $totalKanban) {
+                        $buttons = $detailButton . '<button class="btn btn-success">
+                                                        <i class="fas fa-check" style="padding-right: 1px"></i>
+                                                        COMPLETE
+                                                    </button>';
+                    } elseif ($actualKanban < $totalKanban && $actualKanban > 0) {
+                        $buttons = $detailButton . '<button class="btn btn-outline-warning">
+                                                        INPROGRESS
+                                                    </button>';
+                    } elseif ($actualKanban == 0) {
+                        $buttons = $detailButton . '<button class="btn btn-outline-danger">
+                                                        INCOMPLETE
+                                                    </button>';
+                    }
+
+                    return $buttons;
+
+                })
+                ->addColumn('progress', function ($loadingList) {
+                    // Calculate progress percentage
+                    $totalKanban = 0;
+                    $actualKanban = 0;
+                    foreach ($loadingList->detail as $detail) {
+                        $totalKanban += $detail->kanban_qty;
+                        $actualKanban += $detail->actual_kanban_qty;
+                    }
+                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
+
+                    // Determine the status
+                    $statusClass = '';
+                    $statusText = '';
+
+                    if ($actualKanban >= $totalKanban) {
+                        $statusClass = 'lightgreen';
+                        $statusText = 'COMPLETE';
+                    } elseif ($actualKanban == 0) {
+                        $statusClass = 'red';
+                        $statusText = 'INCOMPLETE';
+                    } else {
+                        $statusClass = 'orange';
+                        $statusText = 'INPROGRESS';
+                    }
+    
+                    // Create a progress bar dynamically
+                    $progress = '
+                    <div class="text-small float-right font-weight-bold text-muted ml-3">'. $actualKanban .' / '.$totalKanban .'</div>
+                                    <div class="font-weight-bold mb-1" style="color: white">-</div>
+                    <div class="progress" data-height="20" style="height: 15px;">
+                            <div class="progress-bar" role="progressbar" data-width="'.$progressPercentage .'"
+                                aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
+                                style="width:'. $progressPercentage .'%; background-color: '. $statusClass .' !important">
+                            </div>
+                        </div>';
+    
+                    return $progress;
+                })
+                ->rawColumns(['detail', 'progress', 'customer_name'])
+                ->toJson();
     }
 
     public function detail(LoadingList $loadingList)
@@ -29,20 +112,105 @@ class LoadingListController extends Controller
                             ->where('loading_list_details.loading_list_id', $loadingList->id)
                             ->first();
 
-        $detail = DB::table('loading_lists')
-                        ->join('loading_list_details', 'loading_lists.id', 'loading_list_details.loading_list_id')
-                        ->join('customers', 'customers.id', 'loading_lists.customer_id')
-                        ->join('customer_parts', 'customer_parts.id', 'loading_list_details.customer_part_id')
-                        ->join('internal_parts', 'internal_parts.id', 'customer_parts.internal_part_id')
-                        ->select('loading_list_details.kanban_qty', 'loading_list_details.actual_kanban_qty', 'customers.name', 'customer_parts.part_number as pn_customer', 'customer_parts.back_number as bn_customer', 'internal_parts.part_number as pn_internal', 'internal_parts.back_number as bn_internal', 'internal_parts.part_name')
-                        ->where('loading_list_details.loading_list_id', $loadingList->id)
-                        ->get();
-
         return view('pages.loadingListDetail',[
             'customers' => Customer::all(),
             'loadingListDetail' => $loadingListDetail,
-            'details' => $detail
+            'loadingListId' => $loadingList->id,
         ]);
+    }
+
+    public function getLoadingListDetail(LoadingList $loadingList)
+    {
+        $input = LoadingListDetail::where('loading_list_id', $loadingList->id)->get();
+
+        return DataTables::of($input)
+                ->addColumn('part_name', function ($loadingList) {
+                    return $loadingList->customerPart->internalPart->part_name;
+                })
+                ->addColumn('cust_partno', function ($loadingList) {
+                    $custPart = '<span class="customerPart">'. $loadingList->customerPart->part_number .'</span>';
+
+                    return $custPart;
+                })
+                ->addColumn('int_partno', function ($loadingList) {
+                    return $loadingList->customerPart->internalPart->part_number;
+                })
+                ->addColumn('cust_backno', function ($loadingList) {
+                    return $loadingList->customerPart->back_number;
+                })
+                ->addColumn('int_backno', function ($loadingList) {
+                    return $loadingList->customerPart->internalPart->back_number;
+                })
+                ->addColumn('kbn_qty', function ($loadingList) {
+                    return $loadingList->kanban_qty;
+                })
+                ->addColumn('actual_kbn_qty', function ($loadingList) {
+
+                    $actual = '<span class="actual">'. $loadingList->actual_kanban_qty .' </span>
+                        <input id="editActual" class="form-control editActual" type="number"
+                        value="'.$loadingList->actual_kanban_qty.'" data-width="100"
+                        style="border-radius:6px; display:none">';
+
+                    return $actual;
+                })
+                ->addColumn('edit', function($row) use ($input){
+
+                    $btn = '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
+                    <button class="btn btn-icon btn-success save mb-1" style="display: none"><i
+                            class="fas fa-check"></i></button>
+                    <button class="btn btn-icon btn-danger cancel" style="display: none"><i
+                            class="fas fa-times"></i></button>';
+
+                    return $btn;
+
+                })
+                ->rawColumns(['cust_partno','actual_kbn_qty','edit'])
+                ->toJson();
+    }
+
+    public function editLoadingListDetail($loadingList, $customerPart, $newActual)
+    {
+        // get customer part id
+        $customerPartId = CustomerPart::select('id')->where('part_number',$customerPart)->first();
+
+        // get kanban qty
+        $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
+                                        ->where('loading_list_id',$loadingList)
+                                        ->where('customer_part_id',$customerPartId->id)
+                                        ->first();
+        
+        if($newActual > $maxKanbanQty->kanban_qty){
+            return [
+                'status' => 'error',
+                'message' => 'Tidak boleh lebih dari kuantitas kanban!',
+            ];
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // update loading list detail based on loading list id and customer part
+            LoadingListDetail::where('loading_list_id',$loadingList)
+                                ->where('customer_part_id', $customerPartId->id)
+                                ->update([
+                                    'actual_kanban_qty' => $newActual
+                                ]);
+
+            DB::commit();
+            
+            return response()->json([
+                'status' => 'success',
+                'data' => $newActual,
+                'message' => 'Data berhasil diupdate!'
+            ],200);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $th->getMessage(),
+            ],500);
+        }
     }
     
     public function store($loadingList, $pds, $cycle, $customerCode, $shippingDate, $deliveryDate)

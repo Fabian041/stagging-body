@@ -49,10 +49,10 @@
     <div class="card card-danger mt-3 shadow" style="border-radius:10px">
         <div class="card-body">
             <h5 class="card-title mt-3 text-dark text-center">DETAILS</h5>
-            <table class="table table-responsive-lg" id="loadingList">
+            <table class="table table-responsive-lg" id="loadingList" style="width: 100%">
                 <thead>
                     <tr>
-                        {{-- <th class="text-left">Part Name</th> --}}
+                        <th class="text-center">Part Name</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
@@ -63,29 +63,7 @@
                     </tr>
                 </thead>
                 <tbody class="text-center">
-                    @foreach ($details as $detail)
-                        <tr>
-                            {{-- <td class="text-left">{{ $detail->part_name }}</td> --}}
-                            <td class="text-center">{{ $detail->pn_customer }}</td>
-                            <td class="text-center">{{ $detail->pn_internal }}</td>
-                            <td class="text-center">{{ $detail->bn_customer }}</td>
-                            <td class="text-center">{{ $detail->bn_internal }}</td>
-                            <td class="text-center">{{ $detail->kanban_qty }}</td>
-                            <td class="text-center">
-                                <span id="actual">{{ $detail->actual_kanban_qty }}</span>
-                                <input id="editActual" class="form-control" type="number"
-                                    value="{{ $detail->actual_kanban_qty }}" data-width="100"
-                                    style="border-radius:6px; display:none">
-                            </td>
-                            <td class="text-center">
-                                <button class="btn btn-icon btn-primary edit"><i class="far fa-edit"></i></button>
-                                <button class="btn btn-icon btn-success save" style="display: none"><i
-                                        class="fas fa-check"></i></button>
-                                <button class="btn btn-icon btn-danger cancel" style="display: none"><i
-                                        class="fas fa-times"></i></button>
-                            </td>
-                        </tr>
-                    @endforeach
+
                 </tbody>
             </table>
         </div>
@@ -101,23 +79,61 @@
 
 <script>
     $(document).ready(function() {
+        const loadingList = "{{ $loadingListId }}";
+        const requestOptions = {
+            method: 'GET',
+            headers: {
+                "Content-type": "application/json",
+            }
+        }
+
         $('#loadingList').DataTable({
+            scrollX: false,
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: `{{ url('dashboard/getLoadingListDetail') }}` + '/' + loadingList,
+                dataType: 'json',
+            },
+            columns: [{
+                    data: 'part_name'
+                },
+                {
+                    data: 'cust_partno'
+                },
+                {
+                    data: 'int_partno'
+                },
+                {
+                    data: 'cust_backno'
+                },
+                {
+                    data: 'int_backno'
+                },
+                {
+                    data: 'kbn_qty'
+                },
+                {
+                    data: 'actual_kbn_qty',
+                },
+                {
+                    data: 'edit',
+                    orderable: false,
+                    searchable: false
+                },
+            ],
             lengthMenu: [
                 [5, 10, 'All'],
                 [5, 10, 'All']
             ],
-            columnDefs: [{
-                targets: [6],
-                orderable: false
-            }]
         });
 
-        $('.edit').on('click', function() {
+        $(document).on('click', '#loadingList .edit', function() {
             // hide span
-            $(this).closest('tr').find('#actual').hide();
+            $(this).closest('tr').find('.actual').hide();
 
             // show input
-            $(this).closest('tr').find('#editActual').show();
+            $(this).closest('tr').find('.editActual').show();
 
             // show save button
             $(this).closest('tr').find('.save').css({
@@ -132,5 +148,74 @@
             // hide edit button
             $(this).closest('tr').find('.edit').hide();
         });
+
+        $(document).on('click', '#loadingList .save', function() {
+            // get customer part
+            let customerPart = $(this).closest('tr').find('.customerPart').html();
+
+            // get edit value
+            let newActual = $(this).closest('tr').find('.editActual').val();
+
+            fetch(`/loading-list/edit/${loadingList}/${customerPart}/${newActual}`, requestOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status == 'success') {
+
+                        let newVal = parseInt(data.data);
+                        notif('success', data.message);
+
+                        // hide span
+                        $(this).closest('tr').find('.actual').val(newVal);
+
+                        // show input
+                        $(this).closest('tr').find('.editActual').hide();
+
+                        // show save button
+                        $(this).closest('tr').find('.save').hide();
+
+                        // show cancel button
+                        $(this).closest('tr').find('.cancel').hide();
+
+                        // hide edit button
+                        $(this).closest('tr').find('.edit').show();
+                    } else if (data.status == 'error') {
+                        notif('error', data.message);
+                    }
+                })
+                .catch(error => {
+                    notif('error', error);
+                })
+        });
+
+        $(document).on('click', '#loadingList .cancel', function() {
+            // hide span
+            $(this).closest('tr').find('.actual').show();
+
+            // show input
+            $(this).closest('tr').find('.editActual').hide();
+
+            // show save button
+            $(this).closest('tr').find('.save').hide();
+
+            // show cancel button
+            $(this).closest('tr').find('.cancel').hide();
+
+            // hide edit button
+            $(this).closest('tr').find('.edit').show();
+        });
+
+        function notif(type, message) {
+            if (type == 'error') {
+                iziToast.error({
+                    title: 'Error! ' + message,
+                    position: 'bottomRight'
+                });
+            } else if (type == 'success') {
+                iziToast.success({
+                    title: 'Success! ' + message,
+                    position: 'bottomRight'
+                });
+            }
+        }
     });
 </script>
