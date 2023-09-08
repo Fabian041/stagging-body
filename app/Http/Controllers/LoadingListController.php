@@ -271,6 +271,8 @@ class LoadingListController extends Controller
             }
         }
 
+        dd($convertedPartNumber);
+
         // get loading list id
         $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
         if(!$loadingListId){
