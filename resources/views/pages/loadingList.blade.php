@@ -77,7 +77,7 @@
 
 <script>
     $(document).ready(function() {
-        $('#loadingList').DataTable({
+        let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: true,
             serverSide: true,
@@ -115,7 +115,15 @@
             ],
         });
 
-        let table = $('#loadingList').DataTable();
+        function fetchAndUpdateData() {
+            table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
+        }
+
+        // Initial data fetch when the page loads
+        fetchAndUpdateData();
+
+        // Fetch data every second
+        setInterval(fetchAndUpdateData, 1000);
 
         $('#customer').on('change', function() {
             // get all filter values
