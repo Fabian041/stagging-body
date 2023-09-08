@@ -333,6 +333,15 @@ class LoadingListController extends Controller
         // check last two digit of partNumber 
         $lastDigit = substr($customerPart, -2);
 
+        // get loadingList id
+        $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        if(!$loadingListId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Loading list tidak terdaftar!'
+            ];
+        }
+
         // check part number customer length
         if($codeLength == 12){
             // TMMIN
@@ -342,18 +351,22 @@ class LoadingListController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
         }else if($codeLength == 10){
-            // TBINA
-            $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
+            if($loadingListId->customer_id == 14){
+                // SUZUKI
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+            }else{
+                // TBINA
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
+            }
+        }else if($codeLength == 13){
+            // SUZUKI
+            if($lastDigit != '000'){
+                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
+            }else{
+                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
+            }
         }
 
-        // get loadingList id
-        $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
-        if(!$loadingListId){
-            return [
-                'status' => 'notExists',
-                'message' => 'Loading list tidak terdaftar!'
-            ];
-        }
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
         if(!$customerPartId){
