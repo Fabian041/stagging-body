@@ -87,7 +87,7 @@
             }
         }
 
-        $('#loadingList').DataTable({
+        let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: true,
             serverSide: true,
@@ -180,7 +180,7 @@
                         $(this).closest('tr').find('.edit').show();
 
                         table.ajax.reload(null,
-                        false); // Reload the DataTable data without resetting the current page
+                            false); // Reload the DataTable data without resetting the current page
 
                     } else if (data.status == 'error') {
                         notif('error', data.message);
