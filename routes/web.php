@@ -51,7 +51,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('loading-list')->group(function(){
         Route::get('/edit/{loadingList}/{customerPart}/{newActual}', [LoadingListController::class, 'editLoadingListDetail'])->name('loadingListDetail.edit');
         Route::get('/store/{loadingList}/{pds}/{cycle}/{customerCode}/{deliveryDate}/{shippingDate}', [LoadingListController::class, 'store'])->name('loadingList.store');
-        Route::get('/storeDetail/{loadingList}/{customerPart}/{kbnQty}/{qtyPerKanban}/{totalQty}/{actualKanbanQty}', [LoadingListController::class, 'storeDetail'])->name('loadingList.storeDetail');
+        Route::get('/storeDetail/{loadingList}/{customerPart}/{internalPart}/{kbnQty}/{qtyPerKanban}/{totalQty}/{actualKanbanQty}', [LoadingListController::class, 'storeDetail'])->name('loadingList.storeDetail');
     });
 
     // dashboard

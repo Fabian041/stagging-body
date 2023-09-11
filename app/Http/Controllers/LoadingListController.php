@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\LoadingList;
 use App\Models\CustomerPart;
+use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use App\Models\LoadingListDetail;
 use Illuminate\Support\Facades\DB;
@@ -243,7 +244,7 @@ class LoadingListController extends Controller
         ], 200);
     }
 
-    public function storeDetail($loadingList, $customerPart, $kbnQty, $qtyPerKanban, $totalQty, $actualKanbanQty)
+    public function storeDetail($loadingList, $customerPart, $internalPart, $kbnQty, $qtyPerKanban, $totalQty, $actualKanbanQty)
     {
         // get part number length
         $codeLength = strlen($customerPart);
@@ -284,9 +285,12 @@ class LoadingListController extends Controller
             }
         }
 
-
         // get customer part id
-        $customerPartId = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
+        $customerPartId = DB::table('customer_parts')->join('internal_parts', 'customer_parts.internal_part_id', 'internal_parts.id')
+                            ->select('id')
+                            ->where('internal_parts.part_number', $internalPart)
+                            ->where('customer_parts.part_number', $convertedPartNumber)
+                            ->first();
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',

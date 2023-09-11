@@ -783,8 +783,9 @@
                                         type: 'GET',
                                         url: "{{ url('/loading-list/storeDetail') }}" +
                                             '/' + ll + '/' + item
-                                            .part_number_cust +
-                                            '/' + item
+                                            .part_number_cust + '/' +
+                                            item
+                                            .part_number_int '/' + item
                                             .total_kanban_qty +
                                             '/' +
                                             qty_per_kbn + '/' + item
