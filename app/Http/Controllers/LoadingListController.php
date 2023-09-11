@@ -285,14 +285,13 @@ class LoadingListController extends Controller
             }
         }
 
-        dd($convertedPartNumber);
-
         // get customer part id
-        $customerPartId = DB::table('customer_parts')->join('internal_parts', 'internal_parts.id' , 'customer_parts.internal_part_id')
-                            ->select('id')
-                            ->where('internal_parts.part_number', $internalPart)
-                            ->where('customer_parts.part_number', $convertedPartNumber)
-                            ->first();
+        $customerPartId = DB::table('customer_parts')
+                        ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
+                        ->select('customer_parts.id')
+                        ->where('internal_parts.part_number', $internalPart)
+                        ->where('customer_parts.part_number', $convertedPartNumber)
+                        ->first();
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',
