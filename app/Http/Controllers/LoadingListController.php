@@ -246,7 +246,6 @@ class LoadingListController extends Controller
 
     public function storeDetail($loadingList, $customerPart, $internalPart, $kbnQty, $qtyPerKanban, $totalQty, $actualKanbanQty)
     {
-        dd($internalPart);
         // get part number length
         $codeLength = strlen($customerPart);
 
@@ -292,6 +291,7 @@ class LoadingListController extends Controller
                             ->where('internal_parts.part_number', $internalPart)
                             ->where('customer_parts.part_number', $convertedPartNumber)
                             ->first();
+        dd($customerPartId);
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',
