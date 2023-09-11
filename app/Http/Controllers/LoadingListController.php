@@ -291,6 +291,7 @@ class LoadingListController extends Controller
                             ->where('internal_parts.part_number', $internalPart)
                             ->where('customer_parts.part_number', $convertedPartNumber)
                             ->first();
+        dd($customerPartId);
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',
