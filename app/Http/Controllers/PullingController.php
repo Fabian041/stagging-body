@@ -232,49 +232,51 @@ class PullingController extends Controller
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
-        $result = [];
         
-        // get all current qty of all internal parts 
-        $data = DB::table('internal_parts')
-                ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
-                ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-                ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
-                ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
-                ->get();
+        // commented for temporary
+        // $result = [];
+        
+        // // get all current qty of all internal parts 
+        // $data = DB::table('internal_parts')
+        //         ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+        //         ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+        //         ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
+        //         ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+        //         ->get();
                 
-                foreach ($data as $value) {
-                    $lineFound = false;
-                    // Check if line already exists in $lines array
-                    foreach ($result as $line) {
-                        if ($line->line === $value->name) {
-                            $lineFound = true;
-                            $line->items[] = [
-                                'id' => $value->id,
-                                'part_number' => $value->part_number,
-                                'back_number' => $value->back_number,
-                                'qty' => $value->current_stock,
-                            ];
-                            break;
-                        }
-                    }
-                    // If line doesn't exist, create a new object and add it to $result array
-                    if (!$lineFound) {
-                        $lineObject = (object) [
-                            'line' => $value->name,
-                            'items' => [
-                                [
-                                    'id' => $value->id,
-                                    'part_number' => $value->part_number,
-                                    'back_number' => $value->back_number,
-                                    'qty' => $value->current_stock,
-                                ],
-                            ],
-                        ];
-                        $result[] = $lineObject;
-                    }
-                }
+        //         foreach ($data as $value) {
+        //             $lineFound = false;
+        //             // Check if line already exists in $lines array
+        //             foreach ($result as $line) {
+        //                 if ($line->line === $value->name) {
+        //                     $lineFound = true;
+        //                     $line->items[] = [
+        //                         'id' => $value->id,
+        //                         'part_number' => $value->part_number,
+        //                         'back_number' => $value->back_number,
+        //                         'qty' => $value->current_stock,
+        //                     ];
+        //                     break;
+        //                 }
+        //             }
+        //             // If line doesn't exist, create a new object and add it to $result array
+        //             if (!$lineFound) {
+        //                 $lineObject = (object) [
+        //                     'line' => $value->name,
+        //                     'items' => [
+        //                         [
+        //                             'id' => $value->id,
+        //                             'part_number' => $value->part_number,
+        //                             'back_number' => $value->back_number,
+        //                             'qty' => $value->current_stock,
+        //                         ],
+        //                     ],
+        //                 ];
+        //                 $result[] = $lineObject;
+        //             }
+        //         }
                     
-            $this->mqttConnect('prod/quantity' , $result);
+        //     $this->mqttConnect('prod/quantity' , $result);
             
             DB::commit();
 
