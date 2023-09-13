@@ -3,13 +3,13 @@
 @section('main')
     <div class="row">
         <div class="col mt-3 text-right">
-            {{-- <div class="col-md-12">
+            <div class="col-md-12">
                 <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#partModal">Upload
                     Part</button>
-            </div> --}}
-            <div class="col-md-12">
-                <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#stockModal">Import Stock</button>
             </div>
+            {{-- <div class="col-md-12">
+                <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#stockModal">Import Stock</button>
+            </div> --}}
         </div>
     </div>
     <div class="row mt-4">
