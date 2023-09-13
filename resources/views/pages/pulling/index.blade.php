@@ -1589,6 +1589,9 @@
                                 }
                             } else {
                                 notif('error', data.message);
+                                setInterval(() => {
+                                    $('#code').focus();
+                                }, 1000);
                             }
                         },
                         error: function(xhr) {
