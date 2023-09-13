@@ -332,6 +332,7 @@ class LoadingListController extends Controller
     {
         $loadingList = $request->loadingList;
         $customerPart = $request->customerPart;
+        $internalPart = $request->internalPart;
 
         // get part number length
         $codeLength = strlen($customerPart);
@@ -374,7 +375,12 @@ class LoadingListController extends Controller
         }
 
         // get customer part id
-        $customerPartId = CustomerPart::select('id')->where('part_number', $convertedPartNumber)->first();
+        $customerPartId = DB::table('customer_parts')
+                        ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
+                        ->select('customer_parts.id')
+                        ->where('internal_parts.part_number', $internalPart)
+                        ->where('customer_parts.part_number', $convertedPartNumber)
+                        ->first();
         if(!$customerPartId){
             return [
                 'status' => 'notExists',
