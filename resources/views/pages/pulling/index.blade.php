@@ -699,7 +699,7 @@
                             }
 
                             if (!data.data.items[0].hasOwnProperty(
-                                    'total_kanban_qty') || ) {
+                                    'total_kanban_qty')) {
                                 notif('error',
                                     'Loading list sudah pernah dipulling'
                                 );

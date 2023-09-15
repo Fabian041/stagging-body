@@ -62,6 +62,11 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function progressPulling()
+    {
+        return view('pages.progressPulling');
+    }
+
     public function importPart(Request $request)
     {
         Excel::import(new PartImport, $request->file('file')->store('files'));
