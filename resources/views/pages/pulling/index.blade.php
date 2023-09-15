@@ -679,9 +679,27 @@
                                 return;
                             }
 
+                            let total_actual = 0;
+                            let total_kanban = 0;
+
                             // check if already pulled
+                            data.data.items.map((item, index) => {
+                                total_actual += item
+                                    .actual_kanban_qty;
+                                total_kanban += item.total_kanban_qty;
+                            });
+
+                            if (total_actual >= total_kanban) {
+                                notif('error',
+                                    'Loading list sudah pernah dipulling'
+                                );
+                                loadingListModal();
+                                alreadyPulledSound();
+                                return;
+                            }
+
                             if (!data.data.items[0].hasOwnProperty(
-                                    'total_kanban_qty')) {
+                                    'total_kanban_qty') || ) {
                                 notif('error',
                                     'Loading list sudah pernah dipulling'
                                 );
@@ -862,7 +880,6 @@
                 $('#modalLoadingListScan').modal('hide');
             }
         });
-
 
         $('#input-confirmation').keypress(function(e) {
             e.preventDefault();
