@@ -689,14 +689,14 @@
                                 total_kanban += item.total_kanban_qty;
                             });
 
-                            if (total_actual >= total_kanban) {
-                                notif('error',
-                                    'Loading list sudah pernah dipulling'
-                                );
-                                loadingListModal();
-                                alreadyPulledSound();
-                                return;
-                            }
+                            // if (total_actual >= total_kanban) {
+                            //     notif('error',
+                            //         'Loading list sudah pernah dipulling'
+                            //     );
+                            //     loadingListModal();
+                            //     alreadyPulledSound();
+                            //     return;
+                            // }
 
                             // if (!data.data.items[0].hasOwnProperty(
                             //         'total_kanban_qty')) {
