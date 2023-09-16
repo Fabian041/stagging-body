@@ -698,15 +698,15 @@
                                 return;
                             }
 
-                            if (!data.data.items[0].hasOwnProperty(
-                                    'total_kanban_qty')) {
-                                notif('error',
-                                    'Loading list sudah pernah dipulling'
-                                );
-                                loadingListModal();
-                                alreadyPulledSound();
-                                return;
-                            }
+                            // if (!data.data.items[0].hasOwnProperty(
+                            //         'total_kanban_qty')) {
+                            //     notif('error',
+                            //         'Loading list sudah pernah dipulling'
+                            //     );
+                            //     loadingListModal();
+                            //     alreadyPulledSound();
+                            //     return;
+                            // }
 
                             // check if loading list have same manifest code (pds number)
                             if (localStorage.getItem('pdsNumber')) {
