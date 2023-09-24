@@ -115,33 +115,20 @@
             ],
         });
 
-        // Variables to store data and pagination state
-        var data = [];
-        var currentPage = 1;
-        var pageSize = 10;
+        // Variable to store the current scroll position
+        var scrollPosition = 0;
 
         // Function to fetch and update data
         function fetchAndUpdateData() {
-            // Fetch data here and populate the 'data' array
+            // Get the current scroll position
+            scrollPosition = $('#loadingList').parent().scrollTop();
 
-            // Redraw the table with the updated data
-            redrawTable();
-        }
-
-        // Function to redraw the table
-        function redrawTable() {
-            // Calculate the start and end indexes for the current page
-            var startIndex = (currentPage - 1) * pageSize;
-            var endIndex = startIndex + pageSize;
-
-            // Slice the data array to get the data for the current page
-            var pageData = data.slice(startIndex, endIndex);
-
-            // Update the DataTable with the pageData
-            // You can clear the table and add rows with the new data
-
-            // Restore the scroll position if needed
-            $('#yourDataTableContainer').scrollTop(scrollPosition);
+            // Reload the DataTable
+            table.ajax.reload(function() {
+                // Callback function after the data is reloaded
+                // Restore the scroll position
+                $('#loadingList').parent().scrollTop(scrollPosition);
+            }, false);
         }
 
         // Initial data fetch when the page loads
@@ -149,23 +136,6 @@
 
         // Fetch data every second
         setInterval(fetchAndUpdateData, 1000);
-
-        // Handle page change manually
-        $('#nextPageButton').on('click', function() {
-            if (currentPage < Math.ceil(newData.length / pageSize)) {
-                currentPage++;
-                table.page(currentPage - 1).draw(
-                    false); // Draw the specific page without resetting the scroll position
-            }
-        });
-
-        $('#prevPageButton').on('click', function() {
-            if (currentPage > 1) {
-                currentPage--;
-                table.page(currentPage - 1).draw(
-                    false); // Draw the specific page without resetting the scroll position
-            }
-        });
 
         $('#customer').on('change', function() {
             // get all filter values
