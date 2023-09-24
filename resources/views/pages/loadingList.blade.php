@@ -118,12 +118,12 @@
         // Variable to store the current scroll position
         var scrollPosition = 0;
 
-        // Variable to store the current page
-        var currentPage = 1;
-
         function fetchAndUpdateData() {
             // Get the current scroll position
             scrollPosition = $('#yourDataTableContainer').scrollTop();
+
+            // Get the current page before reloading the DataTable
+            var currentPage = table.page.info().page;
 
             // Reload the DataTable
             table.ajax.reload(function() {
@@ -131,8 +131,8 @@
                 // Restore the scroll position
                 $('#yourDataTableContainer').scrollTop(scrollPosition);
 
-                // Restore the current page after the DataTable is reloaded
-                table.page(currentPage).draw(false);
+                // Go back to the previous page
+                table.page(currentPage).draw('page');
             }, false);
         }
         // Initial data fetch when the page loads
@@ -141,11 +141,6 @@
         // Fetch data every second
         setInterval(fetchAndUpdateData, 1000);
 
-        // Handle page change event
-        table.on('page.dt', function() {
-            // Store the current page when it changes
-            currentPage = table.page.info().page + 1;
-        });
 
         $('#customer').on('change', function() {
             // get all filter values
