@@ -141,6 +141,12 @@
         // Fetch data every second
         setInterval(fetchAndUpdateData, 1000);
 
+        // Handle page change event
+        table.on('page.dt', function() {
+            // Store the current page when it changes
+            currentPage = table.page.info().page + 1;
+        });
+
         $('#customer').on('change', function() {
             // get all filter values
             let customer = $('#customer').val();
