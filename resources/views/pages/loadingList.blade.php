@@ -115,14 +115,17 @@
             ],
         });
 
+        var scrollPosition = 0;
+
         function fetchAndUpdateData() {
             // Get the current scroll position
-            scrollPosition = $(window).scrollTop();
-            table.ajax.reload(function() {
-                // Callback function after the data is reloaded
-                // Restore the scroll position
-                $(window).scrollTop(scrollPosition);
-            }, false);
+            scrollPosition = $('#yourDataTableContainer').scrollTop();
+
+            // Reload the DataTable
+            table.ajax.reload(null, false);
+
+            // Restore the scroll position
+            $('#yourDataTableContainer').scrollTop(scrollPosition);
         }
         // Initial data fetch when the page loads
         fetchAndUpdateData();
