@@ -115,31 +115,56 @@
             ],
         });
 
-        // Variable to store the current scroll position
-        var scrollPosition = 0;
+        // Variables to store data and pagination state
+        var data = [];
+        var currentPage = 1;
+        var pageSize = 10;
 
+        // Function to fetch and update data
         function fetchAndUpdateData() {
-            // Get the current scroll position
-            scrollPosition = $('#yourDataTableContainer').scrollTop();
+            // Fetch data here and populate the 'data' array
 
-            // Get the current page before reloading the DataTable
-            var currentPage = table.page.info().page;
-
-            // Reload the DataTable
-            table.ajax.reload(function() {
-                // Callback function after the data is reloaded
-                // Restore the scroll position
-                $('#yourDataTableContainer').scrollTop(scrollPosition);
-
-                // Go back to the previous page
-                table.page(currentPage).draw('page');
-            }, false);
+            // Redraw the table with the updated data
+            redrawTable();
         }
+
+        // Function to redraw the table
+        function redrawTable() {
+            // Calculate the start and end indexes for the current page
+            var startIndex = (currentPage - 1) * pageSize;
+            var endIndex = startIndex + pageSize;
+
+            // Slice the data array to get the data for the current page
+            var pageData = data.slice(startIndex, endIndex);
+
+            // Update the DataTable with the pageData
+            // You can clear the table and add rows with the new data
+
+            // Restore the scroll position if needed
+            $('#yourDataTableContainer').scrollTop(scrollPosition);
+        }
+
         // Initial data fetch when the page loads
         fetchAndUpdateData();
 
         // Fetch data every second
         setInterval(fetchAndUpdateData, 1000);
+
+        // Handle page change manually
+        $('#nextPageButton').on('click', function() {
+            if (currentPage < Math.ceil(data.length / pageSize)) {
+                currentPage++;
+                redrawTable();
+            }
+        });
+
+        $('#prevPageButton').on('click', function() {
+            if (currentPage > 1) {
+                currentPage--;
+                redrawTable();
+            }
+        });
+
 
 
         $('#customer').on('change', function() {
