@@ -64,6 +64,16 @@ class DashboardController extends Controller
 
     public function progressPulling()
     {
+        // get per delivery date 
+        $cycle = DB::table('loading_lists')
+                    ->join('loading_list_details', 'loading_list_details.loading_list_id', 'loading_lists.id')
+                    ->select(DB::raw('SUM(kanban_qty) as total_kanban, SUM(actual_kanban_qty) as total_actual'), 'cycle')
+                    ->where('delivery_date', '2023-07-11')
+                    ->groupBy('cycle')
+                    ->get();
+
+                    dd($cycle);
+        
         return view('pages.progressPulling');
     }
 

@@ -116,9 +116,14 @@
         });
 
         function fetchAndUpdateData() {
-            table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
+            // Get the current scroll position
+            scrollPosition = $(window).scrollTop();
+            table.ajax.reload(function() {
+                // Callback function after the data is reloaded
+                // Restore the scroll position
+                $(window).scrollTop(scrollPosition);
+            }, false);
         }
-
         // Initial data fetch when the page loads
         fetchAndUpdateData();
 
