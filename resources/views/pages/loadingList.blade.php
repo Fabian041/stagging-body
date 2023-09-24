@@ -152,20 +152,20 @@
 
         // Handle page change manually
         $('#nextPageButton').on('click', function() {
-            if (currentPage < Math.ceil(data.length / pageSize)) {
+            if (currentPage < Math.ceil(newData.length / pageSize)) {
                 currentPage++;
-                redrawTable();
+                table.page(currentPage - 1).draw(
+                    false); // Draw the specific page without resetting the scroll position
             }
         });
 
         $('#prevPageButton').on('click', function() {
             if (currentPage > 1) {
                 currentPage--;
-                redrawTable();
+                table.page(currentPage - 1).draw(
+                    false); // Draw the specific page without resetting the scroll position
             }
         });
-
-
 
         $('#customer').on('change', function() {
             // get all filter values
