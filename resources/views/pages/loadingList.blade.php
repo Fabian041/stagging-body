@@ -116,26 +116,26 @@
         });
 
         // Variable to store the current scroll position
-        var scrollPosition = 0;
+        // var scrollPosition = 0;
 
-        // Function to fetch and update data
-        function fetchAndUpdateData() {
-            // Get the current scroll position
-            scrollPosition = $('#loadingList').parent().scrollTop();
+        // // Function to fetch and update data
+        // function fetchAndUpdateData() {
+        //     // Get the current scroll position
+        //     scrollPosition = $('#loadingList').parent().scrollTop();
 
-            // Reload the DataTable
-            table.ajax.reload(function() {
-                // Callback function after the data is reloaded
-                // Restore the scroll position
-                $('#loadingList').parent().scrollTop(scrollPosition);
-            }, false);
-        }
+        //     // Reload the DataTable
+        //     table.ajax.reload(function() {
+        //         // Callback function after the data is reloaded
+        //         // Restore the scroll position
+        //         $('#loadingList').parent().scrollTop(scrollPosition);
+        //     }, false);
+        // }
 
-        // Initial data fetch when the page loads
-        fetchAndUpdateData();
+        // // Initial data fetch when the page loads
+        // fetchAndUpdateData();
 
-        // Fetch data every second
-        setInterval(fetchAndUpdateData, 1000);
+        // // Fetch data every second
+        // setInterval(fetchAndUpdateData, 1000);
 
         $('#customer').on('change', function() {
             // get all filter values
