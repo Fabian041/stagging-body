@@ -285,7 +285,7 @@ class LoadingListController extends Controller
             }
         }
 
-        dd($convertedPartNumber);
+        dd($codeLength);
 
         // get customer part id
         $customerPartId = DB::table('customer_parts')
