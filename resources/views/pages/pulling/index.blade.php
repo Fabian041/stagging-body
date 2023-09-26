@@ -817,7 +817,6 @@
                                         },
                                         error: function(xhr) {
                                             console.log(xhr);
-                                            return false;
                                         }
                                     })
 
