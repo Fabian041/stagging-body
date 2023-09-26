@@ -115,7 +115,7 @@
             ],
         });
 
-        Variable to store the current scroll position
+        // Variable to store the current scroll position
         var scrollPosition = 0;
 
         // Function to fetch and update data
