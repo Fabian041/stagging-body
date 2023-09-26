@@ -260,6 +260,9 @@ class LoadingListController extends Controller
             ];
         } 
 
+        dd($loadingListId);
+
+
         // check part number customer length
         if($codeLength == 12){
             // TMMIN
@@ -294,7 +297,6 @@ class LoadingListController extends Controller
                         ->first();
 
 
-                        dd($customerPartId);
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',
