@@ -260,9 +260,6 @@ class LoadingListController extends Controller
             ];
         } 
 
-        dd($loadingListId);
-
-
         // check part number customer length
         if($codeLength == 12){
             // TMMIN
@@ -287,6 +284,8 @@ class LoadingListController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
             }
         }
+
+        dd($convertedPartNumber);
 
         // get customer part id
         $customerPartId = DB::table('customer_parts')
