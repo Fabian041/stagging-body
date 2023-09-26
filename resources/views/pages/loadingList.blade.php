@@ -3,37 +3,39 @@
 @section('main')
     <div class="row mt-3">
         <div class="col-md-12">
-            <div class="row">
-                <div class="col-12">
-                    <div class="form-group">
-                        <div class="input-group">
-                            @isset($manifests)
-                                <select class="custom-select" id="manifest">
-                                    <option selected disabled>-- Select manifest --</option>
-                                    @foreach ($manifests as $manifest)
-                                        <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
-                                    @endforeach
+            <div class="card card-info shadow" style="padding: 40px;padding-top:60px; border-radius:16px">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="form-group">
+                            <div class="input-group">
+                                @isset($manifests)
+                                    <select class="custom-select" id="manifest">
+                                        <option selected disabled>-- Select manifest --</option>
+                                        @foreach ($manifests as $manifest)
+                                            <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
+                                        @endforeach
+                                    </select>
+                                @endisset()
+                                <select class="custom-select" id="cycle">
+                                    <option selected disabled>-- Select cycle --</option>
+                                    <option value="1">cycle 1</option>
+                                    <option value="2">cycle 2</option>
+                                    <option value="3">cycle 3</option>
+                                    <option value="4">cycle 4</option>
+                                    <option value="5">cycle 5</option>
                                 </select>
-                            @endisset()
-                            <select class="custom-select" id="cycle">
-                                <option selected disabled>-- Select cycle --</option>
-                                <option value="1">cycle 1</option>
-                                <option value="2">cycle 2</option>
-                                <option value="3">cycle 3</option>
-                                <option value="4">cycle 4</option>
-                                <option value="5">cycle 5</option>
-                            </select>
-                            @isset($customers)
-                                <select class="custom-select" id="customer">
-                                    <option selected disabled>-- Select customer --</option>
-                                    @foreach ($customers as $customer)
-                                        <option value="{{ $customer->name }}">{{ $customer->name }}</option>
-                                    @endforeach
-                                </select>
-                            @endisset()
-                            <input id="date" type="date" class="form-control" placeholder="Delivery date">
-                            <div class="input-group-append" id="reset">
-                                <button class="btn btn-lg btn-danger" type="button">RESET</button>
+                                @isset($customers)
+                                    <select class="custom-select" id="customer">
+                                        <option selected disabled>-- Select customer --</option>
+                                        @foreach ($customers as $customer)
+                                            <option value="{{ $customer->name }}">{{ $customer->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @endisset()
+                                <input id="date" type="date" class="form-control" placeholder="Delivery date">
+                                <div class="input-group-append" id="reset">
+                                    <button class="btn btn-lg btn-danger" type="button">RESET</button>
+                                </div>
                             </div>
                         </div>
                     </div>
