@@ -283,9 +283,10 @@ class LoadingListController extends Controller
             }else{
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
             }
+        }else{
+            // MMKI fujitrans
+            $convertedPartNumber = $customerPart;
         }
-
-        dd($codeLength);
 
         // get customer part id
         $customerPartId = DB::table('customer_parts')

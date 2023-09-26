@@ -817,6 +817,10 @@
                                         },
                                         error: function(xhr) {
                                             console.log(xhr);
+                                            notif('error',
+                                                'Scan ulang loading list'
+                                            );
+                                            return false;
                                         }
                                     })
 
