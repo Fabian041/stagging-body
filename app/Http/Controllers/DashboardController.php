@@ -71,8 +71,6 @@ class DashboardController extends Controller
                     ->where('delivery_date', '2023-07-11')
                     ->groupBy('cycle')
                     ->get();
-
-                    dd($cycle);
         
         return view('pages.progressPulling');
     }
