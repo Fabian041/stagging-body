@@ -1335,7 +1335,6 @@
                                 const record = cursor.value;
                                 // check if kanban customer exist in loading list record
                                 if (barcodecomplete.trimEnd() === record.customer) {
-                                    alert('test');
                                     // check quantity in spesific part number
                                     if (record.seri.length >= record.total_qty) {
                                         notif('error', 'Part number sudah complete!');
@@ -1366,7 +1365,7 @@
                                     // set local storage for customer kanban
                                     localStorage.setItem('customerPart', record.customer);
                                 }
-                                cursor.continue();
+                                // cursor.continue();
                             } else {
                                 console.log('iteration complete');
                                 // check if the kanban customer is available
