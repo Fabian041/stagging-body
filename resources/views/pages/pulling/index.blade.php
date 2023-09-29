@@ -1855,6 +1855,7 @@
                     form.submit();
 
                 } else {
+                    console.log('error')
                     notif("error", "Kanban tidak dikenali !");
 
                     // notification sound
