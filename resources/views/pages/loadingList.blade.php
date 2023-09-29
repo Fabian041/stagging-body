@@ -9,8 +9,10 @@
                         <div class="form-group">
                             <div class="input-group">
                                 @isset($manifests)
-                                    <select class="custom-select" id="manifest">
-                                        <option selected disabled>-- Select manifest --</option>
+                                    <select class="select2 form-control select2-hidden-accessible"
+                                        style="width: 30%; height: 36px" data-select2-id="select2-data-1-ok7p" tabindex="-1"
+                                        aria-hidden="true" id="manifest">
+                                        <option data-select2-id="select2-data-3-mma1" disabled>-- Select manifest --</option>
                                         @foreach ($manifests as $manifest)
                                             <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
                                         @endforeach
@@ -92,7 +94,7 @@
                     data: 'pds_number'
                 },
                 {
-                    data: 'customer_name'
+                    data: 'customer',
                 },
                 {
                     data: 'cycle'
@@ -109,26 +111,19 @@
                     searchable: false
                 },
             ],
+            order: [
+                [4, 'dsc']
+            ],
             lengthMenu: [
                 [10, 25, 'All'],
                 [10, 25, 'All']
             ],
         });
 
-        // Variable to store the current scroll position
-        var scrollPosition = 0;
-
         // Function to fetch and update data
         function fetchAndUpdateData() {
             // Get the current scroll position
-            scrollPosition = $('#loadingList').parent().scrollTop();
-
-            // Reload the DataTable
-            table.ajax.reload(function() {
-                // Callback function after the data is reloaded
-                // Restore the scroll position
-                $('#loadingList').parent().scrollTop(scrollPosition);
-            }, false);
+            table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
         }
 
         // Initial data fetch when the page loads
@@ -136,19 +131,6 @@
 
         // Fetch data every second
         setInterval(fetchAndUpdateData, 1000);
-
-        $('#customer').on('change', function() {
-            // get all filter values
-            let customer = $('#customer').val();
-
-            if (customer) {
-                table.column(2).search(customer);
-            } else {
-                table.column(2).search('');
-            }
-
-            table.draw();
-        })
 
         $('#manifest').on('change', function() {
             // get all filter values
@@ -158,6 +140,19 @@
                 table.column(1).search(manifest);
             } else {
                 table.column(1).search('');
+            }
+
+            table.draw();
+        })
+
+        $('#customer').on('change', function() {
+            // get all filter values
+            let customer = $('#customer').val();
+
+            if (customer) {
+                table.column(2).search(customer);
+            } else {
+                table.column(2).search('');
             }
 
             table.draw();

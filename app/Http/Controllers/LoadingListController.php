@@ -24,10 +24,10 @@ class LoadingListController extends Controller
 
     public function getLoadingList()
     {
-        $input = LoadingList::latest();
+        $input = LoadingList::all();
 
         return DataTables::of($input)
-                ->addColumn('customer_name', function ($loadingList) {
+                ->addColumn('customer', function ($loadingList) {
                     return $loadingList->customer->name;
                 })
                 ->addColumn('detail', function($loadingList){
@@ -100,7 +100,7 @@ class LoadingListController extends Controller
     
                     return $progress;
                 })
-                ->rawColumns(['detail', 'progress', 'customer_name'])
+                ->rawColumns(['detail', 'progress', 'customer'])
                 ->toJson();
     }
 
