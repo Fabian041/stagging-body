@@ -1625,7 +1625,8 @@
                             notif("error", xhr.responseJSON.errors);
                         }
                     });
-                } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
+                } else if (barcodecomplete.length == localStorage.getItem('char_total') ||
+                    barcodecomplete.length == 10) {
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
@@ -1698,7 +1699,6 @@
 
                                     // notification sound
                                     unknownSound();
-
 
                                     setInterval(() => {
                                         $('#code').focus();

@@ -293,6 +293,8 @@ class LoadingListController extends Controller
             $convertedPartNumber = $customerPart;
         }
 
+        dd($convertedPartNumber);
+
         // get customer part id
         $customerPartId = DB::table('customer_parts')
                         ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
