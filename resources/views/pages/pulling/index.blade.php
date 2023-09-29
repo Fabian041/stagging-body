@@ -1737,6 +1737,8 @@
                         internal = barcodecomplete.substr(41, 19);
                         seri = barcodecomplete.substr(123, 4);
 
+                        console.log(internal, seri);
+
                         // check existence of kanban and check if it already scanned by prod
                         // checkKanban(seri, internal);
 
@@ -1745,7 +1747,6 @@
                         internal = barcodecomplete.substr(35, 12);
                         seri = barcodecomplete.substr(130, 4);
 
-                        console.log(internal, seri);
                         // check existence of kanban and check if it already scanned by prod
                         // checkKanban(seri, internal);
 
