@@ -1317,6 +1317,8 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                alert(localStorage.getItem('customer'))
+
                 // check for MMKI
                 if (localStorage.getItem('customer') == 'MMKI') {
                     // initiate database
@@ -1853,7 +1855,6 @@
                     form.submit();
 
                 } else {
-                    alert('apaandah')
                     notif("error", "Kanban tidak dikenali !");
 
                     // notification sound
