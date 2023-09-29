@@ -1088,10 +1088,7 @@
             let totalQty = cursor['total_qty'];
             let isSameObject = false;
 
-
             for (const key in cursor) {
-                console.log(cursor[key]);
-                console.log(localStorage.getItem('customerPart'))
                 if (cursor[key] === localStorage.getItem('customerPart')) {
                     // Value1 found, check if Value2 is also in the object
                     if (Object.values(cursor).includes(internal.trimEnd())) {
@@ -1556,78 +1553,6 @@
                             notif("error", xhr.responseJSON.errors);
                         }
                     });
-                } else if (localStorage.getItem('customer') == 'MMKI') {
-                    // initiate database
-                    request = window.indexedDB.open(pds);
-
-                    // transaction
-                    request.onsuccess = function(event) {
-                        const database = event.target.result;
-                        const transaction = database.transaction(["loadingList"], 'readonly');
-                        const objectStore = transaction.objectStore("loadingList");
-                        let isAvailable = false;
-
-                        objectStore.openCursor().onsuccess = function(event) {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                // check if kanban customer exist in loading list record
-                                if (barcodecomplete.trimEnd() === record.customer) {
-                                    // check quantity in spesific part number
-                                    if (record.seri.length >= record.total_qty) {
-                                        notif('error', 'Part number sudah complete!');
-                                        fullfilledSound();
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
-                                        return;
-                                    }
-                                    // set flag
-                                    isAvailable = true;
-                                    // display customer
-                                    $('#cust-display').text(record.customer);
-                                    $('#int-display').text('-');
-
-                                    // set indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-danger');
-                                    $('#indicator').addClass('bg-warning');
-
-                                    // display current qty
-                                    $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-                                    // set local storage for customer kanban
-                                    localStorage.setItem('customerPart', record.customer);
-                                }
-                                cursor.continue();
-                            } else {
-                                console.log('iteration complete');
-                                // check if the kanban customer is available
-                                if (!isAvailable) {
-                                    notif('error', 'Kanban tidak sesuai!');
-
-                                    // notification sound
-                                    notMatchSound();
-
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                }
-                            }
-                        }
-                        // when complete
-                        request.oncomplete = function(event) {
-                            database.close();
-                        }
-                    }
-                    // Event handler for a failed database connection
-                    request.onerror = function(event) {
-                        console.log('Failed to open database');
-                    };
                 } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
@@ -1841,6 +1766,78 @@
                     request.onerror = function(event) {
                         notif('error', event.target.error);
                     }
+                } else if (localStorage.getItem('customer') == 'MMKI') {
+                    // initiate database
+                    request = window.indexedDB.open(pds);
+
+                    // transaction
+                    request.onsuccess = function(event) {
+                        const database = event.target.result;
+                        const transaction = database.transaction(["loadingList"], 'readonly');
+                        const objectStore = transaction.objectStore("loadingList");
+                        let isAvailable = false;
+
+                        objectStore.openCursor().onsuccess = function(event) {
+                            const cursor = event.target.result;
+                            if (cursor) {
+                                const record = cursor.value;
+                                // check if kanban customer exist in loading list record
+                                if (barcodecomplete.trimEnd() === record.customer) {
+                                    // check quantity in spesific part number
+                                    if (record.seri.length >= record.total_qty) {
+                                        notif('error', 'Part number sudah complete!');
+                                        fullfilledSound();
+                                        $('#indicator').removeClass('bg-success');
+                                        $('#indicator').removeClass('bg-warning');
+                                        $('#indicator').addClass('bg-danger');
+                                        setInterval(() => {
+                                            $('#code').focus();
+                                        }, 1000);
+                                        return;
+                                    }
+                                    // set flag
+                                    isAvailable = true;
+                                    // display customer
+                                    $('#cust-display').text(record.customer);
+                                    $('#int-display').text('-');
+
+                                    // set indicator
+                                    $('#indicator').removeClass('bg-success');
+                                    $('#indicator').removeClass('bg-danger');
+                                    $('#indicator').addClass('bg-warning');
+
+                                    // display current qty
+                                    $('#qty-display').text(`
+                                        ${record.seri.length}/${record.total_qty}
+                                    `);
+                                    // set local storage for customer kanban
+                                    localStorage.setItem('customerPart', record.customer);
+                                }
+                                cursor.continue();
+                            } else {
+                                console.log('iteration complete');
+                                // check if the kanban customer is available
+                                if (!isAvailable) {
+                                    notif('error', 'Kanban tidak sesuai!');
+
+                                    // notification sound
+                                    notMatchSound();
+
+                                    setInterval(() => {
+                                        $('#code').focus();
+                                    }, 1000);
+                                }
+                            }
+                        }
+                        // when complete
+                        request.oncomplete = function(event) {
+                            database.close();
+                        }
+                    }
+                    // Event handler for a failed database connection
+                    request.onerror = function(event) {
+                        console.log('Failed to open database');
+                    };
                 } else if (barcodecomplete == "DONE") {
                     var form = document.createElement('form');
                     form.method = 'POST';
