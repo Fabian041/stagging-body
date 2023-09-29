@@ -1088,7 +1088,10 @@
             let totalQty = cursor['total_qty'];
             let isSameObject = false;
 
+
             for (const key in cursor) {
+                console.log(cursor[key]);
+                console.log(localStorage.getItem('customerPart'))
                 if (cursor[key] === localStorage.getItem('customerPart')) {
                     // Value1 found, check if Value2 is also in the object
                     if (Object.values(cursor).includes(internal.trimEnd())) {
@@ -1855,7 +1858,6 @@
                     form.submit();
 
                 } else {
-                    console.log('error')
                     notif("error", "Kanban tidak dikenali !");
 
                     // notification sound
