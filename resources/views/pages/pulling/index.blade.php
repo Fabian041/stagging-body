@@ -1365,7 +1365,7 @@
                                     // set local storage for customer kanban
                                     localStorage.setItem('customerPart', record.customer);
                                 }
-                                // cursor.continue();
+                                cursor.continue();
                             } else {
                                 console.log('iteration complete');
                                 // check if the kanban customer is available
@@ -1853,6 +1853,7 @@
                     form.submit();
 
                 } else {
+                    alert('apaandah')
                     notif("error", "Kanban tidak dikenali !");
 
                     // notification sound
