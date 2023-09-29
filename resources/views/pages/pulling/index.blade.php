@@ -1625,8 +1625,7 @@
                             notif("error", xhr.responseJSON.errors);
                         }
                     });
-                } else if (barcodecomplete.length == localStorage.getItem('char_total') ||
-                    barcodecomplete.length == 10) {
+                } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
