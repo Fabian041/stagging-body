@@ -1633,14 +1633,18 @@
                             localStorage.getItem('char_length'))
                         barcodecomplete = barcodecomplete.trim();
                         barcodecomplete = barcodecomplete.replace(/-/g, '');
+                        barcodecomplete = barcodecomplete.toUpperCase();
 
                         // for suzuki case
                         if (localStorage.getItem('char_length') == 17) {
                             if (barcodecomplete.substr(10, 3) == '000') {
                                 // delete 3 lastest characters
                                 barcodecomplete = barcodecomplete.slice(0, -3);
+                                barcodecomplete = barcodecomplete.toUpperCase();
                             }
                         }
+                    } else {
+                        barcodecomplete = barcodecomplete.toUpperCase();
                     }
 
                     console.log(barcodecomplete);
@@ -1718,6 +1722,7 @@
 
                 } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
                     barcodecomplete.length == 220 || barcodecomplete.length == 241) {
+                    barcodecomplete = barcodecomplete.toUpperCase();
                     let internal;
                     let seri;
                     // check if already scan customer kanban
