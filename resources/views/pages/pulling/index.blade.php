@@ -1319,7 +1319,6 @@
 
                 // check for MMKI
                 if (localStorage.getItem('customer') == 'MMKI') {
-                    alert('test');
                     // initiate database
                     request = window.indexedDB.open(pds);
 
