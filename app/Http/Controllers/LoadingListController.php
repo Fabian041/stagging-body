@@ -293,8 +293,6 @@ class LoadingListController extends Controller
             $convertedPartNumber = $customerPart;
         }
 
-        dd($convertedPartNumber);
-
         // get customer part id
         $customerPartId = DB::table('customer_parts')
                         ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
@@ -374,8 +372,13 @@ class LoadingListController extends Controller
                 // SUZUKI
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
             }else{
-                // TBINA
-                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
+                if($loadingListId->customer_id == 6){
+                    // MMKI
+                    $convertedPartNumber = $customerPart;
+                }else{
+                    // TBINA
+                    $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
+                }
             }
         }else if($codeLength == 13){
             // SUZUKI
