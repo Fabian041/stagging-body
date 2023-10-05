@@ -128,32 +128,32 @@ class ProductionController extends Controller
         // check if kanban after prod is empty
         
         
-        // try {
-        //     DB::beginTransaction();
-        //     // insert into mutation table
-        //     Mutation::create([
-        //         'internal_part_id' => $internalPart->id,
-        //         'serial_number' => $seri,
-        //         'type' => 'supply',
-        //         'qty' => $customerPart->qty_per_kanban,
-        //         'npk' => auth()->user()->npk,
-        //         'date' => Carbon::now()->format('Y-m-d H:i:s')
-        //     ]);
+        try {
+            DB::beginTransaction();
+            // insert into mutation table
+            // Mutation::create([
+            //     'internal_part_id' => $internalPart->id,
+            //     'serial_number' => $seri,
+            //     'type' => 'supply',
+            //     'qty' => $customerPart->qty_per_kanban,
+            //     'npk' => auth()->user()->npk,
+            //     'date' => Carbon::now()->format('Y-m-d H:i:s')
+            // ]);
 
-        //     // insert into kanban after prod
-        //     for($i=0; $i<$customerPart->qty_per_kanban; $i++){
+            // // insert into kanban after prod
+            // for($i=0; $i<$customerPart->qty_per_kanban; $i++){
 
-        //         $randomString = Str::rand(7);
-        //         $currDate = Carbon::now()->format('Ymd');
+            //     $randomString = Str::rand(7);
+            //     $currDate = Carbon::now()->format('Ymd');
 
-        //         KanbanAfterProd::create([
-        //             'kanban_id' => $kanban->id,
-        //             'internal_part_id' => $internalPart->id,
-        //             'code' => $currDate . $randomString,
-        //             'npk' => auth()->user()->npk,
-        //             'date' => Carbon::now()->format('Y-m-d')
-        //         ]);
-        //     }
+            //     KanbanAfterProd::create([
+            //         'kanban_id' => $kanban->id,
+            //         'internal_part_id' => $internalPart->id,
+            //         'code' => $currDate . $randomString,
+            //         'npk' => auth()->user()->npk,
+            //         'date' => Carbon::now()->format('Y-m-d')
+            //     ]);
+            // }
 
         $result = [];
         
