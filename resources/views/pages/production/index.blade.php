@@ -395,14 +395,12 @@
                                 if (data.status == 'success') {
                                     notif("success", data.message);
 
-                                    alert(getMasterSample());
-
                                     // get current counter value
                                     currentCounter = localStorage.getItem(
                                         `counter_${getMasterSample()}`);
                                     currentCounter = parseInt(currentCounter);
                                     currentCounter++;
-                                    localStorage.setItem(`counter_${data.sample}`,
+                                    localStorage.setItem(`counter_${getMasterSample()}`,
                                         currentCounter);
 
                                     let interval = setInterval(function() {
