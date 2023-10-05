@@ -376,6 +376,7 @@
 
                     let partNumber = barcodecomplete.substr(41, 19);
                     let seri = barcodecomplete.substr(123, 4);
+                    let currentCounter;
                     partNumber = partNumber.trimEnd();
                     console.log(partNumber);
 
@@ -395,7 +396,7 @@
                                     notif("success", data.message);
 
                                     // get current counter value
-                                    let currentCounter = localStorage.getItem(
+                                    currentCounter = localStorage.getItem(
                                         `counter_${getMasterSample()}`);
                                     currentCounter = parseInt(currentCounter);
                                     currentCounter++;
