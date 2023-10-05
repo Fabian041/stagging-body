@@ -125,9 +125,7 @@ class ProductionController extends Controller
             ]; 
         }
 
-        // check if kanban after prod is empty
-        
-        
+        // check if kanban after prod is empty    
         try {
             DB::beginTransaction();
             // insert into mutation table
@@ -207,6 +205,7 @@ class ProductionController extends Controller
             ];
         } catch (\Throwable $th) {
             DB::rollBack();
+            return ['message' => $th->getMessage()];
         }
     }
 
