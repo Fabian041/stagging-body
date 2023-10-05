@@ -126,6 +126,14 @@ class ProductionController extends Controller
         }
 
         // check if kanban after prod is empty    
+        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->first();
+        if($kanbanAfterProd){
+            return [
+                'status' => 'error',
+                'message' => 'Seri kanban sudah di scan!'
+            ]; 
+        }
+
         try {
             DB::beginTransaction();
             // insert into mutation table
