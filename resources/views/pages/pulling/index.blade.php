@@ -1317,9 +1317,6 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                console.log(barcodecomplete);
-                console.log(barcodecomplete.length);
-
                 if (barcodecomplete.charAt(0) == 'C') {
                     let loadingList = getLoadingListNumber();
                     $.ajax({
