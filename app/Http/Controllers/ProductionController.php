@@ -114,16 +114,16 @@ class ProductionController extends Controller
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
         // get kanban_id based on internal part id
-        // $kanban = Kanban::select('id')
-        //             ->where('internal_part_id', $internalPart->id)
-        //             ->where('serial_number', $seri)
-        //             ->first();
-        // if(!$kanban){
-        //     return [
-        //         'status' => 'error',
-        //         'message' => 'Kanban tidak terdaftar!'
-        //     ]; 
-        // }
+        $kanban = Kanban::select('id')
+                    ->where('internal_part_id', $internalPart->id)
+                    ->where('serial_number', $seri)
+                    ->first();
+        if(!$kanban){
+            return [
+                'status' => 'error',
+                'message' => 'Kanban tidak terdaftar!'
+            ]; 
+        }
 
         // check if kanban after prod is empty
         
@@ -131,29 +131,29 @@ class ProductionController extends Controller
         try {
             DB::beginTransaction();
             // insert into mutation table
-            // Mutation::create([
-            //     'internal_part_id' => $internalPart->id,
-            //     'serial_number' => $seri,
-            //     'type' => 'supply',
-            //     'qty' => $customerPart->qty_per_kanban,
-            //     'npk' => auth()->user()->npk,
-            //     'date' => Carbon::now()->format('Y-m-d H:i:s')
-            // ]);
+            Mutation::create([
+                'internal_part_id' => $internalPart->id,
+                'serial_number' => $seri,
+                'type' => 'supply',
+                'qty' => $customerPart->qty_per_kanban,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
 
-            // // insert into kanban after prod
-            // for($i=0; $i<$customerPart->qty_per_kanban; $i++){
+            // insert into kanban after prod
+            for($i=0; $i<$customerPart->qty_per_kanban; $i++){
 
-            //     $randomString = Str::rand(7);
-            //     $currDate = Carbon::now()->format('Ymd');
+                $randomString = Str::rand(7);
+                $currDate = Carbon::now()->format('Ymd');
 
-            //     KanbanAfterProd::create([
-            //         'kanban_id' => $kanban->id,
-            //         'internal_part_id' => $internalPart->id,
-            //         'code' => $currDate . $randomString,
-            //         'npk' => auth()->user()->npk,
-            //         'date' => Carbon::now()->format('Y-m-d')
-            //     ]);
-            // }
+                KanbanAfterProd::create([
+                    'kanban_id' => $kanban->id,
+                    'internal_part_id' => $internalPart->id,
+                    'code' => $currDate . $randomString,
+                    'npk' => auth()->user()->npk,
+                    'date' => Carbon::now()->format('Y-m-d')
+                ]);
+            }
 
         $result = [];
         
