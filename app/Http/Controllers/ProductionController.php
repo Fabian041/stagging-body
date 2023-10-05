@@ -141,7 +141,7 @@ class ProductionController extends Controller
             // insert into kanban after prod
             for($i=0; $i<$customerPart->qty_per_kanban; $i++){
 
-                $randomString = Str::rand(7);
+                $randomString = Str::random(7);
                 $currDate = Carbon::now()->format('Ymd');
 
                 KanbanAfterProd::create([
