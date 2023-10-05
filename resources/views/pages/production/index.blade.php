@@ -286,6 +286,8 @@
                             // set counter to local storage based on sample
                             localStorage.setItem(`counter_${data.sample}`, 0);
 
+                            $('#qty-display').text(0);
+
                             initApp();
                         } else {
                             notif('error', data.message);
