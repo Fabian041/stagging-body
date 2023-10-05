@@ -400,6 +400,8 @@
                                         `counter_${getMasterSample()}`);
                                     currentCounter = parseInt(currentCounter);
                                     currentCounter++;
+                                    localStorage.setItem(`counter_${data.sample}`,
+                                        currentCounter);
 
                                     let interval = setInterval(function() {
                                         $('#notifModal').modal('hide');
