@@ -395,6 +395,8 @@
                                 if (data.status == 'success') {
                                     notif("success", data.message);
 
+                                    console.log(getMasterSample());
+
                                     // get current counter value
                                     currentCounter = localStorage.getItem(
                                         `counter_${getMasterSample()}`);
