@@ -387,6 +387,8 @@ class LoadingListController extends Controller
             }else{
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
             }
+        }else{
+            $convertedPartNumber = $customerPart;
         }
 
         // get customer part id
