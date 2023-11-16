@@ -1297,7 +1297,7 @@
                 $('#code').focus();
             }, 1000);
         };
-    }
+    });
 
     function checkKanban(seri, internal) {
         $.ajax({
@@ -1342,97 +1342,97 @@
     }
 
     $('#code').keypress(function(e) {
-        let pds = localStorage.getItem('pds_local');
-        e.preventDefault();
-        var code = (e.keyCode ? e.keyCode : e.which);
-        if (code == 13) // Enter key hit 
-        {
-            barcodecomplete = barcode;
-            barcode = "";
+    let pds = localStorage.getItem('pds_local');
+    e.preventDefault();
+    var code = (e.keyCode ? e.keyCode : e.which);
+    if (code == 13) // Enter key hit 
+    {
+        barcodecomplete = barcode;
+        barcode = "";
 
-            if (barcodecomplete.charAt(0) == 'C') {
-                let loadingList = getLoadingListNumber();
-                $.ajax({
-                    type: 'GET',
-                    url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' +
-                        barcodecomplete,
-                    _token: "{{ csrf_token() }}",
-                    headers: {
-                        "Authorization": "Bearer " + token
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        if (data.status == 'success') {
-                            // objectStor name is based on pds_number
-                            let pds = data.data.pds_number;
-                            let ll = data.data.number;
-                            let cycle = data.data.cycle;
-                            let customerCode = data.data.customer_code;
-                            let deliveryDate = data.data.delivery_date;
-                            let shippingDate = data.data.shipping_date;
+        if (barcodecomplete.charAt(0) == 'C') {
+            let loadingList = getLoadingListNumber();
+            $.ajax({
+                type: 'GET',
+                url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' +
+                    barcodecomplete,
+                _token: "{{ csrf_token() }}",
+                headers: {
+                    "Authorization": "Bearer " + token
+                },
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status == 'success') {
+                        // objectStor name is based on pds_number
+                        let pds = data.data.pds_number;
+                        let ll = data.data.number;
+                        let cycle = data.data.cycle;
+                        let customerCode = data.data.customer_code;
+                        let deliveryDate = data.data.delivery_date;
+                        let shippingDate = data.data.shipping_date;
 
-                            deliveryDate ? deliveryDate : null;
-                            shippingDate ? deliveryDate : null;
+                        deliveryDate ? deliveryDate : null;
+                        shippingDate ? deliveryDate : null;
 
-                            //insert loading list
-                            $.ajax({
-                                type: 'GET',
-                                url: "{{ url('/loading-list/store') }}" + '/' +
-                                    ll + '/' + pds + '/' + cycle + '/' +
-                                    customerCode + '/' + deliveryDate + '/' +
-                                    shippingDate,
-                                _token: "{{ csrf_token() }}",
-                                dataType: 'json',
-                                success: function(response) {
-                                    console.log(response.status);
-                                },
-                                error: function(xhr) {
-                                    console.log(xhr)
-                                    if (xhr.status == 0) {
-                                        notif("error", 'Connection Error');
-                                        return;
-                                    }
-                                    notif("error", xhr.responseJSON.errors);
+                        //insert loading list
+                        $.ajax({
+                            type: 'GET',
+                            url: "{{ url('/loading-list/store') }}" + '/' +
+                                ll + '/' + pds + '/' + cycle + '/' +
+                                customerCode + '/' + deliveryDate + '/' +
+                                shippingDate,
+                            _token: "{{ csrf_token() }}",
+                            dataType: 'json',
+                            success: function(response) {
+                                console.log(response.status);
+                            },
+                            error: function(xhr) {
+                                console.log(xhr)
+                                if (xhr.status == 0) {
+                                    notif("error", 'Connection Error');
+                                    return;
                                 }
-                            })
-
-                            // create database indexed db
-                            request = window.indexedDB.open(pds);
-
-                            // check if loading list already exists
-                            if (loadingList.includes(data.data.number)) {
-                                notif('error', 'Loading list sudah discan!');
-                                alreadyScanLlSound();
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
-                                return;
+                                notif("error", xhr.responseJSON.errors);
                             }
+                        })
 
-                            // check if loading list have same manifest code (pds number)
-                            if (localStorage.getItem('pdsNumber')) {
-                                if (data.data.pds_number != localStorage.getItem(
-                                        'pdsNumber')) {
-                                    notif('error', 'Loading list tidak sesuai!');
+                        // create database indexed db
+                        request = window.indexedDB.open(pds);
 
-                                    // unknown ll sound
-                                    notMatchLlSound();
+                        // check if loading list already exists
+                        if (loadingList.includes(data.data.number)) {
+                            notif('error', 'Loading list sudah discan!');
+                            alreadyScanLlSound();
+                            setInterval(() => {
+                                $('#code').focus();
+                            }, 1000);
+                            return;
+                        }
 
-                                    return false;
-                                }
+                        // check if loading list have same manifest code (pds number)
+                        if (localStorage.getItem('pdsNumber')) {
+                            if (data.data.pds_number != localStorage.getItem(
+                                    'pdsNumber')) {
+                                notif('error', 'Loading list tidak sesuai!');
+
+                                // unknown ll sound
+                                notMatchLlSound();
+
+                                return false;
                             }
+                        }
 
-                            let pdsLocal = localStorage.setItem('pds_local', pds);
-                            localStorage.setItem('ll_' + data.data.number, data.data
-                                .number);
-                            localStorage.setItem('pdsNumber', data.data.pds_number);
+                        let pdsLocal = localStorage.setItem('pds_local', pds);
+                        localStorage.setItem('ll_' + data.data.number, data.data
+                            .number);
+                        localStorage.setItem('pdsNumber', data.data.pds_number);
 
-                            // remove example display
-                            $('#loadingListContainerSample').remove();
+                        // remove example display
+                        $('#loadingListContainerSample').remove();
 
-                            // loading list display
-                            $('#list').append(
-                                `<li class="col-12 mt-2"
+                        // loading list display
+                        $('#list').append(
+                            `<li class="col-12 mt-2"
                                     style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
                                     id="loadingListContainer">
                                     <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
@@ -1441,478 +1441,478 @@
                                             id="loadingList-display">${data.data.number}</h6>
                                     </div>
                                 </li>`
-                            );
+                        );
 
-                            // create database schema
-                            request.onupgradeneeded = function(event) {
-                                const database = event.target.result;
-                                const objectStore = database.createObjectStore(
-                                    'loadingList');
-                                var index = objectStore.createIndex(
-                                    'loadingListDetail',
-                                    'seri');
-                            }
+                        // create database schema
+                        request.onupgradeneeded = function(event) {
+                            const database = event.target.result;
+                            const objectStore = database.createObjectStore(
+                                'loadingList');
+                            var index = objectStore.createIndex(
+                                'loadingListDetail',
+                                'seri');
+                        }
 
-                            // transaction
-                            request.onsuccess = function(event) {
-                                const database = event.target.result;
-                                const transaction = database.transaction([
-                                        'loadingList'
-                                    ],
-                                    'readwrite');
-                                const objectStore = transaction.objectStore(
-                                    'loadingList');
-                                var index = objectStore.index('loadingListDetail');
+                        // transaction
+                        request.onsuccess = function(event) {
+                            const database = event.target.result;
+                            const transaction = database.transaction([
+                                    'loadingList'
+                                ],
+                                'readwrite');
+                            const objectStore = transaction.objectStore(
+                                'loadingList');
+                            var index = objectStore.index('loadingListDetail');
 
-                                data.data.items.map((item, index) => {
-                                    const key = item.part_number_cust;
+                            data.data.items.map((item, index) => {
+                                const key = item.part_number_cust;
 
-                                    const getRequest = objectStore.get(key);
+                                const getRequest = objectStore.get(key);
 
-                                    getRequest.onsuccess = function(event) {
-                                        const existingData = event
-                                            .target
-                                            .result;
+                                getRequest.onsuccess = function(event) {
+                                    const existingData = event
+                                        .target
+                                        .result;
 
-                                        if (!existingData) {
-                                            objectStore.put({
-                                                key: key,
-                                                loading_list_number: ll,
-                                                internal: item
-                                                    .part_number_int,
-                                                customer: item
-                                                    .part_number_cust,
-                                                qty_per_kbn: item
-                                                    .total_qty /
-                                                    item
-                                                    .total_kanban_qty,
-                                                actual_qty: item
-                                                    .actual_kanban_qty,
-                                                total_qty: item
-                                                    .total_kanban_qty,
-                                                seri: []
-                                            }, key);
-                                        }
-                                    };
-
-                                    // qty per kanban is total qty product devided kanban qty
-                                    let qty_per_kbn = item.total_qty / item
-                                        .total_kanban_qty;
-
-                                    //insert each loading list details
-                                    setTimeout(() => {
-                                        $.ajax({
-                                            type: 'GET',
-                                            url: "{{ url('/loading-list/storeDetail') }}" +
-                                                '/' + ll +
-                                                '/' + item
-                                                .part_number_cust +
-                                                '/' +
+                                    if (!existingData) {
+                                        objectStore.put({
+                                            key: key,
+                                            loading_list_number: ll,
+                                            internal: item
+                                                .part_number_int,
+                                            customer: item
+                                                .part_number_cust,
+                                            qty_per_kbn: item
+                                                .total_qty /
                                                 item
-                                                .part_number_int +
-                                                '/' +
-                                                item
-                                                .total_kanban_qty +
-                                                '/' +
-                                                qty_per_kbn +
-                                                '/' + item
-                                                .total_qty +
-                                                '/' + item
+                                                .total_kanban_qty,
+                                            actual_qty: item
                                                 .actual_kanban_qty,
-                                            _token: "{{ csrf_token() }}",
-                                            dataType: 'json',
-                                            success: function(
-                                                data) {
-                                                console
-                                                    .log(
-                                                        data
-                                                        .status
-                                                    )
-                                            },
-                                            error: function(
-                                                xhr) {
-                                                console
-                                                    .log(
-                                                        xhr
-                                                    );
-                                            }
-                                        })
-                                    }, 200);
-
-                                    getRequest.onerror = function(event) {
-                                        notif(event.data.error);
-                                    };
-                                });
-
-                                // check customer if exist 
-                                customerCheck(data.data.customer_code)
-                                    .then(function() {
-                                        // cycle display
-                                        $('#cycle-display').text(data.data
-                                            .cycle);
-                                        localStorage.setItem('cycle', data
-                                            .data.cycle);
-
-                                        // calculate total quantity of the orders
-                                        pullingQuantity();
-
-                                        // scan kanban
-                                        $('#code').focus();
-
-                                    })
-                                    .catch(function(err) {
-                                        notif('error', data.message);
-                                    })
-
-                                // loadingList qty
-                                checkLoadingList();
-
-                                // customer check char
-                                customerCharStore(data.data.customer_code);
-
-                                // Close the db when the transaction is done
-                                transaction.oncomplete = function() {
-                                    database.close();
+                                            total_qty: item
+                                                .total_kanban_qty,
+                                            seri: []
+                                        }, key);
+                                    }
                                 };
-                                $('#code').focus();
+
+                                // qty per kanban is total qty product devided kanban qty
+                                let qty_per_kbn = item.total_qty / item
+                                    .total_kanban_qty;
+
+                                //insert each loading list details
+                                setTimeout(() => {
+                                    $.ajax({
+                                        type: 'GET',
+                                        url: "{{ url('/loading-list/storeDetail') }}" +
+                                            '/' + ll +
+                                            '/' + item
+                                            .part_number_cust +
+                                            '/' +
+                                            item
+                                            .part_number_int +
+                                            '/' +
+                                            item
+                                            .total_kanban_qty +
+                                            '/' +
+                                            qty_per_kbn +
+                                            '/' + item
+                                            .total_qty +
+                                            '/' + item
+                                            .actual_kanban_qty,
+                                        _token: "{{ csrf_token() }}",
+                                        dataType: 'json',
+                                        success: function(
+                                            data) {
+                                            console
+                                                .log(
+                                                    data
+                                                    .status
+                                                )
+                                        },
+                                        error: function(
+                                            xhr) {
+                                            console
+                                                .log(
+                                                    xhr
+                                                );
+                                        }
+                                    })
+                                }, 200);
+
+                                getRequest.onerror = function(event) {
+                                    notif(event.data.error);
+                                };
+                            });
+
+                            // check customer if exist 
+                            customerCheck(data.data.customer_code)
+                                .then(function() {
+                                    // cycle display
+                                    $('#cycle-display').text(data.data
+                                        .cycle);
+                                    localStorage.setItem('cycle', data
+                                        .data.cycle);
+
+                                    // calculate total quantity of the orders
+                                    pullingQuantity();
+
+                                    // scan kanban
+                                    $('#code').focus();
+
+                                })
+                                .catch(function(err) {
+                                    notif('error', data.message);
+                                })
+
+                            // loadingList qty
+                            checkLoadingList();
+
+                            // customer check char
+                            customerCharStore(data.data.customer_code);
+
+                            // Close the db when the transaction is done
+                            transaction.oncomplete = function() {
+                                database.close();
+                            };
+                            $('#code').focus();
+                        }
+                        // create handler
+                        request.onerror = function(event) {
+                            console.log("error: " + event.message);
+                        }
+                    } else {
+                        notif('error', data.message);
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
+                    }
+                },
+                error: function(xhr) {
+                    console.log(xhr)
+                    if (xhr.status == 0) {
+                        notif("error", 'Connection Error');
+                        loadingListModal();
+                        return;
+                    }
+                    notif("error", xhr.responseJSON.errors);
+                }
+            });
+        } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
+            if (localStorage.getItem('char_length') != 0) {
+                // substring
+                barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
+                    localStorage.getItem('char_length'))
+                barcodecomplete = barcodecomplete.trim();
+                barcodecomplete = barcodecomplete.replace(/-/g, '');
+                barcodecomplete = barcodecomplete.toUpperCase();
+
+                // for suzuki case
+                if (localStorage.getItem('char_length') == 17) {
+                    if (barcodecomplete.substr(10, 3) == '000') {
+                        // delete 3 lastest characters
+                        barcodecomplete = barcodecomplete.slice(0, -3);
+                        barcodecomplete = barcodecomplete.toUpperCase();
+                    }
+                }
+            } else {
+                barcodecomplete = barcodecomplete.toUpperCase();
+            }
+
+            console.log(barcodecomplete);
+            // initiate database
+            request = window.indexedDB.open(pds);
+
+            // transaction
+            request.onsuccess = function(event) {
+                const database = event.target.result;
+                const transaction = database.transaction(["loadingList"], 'readonly');
+                const objectStore = transaction.objectStore("loadingList");
+                let isAvailable = false;
+
+                objectStore.openCursor().onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const record = cursor.value;
+                        // check if kanban customer exist in loading list record
+                        if (barcodecomplete == record.customer) {
+                            // check quantity in spesific part number
+                            if (record.seri.length >= record.total_qty) {
+                                notif('error', 'Part number sudah complete!');
+                                fullfilledSound();
+                                $('#indicator').removeClass('bg-success');
+                                $('#indicator').removeClass('bg-warning');
+                                $('#indicator').addClass('bg-danger');
+                                setInterval(() => {
+                                    $('#code').focus();
+                                }, 1000);
+                                return;
                             }
-                            // create handler
-                            request.onerror = function(event) {
-                                console.log("error: " + event.message);
-                            }
-                        } else {
-                            notif('error', data.message);
+                            // set flag
+                            isAvailable = true;
+                            // display customer
+                            $('#cust-display').text(record.customer);
+                            $('#int-display').text('-');
+
+                            // set indicator
+                            $('#indicator').removeClass('bg-success');
+                            $('#indicator').removeClass('bg-danger');
+                            $('#indicator').addClass('bg-warning');
+
+                            // display current qty
+                            $('#qty-display').text(`
+                                        ${record.seri.length}/${record.total_qty}
+                                    `);
+                            // set local storage for customer kanban
+                            localStorage.setItem('customerPart', record.customer);
+                        }
+                        cursor.continue();
+                    } else {
+                        console.log('iteration complete');
+                        // check if the kanban customer is available
+                        if (!isAvailable) {
+                            notif('error', 'Kanban tidak dikenali / sesuai!');
+
+                            // notification sound
+                            unknownSound();
+
                             setInterval(() => {
                                 $('#code').focus();
                             }, 1000);
                         }
-                    },
-                    error: function(xhr) {
-                        console.log(xhr)
-                        if (xhr.status == 0) {
-                            notif("error", 'Connection Error');
-                            loadingListModal();
-                            return;
-                        }
-                        notif("error", xhr.responseJSON.errors);
                     }
-                });
-            } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
-                if (localStorage.getItem('char_length') != 0) {
-                    // substring
-                    barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
-                        localStorage.getItem('char_length'))
-                    barcodecomplete = barcodecomplete.trim();
-                    barcodecomplete = barcodecomplete.replace(/-/g, '');
-                    barcodecomplete = barcodecomplete.toUpperCase();
-
-                    // for suzuki case
-                    if (localStorage.getItem('char_length') == 17) {
-                        if (barcodecomplete.substr(10, 3) == '000') {
-                            // delete 3 lastest characters
-                            barcodecomplete = barcodecomplete.slice(0, -3);
-                            barcodecomplete = barcodecomplete.toUpperCase();
-                        }
-                    }
-                } else {
-                    barcodecomplete = barcodecomplete.toUpperCase();
                 }
+                // when complete
+                request.oncomplete = function(event) {
+                    database.close();
+                }
+            }
+            // Event handler for a failed database connection
+            request.onerror = function(event) {
+                console.log('Failed to open database');
+            };
 
-                console.log(barcodecomplete);
-                // initiate database
-                request = window.indexedDB.open(pds);
+        } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
+            barcodecomplete.length == 220 || barcodecomplete.length == 241) {
+            barcodecomplete = barcodecomplete.toUpperCase();
+            let internal;
+            let seri;
+            // check if already scan customer kanban
+            if (!localStorage.getItem('customerPart')) {
+                notif('error', 'Scan kanban customer dulu!');
+                scanCustomerFirstSound();
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
+                return;
+            }
 
-                // transaction
-                request.onsuccess = function(event) {
-                    const database = event.target.result;
-                    const transaction = database.transaction(["loadingList"], 'readonly');
-                    const objectStore = transaction.objectStore("loadingList");
-                    let isAvailable = false;
+            console.log(barcodecomplete.length);
+            if (barcodecomplete.length == 230) {
+                // normal kanban proccess
+                internal = barcodecomplete.substr(41, 19);
+                seri = barcodecomplete.substr(123, 4);
 
-                    objectStore.openCursor().onsuccess = function(event) {
-                        const cursor = event.target.result;
-                        if (cursor) {
-                            const record = cursor.value;
-                            // check if kanban customer exist in loading list record
-                            if (barcodecomplete == record.customer) {
-                                // check quantity in spesific part number
-                                if (record.seri.length >= record.total_qty) {
-                                    notif('error', 'Part number sudah complete!');
-                                    fullfilledSound();
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-warning');
-                                    $('#indicator').addClass('bg-danger');
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
+                console.log(internal, seri);
+
+                // check existence of kanban and check if it already scanned by prod
+                // checkKanban(seri, internal);
+
+            } else if (barcodecomplete.length == 220) {
+                // kanban buffer
+                internal = barcodecomplete.substr(35, 12);
+                seri = barcodecomplete.substr(130, 4);
+
+                // check existence of kanban and check if it already scanned by prod
+                // checkKanban(seri, internal);
+
+            } else if (barcodecomplete.length == 241) {
+                // kanban passtrough
+                internal = barcodecomplete.substr(35, 12);
+                seri = barcodecomplete.substr(127, 4);
+
+                // check existence of kanban and check if it already scanned by prod
+                // checkKanban(seri, internal);
+            } else if (barcodecomplete.length == 218) {
+                // kanban suzuki
+                internal = barcodecomplete.substr(41, 16);
+                seri = barcodecomplete.substr(123, 4);
+
+                // check existence of kanban and check if it already scanned by prod
+                // checkKanban(seri, internal);
+            }
+
+            console.log(internal);
+
+            // initialize databae connection
+            request = window.indexedDB.open(pds);
+
+            request.onsuccess = function(event) {
+                const database = event.target.result;
+                const transaction = database.transaction(["loadingList"], 'readwrite');
+                const objectStore = transaction.objectStore("loadingList");
+                let isAvailable = false;
+
+                objectStore.openCursor().onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        // get spesific primary key
+                        let primaryKey = cursor.primaryKey
+                        if (primaryKey == localStorage.getItem('customerPart')) {
+                            // set flag
+                            isAvailable = true;
+
+                            // check pair only in spesific key
+                            objectStore.get(primaryKey).onsuccess = function(event) {
+                                const cursor = event.target.result;
+                                if (cursor) {
+                                    checkInternalAndCustomer(objectStore, cursor,
+                                        internal, primaryKey, seri);
                                     return;
-                                }
-                                // set flag
-                                isAvailable = true;
-                                // display customer
-                                $('#cust-display').text(record.customer);
-                                $('#int-display').text('-');
-
-                                // set indicator
-                                $('#indicator').removeClass('bg-success');
-                                $('#indicator').removeClass('bg-danger');
-                                $('#indicator').addClass('bg-warning');
-
-                                // display current qty
-                                $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-                                // set local storage for customer kanban
-                                localStorage.setItem('customerPart', record.customer);
-                            }
-                            cursor.continue();
-                        } else {
-                            console.log('iteration complete');
-                            // check if the kanban customer is available
-                            if (!isAvailable) {
-                                notif('error', 'Kanban tidak dikenali / sesuai!');
-
-                                // notification sound
-                                unknownSound();
-
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
-                            }
-                        }
-                    }
-                    // when complete
-                    request.oncomplete = function(event) {
-                        database.close();
-                    }
-                }
-                // Event handler for a failed database connection
-                request.onerror = function(event) {
-                    console.log('Failed to open database');
-                };
-
-            } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
-                barcodecomplete.length == 220 || barcodecomplete.length == 241) {
-                barcodecomplete = barcodecomplete.toUpperCase();
-                let internal;
-                let seri;
-                // check if already scan customer kanban
-                if (!localStorage.getItem('customerPart')) {
-                    notif('error', 'Scan kanban customer dulu!');
-                    scanCustomerFirstSound();
-                    setInterval(() => {
-                        $('#code').focus();
-                    }, 1000);
-                    return;
-                }
-
-                console.log(barcodecomplete.length);
-                if (barcodecomplete.length == 230) {
-                    // normal kanban proccess
-                    internal = barcodecomplete.substr(41, 19);
-                    seri = barcodecomplete.substr(123, 4);
-
-                    console.log(internal, seri);
-
-                    // check existence of kanban and check if it already scanned by prod
-                    // checkKanban(seri, internal);
-
-                } else if (barcodecomplete.length == 220) {
-                    // kanban buffer
-                    internal = barcodecomplete.substr(35, 12);
-                    seri = barcodecomplete.substr(130, 4);
-
-                    // check existence of kanban and check if it already scanned by prod
-                    // checkKanban(seri, internal);
-
-                } else if (barcodecomplete.length == 241) {
-                    // kanban passtrough
-                    internal = barcodecomplete.substr(35, 12);
-                    seri = barcodecomplete.substr(127, 4);
-
-                    // check existence of kanban and check if it already scanned by prod
-                    // checkKanban(seri, internal);
-                } else if (barcodecomplete.length == 218) {
-                    // kanban suzuki
-                    internal = barcodecomplete.substr(41, 16);
-                    seri = barcodecomplete.substr(123, 4);
-
-                    // check existence of kanban and check if it already scanned by prod
-                    // checkKanban(seri, internal);
-                }
-
-                console.log(internal);
-
-                // initialize databae connection
-                request = window.indexedDB.open(pds);
-
-                request.onsuccess = function(event) {
-                    const database = event.target.result;
-                    const transaction = database.transaction(["loadingList"], 'readwrite');
-                    const objectStore = transaction.objectStore("loadingList");
-                    let isAvailable = false;
-
-                    objectStore.openCursor().onsuccess = function(event) {
-                        const cursor = event.target.result;
-                        if (cursor) {
-                            // get spesific primary key
-                            let primaryKey = cursor.primaryKey
-                            if (primaryKey == localStorage.getItem('customerPart')) {
-                                // set flag
-                                isAvailable = true;
-
-                                // check pair only in spesific key
-                                objectStore.get(primaryKey).onsuccess = function(event) {
-                                    const cursor = event.target.result;
-                                    if (cursor) {
-                                        checkInternalAndCustomer(objectStore, cursor,
-                                            internal, primaryKey, seri);
-                                        return;
-                                    } else {
-                                        console.log('Iteration complete');
-                                    }
-                                }
-
-                                // error handling
-                                objectStore.get(primaryKey).onerror = function(event) {
-                                    // error indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-warning');
-                                    $('#indicator').addClass('bg-danger');
-                                    notif('error', 'Kanban tidak sesuai');
-
-                                    // notification sound
-                                    notMatchSound();
-
+                                } else {
+                                    console.log('Iteration complete');
                                 }
                             }
-                            cursor.continue();
-                        } else {
-                            console.log('iteration complete');
 
-                            if (!isAvailable) {
+                            // error handling
+                            objectStore.get(primaryKey).onerror = function(event) {
                                 // error indicator
                                 $('#indicator').removeClass('bg-success');
                                 $('#indicator').removeClass('bg-warning');
                                 $('#indicator').addClass('bg-danger');
-                                notif('error', 'Kanban tidak ditemukan!');
-                                unknownSound();
-                            }
-                        }
-                    }
-
-                    // error handling
-                    objectStore.openCursor().onerror = function(event) {
-                        notif('error', event.target.error);
-                    }
-                }
-                // error handling
-                request.onerror = function(event) {
-                    notif('error', event.target.error);
-                }
-            } else if (localStorage.getItem('customer') == 'MMKI') {
-                // initiate database
-                request = window.indexedDB.open(pds);
-
-                // transaction
-                request.onsuccess = function(event) {
-                    const database = event.target.result;
-                    const transaction = database.transaction(["loadingList"], 'readonly');
-                    const objectStore = transaction.objectStore("loadingList");
-                    let isAvailable = false;
-
-                    objectStore.openCursor().onsuccess = function(event) {
-                        const cursor = event.target.result;
-                        if (cursor) {
-                            const record = cursor.value;
-                            // check if kanban customer exist in loading list record
-                            if (barcodecomplete.trimEnd() === record.customer) {
-                                // check quantity in spesific part number
-                                if (record.seri.length >= record.total_qty) {
-                                    notif('error', 'Part number sudah complete!');
-                                    fullfilledSound();
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-warning');
-                                    $('#indicator').addClass('bg-danger');
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                    return;
-                                }
-                                // set flag
-                                isAvailable = true;
-                                // display customer
-                                $('#cust-display').text(record.customer);
-                                $('#int-display').text('-');
-
-                                // set indicator
-                                $('#indicator').removeClass('bg-success');
-                                $('#indicator').removeClass('bg-danger');
-                                $('#indicator').addClass('bg-warning');
-
-                                // display current qty
-                                $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-                                // set local storage for customer kanban
-                                localStorage.setItem('customerPart', record.customer);
-                            }
-                            cursor.continue();
-                        } else {
-                            console.log('iteration complete');
-                            // check if the kanban customer is available
-                            if (!isAvailable) {
-                                notif('error', 'Kanban tidak sesuai!');
+                                notif('error', 'Kanban tidak sesuai');
 
                                 // notification sound
                                 notMatchSound();
 
+                            }
+                        }
+                        cursor.continue();
+                    } else {
+                        console.log('iteration complete');
+
+                        if (!isAvailable) {
+                            // error indicator
+                            $('#indicator').removeClass('bg-success');
+                            $('#indicator').removeClass('bg-warning');
+                            $('#indicator').addClass('bg-danger');
+                            notif('error', 'Kanban tidak ditemukan!');
+                            unknownSound();
+                        }
+                    }
+                }
+
+                // error handling
+                objectStore.openCursor().onerror = function(event) {
+                    notif('error', event.target.error);
+                }
+            }
+            // error handling
+            request.onerror = function(event) {
+                notif('error', event.target.error);
+            }
+        } else if (localStorage.getItem('customer') == 'MMKI') {
+            // initiate database
+            request = window.indexedDB.open(pds);
+
+            // transaction
+            request.onsuccess = function(event) {
+                const database = event.target.result;
+                const transaction = database.transaction(["loadingList"], 'readonly');
+                const objectStore = transaction.objectStore("loadingList");
+                let isAvailable = false;
+
+                objectStore.openCursor().onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const record = cursor.value;
+                        // check if kanban customer exist in loading list record
+                        if (barcodecomplete.trimEnd() === record.customer) {
+                            // check quantity in spesific part number
+                            if (record.seri.length >= record.total_qty) {
+                                notif('error', 'Part number sudah complete!');
+                                fullfilledSound();
+                                $('#indicator').removeClass('bg-success');
+                                $('#indicator').removeClass('bg-warning');
+                                $('#indicator').addClass('bg-danger');
                                 setInterval(() => {
                                     $('#code').focus();
                                 }, 1000);
+                                return;
                             }
+                            // set flag
+                            isAvailable = true;
+                            // display customer
+                            $('#cust-display').text(record.customer);
+                            $('#int-display').text('-');
+
+                            // set indicator
+                            $('#indicator').removeClass('bg-success');
+                            $('#indicator').removeClass('bg-danger');
+                            $('#indicator').addClass('bg-warning');
+
+                            // display current qty
+                            $('#qty-display').text(`
+                                        ${record.seri.length}/${record.total_qty}
+                                    `);
+                            // set local storage for customer kanban
+                            localStorage.setItem('customerPart', record.customer);
+                        }
+                        cursor.continue();
+                    } else {
+                        console.log('iteration complete');
+                        // check if the kanban customer is available
+                        if (!isAvailable) {
+                            notif('error', 'Kanban tidak sesuai!');
+
+                            // notification sound
+                            notMatchSound();
+
+                            setInterval(() => {
+                                $('#code').focus();
+                            }, 1000);
                         }
                     }
-                    // when complete
-                    request.oncomplete = function(event) {
-                        database.close();
-                    }
                 }
-                // Event handler for a failed database connection
-                request.onerror = function(event) {
-                    console.log('Failed to open database');
-                };
-            } else if (barcodecomplete == "DONE") {
-                var form = document.createElement('form');
-                form.method = 'POST';
-                form.action = "{{ url('/logout') }}";
-
-                // Add a CSRF token field to the form
-                var csrfToken = document.createElement('input');
-                csrfToken.type = 'hidden';
-                csrfToken.name = '_token';
-                csrfToken.value = '{{ csrf_token() }}';
-                form.appendChild(csrfToken);
-
-                // Append the form to the body and submit it
-                document.body.appendChild(form);
-                form.submit();
-
-            } else {
-                notif("error", "Kanban tidak dikenali !");
-
-                // notification sound
-                unknownSound();
-
-                let interval = setInterval(function() {
-                    $('#notifModal').modal('hide');
-                    clearInterval(interval);
-                    $('#code').focus();
-                }, 1500);
+                // when complete
+                request.oncomplete = function(event) {
+                    database.close();
+                }
             }
+            // Event handler for a failed database connection
+            request.onerror = function(event) {
+                console.log('Failed to open database');
+            };
+        } else if (barcodecomplete == "DONE") {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{{ url('/logout') }}";
+
+            // Add a CSRF token field to the form
+            var csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = '_token';
+            csrfToken.value = '{{ csrf_token() }}';
+            form.appendChild(csrfToken);
+
+            // Append the form to the body and submit it
+            document.body.appendChild(form);
+            form.submit();
+
         } else {
-            barcode = barcode + String.fromCharCode(e.which);
+            notif("error", "Kanban tidak dikenali !");
+
+            // notification sound
+            unknownSound();
+
+            let interval = setInterval(function() {
+                $('#notifModal').modal('hide');
+                clearInterval(interval);
+                $('#code').focus();
+            }, 1500);
         }
+    } else {
+        barcode = barcode + String.fromCharCode(e.which);
+    }
     });
     });
 </script>
