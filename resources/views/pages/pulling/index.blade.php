@@ -8,8 +8,13 @@
                     <div class="shadow hero bg-white text-dark" style="padding: 1.5rem; height: 100%;">
                         <div class="hero-inner">
                             <div class="row">
-                                <div class="col-md-12">
+                                <div class="col-9">
                                     <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
+                                </div>
+                                <div class="col-2" style="margin-right: 1px; !important">
+                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
+                                        <button type="button" class="btn btn-xl btn-danger" id="hardReset">Reset</button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="row mt-1" id="list">
@@ -931,9 +936,49 @@
             }
         });
 
+        // Function to clear local storage
+        function clearLocalStorage() {
+            localStorage.clear();
+        }
+
+        // Function to clear IndexedDB using localforage
+        function deleteAllIndexedDB() {
+            // Retrieve a list of all databases
+            indexedDB.databases().then(function(databaseList) {
+                // Loop through each database and delete it
+                databaseList.forEach(function(database) {
+                    var deleteRequest = indexedDB.deleteDatabase(database.name);
+
+                    deleteRequest.onsuccess = function() {
+                        console.log('IndexedDB database deleted successfully:', database
+                            .name);
+                    };
+
+                    deleteRequest.onerror = function(event) {
+                        console.error('Error deleting IndexedDB database:', event.target
+                            .error, database.name);
+                    };
+                });
+            }).catch(function(error) {
+                console.error('Error retrieving IndexedDB database names:', error);
+            });
+        }
+
         $('#delay').on('click', function() {
             localStorage.clear();
             window.location.reload();
+        });
+
+        $('#hardReset').on('click', function() {
+            // Display a confirmation dialog
+            var confirmReset = confirm('Yakin akan reset? semua data akan hilang');
+
+            // If the user confirms, proceed with clearing storage and reload the page
+            if (confirmReset) {
+                clearLocalStorage();
+                deleteAllIndexedDB();
+                location.reload();
+            }
         });
 
         $('#done').on('click', function() {
