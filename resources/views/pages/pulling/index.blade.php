@@ -1393,8 +1393,7 @@
             {
                 barcodecomplete = barcode;
                 barcode = "";
-
-                if (barcodecomplete.charAt(0) == 'C') {
+                if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length > 22) {
                     let loadingList = getLoadingListNumber();
                     $.ajax({
                         type: 'GET',
@@ -1642,7 +1641,6 @@
                         }
                     });
                 } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
-                    alert(barcodecomplete.length);
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
