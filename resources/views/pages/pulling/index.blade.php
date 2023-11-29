@@ -1641,7 +1641,23 @@
                             notif("error", xhr.responseJSON.errors);
                         }
                     });
-                } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
+                } else if (barcodecomplete.length == localStorage.getItem('char_total') || localStorage
+                    .getItem('customer') == 'TB INA') {
+
+                    // for TBINA
+                    if (barcodecomplete.length == 26) {
+                        barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
+                            localStorage.getItem('char_length'))
+                        barcodecomplete = barcodecomplete.trim();
+                        barcodecomplete = barcodecomplete.replace(/-/g, '');
+                        barcodecomplete = barcodecomplete.toUpperCase();
+                    } else if (barcodecomplete.length == 14) {
+                        barcodecomplete = barcodecomplete.substr(0, 11)
+                        barcodecomplete = barcodecomplete.trim();
+                        barcodecomplete = barcodecomplete.replace(/-/g, '');
+                        barcodecomplete = barcodecomplete.toUpperCase();
+                    }
+
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
