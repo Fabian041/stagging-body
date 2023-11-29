@@ -1927,6 +1927,7 @@
                         console.log('Failed to open database');
                     };
                 } else if (localStorage.getItem('customer') == 'TB INA') {
+                    alert('test');
                     // for TBINA
                     if (barcodecomplete.length == 26) {
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
