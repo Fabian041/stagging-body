@@ -1954,7 +1954,7 @@
                             const cursor = event.target.result;
                             if (cursor) {
                                 const record = cursor.value;
-                                alert(barcodecomplete.trimEnd() === record.customer);
+                                alert(barcodecomplete);
                                 // check if kanban customer exist in loading list record
                                 if (barcodecomplete.trimEnd() === record.customer) {
                                     // check quantity in spesific part number
