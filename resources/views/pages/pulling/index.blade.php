@@ -1928,6 +1928,8 @@
                     };
                 } else if (localStorage.getItem('customer') == 'TB INA') {
                     // for TBINA
+                    alert(barcodecomplete.length);
+
                     if (barcodecomplete.length == 26) {
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
                             localStorage.getItem('char_length'))
@@ -1954,7 +1956,6 @@
                             const cursor = event.target.result;
                             if (cursor) {
                                 const record = cursor.value;
-                                alert(barcodecomplete);
                                 // check if kanban customer exist in loading list record
                                 if (barcodecomplete.trimEnd() === record.customer) {
                                     // check quantity in spesific part number
