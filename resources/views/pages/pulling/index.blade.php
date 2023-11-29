@@ -1642,6 +1642,7 @@
                         }
                     });
                 } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
+                    alert('test');
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
@@ -1749,8 +1750,6 @@
                         }, 1000);
                         return;
                     }
-
-                    console.log(barcodecomplete.length);
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
@@ -1827,7 +1826,6 @@
 
                                         // notification sound
                                         notMatchSound();
-
                                     }
                                 }
                                 cursor.continue();
