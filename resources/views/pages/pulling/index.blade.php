@@ -1641,23 +1641,7 @@
                             notif("error", xhr.responseJSON.errors);
                         }
                     });
-                } else if (barcodecomplete.length == localStorage.getItem('char_total') || localStorage
-                    .getItem('customer') == 'TB INA') {
-
-                    // for TBINA
-                    if (barcodecomplete.length == 26) {
-                        barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
-                            localStorage.getItem('char_length'))
-                        barcodecomplete = barcodecomplete.trim();
-                        barcodecomplete = barcodecomplete.replace(/-/g, '');
-                        barcodecomplete = barcodecomplete.toUpperCase();
-                    } else if (barcodecomplete.length == 14) {
-                        barcodecomplete = barcodecomplete.substr(0, 11)
-                        barcodecomplete = barcodecomplete.trim();
-                        barcodecomplete = barcodecomplete.replace(/-/g, '');
-                        barcodecomplete = barcodecomplete.toUpperCase();
-                    }
-
+                } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
@@ -1871,6 +1855,91 @@
                         notif('error', event.target.error);
                     }
                 } else if (localStorage.getItem('customer') == 'MMKI') {
+                    // initiate database
+                    request = window.indexedDB.open(pds);
+
+                    // transaction
+                    request.onsuccess = function(event) {
+                        const database = event.target.result;
+                        const transaction = database.transaction(["loadingList"], 'readonly');
+                        const objectStore = transaction.objectStore("loadingList");
+                        let isAvailable = false;
+
+                        objectStore.openCursor().onsuccess = function(event) {
+                            const cursor = event.target.result;
+                            if (cursor) {
+                                const record = cursor.value;
+                                // check if kanban customer exist in loading list record
+                                if (barcodecomplete.trimEnd() === record.customer) {
+                                    // check quantity in spesific part number
+                                    if (record.seri.length >= record.total_qty) {
+                                        notif('error', 'Part number sudah complete!');
+                                        fullfilledSound();
+                                        $('#indicator').removeClass('bg-success');
+                                        $('#indicator').removeClass('bg-warning');
+                                        $('#indicator').addClass('bg-danger');
+                                        setInterval(() => {
+                                            $('#code').focus();
+                                        }, 1000);
+                                        return;
+                                    }
+                                    // set flag
+                                    isAvailable = true;
+                                    // display customer
+                                    $('#cust-display').text(record.customer);
+                                    $('#int-display').text('-');
+
+                                    // set indicator
+                                    $('#indicator').removeClass('bg-success');
+                                    $('#indicator').removeClass('bg-danger');
+                                    $('#indicator').addClass('bg-warning');
+
+                                    // display current qty
+                                    $('#qty-display').text(`
+                                        ${record.seri.length}/${record.total_qty}
+                                    `);
+                                    // set local storage for customer kanban
+                                    localStorage.setItem('customerPart', record.customer);
+                                }
+                                cursor.continue();
+                            } else {
+                                console.log('iteration complete');
+                                // check if the kanban customer is available
+                                if (!isAvailable) {
+                                    notif('error', 'Kanban tidak sesuai!');
+
+                                    // notification sound
+                                    notMatchSound();
+
+                                    setInterval(() => {
+                                        $('#code').focus();
+                                    }, 1000);
+                                }
+                            }
+                        }
+                        // when complete
+                        request.oncomplete = function(event) {
+                            database.close();
+                        }
+                    }
+                    // Event handler for a failed database connection
+                    request.onerror = function(event) {
+                        console.log('Failed to open database');
+                    };
+                } else if (localStorage.getItem('customer') == 'TB INA') {
+                    // for TBINA
+                    if (barcodecomplete.length == 26) {
+                        barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
+                            localStorage.getItem('char_length'))
+                        barcodecomplete = barcodecomplete.trim();
+                        barcodecomplete = barcodecomplete.replace(/-/g, '');
+                        barcodecomplete = barcodecomplete.toUpperCase();
+                    } else if (barcodecomplete.length == 14) {
+                        barcodecomplete = barcodecomplete.substr(0, 11)
+                        barcodecomplete = barcodecomplete.trim();
+                        barcodecomplete = barcodecomplete.replace(/-/g, '');
+                        barcodecomplete = barcodecomplete.toUpperCase();
+                    }
                     // initiate database
                     request = window.indexedDB.open(pds);
 
