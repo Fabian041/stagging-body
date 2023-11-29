@@ -1928,9 +1928,7 @@
                     };
                 } else if (localStorage.getItem('customer') == 'TB INA') {
                     // for TBINA
-                    alert(barcodecomplete.length);
-
-                    if (barcodecomplete.length == 26) {
+                    if (barcodecomplete.length == 36) {
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
                             localStorage.getItem('char_length'))
                         barcodecomplete = barcodecomplete.trim();
