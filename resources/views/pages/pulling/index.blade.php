@@ -1393,8 +1393,7 @@
             {
                 barcodecomplete = barcode;
                 barcode = "";
-                alert(barcodecomplete.length);
-                if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length > 22) {
+                if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length < 22) {
                     let loadingList = getLoadingListNumber();
                     $.ajax({
                         type: 'GET',
