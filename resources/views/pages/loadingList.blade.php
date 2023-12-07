@@ -125,6 +125,7 @@
 
         // websocket
         pusher.subscribe('loading-list').bind('loadingListUpdated', function(data) {
+            alert('test') l
             table.ajax.reload(null, false);
         });
 
