@@ -90,7 +90,7 @@
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
-            serverSide: true,
+            serverSide: false,
             ajax: {
                 url: `{{ url('dashboard/getLoadingListDetail') }}` + '/' + loadingList,
                 dataType: 'json',
@@ -123,8 +123,8 @@
                 },
             ],
             lengthMenu: [
-                [5, 10, 'All'],
-                [5, 10, 'All']
+                [5, 10, 100],
+                [5, 10, 100]
             ],
         });
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Pusher\Pusher;
 use App\Models\Customer;
 use App\Models\LoadingList;
 use App\Models\CustomerPart;
@@ -14,6 +15,26 @@ use Yajra\DataTables\Facades\DataTables;
 
 class LoadingListController extends Controller
 {
+    public function pushData($is_updated){
+        // connection to pusher
+        $options = array(
+            'cluster' => 'ap1',
+            'encrypted' => true
+        );
+
+        $pusher = new Pusher(
+            '78dc86268a49904a688d',
+            '19c222ee916e49372796',
+            '1720799',
+            $options
+        );
+
+        // sending data
+        $result = $pusher->trigger('loading-list' , 'loadingListUpdated', $is_updated);
+
+        return $result;
+    }
+    
     public function index()
     {
         return view('pages.loadingList',[
@@ -24,7 +45,7 @@ class LoadingListController extends Controller
 
     public function getLoadingList()
     {
-        $input = LoadingList::with('detail')->get();;
+        $input = LoadingList::with('detail')->get();
 
         return DataTables::of($input)
                 ->addColumn('customer', function ($loadingList) {
@@ -101,7 +122,7 @@ class LoadingListController extends Controller
                     return $progress;
                 })
                 ->rawColumns(['detail', 'progress', 'customer'])
-                ->toJson();
+                ->make(true);
     }
 
     public function detail(LoadingList $loadingList)
@@ -198,6 +219,9 @@ class LoadingListController extends Controller
                                 ]);
 
             DB::commit();
+
+            // push to websocket
+            $this->pushData(true);
             
             return response()->json([
                 'status' => 'success',
@@ -230,6 +254,10 @@ class LoadingListController extends Controller
                     'delivery_date' => $deliveryDate,
                     'shipping_date' => $shippingDate,
                 ]);
+
+                // push to websocket
+                $this->pushData(true);
+                
             } catch (\Throwable $th) {
                 return [
                     'status' => 'error',

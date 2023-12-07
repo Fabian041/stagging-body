@@ -75,14 +75,12 @@
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
     integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
 <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script>
     $(document).ready(function() {
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
-            serverSide: true,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',
@@ -115,22 +113,20 @@
                 [4, 'dsc']
             ],
             lengthMenu: [
-                [10, 25, 'All'],
-                [10, 25, 'All']
+                [10, 25, 100],
+                [10, 25, 100]
             ],
         });
 
-        // Function to fetch and update data
-        // function fetchAndUpdateData() {
-        //     // Get the current scroll position
-        //     table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
-        // }
+        var pusher = new Pusher('78dc86268a49904a688d', {
+            cluster: 'ap1',
+            forceTLS: true
+        });
 
-        // // Initial data fetch when the page loads
-        // fetchAndUpdateData();
-
-        // // Fetch data every second
-        // setInterval(fetchAndUpdateData, 1000);
+        // websocket
+        pusher.subscribe('loading-list').bind('loadingListUpdated', function(data) {
+            table.ajax.reload(null, false);
+        });
 
         $('#manifest').on('change', function() {
             // get all filter values
