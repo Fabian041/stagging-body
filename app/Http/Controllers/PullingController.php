@@ -191,17 +191,19 @@ class PullingController extends Controller
     public function internalCheck($internal)
     {
         // check internal 
-        $check = Part::select('part_number','back_number')->where('part_number', $internal)->first();
-        if(!$check){
+        $internal = InternalPart::select('part_number','back_number','photo')->where('part_number', $internal)->first();
+        if(!$internal){
             return [
                 'status' => 'error',
-                'message' => 'Part atau Kanban tidak ditemukan'
+                'message' => 'Part atau Kanban tidak ditemukan!'
             ];
         }
 
         return [
             'status' => 'success',
-            'customer' => $check->part_number
+            'partNumber' => $internal->part_number,
+            'backNumber' => $internal->back_number,
+            'photo' => $internal->photo,
         ];
     }
 

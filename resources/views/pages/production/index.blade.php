@@ -2,131 +2,123 @@
 
 @section('main')
     <div class="main-section">
-        <section class="section">
+        <div class="mx-5 my-5">
             <div class="row">
-                <div class="col-12 col-sm-12 col-md-12 p-0" style="height: 100%;">
-                    <div class="shadow hero bg-white text-dark" style="padding: 3rem; height: 100%;">
+                <div class="col-lg-2 col-sm-12">
+                    <div class="card card-warning py-5 shadow" style="padding: 1rem; border-radius:8px">
+                        <label style="font-weight:800" class="text-center text-dark">Scan Part Number</label>
+                        <input id="code" type="text" class="form-control" name="code" tabindex="1"
+                            placeholder="scan part..." required autofocus autocomplete="off">
+                    </div>
+                    <div class="shadow pt-4 card card-secondary model-card-header"
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
                         <div class="hero-inner">
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <span style="font-size: 1.5rem;">Welcome, {{ auth()->user()->name }}</span>
-                                    <h1 class="text-dark" id="line-display">Line</h1>
-                                </div>
+                            <h5 class="text-center text-dark">Model Running</h5>
+                            <div class="bg-secondary m-auto shadow model-card"
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">-</h1>
                             </div>
-                            <div class="row mt-3">
-                                <div class="col-md-12">
-                                    <h4> Master Sample </h4>
-                                </div>
-                                <div class="col-md-12">
-                                    <div
-                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10px; padding-left:12px">
-                                        <h4 class="text-center " style="padding-top: .02rem; color: white;"
-                                            id="sample-display">Master Sample</h4>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    <div class="shadow pt-4 card card-secondary total-scan-card-header"
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        <div class="hero-inner">
+                            <h5 class="text-center text-dark">Total Scan</h5>
+                            <div class="bg-secondary m-auto shadow total-scan-card"
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0</h1>
                             </div>
-                            <div class="row mt-1">
-                                <div class="col-md-12" style="padding: 15px;">
-                                    <h4>Qty Scan</h4>
-                                    <div
-                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10px; padding-left:12px">
-                                        <h4 class="text-center " style="padding-top: .02rem; color: white;"
-                                            id="qty-display">0
-                                        </h4>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-8 col-sm-12">
+                    <div class="card card-warning py-5 shadow" style="padding: 1rem; border-radius:8px" id="pis">
+                        <h2 class="text-center text-dark">Ready to scan !!</h2>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-sm-12">
+                    <button class="btn btn-warning py-5 px-5 shadow mb-5"
+                        style="padding: 1rem; border-radius:8px; width:100% !important" id="release">
+                        <h3 class="text-center text-white">Release</h3>
+                    </button>
+                    <div class="shadow pt-4 card card-secondary status-card-header"
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        <div class="hero-inner">
+                            <h5 class="text-center text-dark">Status</h5>
+                            <div class="bg-secondary m-auto shadow status-card"
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="status">-</h1>
                             </div>
-                            <div class="row mt-1">
-                                <div class="col-md-12" style="padding: 15px;">
-                                    <input style="height: 3rem; width: 100%; background-color: white; border-radius: 4px;"
-                                        height=60 id="code" class="form-control" name="code" required
-                                        autocomplete="off" readonly>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-12" style="padding: 15px;">
-                                    <div style="height: 4rem; width: 100%; border-radius: 20px;">
-                                        <button type="button" class="btn btn-xl btn-success"
-                                            style="border-radius: .2rem; height: 4rem; width: 100%; font-size: 1.5rem;"
-                                            id="done">Selesai</button>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    <div class="shadow pt-4 card card-secondary total-part-card-header"
+                        style="height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        <div class="hero-inner">
+                            <h5 class="text-center text-dark">Total Part</h5>
+                            <div class="bg-secondary m-auto shadow total-part-card"
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-part">0</h1>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
-    </div>
-
-    <div class="modal fade" id="modalLineScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                </div>
-                <div class="modal-body">
-
-                    <h3 class="text-center"><b>LINE</b></h3><br>
-                    <input type="text" class="form-control" id="input-line" autocomplete="off">
-                    <br>
-                </div>
-            </div>
         </div>
     </div>
 
-    <div class="modal fade" id="modalSampleScan" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                </div>
-                <div class="modal-body">
-
-                    <h3 class="text-center"><b>MASTER SAMPLE</b></h3><br>
-                    <input type="text" class="form-control" id="input-sample" autocomplete="off">
-                    <br>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    {{-- modal --}}
     <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content" id="divNotif" style="border-radius: 15px !important;">
+            <div class="modal-content" id="divNotif" style="border-radius: 12px !important;">
                 <div class="modal-body text-center">
-                    <span style="color: white; font-size: 30pt" id="notif"> Scan Part</span>
+                    <span style="color: white; font-size: 30pt" id="notif"> Error!</span>
                 </div>
             </div>
         </div>
     </div>
+    {{-- end of modal --}}
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
     let line = '';
 
     function initApp() {
-        let line = localStorage.getItem('line');
-        let sample = localStorage.getItem('sample');
-        if (!line) {
-            $('#modalLineScan').on('shown.bs.modal', function() {
-                $('#input-line').focus();
-            })
-            $('#modalLineScan').modal('show');
+        let model = localStorage.getItem('model');
+        let totalScan = localStorage.getItem('scan_counter');
+        let totalPart = localStorage.getItem('part_counter');
+        let photo = localStorage.getItem('photo');
+        if (model || photo) {
+            // display model  running
+            $('.model-card-header').removeClass('card-secondary');
+            $('.model-card-header').addClass('card-info');
 
-        } else {
-            $('#line-display').text(line);
-            if (!sample) {
-                $('#modalSampleScan').modal('show');
-                setInterval(() => {
-                    $('#input-sample').focus();
-                }, 10);
-            } else {
-                $('#sample-display').text(sample);
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
-            }
+            $('.model-card').removeClass('bg-secondary');
+            $('.model-card').addClass('bg-info');
 
+            $('#model').text(model)
+            // display PIS
+            $('#pis').html(
+                `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="700">`);
+        }
+
+        if (totalScan || totalPart) {
+            // display total scan
+            $('.total-scan-card-header').removeClass('card-secondary');
+            $('.total-scan-card-header').addClass('card-success');
+
+            $('.total-scan-card').removeClass('bg-secondary');
+            $('.total-scan-card').addClass('bg-success');
+
+            // display total part
+            $('.total-part-card-header').removeClass('card-secondary');
+            $('.total-part-card-header').addClass('card-success');
+
+            $('.total-part-card').removeClass('bg-secondary');
+            $('.total-part-card').addClass('bg-success');
+
+            $('#total-scan').text(totalScan)
+            $('#total-part').text(totalPart)
         }
 
         $('#code').focus();
@@ -141,6 +133,7 @@
             $('#notifModal').modal('show');
             setTimeout(() => {
                 $('#notifModal').modal('hide');
+                $('#code').focus();
             }, 1000);
         } else {
             textNotif.text(text);
@@ -148,36 +141,9 @@
             $('#notifModal').modal('show');
             setTimeout(() => {
                 $('#notifModal').modal('hide');
+                $('#code').focus();
             }, 1000);
-
         }
-    }
-
-    function sampleModal() {
-        let sample = localStorage.getItem('sample');
-        $('#input-sample').val('');
-        setTimeout(() => {
-            if (!sample) {
-                $('#modalSampleScan').on('shown.bs.modal',
-                    function() {
-                        $('#input-sample').focus();
-                    })
-                $('#modalSampleScan').modal('show');
-            }
-        }, 1500);
-    }
-
-    function lineModal() {
-        $('#input-line').val('');
-        setTimeout(() => {
-            if (!line) {
-                $('#modalLineScan').on('shown.bs.modal',
-                    function() {
-                        $('#input-line').focus();
-                    })
-                $('#modalLineScan').modal('show');
-            }
-        }, 1500);
     }
 
     // extract the master sample from counter
@@ -210,104 +176,15 @@
 
     $(document).ready(function() {
         initApp();
+
         $(document).on('click', function() {
-            initApp();
-        });
-        $('#input-line').keypress(function(e) {
-            let line = localStorage.getItem('line');
-            let code = (e.keyCode ? e.keyCode : e.which);
-            if (code == 13) {
-
-                //Check Line
-                $.ajax({
-                    type: 'get',
-                    url: "{{ url('production/line-check/') }}" + '/' + $(this).val(),
-                    _token: "{{ csrf_token() }}",
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log(data);
-                        if (data.status == 'success') {
-                            localStorage.setItem('line', data.line);
-                            initApp();
-                        } else {
-                            notif('error', data.message);
-                            lineModal();
-                        }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status == 0) {
-                            notif("error", 'Connection Error');
-                            lineModal();
-                            return;
-                        }
-                        notif("error", 'Internal Server Error');
-                        lineModal();
-                    }
-                });
-
-                $('#modalLineScan').modal('hide');
-            }
-        });
-
-        $('#done').on('click', function() {
             $('#code').focus();
-            localStorage.removeItem("line");
-            localStorage.removeItem("sample");
+        })
+
+        $('#release').on('click', function() {
+            $('#code').focus();
+            localStorage.clear();
             window.location.reload();
-        });
-
-        $('#sample-display').on('click', function() {
-            sampleModal();
-        });
-
-        $('#input-sample').keypress(function(e) {
-            let line = localStorage.getItem('line');
-            let sample = localStorage.getItem('sample');
-            let code = (e.keyCode ? e.keyCode : e.which);
-            if (code == 13) {
-                // check if there is current counter in local storage or the master sample scanned not same as the current master sample
-                if (getMasterSample() !== false || $(this).val() !== getMasterSample()) {
-                    deleteMasterSampleCounter();
-                }
-
-                //Check sample 
-                $.ajax({
-                    type: 'get',
-                    url: "{{ url('production/sample-check/') }}" + '/' + line + '/' +
-                        $(this).val(),
-                    _token: "{{ csrf_token() }}",
-                    dataType: 'json',
-                    success: function(data) {
-                        console.log(data);
-                        if (data.status == 'success') {
-                            // set master sample to local storage
-                            localStorage.setItem('sample', data.sample);
-
-                            // set counter to local storage based on sample
-                            localStorage.setItem(`counter_${data.sample}`, 0);
-
-                            initApp();
-                        } else {
-                            notif('error', data.message);
-                            sampleModal();
-                        }
-                    },
-                    error: function(xhr) {
-                        console.log(xhr);
-                        if (xhr.status == 0) {
-                            notif("error", 'Connection Error');
-                            sampleModal();
-                            return;
-                        }
-                        notif("error", 'Internal Server Error');
-                        sampleModal();
-                    }
-                });
-
-                initApp();
-                $('#modalSampleScan').modal('hide');
-                $('#code').focus();
-            }
         });
 
         var barcode = "";
@@ -323,123 +200,161 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                console.log(barcodecomplete);
-                console.log(barcodecomplete.length);
+                // get each information inside kanban code
+                if (barcodecomplete.length == 230) {
+                    // normal kanban proccess
+                    internal = barcodecomplete.substr(41, 19);
+                    seri = barcodecomplete.substr(123, 4);
+                    backNum = barcodecomplete.substr(100, 4);
+                    pcs = barcodecomplete.substr(196, 1);
 
-                if (barcodecomplete.length <= 19) {
-                    // check if there is current counter in local storage or the master sample scanned not same as the current master sample
-                    if (getMasterSample() !== false || $(this).val() !== getMasterSample()) {
-                        deleteMasterSampleCounter();
-                    }
+                } else if (barcodecomplete.length == 220) {
+                    // kanban buffer
+                    internal = barcodecomplete.substr(35, 12);
+                    seri = barcodecomplete.substr(130, 4);
+                    backNum = barcodecomplete.substr(100, 4);
+                    pcs = barcodecomplete.substr(196, 1);
 
-                    let line = localStorage.getItem('line');
-                    let code = (e.keyCode ? e.keyCode : e.which);
-                    if (code == 13) {
+                } else if (barcodecomplete.length == 241) {
+                    // kanban passtrough
+                    internal = barcodecomplete.substr(35, 12);
+                    seri = barcodecomplete.substr(127, 4);
+                    backNum = barcodecomplete.substr(100, 4);
+                    pcs = barcodecomplete.substr(196, 1);
 
-                        //Check sample 
-                        $.ajax({
-                            type: 'get',
-                            url: "{{ url('production/sample-check') }}" + '/' + line + '/' +
-                                barcodecomplete,
-                            _token: "{{ csrf_token() }}",
-                            dataType: 'json',
-                            success: function(data) {
-                                console.log(data);
-                                if (data.status == 'success') {
-                                    // set master sample to local storage
-                                    localStorage.setItem('sample', data.sample);
+                } else if (barcodecomplete.length == 218) {
+                    // kanban suzuki
+                    internal = barcodecomplete.substr(41, 16);
+                    seri = barcodecomplete.substr(123, 4);
+                    backNum = barcodecomplete.substr(100, 4);
+                    pcs = barcodecomplete.substr(196, 1);
 
-                                    // set counter to local storage based on sample
-                                    localStorage.setItem(`counter_${data.sample}`, 0);
+                }
 
-                                    $('#qty-display').text(0);
+                let scanCounter;
+                let partCounter;
+                internal = internal.trimEnd();
 
-                                    initApp();
-                                } else {
-                                    notif('error', data.message);
-                                    sampleModal();
-                                }
-                            },
-                            error: function(xhr) {
-                                console.log(xhr);
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    sampleModal();
-                                    return;
-                                }
-                                notif("error", 'Internal Server Error');
-                                sampleModal();
-                            }
-                        });
+                // check if model is set in local storage
+                if (localStorage.getItem('model')) {
 
-                        initApp();
-                        $('#code').focus();
-                    }
-                } else {
+                    // compare scanned kanban with model in local storage
+                    if (localStorage.getItem('model') === backNum) {
+                        // get current counter value
+                        scanCounter = localStorage.getItem('scan_counter');
+                        scanCounter = parseInt(scanCounter);
+                        scanCounter++;
+                        localStorage.setItem('scan_counter', scanCounter);
 
-                    let partNumber = barcodecomplete.substr(41, 19);
-                    let seri = barcodecomplete.substr(123, 4);
-                    let currentCounter;
-                    partNumber = partNumber.trimEnd();
-                    console.log(partNumber);
+                        partCounter = localStorage.getItem('part_counter');
+                        partCounter = parseInt(partCounter);
+                        partCounter += parseInt(pcs);
+                        localStorage.setItem('part_counter', partCounter);
 
-                    if (partNumber == localStorage.getItem('sample')) {
-                        //insert to mutation & store it to kanban
-                        $.ajax({
-                            type: 'get',
-                            url: "{{ url('production/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                partNumber: partNumber,
-                                seri: seri
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                if (data.status == 'success') {
-                                    notif("success", data.message);
+                        // display total scan
+                        $('.total-scan-card-header').removeClass('card-secondary');
+                        $('.total-scan-card-header').addClass('card-success');
 
-                                    // get current counter value
-                                    currentCounter = localStorage.getItem(
-                                        `counter_${getMasterSample()}`);
-                                    currentCounter = parseInt(currentCounter);
-                                    currentCounter++;
-                                    localStorage.setItem(`counter_${getMasterSample()}`,
-                                        currentCounter);
+                        $('.total-scan-card').removeClass('bg-secondary');
+                        $('.total-scan-card').addClass('bg-success');
 
-                                    let interval = setInterval(function() {
-                                        $('#notifModal').modal('hide');
-                                        clearInterval(interval);
-                                        $('#code').focus();
-                                        $('#qty-display').text(currentCounter);
+                        // display total part
+                        $('.total-part-card-header').removeClass('card-secondary');
+                        $('.total-part-card-header').addClass('card-success');
 
-                                    }, 1500);
-                                } else {
-                                    notif("error", data.message);
-                                    let interval = setInterval(function() {
-                                        $('#notifModal').modal('hide');
-                                        clearInterval(interval);
-                                        $('#code').focus();
-                                    }, 1500);
-                                }
-                            },
-                            error: function(xhr) {
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    return;
-                                }
-                                notif("error", 'Internal Server Error');
-                            }
-                        });
+                        $('.total-part-card').removeClass('bg-secondary');
+                        $('.total-part-card').addClass('bg-success');
 
+                        // display status
+                        $('.status-card-header').removeClass('card-secondary');
+                        $('.status-card-header').removeClass('card-danger');
+                        $('.status-card-header').addClass('card-success');
+
+                        $('.status-card').removeClass('bg-secondary');
+                        $('.status-card').removeClass('bg-danger');
+                        $('.status-card').addClass('bg-success');
+
+                        // set display
+                        $('#total-scan').text(scanCounter)
+                        $('#total-part').text(partCounter)
+                        $('#status').text('OK')
+
+                        return;
                     } else {
-                        notif("error", "Part Tidak Sesuai Dengan Sample !");
-                        let interval = setInterval(function() {
-                            $('#notifModal').modal('hide');
-                            clearInterval(interval);
-                            $('#code').focus();
-                        }, 1500);
+                        notif('error', 'Kanban tidak sesuai!');
+
+                        // display status
+                        $('.status-card-header').removeClass('card-secondary');
+                        $('.status-card-header').removeClass('card-success');
+                        $('.status-card-header').addClass('card-danger');
+
+                        $('.status-card').removeClass('bg-secondary');
+                        $('.status-card').removeClass('bg-success');
+                        $('.status-card').addClass('bg-danger');
+
+                        $('#status').text('NG')
+
+                        return;
                     }
                 }
+
+                // check if part number exist in database
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ url('pulling/internal-check') }}" + '/' + internal,
+                    _token: "{{ csrf_token() }}",
+                    dataType: 'json',
+                    success: function(data) {
+                        // store part number information in local storage
+                        if (data.status == 'success') {
+                            localStorage.setItem('model', data.backNumber);
+                            localStorage.setItem('scan_counter', 0);
+                            localStorage.setItem('part_counter', 0);
+                            localStorage.setItem('photo', data.photo);
+
+                            // display model  running
+                            $('.model-card-header').removeClass('card-secondary');
+                            $('.model-card-header').addClass('card-info');
+
+                            $('.model-card').removeClass('bg-secondary');
+                            $('.model-card').addClass('bg-info');
+
+                            // display total scan
+                            $('.total-scan-card-header').removeClass('card-secondary');
+                            $('.total-scan-card-header').addClass('card-success');
+
+                            $('.total-scan-card').removeClass('bg-secondary');
+                            $('.total-scan-card').addClass('bg-success');
+
+                            // display total part
+                            $('.total-part-card-header').removeClass('card-secondary');
+                            $('.total-part-card-header').addClass('card-success');
+
+                            $('.total-part-card').removeClass('bg-secondary');
+                            $('.total-part-card').addClass('bg-success');
+
+                            $('#model').text(data.backNumber)
+                            $('#total-scan').text(scanCounter)
+                            $('#total-part').text(partCounter)
+
+                            // display PIS
+                            $('#pis').html(`
+                                <img src="{{ asset('assets/img/pis/${data.photo}') }}" alt="PIS" class="rounded" height="700">
+                            `);
+                        } else {
+                            notif('error', data.message);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.log(xhr)
+                        if (xhr.status == 0) {
+                            notif("error", 'Connection Error');
+                            return;
+                        }
+                        notif("error", xhr.responseJSON.errors);
+                    }
+                })
+
             } else {
                 barcode = barcode + String.fromCharCode(e.which);
             }
