@@ -306,35 +306,35 @@
                     dataType: 'json',
                     success: function(data) {
                         // store to database
-                        $.ajax({
-                            type: 'get',
-                            url: "{{ url('production/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                partNumber: internal,
-                                seri: seri
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                if (data.status == 'success') {
-                                    console.log(data);
-                                } else {
-                                    notif("error", data.message);
-                                    let interval = setInterval(function() {
-                                        $('#notifModal').modal('hide');
-                                        clearInterval(interval);
-                                        $('#code').focus();
-                                    }, 1500);
-                                }
-                            },
-                            error: function(xhr) {
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    return;
-                                }
-                                notif("error", 'Internal Server Error');
-                            }
-                        });
+                        // $.ajax({
+                        //     type: 'get',
+                        //     url: "{{ url('production/store/') }}",
+                        //     _token: "{{ csrf_token() }}",
+                        //     data: {
+                        //         partNumber: internal,
+                        //         seri: seri
+                        //     },
+                        //     dataType: 'json',
+                        //     success: function(data) {
+                        //         if (data.status == 'success') {
+                        //             console.log(data);
+                        //         } else {
+                        //             notif("error", data.message);
+                        //             let interval = setInterval(function() {
+                        //                 $('#notifModal').modal('hide');
+                        //                 clearInterval(interval);
+                        //                 $('#code').focus();
+                        //             }, 1500);
+                        //         }
+                        //     },
+                        //     error: function(xhr) {
+                        //         if (xhr.status == 0) {
+                        //             notif("error", 'Connection Error');
+                        //             return;
+                        //         }
+                        //         notif("error", 'Internal Server Error');
+                        //     }
+                        // });
 
                         // store part number information in local storage
                         if (data.status == 'success') {
