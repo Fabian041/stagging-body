@@ -246,6 +246,8 @@ class LoadingListController extends Controller
         $check = LoadingList::where('number', $loadingList)->first();
         if(!$check){
             try {
+                DB::beginTransaction();
+                
                 LoadingList::create([
                     'number' => $loadingList,
                     'pds_number' => $pds,
@@ -258,7 +260,9 @@ class LoadingListController extends Controller
                 // push to websocket
                 $this->pushData(true);
                 
+                DB::commit();
             } catch (\Throwable $th) {
+                DB::rollback();
                 return [
                     'status' => 'error',
                     'message' => $th->getMessage(),
@@ -451,6 +455,9 @@ class LoadingListController extends Controller
                                 'actual_kanban_qty' => $currentQty + 1
                             ]);
 
+            // push to websocket
+            $this->pushData(true);
+            
             DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -465,5 +472,27 @@ class LoadingListController extends Controller
             'status' => 'success',
             'data' => $currentQty
         ],200);
+    }
+
+    public function fetchLoadingList($pds)
+    {
+        $total_kanban = 0;
+        $total_actual = 0;
+        
+        $data = LoadingList::join('loading_list_details', 'loading_list_details.loading_list_id', '=', 'loading_lists.id')
+                ->select('loading_list_details.kanban_qty', 'loading_list_details.actual_kanban_qty')
+                ->where('loading_lists.pds_number', $pds)
+                ->get();
+
+        foreach ($data as $datum){
+            $total_kanban += $datum->kanban_qty;
+            $total_actual += $datum->actual_kanban_qty;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'kanban_qty' => $total_kanban,
+            'actual_kanban_qty' => $total_actual
+        ]);
     }
 }
