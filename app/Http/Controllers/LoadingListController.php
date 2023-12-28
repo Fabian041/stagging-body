@@ -192,6 +192,7 @@ class LoadingListController extends Controller
 
     public function editLoadingListDetail($loadingList, $customerPart, $newActual)
     {
+        dd($loadingList);
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number',$customerPart)->first();
 
