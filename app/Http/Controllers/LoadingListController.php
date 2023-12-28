@@ -45,7 +45,7 @@ class LoadingListController extends Controller
 
     public function getLoadingList()
     {
-        $input = LoadingList::all();
+        $input = LoadingList::with('detail')->take(100)->get();
 
         return DataTables::of($input)
                 ->addColumn('customer', function ($loadingList) {
