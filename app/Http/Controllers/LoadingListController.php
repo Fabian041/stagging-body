@@ -222,7 +222,7 @@ class LoadingListController extends Controller
             DB::commit();
 
             // push to websocket
-            $this->pushData(true);
+            // $this->pushData(true);
             
             return response()->json([
                 'status' => 'success',
@@ -259,7 +259,7 @@ class LoadingListController extends Controller
                 ]);
 
                 // push to websocket
-                $this->pushData(true);
+                // $this->pushData(true);
                 
                 DB::commit();
             } catch (\Throwable $th) {
@@ -457,7 +457,7 @@ class LoadingListController extends Controller
                             ]);
 
             // push to websocket
-            $this->pushData(true);
+            // $this->pushData(true);
             
             DB::commit();
         } catch (\Throwable $th) {

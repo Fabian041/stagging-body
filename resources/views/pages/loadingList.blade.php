@@ -124,9 +124,21 @@
         });
 
         // websocket
-        pusher.subscribe('loading-list').bind('loadingListUpdated', function(data) {
-            table.ajax.reload(null, false);
-        });
+        // pusher.subscribe('loading-list').bind('loadingListUpdated', function(data) {
+        //     table.ajax.reload(null, false);
+        // });
+
+        // Function to fetch and update data
+        function fetchAndUpdateData() {
+            // Get the current scroll position
+            table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
+        }
+
+        // Initial data fetch when the page loads
+        fetchAndUpdateData();
+
+        // Fetch data every second
+        setInterval(fetchAndUpdateData, 1000);
 
         $('#manifest').on('change', function() {
             // get all filter values
