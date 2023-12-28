@@ -767,11 +767,10 @@
                                     'loadingList');
                                 var index = objectStore.index('loadingListDetail');
 
-                                data.data.items.map((item, index) => {
+                                data.data.items.forEach((item) => {
                                     const key = item.part_number_cust;
 
                                     const getRequest = objectStore.get(key);
-
                                     getRequest.onsuccess = function(event) {
                                         const existingData = event.target
                                             .result;
@@ -795,57 +794,46 @@
                                                 seri: []
                                             }, key);
                                         }
+
+                                        // Only execute AJAX call if there's no existing data
+                                        if (!existingData) {
+                                            const qty_per_kbn = item
+                                                .total_qty / item
+                                                .total_kanban_qty;
+                                            const url =
+                                                `{{ url('/loading-list/storeDetail') }}/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qty_per_kbn}/${item.total_qty}/${item.actual_kanban_qty}`;
+
+                                            $.ajax({
+                                                type: 'GET',
+                                                url: url,
+                                                _token: "{{ csrf_token() }}",
+                                                dataType: 'json',
+                                                success: function(
+                                                    data) {
+                                                    console.log(
+                                                        data
+                                                        .status
+                                                    );
+                                                },
+                                                error: function(
+                                                    xhr) {
+                                                    console
+                                                        .error(
+                                                            'Error:',
+                                                            xhr
+                                                        );
+                                                }
+                                            });
+                                        }
                                     };
-
-                                    // qty per kanban is total qty product devided kanban qty
-                                    let qty_per_kbn = item.total_qty / item
-                                        .total_kanban_qty;
-
-                                    //insert each loading list details
-                                    setTimeout(() => {
-                                        $.ajax({
-                                            type: 'GET',
-                                            url: "{{ url('/loading-list/storeDetail') }}" +
-                                                '/' + ll + '/' +
-                                                item
-                                                .part_number_cust +
-                                                '/' +
-                                                item
-                                                .part_number_int +
-                                                '/' +
-                                                item
-                                                .total_kanban_qty +
-                                                '/' +
-                                                qty_per_kbn +
-                                                '/' + item
-                                                .total_qty +
-                                                '/' + item
-                                                .actual_kanban_qty,
-                                            _token: "{{ csrf_token() }}",
-                                            dataType: 'json',
-                                            success: function(
-                                                data) {
-                                                console.log(
-                                                    data
-                                                    .status
-                                                )
-                                            },
-                                            error: function(
-                                                xhr) {
-                                                console.log(
-                                                    xhr);
-                                                notif('error',
-                                                    'Scan ulang loading list'
-                                                );
-                                                return false;
-                                            }
-                                        })
-                                    }, 400);
 
                                     getRequest.onerror = function(event) {
-                                        notif(event.data.error);
+                                        // Handle IndexedDB errors
+                                        console.error('IndexedDB Error:',
+                                            event.target.error);
                                     };
                                 });
+
 
                                 // check customer if exist 
                                 customerCheck(data.data.customer_code)
