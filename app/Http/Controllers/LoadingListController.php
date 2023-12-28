@@ -201,12 +201,12 @@ class LoadingListController extends Controller
                                         ->where('customer_part_id',$customerPartId->id)
                                         ->first();        
                                         
-        if($newActual > $maxKanbanQty->kanban_qty){
-            return [
-                'status' => 'error',
-                'message' => 'Tidak boleh lebih dari kuantitas kanban!',
-            ];
-        }
+        // if($newActual > $maxKanbanQty->kanban_qty){
+        //     return [
+        //         'status' => 'error',
+        //         'message' => 'Tidak boleh lebih dari kuantitas kanban!',
+        //     ];
+        // }
 
         dd('test');
 
