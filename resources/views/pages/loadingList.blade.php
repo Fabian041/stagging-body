@@ -129,16 +129,16 @@
         // });
 
         // Function to fetch and update data
-        // function fetchAndUpdateData() {
-        //     // Get the current scroll position
-        //     table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
-        // }
+        function fetchAndUpdateData() {
+            // Get the current scroll position
+            table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
+        }
 
-        // // Initial data fetch when the page loads
-        // fetchAndUpdateData();
+        // Initial data fetch when the page loads
+        fetchAndUpdateData();
 
-        // // Fetch data every second
-        // setInterval(fetchAndUpdateData, 1000);
+        // Fetch data every second
+        setInterval(fetchAndUpdateData, 1000);
 
         $('#manifest').on('change', function() {
             // get all filter values
