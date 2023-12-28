@@ -118,9 +118,9 @@
             ],
         });
 
-        setInterval(() => {
-            table.ajax.reload(null, false);
-        }, 1000);
+        // setInterval(() => {
+        //     table.ajax.reload(null, false);
+        // }, 1000);
 
         // var pusher = new Pusher('78dc86268a49904a688d', {
         //     cluster: 'ap1',
