@@ -767,14 +767,15 @@
                                     'loadingList');
                                 var index = objectStore.index('loadingListDetail');
 
-                                data.data.items.map((item, index) => {
+                                data.data.items.forEach(async (item) => {
                                     const key = item.part_number_cust;
+                                    const qty_per_kbn = item.total_qty /
+                                        item.total_kanban_qty;
 
-                                    const getRequest = objectStore.get(key);
-
-                                    getRequest.onsuccess = function(event) {
-                                        const existingData = event.target
-                                            .result;
+                                    try {
+                                        const existingData =
+                                            await getObjectStoreData(
+                                                key);
 
                                         if (!existingData) {
                                             objectStore.put({
@@ -784,10 +785,7 @@
                                                     .part_number_int,
                                                 customer: item
                                                     .part_number_cust,
-                                                qty_per_kbn: item
-                                                    .total_qty /
-                                                    item
-                                                    .total_kanban_qty,
+                                                qty_per_kbn: qty_per_kbn,
                                                 actual_qty: item
                                                     .actual_kanban_qty,
                                                 total_qty: item
@@ -795,57 +793,35 @@
                                                 seri: []
                                             }, key);
                                         }
-                                    };
 
-                                    // qty per kanban is total qty product devided kanban qty
-                                    let qty_per_kbn = item.total_qty / item
-                                        .total_kanban_qty;
-
-                                    //insert each loading list details
-                                    setTimeout(() => {
-                                        $.ajax({
+                                        const response = await $.ajax({
                                             type: 'GET',
-                                            url: "{{ url('/loading-list/storeDetail') }}" +
-                                                '/' + ll + '/' +
-                                                item
-                                                .part_number_cust +
-                                                '/' +
-                                                item
-                                                .part_number_int +
-                                                '/' +
-                                                item
-                                                .total_kanban_qty +
-                                                '/' +
-                                                qty_per_kbn +
-                                                '/' + item
-                                                .total_qty +
-                                                '/' + item
-                                                .actual_kanban_qty,
+                                            url: `{{ url('/loading-list/storeDetail') }}/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qty_per_kbn}/${item.total_qty}/${item.actual_kanban_qty}`,
                                             _token: "{{ csrf_token() }}",
-                                            dataType: 'json',
-                                            success: function(
-                                                data) {
-                                                console.log(
-                                                    data
-                                                    .status
-                                                )
-                                            },
-                                            error: function(
-                                                xhr) {
-                                                console.log(
-                                                    xhr);
-                                                notif('error',
-                                                    'Scan ulang loading list'
-                                                );
-                                                return false;
-                                            }
-                                        })
-                                    }, 200);
+                                            dataType: 'json'
+                                        });
 
-                                    getRequest.onerror = function(event) {
-                                        notif(event.data.error);
-                                    };
+                                        console.log(response.status);
+                                    } catch (error) {
+                                        console.error(
+                                            'Error in processing item:',
+                                            error);
+                                        // Handle the error more gracefully, possibly showing a notification to the user
+                                        notif('error', error);
+                                    }
                                 });
+
+                                async function getObjectStoreData(key) {
+                                    return new Promise((resolve, reject) => {
+                                        const getRequest = objectStore
+                                            .get(key);
+                                        getRequest.onsuccess = (
+                                            event) => resolve(event
+                                            .target.result);
+                                        getRequest.onerror = (event) =>
+                                            reject(event.target.error);
+                                    });
+                                }
 
                                 // check customer if exist 
                                 customerCheck(data.data.customer_code)
@@ -1507,15 +1483,15 @@
                                         'loadingList');
                                     var index = objectStore.index('loadingListDetail');
 
-                                    data.data.items.map((item, index) => {
+                                    data.data.items.forEach(async (item) => {
                                         const key = item.part_number_cust;
+                                        const qty_per_kbn = item.total_qty /
+                                            item.total_kanban_qty;
 
-                                        const getRequest = objectStore.get(key);
-
-                                        getRequest.onsuccess = function(event) {
-                                            const existingData = event
-                                                .target
-                                                .result;
+                                        try {
+                                            const existingData =
+                                                await getObjectStoreData(
+                                                    key);
 
                                             if (!existingData) {
                                                 objectStore.put({
@@ -1525,10 +1501,7 @@
                                                         .part_number_int,
                                                     customer: item
                                                         .part_number_cust,
-                                                    qty_per_kbn: item
-                                                        .total_qty /
-                                                        item
-                                                        .total_kanban_qty,
+                                                    qty_per_kbn: qty_per_kbn,
                                                     actual_qty: item
                                                         .actual_kanban_qty,
                                                     total_qty: item
@@ -1536,56 +1509,35 @@
                                                     seri: []
                                                 }, key);
                                             }
-                                        };
 
-                                        // qty per kanban is total qty product devided kanban qty
-                                        let qty_per_kbn = item.total_qty / item
-                                            .total_kanban_qty;
-
-                                        //insert each loading list details
-                                        setTimeout(() => {
-                                            $.ajax({
+                                            const response = await $.ajax({
                                                 type: 'GET',
-                                                url: "{{ url('/loading-list/storeDetail') }}" +
-                                                    '/' + ll +
-                                                    '/' + item
-                                                    .part_number_cust +
-                                                    '/' +
-                                                    item
-                                                    .part_number_int +
-                                                    '/' +
-                                                    item
-                                                    .total_kanban_qty +
-                                                    '/' +
-                                                    qty_per_kbn +
-                                                    '/' + item
-                                                    .total_qty +
-                                                    '/' + item
-                                                    .actual_kanban_qty,
+                                                url: `{{ url('/loading-list/storeDetail') }}/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qty_per_kbn}/${item.total_qty}/${item.actual_kanban_qty}`,
                                                 _token: "{{ csrf_token() }}",
-                                                dataType: 'json',
-                                                success: function(
-                                                    data) {
-                                                    console
-                                                        .log(
-                                                            data
-                                                            .status
-                                                        )
-                                                },
-                                                error: function(
-                                                    xhr) {
-                                                    console
-                                                        .log(
-                                                            xhr
-                                                        );
-                                                }
-                                            })
-                                        }, 200);
+                                                dataType: 'json'
+                                            });
 
-                                        getRequest.onerror = function(event) {
-                                            notif(event.data.error);
-                                        };
+                                            console.log(response.status);
+                                        } catch (error) {
+                                            console.error(
+                                                'Error in processing item:',
+                                                error);
+                                            // Handle the error more gracefully, possibly showing a notification to the user
+                                            notif('error', error);
+                                        }
                                     });
+
+                                    async function getObjectStoreData(key) {
+                                        return new Promise((resolve, reject) => {
+                                            const getRequest = objectStore
+                                                .get(key);
+                                            getRequest.onsuccess = (
+                                                event) => resolve(event
+                                                .target.result);
+                                            getRequest.onerror = (event) =>
+                                                reject(event.target.error);
+                                        });
+                                    }
 
                                     // check customer if exist 
                                     customerCheck(data.data.customer_code)
