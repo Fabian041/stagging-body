@@ -78,7 +78,7 @@
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script>
     $(document).ready(function() {
-        let table = $('#loadingList').DataTable({
+        var table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
             serverSide: false,
@@ -118,6 +118,10 @@
                 [10, 25, 100]
             ],
         });
+
+        setInterval(function() {
+            table.ajax.reload(null, false); // user paging is not reset on reload
+        }, 1000); // Reload every 1000 milliseconds (1 second)
 
         // setInterval(() => {
         //     table.ajax.reload();
