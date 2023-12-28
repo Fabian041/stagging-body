@@ -195,14 +195,15 @@ class LoadingListController extends Controller
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number',$customerPart)->first();
 
-        dd('test');
-
         // get kanban qty
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
                                         ->where('loading_list_id',$loadingList)
                                         ->where('customer_part_id',$customerPartId->id)
                                         ->first();
+                                        
+        dd('test');
         
+                                        
         if($newActual > $maxKanbanQty->kanban_qty){
             return [
                 'status' => 'error',
