@@ -199,16 +199,17 @@ class LoadingListController extends Controller
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
                                         ->where('loading_list_id',$loadingList)
                                         ->where('customer_part_id',$customerPartId->id)
-                                        ->first();        
+                                        ->first();
                                         
-        // if($newActual > $maxKanbanQty->kanban_qty){
-        //     return [
-        //         'status' => 'error',
-        //         'message' => 'Tidak boleh lebih dari kuantitas kanban!',
-        //     ];
-        // }
-
-        dd('test');
+                                        dd($maxKanbanQty->kanban_qty);
+        
+                                        
+        if($newActual > $maxKanbanQty->kanban_qty){
+            return [
+                'status' => 'error',
+                'message' => 'Tidak boleh lebih dari kuantitas kanban!',
+            ];
+        }
 
         try {
             DB::beginTransaction();
