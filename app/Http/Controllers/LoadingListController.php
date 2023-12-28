@@ -195,6 +195,8 @@ class LoadingListController extends Controller
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number',$customerPart)->first();
 
+        dd('test');
+
         // get kanban qty
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
                                         ->where('loading_list_id',$loadingList)
@@ -207,8 +209,6 @@ class LoadingListController extends Controller
                 'message' => 'Tidak boleh lebih dari kuantitas kanban!',
             ];
         }
-
-        dd('test');
 
         try {
             DB::beginTransaction();
