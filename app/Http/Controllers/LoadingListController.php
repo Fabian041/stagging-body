@@ -220,7 +220,6 @@ class LoadingListController extends Controller
 
             DB::commit();
 
-            dd('test');
             // push to websocket
             $this->pushData(true);
             

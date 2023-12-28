@@ -187,6 +187,7 @@
                     }
                 })
                 .catch(error => {
+                    console.log(error.message);
                     notif('error', error);
                 })
         });
