@@ -201,7 +201,7 @@ class LoadingListController extends Controller
                                         ->where('customer_part_id',$customerPartId->id)
                                         ->first();
                                         
-                                        dd($maxKanbanQty->kanban_qty);
+                                        dd($maxKanbanQty);
         
                                         
         if($newActual > $maxKanbanQty->kanban_qty){
