@@ -802,48 +802,50 @@
                                         .total_kanban_qty;
 
                                     //insert each loading list details
-                                    $.ajax({
-                                        type: 'GET',
-                                        url: "{{ url('/loading-list/storeDetail') }}" +
-                                            '/' + ll + '/' +
-                                            item
-                                            .part_number_cust +
-                                            '/' +
-                                            item
-                                            .part_number_int +
-                                            '/' +
-                                            item
-                                            .total_kanban_qty +
-                                            '/' +
-                                            qty_per_kbn +
-                                            '/' + item
-                                            .total_qty +
-                                            '/' + item
-                                            .actual_kanban_qty,
-                                        _token: "{{ csrf_token() }}",
-                                        dataType: 'json',
-                                        success: function(
-                                            data) {
-                                            console.log(
-                                                data
-                                                .status
-                                            )
-                                        },
-                                        error: function(
-                                            xhr) {
-                                            console.log(
-                                                xhr);
-                                            notif('error',
-                                                'Scan ulang loading list'
-                                            );
-                                            return false;
-                                        }
-                                    })
-                                }, 200);
+                                    setTimeout(() => {
+                                        $.ajax({
+                                            type: 'GET',
+                                            url: "{{ url('/loading-list/storeDetail') }}" +
+                                                '/' + ll + '/' +
+                                                item
+                                                .part_number_cust +
+                                                '/' +
+                                                item
+                                                .part_number_int +
+                                                '/' +
+                                                item
+                                                .total_kanban_qty +
+                                                '/' +
+                                                qty_per_kbn +
+                                                '/' + item
+                                                .total_qty +
+                                                '/' + item
+                                                .actual_kanban_qty,
+                                            _token: "{{ csrf_token() }}",
+                                            dataType: 'json',
+                                            success: function(
+                                                data) {
+                                                console.log(
+                                                    data
+                                                    .status
+                                                )
+                                            },
+                                            error: function(
+                                                xhr) {
+                                                console.log(
+                                                    xhr);
+                                                notif('error',
+                                                    'Scan ulang loading list'
+                                                );
+                                                return false;
+                                            }
+                                        })
+                                    }, 200);
 
-                                getRequest.onerror = function(event) {
-                                    notif(event.data.error);
-                                };
+                                    getRequest.onerror = function(event) {
+                                        notif(event.data.error);
+                                    };
+                                });
 
                                 // check customer if exist 
                                 customerCheck(data.data.customer_code)
@@ -1541,44 +1543,44 @@
                                             .total_kanban_qty;
 
                                         //insert each loading list details
-
-                                        $.ajax({
-                                            type: 'GET',
-                                            url: "{{ url('/loading-list/storeDetail') }}" +
-                                                '/' + ll +
-                                                '/' + item
-                                                .part_number_cust +
-                                                '/' +
-                                                item
-                                                .part_number_int +
-                                                '/' +
-                                                item
-                                                .total_kanban_qty +
-                                                '/' +
-                                                qty_per_kbn +
-                                                '/' + item
-                                                .total_qty +
-                                                '/' + item
-                                                .actual_kanban_qty,
-                                            _token: "{{ csrf_token() }}",
-                                            dataType: 'json',
-                                            success: function(
-                                                data) {
-                                                console
-                                                    .log(
-                                                        data
-                                                        .status
-                                                    )
-                                            },
-                                            error: function(
-                                                xhr) {
-                                                console
-                                                    .log(
-                                                        xhr
-                                                    );
-                                            }
-                                        })
-
+                                        setTimeout(() => {
+                                            $.ajax({
+                                                type: 'GET',
+                                                url: "{{ url('/loading-list/storeDetail') }}" +
+                                                    '/' + ll +
+                                                    '/' + item
+                                                    .part_number_cust +
+                                                    '/' +
+                                                    item
+                                                    .part_number_int +
+                                                    '/' +
+                                                    item
+                                                    .total_kanban_qty +
+                                                    '/' +
+                                                    qty_per_kbn +
+                                                    '/' + item
+                                                    .total_qty +
+                                                    '/' + item
+                                                    .actual_kanban_qty,
+                                                _token: "{{ csrf_token() }}",
+                                                dataType: 'json',
+                                                success: function(
+                                                    data) {
+                                                    console
+                                                        .log(
+                                                            data
+                                                            .status
+                                                        )
+                                                },
+                                                error: function(
+                                                    xhr) {
+                                                    console
+                                                        .log(
+                                                            xhr
+                                                        );
+                                                }
+                                            })
+                                        }, 200);
 
                                         getRequest.onerror = function(event) {
                                             notif(event.data.error);
