@@ -119,14 +119,6 @@
             ],
         });
 
-        setInterval(function() {
-            table.ajax.reload(null, false); // user paging is not reset on reload
-        }, 1000); // Reload every 1000 milliseconds (1 second)
-
-        // setInterval(() => {
-        //     table.ajax.reload();
-        // }, 1000);
-
         // var pusher = new Pusher('78dc86268a49904a688d', {
         //     cluster: 'ap1',
         //     forceTLS: true
