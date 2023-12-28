@@ -81,6 +81,7 @@
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
+            serverSide: false,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',
@@ -118,9 +119,9 @@
             ],
         });
 
-        // setInterval(() => {
-        //     table.ajax.reload(null, false);
-        // }, 1000);
+        setInterval(() => {
+            table.ajax.reload();
+        }, 1000);
 
         // var pusher = new Pusher('78dc86268a49904a688d', {
         //     cluster: 'ap1',
