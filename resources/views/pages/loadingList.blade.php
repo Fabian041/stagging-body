@@ -118,6 +118,10 @@
             ],
         });
 
+        setInterval(() => {
+            table.ajax.reload(null, false);
+        }, 1000);
+
         // var pusher = new Pusher('78dc86268a49904a688d', {
         //     cluster: 'ap1',
         //     forceTLS: true
@@ -138,7 +142,7 @@
         // fetchAndUpdateData();
 
         // Fetch data every second
-        setInterval(fetchAndUpdateData, 1000);
+        // setInterval(fetchAndUpdateData, 1000);
 
         $('#manifest').on('change', function() {
             // get all filter values
