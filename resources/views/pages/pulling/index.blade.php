@@ -629,7 +629,7 @@
             let loadingList = getLoadingListNumber();
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
-                let loadingListNumber = $(this).val().trim() + ' A';
+                let loadingListNumber = $(this).val().substr(0, 11) + ' A';
                 //Check Line
                 $.ajax({
                     type: 'GET',
@@ -1395,7 +1395,7 @@
                 barcode = "";
                 if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length < 22) {
                     let loadingList = getLoadingListNumber();
-                    barcodecomplete = barcodecomplete.trim() + ' A';
+                    barcodecomplete = barcodecomplete.substr(0, 11) + ' A';
                     $.ajax({
                         type: 'GET',
                         url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' +
