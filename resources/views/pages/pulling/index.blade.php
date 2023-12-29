@@ -629,11 +629,11 @@
             let loadingList = getLoadingListNumber();
             let code = (e.keyCode ? e.keyCode : e.which);
             if (code == 13) {
+                let loadingListNumber = $(this).val().trim() + ' A';
                 //Check Line
                 $.ajax({
                     type: 'GET',
-                    url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' + $(
-                        this).val(),
+                    url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' + loadingListNumber,
                     _token: "{{ csrf_token() }}",
                     headers: {
                         "Authorization": "Bearer " + token
@@ -1395,6 +1395,7 @@
                 barcode = "";
                 if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length < 22) {
                     let loadingList = getLoadingListNumber();
+                    barcodecomplete = barcodecomplete.trim() + ' A';
                     $.ajax({
                         type: 'GET',
                         url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' +
