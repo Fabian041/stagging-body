@@ -369,7 +369,7 @@ class PullingController extends Controller
         if(!$kanbanAfterProd->first()){
             return response()->json([
                 'status' => 'notScanned',
-                'message' => 'Kanban belum discan produksi'
+                'message' => 'Kanban belum discan produksi!'
             ],404);
         }
 
@@ -392,24 +392,26 @@ class PullingController extends Controller
                     ->first();
 
         // check if kanban already scanned by production
-        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->first();
+        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->get();
         
         try {
             DB::beginTransaction();
 
             // delete kanban id at kanban after prod table
-            $kanbanAfterProd->update([
+            KanbanAfterProd::where('kanban_id', $kanban->id)->update([
                 'kanban_id' => null
             ]);
 
             // create data at kanban after pulls table
-            KanbanAfterPulling::create([
-                'kanban_id' => $kanban->id,
-                'internal_part_id' => $internalPart->id,
-                'code' => $kanbanAfterProd->code,
-                'npk' => auth()->user()->npk,
-                'date' => Carbon::now()->format('Y-m-d')
-            ]);
+            foreach ($kanbanAfterProd as $kanbanAfterProd){
+                KanbanAfterPulling::create([
+                    'kanban_id' => $kanban->id,
+                    'internal_part_id' => $internalPart->id,
+                    'code' => $kanbanAfterProd->code,
+                    'npk' => auth()->user()->npk,
+                    'date' => Carbon::now()->format('Y-m-d')
+                ]);
+            }
 
             return response()->json([
                 'status' => 'success',

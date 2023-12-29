@@ -37,9 +37,13 @@
                     </div>
                 </div>
                 <div class="col-lg-2 col-sm-12">
-                    <button class="btn btn-warning py-5 px-5 shadow mb-5"
+                    <button class="btn btn-warning py-3 px-5 shadow mb-2"
                         style="padding: 1rem; border-radius:8px; width:100% !important" id="release">
                         <h3 class="text-center text-white">Release</h3>
+                    </button>
+                    <button class="btn btn-danger py-3 px-5 shadow mb-5"
+                        style="padding: 1rem; border-radius:8px; width:100% !important" id="pause">
+                        <h3 class="text-center text-white">Pause</h3>
                     </button>
                     <div class="shadow pt-4 card card-secondary status-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
@@ -52,7 +56,7 @@
                         </div>
                     </div>
                     <div class="shadow pt-4 card card-secondary total-part-card-header"
-                        style="height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        style="margin-bottom:130px;height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Total Part</h5>
                             <div class="bg-secondary m-auto shadow total-part-card"
@@ -177,6 +181,7 @@
     $(document).ready(function() {
         initApp();
 
+        const countdownTimeInSeconds = 60 // 1 minutes
         $(document).on('click', function() {
             $('#code').focus();
         })
@@ -186,6 +191,31 @@
             localStorage.clear();
             window.location.reload();
         });
+
+        function updateTimer() {
+            const currentTime = Math.floor(Date.now() / 1000);
+            const startTime = parseInt(localStorage.getItem('startTime'));
+
+            if (!startTime || isNaN(startTime)) {
+                localStorage.setItem('startTime', currentTime);
+            }
+
+            const elapsedTimeInSeconds = currentTime - startTime;
+            const remainingTimeInSeconds = Math.max(countdownTimeInSeconds - elapsedTimeInSeconds, 0);
+
+            if (remainingTimeInSeconds === 0) {
+                // Countdown has ended, take action here
+                localStorage.removeItem('startTime');
+
+                clearInterval(interval);
+            } else {
+                // Update the timer display
+                displayTimeRemaining(remainingTimeInSeconds);
+            }
+            displayTimeRemaining(remainingTimeInSeconds);
+
+            return remainingTimeInSeconds;
+        }
 
         var barcode = "";
         var rep2 = "";
@@ -306,35 +336,35 @@
                     dataType: 'json',
                     success: function(data) {
                         // store to database
-                        // $.ajax({
-                        //     type: 'get',
-                        //     url: "{{ url('production/store/') }}",
-                        //     _token: "{{ csrf_token() }}",
-                        //     data: {
-                        //         partNumber: internal,
-                        //         seri: seri
-                        //     },
-                        //     dataType: 'json',
-                        //     success: function(data) {
-                        //         if (data.status == 'success') {
-                        //             console.log(data);
-                        //         } else {
-                        //             notif("error", data.message);
-                        //             let interval = setInterval(function() {
-                        //                 $('#notifModal').modal('hide');
-                        //                 clearInterval(interval);
-                        //                 $('#code').focus();
-                        //             }, 1500);
-                        //         }
-                        //     },
-                        //     error: function(xhr) {
-                        //         if (xhr.status == 0) {
-                        //             notif("error", 'Connection Error');
-                        //             return;
-                        //         }
-                        //         notif("error", 'Internal Server Error');
-                        //     }
-                        // });
+                        $.ajax({
+                            type: 'get',
+                            url: "{{ url('production/store/') }}",
+                            _token: "{{ csrf_token() }}",
+                            data: {
+                                partNumber: internal,
+                                seri: seri
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                if (data.status == 'success') {
+                                    console.log(data);
+                                } else {
+                                    notif("error", data.message);
+                                    let interval = setInterval(function() {
+                                        $('#notifModal').modal('hide');
+                                        clearInterval(interval);
+                                        $('#code').focus();
+                                    }, 1500);
+                                }
+                            },
+                            error: function(xhr) {
+                                if (xhr.status == 0) {
+                                    notif("error", 'Connection Error');
+                                    return;
+                                }
+                                notif("error", 'Internal Server Error');
+                            }
+                        });
 
                         // store part number information in local storage
                         if (data.status == 'success') {
