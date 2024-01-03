@@ -112,7 +112,7 @@
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
-    <audio id="already-scan-sound">
+    <audio id="forget-sound">
         <source src={{ asset('assets/sounds/forget.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
@@ -124,6 +124,20 @@
     var timerActive = false;
     var endTime; // Time when the timer is supposed to end
 
+    function notMatchSound() {
+        var sound = document.getElementById("not-match-sound");
+        sound.play();
+    }
+
+    function alreadyScanSound() {
+        var sound = document.getElementById("already-scan-sound");
+        sound.play();
+    }
+
+    function forgetSound() {
+        var sound = document.getElementById("forget-sound");
+        sound.play();
+    }
 
     function initApp() {
         let model = localStorage.getItem('model');
@@ -254,6 +268,9 @@
                 localStorage.removeItem('timerEndTime'); // Clear the stored end time
                 localStorage.setItem('error', 'true');
                 notif('error', 'Jangan lupa scan kanban!');
+
+                // notification sound
+                forgetSound();
 
                 setTimeout(() => {
                     window.location.reload();
@@ -452,6 +469,10 @@
                                     resetAndStartTimer();
                                 } else {
                                     notif("error", data.message);
+
+                                    // notification sound
+                                    alreadyScanSound();
+
                                     let interval = setInterval(function() {
                                         $('#notifModal').modal(
                                             'hide');
@@ -479,6 +500,9 @@
                         });
                     } else {
                         notif('error', 'Kanban tidak sesuai!');
+
+                        // notification sound
+                        notMatchSound();
 
                         // display status
                         $('.status-card-header').removeClass('card-secondary');
