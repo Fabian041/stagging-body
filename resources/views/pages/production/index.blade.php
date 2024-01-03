@@ -82,10 +82,48 @@
         </div>
     </div>
     {{-- end of modal --}}
+
+    {{-- confirmation modal --}}
+    <div class="modal fade" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1"
+        data-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                </div>
+                <div class="modal-body">
+                    <h5 class="text-center"><b>JP or Leader Confirmation</b></h5>
+                    <p class="text-center" style="color: red">*hubungi JP atau Leader</p><br>
+                    <input type="text" class="form-control" id="input-confirmation" placeholder="scan barcode..."
+                        autocomplete="off" autofocus>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- end of modal --}}
+
+    <audio id="not-match-sound">
+        <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+
+    <audio id="already-scan-sound">
+        <source src={{ asset('assets/sounds/already-scan.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+
+    <audio id="already-scan-sound">
+        <source src={{ asset('assets/sounds/forget.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
     let line = '';
+    var timerId;
+    var timerActive = false;
+    var endTime; // Time when the timer is supposed to end
+
 
     function initApp() {
         let model = localStorage.getItem('model');
@@ -125,6 +163,17 @@
             $('#total-part').text(totalPart)
         }
 
+        if (localStorage.getItem('error')) {
+            $('#modalConfirmation').on('shown.bs.modal', function() {
+                $('#input-confirmation').focus();
+            })
+            $('#modalConfirmation').modal('show');
+
+            $(document).on('click', function() {
+                $('#input-confirmation').focus();
+            })
+        }
+
         $('#code').focus();
     }
 
@@ -138,7 +187,7 @@
             setTimeout(() => {
                 $('#notifModal').modal('hide');
                 $('#code').focus();
-            }, 1000);
+            }, 3000);
         } else {
             textNotif.text(text);
             $('#divNotif').css("background-color", "#32a852");
@@ -146,7 +195,7 @@
             setTimeout(() => {
                 $('#notifModal').modal('hide');
                 $('#code').focus();
-            }, 1000);
+            }, 3000);
         }
     }
 
@@ -178,13 +227,110 @@
         }
     }
 
+    function startTimer() {
+        if (timerActive) {
+            return; // Exit if the timer is already running
+        }
+
+        var currentTime = new Date().getTime();
+        var storedEndTime = localStorage.getItem('timerEndTime');
+
+        if (storedEndTime) {
+            endTime = parseInt(storedEndTime, 10);
+        } else {
+            // Set new end time (60 seconds from now)
+            endTime = currentTime + 70000;
+            localStorage.setItem('timerEndTime', endTime);
+        }
+
+        timerActive = true;
+
+        timerId = setInterval(function() {
+            var timeLeft = endTime - new Date().getTime();
+
+            if (timeLeft <= 0) {
+                clearInterval(timerId);
+                timerActive = false;
+                localStorage.removeItem('timerEndTime'); // Clear the stored end time
+                localStorage.setItem('error', 'true');
+                notif('error', 'Jangan lupa scan kanban!');
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        }, 1000);
+    }
+
+    function pauseTimer() {
+        clearInterval(timerId);
+        timerActive = false;
+        localStorage.removeItem('timerEndTime');
+    }
+
+    function resetAndStartTimer() {
+        pauseTimer();
+        localStorage.removeItem('timerEndTime'); // Clear any existing end time
+        startTimer(); // Start a new timer
+    }
+
+    function confirmationModal() {
+        let status = localStorage.getItem('error');
+        $('#input-confirmation').val('');
+        setTimeout(() => {
+            if (status) {
+                $('#modalConfirmation').on('shown.bs.modal', function() {
+                    setTimeout(() => {
+                        $('#input-confirmation').focus();
+                    }, 300);
+                })
+                $('#modalConfirmation').modal('show');
+            }
+        }, 1500);
+    }
+
     $(document).ready(function() {
         initApp();
 
-        const countdownTimeInSeconds = 60 // 1 minutes
         $(document).on('click', function() {
             $('#code').focus();
         })
+
+        $('#input-confirmation').keypress(function(e) {
+            e.preventDefault();
+            let code = (e.keyCode ? e.keyCode : e.which);
+            if (code == 13) {
+                barcodecomplete = barcode;
+                barcode = "";
+
+                if (barcodecomplete.length === 6) {
+                    if (barcodecomplete == '000448' || barcodecomplete == '002484'
+                        barcodecomplete == '000040' || barcodecomplete == '000504') {
+                        localStorage.removeItem('error');
+                        $('#modalConfirmation').modal('hide');
+                        notif('success', 'Selamat melanjutkan!');
+
+                        setInterval(() => {
+                            $('#code').focus();
+                        }, 1000);
+                    } else {
+                        $('#modalConfirmation').modal('hide');
+                        notif('error', `NPK ${barcodecomplete} tidak memiliki hak akses`);
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                } else {
+                    $('#modalConfirmation').modal('hide');
+                    notif('error', 'Scan barcode NPK');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
+            } else {
+                barcode = barcode + String.fromCharCode(e.which);
+            }
+        });
 
         $('#release').on('click', function() {
             $('#code').focus();
@@ -192,30 +338,10 @@
             window.location.reload();
         });
 
-        function updateTimer() {
-            const currentTime = Math.floor(Date.now() / 1000);
-            const startTime = parseInt(localStorage.getItem('startTime'));
-
-            if (!startTime || isNaN(startTime)) {
-                localStorage.setItem('startTime', currentTime);
-            }
-
-            const elapsedTimeInSeconds = currentTime - startTime;
-            const remainingTimeInSeconds = Math.max(countdownTimeInSeconds - elapsedTimeInSeconds, 0);
-
-            if (remainingTimeInSeconds === 0) {
-                // Countdown has ended, take action here
-                localStorage.removeItem('startTime');
-
-                clearInterval(interval);
-            } else {
-                // Update the timer display
-                displayTimeRemaining(remainingTimeInSeconds);
-            }
-            displayTimeRemaining(remainingTimeInSeconds);
-
-            return remainingTimeInSeconds;
-        }
+        $('#pause').on('click', function() {
+            pauseTimer();
+            notif('success', 'Timer telah berhenti!');
+        });
 
         var barcode = "";
         var rep2 = "";
@@ -225,6 +351,7 @@
         $('#code').keypress(function(e) {
             e.preventDefault();
             var code = (e.keyCode ? e.keyCode : e.which);
+            let proceedWithAjax = true; // Flag to control AJAX execution
             if (code == 13) // Enter key hit 
             {
                 barcodecomplete = barcode;
@@ -267,49 +394,89 @@
 
                 // check if model is set in local storage
                 if (localStorage.getItem('model')) {
-
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === backNum) {
                         // get current counter value
-                        scanCounter = localStorage.getItem('scan_counter');
-                        scanCounter = parseInt(scanCounter);
-                        scanCounter++;
-                        localStorage.setItem('scan_counter', scanCounter);
+                        $.ajax({
+                            type: 'get',
+                            url: "{{ url('production/store/') }}",
+                            _token: "{{ csrf_token() }}",
+                            data: {
+                                partNumber: internal,
+                                seri: seri
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                if (data.status == 'success') {
+                                    scanCounter = localStorage.getItem('scan_counter');
+                                    scanCounter = parseInt(scanCounter);
+                                    scanCounter++;
+                                    localStorage.setItem('scan_counter', scanCounter);
 
-                        partCounter = localStorage.getItem('part_counter');
-                        partCounter = parseInt(partCounter);
-                        partCounter += parseInt(pcs);
-                        localStorage.setItem('part_counter', partCounter);
+                                    partCounter = localStorage.getItem('part_counter');
+                                    partCounter = parseInt(partCounter);
+                                    partCounter += parseInt(pcs);
+                                    localStorage.setItem('part_counter', partCounter);
 
-                        // display total scan
-                        $('.total-scan-card-header').removeClass('card-secondary');
-                        $('.total-scan-card-header').addClass('card-success');
+                                    // display total scan
+                                    $('.total-scan-card-header').removeClass(
+                                        'card-secondary');
+                                    $('.total-scan-card-header').addClass('card-success');
 
-                        $('.total-scan-card').removeClass('bg-secondary');
-                        $('.total-scan-card').addClass('bg-success');
+                                    $('.total-scan-card').removeClass('bg-secondary');
+                                    $('.total-scan-card').addClass('bg-success');
 
-                        // display total part
-                        $('.total-part-card-header').removeClass('card-secondary');
-                        $('.total-part-card-header').addClass('card-success');
+                                    // display total part
+                                    $('.total-part-card-header').removeClass(
+                                        'card-secondary');
+                                    $('.total-part-card-header').addClass('card-success');
 
-                        $('.total-part-card').removeClass('bg-secondary');
-                        $('.total-part-card').addClass('bg-success');
+                                    $('.total-part-card').removeClass('bg-secondary');
+                                    $('.total-part-card').addClass('bg-success');
 
-                        // display status
-                        $('.status-card-header').removeClass('card-secondary');
-                        $('.status-card-header').removeClass('card-danger');
-                        $('.status-card-header').addClass('card-success');
+                                    // display status
+                                    $('.status-card-header').removeClass('card-secondary');
+                                    $('.status-card-header').removeClass('card-danger');
+                                    $('.status-card-header').addClass('card-success');
 
-                        $('.status-card').removeClass('bg-secondary');
-                        $('.status-card').removeClass('bg-danger');
-                        $('.status-card').addClass('bg-success');
+                                    $('.status-card').removeClass('bg-secondary');
+                                    $('.status-card').removeClass('bg-danger');
+                                    $('.status-card').addClass('bg-success');
 
-                        // set display
-                        $('#total-scan').text(scanCounter)
-                        $('#total-part').text(partCounter)
-                        $('#status').text('OK')
+                                    // set display
+                                    $('#total-scan').text(scanCounter)
+                                    $('#total-part').text(partCounter)
+                                    $('#status').text('OK');
 
-                        return;
+                                    // start new timer
+                                    resetAndStartTimer();
+                                } else {
+                                    notif("error", data.message);
+                                    let interval = setInterval(function() {
+                                        $('#notifModal').modal(
+                                            'hide');
+                                        clearInterval(interval);
+                                        $('#code').focus();
+                                    }, 1500);
+
+                                    localStorage.setItem('error', 'true');
+
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1500);
+                                }
+                                proceedWithAjax = false; // Do not proceed with AJAX
+                                return;
+                            },
+                            error: function(xhr) {
+                                if (xhr.status == 0) {
+                                    notif("error", 'Connection Error');
+                                    return;
+                                }
+                                notif("error", 'Internal Server Error');
+                                return;
+                            }
+                        });
                     } else {
                         notif('error', 'Kanban tidak sesuai!');
 
@@ -322,103 +489,100 @@
                         $('.status-card').removeClass('bg-success');
                         $('.status-card').addClass('bg-danger');
 
-                        $('#status').text('NG')
+                        $('#status').text('NG');
 
+                        localStorage.setItem('error', 'true');
+
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        proceedWithAjax = false; // Do not proceed with AJAX
                         return;
                     }
+                    proceedWithAjax = false; // Do not proceed with AJAX
+                    return;
                 }
 
                 // check if part number exist in database
-                $.ajax({
-                    type: 'GET',
-                    url: "{{ url('pulling/internal-check') }}" + '/' + internal,
-                    _token: "{{ csrf_token() }}",
-                    dataType: 'json',
-                    success: function(data) {
-                        // store to database
-                        $.ajax({
-                            type: 'get',
-                            url: "{{ url('production/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                partNumber: internal,
-                                seri: seri
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                if (data.status == 'success') {
-                                    console.log(data);
-                                } else {
-                                    notif("error", data.message);
-                                    let interval = setInterval(function() {
-                                        $('#notifModal').modal('hide');
-                                        clearInterval(interval);
-                                        $('#code').focus();
-                                    }, 1500);
-                                }
-                            },
-                            error: function(xhr) {
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    return;
-                                }
-                                notif("error", 'Internal Server Error');
+                if (proceedWithAjax) {
+                    $.ajax({
+                        type: 'GET',
+                        url: "{{ url('pulling/internal-check') }}" + '/' + internal,
+                        _token: "{{ csrf_token() }}",
+                        dataType: 'json',
+                        success: function(dataPart) {
+                            // store part number information in local storage
+                            if (dataPart.status == 'success') {
+                                // store to database
+                                localStorage.setItem('model', dataPart
+                                    .backNumber);
+                                localStorage.setItem('scan_counter', 0);
+                                localStorage.setItem('part_counter', 0);
+                                localStorage.setItem('photo', dataPart
+                                    .photo);
+
+                                // display model  running
+                                $('.model-card-header').removeClass(
+                                    'card-secondary');
+                                $('.model-card-header').addClass(
+                                    'card-info');
+
+                                $('.model-card').removeClass(
+                                    'bg-secondary');
+                                $('.model-card').addClass('bg-info');
+
+                                // display total scan
+                                $('.total-scan-card-header')
+                                    .removeClass('card-secondary');
+                                $('.total-scan-card-header').addClass(
+                                    'card-success');
+
+                                $('.total-scan-card').removeClass(
+                                    'bg-secondary');
+                                $('.total-scan-card').addClass(
+                                    'bg-success');
+
+                                // display total part
+                                $('.total-part-card-header')
+                                    .removeClass('card-secondary');
+                                $('.total-part-card-header').addClass(
+                                    'card-success');
+
+                                $('.total-part-card').removeClass(
+                                    'bg-secondary');
+                                $('.total-part-card').addClass(
+                                    'bg-success');
+
+                                $('#model').text(dataPart.backNumber)
+                                $('#total-scan').text(scanCounter)
+                                $('#total-part').text(partCounter)
+
+                                // display PIS
+                                $('#pis').html(
+                                    `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
+                                );
+
+                                // start new timer
+                                resetAndStartTimer();
+
+                            } else {
+                                notif('error', data.message);
                             }
-                        });
-
-                        // store part number information in local storage
-                        if (data.status == 'success') {
-                            localStorage.setItem('model', data.backNumber);
-                            localStorage.setItem('scan_counter', 0);
-                            localStorage.setItem('part_counter', 0);
-                            localStorage.setItem('photo', data.photo);
-
-                            // display model  running
-                            $('.model-card-header').removeClass('card-secondary');
-                            $('.model-card-header').addClass('card-info');
-
-                            $('.model-card').removeClass('bg-secondary');
-                            $('.model-card').addClass('bg-info');
-
-                            // display total scan
-                            $('.total-scan-card-header').removeClass('card-secondary');
-                            $('.total-scan-card-header').addClass('card-success');
-
-                            $('.total-scan-card').removeClass('bg-secondary');
-                            $('.total-scan-card').addClass('bg-success');
-
-                            // display total part
-                            $('.total-part-card-header').removeClass('card-secondary');
-                            $('.total-part-card-header').addClass('card-success');
-
-                            $('.total-part-card').removeClass('bg-secondary');
-                            $('.total-part-card').addClass('bg-success');
-
-                            $('#model').text(data.backNumber)
-                            $('#total-scan').text(scanCounter)
-                            $('#total-part').text(partCounter)
-
-                            // display PIS
-                            $('#pis').html(`
-                                <img src="{{ asset('assets/img/pis/${data.photo}') }}" alt="PIS" class="rounded" height="700">
-                            `);
-                        } else {
-                            notif('error', data.message);
+                        },
+                        error: function(xhr) {
+                            console.log(xhr)
+                            if (xhr.status == 0) {
+                                notif("error", 'Connection Error');
+                                return;
+                            }
+                            notif("error", xhr.responseJSON.errors);
                         }
-                    },
-                    error: function(xhr) {
-                        console.log(xhr)
-                        if (xhr.status == 0) {
-                            notif("error", 'Connection Error');
-                            return;
-                        }
-                        notif("error", xhr.responseJSON.errors);
-                    }
-                })
-
+                    })
+                }
             } else {
                 barcode = barcode + String.fromCharCode(e.which);
             }
+
         });
     });
 </script>

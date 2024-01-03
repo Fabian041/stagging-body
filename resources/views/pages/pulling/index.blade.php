@@ -1175,7 +1175,9 @@
 
                 // check solve status
                 // show modal for leader or JP confirmation
-                confirmationModal();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
                 return;
             }
 
