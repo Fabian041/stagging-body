@@ -466,7 +466,7 @@
                                     $('#status').text('OK');
 
                                     // start new timer
-                                    resetAndStartTimer();
+                                    // resetAndStartTimer();
                                 } else {
                                     notif("error", data.message);
 
@@ -587,7 +587,7 @@
                                 );
 
                                 // start new timer
-                                resetAndStartTimer();
+                                // resetAndStartTimer();
 
                             } else {
                                 notif('error', data.message);
