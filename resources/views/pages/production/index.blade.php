@@ -321,8 +321,8 @@
                 barcode = "";
 
                 if (barcodecomplete.length === 6) {
-                    if (barcodecomplete == '000448' || barcodecomplete == '002484'
-                        barcodecomplete == '000040' || barcodecomplete == '000504') {
+                    if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
+                        '000040' || barcodecomplete == '000504') {
                         localStorage.removeItem('error');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan!');
