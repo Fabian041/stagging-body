@@ -1088,7 +1088,7 @@
                                             success: function(data) {
                                                 console.log(data);
                                                 localStorage.clear();
-                                                window.location.reload();
+                                                // window.location.reload();
                                             },
                                             error: function(xhr) {
                                                 notif('error', xhr
