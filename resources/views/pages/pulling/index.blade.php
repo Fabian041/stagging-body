@@ -1005,6 +1005,8 @@
                     }
                 }
 
+                console.log(token);
+
                 // when transaction complete
                 transaction.oncomplete = function() {
                     if (flag) {
@@ -1020,85 +1022,11 @@
                             dataType: 'json',
                             success: function(data) {
                                 console.log(data);
-                                const deleteRequest = indexedDB.deleteDatabase(pds);
-
-                                deleteRequest.onsuccess = function() {
-                                    notif('success', 'Pulling berhasil!');
-                                    finishPullingSound();
-                                };
-
-                                deleteRequest.onerror = function(event) {
-                                    notif('error: ', event);
-                                };
                             },
                             error: function(xhr) {
                                 notif('error', xhr.statusText);
                             }
                         });
-
-                        let ll = [];
-                        let data = [];
-
-                        // initialize database
-                        request = window.indexedDB.open(pds);
-
-                        request.onsuccess = function(event) {
-                            const database = event.target.result;
-                            const transaction = database.transaction(["loadingList"],
-                                'readonly');
-                            const objectStore = transaction.objectStore("loadingList");
-
-                            objectStore.openCursor().onsuccess = function(event) {
-                                let cursor = event.target.result;
-                                if (cursor) {
-
-                                    // check each loading list
-                                    if (!ll.includes(cursor.value
-                                            .loading_list_number)) {
-                                        ll.push(cursor.value.loading_list_number);
-                                    }
-
-                                    cursor.continue();
-                                } else {
-                                    for (let index = 0; index < ll.length; index++) {
-                                        item = {
-                                            customer: localStorage.getItem(
-                                                'customer'),
-                                            loadingList: ll[index],
-                                            pdsNumber: localStorage.getItem(
-                                                'pdsNumber'),
-                                            cycle: localStorage.getItem('cycle'),
-                                        }
-                                        data.push(item)
-                                    }
-                                    for (let index = 0; index < data.length; index++) {
-                                        $.ajax({
-                                            type: 'GET',
-                                            url: "{{ route('pulling.store') }}",
-                                            _token: "{{ csrf_token() }}",
-                                            data: {
-                                                customer: data[index].customer,
-                                                loadingList: data[index]
-                                                    .loadingList,
-                                                pdsNumber: data[index]
-                                                    .pdsNumber,
-                                                cycle: data[index].cycle
-                                            },
-                                            dataType: 'json',
-                                            success: function(data) {
-                                                console.log(data);
-                                                localStorage.clear();
-                                                // window.location.reload();
-                                            },
-                                            error: function(xhr) {
-                                                notif('error', xhr
-                                                    .statusText);
-                                            }
-                                        });
-                                    }
-                                }
-                            }
-                        }
                     } else {
                         notif('error', 'loading list belum lengkap!');
                         uncompleteLlSound();
@@ -1110,7 +1038,7 @@
             }
 
             localStorage.clear();
-            // window.location.reload();
+            window.location.reload();
         });
 
         $('#hardReset').on('click', function() {
