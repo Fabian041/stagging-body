@@ -12,4 +12,14 @@ class Kanban extends Model
     protected $table = 'kanbans';
 
     protected $guarded = ['id'];
+
+    public function kanbanAfterPulling()
+    {
+        return $this->hasMany(KanbanAfterPulling::class, 'kanban_id');
+    }
+    
+    public function kanbanAfterProd()
+    {
+        return $this->hasMany(KanbanAfterProd::class, 'kanban_id');
+    }
 }

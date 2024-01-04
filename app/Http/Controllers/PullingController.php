@@ -9,6 +9,8 @@ use GuzzleHttp\Client;
 use App\Models\Pulling;
 use App\Models\Customer;
 use App\Models\Mutation;
+use Illuminate\Support\Str;
+use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
@@ -385,6 +387,9 @@ class PullingController extends Controller
         // get internal part number id
         $internalPart = InternalPart::select('id')->where('part_number', $internal)->first();
 
+        // (temporary)
+        $qty = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
+
         // check if kanban exist
         $kanban = Kanban::select('id')
                     ->where('internal_part_id', $internalPart->id)
@@ -398,20 +403,33 @@ class PullingController extends Controller
             DB::beginTransaction();
 
             // delete kanban id at kanban after prod table
-            KanbanAfterProd::where('kanban_id', $kanban->id)->update([
-                'kanban_id' => null
-            ]);
+            if($kanban){
+                KanbanAfterProd::where('kanban_id', $kanban->id)->update([
+                    'kanban_id' => null
+                ]);
+            }
 
             // create data at kanban after pulls table
             foreach ($kanbanAfterProd as $kanbanAfterProd){
                 KanbanAfterPulling::create([
-                    'kanban_id' => $kanban->id,
-                    'internal_part_id' => $internalPart->id,
+                    'kanban_id' => $kanbanAfterProd->kanban_id,
+                    'internal_part_id' => $kanbanAfterProd->internal_part_id,
                     'code' => $kanbanAfterProd->code,
                     'npk' => auth()->user()->npk,
                     'date' => Carbon::now()->format('Y-m-d')
                 ]);
             }
+
+            // (temporary)
+            // for ($i = 0; $i < $qty->qty_per_kanban; $i++){
+            //     KanbanAfterPulling::create([
+            //         'kanban_id' => $kanban->id,
+            //         'internal_part_id' => $internalPart->id,
+            //         'code' => Carbon::now()->format('Ymd') . Str::random(7),
+            //         'npk' => auth()->user()->npk,
+            //         'date' => Carbon::now()->format('Y-m-d')
+            //     ]);
+            // }
 
             return response()->json([
                 'status' => 'success',

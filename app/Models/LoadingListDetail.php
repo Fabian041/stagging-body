@@ -20,6 +20,6 @@ class LoadingListDetail extends Model
 
     public function customerPart()
     {
-        return $this->belongsTo(CustomerPart::class);
+        return $this->belongsTo(CustomerPart::class, 'customer_part_id');
     }
 }

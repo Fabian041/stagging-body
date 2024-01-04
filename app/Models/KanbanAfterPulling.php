@@ -12,4 +12,14 @@ class KanbanAfterPulling extends Model
     protected $table = 'kanban_after_pulls';
 
     protected $guarded = ['id'];
+
+    public function internalPart()
+    {
+        return $this->belongsTo(InternalPart::class, 'internal_part_id');
+    }
+
+    public function kanban()
+    {
+        return $this->belongsTo(Kanban::class, 'kanban_id');
+    }
 }

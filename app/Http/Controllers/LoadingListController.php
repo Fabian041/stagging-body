@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use Pusher\Pusher;
+use App\Models\Kanban;
 use App\Models\Customer;
 use App\Models\LoadingList;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use App\Models\LoadingListDetail;
+use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Yajra\DataTables\Facades\DataTables;
@@ -476,23 +478,75 @@ class LoadingListController extends Controller
 
     public function fetchLoadingList($pds)
     {
-        $total_kanban = 0;
-        $total_actual = 0;
-        
-        $data = LoadingList::join('loading_list_details', 'loading_list_details.loading_list_id', '=', 'loading_lists.id')
-                ->select('loading_list_details.kanban_qty', 'loading_list_details.actual_kanban_qty')
-                ->where('loading_lists.pds_number', $pds)
-                ->get();
+        // Fetch LoadingList models with their related models preloaded
+        $loadingLists = LoadingList::with([
+            'detail.customerPart.internalPart.kanbanAfterPulling' => function ($query) {
+                $query->latest();
+            },
+            'detail.customerPart.internalPart.kanbanAfterPulling.kanban'
+        ])
+        ->where('pds_number', $pds)
+        ->get();
 
-        foreach ($data as $datum){
-            $total_kanban += $datum->kanban_qty;
-            $total_actual += $datum->actual_kanban_qty;
+        // Initialize the results array and the total series variable
+        $groupedResults = [];
+        $totalSeries = 0;
+
+        // Iterate over each LoadingList
+        foreach ($loadingLists as $loadingList) {
+            // Check if the 'detail' relationship has loaded items
+            if ($loadingList->detail && $loadingList->detail->count() > 0) {
+                // Iterate over each LoadingListDetail
+                foreach ($loadingList->detail as $detail) {
+                    // Fetch the related KanbanAfterPulling and Kanban details if available
+                    $kanbanAfterPullings = $detail->customerPart->internalPart->kanbanAfterPulling;
+
+                    // Define the maximum number of serial numbers allowed
+                    $maxSerialNumbers = $detail->kanban_qty;
+
+                    // Group results by customer part ID
+                    $customerPartId = $detail->customerPart->part_number;
+
+                    // Initialize the group if it doesn't exist
+                    if (!isset($groupedResults[$customerPartId])) {
+                        $groupedResults[$customerPartId] = [
+                            'customer_part_id' => $customerPartId,
+                            'serial_number' => []
+                        ];
+                    }
+
+                    // Collect all serial numbers
+                    foreach ($kanbanAfterPullings as $kanbanAfterPulling) {
+                        $kanban = optional($kanbanAfterPulling)->kanban;
+                        if ($kanban && $kanban->serial_number) {
+                            $groupedResults[$customerPartId]['serial_number'][] = $kanban->serial_number;
+                        }
+                    }
+
+                    // Remove duplicates and slice to the maximum number allowed
+                    $uniqueSerials = collect($groupedResults[$customerPartId]['serial_number'])
+                        ->unique()
+                        ->slice(0, $maxSerialNumbers)
+                        ->values()
+                        ->all();
+
+                    // Update the grouped results with unique and limited serial numbers
+                    $groupedResults[$customerPartId]['serial_number'] = $uniqueSerials;
+
+                    // Update the total series count
+                    $totalSeries += count($uniqueSerials);
+                }
+            }
         }
+
+        // Convert the results to a simple array
+        $results = array_values($groupedResults);
 
         return response()->json([
             'status' => 'success',
-            'kanban_qty' => $total_kanban,
-            'actual_kanban_qty' => $total_actual
+            'data' => $results,
+            'total_series' => $totalSeries // Return the total series count in the response
         ]);
     }
+
 }
