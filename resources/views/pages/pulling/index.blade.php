@@ -1000,12 +1000,9 @@
                         } else {
                             loadingList[loadingListNumber] = items;
                         }
-
                         cursor.continue();
                     }
                 }
-
-                console.log(token);
 
                 // when transaction complete
                 transaction.oncomplete = function() {
@@ -1038,7 +1035,7 @@
             }
 
             localStorage.clear();
-            // window.location.reload();
+            window.location.reload();
         });
 
         $('#hardReset').on('click', function() {
