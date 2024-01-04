@@ -1038,7 +1038,7 @@
             }
 
             localStorage.clear();
-            window.location.reload();
+            // window.location.reload();
         });
 
         $('#hardReset').on('click', function() {
