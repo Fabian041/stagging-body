@@ -319,6 +319,8 @@ class PullingController extends Controller
             $data[count($data) - 1]->items = (object) $result;
             $result = [];
         }
+
+        dd($result);
         // initialize new client
         $client = new Client([
             'verify' => false, // Temporarily disabling SSL verification
