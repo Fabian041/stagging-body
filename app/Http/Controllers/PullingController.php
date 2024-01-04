@@ -317,7 +317,7 @@ class PullingController extends Controller
                 }
             }
             $data[count($data) - 1]->items = (object) $result;
-            // $result = [];
+            $result = [];
         }
 
         // initialize new client
