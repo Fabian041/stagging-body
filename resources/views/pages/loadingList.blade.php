@@ -78,10 +78,9 @@
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script>
     $(document).ready(function() {
-        var table = $('#loadingList').DataTable({
+        let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
-            serverSide: false,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',

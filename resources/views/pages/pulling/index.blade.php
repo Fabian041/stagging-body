@@ -966,73 +966,73 @@
         }
 
         $('#delay').on('click', function() {
-            let loadingList = getLoadingListNumber();
-            let pds = localStorage.getItem('pds_local');
-            let formData = new FormData();
-            request = window.indexedDB.open(pds);
+            // let loadingList = getLoadingListNumber();
+            // let pds = localStorage.getItem('pds_local');
+            // let formData = new FormData();
+            // request = window.indexedDB.open(pds);
 
-            // transaction
-            request.onsuccess = function(event) {
-                const database = event.target.result;
-                const transaction = database.transaction(["loadingList"], 'readonly');
-                const objectStore = transaction.objectStore("loadingList");
-                let loadingList = {};
-                let flag = true;
+            // // transaction
+            // request.onsuccess = function(event) {
+            //     const database = event.target.result;
+            //     const transaction = database.transaction(["loadingList"], 'readonly');
+            //     const objectStore = transaction.objectStore("loadingList");
+            //     let loadingList = {};
+            //     let flag = true;
 
-                objectStore.openCursor().onsuccess = function(event) {
-                    let cursor = event.target.result;
-                    if (cursor) {
-                        const record = cursor.value;
-                        let items = [];
-                        for (let i = 0; i < record.seri.length; i++) {
-                            let item = {
-                                part_number_internal: record.internal,
-                                part_number_customer: record.customer,
-                                serial_number: record.seri[i]
-                            };
-                            items.push(item);
-                        }
+            //     objectStore.openCursor().onsuccess = function(event) {
+            //         let cursor = event.target.result;
+            //         if (cursor) {
+            //             const record = cursor.value;
+            //             let items = [];
+            //             for (let i = 0; i < record.seri.length; i++) {
+            //                 let item = {
+            //                     part_number_internal: record.internal,
+            //                     part_number_customer: record.customer,
+            //                     serial_number: record.seri[i]
+            //                 };
+            //                 items.push(item);
+            //             }
 
-                        // store in loading list array
-                        const loadingListNumber = record.loading_list_number;
-                        if (loadingList.hasOwnProperty(loadingListNumber)) {
-                            loadingList[loadingListNumber].push(...items);
-                        } else {
-                            loadingList[loadingListNumber] = items;
-                        }
-                        cursor.continue();
-                    }
-                }
+            //             // store in loading list array
+            //             const loadingListNumber = record.loading_list_number;
+            //             if (loadingList.hasOwnProperty(loadingListNumber)) {
+            //                 loadingList[loadingListNumber].push(...items);
+            //             } else {
+            //                 loadingList[loadingListNumber] = items;
+            //             }
+            //             cursor.continue();
+            //         }
+            //     }
 
-                // when transaction complete
-                transaction.oncomplete = function() {
-                    if (flag) {
-                        // send loading list data to backend
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ route('pulling.post') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                loadingList: loadingList,
-                                token: token
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                console.log(data);
-                            },
-                            error: function(xhr) {
-                                notif('error', xhr.statusText);
-                            }
-                        });
-                    } else {
-                        notif('error', 'loading list belum lengkap!');
-                        uncompleteLlSound();
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
-                    }
-                }
-            }
+            //     // when transaction complete
+            //     transaction.oncomplete = function() {
+            //         if (flag) {
+            //             // send loading list data to backend
+            //             $.ajax({
+            //                 type: 'GET',
+            //                 url: "{{ route('pulling.post') }}",
+            //                 _token: "{{ csrf_token() }}",
+            //                 data: {
+            //                     loadingList: loadingList,
+            //                     token: token
+            //                 },
+            //                 dataType: 'json',
+            //                 success: function(data) {
+            //                     console.log(data);
+            //                 },
+            //                 error: function(xhr) {
+            //                     notif('error', xhr.statusText);
+            //                 }
+            //             });
+            //         } else {
+            //             notif('error', 'loading list belum lengkap!');
+            //             uncompleteLlSound();
+            //             setInterval(() => {
+            //                 $('#code').focus();
+            //             }, 1000);
+            //         }
+            //     }
+            // }
 
             localStorage.clear();
             window.location.reload();
@@ -1099,7 +1099,6 @@
                 // when transaction complete
                 transaction.oncomplete = function() {
                     if (flag) {
-
                         // send loading list data to backend
                         $.ajax({
                             type: 'GET',
