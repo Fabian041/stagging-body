@@ -3,10 +3,12 @@
 @section('main')
     <section class="section">
         <div class="container mt-5">
+            <div class="text-center mb-4">
+                <img src="{{ asset('assets/img/bella.png') }}" alt="Bella" class="img-fluid"
+                    style="max-width: 200px; margin: auto">
+            </div>
             <div class="row">
                 <div class="col-12 col-sm-8 offset-sm-2 col-md-6 offset-md-3 col-lg-6 offset-lg-3 col-xl-4 offset-xl-4">
-                    <h3 class="text-dark text-center mb-3 mt-5">BODY</h3>
-
                     <div class="card card-primary">
                         <div class="card-header">
                             <h4>Login</h4>

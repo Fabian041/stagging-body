@@ -1,12 +1,12 @@
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
         <div class="sidebar-brand">
-            <a href="#">BELLA</a>
+            <img src="{{ asset('assets/img/bella.png') }}" alt="Bella" class="img-fluid mt-3" style="max-width: 100px;">
         </div>
         <div class="sidebar-brand sidebar-brand-sm">
-            <a href="index.html">B</a>
+            <img src="{{ asset('assets/img/bella.png') }}" alt="Bella" class="img-fluid mt-3" style="max-width: 50px;">
         </div>
-        <ul class="sidebar-menu">
+        <ul class="sidebar-menu mt-2">
             <li class="menu-header">Dashboard</li>
             <li class="{{ request()->is('dashboard') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('dashboard.index') }}">

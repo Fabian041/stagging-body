@@ -440,22 +440,31 @@ class LoadingListController extends Controller
         }
 
         // get current actual kanban qty
-        $currentQty = LoadingListDetail::select('actual_kanban_qty','loading_list_id')
+        $currentQty = LoadingListDetail::select('kanban_qty','actual_kanban_qty','loading_list_id')
                         ->where('loading_list_id', $loadingListId->id)
                         ->where('customer_part_id', $customerPartId->id)
                         ->first();
                         
-        $currentQty = (int) $currentQty->actual_kanban_qty;
+        $actualQty = (int) $currentQty->actual_kanban_qty;
+        $targetQty = (int) $currentQty->kanban_qty;
 
         try {
             DB::beginTransaction();
 
-            // update actual kanban quantity or scanned kanban quantity
-            LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                            ->where('customer_part_id', $customerPartId->id)
-                            ->update([
-                                'actual_kanban_qty' => $currentQty + 1
-                            ]);
+            // check if actual is below target qty
+            if($actualQty < $targetQty) {
+                // update actual kanban quantity or scanned kanban quantity
+                LoadingListDetail::where('loading_list_id', $loadingListId->id)
+                                ->where('customer_part_id', $customerPartId->id)
+                                ->update([
+                                    'actual_kanban_qty' => $actualQty + 1
+                                ]);
+            }else{
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'kanban sudah penuh',
+                ],500);
+            }
 
             // push to websocket
             // $this->pushData(true);
@@ -472,7 +481,7 @@ class LoadingListController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $currentQty
+            'data' => $actualQty
         ],200);
     }
 

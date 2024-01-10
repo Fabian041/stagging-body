@@ -704,15 +704,15 @@
                             //     return;
                             // }
 
-                            // if (!data.data.items[0].hasOwnProperty(
-                            //         'total_kanban_qty')) {
-                            //     notif('error',
-                            //         'Loading list sudah pernah dipulling'
-                            //     );
-                            //     loadingListModal();
-                            //     alreadyPulledSound();
-                            //     return;
-                            // }
+                            if (!data.data.items[0].hasOwnProperty(
+                                    'total_kanban_qty')) {
+                                notif('error',
+                                    'Loading list sudah pernah dipulling'
+                                );
+                                loadingListModal();
+                                alreadyPulledSound();
+                                return;
+                            }
 
                             // check if loading list have same manifest code (pds number)
                             if (localStorage.getItem('pdsNumber')) {
@@ -910,9 +910,6 @@
             if (code == 13) {
                 barcodecomplete = barcode;
                 barcode = "";
-                console.log(barcodecomplete);
-                console.log(barcodecomplete.length);
-
                 if (barcodecomplete.length === 6) {
                     if (barcodecomplete == '000453' || barcodecomplete == '002484') {
                         localStorage.removeItem('status');
@@ -1110,7 +1107,6 @@
                             },
                             dataType: 'json',
                             success: function(data) {
-                                console.log(data);
                                 const deleteRequest = indexedDB.deleteDatabase(pds);
 
                                 deleteRequest.onsuccess = function() {
@@ -1177,7 +1173,6 @@
                                             },
                                             dataType: 'json',
                                             success: function(data) {
-                                                console.log(data);
                                                 localStorage.clear();
                                                 window.location.reload();
                                             },
@@ -1275,6 +1270,7 @@
                 }, 1000);
                 return;
             }
+
             // push kanban serial number to array seri
             arraySeri.push(seri);
 
@@ -1328,6 +1324,15 @@
                                             // reset customer local storage
                                             localStorage.removeItem('customerPart');
                                         } else if (data.status == 'notExists') {
+
+                                            arraySeri.pop();
+
+                                            // error indicator
+                                            $('#indicator').removeClass(
+                                                'bg-success');
+                                            $('#indicator').removeClass(
+                                                'bg-warning');
+                                            $('#indicator').addClass('bg-danger');
                                             notif('error', data.message);
 
                                             notExist();
@@ -1336,6 +1341,15 @@
                                                 $('#code').focus();
                                             }, 1000);
                                         } else {
+
+                                            arraySeri.pop();
+
+                                            // error indicator
+                                            $('#indicator').removeClass(
+                                                'bg-success');
+                                            $('#indicator').removeClass(
+                                                'bg-warning');
+                                            $('#indicator').addClass('bg-danger');
                                             notif('error', data.message);
 
                                             setInterval(() => {
@@ -1344,6 +1358,12 @@
                                         }
                                     },
                                     error: function(xhr) {
+                                        arraySeri.pop();
+
+                                        // error indicator
+                                        $('#indicator').removeClass('bg-success');
+                                        $('#indicator').removeClass('bg-warning');
+                                        $('#indicator').addClass('bg-danger');
                                         notif('error', xhr.getResponseText)
 
                                         setInterval(() => {
@@ -1352,12 +1372,24 @@
                                     }
                                 });
                             } else if (data.status == 'error') {
+                                arraySeri.pop();
+
+                                // error indicator
+                                $('#indicator').removeClass('bg-success');
+                                $('#indicator').removeClass('bg-warning');
+                                $('#indicator').addClass('bg-danger');
                                 notif('error', data.message);
 
                                 setInterval(() => {
                                     $('#code').focus();
                                 }, 1000);
                             } else if (data.status == 'notExists') {
+                                arraySeri.pop();
+
+                                // error indicator
+                                $('#indicator').removeClass('bg-success');
+                                $('#indicator').removeClass('bg-warning');
+                                $('#indicator').addClass('bg-danger');
                                 notif('error', data.message);
 
                                 notExist();
@@ -1368,7 +1400,12 @@
                             }
                         },
                         error: function(xhr) {
-                            console.log(xhr.responseText);
+                            arraySeri.pop();
+
+                            // error indicator
+                            $('#indicator').removeClass('bg-success');
+                            $('#indicator').removeClass('bg-warning');
+                            $('#indicator').addClass('bg-danger');
                             notif('error', xhr.getResponseHeader());
 
                             setInterval(() => {
@@ -1380,8 +1417,10 @@
                     // If an error occurs, remove the last 'seri' from the array
                     arraySeri.pop();
 
-                    // Handle the error as needed
-                    console.error("An error occurred:", error);
+                    // error indicator
+                    $('#indicator').removeClass('bg-success');
+                    $('#indicator').removeClass('bg-warning');
+                    $('#indicator').addClass('bg-danger');
 
                     // You can also show an error message or perform other actions here
                     notif('error', 'An error occurred. Please try again.');
@@ -1395,6 +1434,9 @@
 
             // error handling
             objectStore.put(cursor, primaryKey).onerror = function(event) {
+
+                arraySeri.pop();
+
                 // error indicator
                 $('#indicator').removeClass('bg-success');
                 $('#indicator').removeClass('bg-warning');
@@ -1729,7 +1771,6 @@
                         barcodecomplete = barcodecomplete.toUpperCase();
                     }
 
-                    console.log(barcodecomplete);
                     // initiate database
                     request = window.indexedDB.open(pds);
 
@@ -1778,7 +1819,6 @@
                                 }
                                 cursor.continue();
                             } else {
-                                console.log('iteration complete');
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
                                     notif('error', 'Kanban tidak dikenali / sesuai!');
@@ -1817,13 +1857,10 @@
                         return;
                     }
 
-                    console.log(barcodecomplete.length);
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
                         seri = barcodecomplete.substr(123, 4);
-
-                        console.log(internal, seri);
 
                         // check existence of kanban and check if it already scanned by prod
                         // checkKanban(seri, internal);
@@ -1851,8 +1888,6 @@
                         // check existence of kanban and check if it already scanned by prod
                         // checkKanban(seri, internal);
                     }
-
-                    console.log(internal);
 
                     // initialize databae connection
                     request = window.indexedDB.open(pds);
@@ -1899,8 +1934,6 @@
                                 }
                                 cursor.continue();
                             } else {
-                                console.log('iteration complete');
-
                                 if (!isAvailable) {
                                     // error indicator
                                     $('#indicator').removeClass('bg-success');
@@ -1970,7 +2003,6 @@
                                 }
                                 cursor.continue();
                             } else {
-                                console.log('iteration complete');
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
                                     notif('error', 'Kanban tidak sesuai!');
@@ -2055,7 +2087,6 @@
                                 }
                                 cursor.continue();
                             } else {
-                                console.log('iteration complete');
                                 // check if the kanban customer is available
                                 if (!isAvailable) {
                                     notif('error', 'Kanban tidak sesuai!');
