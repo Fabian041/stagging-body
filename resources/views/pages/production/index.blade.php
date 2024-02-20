@@ -374,7 +374,7 @@
             {
                 barcodecomplete = barcode;
                 barcode = "";
-
+                console.log(barcodecomplete.length);
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
@@ -382,28 +382,28 @@
                     seri = barcodecomplete.substr(123, 4);
                     backNum = barcodecomplete.substr(100, 4);
                     pcs = barcodecomplete.substr(196, 1);
-                    internal = internal.trimEnd();
+
                 } else if (barcodecomplete.length == 220) {
                     // kanban buffer
                     internal = barcodecomplete.substr(35, 12);
                     seri = barcodecomplete.substr(130, 4);
                     backNum = barcodecomplete.substr(100, 4);
                     pcs = barcodecomplete.substr(196, 1);
-                    internal = internal.trimEnd();
+
                 } else if (barcodecomplete.length == 241) {
                     // kanban passtrough
                     internal = barcodecomplete.substr(35, 12);
                     seri = barcodecomplete.substr(127, 4);
                     backNum = barcodecomplete.substr(100, 4);
                     pcs = barcodecomplete.substr(196, 1);
-                    internal = internal.trimEnd();
+
                 } else if (barcodecomplete.length == 218) {
                     // kanban suzuki
                     internal = barcodecomplete.substr(41, 16);
                     seri = barcodecomplete.substr(123, 4);
                     backNum = barcodecomplete.substr(100, 4);
                     pcs = barcodecomplete.substr(196, 1);
-                    internal = internal.trimEnd();
+
                 }
 
                 let scanCounter;
