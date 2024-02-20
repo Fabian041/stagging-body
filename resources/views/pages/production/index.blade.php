@@ -408,7 +408,7 @@
 
                 let scanCounter;
                 let partCounter;
-                internal = internal.trimEnd();
+                // internal = internal.trimEnd();
 
                 // check if model is set in local storage
                 if (localStorage.getItem('model')) {
