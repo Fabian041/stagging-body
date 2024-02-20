@@ -591,7 +591,7 @@
                                 // resetAndStartTimer();
 
                             } else {
-                                notif('error', data.message);
+                                notif('error', dataPart.message);
                             }
                         },
                         error: function(xhr) {
