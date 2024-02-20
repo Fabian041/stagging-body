@@ -364,10 +364,10 @@
         var rep2 = "";
         var code = $('#code');
         let total = 0;
-        var internal;
-        var backNum;
-        var seri;
-        var pcs;
+        let internal;
+        let backNum;
+        let seri;
+        let pcs;
 
         $('#code').keypress(function(e) {
             e.preventDefault();
