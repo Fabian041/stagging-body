@@ -365,6 +365,9 @@
         var code = $('#code');
         let total = 0;
         var internal;
+        var backNum;
+        var seri;
+        var pcs;
 
         $('#code').keypress(function(e) {
             e.preventDefault();
