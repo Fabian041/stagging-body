@@ -364,14 +364,14 @@
         var rep2 = "";
         var code = $('#code');
         let total = 0;
-        let internal;
-        let backNum;
-        let seri;
-        let pcs;
 
         $('#code').keypress(function(e) {
             e.preventDefault();
             var code = (e.keyCode ? e.keyCode : e.which);
+            let internal;
+            let backNum;
+            let seri;
+            let pcs;
             let proceedWithAjax = true; // Flag to control AJAX execution
             if (code == 13) // Enter key hit 
             {
