@@ -532,7 +532,7 @@
 
                         setTimeout(() => {
                             window.location.reload();
-                        }, 1500);
+                        }, 2000);
                         proceedWithAjax = false; // Do not proceed with AJAX
                         return;
                     }
