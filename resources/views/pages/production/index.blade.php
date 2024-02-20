@@ -470,6 +470,14 @@
                                     $('#total-part').text(partCounter)
                                     $('#status').text('OK');
 
+                                    setTimeout(() => {
+                                        $('.status-card').removeClass('bg-danger');
+                                        $('.status-card').removeClass('bg-success');
+                                        $('.status-card').addClass(
+                                            'bg-secondary');
+                                        $('#status').text('-');
+                                    }, 2000);
+
                                     // start new timer
                                     // resetAndStartTimer();
                                 } else {
