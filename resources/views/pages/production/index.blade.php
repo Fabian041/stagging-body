@@ -364,6 +364,7 @@
         var rep2 = "";
         var code = $('#code');
         let total = 0;
+        var internal;
 
         $('#code').keypress(function(e) {
             e.preventDefault();
