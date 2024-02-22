@@ -378,7 +378,6 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                alert(barcodecomplete.length);
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
@@ -410,7 +409,6 @@
 
                 }
 
-                console.log(backNum);
 
                 let scanCounter;
                 let partCounter;
