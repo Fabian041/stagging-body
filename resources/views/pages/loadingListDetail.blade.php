@@ -153,10 +153,14 @@
             // get customer part
             let customerPart = $(this).closest('tr').find('.customerPart').html();
 
+            // get customer part
+            let backNumber = $(this).closest('tr').find('.backNumber').html();
+
             // get edit value
             let newActual = $(this).closest('tr').find('.editActual').val();
 
-            fetch(`/loading-list/edit/${loadingList}/${customerPart}/${newActual}`, requestOptions)
+            fetch(`/loading-list/edit/${loadingList}/${customerPart}/${backNumber}/${newActual}`,
+                    requestOptions)
                 .then(response => response.json())
                 .then(data => {
                     if (data.status == 'success') {

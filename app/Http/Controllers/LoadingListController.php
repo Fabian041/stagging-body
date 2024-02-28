@@ -160,7 +160,9 @@ class LoadingListController extends Controller
                     return $loadingList->customerPart->internalPart->part_number;
                 })
                 ->addColumn('cust_backno', function ($loadingList) {
-                    return $loadingList->customerPart->back_number;
+                    $custBackPart = '<span class="backNumber">'. $loadingList->customerPart->back_number .'</span>';
+
+                    return $custBackPart;
                 })
                 ->addColumn('int_backno', function ($loadingList) {
                     return $loadingList->customerPart->internalPart->back_number;
@@ -188,16 +190,17 @@ class LoadingListController extends Controller
                     return $btn;
 
                 })
-                ->rawColumns(['cust_partno','actual_kbn_qty','edit'])
+                ->rawColumns(['cust_partno','cust_backno','actual_kbn_qty','edit'])
                 ->toJson();
     }
 
-    public function editLoadingListDetail($loadingList, $customerPart, $newActual)
+    public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
         // get customer part id
-        $customerPartId = CustomerPart::select('id')->where('part_number',$customerPart)->first();
-
-        dd($customerPart);
+        $customerPartId = CustomerPart::select('id')
+                            ->where('part_number',$customerPart)
+                            ->where('back_number',$backNumber)
+                            ->first();
 
         // get kanban qty
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
