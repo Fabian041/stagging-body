@@ -197,6 +197,8 @@ class LoadingListController extends Controller
         // get customer part id
         $customerPartId = CustomerPart::select('id')->where('part_number',$customerPart)->first();
 
+        dd($customerPart);
+
         // get kanban qty
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
                                         ->where('loading_list_id',$loadingList)
@@ -233,7 +235,6 @@ class LoadingListController extends Controller
             ],200);
         } catch (\Throwable $th) {
             DB::rollBack();
-            dd($th->getMessage());
 
             return response()->json([
                 'status' => 'error',
