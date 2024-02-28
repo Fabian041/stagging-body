@@ -233,6 +233,7 @@ class LoadingListController extends Controller
             ],200);
         } catch (\Throwable $th) {
             DB::rollBack();
+            dd($th->getMessage());
 
             return response()->json([
                 'status' => 'error',
