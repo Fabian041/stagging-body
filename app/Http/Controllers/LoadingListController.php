@@ -236,7 +236,7 @@ class LoadingListController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => $th,
+                'message' => $th->getMessage(),
             ],500);
         }
     }
