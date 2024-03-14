@@ -199,14 +199,14 @@ class LoadingListController extends Controller
         if($backNumber == 'null'){
             $backNumber = '';
         }
+
+        dd($backNumber);
         
         // get customer part id
         $customerPartId = CustomerPart::select('id')
                             ->where('part_number',$customerPart)
                             ->where('back_number',$backNumber)
                             ->first();
-
-                            dd($customerPartId);
 
         // get kanban qty
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
