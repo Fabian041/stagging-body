@@ -156,8 +156,6 @@
             // get customer part
             let backNumber = $(this).closest('tr').find('.backNumber').html();
 
-            console.log(backNumber);
-
             // get edit value
             let newActual = $(this).closest('tr').find('.editActual').val();
 
