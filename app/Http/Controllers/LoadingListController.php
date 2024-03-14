@@ -206,6 +206,8 @@ class LoadingListController extends Controller
                             ->where('back_number',$backNumber)
                             ->first();
 
+                            dd($customerPartId);
+
         // get kanban qty
         $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
                                         ->where('loading_list_id',$loadingList)
