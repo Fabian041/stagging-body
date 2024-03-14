@@ -200,7 +200,7 @@ class LoadingListController extends Controller
             $backNumber = '';
         }
 
-        dd($backNumber);
+        dd(CustomerPart::select('id','back_number')->where('part_number',$customerPart)->first());
         
         // get customer part id
         $customerPartId = CustomerPart::select('id')
