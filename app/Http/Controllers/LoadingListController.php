@@ -195,7 +195,13 @@ class LoadingListController extends Controller
     }
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
-    {   
+    {
+        if($backNumber == 'null'){
+            $backNumber = null;
+        }
+
+        dd(CustomerPart::select('id','back_number')->where('part_number',$customerPart)->first());
+        
         // get customer part id
         $customerPartId = CustomerPart::select('id')
                             ->where('part_number',$customerPart)
