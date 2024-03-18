@@ -157,7 +157,7 @@
             $('#model').text(model)
             // display PIS
             $('#pis').html(
-                `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="700">`);
+                `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="600">`);
         }
 
         if (totalScan || totalPart) {
