@@ -37,11 +37,13 @@
                     </div>
                 </div>
                 <div class="col-lg-2 col-sm-12">
+                    <button id="fullscreenBtn" class="btn btn-info mb-2 text-end"
+                        style="border-radius:4px; width:100% !important">Full Screen</button>
                     <button class="btn btn-warning py-3 px-5 shadow mb-2"
                         style="padding: 1rem; border-radius:8px; width:100% !important" id="release">
                         <h3 class="text-center text-white">Release</h3>
                     </button>
-                    <button class="btn btn-danger py-3 px-5 shadow mb-5"
+                    <button class="btn btn-danger py-3 px-5 shadow mb-4"
                         style="padding: 1rem; border-radius:8px; width:100% !important" id="pause">
                         <h3 class="text-center text-white">Pause</h3>
                     </button>
@@ -308,6 +310,38 @@
 
     $(document).ready(function() {
         initApp();
+
+        document.getElementById('fullscreenBtn').addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+                // Request fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    /* Firefox */
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    /* Chrome, Safari & Opera */
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    /* IE/Edge */
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    /* Firefox */
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    /* Chrome, Safari and Opera */
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    /* IE/Edge */
+                    document.msExitFullscreen();
+                }
+            }
+        });
 
         $(document).on('click', function() {
             $('#code').focus();
