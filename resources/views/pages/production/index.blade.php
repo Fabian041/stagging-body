@@ -310,6 +310,13 @@
 
     $(document).ready(function() {
         initApp();
+        document.documentElement.requestFullscreen();
+        /* Firefox */
+        document.documentElement.mozRequestFullScreen();
+        /* Chrome, Safari & Opera */
+        document.documentElement.webkitRequestFullscreen();
+        /* IE/Edge */
+        document.documentElement.msRequestFullscreen();
 
         document.getElementById('fullscreenBtn').addEventListener('click', function() {
             if (!document.fullscreenElement) {
@@ -373,13 +380,6 @@
             $('#code').focus();
             localStorage.clear();
             window.location.reload();
-            document.documentElement.requestFullscreen();
-            /* Firefox */
-            document.documentElement.mozRequestFullScreen();
-            /* Chrome, Safari & Opera */
-            document.documentElement.webkitRequestFullscreen();
-            /* IE/Edge */
-            document.documentElement.msRequestFullscreen();
         });
 
         $('#pause').on('click', function() {
