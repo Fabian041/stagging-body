@@ -310,7 +310,6 @@
 
     $(document).ready(function() {
         initApp();
-        localStorage.setItem('autoFullscreen', 'true');
 
         document.getElementById('fullscreenBtn').addEventListener('click', function() {
             localStorage.setItem('autoFullscreen', 'true');
@@ -318,7 +317,6 @@
         });
 
         function enterFullscreen() {
-            document.documentElement.requestFullscreen();
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen();
             }
