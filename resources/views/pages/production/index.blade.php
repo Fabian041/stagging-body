@@ -308,25 +308,31 @@
         }, 1500);
     }
 
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            // Request fullscreen, similar to your existing fullscreen code
+            document.documentElement.requestFullscreen().catch(err => {
+                console.warn("User did not allow fullscreen", err.message);
+                // Handle the case where the user denies fullscreen or another error occurs
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
     $(document).ready(function() {
         initApp();
-        document.getElementById('fullscreenBtn').addEventListener('click', function() {
-            if (!document.fullscreenElement) {
-                // Request fullscreen
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                } else if (document.documentElement.mozRequestFullScreen) {
-                    /* Firefox */
-                    document.documentElement.mozRequestFullScreen();
-                } else if (document.documentElement.webkitRequestFullscreen) {
-                    /* Chrome, Safari & Opera */
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) {
-                    /* IE/Edge */
-                    document.documentElement.msRequestFullscreen();
-                }
-            }
-        });
+        if (localStorage.getItem('attemptFullscreen') === 'true') {
+            // Reset the flag
+            localStorage.removeItem('attemptFullscreen');
+
+            // Prompt the user to go fullscreen or directly attempt to trigger a user action.
+            // Direct automatic fullscreen won't work, but you can make an obvious call to action.
+            alert("Click OK to go fullscreen");
+            toggleFullscreen();
+        }
 
         $(document).on('click', function() {
             $('#code').focus();
@@ -371,6 +377,7 @@
         $('#release').on('click', function() {
             $('#code').focus();
             localStorage.clear();
+            localStorage.setItem('attemptFullscreen', 'true');
             window.location.reload();
         });
 
