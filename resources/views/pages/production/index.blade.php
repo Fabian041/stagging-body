@@ -418,28 +418,28 @@
                     internal = barcodecomplete.substr(41, 19);
                     seri = barcodecomplete.substr(123, 4);
                     backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 2);
+                    pcs = barcodecomplete.substr(196, 1);
 
                 } else if (barcodecomplete.length == 220) {
                     // kanban buffer
                     internal = barcodecomplete.substr(35, 12);
                     seri = barcodecomplete.substr(130, 4);
                     backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 2);
+                    pcs = barcodecomplete.substr(196, 1);
 
                 } else if (barcodecomplete.length == 241) {
                     // kanban passtrough
                     internal = barcodecomplete.substr(35, 12);
                     seri = barcodecomplete.substr(127, 4);
                     backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 2);
+                    pcs = barcodecomplete.substr(196, 1);
 
                 } else if (barcodecomplete.length == 218) {
                     // kanban suzuki
                     internal = barcodecomplete.substr(41, 16);
                     seri = barcodecomplete.substr(123, 4);
                     backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 2);
+                    pcs = barcodecomplete.substr(196, 1);
 
                 }
 
@@ -471,7 +471,7 @@
 
                                     partCounter = localStorage.getItem('part_counter');
                                     partCounter = parseInt(partCounter);
-                                    partCounter += parseInt(pcs);
+                                    partCounter += parseInt(data.qty);
                                     localStorage.setItem('part_counter', partCounter);
 
                                     // display total scan

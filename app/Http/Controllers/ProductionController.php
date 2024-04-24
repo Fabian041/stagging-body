@@ -209,7 +209,8 @@ class ProductionController extends Controller
 
             return [
                 'status' => 'success',
-                'message' => 'Part Sesuai Dengan Sample'
+                'message' => 'Part Sesuai Dengan Sample',
+                'qty' => $customerPart->qty_per_kanban
             ];
         } catch (\Throwable $th) {
             DB::rollBack();
