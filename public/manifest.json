@@ -4,7 +4,7 @@
     "description": "Body Electronic Logistic Application",
     "icons": [
         {
-            "src": "/assets/img/avatar-1.png",
+            "src": "/assets/img/avatar/avatar-1.png",
             "sizes": "144",
             "type": "image/png",
             "purpose": "any"
