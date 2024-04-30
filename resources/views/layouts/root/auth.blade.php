@@ -7,6 +7,7 @@
     <title>Stagging Body</title>
 
     <!-- General CSS Files -->
+    <link rel="manifest" href={{ asset('manifest.json') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/bootstrap/css/bootstrap.min.css') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/izitoast/css/iziToast.min.css') }}>
