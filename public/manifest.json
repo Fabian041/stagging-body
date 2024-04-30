@@ -5,7 +5,7 @@
     "icons": [
         {
             "src": "/assets/img/avatar/avatar-1.png",
-            "sizes": "144",
+            "sizes": "144x144",
             "type": "image/png",
             "purpose": "any"
         }
