@@ -9,12 +9,14 @@ use GuzzleHttp\Client;
 use App\Models\Pulling;
 use App\Models\Customer;
 use App\Models\Mutation;
+use App\Models\LoadingList;
 use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
+use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
 use PhpMqtt\Client\ConnectionSettings;
@@ -335,6 +337,68 @@ class PullingController extends Controller
                 ],
                 'json' => $data[$i],
             ]);
+        }
+
+        for($i = 0; $i<count($data); $i++){
+            foreach($data[$i]->items as $key => $value){
+                // get actual kanban scanned based on same kanban cust for all cust
+                $kanbans = array_count_values(array_column(json_decode(json_encode($data[$i]->items), true), 'part_number_cust'));
+
+                foreach ($kanbans as $kanban_cust => $actual_scanned) {
+                    $lastDigit = substr($kanban_cust, -2);
+                    $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $data[$i]->loading_list_number)->first();
+
+                    // check part number customer length
+                    if(strlen($kanban_cust) == 12){
+                        // TMMIN
+                        if($lastDigit != '00'){
+                            $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -2);
+                        }else{
+                            $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -2);
+                        }
+                    }else if(strlen($kanban_cust) == 10){
+                        if($loadingListId->customer_id == 14){
+                            // SUZUKI
+                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
+                        }else{
+                            if($loadingListId->customer_id == 6){
+                                // MMKI
+                                $convertedPartNumber = $kanban_cust;
+                            }else{
+                                // TBINA
+                                $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
+                            }
+                        }
+                    }else if(strlen($kanban_cust) == 13){
+                        // SUZUKI
+                        if($lastDigit != '000'){
+                            $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -3);
+                        }else{
+                            $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -3);
+                        }
+                    }else{
+                        $convertedPartNumber = $kanban_cust;
+                    }
+                    
+                    // get customer part id
+                    $customerPart = CustomerPart::select('id')
+                                    ->where('part_number', $convertedPartNumber)
+                                    ->where('customer_id', $loadingListId->customer_id)
+                                    ->first();
+                    
+                    // get kanban_qty
+                    $kanban_qty = LoadingListDetail::select('kanban_qty')
+                                    ->where('loading_list_id', $loadingListId->id)
+                                    ->where('customer_part_id',$customerPart->id)
+                                    ->first();
+                    
+                    if($actual_scanned < $kanban_qty->kanban_qty){
+                        $kanban_qty->update([
+                            'actual_kanban_qty' => $actual_scanned
+                        ]);
+                    }
+                }
+            };
         }
 
         return ['status' => $response];

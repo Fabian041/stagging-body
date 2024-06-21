@@ -472,7 +472,7 @@ class LoadingListController extends Controller
                 return response()->json([
                     'status' => 'error',
                     'message' => 'kanban sudah penuh',
-                ],500);
+                ],200);
             }
 
             // push to websocket
