@@ -469,10 +469,10 @@ class LoadingListController extends Controller
                                     'actual_kanban_qty' => $actualQty + 1
                                 ]);
             }else{
-                return response()->json([
+                return [
                     'status' => 'error',
                     'message' => 'kanban sudah penuh',
-                ],200);
+                ];
             }
 
             // push to websocket
@@ -482,10 +482,10 @@ class LoadingListController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
 
-            return response()->json([
+            return [
                 'status' => 'error',
                 'message' => $th->getMessage(),
-            ],500);
+            ];
         }
 
         return response()->json([
