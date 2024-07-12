@@ -197,19 +197,30 @@ class LoadingListController extends Controller
                         return '<span class="text-danger"> N/A </span>';
                     }
                 
-                    // Use the serial numbers in the query
-                    $datum = Mutation::select('date')
+                    // Prepare an array to store serial number => date pairs
+                    $serialDates = [];
+                
+                    // Query to fetch dates for each serial number
+                    $data = Mutation::select('serial_number', 'date')
                         ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
                         ->where('type', 'supply')
                         ->whereIn('serial_number', $serialNumbers)
                         ->where('date', '<=', $loadingList->updated_at)
-                        ->orderBy('date', 'desc')
-                        ->first();
+                        ->orderBy('date', 'desc') // Assuming you want the latest date
+                        ->get();
                 
-                    // Check the result and return the appropriate value
-                    return $loadingList->updated_at != $loadingList->created_at && $datum
-                        ? $datum->date
-                        : '<span class="text-danger"> N/A </span>';
+                    // Populate the serialDates array with serial number => date pairs
+                    foreach ($data as $item) {
+                        $serialDates[$item->serial_number] = $item->date;
+                    }
+                
+                    // Prepare the output format serial number => date
+                    $output = [];
+                    foreach ($serialNumbers as $serialNumber) {
+                        $output[] = "[$serialNumber] - " . "[" .($serialDates[$serialNumber] ."]" ?? 'N/A');
+                    }
+                
+                    return implode('<br>', $output);
                 })
                 ->addColumn('edit', function($row) use ($input){
 
