@@ -81,6 +81,7 @@
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
+            serverSide: true,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',
