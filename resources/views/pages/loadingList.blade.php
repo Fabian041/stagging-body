@@ -80,7 +80,7 @@
     $(document).ready(function() {
         let table = $('#loadingList').DataTable({
             scrollX: false,
-            processing: false,
+            processing: true,
             serverSide: true,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
