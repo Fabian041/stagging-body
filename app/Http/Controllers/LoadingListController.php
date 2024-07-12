@@ -182,7 +182,7 @@ class LoadingListController extends Controller
                 })
                 ->addColumn('pulling_date', function ($loadingList) {
 
-                    return $loadingList->updated_at;
+                    return $loadingList->updated_at ? $loadingList->updated_at : 'N/A';
                 })
                 ->addColumn('serial_number', function ($loadingList) {
 
@@ -192,7 +192,7 @@ class LoadingListController extends Controller
                                         ->where('type', 'checkout')
                                         ->first();
                     
-                    return $datum->serial_number;
+                    return $datum ? $datum->serial_number : 'N/A';
                 })
                 ->addColumn('edit', function($row) use ($input){
 
