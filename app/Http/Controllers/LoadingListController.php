@@ -178,8 +178,8 @@ class LoadingListController extends Controller
 
                     $datum = Mutation::select('serial_number')
                                         ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
-                                        ->where('date', $loadingList->updated_at)
                                         ->where('type', 'checkout')
+                                        ->orderByRaw('ABS(TIMESTAMPDIFF(SECOND, date, ?))', [$loadingList->updated_at])
                                         ->first();
                     
                     return $datum ? $datum->serial_number : '<span class="text-danger"> N/A </span>';
