@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Pusher\Pusher;
 use App\Models\Kanban;
 use App\Models\Customer;
+use App\Models\Mutation;
 use App\Models\LoadingList;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
@@ -178,6 +179,20 @@ class LoadingListController extends Controller
                         style="border-radius:6px; display:none">';
 
                     return $actual;
+                })
+                ->addColumn('pulling_date', function ($loadingList) {
+
+                    return $loadingList->updated_at;
+                })
+                ->addColumn('serial_number', function ($loadingList) {
+
+                    $datum = Mutation::select('serial_number')
+                                        ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
+                                        ->where('date', $loadingList->updated_at)
+                                        ->where('type', 'checkout')
+                                        ->first();
+                    
+                    return $datum->serial_number;
                 })
                 ->addColumn('edit', function($row) use ($input){
 

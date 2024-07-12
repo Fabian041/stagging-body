@@ -52,11 +52,13 @@
             <table class="table table-responsive-lg" id="loadingList" style="width: 100%">
                 <thead>
                     <tr>
-                        <th class="text-center">Part Name</th>
+                        {{-- <th class="text-center">Part Name</th> --}}
+                        <th class="text-center">Pulling Date</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
                         <th class="text-center">Internal Back No.</th>
+                        <th class="text-center">Serial Number</th>
                         <th class="text-center">Kanban Qty</th>
                         <th class="text-center">Total Scan</th>
                         <th class="text-center"></th>
@@ -96,8 +98,11 @@
                 dataType: 'json',
             },
             columns: [{
-                    data: 'part_name'
+                    data: 'pulling_date',
                 },
+                // {
+                //     data: 'part_name'
+                // },
                 {
                     data: 'cust_partno'
                 },
@@ -109,6 +114,9 @@
                 },
                 {
                     data: 'int_backno'
+                },
+                {
+                    data: 'serial_number'
                 },
                 {
                     data: 'kbn_qty'
