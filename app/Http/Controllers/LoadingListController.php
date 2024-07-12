@@ -18,6 +18,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class LoadingListController extends Controller
 {
+    public $temp_serial_number;
     public function pushData($is_updated){
         // connection to pusher
         $options = array(
@@ -182,8 +183,33 @@ class LoadingListController extends Controller
                         ->get();
                 
                     $serialNumbers = $datum->pluck('serial_number')->toArray();
+
+                    // Store the serial numbers in the model instance
+                    $loadingList->temp_serial_numbers = $serialNumbers;
                     
                     return !empty($serialNumbers) ? implode(', ', $serialNumbers) : '<span class="text-danger"> N/A </span>';
+                })
+                ->addColumn('prod_date', function ($loadingList) {
+                    // Retrieve the serial numbers from the model instance
+                    $serialNumbers = $loadingList->temp_serial_numbers;
+                
+                    if (empty($serialNumbers)) {
+                        return '<span class="text-danger"> N/A </span>';
+                    }
+                
+                    // Use the serial numbers in the query
+                    $datum = Mutation::select('date')
+                        ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
+                        ->where('type', 'supply')
+                        ->whereIn('serial_number', $serialNumbers)
+                        ->where('date', '<=', $loadingList->updated_at)
+                        ->orderBy('date', 'desc')
+                        ->first();
+                
+                    // Check the result and return the appropriate value
+                    return $loadingList->updated_at != $loadingList->created_at && $datum
+                        ? $datum->date
+                        : '<span class="text-danger"> N/A </span>';
                 })
                 ->addColumn('edit', function($row) use ($input){
 
@@ -196,7 +222,7 @@ class LoadingListController extends Controller
                     return $btn;
 
                 })
-                ->rawColumns(['cust_partno','cust_backno','actual_kbn_qty','edit', 'pulling_date', 'serial_number'])
+                ->rawColumns(['cust_partno','cust_backno','actual_kbn_qty','edit', 'pulling_date', 'serial_number', 'prod_date'])
                 ->toJson();
     }
 

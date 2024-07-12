@@ -54,6 +54,7 @@
                     <tr>
                         {{-- <th class="text-center">Part Name</th> --}}
                         <th class="text-center">Pulling Date</th>
+                        <th class="text-center">possible production Date</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
@@ -100,9 +101,9 @@
             columns: [{
                     data: 'pulling_date',
                 },
-                // {
-                //     data: 'part_name'
-                // },
+                {
+                    data: 'prod_date'
+                },
                 {
                     data: 'cust_partno'
                 },
