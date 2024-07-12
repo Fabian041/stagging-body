@@ -207,7 +207,7 @@ class LoadingListController extends Controller
                     return $btn;
 
                 })
-                ->rawColumns(['cust_partno','cust_backno','actual_kbn_qty','edit'])
+                ->rawColumns(['cust_partno','cust_backno','actual_kbn_qty','edit', 'pulling_date', 'serial_number'])
                 ->toJson();
     }
 
