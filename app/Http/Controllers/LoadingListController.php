@@ -206,7 +206,7 @@ class LoadingListController extends Controller
                         ->where('type', 'supply')
                         ->whereIn('serial_number', $serialNumbers)
                         ->where('date', '<=', $loadingList->updated_at)
-                        ->orderBy('date', 'desc') // Assuming you want the latest date
+                        ->orderBy('date', 'asc') // Assuming you want the latest date
                         ->get();
                 
                     // Populate the serialDates array with serial number => date pairs
