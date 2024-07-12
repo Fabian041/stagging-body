@@ -53,12 +53,12 @@
                 <thead>
                     <tr>
                         {{-- <th class="text-center">Part Name</th> --}}
-                        <th class="text-center">Latest Pulling Date</th>
+                        <th class="text-center">Pulling Date</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
                         <th class="text-center">Internal Back No.</th>
-                        <th class="text-center">Latest Serial Number</th>
+                        <th class="text-center">Serial Number</th>
                         <th class="text-center">Kanban Qty</th>
                         <th class="text-center">Total Scan</th>
                         <th class="text-center"></th>

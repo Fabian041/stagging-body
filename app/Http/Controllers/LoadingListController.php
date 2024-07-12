@@ -171,7 +171,7 @@ class LoadingListController extends Controller
                 ->addColumn('pulling_date', function ($loadingList) {
 
                     return $loadingList->updated_at != $loadingList->created_at 
-                    ? $loadingList->updated_at->format('Y-m-d H:i:s') 
+                    ? $loadingList->updated_at->format('Y-m-d H:i') 
                     :  '<span class="text-danger"> N/A </span>';
                 })
                 ->addColumn('serial_number', function ($loadingList) {
