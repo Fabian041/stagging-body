@@ -175,20 +175,15 @@ class LoadingListController extends Controller
                     :  '<span class="text-danger"> N/A </span>';
                 })
                 ->addColumn('serial_number', function ($loadingList) {
-
                     $datum = Mutation::select('serial_number')
-                                        ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
-                                        ->where('type', 'checkout')
-                                        ->where('date', 'LIKE' . '%' .$loadingList->updated_at->format('Y-m-d H:i') . '%')
-                                        ->get();
-                                        
-                    $serialNumber = [];
+                        ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
+                        ->where('type', 'checkout')
+                        ->where('date', 'LIKE', $loadingList->updated_at->format('Y-m-d H:i') . '%')
+                        ->get();
+                
+                    $serialNumbers = $datum->pluck('serial_number')->toArray();
                     
-                    foreach($datum as $data){
-                        $serialNumber[] = $data->serial_number;
-                    }
-                    
-                    return $serialNumber != [] ? $serialNumber : '<span class="text-danger"> N/A </span>';
+                    return !empty($serialNumbers) ? implode(', ', $serialNumbers) : '<span class="text-danger"> N/A </span>';
                 })
                 ->addColumn('edit', function($row) use ($input){
 
