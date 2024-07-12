@@ -217,11 +217,13 @@ class LoadingListController extends Controller
                     // Prepare the output format serial number => date
                     $output = [];
                     foreach ($serialNumbers as $serialNumber) {
-                        $output[] = "[$serialNumber] - " . "[" .($serialDates[$serialNumber] ."]" ?? 'N/A');
+                        // Check if the key exists in $serialDates before accessing it
+                        $date = isset($serialDates[$serialNumber]) ? $serialDates[$serialNumber] : 'N/A';
+                        $output[] = "[$serialNumber] - [$date]";
                     }
                 
                     return implode('<br>', $output);
-                })
+                })                
                 ->addColumn('edit', function($row) use ($input){
 
                     $btn = '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
