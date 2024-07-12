@@ -179,10 +179,16 @@ class LoadingListController extends Controller
                     $datum = Mutation::select('serial_number')
                                         ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
                                         ->where('type', 'checkout')
-                                        ->orderByRaw('ABS(TIMESTAMPDIFF(SECOND, date, ?))', [$loadingList->updated_at])
-                                        ->first();
+                                        ->where('date', 'LIKE' . '%' .$loadingList->updated_at->format('Y-m-d H:i') . '%')
+                                        ->get();
+                                        
+                    $serialNumber = [];
                     
-                    return $datum ? $datum->serial_number : '<span class="text-danger"> N/A </span>';
+                    foreach($datum as $data){
+                        $serialNumber[] = $data->serial_number;
+                    }
+                    
+                    return $serialNumber != [] ? $serialNumber : '<span class="text-danger"> N/A </span>';
                 })
                 ->addColumn('edit', function($row) use ($input){
 
