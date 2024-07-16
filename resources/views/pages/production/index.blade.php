@@ -118,6 +118,11 @@
         <source src={{ asset('assets/sounds/forget.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+
+    <audio id="match-sound">
+        <source src={{ asset('assets/sounds/match.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
@@ -138,6 +143,11 @@
 
     function forgetSound() {
         var sound = document.getElementById("forget-sound");
+        sound.play();
+    }
+
+    function matchSound() {
+        var sound = document.getElementById("match-sound");
         sound.play();
     }
 
@@ -464,6 +474,10 @@
                             dataType: 'json',
                             success: function(data) {
                                 if (data.status == 'success') {
+
+                                    // match sound
+                                    matchSound();
+
                                     scanCounter = localStorage.getItem('scan_counter');
                                     scanCounter = parseInt(scanCounter);
                                     scanCounter++;
