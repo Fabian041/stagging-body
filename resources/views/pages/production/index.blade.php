@@ -123,6 +123,11 @@
         <source src={{ asset('assets/sounds/match.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+
+    <audio id="ok-sound">
+        <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
 <script>
@@ -148,6 +153,11 @@
 
     function matchSound() {
         var sound = document.getElementById("match-sound");
+        sound.play();
+    }
+
+    function okSound() {
+        var sound = document.getElementById("ok-sound");
         sound.play();
     }
 
@@ -476,7 +486,7 @@
                                 if (data.status == 'success') {
 
                                     // match sound
-                                    matchSound();
+                                    okSound();
 
                                     scanCounter = localStorage.getItem('scan_counter');
                                     scanCounter = parseInt(scanCounter);
