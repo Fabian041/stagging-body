@@ -20,14 +20,6 @@
                     <span class="">Loading List Details</span>
                 </a>
             </li>
-            <li>
-                <form action="{{ route('logout.auth') }}" method="post">
-                    @csrf
-                    <button type="submit" class="dropdown-item text-danger" id="logout">
-                        <i class="fas fa-sign-out-alt me-2"></i> Logout
-                    </button>
-                </form>
-            </li>
         </ul>
     </aside>
 </div>
