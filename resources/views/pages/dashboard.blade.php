@@ -39,7 +39,7 @@
                                                 <tr>
                                                     <th>No</th>
                                                     <th>Back Number</th>
-                                                    <th>Standard Stocks</th>
+                                                    <th>Standard Stock</th>
                                                     <th>Current Stock</th>
                                                     <th>Status</th>
                                                     <th class="text-center">Action</th>
