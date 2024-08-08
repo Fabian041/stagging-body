@@ -21,8 +21,8 @@ class DashboardController extends Controller
         $data = DB::table('internal_parts')
             ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
-            ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+            ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock', 'internal_parts.standard_stock')
+            ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock', 'internal_parts.standard_stock')
             ->get();
 
                 foreach ($data as $value) {
@@ -36,6 +36,7 @@ class DashboardController extends Controller
                                 'part_number' => $value->part_number,
                                 'back_number' => $value->back_number,
                                 'qty' => $value->current_stock,
+                                'standard' => $value->standard_stock,
                             ];
                             break;
                         }
@@ -50,6 +51,7 @@ class DashboardController extends Controller
                                     'part_number' => $value->part_number,
                                     'back_number' => $value->back_number,
                                     'qty' => $value->current_stock,
+                                    'standard' => $value->standard_stock,
                                 ],
                             ],
                         ];
@@ -61,6 +63,7 @@ class DashboardController extends Controller
             'lines' => $lines,
         ]);
     }
+    
 
     public function progressPulling()
     {

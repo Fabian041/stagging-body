@@ -24,11 +24,13 @@
     <!-- Template CSS -->
     <link rel="stylesheet" href={{ asset('assets/css/style.css') }}>
     <link rel="stylesheet" href={{ asset('assets/css/components.css') }}>
+    <script src="https://cdn.datatables.net/2.1.3/js/dataTables.bootstrap4.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.1.3/css/dataTables.bootstrap4.min.css">
     <!-- Start GA -->
     <!-- /END GA -->
 </head>
 
-<body>
+<body class="sidebar-mini">
     <div id="app">
         <div class="main-wrapper main-wrapper-1">
             <div class="navbar-bg"></div>

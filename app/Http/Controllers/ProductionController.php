@@ -16,6 +16,7 @@ use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
+use App\Models\ProductionStock;
 use Illuminate\Support\Facades\DB;
 use Monolog\Handler\StreamHandler;
 use Illuminate\Support\Facades\View;
@@ -215,6 +216,51 @@ class ProductionController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return ['message' => $th->getMessage()];
+        }
+    }
+
+    public function adjust(Request $request)
+    {
+        $prod = ProductionStock::where('internal_part_id', $request->internal_part_id)->first();
+        $current_stock = $prod->current_stock;
+        $actual_stock = $request->current_stock;
+
+        if ($actual_stock < $current_stock) {
+            $type = 'checkout';
+            $qty = $current_stock - $actual_stock;
+        }else{
+            $type = 'supply';
+            $qty = $actual_stock - $current_stock;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            if($request->standard_stock !== null){
+                InternalPart::where('id', $request->internal_part_id)
+                                ->update([
+                                    'standard_stock' => $request->standard_stock,
+                                ]);
+            }
+
+            if($actual_stock !== null) {
+                Mutation::create([
+                    'internal_part_id' => $request->internal_part_id,
+                    'serial_number' => 'xxxx',
+                    'qty' => $qty,
+                    'type' => $type,
+                    'npk' => auth()->user()->npk,
+                    'date' => Carbon::now()->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Updated Successfully!');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return redirect()->back()->with('error', 'Error: '.$th->getMessage());
         }
     }
 

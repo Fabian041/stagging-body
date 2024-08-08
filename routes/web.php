@@ -75,6 +75,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
         Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
         Route::get('/store', [ProductionController::class, 'store'])->name('production.store');
+        Route::post('/adjust', [ProductionController::class, 'adjust'])->name('production.adjust');
     });
 
     // pulling
