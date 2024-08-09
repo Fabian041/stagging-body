@@ -16,7 +16,7 @@
         <div class="col-12 col-sm-12 col-lg-12">
             <div class="card card-primary">
                 <div class="card-header justify-content-center mt-3">
-                    <h3>Body Plant Stocks</h3>
+                    <h3>Body Plant Stock Monitoring</h3>
                 </div>
                 <div class="card-body">
                     <ul class="nav nav-pills justify-content-center" id="myTab3" role="tablist">
