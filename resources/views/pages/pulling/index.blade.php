@@ -227,7 +227,7 @@
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 @endsection
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+<script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
     let line = '';
     let partDetail = {};
