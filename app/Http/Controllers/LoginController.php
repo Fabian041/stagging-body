@@ -26,7 +26,7 @@ class LoginController extends Controller
 
             if(auth()->user()->role == 'prod'){
                 // redirect to prod
-                return redirect()->intended('/production');
+                return redirect()->route('production.index');
             }else if(auth()->user()->role == 'ppic'){
 
                 // Perform login and obtain the Bearer token (API Dea)
@@ -47,7 +47,7 @@ class LoginController extends Controller
                     ]);
                 }
                 // redirect to ppic
-                return redirect()->intended('/pulling');
+                return redirect()->route('pulling.index');
             }
 
         }
