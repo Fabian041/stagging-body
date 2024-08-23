@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Providers\RouteServiceProvider;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\PullingController;
 use App\Http\Controllers\ErrorLogController;
@@ -22,9 +23,9 @@ use App\Http\Controllers\TraceabilityController;
 |
 */
 
-// Route::get('/', function () {
-//     return view('layouts.auth.login');
-// })->middleware('guest');
+Route::get('/', function () {
+    return redirect()->intended(RouteServiceProvider::HOME);
+})->middleware('auth');
 
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
