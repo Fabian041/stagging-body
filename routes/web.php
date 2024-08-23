@@ -23,10 +23,6 @@ use App\Http\Controllers\TraceabilityController;
 |
 */
 
-Route::get('/', function () {
-    return redirect()->intended(RouteServiceProvider::HOME);
-})->middleware('auth');
-
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
 
@@ -38,6 +34,10 @@ Route::middleware(['guest'])->group(function () {
 
 // authenticated user
 Route::middleware(['auth'])->group(function () {
+
+    Route::get('/', function () {
+        return redirect()->intended(RouteServiceProvider::HOME);
+    });
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
