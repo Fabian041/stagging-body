@@ -36,7 +36,7 @@ Route::middleware(['guest'])->group(function () {
 Route::middleware(['auth'])->group(function () {
 
     Route::get('/', function () {
-        return redirect()->intended(RouteServiceProvider::HOME);
+        return redirect(RouteServiceProvider::HOME);  
     });
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
