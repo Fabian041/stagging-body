@@ -23,6 +23,10 @@ use App\Http\Controllers\TraceabilityController;
 |
 */
 
+Route::get('/', function () {
+    return view('layouts.auth.login');
+})->middleware('guest');
+
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
 
@@ -30,10 +34,6 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
-});
-
-Route::get('/', function () {
-    return redirect(RouteServiceProvider::HOME);  
 });
 
 // authenticated user
