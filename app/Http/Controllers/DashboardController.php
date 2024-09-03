@@ -9,12 +9,15 @@ use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use App\Imports\ManifestImport;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+
+        dd(Auth::check());
         $lines = [];
         
          // get all current qty of all internal parts 
