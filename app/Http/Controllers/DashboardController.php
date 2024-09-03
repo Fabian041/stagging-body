@@ -17,7 +17,6 @@ class DashboardController extends Controller
     public function index()
     {
 
-        dd(Auth::check());
         $lines = [];
         
          // get all current qty of all internal parts 

@@ -10,6 +10,7 @@ class LoginController extends Controller
 {
     public function index()
     {
+        dd(Auth::check());
         return view('layouts.auth.login');
     }
 
