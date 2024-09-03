@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Route;
 use App\Providers\RouteServiceProvider;
 use App\Http\Controllers\LoginController;
@@ -25,7 +26,8 @@ use App\Http\Controllers\TraceabilityController;
 
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
-
+    
+    Route::get('', [LoginController::class, 'index']);
     Route::get('/login', [LoginController::class, 'index'])->name('login.index');
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
@@ -35,7 +37,6 @@ Route::middleware(['guest'])->group(function () {
 // authenticated user
 Route::middleware(['auth'])->group(function () {
     
-    Route::get('/', [DashboardController::class, 'index']);
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
     // kanban
