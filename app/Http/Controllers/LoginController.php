@@ -42,9 +42,7 @@ class LoginController extends Controller
                     session()->put('token', $token);
 
                 }else{
-                    return redirect()->intended('/pulling', [
-                        'message' => 'failed to generate token'
-                    ]);
+                    return redirect()->back()->with('error', 'Failed to generate token');
                 }
                 // redirect to ppic
                 return redirect()->route('pulling.index');

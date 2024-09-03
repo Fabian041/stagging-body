@@ -32,12 +32,12 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
 });
 
+Route::get('/', function () {
+    return redirect(RouteServiceProvider::HOME);  
+});
+
 // authenticated user
 Route::middleware(['auth'])->group(function () {
-
-    Route::get('/', function () {
-        return redirect(RouteServiceProvider::HOME);  
-    });
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
