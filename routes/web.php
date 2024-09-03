@@ -23,7 +23,7 @@ use App\Http\Controllers\TraceabilityController;
 |
 */
 
-Route::get('/', [LoginController::class, 'index'])->middleware('guest');
+Route::get('/', [DashboardController::class, 'index']);
 
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
