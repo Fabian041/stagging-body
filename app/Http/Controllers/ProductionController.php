@@ -9,6 +9,7 @@ use App\Models\Line;
 use App\Models\Part;
 use App\Models\Kanban;
 use App\Models\Mutation;
+use App\Models\Injection;
 use PhpMqtt\ClientBuilder;
 use Illuminate\Support\Str;
 use App\Models\CustomerPart;
@@ -357,4 +358,36 @@ class ProductionController extends Controller
             "sample" => $sample,
         ];
     }    
+
+    public function post(Request $request)
+    {
+        $validatedData = $request->validate([
+            'read_code' => 'required',
+            'line' => 'required',
+            'npk' => 'required',
+            'status' => 'required',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $record = Injection::create($validatedData);
+
+            DB::commit();
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Record created successfully',
+                'data' => $record,
+            ], 201);
+            
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create record',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
+    }
 }
