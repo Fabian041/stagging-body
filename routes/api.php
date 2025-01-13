@@ -24,6 +24,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::group(['prefix' => 'v1'], function () {
     
     Route::post('/injection', [ProductionController::class , 'post']);
-    Route::post('/login', [APILoginController::class , 'post']);
+    Route::post('/login', [APILoginController::class , 'authenticate']);
     
 });
