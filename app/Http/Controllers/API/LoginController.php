@@ -14,7 +14,7 @@ class LoginController extends Controller
 {
     public function authenticate(Request $request)
     {
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('npk', $request->npk)->first();
 
         if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -27,11 +27,11 @@ class LoginController extends Controller
             'status' => 'success',
             'message' => 'Login success',
             'data' => [
-                'token' => $user->fixed_token,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'npk' => $user->npk,
                 ],
                 'created_at' => Carbon::now()->toDateTimeString(),
                 'updated_at' => Carbon::now()->toDateTimeString(),

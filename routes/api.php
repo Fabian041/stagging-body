@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\API\LoginController as APILoginController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,5 +24,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::group(['prefix' => 'v1'], function () {
     
     Route::post('/injection', [ProductionController::class , 'post']);
+    Route::post('/login', [APILoginController::class , 'post']);
     
 });
