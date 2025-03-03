@@ -17,4 +17,9 @@ class Customer extends Model
     {
         return $this->hasMany(LoadingList::class);
     }
+
+    public function customerPart()
+    {
+        return $this->hasMany(CustomerPart::class);
+    }
 }

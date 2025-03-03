@@ -1,5 +1,11 @@
 @extends('layouts.root.auth')
 
+<style>
+    .bg-default {
+        background-color: #03b1fc;
+    }
+</style>
+
 @section('main')
     <div class="main-section">
         <section class="section">
@@ -8,10 +14,16 @@
                     <div class="shadow hero bg-white text-dark" style="padding: 1.5rem; height: 100%;">
                         <div class="hero-inner">
                             <div class="row">
-                                <div class="col-9">
+                                <div class="col-6">
                                     <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
                                 </div>
-                                <div class="col-2" style="margin-right: 1px; !important">
+                                <div class="col-2 ml-4">
+                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
+                                        <button type="button" class="btn btn-xl btn-warning"
+                                            id="refreshTokenBtn">Refresh</button>
+                                    </div>
+                                </div>
+                                <div class="col-2 ml-3">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-danger" id="hardReset">Reset</button>
                                     </div>
@@ -66,16 +78,24 @@
                             </div>
                             <div class="row mt-2">
                                 <div class="col-6" style="padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                    <div class="bg-default" style="height: 5rem; width: 100%;  border-radius: 4px;">
                                         <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
                                             Kanban Customer</h6>
                                         <h6 class="text-center " style="padding-top: 0rem; color: white;" id="cust-display">
                                             -
                                         </h6>
+<<<<<<< Updated upstream
+=======
+                                        {{-- <div class="bg-warning"
+                                            style="display:inline-block; margin-left:143px; margin-top:-55px; border-radius:100%; width: 10px; height:10px"
+                                            id="tmmin-indicator">
+                                        </div> --}}
+>>>>>>> Stashed changes
                                     </div>
                                 </div>
                                 <div class="col-6" style="padding-left: .5rem; padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
+                                        id="tmmin-indicator">
                                         <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
                                             Kanban Internal</h6>
                                         <h6 class="text-center " style="padding-top: 0rem; color: white;" id="int-display">
@@ -371,6 +391,36 @@
             $('#cycle-display').text(cycle);
         }
 
+<<<<<<< Updated upstream
+=======
+        // set skid
+        let skid = localStorage.getItem('skid');
+        if (!skid) {
+            localStorage.setItem('skid', 1);
+        }
+
+        // display skid if customer is TMMIN
+        if (customer == 'TMMIN KRW 1') {
+            $('.skid-display').append(`<div class="row mt-2">
+                <div class="col-12" style="padding-right: 0px">
+                    <div
+                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
+                        <small class="badge badge-dark"
+                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
+                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
+                            <span id="skid-display">${skid}</span>
+                        </h5>
+                        <div class="btn btn-danger"
+                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
+                            id="close-skid">
+                            Close Skid ${skid}
+                        </div>
+                    </div>
+                </div>
+            </div>`)
+        }
+
+>>>>>>> Stashed changes
         if (getLoadingListNumber().length == 0) {
             $('#modalLoadingListScan').on('shown.bs.modal', function() {
                 $('#input-loadingList').focus();
@@ -384,6 +434,60 @@
         $('#code').focus();
     }
 
+<<<<<<< Updated upstream
+=======
+    function successIndicator() {
+        $('#indicator')
+            .removeClass('bg-warning');
+        $('#indicator')
+            .removeClass('bg-danger');
+        $('#indicator')
+            .addClass('bg-success');
+    }
+
+    function tmminSuccessIndicator() {
+        $('#tmmin-indicator')
+            .removeClass('bg-default');
+        $('#tmmin-indicator')
+            .removeClass('bg-warning');
+        $('#tmmin-indicator')
+            .removeClass('bg-danger');
+        $('#tmmin-indicator')
+            .addClass('bg-success');
+    }
+
+    function resetIndicator() {
+        $('#tmmin-indicator')
+            .addClass('bg-default');
+        $('#tmmin-indicator')
+            .removeClass('bg-warning');
+        $('#tmmin-indicator')
+            .removeClass('bg-danger');
+        $('#tmmin-indicator')
+            .removeClass('bg-success');
+    }
+
+    function errorIndicator() {
+        $('#indicator')
+            .removeClass('bg-warning');
+        $('#indicator')
+            .removeClass('bg-success');
+        $('#indicator')
+            .addClass('bg-danger');
+    }
+
+    function tmminErrorIndicator() {
+        $('#tmmin-indicator')
+            .removeClass('bg-default');
+        $('#tmmin-indicator')
+            .removeClass('bg-warning');
+        $('#tmmin-indicator')
+            .removeClass('bg-success');
+        $('#tmmin-indicator')
+            .addClass('bg-danger');
+    }
+
+>>>>>>> Stashed changes
     function notif(color, text) {
         let modal = $('#notifModal');
         let textNotif = $('#notif');
@@ -609,9 +713,36 @@
         }
     }
 
+    function refreshToken() {
+        $.ajax({
+            url: "/refresh-token",
+            type: "POST",
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            },
+            success: function(response) {
+                if (response.success) {
+                    notif('success', 'Successfully refreshed token');
+                    setInterval(() => {
+                        $('#code').focus();
+                    }, 1000);
+                } else {
+                    notif("error", response.message);
+                }
+            },
+            error: function(xhr) {
+                notif("error", xhr.responseJSON.message);
+            }
+        });
+    }
+
     $(document).ready(function() {
         initApp();
         $('#code').focus();
+
+        $("#refreshTokenBtn").click(function() {
+            refreshToken();
+        });
 
         $('#loadingList').on('click', function() {
             loadingListModal2();
@@ -859,12 +990,40 @@
                                         // calculate total quantity of the orders
                                         pullingQuantity();
 
+<<<<<<< Updated upstream
+=======
+                                        // display skid if customer is TMMIN
+                                        if (data.data.customer_code == '7A00001') {
+                                            let skid = localStorage.getItem('skid');
+                                            if (!skid) {
+                                                localStorage.setItem('skid', 1);
+                                            }
+                                            $('.skid-display').append(`<div class="row mt-2">
+                                                <div class="col-12" style="padding-right: 0px">
+                                                    <div
+                                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
+                                                        <small class="badge badge-dark"
+                                                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
+                                                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
+                                                            <span id="skid-display">${skid}</span>
+                                                        </h5>
+                                                        <div class="btn btn-danger"
+                                                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
+                                                            id="close-skid">
+                                                            Close Skid ${skid}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>`)
+                                        }
+
+>>>>>>> Stashed changes
                                         // scan kanban
                                         $('#code').focus();
 
                                     })
                                     .catch(function(err) {
-                                        notif('error', data.message);
+                                        notif('error', err);
                                     })
 
                                 // loadingList qty
@@ -915,6 +1074,9 @@
                         localStorage.removeItem('status');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan pulling!');
+
+                        // remove original customer part in local storage
+                        localStorage.removeItem('originalCustomerPart');
 
                         setInterval(() => {
                             $('#code').focus();
@@ -1208,6 +1370,12 @@
             let arraySeri = cursor['seri'];
             let totalQty = cursor['total_qty'];
             let isSameObject = false;
+            let skid = localStorage.getItem('skid');
+            let originalBarcode = localStorage.getItem('originalCustomerPart');
+            let barcodecomplete = localStorage.getItem('customerPart');
+            manifest = originalBarcode.substr(3, 10);
+            itemNo = originalBarcode.substr(31, 4);
+            seqNo = originalBarcode.substr(35, 4);
 
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
@@ -1302,6 +1470,70 @@
                                     dataType: 'json',
                                     success: function(data) {
                                         if (data.status == 'success') {
+                                            // bring eDCL data to backend
+                                            if (localStorage.getItem(
+                                                    'char_total') == 39) {
+                                                console.log('test');
+                                                $.ajax({
+                                                    type: 'GET',
+                                                    url: "{{ url('/edcl/store') }}" +
+                                                        '/' +
+                                                        skid + '/' +
+                                                        manifest + '/' +
+                                                        itemNo +
+                                                        '/' +
+                                                        seqNo + '/' +
+                                                        barcodecomplete +
+                                                        '/' +
+                                                        originalBarcode +
+                                                        '/' +
+                                                        loadingList +
+                                                        '/' +
+                                                        localStorage
+                                                        .getItem(
+                                                            'customer'),
+                                                    _token: "{{ csrf_token() }}",
+                                                    dataType: 'json',
+                                                    success: function(
+                                                        response) {
+                                                        if (response
+                                                            .status ==
+                                                            'success') {
+                                                            tmminSuccessIndicator
+                                                                ();
+                                                            console.log(
+                                                                'success'
+                                                            );
+                                                        } else if (
+                                                            response
+                                                            .status ==
+                                                            'error') {
+                                                            notif('error',
+                                                                response
+                                                                .message
+                                                            );
+                                                            tmminErrorIndicator
+                                                                ();
+                                                            return;
+                                                        }
+                                                    },
+                                                    error: function(xhr) {
+                                                        console.log(xhr)
+                                                        if (xhr
+                                                            .status == 0
+                                                        ) {
+                                                            notif("error",
+                                                                'Connection Error'
+                                                            );
+                                                            return;
+                                                        }
+                                                        notif("error",
+                                                            xhr
+                                                            .responseJSON
+                                                            .errors);
+                                                    }
+                                                })
+                                            }
                                             // udpate the qty display
                                             $('#qty-display').text(
                                                 `${arraySeri.length}/${totalQty}`
@@ -1317,6 +1549,8 @@
                                             $('#indicator').removeClass(
                                                 'bg-warning');
                                             $('#indicator').addClass('bg-success');
+
+                                            resetIndicator();
 
                                             // display total quantity
                                             pullingQuantity();
@@ -1767,6 +2001,10 @@
                                 barcodecomplete = barcodecomplete.toUpperCase();
                             }
                         }
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
                     } else {
                         barcodecomplete = barcodecomplete.toUpperCase();
                     }
@@ -1801,6 +2039,10 @@
                                     }
                                     // set flag
                                     isAvailable = true;
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
                                     // display customer
                                     $('#cust-display').text(record.customer);
                                     $('#int-display').text('-');
@@ -1814,8 +2056,11 @@
                                     $('#qty-display').text(`
                                         ${record.seri.length}/${record.total_qty}
                                     `);
+
                                     // set local storage for customer kanban
                                     localStorage.setItem('customerPart', record.customer);
+                                    localStorage.setItem('originalCustomerPart',
+                                        originalBarcode);
                                 }
                                 cursor.continue();
                             } else {

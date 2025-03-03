@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use App\Providers\RouteServiceProvider;
 use App\Http\Controllers\LoginController;
@@ -27,11 +29,30 @@ use App\Http\Controllers\TraceabilityController;
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
     
-    // Route::get('/', [LoginController::class, 'index'])->name('login');
+    Route::get('/', [LoginController::class, 'index'])->name('login');
     Route::get('/login', [LoginController::class, 'index'])->name('login.index');
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
+});
+
+Route::post('/refresh-token', function () {
+    if (Auth::check()) {
+        $response = Http::timeout(30)->withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
+            'npk' => Auth::user()->npk,
+            'password' => '123456'
+        ]);        
+
+        if ($response->successful()) {
+            $token = json_decode($response->body(), true)['data']['access_token'];
+            session()->put('token', $token);
+            return response()->json(['success' => true, 'message' => 'Token refreshed']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Failed to refresh token'], 500);
+    }
+
+    return response()->json(['success' => false, 'message' => 'User not authenticated'], 401);
 });
 
 // authenticated user
@@ -67,10 +88,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
     });
+    
+    // edcl
+    Route::prefix('edcl')->group(function(){
+        Route::get('/store/{skid}/{manifest}/{itemNo}/{seqNo}/{customerPart}/{originalBarcode}/{loadingList}/{customer}', [PullingController::class, 'edcl'])->name('store.edcl');
+        Route::get('/detail/{loadingListId}/{cutomerPartId}', [LoadingListController::class, 'edclDetail'])->name('detail.edcl');
+        Route::get('/cancel/{id}', [PullingController::class, 'edclCancel'])->name('cancel.edcl');
+    });
 
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
     Route::prefix('production')->group(function(){
+        Route::get('/as523', [ProductionController::class, 'as523'])->name('as523.index');
         Route::get('/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
         Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
         Route::get('/store', [ProductionController::class, 'store'])->name('production.store');

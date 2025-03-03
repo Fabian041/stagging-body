@@ -6,6 +6,7 @@ use Pusher\Pusher;
 use App\Models\Kanban;
 use App\Models\Customer;
 use App\Models\Mutation;
+use App\Models\SkidDetail;
 use App\Models\LoadingList;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
@@ -506,19 +507,19 @@ class LoadingListController extends Controller
             DB::beginTransaction();
 
             // check if actual is below target qty
-            if($actualQty < $targetQty) {
-                // update actual kanban quantity or scanned kanban quantity
-                LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                                ->where('customer_part_id', $customerPartId->id)
-                                ->update([
-                                    'actual_kanban_qty' => $actualQty + 1
-                                ]);
-            }else{
-                return [
-                    'status' => 'error',
-                    'message' => 'kanban sudah penuh',
-                ];
-            }
+            // if($actualQty < $targetQty) {
+            //     // update actual kanban quantity or scanned kanban quantity
+            //     LoadingListDetail::where('loading_list_id', $loadingListId->id)
+            //                     ->where('customer_part_id', $customerPartId->id)
+            //                     ->update([
+            //                         'actual_kanban_qty' => $actualQty + 1
+            //                     ]);
+            // }else{
+            //     return [
+            //         'status' => 'error',
+            //         'message' => 'kanban sudah penuh',
+            //     ];
+            // }
 
             // push to websocket
             // $this->pushData(true);
@@ -609,6 +610,30 @@ class LoadingListController extends Controller
             'status' => 'success',
             'data' => $results,
             'total_series' => $totalSeries // Return the total series count in the response
+        ]);
+    }
+
+    public function edclDetail($loadingListId, $customerPartId)
+    {
+        // get loading list detail id
+        $loadingListDetail = LoadingListDetail::select('id')
+                                ->where('loading_list_id', $loadingListId)
+                                ->where('customer_part_id', $customerPartId)
+                                ->first();
+                                
+        if(!$loadingListDetail){
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data not found!' // Return the total series count in the response
+            ]);
+        }
+
+        // get skid detail
+        $skidData = SkidDetail::where('loading_list_detail_id', $loadingListDetail->id)->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $skidData
         ]);
     }
 

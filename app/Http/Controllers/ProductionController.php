@@ -35,6 +35,11 @@ class ProductionController extends Controller
     {
         return view('pages.production.index');
     }
+    
+    public function as523()
+    {
+        return view('pages.production.as523');
+    }
 
     /**
      * Show the form for creating a new resource.

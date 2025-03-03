@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use App\Models\Pulling;
 use App\Models\Customer;
 use App\Models\Mutation;
+use App\Models\SkidDetail;
 use App\Models\LoadingList;
 use Illuminate\Support\Str;
 use App\Models\CustomerPart;
@@ -19,6 +20,7 @@ use App\Models\KanbanAfterProd;
 use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use PhpMqtt\Client\ConnectionSettings;
 
 class PullingController extends Controller
@@ -65,6 +67,57 @@ class PullingController extends Controller
         } finally {
             $mqtt->disconnect();
         }
+    }
+
+    public function convertPartNumber($loadingList, $customerPart)
+    {
+        // get part number length
+        $codeLength = strlen($customerPart);
+
+        // check last two digit of partNumber 
+        $lastDigit = substr($customerPart, -2);
+
+        $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        if(!$loadingListId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Loading list tidak terdaftar!'
+            ];
+        }
+        
+        // check part number customer length
+        if($codeLength == 12){
+            // TMMIN
+            if($lastDigit != '00'){
+                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -2);
+            }else{
+                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
+            }
+        }else if($codeLength == 10){
+            if($loadingListId->customer_id == 14){
+                // SUZUKI
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+            }else{
+                if($loadingListId->customer_id == 6){
+                    // MMKI
+                    $convertedPartNumber = $customerPart;
+                }else{
+                    // TBINA
+                    $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
+                }
+            }
+        }else if($codeLength == 13){
+            // SUZUKI
+            if($lastDigit != '000'){
+                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
+            }else{
+                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
+            }
+        }else{
+            $convertedPartNumber = $customerPart;
+        }
+
+        return $convertedPartNumber;
     }
     /**
      * Display a listing of the resource.
@@ -509,6 +562,248 @@ class PullingController extends Controller
                 'status' => 'error',
                 'message' => $th->getMessage(),
             ],500);
+        }
+    }
+
+    public function edclAuth($username, $password)
+    {
+        try {
+            $response = Http::withHeaders([
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                'x-apihub-key' => env('API_TMMIN_KEY'),
+            ])->post(env('API_TMMIN') . 'auth/login', [
+                'username' => $username,
+                'password' => $password,
+            ]);
+
+            if ($response->failed()) {
+                return response()->json([
+                    'error' => 'Authentication failed',
+                    'status' => $response->status(),
+                    'message' => $response->json(), // Log for debugging
+                ], $response->status());
+            }
+
+            $data = $response->json(); // Convert response to array
+            $accessToken = $data['data']['accessToken'] ?? null; // Safely retrieve accessToken
+
+            return $accessToken; // Output the token
+
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Authentication failed, please try again'], 500);
+        }
+    }
+
+    public function edcl($skid , $manifest, $itemNo, $seqNo, $customerPart, $originalBarcode, $loadingList, $customer)
+    {
+        // Authenticate and get the token
+        $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD')) ?? null;
+
+        if (!$token) {
+            return response()->json(['error' => 'Authentication failed'], 401);
+        }
+
+        // get loading list id
+        $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
+        if(!$loadingListId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Loading list tidak terdaftar!'
+            ];
+        }
+
+        // get customer part id
+        $customerPartId = CustomerPart::with('customer')
+                            ->where('part_number', $this->convertPartNumber($loadingList, $customerPart))
+                            ->whereHas('customer', function($query) use ($customer){
+                                $query->where('name', $customer);
+                            })
+                            ->first();
+
+        // dd($customer);
+
+        if(!$customerPartId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Part number customer tidak terdaftar!'
+            ];
+        }
+
+        // Prepare the data for the API request
+        $data = [
+            [
+                "supplierCode" => env('SUPPLIER_CODE'),
+                "supplierPlant" => "2",
+                "skidNo" => "SKD" . $manifest . "00" . $skid, // Replace with actual value if needed
+                "manifestNo" => $manifest,
+                "itemNo" => $itemNo,
+                "seqNo" => $seqNo,
+                "kanbanId" => $originalBarcode
+            ]
+        ];
+
+        // Required fields for validation
+        $requiredFields = [
+            'manifestNo' => 'Manifest number is required',
+            'itemNo' => 'Item number is required',
+            'seqNo' => 'Sequence number is required',
+            'kanbanId' => 'Original barcode (kanbanId) is required',
+        ];
+
+        // Check each required field
+        foreach ($requiredFields as $field => $errorMessage) {
+            if (empty($data[0][$field])) {
+                return response()->json(['error' => $errorMessage], 400);
+            }
+        }
+
+        // Send the request to the EDCL API
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'x-apihub-key' => env('API_TMMIN_KEY'),
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ])->post(env('API_TMMIN') . 'ManifestCompleteness/confirm', $data);
+            
+        // Process the response
+        if ($response['message'] === 'Success - Confirm Manifest') {            
+            // get loading list detail table
+            $loadingListDetailId = LoadingListDetail::select('id')
+                ->where('loading_list_id', $loadingListId->id)
+                ->where('customer_part_id', $customerPartId->id)
+                ->first();
+
+            if (!$loadingListDetailId){
+                return [
+                    'status' => 'notExists',
+                    'message' => 'Part number customer / loading list tidak sesuai!'
+                ];
+            }
+            
+            try {
+                DB::beginTransaction();
+
+                // Check if the kanban_id already exists
+                $existingSkid = SkidDetail::where('kanban_id', $data[0]['kanbanId'])->exists();
+
+                if (!$existingSkid) {
+                    // Insert into skid_details if kanban_id is unique
+                    SkidDetail::create([
+                        'loading_list_detail_id' => $loadingListDetailId->id,
+                        'skid_no' => $data[0]['skidNo'],
+                        'item_no' => $data[0]['itemNo'],
+                        'serial' => $data[0]['seqNo'],
+                        'kanban_id' => $data[0]['kanbanId'],
+                        'message' => $response['message'],
+                    ]);
+                }
+
+                DB::commit();
+            } catch (\Throwable $th) {
+                DB::rollBack();
+
+                return response()->json([
+                    'error' => $th->getMessage(),
+                    'status' => 500
+                ], 500);
+            }
+            
+            // Handle successful response
+            return response()->json([
+                'status' => 'success',
+                'message' => $response['message'],
+                'data' => $response['data']['successes']
+            ], $response['status']);
+        } elseif ($response['message'] === 'Failed - Confirm Manifest') {
+            // Handle failed response
+            return response()->json([
+                'status' => 'error',
+                'message' => $response['data']['faileds'][0]['message'],
+                'data' => $response['data']['faileds']
+            ], $response['status']);
+        } else {
+            // Handle unexpected response
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unexpected response',
+                'data' => []
+            ], 500);
+        }
+    }
+
+    public function edclCancel($id)
+    {
+        // Authenticate and get the token
+        $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD')) ?? null;
+
+        if (!$token) {
+            return response()->json(['error' => 'Authentication failed'], 401);
+        }
+        
+        // get skid detail 
+        $skidData = SkidDetail::where('id', $id)->first();
+
+        $data = [
+            [
+                "supplierCode" => env('SUPPLIER_CODE'),
+                "supplierPlant" => "2",
+                "skidNo" =>  $skidData->skid_no,// Replace with actual value if needed
+                "manifestNo" => substr($skidData->skid_no, 3, 10),
+                "itemNo" => (int) $skidData->item_no,// Replace with actual value if needed
+                "seqNo" => (int) $skidData->serial,// Replace with actual value
+                "kanbanId" => $skidData->kanban_id,// Replace with actual value if needed
+            ]
+        ];
+        
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'x-apihub-key' => env('API_TMMIN_KEY'),
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ])->post(env('API_TMMIN') . 'ManifestCompleteness/cancel', $data);
+
+        // dd($response['message']);
+
+        // Process the response
+        if ($response['message'] === 'Success -  Cancel Manifest') {
+
+            try {
+                DB::beginTransaction();
+
+                // delete row in skid details
+                $skidData->delete();
+
+                DB::commit();
+                return response()->json([
+                    'status' => 'success',
+                    'message' => $response['message'],
+                    'data' => $response['data']['successes']
+                ], $response['status']);
+            } catch (\Throwable $th) {
+                //throw $th;
+                DB::rollBack();
+
+                return response()->json([
+                    'error' => $th->getMessage(),
+                    'status' => 500
+                ], 500);
+            }
+            
+        } elseif ($response['message'] === 'Failed - Cancel Manifest') {
+            // Handle failed response
+            return response()->json([
+                'status' => 'error',
+                'message' => $response['data']['faileds'][0]['message'],
+                'data' => $response['data']['faileds']
+            ], $response['status']);
+        } else {
+            // Handle unexpected response
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unexpected response',
+                'data' => []
+            ], 500);
         }
     }
 }

@@ -22,4 +22,9 @@ class CustomerPart extends Model
     {
         return $this->belongsTo(InternalPart::class);
     }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
 }

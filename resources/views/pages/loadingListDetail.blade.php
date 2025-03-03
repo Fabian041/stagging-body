@@ -52,14 +52,13 @@
             <table class="table table-responsive-lg" id="loadingList" style="width: 100%">
                 <thead>
                     <tr>
-                        {{-- <th class="text-center">Part Name</th> --}}
+                        <th class="text-center"></th> <!-- New column for the Details button -->
                         <th class="text-center">Pulling Date</th>
                         <th class="text-center">Production Date</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
                         <th class="text-center">Internal Back No.</th>
-                        {{-- <th class="text-center">Serial Number</th> --}}
                         <th class="text-center">Kanban Qty</th>
                         <th class="text-center">Total Scan</th>
                         <th class="text-center"></th>
@@ -99,7 +98,14 @@
                 dataType: 'json',
             },
             columns: [{
-                    data: 'pulling_date',
+                    data: null,
+                    className: 'details-control',
+                    orderable: false,
+                    searchable: false,
+                    defaultContent: '<button class="btn btn-info btn-sm details">Details</button>'
+                },
+                {
+                    data: 'pulling_date'
                 },
                 {
                     data: 'prod_date'
@@ -116,14 +122,11 @@
                 {
                     data: 'int_backno'
                 },
-                // {
-                //     data: 'serial_number'
-                // },
                 {
                     data: 'kbn_qty'
                 },
                 {
-                    data: 'actual_kbn_qty',
+                    data: 'actual_kbn_qty'
                 },
                 {
                     data: 'edit',
@@ -135,6 +138,116 @@
                 [5, 10, 100],
                 [5, 10, 100]
             ],
+        });
+
+        // Toggle Details Row
+        $(document).on('click', '.details', function() {
+            let tr = $(this).closest('tr');
+            let row = table.row(tr);
+
+            if (row.child.isShown()) {
+                row.child.hide();
+                tr.removeClass('shown');
+            } else {
+                let rowData = row.data();
+
+                // fetch skid
+                fetch(`/edcl/detail/${rowData.loading_list_id}/${rowData.customer_part_id}`,
+                        requestOptions)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status == 'success') {
+
+                            row.child(formatDetails(data.data)).show();
+
+                        } else if (data.status == 'error') {
+                            notif('error', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.log(error.message);
+                        notif('error', error);
+                    })
+
+                tr.addClass('shown');
+            }
+        });
+
+        // Function to format the details row
+        function formatDetails(data) {
+            let rows = '';
+
+            if (!data || data.length === 0) {
+                rows = `
+            <tr>
+                <td class="text-center" colspan="8" style="color: dark-grey ; font-weight: bold;">
+                    No data available
+                </td>
+            </tr>
+        `;
+            } else {
+                rows = data.map((item, index) => `
+                    <tr>
+                        <td class="text-center">${item.id}</td>
+                        <td class="text-center">${item.skid_no}</td>
+                        <td class="text-center">${item.item_no}</td>
+                        <td class="text-center">${item.serial}</td>
+                        <td class="text-center">${item.kanban_id}</td>
+                        <td class="text-center">${item.message}</td>
+                        <td class="text-center">
+                            <span class="badge badge-${item.message === 'Success - Confirm Manifest' ? 'success' : 'secondary'}">YES</span>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-danger btn-sm cancel-manifest">Cancel Manifest</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            return `
+                <table class="table">
+                    <thead class="table-success">
+                        <tr class="text-white">
+                            <th class="text-center" style="color: #006400">ID</th>
+                            <th class="text-center" style="color: #006400">Skid Number</th>
+                            <th class="text-center" style="color: #006400">Item Number</th>
+                            <th class="text-center" style="color: #006400">Serial Number</th>
+                            <th class="text-center" style="color: #006400">Customer Kanban</th>
+                            <th class="text-center" style="color: #006400">Message</th>
+                            <th class="text-center" style="color: #006400">Confirm</th>
+                            <th class="text-center" style="color: #006400">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            `;
+        }
+
+
+        $(document).on('click', '.cancel-manifest', function() {
+            // hide span
+            let tr = $(this).closest('tr'); // Get the closest row
+            let rowData = {
+                id: tr.find('td:eq(0)').text().trim(),
+            };
+
+            // store cancel
+            fetch(`/edcl/cancel/${rowData.id}`,
+                    requestOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status == 'success') {
+                        notif('success', data.message);
+                    } else if (data.status == 'error') {
+                        notif('error', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.log(error.message);
+                    notif('error', error);
+                })
         });
 
         $(document).on('click', '#loadingList .edit', function() {

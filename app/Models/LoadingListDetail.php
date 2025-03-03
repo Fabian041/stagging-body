@@ -22,4 +22,9 @@ class LoadingListDetail extends Model
     {
         return $this->belongsTo(CustomerPart::class, 'customer_part_id');
     }
+
+    public function skid()
+    {
+        return $this->hasMany(SkidDetail::class);
+    }
 }

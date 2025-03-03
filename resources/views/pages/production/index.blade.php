@@ -128,6 +128,10 @@
         <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+    <audio id="error-connection">
+        <source src={{ asset('assets/sounds/errConnection.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
@@ -138,6 +142,11 @@
 
     function notMatchSound() {
         var sound = document.getElementById("not-match-sound");
+        sound.play();
+    }
+
+    function errConnection() {
+        var sound = document.getElementById("error-connection");
         sound.play();
     }
 
@@ -563,6 +572,7 @@
                             error: function(xhr) {
                                 if (xhr.status == 0) {
                                     notif("error", 'Connection Error');
+                                    errConnection();
                                     return;
                                 }
                                 notif("error", 'Internal Server Error');
@@ -668,6 +678,7 @@
                             console.log(xhr)
                             if (xhr.status == 0) {
                                 notif("error", 'Connection Error');
+                                errConnection();
                                 return;
                             }
                             notif("error", xhr.responseJSON.errors);
