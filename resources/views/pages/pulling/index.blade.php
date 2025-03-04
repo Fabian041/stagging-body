@@ -2096,6 +2096,9 @@
                                     $('#indicator').removeClass('bg-danger');
                                     $('#indicator').addClass('bg-warning');
 
+                                    // reset tmmin indcator
+                                    resetIndicator();
+
                                     // display current qty
                                     $('#qty-display').text(`
                                         ${record.seri.length}/${record.total_qty}
