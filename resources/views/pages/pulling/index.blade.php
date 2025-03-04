@@ -1415,9 +1415,12 @@
             let skid = localStorage.getItem('skid');
             let originalBarcode = localStorage.getItem('originalCustomerPart');
             let barcodecomplete = localStorage.getItem('customerPart');
-            manifest = originalBarcode.substr(3, 10);
-            itemNo = originalBarcode.substr(31, 4);
-            seqNo = originalBarcode.substr(35, 4);
+
+            if (localStorage.getItem('char_total') == 39) {
+                manifest = originalBarcode.substr(3, 10);
+                itemNo = originalBarcode.substr(31, 4);
+                seqNo = originalBarcode.substr(35, 4);
+            }
 
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
