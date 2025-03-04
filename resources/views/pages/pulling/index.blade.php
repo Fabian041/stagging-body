@@ -1,5 +1,11 @@
 @extends('layouts.root.auth')
 
+<style>
+    .bg-default {
+        background-color: #03b1fc;
+    }
+</style>
+
 @section('main')
     <div class="main-section">
         <section class="section">
@@ -8,10 +14,16 @@
                     <div class="shadow hero bg-white text-dark" style="padding: 1.5rem; height: 100%;">
                         <div class="hero-inner">
                             <div class="row">
-                                <div class="col-9">
+                                <div class="col-6">
                                     <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
                                 </div>
-                                <div class="col-2" style="margin-right: 1px; !important">
+                                <div class="col-2 ml-4">
+                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
+                                        <button type="button" class="btn btn-xl btn-warning"
+                                            id="refreshTokenBtn">Refresh</button>
+                                    </div>
+                                </div>
+                                <div class="col-2 ml-3">
                                     <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
                                         <button type="button" class="btn btn-xl btn-danger" id="hardReset">Reset</button>
                                     </div>
@@ -64,18 +76,25 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="skid-display"></div>
                             <div class="row mt-2">
                                 <div class="col-6" style="padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                    <div class="bg-default" style="height: 5rem; width: 100%;  border-radius: 4px;">
                                         <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
                                             Kanban Customer</h6>
-                                        <h6 class="text-center " style="padding-top: 0rem; color: white;" id="cust-display">
+                                        <h6 class="text-center " style="padding-top: 0rem;  color: white;"
+                                            id="cust-display">
                                             -
                                         </h6>
+                                        {{-- <div class="bg-warning"
+                                            style="display:inline-block; margin-left:143px; margin-top:-55px; border-radius:100%; width: 10px; height:10px"
+                                            id="tmmin-indicator">
+                                        </div> --}}
                                     </div>
                                 </div>
                                 <div class="col-6" style="padding-left: .5rem; padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
+                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
+                                        id="tmmin-indicator">
                                         <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
                                             Kanban Internal</h6>
                                         <h6 class="text-center " style="padding-top: 0rem; color: white;" id="int-display">
@@ -141,7 +160,7 @@
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content" id="divNotif" style="border-radius: 15px !important;">
                 <div class="modal-body text-center">
-                    <span style="color: white; font-size: 30pt" id="notif"> Scan Part</span>
+                    <span style="color: white; font-size: 30pt" id="notif">Error</span>
                 </div>
             </div>
         </div>
@@ -318,6 +337,11 @@
         return key.substring(prefix.length);
     }
 
+    function extractManifest(key) {
+        const prefix = "skid_";
+        return key.substring(prefix.length);
+    }
+
     // retrieve the loading list number from localStorage
     function getLoadingListNumber() {
         let loadingListNumber = [];
@@ -329,6 +353,19 @@
         }
         // Return a default value if no loading list number is found
         return loadingListNumber;
+    }
+
+    // get manifest from skid prefix
+    function getManifest() {
+        let manifest = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith("skid_")) {
+                manifest.push(extractManifest(key));
+            }
+        }
+        // Return a default value if no manifest is found
+        return manifest;
     }
 
     function initApp() {
@@ -371,6 +408,33 @@
             $('#cycle-display').text(cycle);
         }
 
+        // set skid
+        let skid = localStorage.getItem('skid');
+        if (!skid) {
+            localStorage.setItem('skid', 1);
+        }
+
+        // display skid if customer is TMMIN
+        if (customer == 'TMMIN KRW 1') {
+            $('.skid-display').append(`<div class="row mt-2">
+                <div class="col-12" style="padding-right: 0px">
+                    <div
+                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
+                        <small class="badge badge-dark"
+                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
+                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
+                            <span id="skid-display">${skid}</span>
+                        </h5>
+                        <div class="btn btn-danger"
+                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
+                            id="close-skid">
+                            Close Skid ${skid}
+                        </div>
+                    </div>
+                </div>
+            </div>`)
+        }
+
         if (getLoadingListNumber().length == 0) {
             $('#modalLoadingListScan').on('shown.bs.modal', function() {
                 $('#input-loadingList').focus();
@@ -382,6 +446,57 @@
             $('#cycle-display').text('cycle');
         }
         $('#code').focus();
+    }
+
+    function successIndicator() {
+        $('#indicator')
+            .removeClass('bg-warning');
+        $('#indicator')
+            .removeClass('bg-danger');
+        $('#indicator')
+            .addClass('bg-success');
+    }
+
+    function tmminSuccessIndicator() {
+        $('#tmmin-indicator')
+            .removeClass('bg-default');
+        $('#tmmin-indicator')
+            .removeClass('bg-warning');
+        $('#tmmin-indicator')
+            .removeClass('bg-danger');
+        $('#tmmin-indicator')
+            .addClass('bg-success');
+    }
+
+    function resetIndicator() {
+        $('#tmmin-indicator')
+            .addClass('bg-default');
+        $('#tmmin-indicator')
+            .removeClass('bg-warning');
+        $('#tmmin-indicator')
+            .removeClass('bg-danger');
+        $('#tmmin-indicator')
+            .removeClass('bg-success');
+    }
+
+    function errorIndicator() {
+        $('#indicator')
+            .removeClass('bg-warning');
+        $('#indicator')
+            .removeClass('bg-success');
+        $('#indicator')
+            .addClass('bg-danger');
+    }
+
+    function tmminErrorIndicator() {
+        $('#tmmin-indicator')
+            .removeClass('bg-default');
+        $('#tmmin-indicator')
+            .removeClass('bg-warning');
+        $('#tmmin-indicator')
+            .removeClass('bg-success');
+        $('#tmmin-indicator')
+            .addClass('bg-danger');
     }
 
     function notif(color, text) {
@@ -506,6 +621,61 @@
         }
     }
 
+    // Function to get the Skid data (either Skid 1 or Skid 2)
+    function getSkidData(skidId) {
+        return new Promise(function(resolve, reject) {
+            let pds = localStorage.getItem('pds_local');
+            let request = window.indexedDB.open(pds);
+
+            request.onsuccess = function(event) {
+                const database = event.target.result;
+                const transaction = database.transaction(["loadingList"], 'readonly');
+                const objectStore = transaction.objectStore("loadingList");
+
+                let allData = [];
+                objectStore.openCursor().onsuccess = function(event) {
+                    let cursor = event.target.result;
+                    if (cursor) {
+                        allData.push(cursor.value);
+                        cursor.continue();
+                    } else {
+                        // Group data by skidNo
+                        let skidGroups = {};
+                        allData.forEach(item => {
+                            if (!skidGroups[item.skidNo]) {
+                                skidGroups[item.skidNo] = [];
+                            }
+                            skidGroups[item.skidNo].push(item);
+                        });
+
+                        // Extract skids and sort them
+                        let skids = Object.keys(skidGroups).sort();
+
+                        if (skidId === 1) {
+                            let skid1Data = skidGroups[skids[0]] || [];
+                            localStorage.setItem("skid_1_data", JSON.stringify(skid1Data));
+                            resolve(skid1Data);
+                        } else {
+                            let skid1Data = JSON.parse(localStorage.getItem("skid_1_data") || "[]");
+                            let skid1SkidNo = skid1Data.length > 0 ? skid1Data[0].skidNo : null;
+
+                            let skid2Data = allData.filter(d => d.skidNo !== skid1SkidNo);
+                            resolve(skid2Data);
+                        }
+                    }
+                };
+
+                transaction.onerror = function(event) {
+                    reject("Error reading IndexedDB: " + event.target.error);
+                };
+            };
+
+            request.onerror = function(event) {
+                reject("Failed to open IndexedDB: " + event.target.error);
+            };
+        });
+    }
+
     function customerCharStore(customer) {
         $.ajax({
             type: 'GET',
@@ -545,6 +715,26 @@
                 console.log(xhr);
             }
         });
+    }
+
+    // Function to update the button based on the status of Skid 1 and Skid 2
+    function updateButtonStatus() {
+        var button = $("#close-skid");
+
+        if (!skid1Sent) {
+            // button.text("Close Skid 1");
+            button.off('click').on('click', function() {
+                sendSkidData(1);
+            });
+        } else if (!skid2Sent) {
+            button.text("Close Skid 2");
+            button.off('click').on('click', function() {
+                sendSkidData(2);
+            });
+        } else {
+            button.text("Semua Data Terkirim").prop("disabled",
+                true);
+        }
     }
 
     function pullingQuantity() {
@@ -609,9 +799,37 @@
         }
     }
 
+    function refreshToken() {
+        $.ajax({
+            url: "/refresh-token",
+            type: "POST",
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            },
+            success: function(response) {
+                if (response.success) {
+                    notif('success', 'Successfully refreshed token');
+                    setInterval(() => {
+                        $('#code').focus();
+                    }, 1000);
+                } else {
+                    notif("error", response.message);
+                }
+            },
+            error: function(xhr) {
+                notif("error", xhr.responseJSON.message);
+            }
+        });
+    }
+
     $(document).ready(function() {
         initApp();
+
         $('#code').focus();
+
+        $("#refreshTokenBtn").click(function() {
+            refreshToken();
+        });
 
         $('#loadingList').on('click', function() {
             loadingListModal2();
@@ -745,7 +963,7 @@
                                             <h6 class="text-center " style="padding-top: .5rem; color: white;"
                                                 id="loadingList-display">${data.data.number}</h6>
                                         </div>
-                                    </li>`
+                                </li>`
                             );
 
                             // create database schema
@@ -859,12 +1077,37 @@
                                         // calculate total quantity of the orders
                                         pullingQuantity();
 
+                                        // display skid if customer is TMMIN
+                                        if (data.data.customer_code == '7A00001') {
+                                            let skid = localStorage.getItem('skid');
+                                            if (!skid) {
+                                                localStorage.setItem('skid', 1);
+                                            }
+                                            $('.skid-display').append(`<div class="row mt-2">
+                                                <div class="col-12" style="padding-right: 0px">
+                                                    <div
+                                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
+                                                        <small class="badge badge-dark"
+                                                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
+                                                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
+                                                            <span id="skid-display">${skid}</span>
+                                                        </h5>
+                                                        <div class="btn btn-danger"
+                                                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
+                                                            id="close-skid">
+                                                            Close Skid ${skid}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>`)
+                                        }
+
                                         // scan kanban
                                         $('#code').focus();
 
                                     })
                                     .catch(function(err) {
-                                        notif('error', data.message);
+                                        notif('error', err);
                                     })
 
                                 // loadingList qty
@@ -889,13 +1132,16 @@
                         }
                     },
                     error: function(xhr) {
-                        console.log(xhr)
                         if (xhr.status == 0) {
                             notif("error", 'Connection Error');
                             loadingListModal();
                             return;
+                        } else if (xhr.status == 401) {
+                            notif("error", `${xhr.statusText} Please re-login`);
+                            loadingListModal();
+                            return;
                         }
-                        notif("error", xhr.responseJSON.errors);
+                        notif("error", xhr.statusText);
                         loadingListModal();
                     }
                 });
@@ -915,6 +1161,9 @@
                         localStorage.removeItem('status');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan pulling!');
+
+                        // remove original customer part in local storage
+                        localStorage.removeItem('originalCustomerPart');
 
                         setInterval(() => {
                             $('#code').focus();
@@ -963,76 +1212,31 @@
         }
 
         $('#delay').on('click', function() {
-            // let loadingList = getLoadingListNumber();
-            // let pds = localStorage.getItem('pds_local');
-            // let formData = new FormData();
-            // request = window.indexedDB.open(pds);
-
-            // // transaction
-            // request.onsuccess = function(event) {
-            //     const database = event.target.result;
-            //     const transaction = database.transaction(["loadingList"], 'readonly');
-            //     const objectStore = transaction.objectStore("loadingList");
-            //     let loadingList = {};
-            //     let flag = true;
-
-            //     objectStore.openCursor().onsuccess = function(event) {
-            //         let cursor = event.target.result;
-            //         if (cursor) {
-            //             const record = cursor.value;
-            //             let items = [];
-            //             for (let i = 0; i < record.seri.length; i++) {
-            //                 let item = {
-            //                     part_number_internal: record.internal,
-            //                     part_number_customer: record.customer,
-            //                     serial_number: record.seri[i]
-            //                 };
-            //                 items.push(item);
-            //             }
-
-            //             // store in loading list array
-            //             const loadingListNumber = record.loading_list_number;
-            //             if (loadingList.hasOwnProperty(loadingListNumber)) {
-            //                 loadingList[loadingListNumber].push(...items);
-            //             } else {
-            //                 loadingList[loadingListNumber] = items;
-            //             }
-            //             cursor.continue();
-            //         }
-            //     }
-
-            //     // when transaction complete
-            //     transaction.oncomplete = function() {
-            //         if (flag) {
-            //             // send loading list data to backend
-            //             $.ajax({
-            //                 type: 'GET',
-            //                 url: "{{ route('pulling.post') }}",
-            //                 _token: "{{ csrf_token() }}",
-            //                 data: {
-            //                     loadingList: loadingList,
-            //                     token: token
-            //                 },
-            //                 dataType: 'json',
-            //                 success: function(data) {
-            //                     console.log(data);
-            //                 },
-            //                 error: function(xhr) {
-            //                     notif('error', xhr.statusText);
-            //                 }
-            //             });
-            //         } else {
-            //             notif('error', 'loading list belum lengkap!');
-            //             uncompleteLlSound();
-            //             setInterval(() => {
-            //                 $('#code').focus();
-            //             }, 1000);
-            //         }
-            //     }
-            // }
-
             localStorage.clear();
             window.location.reload();
+        });
+
+        $('#close-skid').on('click', function() {
+            if (!confirm("Are you sure you want to change the skid?")) {
+                return; // Stop execution if user cancels
+            }
+
+            let skid = parseInt(localStorage.getItem('skid')) || 1; // Default to 1 if not set
+            let skidDisplay = $('#skid-display');
+
+            if (skid === 1) {
+                skid++; // Increment first
+                localStorage.setItem('skid', skid); // Store updated value
+            } else if (skid === 2) {
+                skid--; // Decrement first
+                localStorage.setItem('skid', skid); // Store updated value
+            }
+
+            skidDisplay.text(skid);
+            $(this).text(`Close Skid ${skid}`);
+            setInterval(() => {
+                $('#code').focus();
+            }, 1000);
         });
 
         $('#hardReset').on('click', function() {
@@ -1208,6 +1412,12 @@
             let arraySeri = cursor['seri'];
             let totalQty = cursor['total_qty'];
             let isSameObject = false;
+            let skid = localStorage.getItem('skid');
+            let originalBarcode = localStorage.getItem('originalCustomerPart');
+            let barcodecomplete = localStorage.getItem('customerPart');
+            manifest = originalBarcode.substr(3, 10);
+            itemNo = originalBarcode.substr(31, 4);
+            seqNo = originalBarcode.substr(35, 4);
 
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
@@ -1302,6 +1512,73 @@
                                     dataType: 'json',
                                     success: function(data) {
                                         if (data.status == 'success') {
+                                            // bring eDCL data to backend
+                                            if (localStorage.getItem(
+                                                    'char_total') == 39) {
+                                                $.ajax({
+                                                    type: 'GET',
+                                                    url: "{{ url('/edcl/store') }}" +
+                                                        '/' +
+                                                        skid + '/' +
+                                                        manifest + '/' +
+                                                        itemNo +
+                                                        '/' +
+                                                        seqNo + '/' +
+                                                        barcodecomplete +
+                                                        '/' +
+                                                        originalBarcode +
+                                                        '/' +
+                                                        loadingList +
+                                                        '/' +
+                                                        localStorage
+                                                        .getItem(
+                                                            'customer'),
+                                                    _token: "{{ csrf_token() }}",
+                                                    dataType: 'json',
+                                                    success: function(
+                                                        response) {
+                                                        if (response
+                                                            .status ==
+                                                            'success') {
+                                                            tmminSuccessIndicator
+                                                                ();
+                                                            console.log(
+                                                                'success'
+                                                            );
+                                                        } else if (
+                                                            response
+                                                            .status ==
+                                                            'error') {
+                                                            arraySeri
+                                                                .pop();
+
+                                                            notif('error',
+                                                                response
+                                                                .message
+                                                            );
+                                                            tmminErrorIndicator
+                                                                ();
+                                                            return;
+                                                        }
+                                                    },
+                                                    error: function(xhr) {
+                                                        arraySeri.pop();
+                                                        console.log(xhr)
+                                                        if (xhr
+                                                            .status == 0
+                                                        ) {
+                                                            notif("error",
+                                                                'Connection Error'
+                                                            );
+                                                            return;
+                                                        }
+                                                        notif("error",
+                                                            xhr
+                                                            .responseJSON
+                                                            .errors);
+                                                    }
+                                                })
+                                            }
                                             // udpate the qty display
                                             $('#qty-display').text(
                                                 `${arraySeri.length}/${totalQty}`
@@ -1317,6 +1594,8 @@
                                             $('#indicator').removeClass(
                                                 'bg-warning');
                                             $('#indicator').addClass('bg-success');
+
+                                            resetIndicator();
 
                                             // display total quantity
                                             pullingQuantity();
@@ -1751,6 +2030,11 @@
                         }
                     });
                 } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
+                    let skid = localStorage.getItem('skid');
+                    let originalBarcode = barcodecomplete;
+                    let manifest;
+                    let itemNo;
+                    let seqNo;
                     if (localStorage.getItem('char_length') != 0) {
                         // substring
                         barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
@@ -1767,6 +2051,7 @@
                                 barcodecomplete = barcodecomplete.toUpperCase();
                             }
                         }
+
                     } else {
                         barcodecomplete = barcodecomplete.toUpperCase();
                     }
@@ -1801,6 +2086,7 @@
                                     }
                                     // set flag
                                     isAvailable = true;
+
                                     // display customer
                                     $('#cust-display').text(record.customer);
                                     $('#int-display').text('-');
@@ -1814,8 +2100,11 @@
                                     $('#qty-display').text(`
                                         ${record.seri.length}/${record.total_qty}
                                     `);
+
                                     // set local storage for customer kanban
                                     localStorage.setItem('customerPart', record.customer);
+                                    localStorage.setItem('originalCustomerPart',
+                                        originalBarcode);
                                 }
                                 cursor.continue();
                             } else {
