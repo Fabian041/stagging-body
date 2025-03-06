@@ -665,22 +665,22 @@ class PullingController extends Controller
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ])->post(env('API_TMMIN') . 'ManifestCompleteness/confirm', $data);
+
+        // get loading list detail table
+        $loadingListDetailId = LoadingListDetail::select('id')
+            ->where('loading_list_id', $loadingListId->id)
+            ->where('customer_part_id', $customerPartId->id)
+            ->first();
+
+        if (!$loadingListDetailId){
+            return [
+                'status' => 'notExists',
+                'message' => 'Part number customer / loading list tidak sesuai!'
+            ];
+        }
             
         // Process the response
         if ($response['message'] === 'Success - Confirm Manifest') {            
-            // get loading list detail table
-            $loadingListDetailId = LoadingListDetail::select('id')
-                ->where('loading_list_id', $loadingListId->id)
-                ->where('customer_part_id', $customerPartId->id)
-                ->first();
-
-            if (!$loadingListDetailId){
-                return [
-                    'status' => 'notExists',
-                    'message' => 'Part number customer / loading list tidak sesuai!'
-                ];
-            }
-            
             try {
                 DB::beginTransaction();
 
@@ -716,6 +716,16 @@ class PullingController extends Controller
                 'data' => $response['data']['successes']
             ], $response['status']);
         } elseif ($response['message'] === 'Failed - Confirm Manifest') {
+            // log into database
+            SkidDetail::create([
+                'loading_list_detail_id' => $loadingListDetailId->id,
+                'skid_no' => $data[0]['skidNo'],
+                'item_no' => $data[0]['itemNo'],
+                'serial' => $data[0]['seqNo'],
+                'kanban_id' => $data[0]['kanbanId'],
+                'message' => $response['data']['faileds'][0]['message'],
+            ]);
+            
             // Handle failed response
             return response()->json([
                 'status' => 'error',
