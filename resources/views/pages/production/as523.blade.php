@@ -132,6 +132,14 @@
         <source src={{ asset('assets/sounds/errConnection.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+    <audio id="dandori-ng-sound">
+        <source src={{ asset('assets/sounds/dandori_error.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+    <audio id="master-dandori-ng-sound">
+        <source src={{ asset('assets/sounds/master_dandori_error.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
@@ -168,6 +176,51 @@
     function okSound() {
         var sound = document.getElementById("ok-sound");
         sound.play();
+    }
+
+    function dandoriSound() {
+        var sound = document.getElementById("dandori-ng-sound");
+        sound.play();
+    }
+
+    function masterDandoriSound() {
+        var sound = document.getElementById("master-dandori-ng-sound");
+        sound.play();
+    }
+
+    function showModalConfirmation() {
+        $('#modalConfirmation').on('shown.bs.modal', function() {
+            $('#input-confirmation').focus();
+        })
+        $('#modalConfirmation').modal('show');
+
+        $(document).on('click', function() {
+            $('#input-confirmation').focus();
+        })
+    }
+
+    function loopNotMatchSound() {
+        if (localStorage.getItem('error') === 'true') {
+            notMatchSound(); // Putar suara
+            showModalConfirmation();
+            setTimeout(loopNotMatchSound, 2000); // Loop setiap 2 detik
+        }
+    }
+
+    function loopDandoriSound() {
+        if (localStorage.getItem('dandori_error') === 'true') {
+            dandoriSound(); // Putar suara
+            showModalConfirmation();
+            setTimeout(loopDandoriSound, 2000); // Loop setiap 2 detik
+        }
+    }
+
+    function loopMasterDandoriSound() {
+        if (localStorage.getItem('master_dandori_error') === 'true') {
+            masterDandoriSound(); // Putar suara
+            showModalConfirmation();
+            setTimeout(loopMasterDandoriSound, 2000); // Loop setiap 2 detik
+        }
     }
 
     function initApp() {
@@ -209,16 +262,9 @@
             $('#total-part').text(totalPart)
         }
 
-        if (localStorage.getItem('error')) {
-            $('#modalConfirmation').on('shown.bs.modal', function() {
-                $('#input-confirmation').focus();
-            })
-            $('#modalConfirmation').modal('show');
-
-            $(document).on('click', function() {
-                $('#input-confirmation').focus();
-            })
-        }
+        loopNotMatchSound(); // Mulai looping suara
+        loopDandoriSound(); // Mulai looping suara
+        loopMasterDandoriSound(); // Mulai looping suara
 
         $('#code').focus();
     }
@@ -323,21 +369,6 @@
         startTimer(); // Start a new timer
     }
 
-    function confirmationModal() {
-        let status = localStorage.getItem('error');
-        $('#input-confirmation').val('');
-        setTimeout(() => {
-            if (status) {
-                $('#modalConfirmation').on('shown.bs.modal', function() {
-                    setTimeout(() => {
-                        $('#input-confirmation').focus();
-                    }, 300);
-                })
-                $('#modalConfirmation').modal('show');
-            }
-        }, 1500);
-    }
-
     $(document).ready(function() {
         initApp();
 
@@ -388,6 +419,8 @@
                     if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
                         '000040' || barcodecomplete == '000504') {
                         localStorage.removeItem('error');
+                        localStorage.removeItem('dandori_error');
+                        localStorage.removeItem('master_dandori_error');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan!');
 
@@ -504,6 +537,7 @@
                 // check if dandori board is scanned
                 if (!localStorage.getItem('dandori_board')) {
                     // compare scanned kanban with dandori board in local storage
+                    dandoriSound(); // Putar suara
                     notif("error", 'Scan dandori board terlebih dahulu!');
 
                     // display status
@@ -517,7 +551,7 @@
 
                     $('#status').text('NG');
 
-                    localStorage.setItem('error', 'true');
+                    localStorage.setItem('dandori_error', 'true');
 
                     setTimeout(() => {
                         window.location.reload();
@@ -605,6 +639,7 @@
                         })
                     } else {
                         // compare scanned kanban with dandori board in local storage
+                        masterDandoriSound(); // Putar suara
                         notif("error", 'Master sample tidak sesuai dengan dandori board!');
 
                         // display status
@@ -618,7 +653,7 @@
 
                         $('#status').text('NG');
 
-                        localStorage.setItem('error', 'true');
+                        localStorage.setItem('master_dandori_error', 'true');
 
                         setTimeout(() => {
                             window.location.reload();
