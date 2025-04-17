@@ -140,6 +140,10 @@
         <source src={{ asset('assets/sounds/master_dandori_error.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+    <audio id="wrong-kanban-sound">
+        <source src={{ asset('assets/sounds/wrongKanban.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
@@ -188,6 +192,11 @@
         sound.play();
     }
 
+    function wrongKanbanSound() {
+        var sound = document.getElementById("wrong-kanban-sound");
+        sound.play();
+    }
+
     function showModalConfirmation() {
         $('#modalConfirmation').on('shown.bs.modal', function() {
             $('#input-confirmation').focus();
@@ -201,7 +210,7 @@
 
     function loopNotMatchSound() {
         if (localStorage.getItem('error') === 'true') {
-            notMatchSound(); // Putar suara
+            wrongKanbanSound(); // Putar suara
             showModalConfirmation();
             setTimeout(loopNotMatchSound, 2000); // Loop setiap 2 detik
         }
@@ -769,7 +778,7 @@
                         notif('error', 'Kanban tidak sesuai!');
 
                         // notification sound
-                        notMatchSound();
+                        wrongKanbanSound();
 
                         // display status
                         $('.status-card-header').removeClass('card-secondary');
