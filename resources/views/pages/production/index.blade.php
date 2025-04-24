@@ -132,18 +132,6 @@
         <source src={{ asset('assets/sounds/errConnection.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
-    <audio id="dandori-ng-sound">
-        <source src={{ asset('assets/sounds/dandori_error.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
-    </audio>
-    <audio id="master-dandori-ng-sound">
-        <source src={{ asset('assets/sounds/master_dandori_error.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
-    </audio>
-    <audio id="wrong-kanban-sound">
-        <source src={{ asset('assets/sounds/wrongKanban.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
-    </audio>
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
@@ -182,59 +170,8 @@
         sound.play();
     }
 
-    function dandoriSound() {
-        var sound = document.getElementById("dandori-ng-sound");
-        sound.play();
-    }
-
-    function masterDandoriSound() {
-        var sound = document.getElementById("master-dandori-ng-sound");
-        sound.play();
-    }
-
-    function wrongKanbanSound() {
-        var sound = document.getElementById("wrong-kanban-sound");
-        sound.play();
-    }
-
-    function showModalConfirmation() {
-        $('#modalConfirmation').on('shown.bs.modal', function() {
-            $('#input-confirmation').focus();
-        })
-        $('#modalConfirmation').modal('show');
-
-        $(document).on('click', function() {
-            $('#input-confirmation').focus();
-        })
-    }
-
-    function loopNotMatchSound() {
-        if (localStorage.getItem('error') === 'true') {
-            wrongKanbanSound(); // Putar suara
-            showModalConfirmation();
-            setTimeout(loopNotMatchSound, 2000); // Loop setiap 2 detik
-        }
-    }
-
-    function loopDandoriSound() {
-        if (localStorage.getItem('dandori_error') === 'true') {
-            dandoriSound(); // Putar suara
-            showModalConfirmation();
-            setTimeout(loopDandoriSound, 2000); // Loop setiap 2 detik
-        }
-    }
-
-    function loopMasterDandoriSound() {
-        if (localStorage.getItem('master_dandori_error') === 'true') {
-            masterDandoriSound(); // Putar suara
-            showModalConfirmation();
-            setTimeout(loopMasterDandoriSound, 2000); // Loop setiap 2 detik
-        }
-    }
-
     function initApp() {
         let model = localStorage.getItem('model');
-        let backNumber = localStorage.getItem('back_number');
         let totalScan = localStorage.getItem('scan_counter');
         let totalPart = localStorage.getItem('part_counter');
         let photo = localStorage.getItem('photo');
@@ -246,7 +183,7 @@
             $('.model-card').removeClass('bg-secondary');
             $('.model-card').addClass('bg-info');
 
-            $('#model').text(backNumber)
+            $('#model').text(model)
             // display PIS
             $('#pis').html(
                 `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="600">`);
@@ -271,9 +208,16 @@
             $('#total-part').text(totalPart)
         }
 
-        loopNotMatchSound(); // Mulai looping suara
-        loopDandoriSound(); // Mulai looping suara
-        loopMasterDandoriSound(); // Mulai looping suara
+        if (localStorage.getItem('error')) {
+            $('#modalConfirmation').on('shown.bs.modal', function() {
+                $('#input-confirmation').focus();
+            })
+            $('#modalConfirmation').modal('show');
+
+            $(document).on('click', function() {
+                $('#input-confirmation').focus();
+            })
+        }
 
         $('#code').focus();
     }
@@ -378,6 +322,21 @@
         startTimer(); // Start a new timer
     }
 
+    function confirmationModal() {
+        let status = localStorage.getItem('error');
+        $('#input-confirmation').val('');
+        setTimeout(() => {
+            if (status) {
+                $('#modalConfirmation').on('shown.bs.modal', function() {
+                    setTimeout(() => {
+                        $('#input-confirmation').focus();
+                    }, 300);
+                })
+                $('#modalConfirmation').modal('show');
+            }
+        }, 1500);
+    }
+
     $(document).ready(function() {
         initApp();
 
@@ -428,8 +387,6 @@
                     if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
                         '000040' || barcodecomplete == '000504') {
                         localStorage.removeItem('error');
-                        localStorage.removeItem('dandori_error');
-                        localStorage.removeItem('master_dandori_error');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan!');
 
@@ -515,175 +472,22 @@
 
                 }
 
+
                 let scanCounter;
                 let partCounter;
-                let model;
-
-                // new rule
-                if (barcodecomplete.endsWith('dandori')) {
-                    // set item
-                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
-
-                    notif("success", 'Berhasil scan dandori board!');
-                    // display status
-                    $('.status-card-header').removeClass('card-secondary');
-                    $('.status-card-header').addClass('card-success');
-
-                    $('.status-card').removeClass('bg-secondary');
-                    $('.status-card').addClass('bg-success');
-
-                    $('#status').text('OK');
-
-                    setTimeout(() => {
-                        $('.status-card').removeClass('bg-success');
-                        $('.status-card').addClass(
-                            'bg-secondary');
-                        $('#status').text('-');
-                    }, 5000);
-                    return;
-                }
-
-                // check if dandori board is scanned
-                if (!localStorage.getItem('dandori_board')) {
-                    // compare scanned kanban with dandori board in local storage
-                    dandoriSound(); // Putar suara
-                    notif("error", 'Scan dandori board terlebih dahulu!');
-
-                    // display status
-                    $('.status-card-header').removeClass('card-secondary');
-                    $('.status-card-header').removeClass('card-success');
-                    $('.status-card-header').addClass('card-danger');
-
-                    $('.status-card').removeClass('bg-secondary');
-                    $('.status-card').removeClass('bg-success');
-                    $('.status-card').addClass('bg-danger');
-
-                    $('#status').text('NG');
-
-                    localStorage.setItem('dandori_error', 'true');
-
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                    return;
-                }
-
-                if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
-                    model = barcodecomplete.replace(/-model$/, "");
-                    if (model == localStorage.getItem('dandori_board')) {
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ url('pulling/internal-check') }}" + '/' + model,
-                            _token: "{{ csrf_token() }}",
-                            dataType: 'json',
-                            success: function(dataPart) {
-                                // store part number information in local storage
-                                if (dataPart.status == 'success') {
-                                    // store to database
-                                    localStorage.setItem('model', dataPart
-                                        .partNumber);
-                                    localStorage.setItem('back_number', dataPart
-                                        .backNumber);
-                                    localStorage.setItem('scan_counter', 0);
-                                    localStorage.setItem('part_counter', 0);
-                                    localStorage.setItem('photo', dataPart
-                                        .photo);
-
-                                    // display model  running
-                                    $('.model-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.model-card-header').addClass(
-                                        'card-info');
-
-                                    $('.model-card').removeClass(
-                                        'bg-secondary');
-                                    $('.model-card').addClass('bg-info');
-
-                                    // display total scan
-                                    $('.total-scan-card-header')
-                                        .removeClass('card-secondary');
-                                    $('.total-scan-card-header').addClass(
-                                        'card-success');
-
-                                    $('.total-scan-card').removeClass(
-                                        'bg-secondary');
-                                    $('.total-scan-card').addClass(
-                                        'bg-success');
-
-                                    // display total part
-                                    $('.total-part-card-header')
-                                        .removeClass('card-secondary');
-                                    $('.total-part-card-header').addClass(
-                                        'card-success');
-
-                                    $('.total-part-card').removeClass(
-                                        'bg-secondary');
-                                    $('.total-part-card').addClass(
-                                        'bg-success');
-
-                                    $('#model').text(dataPart.backNumber)
-                                    $('#total-scan').text(scanCounter)
-                                    $('#total-part').text(partCounter)
-
-                                    // display PIS
-                                    $('#pis').html(
-                                        `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
-                                    );
-
-                                    // start new timer
-                                    // resetAndStartTimer();
-                                } else {
-                                    notif('error', dataPart.message);
-                                }
-                            },
-                            error: function(xhr) {
-                                console.log(xhr)
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    errConnection();
-                                    return;
-                                }
-                                notif("error", xhr.responseJSON.errors);
-                            }
-                        })
-                    } else {
-                        // compare scanned kanban with dandori board in local storage
-                        masterDandoriSound(); // Putar suara
-                        notif("error", 'Master sample tidak sesuai dengan dandori board!');
-
-                        // display status
-                        $('.status-card-header').removeClass('card-secondary');
-                        $('.status-card-header').removeClass('card-success');
-                        $('.status-card-header').addClass('card-danger');
-
-                        $('.status-card').removeClass('bg-secondary');
-                        $('.status-card').removeClass('bg-success');
-                        $('.status-card').addClass('bg-danger');
-
-                        $('#status').text('NG');
-
-                        localStorage.setItem('master_dandori_error', 'true');
-
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                        return;
-                    }
-                }
-
+                console.log(internal.trimEnd());
 
                 // check if model is set in local storage
-                if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
+                if (localStorage.getItem('model')) {
                     // compare scanned kanban with model in local storage
-                    if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
-                            'dandori_board') === internal.trim()) {
+                    if (localStorage.getItem('model') === backNum) {
                         // get current counter value
                         $.ajax({
                             type: 'get',
                             url: "{{ url('production/store/') }}",
                             _token: "{{ csrf_token() }}",
                             data: {
-                                partNumber: internal.trim(),
+                                partNumber: internal,
                                 seri: seri
                             },
                             dataType: 'json',
@@ -762,6 +566,7 @@
                                         window.location.reload();
                                     }, 1500);
                                 }
+                                proceedWithAjax = false; // Do not proceed with AJAX
                                 return;
                             },
                             error: function(xhr) {
@@ -778,7 +583,7 @@
                         notif('error', 'Kanban tidak sesuai!');
 
                         // notification sound
-                        wrongKanbanSound();
+                        notMatchSound();
 
                         // display status
                         $('.status-card-header').removeClass('card-secondary');
@@ -796,11 +601,90 @@
                         setTimeout(() => {
                             window.location.reload();
                         }, 2000);
+                        proceedWithAjax = false; // Do not proceed with AJAX
                         return;
                     }
+                    proceedWithAjax = false; // Do not proceed with AJAX
                     return;
                 }
 
+                // check if part number exist in database
+                if (proceedWithAjax) {
+                    $.ajax({
+                        type: 'GET',
+                        url: "{{ url('pulling/internal-check') }}" + '/' + internal,
+                        _token: "{{ csrf_token() }}",
+                        dataType: 'json',
+                        success: function(dataPart) {
+                            // store part number information in local storage
+                            if (dataPart.status == 'success') {
+                                // store to database
+                                localStorage.setItem('model', dataPart
+                                    .backNumber);
+                                localStorage.setItem('scan_counter', 0);
+                                localStorage.setItem('part_counter', 0);
+                                localStorage.setItem('photo', dataPart
+                                    .photo);
+
+                                // display model  running
+                                $('.model-card-header').removeClass(
+                                    'card-secondary');
+                                $('.model-card-header').addClass(
+                                    'card-info');
+
+                                $('.model-card').removeClass(
+                                    'bg-secondary');
+                                $('.model-card').addClass('bg-info');
+
+                                // display total scan
+                                $('.total-scan-card-header')
+                                    .removeClass('card-secondary');
+                                $('.total-scan-card-header').addClass(
+                                    'card-success');
+
+                                $('.total-scan-card').removeClass(
+                                    'bg-secondary');
+                                $('.total-scan-card').addClass(
+                                    'bg-success');
+
+                                // display total part
+                                $('.total-part-card-header')
+                                    .removeClass('card-secondary');
+                                $('.total-part-card-header').addClass(
+                                    'card-success');
+
+                                $('.total-part-card').removeClass(
+                                    'bg-secondary');
+                                $('.total-part-card').addClass(
+                                    'bg-success');
+
+                                $('#model').text(dataPart.backNumber)
+                                $('#total-scan').text(scanCounter)
+                                $('#total-part').text(partCounter)
+
+                                // display PIS
+                                $('#pis').html(
+                                    `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
+                                );
+
+                                // start new timer
+                                // resetAndStartTimer();
+
+                            } else {
+                                notif('error', dataPart.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            console.log(xhr)
+                            if (xhr.status == 0) {
+                                notif("error", 'Connection Error');
+                                errConnection();
+                                return;
+                            }
+                            notif("error", xhr.responseJSON.errors);
+                        }
+                    })
+                }
             } else {
                 barcode = barcode + String.fromCharCode(e.which);
             }
