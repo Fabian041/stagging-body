@@ -2184,6 +2184,7 @@
                         // checkKanban(seri, internal);
                     }
 
+                    console.log(internal);
                     // initialize databae connection
                     request = window.indexedDB.open(pds);
 
