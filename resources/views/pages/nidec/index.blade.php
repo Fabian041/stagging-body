@@ -478,6 +478,8 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                console.log(barcodecomplete.length);
+
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
