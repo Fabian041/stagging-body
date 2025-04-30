@@ -507,19 +507,19 @@ class LoadingListController extends Controller
             DB::beginTransaction();
 
             // check if actual is below target qty
-            if($actualQty < $targetQty) {
-                // update actual kanban quantity or scanned kanban quantity
-                LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                                ->where('customer_part_id', $customerPartId->id)
-                                ->update([
-                                    'actual_kanban_qty' => $actualQty + 1
-                                ]);
-            }else{
-                return [
-                    'status' => 'error',
-                    'message' => 'kanban sudah penuh',
-                ];
-            }
+            // if($actualQty < $targetQty) {
+            //     // update actual kanban quantity or scanned kanban quantity
+            //     LoadingListDetail::where('loading_list_id', $loadingListId->id)
+            //                     ->where('customer_part_id', $customerPartId->id)
+            //                     ->update([
+            //                         'actual_kanban_qty' => $actualQty + 1
+            //                     ]);
+            // }else{
+            //     return [
+            //         'status' => 'error',
+            //         'message' => 'kanban sudah penuh',
+            //     ];
+            // }
 
             // push to websocket
             // $this->pushData(true);

@@ -1540,14 +1540,9 @@
                                                     dataType: 'json',
                                                     success: function(
                                                         response) {
-                                                        if (response
-                                                            .status ==
-                                                            'success') {
-                                                            tmminSuccessIndicator
-                                                                ();
-                                                            console.log(
-                                                                'success'
-                                                            );
+                                                        if (response.status =='success') {
+                                                            tmminSuccessIndicator();
+                                                            console.log('success');
                                                         } else if (
                                                             response
                                                             .status ==
