@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use App\Providers\RouteServiceProvider;
 use App\Http\Controllers\LoginController;
+use App\Http\Controllers\NidecController;
 use App\Http\Controllers\PullingController;
 use App\Http\Controllers\ErrorLogController;
 use App\Http\Controllers\ManifestController;
@@ -57,6 +58,10 @@ Route::post('/refresh-token', function () {
 
 // authenticated user
 Route::middleware(['auth'])->group(function () {
+
+    Route::prefix('nidec')->group(function(){
+        Route::get('/', [NidecController::class, 'index'])->name('nidec.index');
+    });
     
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
