@@ -418,6 +418,7 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                alert(barcodecomplete.length);
                 if (barcodecomplete.length === 6) {
                     if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
                         '000040' || barcodecomplete == '000504') {
