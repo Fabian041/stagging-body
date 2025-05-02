@@ -20,16 +20,6 @@
                             </div>
                         </div>
                     </div>
-                    <div class="shadow pt-4 card card-secondary total-scan-card-header"
-                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
-                        <div class="hero-inner">
-                            <h5 class="text-center text-dark">Total Scan</h5>
-                            <div class="bg-secondary m-auto shadow total-scan-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0</h1>
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 <div class="col-lg-8 col-sm-12">
                     <div class="card card-warning py-5 shadow" style="padding: 1rem; border-radius:8px" id="pis">
@@ -48,16 +38,6 @@
                             <div class="bg-secondary m-auto shadow status-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="status">-</h1>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="shadow pt-4 card card-secondary total-part-card-header"
-                        style="margin-bottom:130px;height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
-                        <div class="hero-inner">
-                            <h5 class="text-center text-dark">Total Part</h5>
-                            <div class="bg-secondary m-auto shadow total-part-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-part">0</h1>
                             </div>
                         </div>
                     </div>
@@ -460,6 +440,7 @@
             notif('success', 'Timer telah berhenti!');
         });
 
+        var partNumber
         var barcode = "";
         var rep2 = "";
         var code = $('#code');
@@ -478,325 +459,127 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
-                alert(barcodecomplete.length);
-
                 // get each information inside kanban code
-                if (barcodecomplete.length == 230) {
-                    // normal kanban proccess
-                    internal = barcodecomplete.substr(41, 19);
-                    seri = barcodecomplete.substr(123, 4);
-                    backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 1);
+                if (barcodecomplete.length !== 0) {
+                    if (barcodecomplete.length == 145 || barcodecomplete.length == 142) {
+                        partNumber = barcodecomplete.match(/(?:IC|OS)\s+([^\s|\/]*-C)/i)
+                        partNumber = partNumber[1].replace(/-c$/i, '')
+                    } else if (barcodecomplete.length == 241) {
+                        partNumber = barcodecomplete.match(/\d{6}-\d{5}/)
+                        partNumber = partNumber[0];
+                    }
 
-                } else if (barcodecomplete.length == 220) {
-                    // kanban buffer
-                    internal = barcodecomplete.substr(35, 12);
-                    seri = barcodecomplete.substr(130, 4);
-                    backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 1);
-
-                } else if (barcodecomplete.length == 241) {
-                    // kanban passtrough
-                    internal = barcodecomplete.substr(35, 12);
-                    seri = barcodecomplete.substr(127, 4);
-                    backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 1);
-
-                } else if (barcodecomplete.length == 218) {
-                    // kanban suzuki
-                    internal = barcodecomplete.substr(41, 16);
-                    seri = barcodecomplete.substr(123, 4);
-                    backNum = barcodecomplete.substr(100, 4);
-                    pcs = barcodecomplete.substr(196, 1);
-
-                }
-
-                let scanCounter;
-                let partCounter;
-                let model;
-
-                // new rule
-                if (barcodecomplete.endsWith('dandori')) {
-                    // set item
-                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
-
-                    notif("success", 'Berhasil scan dandori board!');
-                    // display status
-                    $('.status-card-header').removeClass('card-secondary');
-                    $('.status-card-header').addClass('card-success');
-
-                    $('.status-card').removeClass('bg-secondary');
-                    $('.status-card').addClass('bg-success');
-
-                    $('#status').text('OK');
-
-                    setTimeout(() => {
-                        $('.status-card').removeClass('bg-success');
-                        $('.status-card').addClass(
-                            'bg-secondary');
-                        $('#status').text('-');
-                    }, 5000);
-                    return;
-                }
-
-                // check if dandori board is scanned
-                if (!localStorage.getItem('dandori_board')) {
-                    // compare scanned kanban with dandori board in local storage
-                    dandoriSound(); // Putar suara
-                    notif("error", 'Scan dandori board terlebih dahulu!');
-
-                    // display status
-                    $('.status-card-header').removeClass('card-secondary');
-                    $('.status-card-header').removeClass('card-success');
-                    $('.status-card-header').addClass('card-danger');
-
-                    $('.status-card').removeClass('bg-secondary');
-                    $('.status-card').removeClass('bg-success');
-                    $('.status-card').addClass('bg-danger');
-
-                    $('#status').text('NG');
-
-                    localStorage.setItem('dandori_error', 'true');
-
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                    return;
-                }
-
-                if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
-                    model = barcodecomplete.replace(/-model$/, "");
-                    if (model == localStorage.getItem('dandori_board')) {
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ url('pulling/internal-check') }}" + '/' + model,
-                            _token: "{{ csrf_token() }}",
-                            dataType: 'json',
-                            success: function(dataPart) {
-                                // store part number information in local storage
-                                if (dataPart.status == 'success') {
-                                    // store to database
-                                    localStorage.setItem('model', dataPart
-                                        .partNumber);
+                    $.ajax({
+                        type: 'GET',
+                        url: "{{ url('pulling/internal-check') }}" + '/' + partNumber,
+                        _token: "{{ csrf_token() }}",
+                        dataType: 'json',
+                        success: function(dataPart) {
+                            // store part number information in local storage
+                            if (dataPart.status == 'success') {
+                                if (!localStorage.getItem('inner')) {
+                                    // Set inner dan tampilkan foto langsung
+                                    localStorage.setItem('inner', dataPart.partNumber);
                                     localStorage.setItem('back_number', dataPart
                                         .backNumber);
-                                    localStorage.setItem('scan_counter', 0);
-                                    localStorage.setItem('part_counter', 0);
-                                    localStorage.setItem('photo', dataPart
-                                        .photo);
+                                    localStorage.setItem('photo', dataPart.photo);
 
-                                    // display model  running
-                                    $('.model-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.model-card-header').addClass(
-                                        'card-info');
-
-                                    $('.model-card').removeClass(
-                                        'bg-secondary');
-                                    $('.model-card').addClass('bg-info');
-
-                                    // display total scan
-                                    $('.total-scan-card-header')
-                                        .removeClass('card-secondary');
-                                    $('.total-scan-card-header').addClass(
-                                        'card-success');
-
-                                    $('.total-scan-card').removeClass(
-                                        'bg-secondary');
-                                    $('.total-scan-card').addClass(
-                                        'bg-success');
-
-                                    // display total part
-                                    $('.total-part-card-header')
-                                        .removeClass('card-secondary');
-                                    $('.total-part-card-header').addClass(
-                                        'card-success');
-
-                                    $('.total-part-card').removeClass(
-                                        'bg-secondary');
-                                    $('.total-part-card').addClass(
-                                        'bg-success');
-
-                                    $('#model').text(dataPart.backNumber)
-                                    $('#total-scan').text(scanCounter)
-                                    $('#total-part').text(partCounter)
-
-                                    // display PIS
+                                    // Tampilkan foto
                                     $('#pis').html(
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
                                     );
 
-                                    // start new timer
-                                    // resetAndStartTimer();
-                                } else {
-                                    notif('error', dataPart.message);
-                                }
-                            },
-                            error: function(xhr) {
-                                console.log(xhr)
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    errConnection();
-                                    return;
-                                }
-                                notif("error", xhr.responseJSON.errors);
-                            }
-                        })
-                    } else {
-                        // compare scanned kanban with dandori board in local storage
-                        masterDandoriSound(); // Putar suara
-                        notif("error", 'Master sample tidak sesuai dengan dandori board!');
+                                    // Tampilan untuk inner tersimpan
+                                    $('.model-card-header').removeClass('card-secondary')
+                                        .addClass('card-info');
+                                    $('.model-card').removeClass('bg-secondary').addClass(
+                                        'bg-info');
 
-                        // display status
-                        $('.status-card-header').removeClass('card-secondary');
-                        $('.status-card-header').removeClass('card-success');
-                        $('.status-card-header').addClass('card-danger');
-
-                        $('.status-card').removeClass('bg-secondary');
-                        $('.status-card').removeClass('bg-success');
-                        $('.status-card').addClass('bg-danger');
-
-                        $('#status').text('NG');
-
-                        localStorage.setItem('master_dandori_error', 'true');
-
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                        return;
-                    }
-                }
-
-
-                // check if model is set in local storage
-                if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
-                    // compare scanned kanban with model in local storage
-                    if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
-                            'dandori_board') === internal.trim()) {
-                        // get current counter value
-                        $.ajax({
-                            type: 'get',
-                            url: "{{ url('production/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                partNumber: internal.trim(),
-                                seri: seri
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                if (data.status == 'success') {
-
-                                    // match sound
-                                    okSound();
-
-                                    scanCounter = localStorage.getItem('scan_counter');
-                                    scanCounter = parseInt(scanCounter);
-                                    scanCounter++;
-                                    localStorage.setItem('scan_counter', scanCounter);
-
-                                    partCounter = localStorage.getItem('part_counter');
-                                    partCounter = parseInt(partCounter);
-                                    partCounter += parseInt(data.qty);
-                                    localStorage.setItem('part_counter', partCounter);
-
-                                    // display total scan
                                     $('.total-scan-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.total-scan-card-header').addClass('card-success');
+                                        'card-secondary').addClass('card-success');
+                                    $('.total-scan-card').removeClass('bg-secondary')
+                                        .addClass('bg-success');
 
-                                    $('.total-scan-card').removeClass('bg-secondary');
-                                    $('.total-scan-card').addClass('bg-success');
-
-                                    // display total part
                                     $('.total-part-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.total-part-card-header').addClass('card-success');
+                                        'card-secondary').addClass('card-success');
+                                    $('.total-part-card').removeClass('bg-secondary')
+                                        .addClass('bg-success');
 
-                                    $('.total-part-card').removeClass('bg-secondary');
-                                    $('.total-part-card').addClass('bg-success');
-
-                                    // display status
-                                    $('.status-card-header').removeClass('card-secondary');
-                                    $('.status-card-header').removeClass('card-danger');
-                                    $('.status-card-header').addClass('card-success');
-
-                                    $('.status-card').removeClass('bg-secondary');
-                                    $('.status-card').removeClass('bg-danger');
-                                    $('.status-card').addClass('bg-success');
-
-                                    // set display
-                                    $('#total-scan').text(scanCounter)
-                                    $('#total-part').text(partCounter)
-                                    $('#status').text('OK');
-
-                                    setTimeout(() => {
-                                        $('.status-card').removeClass('bg-danger');
-                                        $('.status-card').removeClass('bg-success');
-                                        $('.status-card').addClass(
-                                            'bg-secondary');
-                                        $('#status').text('-');
-                                    }, 2000);
-
-                                    // start new timer
-                                    // resetAndStartTimer();
+                                    $('#model').text(dataPart.backNumber);
+                                    $('#total-scan').text(scanCounter);
+                                    $('#total-part').text(partCounter);
                                 } else {
-                                    notif("error", data.message);
+                                    if (partNumber == localStorage.getItem('inner')) {
+                                        // Tampilkan status OK
+                                        $('.status-card-header').removeClass(
+                                                'card-secondary')
+                                            .addClass('card-success');
+                                        $('.status-card').removeClass('bg-secondary')
+                                            .addClass(
+                                                'bg-success');
+                                        $('#status').text(dataPart.backNumber);
 
-                                    // notification sound
-                                    alreadyScanSound();
+                                        // Hapus inner dan tampilkan OK
+                                        localStorage.removeItem('inner');
+                                        localStorage.removeItem('photo');
 
-                                    let interval = setInterval(function() {
-                                        $('#notifModal').modal(
-                                            'hide');
-                                        clearInterval(interval);
-                                        $('#code').focus();
-                                    }, 1500);
+                                        setTimeout(() => {
+                                            window.location.reload();
+                                        }, 2000);
+                                        return;
+                                    } else {
+                                        notif('error', 'Kanban tidak sesuai!');
 
-                                    localStorage.setItem('error', 'true');
+                                        // notification sound
+                                        wrongKanbanSound();
 
-                                    setTimeout(() => {
-                                        window.location.reload();
-                                    }, 1500);
+                                        // display status
+                                        $('.status-card-header').removeClass(
+                                            'card-secondary');
+                                        $('.status-card-header').removeClass(
+                                            'card-success');
+                                        $('.status-card-header').addClass('card-danger');
+
+                                        $('.status-card').removeClass('bg-secondary');
+                                        $('.status-card').removeClass('bg-success');
+                                        $('.status-card').addClass('bg-danger');
+
+                                        $('#status').text('NG');
+
+                                        localStorage.setItem('error', 'true');
+
+                                        setTimeout(() => {
+                                            window.location.reload();
+                                        }, 2000);
+                                        return;
+                                    }
                                 }
-                                return;
-                            },
-                            error: function(xhr) {
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    errConnection();
-                                    return;
-                                }
-                                notif("error", 'Internal Server Error');
+                            } else {
+                                notif('error', dataPart.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            console.log(xhr)
+                            if (xhr.status == 0) {
+                                notif("error", 'Connection Error');
+                                errConnection();
                                 return;
                             }
-                        });
-                    } else {
-                        notif('error', 'Kanban tidak sesuai!');
+                            notif("error", xhr.responseJSON.errors);
+                        }
+                    });
+                } else {
+                    notif("error", "Kanban tidak dikenali !");
 
-                        // notification sound
-                        wrongKanbanSound();
+                    // notification sound
+                    unknownSound();
 
-                        // display status
-                        $('.status-card-header').removeClass('card-secondary');
-                        $('.status-card-header').removeClass('card-success');
-                        $('.status-card-header').addClass('card-danger');
-
-                        $('.status-card').removeClass('bg-secondary');
-                        $('.status-card').removeClass('bg-success');
-                        $('.status-card').addClass('bg-danger');
-
-                        $('#status').text('NG');
-
-                        localStorage.setItem('error', 'true');
-
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                        return;
-                    }
-                    return;
+                    let interval = setInterval(function() {
+                        $('#notifModal').modal('hide');
+                        clearInterval(interval);
+                        $('#code').focus();
+                    }, 1500);
                 }
-
             } else {
                 barcode = barcode + String.fromCharCode(e.which);
             }
