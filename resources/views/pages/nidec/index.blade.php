@@ -528,6 +528,7 @@
                                         }, 2000);
                                         return;
                                     } else {
+                                        // jika inner dan outer/kanban tidak sesuai
                                         notif('error', 'Kanban tidak sesuai!');
 
                                         // notification sound
