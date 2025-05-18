@@ -395,4 +395,56 @@ class ProductionController extends Controller
             ], 500);
         }
     }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt',
+        ]);
+
+        $file = $request->file('csv_file');
+        $path = $file->getRealPath();
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        if (!$lines || count($lines) < 2) {
+            return response()->json(['message' => 'CSV kosong atau tidak valid.'], 400);
+        }
+
+        $header = str_getcsv(trim($lines[0]), ',');
+        $rows = array_slice($lines, 1);
+        $processed = [];
+
+        foreach ($rows as $line) {
+            $fields = str_getcsv(trim($line), ',');
+            $fields = array_slice($fields, 0, count($header)); // hapus kolom kosong
+            $row = array_combine($header, $fields);
+
+            $createdAt = $row['Time'] ?? null;
+            if (!$createdAt) continue;
+
+            // Cek apakah sudah ada berdasarkan created_at
+            $existing = Injection::where('created_at', $createdAt)->first();
+
+            $data = [
+                'npk' => $row['NPK'] ?? null,
+                'line' => $row['LINE'] ?? null,
+                'status' => $row['STATUS'] ?? null,
+                'readcode' => $row['READCODE'] ?? null,
+                'created_at' => $createdAt,
+            ];
+
+            if ($existing) {
+                $existing->update($data);
+                $processed[] = ['action' => 'updated', 'created_at' => $createdAt];
+            } else {
+                Injection::create($data);
+                $processed[] = ['action' => 'inserted', 'created_at' => $createdAt];
+            }
+        }
+
+        return response()->json([
+            'message' => 'CSV berhasil diproses.',
+            'processed' => $processed,
+        ]);
+    }
 }
