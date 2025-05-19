@@ -378,6 +378,28 @@
         startTimer(); // Start a new timer
     }
 
+    function sendErrorLog(message = null, expected = null, scanned = null) {
+        $.ajax({
+            url: "{{ route('error.store') }}",
+            type: "GET", // Ganti ke POST jika kamu ubah routenya
+            data: {
+                message: message,
+                expected: expected,
+                scanned: scanned
+            },
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function(response) {
+                console.log("Error log sent successfully");
+            },
+            error: function(xhr, status, error) {
+                console.error("Error while sending error log:", error);
+            }
+        });
+    }
+
+
     $(document).ready(function() {
         initApp();
 
@@ -562,6 +584,8 @@
 
                     localStorage.setItem('dandori_error', 'true');
 
+                    sendErrorLog("Belum scan dandori board");
+
                     setTimeout(() => {
                         window.location.reload();
                     }, 2000);
@@ -663,6 +687,9 @@
                         $('#status').text('NG');
 
                         localStorage.setItem('master_dandori_error', 'true');
+
+                        sendErrorLog('Master sample tidak sesuai dengan dandori board!', localStorage
+                            .getItem('dandori_board'), model);
 
                         setTimeout(() => {
                             window.location.reload();
@@ -792,6 +819,9 @@
                         $('#status').text('NG');
 
                         localStorage.setItem('error', 'true');
+
+                        sendErrorLog('Kanban tidak sesuai!', localStorage
+                            .getItem('dandori_board'), internal.trim());
 
                         setTimeout(() => {
                             window.location.reload();

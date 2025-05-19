@@ -413,10 +413,22 @@ class ProductionController extends Controller
         $header = str_getcsv(trim($lines[0]), ',');
         $rows = array_slice($lines, 1);
         $processed = [];
+        $errors = [];
 
-        foreach ($rows as $line) {
+        foreach ($rows as $lineNumber => $line) {
             $fields = str_getcsv(trim($line), ',');
-            $fields = array_slice($fields, 0, count($header)); // hapus kolom kosong
+            $fields = array_slice($fields, 0, count($header)); // hapus kolom kosong di akhir
+
+            if (count($header) !== count($fields)) {
+                // Simpan error detail untuk dilaporkan atau di-log
+                $errors[] = [
+                    'line' => $lineNumber + 2, // +2 karena 0 based dan header baris 1
+                    'content' => $line,
+                    'message' => 'Jumlah kolom tidak sama dengan header'
+                ];
+                continue; // lewati baris bermasalah
+            }
+
             $row = array_combine($header, $fields);
 
             $createdAt = $row['Time'] ?? null;
@@ -445,6 +457,7 @@ class ProductionController extends Controller
         return response()->json([
             'message' => 'CSV berhasil diproses.',
             'processed' => $processed,
+            'errors' => $errors, // kirim error untuk dilihat client/debug
         ]);
     }
 }

@@ -126,7 +126,7 @@ Route::middleware(['auth'])->group(function () {
 
     // error log
     Route::prefix('error')->group(function(){
-        Route::get('/store', [ErrorLogController::class, 'error'])->name('error.store');
+        Route::get('/store', [ErrorLogController::class, 'store'])->name('error.store');
     });
 
     Route::get('/test', [ProductionController::class, 'test'])->name('test');

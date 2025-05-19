@@ -9,16 +9,22 @@ use Illuminate\Support\Facades\DB;
 
 class ErrorLogController extends Controller
 {
-    public function pulling(Request $request)
+    public function store(Request $request)
     {
         // get user dept
         $dept = auth()->user()->role;
+        $message = $request->message ?? null;
+        $expected = $request->expected ?? null;
+        $scanned = $request->scanned ?? null;
 
         try {
             DB::beginTransaction();
 
             ErrorLog::create([
                 'area' => $dept,
+                'message' => $message,
+                'expected' => $expected,
+                'scanned' => $scanned,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
 
