@@ -773,7 +773,7 @@ class PullingController extends Controller
             'Content-Type' => 'application/json',
         ])->post(env('API_TMMIN') . 'ManifestCompleteness/cancel', $data);
 
-        // dd($response['message']);
+        dd($response['message']);
 
         // Process the response
         if ($response['message'] === 'Success -  Cancel Manifest') {
