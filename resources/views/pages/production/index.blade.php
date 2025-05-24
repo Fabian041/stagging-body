@@ -5,28 +5,38 @@
         <div class="mx-5 my-5">
             <div class="row">
                 <div class="col-lg-2 col-sm-12">
-                    <div class="card card-warning py-5 shadow" style="padding: 1rem; border-radius:8px">
+                    <div class="card card-warning py-3 shadow" style="padding: 1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark">Scan Part Number</label>
                         <input id="code" type="text" class="form-control" name="code" tabindex="1"
                             placeholder="scan part..." required autofocus autocomplete="off">
                     </div>
                     <div class="shadow pt-4 card card-secondary model-card-header"
-                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
+                        style="margin-bottom:80px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Model Running</h5>
                             <div class="bg-secondary m-auto shadow model-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                style="height: 7rem; width: 85%; border-radius: 6px; padding: 30px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">-</h1>
                             </div>
                         </div>
                     </div>
                     <div class="shadow pt-4 card card-secondary total-scan-card-header"
-                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        style="margin-bottom:80px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Total Scan</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                style="height: 7rem; width: 85%; border-radius: 6px; padding: 30px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0</h1>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="shadow pt-4 card card-secondary model-card-header"
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
+                        <div class="hero-inner">
+                            <h5 class="text-center text-dark">Time / Box</h5>
+                            <div class="bg-secondary m-auto shadow model-card"
+                                style="height: 5rem; width: 85%; border-radius: 6px; padding: 15px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">01:30</h1>
                             </div>
                         </div>
                     </div>
@@ -237,6 +247,7 @@
         let backNumber = localStorage.getItem('back_number');
         let totalScan = localStorage.getItem('scan_counter');
         let totalPart = localStorage.getItem('part_counter');
+        let startTime = localStorage.getItem('start_time');
         let photo = localStorage.getItem('photo');
         if (model || photo) {
             // display model  running
@@ -595,6 +606,10 @@
                 if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
                     model = barcodecomplete.replace(/-model$/, "");
                     if (model == localStorage.getItem('dandori_board')) {
+
+                        localStorage.setItem('scan_timer_start', Date.now()); // MULAI timer dari master sample
+                        localStorage.removeItem('last_kanban_time'); // Reset agar hitungan pertama benar
+                        
                         $.ajax({
                             type: 'GET',
                             url: "{{ url('pulling/internal-check') }}" + '/' + model,
@@ -656,6 +671,9 @@
 
                                     // start new timer
                                     // resetAndStartTimer();
+
+                                    
+
                                 } else {
                                     notif('error', dataPart.message);
                                 }
@@ -704,6 +722,14 @@
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
+                        let now = Date.now();
+                        let startTime = localStorage.getItem('last_kanban_time') 
+                            ? new Date(parseInt(localStorage.getItem('last_kanban_time'))) 
+                            : new Date(parseInt(localStorage.getItem('scan_timer_start')));
+                        let endTime = new Date(now);
+
+                        // Simpan endTime ke localStorage untuk digunakan sebagai startTime berikutnya
+                        localStorage.setItem('last_kanban_time', now);
                         // get current counter value
                         $.ajax({
                             type: 'get',
@@ -711,7 +737,9 @@
                             _token: "{{ csrf_token() }}",
                             data: {
                                 partNumber: internal.trim(),
-                                seri: seri
+                                seri: seri,
+                                start_time: startTime.toISOString(),
+                                end_time: endTime.toISOString()
                             },
                             dataType: 'json',
                             success: function(data) {
