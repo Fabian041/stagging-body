@@ -22,8 +22,6 @@ use Illuminate\Support\Facades\DB;
 use Monolog\Handler\StreamHandler;
 use Illuminate\Support\Facades\View;
 use PhpMqtt\Client\ConnectionSettings;
-use Illuminate\Support\Facades\Http;
-
 
 
 class ProductionController extends Controller
@@ -106,8 +104,6 @@ class ProductionController extends Controller
     {
         $partNumber = $request->partNumber;
         $seri = $request->seri;
-        $startTime = $request->start_time;
-        $endTime = $request->end_time;
 
         // double check to master sample
         $internalPart = InternalPart::where('part_number', $partNumber)->first();
@@ -156,25 +152,6 @@ class ProductionController extends Controller
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
-
-            $url = env('INBOUND_API_URL');
-
-            Http::withHeaders([
-                'Content-Type' => 'application/x-www-form-urlencoded'
-            ])->post($url, [
-                'data' => [
-                    [
-                        'line_id' => $internalPart->line_id,
-                        'prd_dt' => now()->format('Y-m-d'),
-                        'str_dt' => $startTime,
-                        'end_dt' => $endTime,
-                        'matnr' => $internalPart->part_number,
-                        'menge' => $customerPart->qty_per_kanban,
-                        'crtby' => auth()->user()->npk,
-                    ]
-                ]
-            ]);
-
 
             // insert into kanban after prod
             // for($i=0; $i<$customerPart->qty_per_kanban; $i++){
