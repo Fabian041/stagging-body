@@ -702,7 +702,7 @@
         });
     }
 
-    function errorStore() {
+    function errorStore(message) {
         $.ajax({
             type: 'GET',
             url: "{{ route('error.store') }}",
@@ -1441,7 +1441,7 @@
                 notif('error', 'Kanban tidak sesuai!');
 
                 // error log
-                errorStore();
+                errorStore('Kanban tidak sesuai!');
 
                 // notification sound   
                 notMatchSound();
@@ -1540,9 +1540,14 @@
                                                     dataType: 'json',
                                                     success: function(
                                                         response) {
-                                                        if (response.status =='success') {
-                                                            tmminSuccessIndicator();
-                                                            console.log('success');
+                                                        if (response
+                                                            .status ==
+                                                            'success') {
+                                                            tmminSuccessIndicator
+                                                                ();
+                                                            console.log(
+                                                                'success'
+                                                            );
                                                         } else if (
                                                             response
                                                             .status ==
@@ -2147,6 +2152,10 @@
                         return;
                     }
 
+                    alert(barcodecomplete.length)
+                    alert(barcodecomplete)
+
+
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
@@ -2157,7 +2166,7 @@
 
                     } else if (barcodecomplete.length == 220) {
                         // kanban buffer
-                        internal = barcodecomplete.substr(35, 12);
+                        internal = barcodecomplete.substr(35, 16);
                         seri = barcodecomplete.substr(130, 4);
 
                         // check existence of kanban and check if it already scanned by prod
