@@ -13,7 +13,7 @@
                     <div class="shadow pt-4 card card-secondary model-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Model Inner</h5>
+                            <h5 class="text-center text-dark">Model Outer</h5>
                             <div class="bg-secondary m-auto shadow model-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">-</h1>
@@ -34,13 +34,24 @@
                     <div class="shadow pt-4 card card-secondary status-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Model Outer</h5>
+                            <h5 class="text-center text-dark">Model Inner 1</h5>
                             <div class="bg-secondary m-auto shadow status-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="status">-</h1>
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="outer1">-</h1>
                             </div>
                         </div>
                     </div>
+                    <div class="shadow pt-4 card card-secondary status-card-header"
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        <div class="hero-inner">
+                            <h5 class="text-center text-dark">Model Inner 2</h5>
+                            <div class="bg-secondary m-auto shadow status-card"
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="outer2">-</h1>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -212,6 +223,15 @@
         let totalScan = localStorage.getItem('scan_counter');
         let totalPart = localStorage.getItem('part_counter');
         let photo = localStorage.getItem('photo');
+        let outer1 = localStorage.getItem('outer_1');
+        let outer2 = localStorage.getItem('outer_2');
+
+        if (outer1) {
+            $('#outer1').text(outer1);
+        }
+        if (outer2) {
+            $('#outer2').text(outer2);
+        }
         if (model || photo) {
             // display model  running
             $('.model-card-header').removeClass('card-secondary');
@@ -510,50 +530,41 @@
                                     $('#total-part').text(partCounter);
                                 } else {
                                     if (partNumber == localStorage.getItem('inner')) {
-                                        // Tampilkan status OK
-                                        $('.status-card-header').removeClass(
-                                                'card-secondary')
-                                            .addClass('card-success');
-                                        $('.status-card').removeClass('bg-secondary')
-                                            .addClass(
-                                                'bg-success');
-                                        $('#status').text(dataPart.backNumber);
+                                        // ✅ MATCH dengan inner
+                                    let count = parseInt(localStorage.getItem('outer_match_count')) || 0;
+                                    count += 1;
+                                    localStorage.setItem('outer_match_count', count);
 
-                                        // Hapus inner dan tampilkan OK
+                                    if (count === 1) {
+                                        $('#outer1').text(dataPart.backNumber);
+                                        localStorage.setItem('outer_1', dataPart.backNumber);
+                                    } else if (count === 2) {
+                                        $('#outer2').text(dataPart.backNumber);
+                                        localStorage.setItem('outer_2', dataPart.backNumber);
+
+                                        // ✅ Di sinilah Langkah ke-4 ditempatkan:
+                                        notif('success', '2x Outer match! Silakan scan inner berikutnya.');
+
                                         localStorage.removeItem('inner');
                                         localStorage.removeItem('photo');
+                                        localStorage.removeItem('outer_match_count');
+                                        localStorage.removeItem('outer_1');
+                                        localStorage.removeItem('outer_2');
 
                                         setTimeout(() => {
                                             window.location.reload();
                                         }, 2000);
-                                        return;
+                                    }
                                     } else {
-                                        // jika inner dan outer/kanban tidak sesuai
+                                        // ❌ TIDAK COCOK
                                         notif('error', 'Kanban tidak sesuai!');
-
-                                        // notification sound
                                         wrongKanbanSound();
 
-                                        // display status
-                                        $('.status-card-header').removeClass(
-                                            'card-secondary');
-                                        $('.status-card-header').removeClass(
-                                            'card-success');
-                                        $('.status-card-header').addClass('card-danger');
-
-                                        $('.status-card').removeClass('bg-secondary');
-                                        $('.status-card').removeClass('bg-success');
-                                        $('.status-card').addClass('bg-danger');
-
+                                        $('.status-card-header').removeClass('card-secondary card-success').addClass('card-danger');
+                                        $('.status-card').removeClass('bg-secondary bg-success').addClass('bg-danger');
                                         $('#status').text('NG');
-
-                                        localStorage.setItem('error', 'true');
-
-                                        setTimeout(() => {
-                                            window.location.reload();
-                                        }, 2000);
-                                        return;
                                     }
+
                                 }
                             } else {
                                 notif('error', dataPart.message);

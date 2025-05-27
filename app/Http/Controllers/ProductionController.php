@@ -35,7 +35,7 @@ class ProductionController extends Controller
     {
         return view('pages.production.index');
     }
-    
+
     public function as523()
     {
         return view('pages.production.as523');
@@ -107,7 +107,7 @@ class ProductionController extends Controller
 
         // double check to master sample
         $internalPart = InternalPart::where('part_number', $partNumber)->first();
-        if(!$internalPart){
+        if (!$internalPart) {
             return [
                 'status' => 'error',
                 'message' => 'Part Tidak Sesuai Dengan Sample!'
@@ -168,49 +168,49 @@ class ProductionController extends Controller
             //     ]);
             // }
 
-        $result = [];
-        
-        // get all current qty of all internal parts 
-        $data = DB::table('internal_parts')
+            $result = [];
+
+            // get all current qty of all internal parts 
+            $data = DB::table('internal_parts')
                 ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
                 ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-                ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
-                ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+                ->select('lines.name', 'production_stocks.internal_part_id as id', 'internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.current_stock')
+                ->groupBy('internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
                 ->get();
 
-                foreach ($data as $value) {
-                    $lineFound = false;
-                    // Check if line already exists in $lines array
-                    foreach ($result as $line) {
-                        if ($line->line === $value->name) {
-                            $lineFound = true;
-                            $line->items[] = [
+            foreach ($data as $value) {
+                $lineFound = false;
+                // Check if line already exists in $lines array
+                foreach ($result as $line) {
+                    if ($line->line === $value->name) {
+                        $lineFound = true;
+                        $line->items[] = [
+                            'id' => $value->id,
+                            'part_number' => $value->part_number,
+                            'back_number' => $value->back_number,
+                            'qty' => $value->current_stock,
+                        ];
+                        break;
+                    }
+                }
+                // If line doesn't exist, create a new object and add it to $result array
+                if (!$lineFound) {
+                    $lineObject = (object) [
+                        'line' => $value->name,
+                        'items' => [
+                            [
                                 'id' => $value->id,
                                 'part_number' => $value->part_number,
                                 'back_number' => $value->back_number,
                                 'qty' => $value->current_stock,
-                            ];
-                            break;
-                        }
-                    }
-                    // If line doesn't exist, create a new object and add it to $result array
-                    if (!$lineFound) {  
-                        $lineObject = (object) [
-                            'line' => $value->name,
-                            'items' => [
-                                [
-                                    'id' => $value->id,
-                                    'part_number' => $value->part_number,
-                                    'back_number' => $value->back_number,
-                                    'qty' => $value->current_stock,
-                                ],
                             ],
-                        ];
-                        $result[] = $lineObject;
-                    }
-                }  
+                        ],
+                    ];
+                    $result[] = $lineObject;
+                }
+            }
 
-            $this->mqttConnect('prod/quantity' , $data);
+            $this->mqttConnect('prod/quantity', $data);
 
             DB::commit();
 
@@ -234,7 +234,7 @@ class ProductionController extends Controller
         if ($actual_stock < $current_stock) {
             $type = 'checkout';
             $qty = $current_stock - $actual_stock;
-        }else{
+        } else {
             $type = 'supply';
             $qty = $actual_stock - $current_stock;
         }
@@ -242,14 +242,14 @@ class ProductionController extends Controller
         try {
             DB::beginTransaction();
 
-            if($request->standard_stock !== null){
+            if ($request->standard_stock !== null) {
                 InternalPart::where('id', $request->internal_part_id)
-                                ->update([
-                                    'standard_stock' => $request->standard_stock,
-                                ]);
+                    ->update([
+                        'standard_stock' => $request->standard_stock,
+                    ]);
             }
 
-            if($actual_stock !== null) {
+            if ($actual_stock !== null) {
                 Mutation::create([
                     'internal_part_id' => $request->internal_part_id,
                     'serial_number' => 'xxxx',
@@ -266,7 +266,7 @@ class ProductionController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Error: '.$th->getMessage());
+            return redirect()->back()->with('error', 'Error: ' . $th->getMessage());
         }
     }
 
@@ -348,8 +348,8 @@ class ProductionController extends Controller
 
         // check if the sample is in the correct line id
         $sampleCheck = InternalPart::where('line_id', $line->id)
-                    ->where('part_number', $sample)
-                    ->first();
+            ->where('part_number', $sample)
+            ->first();
 
         if (!$sampleCheck) {
             return [
@@ -362,7 +362,7 @@ class ProductionController extends Controller
             "status" => 'success',
             "sample" => $sample,
         ];
-    }    
+    }
 
     public function post(Request $request)
     {
@@ -379,13 +379,12 @@ class ProductionController extends Controller
             $record = Injection::create($validatedData);
 
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Record created successfully',
                 'data' => $record,
             ], 201);
-            
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
