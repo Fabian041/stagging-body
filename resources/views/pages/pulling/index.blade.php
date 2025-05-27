@@ -2152,10 +2152,6 @@
                         return;
                     }
 
-                    alert(barcodecomplete.length)
-                    alert(barcodecomplete)
-
-
                     if (barcodecomplete.length == 230) {
                         // normal kanban proccess
                         internal = barcodecomplete.substr(41, 19);
