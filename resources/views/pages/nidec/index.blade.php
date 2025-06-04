@@ -268,6 +268,7 @@
         loopNotMatchSound(); // Mulai looping suara
         loopDandoriSound(); // Mulai looping suara
         loopMasterDandoriSound(); // Mulai looping suara
+        resetDailyInnerScanIfNeeded();
 
         $('#code').focus();
     }
@@ -481,53 +482,66 @@
 
                 // get each information inside kanban code
                 if (barcodecomplete.length !== 0) {
-                    if (barcodecomplete.length == 145 || barcodecomplete.length == 142) {
-                        partNumber = barcodecomplete.match(/(?:IC|OS)\s+([^\s|\/]*-C)/i)
-                        partNumber = partNumber[1].replace(/-c$/i, '')
-                    } else if (barcodecomplete.length == 241) {
+                    if (barcodecomplete.length == 241) {
                         partNumber = barcodecomplete.match(/\d{6}-\d{5}/)
                         partNumber = partNumber[0];
+                        internal = 1;
+                    } else if (barcodecomplete.length >= 100 && barcodecomplete.length <= 200) {
+                        partNumber = barcodecomplete.match(/(?:IC|OS)\s+([^\s|\/]*-C)/i)
+                        partNumber = partNumber[1].replace(/-c$/i, '')
+                        internal = 0;
                     }
-
                     $.ajax({
                         type: 'GET',
-                        url: "{{ url('pulling/internal-check') }}" + '/' + partNumber,
+                        url: "{{ url('pulling/internal-check') }}" + '/' + partNumber + '/' + internal,
                         _token: "{{ csrf_token() }}",
                         dataType: 'json',
                         success: function(dataPart) {
                             // store part number information in local storage
                             if (dataPart.status == 'success') {
                                 if (!localStorage.getItem('inner')) {
-                                    // Set inner dan tampilkan foto langsung
-                                    localStorage.setItem('inner', dataPart.partNumber);
-                                    localStorage.setItem('back_number', dataPart
-                                        .backNumber);
+                                    // 🔄 Reset harian jika ganti hari
+                                    const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+                                    const lastScanDate = localStorage.getItem('scan_date');
+
+                                    if (lastScanDate !== today) {
+                                        // Reset daftar inner harian
+                                        localStorage.removeItem('scanned_inners');
+                                        localStorage.setItem('scan_date', today);
+                                    }
+
+                                    // Ambil daftar inner yang sudah discan sebelumnya
+                                    let scannedInners = JSON.parse(localStorage.getItem('scanned_inners')) || [];
+
+                                    // ❌ Validasi duplikat inner
+                                    if (scannedInners.includes(partNumber)) {
+                                        notif('error', 'Inner ini sudah pernah digunakan sebelumnya!');
+                                        alreadyScanSound();
+                                        return;
+                                    }
+
+                                    // ✅ Simpan inner ke localStorage
+                                    localStorage.setItem('inner', partNumber); // inner aktif saat ini
+                                    scannedInners.push(partNumber); // masukkan ke daftar
+                                    localStorage.setItem('scanned_inners', JSON.stringify(scannedInners));
+                                    localStorage.setItem('scan_date', today); // pastikan tanggalnya diperbarui juga
+
+                                    // ✅ Lanjutkan proses normal inner:
+                                    localStorage.setItem('back_number', dataPart.backNumber);
                                     localStorage.setItem('photo', dataPart.photo);
 
-                                    // Tampilkan foto
                                     $('#pis').html(
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
                                     );
 
-                                    // Tampilan untuk inner tersimpan
-                                    $('.model-card-header').removeClass('card-secondary')
-                                        .addClass('card-info');
-                                    $('.model-card').removeClass('bg-secondary').addClass(
-                                        'bg-info');
-
-                                    $('.total-scan-card-header').removeClass(
-                                        'card-secondary').addClass('card-success');
-                                    $('.total-scan-card').removeClass('bg-secondary')
-                                        .addClass('bg-success');
-
-                                    $('.total-part-card-header').removeClass(
-                                        'card-secondary').addClass('card-success');
-                                    $('.total-part-card').removeClass('bg-secondary')
-                                        .addClass('bg-success');
-
+                                    $('.model-card-header').removeClass('card-secondary').addClass('card-info');
+                                    $('.model-card').removeClass('bg-secondary').addClass('bg-info');
                                     $('#model').text(dataPart.backNumber);
-                                    $('#total-scan').text(scanCounter);
-                                    $('#total-part').text(partCounter);
+
+                                    // Reset counter outer match jika kamu pakai logika outer 2x
+                                    localStorage.removeItem('outer_match_count');
+                                    localStorage.removeItem('outer_1');
+                                    localStorage.removeItem('outer_2');
                                 } else {
                                     if (partNumber == localStorage.getItem('inner')) {
                                         // ✅ MATCH dengan inner
@@ -543,7 +557,7 @@
                                         localStorage.setItem('outer_2', dataPart.backNumber);
 
                                         // ✅ Di sinilah Langkah ke-4 ditempatkan:
-                                        notif('success', '2x Outer match! Silakan scan inner berikutnya.');
+                                        notif('success', '2x Inner match! Silakan scan kanban outer berikutnya.');
 
                                         localStorage.removeItem('inner');
                                         localStorage.removeItem('photo');
@@ -597,5 +611,16 @@
             }
 
         });
+
+        function resetDailyInnerScanIfNeeded() {
+            const today = new Date().toISOString().split('T')[0]; // Format: "YYYY-MM-DD"
+            const lastScanDate = localStorage.getItem('scan_date');
+
+            if (lastScanDate !== today) {
+                localStorage.removeItem('scanned_inners');
+                localStorage.setItem('scan_date', today);
+                console.log('Reset inner harian karena ganti hari.');
+            }
+        }
     });
 </script>
