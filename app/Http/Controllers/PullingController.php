@@ -244,24 +244,10 @@ class PullingController extends Controller
         ];
     }
 
-    public function internalCheck($internal, $isinternal)
+    public function internalCheck($internal)
     {
         // check internal 
         $internal = InternalPart::select('part_number', 'back_number', 'photo')->where('part_number', $internal)->first();
-        if ($isinternal == 0) {
-            DB::beginTransaction();
-            // insert into mutation table
-            Mutation::create([
-                'internal_part_id' => $internal->id,
-                'serial_number' => 'XXXX',
-                'type' => 'checkout',
-                'qty' => 0,
-                'npk' => auth()->user()->npk,
-                'date' => Carbon::now()->format('Y-m-d H:i:s')
-            ]);
-
-            DB::commit();
-        }
         if (!$internal) {
             return [
                 'status' => 'error',
@@ -274,6 +260,7 @@ class PullingController extends Controller
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
             'photo' => $internal->photo,
+            'internalPartId' => 'a'
         ];
     }
 
