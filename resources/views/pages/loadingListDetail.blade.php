@@ -240,6 +240,8 @@
                 .then(data => {
                     if (data.status == 'success') {
                         notif('success', data.message);
+                        table.ajax.reload(null,
+                            false); // Reload the DataTable data without resetting the current page
                     } else if (data.status == 'error') {
                         notif('error', data.message);
                     }
