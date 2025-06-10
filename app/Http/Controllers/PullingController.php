@@ -48,7 +48,7 @@ class PullingController extends Controller
 
         try {
             $mqtt->connect($connectionSettings, $clean_session);
-            
+
             $mqtt->publish(
                 // topic
                 $topic,
@@ -60,7 +60,6 @@ class PullingController extends Controller
                 false
             );
             sleep(1);
-            
         } catch (\Exception $e) {
             // Handle the exception appropriately
             echo "Exception: " . $e->getMessage() . "\n";
@@ -78,42 +77,42 @@ class PullingController extends Controller
         $lastDigit = substr($customerPart, -2);
 
         $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
-        if(!$loadingListId){
+        if (!$loadingListId) {
             return [
                 'status' => 'notExists',
                 'message' => 'Loading list tidak terdaftar!'
             ];
         }
-        
+
         // check part number customer length
-        if($codeLength == 12){
+        if ($codeLength == 12) {
             // TMMIN
-            if($lastDigit != '00'){
+            if ($lastDigit != '00') {
                 $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -2);
-            }else{
+            } else {
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
-        }else if($codeLength == 10){
-            if($loadingListId->customer_id == 14){
+        } else if ($codeLength == 10) {
+            if ($loadingListId->customer_id == 14) {
                 // SUZUKI
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
-            }else{
-                if($loadingListId->customer_id == 6){
+            } else {
+                if ($loadingListId->customer_id == 6) {
                     // MMKI
                     $convertedPartNumber = $customerPart;
-                }else{
+                } else {
                     // TBINA
                     $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
                 }
             }
-        }else if($codeLength == 13){
+        } else if ($codeLength == 13) {
             // SUZUKI
-            if($lastDigit != '000'){
+            if ($lastDigit != '000') {
                 $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
-            }else{
+            } else {
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
             }
-        }else{
+        } else {
             $convertedPartNumber = $customerPart;
         }
 
@@ -170,7 +169,7 @@ class PullingController extends Controller
             DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
-            
+
             return [
                 'status' => 'error',
                 'message' => $th->getMessage(),
@@ -224,12 +223,12 @@ class PullingController extends Controller
     {
         //
     }
-    
+
     public function customerCheck($customer)
     {
         // check customer 
         $check = Customer::where('code', $customer)->first();
-        if(!$check){
+        if (!$check) {
             return [
                 'status' => 'error',
                 'message' => 'Customer tidak ditemukan'
@@ -248,8 +247,8 @@ class PullingController extends Controller
     public function internalCheck($internal)
     {
         // check internal 
-        $internal = InternalPart::select('part_number','back_number','photo')->where('part_number', $internal)->first();
-        if(!$internal){
+        $internal = InternalPart::select('part_number', 'back_number', 'photo')->where('part_number', $internal)->first();
+        if (!$internal) {
             return [
                 'status' => 'error',
                 'message' => 'Part atau Kanban tidak ditemukan!'
@@ -261,6 +260,7 @@ class PullingController extends Controller
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
             'photo' => $internal->photo,
+            'internalPartId' => 'a'
         ];
     }
 
@@ -269,11 +269,11 @@ class PullingController extends Controller
         $internal = $request->internalPart;
         $seri = $request->serialNumber;
         $qty = $request->qty_per_kbn;
-        
+
         // get internal part id
         $internalPart = InternalPart::where('part_number', $internal)->first();
 
-        if(!$internalPart){
+        if (!$internalPart) {
             return [
                 'status' => 'notExists',
                 'message' => 'Part atau Kanban tidak ditemukan!'
@@ -291,52 +291,52 @@ class PullingController extends Controller
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
-        
-        // commented for temporary
-        // $result = [];
-        
-        // // get all current qty of all internal parts 
-        // $data = DB::table('internal_parts')
-        //         ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
-        //         ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-        //         ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
-        //         ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
-        //         ->get();
-                
-        //         foreach ($data as $value) {
-        //             $lineFound = false;
-        //             // Check if line already exists in $lines array
-        //             foreach ($result as $line) {
-        //                 if ($line->line === $value->name) {
-        //                     $lineFound = true;
-        //                     $line->items[] = [
-        //                         'id' => $value->id,
-        //                         'part_number' => $value->part_number,
-        //                         'back_number' => $value->back_number,
-        //                         'qty' => $value->current_stock,
-        //                     ];
-        //                     break;
-        //                 }
-        //             }
-        //             // If line doesn't exist, create a new object and add it to $result array
-        //             if (!$lineFound) {
-        //                 $lineObject = (object) [
-        //                     'line' => $value->name,
-        //                     'items' => [
-        //                         [
-        //                             'id' => $value->id,
-        //                             'part_number' => $value->part_number,
-        //                             'back_number' => $value->back_number,
-        //                             'qty' => $value->current_stock,
-        //                         ],
-        //                     ],
-        //                 ];
-        //                 $result[] = $lineObject;
-        //             }
-        //         }
-                    
-        //     $this->mqttConnect('prod/quantity' , $result);
-            
+
+            // commented for temporary
+            // $result = [];
+
+            // // get all current qty of all internal parts 
+            // $data = DB::table('internal_parts')
+            //         ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+            //         ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+            //         ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
+            //         ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+            //         ->get();
+
+            //         foreach ($data as $value) {
+            //             $lineFound = false;
+            //             // Check if line already exists in $lines array
+            //             foreach ($result as $line) {
+            //                 if ($line->line === $value->name) {
+            //                     $lineFound = true;
+            //                     $line->items[] = [
+            //                         'id' => $value->id,
+            //                         'part_number' => $value->part_number,
+            //                         'back_number' => $value->back_number,
+            //                         'qty' => $value->current_stock,
+            //                     ];
+            //                     break;
+            //                 }
+            //             }
+            //             // If line doesn't exist, create a new object and add it to $result array
+            //             if (!$lineFound) {
+            //                 $lineObject = (object) [
+            //                     'line' => $value->name,
+            //                     'items' => [
+            //                         [
+            //                             'id' => $value->id,
+            //                             'part_number' => $value->part_number,
+            //                             'back_number' => $value->back_number,
+            //                             'qty' => $value->current_stock,
+            //                         ],
+            //                     ],
+            //                 ];
+            //                 $result[] = $lineObject;
+            //             }
+            //         }
+
+            //     $this->mqttConnect('prod/quantity' , $result);
+
             DB::commit();
 
             return response()->json([
@@ -357,14 +357,14 @@ class PullingController extends Controller
         $token = $request->token;
         $data = [];
         $result = [];
-        
+
         // loop the loading list & restructure the array
-        foreach($loadingLists as $loadingList => $items){
-            array_push($data, (object) ['loading_list_number' => $loadingList]);    
+        foreach ($loadingLists as $loadingList => $items) {
+            array_push($data, (object) ['loading_list_number' => $loadingList]);
             // check if items belongs to loading list based on index of the array
-            foreach($items as $item => $val){
-                if(array_key_exists($loadingList, $loadingLists) && array_key_exists($item, $loadingLists[$loadingList])){
-                    $result [] = [
+            foreach ($items as $item => $val) {
+                if (array_key_exists($loadingList, $loadingLists) && array_key_exists($item, $loadingLists[$loadingList])) {
+                    $result[] = [
                         'part_number_int' => $val['part_number_internal'],
                         'part_number_cust' => $val['part_number_customer'],
                         'serial_number' => $val['serial_number']
@@ -379,10 +379,10 @@ class PullingController extends Controller
         $client = new Client([
             'verify' => false, // Temporarily disabling SSL verification
         ]);
-        
+
         // post data
-        for($i = 0; $i<count($data); $i++){
-            $response = $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans',[
+        for ($i = 0; $i < count($data); $i++) {
+            $response = $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
                 'headers' => [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
@@ -392,8 +392,8 @@ class PullingController extends Controller
             ]);
         }
 
-        for($i = 0; $i<count($data); $i++){
-            foreach($data[$i]->items as $key => $value){
+        for ($i = 0; $i < count($data); $i++) {
+            foreach ($data[$i]->items as $key => $value) {
                 // get actual kanban scanned based on same kanban cust for all cust
                 $kanbans = array_count_values(array_column(json_decode(json_encode($data[$i]->items), true), 'part_number_cust'));
 
@@ -402,50 +402,50 @@ class PullingController extends Controller
                     $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $data[$i]->loading_list_number)->first();
 
                     // check part number customer length
-                    if(strlen($kanban_cust) == 12){
+                    if (strlen($kanban_cust) == 12) {
                         // TMMIN
-                        if($lastDigit != '00'){
+                        if ($lastDigit != '00') {
                             $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -2);
-                        }else{
+                        } else {
                             $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -2);
                         }
-                    }else if(strlen($kanban_cust) == 10){
-                        if($loadingListId->customer_id == 14){
+                    } else if (strlen($kanban_cust) == 10) {
+                        if ($loadingListId->customer_id == 14) {
                             // SUZUKI
                             $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
-                        }else{
-                            if($loadingListId->customer_id == 6){
+                        } else {
+                            if ($loadingListId->customer_id == 6) {
                                 // MMKI
                                 $convertedPartNumber = $kanban_cust;
-                            }else{
+                            } else {
                                 // TBINA
                                 $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
                             }
                         }
-                    }else if(strlen($kanban_cust) == 13){
+                    } else if (strlen($kanban_cust) == 13) {
                         // SUZUKI
-                        if($lastDigit != '000'){
+                        if ($lastDigit != '000') {
                             $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -3);
-                        }else{
+                        } else {
                             $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -3);
                         }
-                    }else{
+                    } else {
                         $convertedPartNumber = $kanban_cust;
                     }
-                    
+
                     // get customer part id
                     $customerPart = CustomerPart::select('id')
-                                    ->where('part_number', $convertedPartNumber)
-                                    ->where('customer_id', $loadingListId->customer_id)
-                                    ->first();
-                    
+                        ->where('part_number', $convertedPartNumber)
+                        ->where('customer_id', $loadingListId->customer_id)
+                        ->first();
+
                     // get kanban_qty
                     $kanban_qty = LoadingListDetail::select('kanban_qty')
-                                    ->where('loading_list_id', $loadingListId->id)
-                                    ->where('customer_part_id',$customerPart->id)
-                                    ->first();
-                    
-                    if($actual_scanned < $kanban_qty->kanban_qty){
+                        ->where('loading_list_id', $loadingListId->id)
+                        ->where('customer_part_id', $customerPart->id)
+                        ->first();
+
+                    if ($actual_scanned < $kanban_qty->kanban_qty) {
                         $kanban_qty->update([
                             'actual_kanban_qty' => $actual_scanned
                         ]);
@@ -465,7 +465,7 @@ class PullingController extends Controller
 
         // get internal part number id
         $internalPart = InternalPart::select('id')->where('part_number', $internal)->first();
-        if(!$internalPart){
+        if (!$internalPart) {
             return response()->json([
                 'status' => 'partNotExist',
                 'message' => 'Part number tidak terdaftar'
@@ -474,10 +474,10 @@ class PullingController extends Controller
 
         // check if kanban exist
         $kanban = Kanban::select('id')
-                    ->where('internal_part_id', $internalPart->id)
-                    ->where('serial_number', $seri)
-                    ->first();
-        if(!$kanban){
+            ->where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $seri)
+            ->first();
+        if (!$kanban) {
             return response()->json([
                 'status' => 'kanbanNotExist',
                 'message' => 'Kanban tidak terdaftar'
@@ -486,11 +486,11 @@ class PullingController extends Controller
 
         // check if kanban already scanned by production
         $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id);
-        if(!$kanbanAfterProd->first()){
+        if (!$kanbanAfterProd->first()) {
             return response()->json([
                 'status' => 'notScanned',
                 'message' => 'Kanban belum discan produksi!'
-            ],404);
+            ], 404);
         }
 
         return ['status' => 'success'];
@@ -510,25 +510,25 @@ class PullingController extends Controller
 
         // check if kanban exist
         $kanban = Kanban::select('id')
-                    ->where('internal_part_id', $internalPart->id)
-                    ->where('serial_number', $seri)
-                    ->first();
+            ->where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $seri)
+            ->first();
 
         // check if kanban already scanned by production
         $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->get();
-        
+
         try {
             DB::beginTransaction();
 
             // delete kanban id at kanban after prod table
-            if($kanban){
+            if ($kanban) {
                 KanbanAfterProd::where('kanban_id', $kanban->id)->update([
                     'kanban_id' => null
                 ]);
             }
 
             // create data at kanban after pulls table
-            foreach ($kanbanAfterProd as $kanbanAfterProd){
+            foreach ($kanbanAfterProd as $kanbanAfterProd) {
                 KanbanAfterPulling::create([
                     'kanban_id' => $kanbanAfterProd->kanban_id,
                     'internal_part_id' => $kanbanAfterProd->internal_part_id,
@@ -552,7 +552,7 @@ class PullingController extends Controller
             return response()->json([
                 'status' => 'success',
                 'data' => $kanban->id
-            ],200);
+            ], 200);
 
             DB::commit();
         } catch (\Throwable $th) {
@@ -561,7 +561,7 @@ class PullingController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => $th->getMessage(),
-            ],500);
+            ], 500);
         }
     }
 
@@ -595,7 +595,7 @@ class PullingController extends Controller
         }
     }
 
-    public function edcl($skid , $manifest, $itemNo, $seqNo, $customerPart, $originalBarcode, $loadingList, $customer)
+    public function edcl($skid, $manifest, $itemNo, $seqNo, $customerPart, $originalBarcode, $loadingList, $customer)
     {
         // Authenticate and get the token
         $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD')) ?? null;
@@ -606,7 +606,7 @@ class PullingController extends Controller
 
         // get loading list id
         $loadingListId = LoadingList::select('id')->where('number', $loadingList)->first();
-        if(!$loadingListId){
+        if (!$loadingListId) {
             return [
                 'status' => 'notExists',
                 'message' => 'Loading list tidak terdaftar!'
@@ -615,15 +615,15 @@ class PullingController extends Controller
 
         // get customer part id
         $customerPartId = CustomerPart::with('customer')
-                            ->where('part_number', $this->convertPartNumber($loadingList, $customerPart))
-                            ->whereHas('customer', function($query) use ($customer){
-                                $query->where('name', $customer);
-                            })
-                            ->first();
+            ->where('part_number', $this->convertPartNumber($loadingList, $customerPart))
+            ->whereHas('customer', function ($query) use ($customer) {
+                $query->where('name', $customer);
+            })
+            ->first();
 
         // dd($customer);
 
-        if(!$customerPartId){
+        if (!$customerPartId) {
             return [
                 'status' => 'notExists',
                 'message' => 'Part number customer tidak terdaftar!'
@@ -672,15 +672,15 @@ class PullingController extends Controller
             ->where('customer_part_id', $customerPartId->id)
             ->first();
 
-        if (!$loadingListDetailId){
+        if (!$loadingListDetailId) {
             return [
                 'status' => 'notExists',
                 'message' => 'Part number customer / loading list tidak sesuai!'
             ];
         }
-            
+
         // Process the response
-        if ($response['message'] === 'Success - Confirm Manifest') {            
+        if ($response['message'] === 'Success - Confirm Manifest') {
             try {
                 DB::beginTransaction();
 
@@ -708,7 +708,7 @@ class PullingController extends Controller
                     'status' => 500
                 ], 500);
             }
-            
+
             // Handle successful response
             return response()->json([
                 'status' => 'success',
@@ -725,7 +725,7 @@ class PullingController extends Controller
                 'kanban_id' => $data[0]['kanbanId'],
                 'message' => $response['data']['faileds'][0]['message'],
             ]);
-            
+
             // Handle failed response
             return response()->json([
                 'status' => 'error',
@@ -750,7 +750,7 @@ class PullingController extends Controller
         if (!$token) {
             return response()->json(['error' => 'Authentication failed'], 401);
         }
-        
+
         // get skid detail 
         $skidData = SkidDetail::where('id', $id)->first();
 
@@ -758,14 +758,14 @@ class PullingController extends Controller
             [
                 "supplierCode" => env('SUPPLIER_CODE'),
                 "supplierPlant" => "2",
-                "skidNo" =>  $skidData->skid_no,// Replace with actual value if needed
+                "skidNo" =>  $skidData->skid_no, // Replace with actual value if needed
                 "manifestNo" => substr($skidData->skid_no, 3, 10),
-                "itemNo" => (int) $skidData->item_no,// Replace with actual value if needed
-                "seqNo" => (int) $skidData->serial,// Replace with actual value
-                "kanbanId" => $skidData->kanban_id,// Replace with actual value if needed
+                "itemNo" => (int) $skidData->item_no, // Replace with actual value if needed
+                "seqNo" => (int) $skidData->serial, // Replace with actual value
+                "kanbanId" => $skidData->kanban_id, // Replace with actual value if needed
             ]
         ];
-        
+
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token,
             'x-apihub-key' => env('API_TMMIN_KEY'),
@@ -796,7 +796,6 @@ class PullingController extends Controller
                     'status' => 500
                 ], 500);
             }
-            
         } elseif ($response['message'] === 'Failed - Cancel Manifest') {
             // Handle failed response
             return response()->json([
