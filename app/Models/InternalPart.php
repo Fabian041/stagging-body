@@ -13,10 +13,6 @@ class InternalPart extends Model
 
     protected $guarded = ['id'];
 
-    public function line()
-    {
-        return $this->belongsTo(Line::class);
-    }
     public function customerPart()
     {
         return $this->hasOne(customerPart::class);
