@@ -459,4 +459,89 @@ class ProductionController extends Controller
             'errors' => $errors, // kirim error untuk dilihat client/debug
         ]);
     }
+
+    public function scan($line)
+    {
+        // Ambil data line
+        $data = DB::table('line_qty_temp')->where('line', $line)->first();
+
+        if ($data) {
+            // Jika sudah mencapai atau melebihi target, jangan increment
+            if ($data->target !== null && $data->qty >= $data->target) {
+                return response()->json([
+                    'status' => 'done',
+                    'message' => "Target tercapai untuk line: $line (qty: $data->qty, target: $data->target)",
+                ]);
+            }
+
+            // Increment qty dan update timestamp
+            DB::table('line_qty_temp')
+                ->where('line', $line)
+                ->update([
+                    'qty' => DB::raw('qty + 1'),
+                    'updated_at' => now(),
+                ]);
+        } else {
+            // Insert baru dengan qty = 1
+            DB::table('line_qty_temp')->insert([
+                'line' => $line,
+                'qty' => 1,
+                'target' => null, // default jika belum diset
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Qty incremented for line: $line",
+        ]);
+    }
+
+    public function getCurrentScanCount($line)
+    {
+        $record = DB::table('line_qty_temp')
+            ->where('line', $line)
+            ->first();
+
+        return response()->json([
+            'status' => 'success',
+            'total_scan' => $record->qty ?? 0,
+        ]);
+    }
+    
+    public function updateScanTarget($line,$target)
+    {
+        $exists = DB::table('line_qty_temp')->where('line', $line)->exists();
+
+        if ($exists) {
+            // Increment qty dan update timestamp
+            DB::table('line_qty_temp')
+                ->where('line', $line)
+                ->update([
+                    'target' => $target,
+                    'updated_at' => now(),
+                ]);
+        } 
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Target for line: $line updated",
+        ]);
+    }
+
+    public function resetScanCount($line)
+    {
+        DB::table('line_qty_temp')
+            ->where('line', $line)
+            ->update([
+                'qty'        => 0,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Counter for line {$line} has been reset.",
+        ]);
+    }
 }

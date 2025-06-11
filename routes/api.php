@@ -22,7 +22,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::group(['prefix' => 'v1'], function () {
-    
+    Route::get('/scan/{line}', [ProductionController::class, 'scan']);
     Route::post('/injection', [ProductionController::class , 'post']);
     Route::post('/import', [ProductionController::class , 'import']);
     Route::post('/login', [APILoginController::class , 'authenticate']);

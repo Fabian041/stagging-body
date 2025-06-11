@@ -26,7 +26,7 @@
                             <h5 class="text-center text-dark">Total Scan</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0</h1>
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0 / 0</h1>
                             </div>
                         </div>
                     </div>
@@ -105,43 +105,46 @@
     {{-- end of modal --}}
 
     <audio id="not-match-sound">
-        <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="already-scan-sound">
-        <source src={{ asset('assets/sounds/already-scan.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/already-scan.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="forget-sound">
-        <source src={{ asset('assets/sounds/forget.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/forget.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="match-sound">
-        <source src={{ asset('assets/sounds/match.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/match.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
-
+    <audio id="fullfilled-sound">
+        <source src={{ asset('assets/sounds/fullfilled.mp3') }} type="audio/mpeg" preload="auto">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
     <audio id="ok-sound">
-        <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="error-connection">
-        <source src={{ asset('assets/sounds/errConnection.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/errConnection.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="dandori-ng-sound">
-        <source src={{ asset('assets/sounds/dandori_error.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/dandori_error.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="master-dandori-ng-sound">
-        <source src={{ asset('assets/sounds/master_dandori_error.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/master_dandori_error.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="wrong-kanban-sound">
-        <source src={{ asset('assets/sounds/wrongKanban.mp3') }} type="audio/mpeg">
+        <source src={{ asset('assets/sounds/wrongKanban.mp3') }} type="audio/mpeg" preload="auto">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 @endsection
@@ -174,6 +177,11 @@
 
     function matchSound() {
         var sound = document.getElementById("match-sound");
+        sound.play();
+    }
+
+    function fullfilledSound() {
+        var sound = document.getElementById("fullfilled-sound");
         sound.play();
     }
 
@@ -232,6 +240,45 @@
         }
     }
 
+    let hasNotified = false;
+
+    function updateScanCounter() {
+        const line = localStorage.getItem('line');
+        const target = parseInt(localStorage.getItem('target')) || 0;
+
+        if (!line) return;
+
+        $.ajax({
+            type: 'GET',
+            url: `/production/current-scan-count/${line}`,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    const actual = parseInt(response.total_scan) || 0;
+                    $('#total-scan').text(`${actual} / ${target}`);
+
+                    if (actual >= target) {
+                        fullfilledSound(); // suara tetap nyala terus
+
+                        if (!hasNotified) {
+                            notif('success', 'Target sudah tercapai jangan lupa scan kanban!');
+                            hasNotified = true; // tandai bahwa notifikasi sudah ditampilkan
+                        }
+                    } else {
+                        // reset jika di bawah target lagi (opsional, jika scan bisa turun)
+                        hasNotified = false;
+                    }
+                } else {
+                    $('#total-scan').text(`0 / ${target}`);
+                }
+            },
+            error: function(xhr) {
+                console.error('Error fetching scan count:', xhr);
+                $('#total-scan').text(`0 / ${target}`);
+            }
+        });
+    }
+
     function initApp() {
         let model = localStorage.getItem('model');
         let backNumber = localStorage.getItem('back_number');
@@ -250,6 +297,10 @@
             // display PIS
             $('#pis').html(
                 `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="600">`);
+        }
+
+        if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
+            setInterval(updateScanCounter, 1000); // jalankan tiap 1 detik
         }
 
         if (totalScan || totalPart) {
@@ -601,67 +652,61 @@
                             _token: "{{ csrf_token() }}",
                             dataType: 'json',
                             success: function(dataPart) {
-                                // store part number information in local storage
                                 if (dataPart.status == 'success') {
-                                    // store to database
-                                    localStorage.setItem('model', dataPart
-                                        .partNumber);
+                                    let scanCounter = 0;
+                                    let partCounter = 0;
+                                    let target = dataPart.target;
+                                    let line = dataPart.line;
+
+                                    localStorage.setItem('model', dataPart.partNumber);
                                     localStorage.setItem('back_number', dataPart
                                         .backNumber);
-                                    localStorage.setItem('scan_counter', 0);
-                                    localStorage.setItem('part_counter', 0);
-                                    localStorage.setItem('photo', dataPart
-                                        .photo);
+                                    localStorage.setItem('scan_counter', scanCounter);
+                                    localStorage.setItem('part_counter', partCounter);
+                                    localStorage.setItem('photo', dataPart.photo);
+                                    localStorage.setItem('target', target);
+                                    localStorage.setItem('line', line);
 
-                                    // display model  running
-                                    $('.model-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.model-card-header').addClass(
-                                        'card-info');
+                                    // update target
+                                    $.ajax({
+                                        type: 'GET',
+                                        url: `/production/update-scan-target/${line}/${target}`,
+                                        dataType: 'json',
+                                        success: function(dataPart) {
+                                            console.log('success');
+                                        }
+                                    })
 
-                                    $('.model-card').removeClass(
-                                        'bg-secondary');
-                                    $('.model-card').addClass('bg-info');
+                                    $('.model-card-header').removeClass('card-secondary')
+                                        .addClass('card-info');
+                                    $('.model-card').removeClass('bg-secondary').addClass(
+                                        'bg-info');
 
-                                    // display total scan
-                                    $('.total-scan-card-header')
-                                        .removeClass('card-secondary');
-                                    $('.total-scan-card-header').addClass(
-                                        'card-success');
+                                    $('.total-scan-card-header').removeClass(
+                                        'card-secondary').addClass('card-success');
+                                    $('.total-scan-card').removeClass('bg-secondary')
+                                        .addClass('bg-success');
 
-                                    $('.total-scan-card').removeClass(
-                                        'bg-secondary');
-                                    $('.total-scan-card').addClass(
-                                        'bg-success');
+                                    $('.total-part-card-header').removeClass(
+                                        'card-secondary').addClass('card-success');
+                                    $('.total-part-card').removeClass('bg-secondary')
+                                        .addClass('bg-success');
 
-                                    // display total part
-                                    $('.total-part-card-header')
-                                        .removeClass('card-secondary');
-                                    $('.total-part-card-header').addClass(
-                                        'card-success');
+                                    $('#model').text(dataPart.backNumber);
+                                    $('#total-scan').text(`${scanCounter} / ${target}`);
+                                    $('#total-part').text(partCounter);
 
-                                    $('.total-part-card').removeClass(
-                                        'bg-secondary');
-                                    $('.total-part-card').addClass(
-                                        'bg-success');
-
-                                    $('#model').text(dataPart.backNumber)
-                                    $('#total-scan').text(scanCounter)
-                                    $('#total-part').text(partCounter)
-
-                                    // display PIS
                                     $('#pis').html(
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
                                     );
 
-                                    // start new timer
-                                    // resetAndStartTimer();
+                                    initApp();
                                 } else {
                                     notif('error', dataPart.message);
                                 }
                             },
                             error: function(xhr) {
-                                console.log(xhr)
+                                console.log(xhr);
                                 if (xhr.status == 0) {
                                     notif("error", 'Connection Error');
                                     errConnection();
@@ -702,103 +747,87 @@
                 // check if model is set in local storage
                 if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
                     // compare scanned kanban with model in local storage
-                    if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
-                            'dandori_board') === internal.trim()) {
-                        // get current counter value
+                    if (
+                        localStorage.getItem('model') === internal.trim() &&
+                        localStorage.getItem('dandori_board') === internal.trim()
+                    ) {
+                        const line = localStorage.getItem('line');
+                        const target = parseInt(localStorage.getItem('target')) || 0;
+
+                        if (!line) {
+                            notif("error", 'Line belum di-set');
+                            return;
+                        }
+
+                        // Ambil actual dari DB
                         $.ajax({
-                            type: 'get',
-                            url: "{{ url('production/store/') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                partNumber: internal.trim(),
-                                seri: seri
-                            },
+                            url: `/production/current-scan-count/${line}`,
+                            method: 'GET',
                             dataType: 'json',
-                            success: function(data) {
-                                if (data.status == 'success') {
+                            success: function(res) {
+                                const actual = res.total_scan || 0;
 
-                                    // match sound
-                                    okSound();
+                                if (actual < target) {
+                                    // Belum capai target → tampilkan error dan hentikan
+                                    notif("error",
+                                        `Belum mencapai target (${actual} / ${target})`);
 
-                                    scanCounter = localStorage.getItem('scan_counter');
-                                    scanCounter = parseInt(scanCounter);
-                                    scanCounter++;
-                                    localStorage.setItem('scan_counter', scanCounter);
-
-                                    partCounter = localStorage.getItem('part_counter');
-                                    partCounter = parseInt(partCounter);
-                                    partCounter += parseInt(data.qty);
-                                    localStorage.setItem('part_counter', partCounter);
-
-                                    // display total scan
-                                    $('.total-scan-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.total-scan-card-header').addClass('card-success');
-
-                                    $('.total-scan-card').removeClass('bg-secondary');
-                                    $('.total-scan-card').addClass('bg-success');
-
-                                    // display total part
-                                    $('.total-part-card-header').removeClass(
-                                        'card-secondary');
-                                    $('.total-part-card-header').addClass('card-success');
-
-                                    $('.total-part-card').removeClass('bg-secondary');
-                                    $('.total-part-card').addClass('bg-success');
-
-                                    // display status
-                                    $('.status-card-header').removeClass('card-secondary');
-                                    $('.status-card-header').removeClass('card-danger');
-                                    $('.status-card-header').addClass('card-success');
-
-                                    $('.status-card').removeClass('bg-secondary');
-                                    $('.status-card').removeClass('bg-danger');
-                                    $('.status-card').addClass('bg-success');
-
-                                    // set display
-                                    $('#total-scan').text(scanCounter)
-                                    $('#total-part').text(partCounter)
-                                    $('#status').text('OK');
+                                    $('.status-card').removeClass('bg-secondary bg-success')
+                                        .addClass('bg-danger');
+                                    $('.status-card-header').removeClass(
+                                        'card-secondary card-success').addClass(
+                                        'card-danger');
+                                    $('#status').text('NG');
 
                                     setTimeout(() => {
-                                        $('.status-card').removeClass('bg-danger');
-                                        $('.status-card').removeClass('bg-success');
-                                        $('.status-card').addClass(
-                                            'bg-secondary');
+                                        $('.status-card').removeClass('bg-danger')
+                                            .addClass('bg-secondary');
+                                        $('.status-card-header').removeClass(
+                                            'card-danger').addClass(
+                                            'card-secondary');
                                         $('#status').text('-');
                                     }, 2000);
 
-                                    // start new timer
-                                    // resetAndStartTimer();
-                                } else {
-                                    notif("error", data.message);
-
-                                    // notification sound
-                                    alreadyScanSound();
-
-                                    let interval = setInterval(function() {
-                                        $('#notifModal').modal(
-                                            'hide');
-                                        clearInterval(interval);
-                                        $('#code').focus();
-                                    }, 1500);
-
-                                    localStorage.setItem('error', 'true');
-
-                                    setTimeout(() => {
-                                        window.location.reload();
-                                    }, 1500);
-                                }
-                                return;
-                            },
-                            error: function(xhr) {
-                                if (xhr.status == 0) {
-                                    notif("error", 'Connection Error');
-                                    errConnection();
                                     return;
                                 }
-                                notif("error", 'Internal Server Error');
-                                return;
+
+                                // Sudah capai target → reset counter
+                                $.ajax({
+                                    url: `/production/reset-scan-count/${line}`,
+                                    method: 'POST',
+                                    data: {
+                                        _token: "{{ csrf_token() }}"
+                                    },
+                                    success: function() {
+                                        notif("success",
+                                            'Target tercapai, counter di-reset'
+                                        );
+                                        localStorage.setItem('scan_counter', 0);
+                                        localStorage.setItem('part_counter', 0);
+
+                                        $('#status').text('OK');
+
+                                        setTimeout(() => {
+                                            $('.status-card')
+                                                .removeClass(
+                                                    'bg-danger');
+                                            $('.status-card')
+                                                .removeClass(
+                                                    'bg-success');
+                                            $('.status-card').addClass(
+                                                'bg-secondary');
+                                            $('#status').text('-');
+                                        }, 2000);
+                                        $('#total-scan').text(`0 / ${target}`);
+                                        $('#total-part').text(`0`);
+                                    },
+                                    error: function() {
+                                        notif("error", 'Gagal reset counter');
+                                    }
+                                });
+                            },
+                            error: function() {
+                                notif("error", 'Gagal ambil current scan count');
                             }
                         });
                     } else {

@@ -103,7 +103,10 @@ Route::middleware(['auth'])->group(function () {
 
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
-    Route::prefix('production')->group(function () {
+    Route::prefix('production')->group(function(){
+        Route::get('/current-scan-count/{line}', [ProductionController::class, 'getCurrentScanCount']);
+        Route::post('/reset-scan-count/{line}', [ProductionController::class, 'resetScanCount']);
+        Route::get('/update-scan-target/{line}/{target}', [ProductionController::class, 'updateScanTarget']);
         Route::get('/as523', [ProductionController::class, 'as523'])->name('as523.index');
         Route::get('/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
         Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
@@ -117,7 +120,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
     Route::prefix('pulling')->group(function () {
         Route::get('/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
-        Route::get('/internal-check/{internal}/{isinternal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
+        Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
         Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
         Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
