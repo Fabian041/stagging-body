@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use DateTime;
 use Carbon\Carbon;
-use Monolog\Logger;
 
+use Monolog\Logger;
 use App\Models\Line;
 use App\Models\Part;
 use App\Models\Kanban;
@@ -20,8 +21,10 @@ use App\Models\KanbanAfterProd;
 use App\Models\ProductionStock;
 use Illuminate\Support\Facades\DB;
 use Monolog\Handler\StreamHandler;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\View;
 use PhpMqtt\Client\ConnectionSettings;
+
 
 
 class ProductionController extends Controller
@@ -116,7 +119,6 @@ class ProductionController extends Controller
 
         // get line of internal part based on internal part id
         $line = Line::select('name')->where('id', $internalPart->line_id)->first();
-
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
@@ -177,7 +179,6 @@ class ProductionController extends Controller
                 ->select('lines.name', 'production_stocks.internal_part_id as id', 'internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.current_stock')
                 ->groupBy('internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
                 ->get();
-
             foreach ($data as $value) {
                 $lineFound = false;
                 // Check if line already exists in $lines array
@@ -193,6 +194,8 @@ class ProductionController extends Controller
                         break;
                     }
                 }
+
+
                 // If line doesn't exist, create a new object and add it to $result array
                 if (!$lineFound) {
                     $lineObject = (object) [
@@ -209,6 +212,22 @@ class ProductionController extends Controller
                     $result[] = $lineObject;
                 }
             }
+            $datas = [
+                'data' => [
+                    [
+                        'line_id' => $line->line,
+                        'prd_dt' => (new DateTime($request->start_time))->format('Y-m-d'),
+                        'str_dt' => $request->start_time,
+                        'end_dt' => "",
+                        'matnr'  => $request->partNumber,
+                        'menge' => $customerPart->qty_per_kanban,
+                        'crtby'  => auth()->user()->npk,
+                    ]
+                ]
+            ];
+
+            // Kirim ke API external (jika perlu)
+            $response = Http::post(env('API_PROD_BASE') . 'action=api_insert_inbound', $datas);
 
             $this->mqttConnect('prod/quantity', $data);
 
@@ -221,6 +240,7 @@ class ProductionController extends Controller
             ];
         } catch (\Throwable $th) {
             DB::rollBack();
+
             return ['message' => $th->getMessage()];
         }
     }
@@ -509,8 +529,8 @@ class ProductionController extends Controller
             'total_scan' => $record->qty ?? 0,
         ]);
     }
-    
-    public function updateScanTarget($line,$target)
+
+    public function updateScanTarget($line, $target)
     {
         $exists = DB::table('line_qty_temp')->where('line', $line)->exists();
 
@@ -522,7 +542,7 @@ class ProductionController extends Controller
                     'target' => $target,
                     'updated_at' => now(),
                 ]);
-        } 
+        }
 
         return response()->json([
             'status' => 'success',
@@ -543,5 +563,56 @@ class ProductionController extends Controller
             'status'  => 'success',
             'message' => "Counter for line {$line} has been reset.",
         ]);
+    }
+
+    public function getListStop()
+    {
+        $response = Http::get(env('API_PROD_BASE') . 'action=api_list_stop');
+
+        if ($response->successful()) {
+            return response()->json($response->json());
+        } else {
+            return response()->json(['status' => false, 'message' => 'Failed to fetch stop list.'], 500);
+        }
+    }
+
+    public function insertStop(Request $request)
+    {
+        $data = $request->all();
+
+        $response = Http::post(env('API_PROD_BASE') . 'action=api_insert_inb_stop', [
+            'data' => [$data]
+        ]);
+
+        if ($response->successful()) {
+            return response()->json(['status' => 'success', 'data' => $response->json()]);
+        } else {
+            return response()->json(['status' => 'error', 'message' => $response->body()], 500);
+        }
+    }
+
+    public function inboundStop(Request $request)
+    {
+        $part = $request->all();
+
+        $internalPart = InternalPart::where('part_number', $part[0])->first();
+        if (!$internalPart) {
+            return [
+                'status' => 'error',
+                'message' => 'Part Tidak Sesuai Dengan Sample!'
+            ];
+        }
+
+        // get line of internal part based on internal part id
+        $line = Line::select('name')->where('id', $internalPart->line_id)->first();
+        $response = Http::post(env('API_PROD_BASE') . 'action=api_stop_inbound', [
+            'line_id' => $line->name
+        ]);
+
+        if ($response->successful()) {
+            return response()->json(['status' => 'success', 'data' => $response->json()]);
+        } else {
+            return response()->json(['status' => 'error', 'message' => $response->body()], 500);
+        }
     }
 }

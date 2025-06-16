@@ -114,6 +114,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/adjust', [ProductionController::class, 'adjust'])->name('production.adjust');
         Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
+        Route::post('/api-stop', [ProductionController::class, 'inboundStop']);
     });
 
     // pulling
