@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Supplier;
 use App\Imports\PartImport;
+use App\Models\Agstar\Ia31;
 use App\Imports\StockImport;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
@@ -105,39 +107,69 @@ class DashboardController extends Controller
     //Receiving Dashboard
     public function receivingDashboard()
     {
-        $schedules = ReceiveSchedule::with('supplier')->get();
+        $dayMap = ['mon' => 1, 'tue' => 2, 'wed' => 3, 'thu' => 4, 'fri' => 5, 'sat' => 6, 'sun' => 7];
+        $startOfWeek = now()->startOfWeek(); // Senin
+        $endOfWeek = now()->endOfWeek();     // Minggu
 
-        // Group berdasarkan supplier
-        $grouped = $schedules->groupBy('supplier_id');
+        $seriesData = [];
 
-        $series = [];
+        $suppliers = Supplier::with('schedules')->get();
 
-        foreach ($grouped as $supplier_id => $entries) {
-            $supplier = $entries->first()->supplier;
-            $data = [];
+        foreach ($suppliers as $supplier) {
+            $name = $supplier->name;
 
-            foreach ($entries as $entry) {
-                // Konversi hari + waktu ke datetime (pakai minggu berjalan)
-                $dayMap = ['mon' => 1, 'tue' => 2, 'wed' => 3, 'thu' => 4, 'fri' => 5, 'sat' => 6, 'sun' => 7];
-                $now = now()->startOfWeek()->addDays($dayMap[$entry->day] - 1);
-                $start = $now->copy()->setTimeFromTimeString($entry->time);
-                $end = $start->copy()->addMinutes(30); // durasi default 30 menit, bisa diubah
+            if ($supplier->schedule_type === 'daily') {
+                $schedule = $supplier->schedules->first(); // hanya satu jadwal
+                if (!$schedule) continue;
 
-                $data[] = [
-                    'x' => $supplier->name,
-                    'y' => [
-                        $start->format('Y-m-d H:i:s'),
-                        $end->format('Y-m-d H:i:s')
-                    ]
-                ];
+                foreach ($dayMap as $day => $i) {
+                    $start = $startOfWeek->copy()->addDays($i - 1)->setTimeFromTimeString($schedule->time);
+                    $end = (clone $start)->addMinutes(120);
+
+                    $seriesData[] = [
+                        'x' => $name,
+                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000]
+                    ];
+                }
+            } elseif ($supplier->schedule_type === 'daily_2x') {
+                $schedules = $supplier->schedules;
+                foreach ($dayMap as $day => $i) {
+                    foreach ($schedules as $sched) {
+                        $start = $startOfWeek->copy()->addDays($i - 1)->setTimeFromTimeString($sched->time);
+                        $end = (clone $start)->addMinutes(120);
+                        $seriesData[] = [
+                            'x' => $name,
+                            'y' => [$start->timestamp * 1000, $end->timestamp * 1000]
+                        ];
+                    }
+                }
+            } elseif ($supplier->schedule_type === 'custom') {
+                foreach ($supplier->schedules as $sched) {
+                    $dayIndex = $dayMap[$sched->day] ?? null;
+                    if (!$dayIndex) continue;
+
+                    $start = $startOfWeek->copy()->addDays($dayIndex - 1)->setTimeFromTimeString($sched->time);
+                    $end = (clone $start)->addMinutes(120);
+                    $seriesData[] = [
+                        'x' => $name,
+                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000]
+                    ];
+                }
             }
-
-            $series[] = [
-                'data' => $data
-            ];
         }
 
-        return view('pages.dashboard_receiving', compact('series'));
+        $series = [[
+            'name' => 'Jadwal Pengiriman',
+            'data' => $seriesData
+        ]];
+
+        $annotations = now()->startOfDay()->timestamp * 1000; // ApexCharts pakai miliseconds
+
+
+        return view('pages.dashboard_receiving', [
+            'series' => $series,
+            'annotationTimestamp' => $annotations
+        ]);
     }
     public function getReceivingData(Request $request)
     {

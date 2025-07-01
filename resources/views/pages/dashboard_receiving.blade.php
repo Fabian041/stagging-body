@@ -17,10 +17,7 @@
                     <h3>Receiving Dashborad Monitoring</h3>
                 </div>
                 <div class="card-body">
-                    <ul class="nav nav-pills justify-content-center" id="myTab3" role="tablist">
-                       
-                    </ul>
-                    <div id="timelineChart"></div>
+                        <div id="timelineChart"></div>
                 </div>
             </div>
         </div>
@@ -28,38 +25,55 @@
 @endsection
 
 
-
-{{-- mqtt --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
-<script src="{{ asset('assets/js/jquery-3.6.3.min.js') }}"></script>
-<script src="{{ asset('assets/js/apexcharts.js') }}"></script>
-<script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}></script>
-<script src="<https://unpkg.com/mqtt/dist/mqtt.min.js>"></script>
-
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function () {
     const options = {
         chart: {
             type: 'rangeBar',
-            height: 500,
+            height: 700
         },
         plotOptions: {
             bar: {
                 horizontal: true,
-                barHeight: '60%',
+                barHeight: '60%'
             }
         },
         xaxis: {
-            type: 'datetime',
+            type: 'datetime'
         },
-        series: {!! json_encode($series) !!},
         tooltip: {
-            x: {
-                format: 'dd MMM yyyy HH:mm'
+            custom: function({ series, seriesIndex, dataPointIndex, w }) {
+                const point = w.config.series[seriesIndex].data[dataPointIndex];
+                return `<div class="px-2 py-1 text-sm">
+                    <strong>${point.x}</strong><br/>
+                    ${new Date(point.y[0]).toLocaleString()} - ${new Date(point.y[1]).toLocaleTimeString()}<br/>
+                    ${point.meta || ''}
+                </div>`;
             }
-        }
+        },
+        annotations: {
+            xaxis: [{
+                x: {{ $annotationTimestamp }},
+                borderColor: '#FF0000',
+                label: {
+                    text: 'Hari Ini',
+                    style: {
+                        color: '#fff',
+                        background: '#FF0000'
+                    }
+                }
+            }]
+        },
+        series: {!! json_encode($series) !!}
     };
 
     const chart = new ApexCharts(document.querySelector("#timelineChart"), options);
     chart.render();
+});
 </script>
+
+@endpush
+
 
