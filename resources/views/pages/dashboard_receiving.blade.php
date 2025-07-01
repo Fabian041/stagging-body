@@ -22,6 +22,27 @@
             </div>
         </div>
     </div>
+    <div class="legend mb-3">
+    <strong>Status Legend:</strong>
+    <ul class="list-inline mt-2">
+        <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Belum Terdaftar</li>
+        <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Terdaftar</li>
+        <li class="list-inline-item"><span style="background:#17a2b8;" class="legend-box"></span> Dikirim</li>
+        <li class="list-inline-item"><span style="background:#ffc107;" class="legend-box"></span> Diterima Sebagian</li>
+        <li class="list-inline-item"><span style="background:#28a745;" class="legend-box"></span> Diterima Semua</li>
+        <li class="list-inline-item"><span style="background:#fd7e14;" class="legend-box"></span> Pengiriman Sebagian</li>
+    </ul>
+</div>
+
+<style>
+    .legend-box {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+</style>
 @endsection
 
 

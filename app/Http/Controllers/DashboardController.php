@@ -111,35 +111,67 @@ class DashboardController extends Controller
         $startOfWeek = now()->startOfWeek(); // Senin
         $endOfWeek = now()->endOfWeek();     // Minggu
 
-        $seriesData = [];
+        $statusColors = [
+            0 => '#cccccc', // default
+            1 => '#007bff', // Terdaftar
+            2 => '#17a2b8', // Dikirim
+            3 => '#ffc107', // Diterima Sebagian
+            4 => '#28a745', // Diterima Semua
+            5 => '#fd7e14', // Pengiriman Sebagian
+        ];
 
+        $seriesData = [];
         $suppliers = Supplier::with('schedules')->get();
+        $deliveries = DB::table('external_deliveries')->get();
 
         foreach ($suppliers as $supplier) {
             $name = $supplier->name;
+            $code = $supplier->code;
 
             if ($supplier->schedule_type === 'daily') {
-                $schedule = $supplier->schedules->first(); // hanya satu jadwal
+                $schedule = $supplier->schedules->first();
                 if (!$schedule) continue;
 
                 foreach ($dayMap as $day => $i) {
                     $start = $startOfWeek->copy()->addDays($i - 1)->setTimeFromTimeString($schedule->time);
                     $end = (clone $start)->addMinutes(120);
 
+                    $matching = $deliveries->first(
+                        fn($d) =>
+                        $d->supplier_code === $code &&
+                            \Carbon\Carbon::parse($d->delivery_date)->isSameDay($start) &&
+                            \Carbon\Carbon::parse($d->delivery_time)->format('H:i') === $start->format('H:i')
+                    );
+
+                    $status = $matching->status ?? 0;
+                    $color = $statusColors[$status] ?? '#cccccc';
+
                     $seriesData[] = [
                         'x' => $name,
-                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000]
+                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
+                        'fillColor' => $color,
                     ];
                 }
             } elseif ($supplier->schedule_type === 'daily_2x') {
-                $schedules = $supplier->schedules;
                 foreach ($dayMap as $day => $i) {
-                    foreach ($schedules as $sched) {
+                    foreach ($supplier->schedules as $sched) {
                         $start = $startOfWeek->copy()->addDays($i - 1)->setTimeFromTimeString($sched->time);
                         $end = (clone $start)->addMinutes(120);
+
+                        $matching = $deliveries->first(
+                            fn($d) =>
+                            $d->supplier_code === $code &&
+                                \Carbon\Carbon::parse($d->delivery_date)->isSameDay($start) &&
+                                \Carbon\Carbon::parse($d->delivery_time)->format('H:i') === $start->format('H:i')
+                        );
+
+                        $status = $matching->status ?? 0;
+                        $color = $statusColors[$status] ?? '#cccccc';
+
                         $seriesData[] = [
                             'x' => $name,
-                            'y' => [$start->timestamp * 1000, $end->timestamp * 1000]
+                            'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
+                            'fillColor' => $color,
                         ];
                     }
                 }
@@ -150,9 +182,21 @@ class DashboardController extends Controller
 
                     $start = $startOfWeek->copy()->addDays($dayIndex - 1)->setTimeFromTimeString($sched->time);
                     $end = (clone $start)->addMinutes(120);
+
+                    $matching = $deliveries->first(
+                        fn($d) =>
+                        $d->supplier_code === $code &&
+                            \Carbon\Carbon::parse($d->delivery_date)->isSameDay($start) &&
+                            \Carbon\Carbon::parse($d->delivery_time)->format('H:i') === $start->format('H:i')
+                    );
+
+                    $status = $matching->status ?? 0;
+                    $color = $statusColors[$status] ?? '#cccccc';
+
                     $seriesData[] = [
                         'x' => $name,
-                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000]
+                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
+                        'fillColor' => $color,
                     ];
                 }
             }
@@ -163,8 +207,7 @@ class DashboardController extends Controller
             'data' => $seriesData
         ]];
 
-        $annotations = now()->startOfDay()->timestamp * 1000; // ApexCharts pakai miliseconds
-
+        $annotations = now()->startOfDay()->timestamp * 1000;
 
         return view('pages.dashboard_receiving', [
             'series' => $series,
