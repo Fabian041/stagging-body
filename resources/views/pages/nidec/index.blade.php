@@ -217,6 +217,18 @@
         }
     }
 
+    function resetDailyInnerScanIfNeeded() {
+        const today = new Date().toISOString().split('T')[0]; // Format: "YYYY-MM-DD"
+        const lastScanDate = localStorage.getItem('scan_date');
+
+        if (lastScanDate !== today) {
+            localStorage.removeItem('scanned_inners');
+            localStorage.removeItem('scanned_inner_series'); // reset juga seri inner
+            localStorage.setItem('scan_date', today);
+            console.log('Reset inner harian karena ganti hari.');
+        }
+    }
+
     function initApp() {
         let model = localStorage.getItem('model');
         let backNumber = localStorage.getItem('back_number');
@@ -373,6 +385,12 @@
         startTimer(); // Start a new timer
     }
 
+function extractSeriInner(barcode) {
+    const match = barcode.match(/\b\d{8}-\d{5}\b/);
+    return match ? match[0] : null;
+}
+
+
     $(document).ready(function() {
         initApp();
 
@@ -491,6 +509,7 @@
                         partNumber = partNumber[1].replace(/-c$/i, '')
                         internal = 0;
                     }
+
                     $.ajax({
                         type: 'GET',
                         url: "{{ url('pulling/internal-check') }}" + '/' + partNumber + '/' + internal,
@@ -510,20 +529,28 @@
                                         localStorage.setItem('scan_date', today);
                                     }
 
-                                    // Ambil daftar inner yang sudah discan sebelumnya
-                                    let scannedInners = JSON.parse(localStorage.getItem('scanned_inners')) || [];
+                                    const seriInner = extractSeriInner(barcodecomplete);
+                                    if (!seriInner) {
+                                        notif('error', 'Seri inner tidak ditemukan di barcode!');
+                                        wrongKanbanSound();
+                                        return;
+                                    }
 
-                                    // ❌ Validasi duplikat inner
-                                    if (scannedInners.includes(partNumber)) {
-                                        notif('error', 'Inner ini sudah pernah digunakan sebelumnya!');
+                                    // Cek inner duplikat
+                                    let scannedInners = JSON.parse(localStorage.getItem('scanned_inner_series') || '[]');
+                                    if (scannedInners.includes(seriInner)) {
+                                        notif('error', `Seri ${seriInner} sudah pernah discan hari ini!`);
                                         alreadyScanSound();
                                         return;
                                     }
 
+                                    // Simpan ke list
+                                    scannedInners.push(seriInner);
+                                    localStorage.setItem('scanned_inner_series', JSON.stringify(scannedInners));
+
+
                                     // ✅ Simpan inner ke localStorage
                                     localStorage.setItem('inner', partNumber); // inner aktif saat ini
-                                    scannedInners.push(partNumber); // masukkan ke daftar
-                                    localStorage.setItem('scanned_inners', JSON.stringify(scannedInners));
                                     localStorage.setItem('scan_date', today); // pastikan tanggalnya diperbarui juga
 
                                     // ✅ Lanjutkan proses normal inner:
@@ -542,6 +569,8 @@
                                     localStorage.removeItem('outer_match_count');
                                     localStorage.removeItem('outer_1');
                                     localStorage.removeItem('outer_2');
+
+
                                 } else {
                                     if (partNumber == localStorage.getItem('inner')) {
                                         // ✅ MATCH dengan inner
@@ -564,10 +593,10 @@
                                         localStorage.removeItem('outer_match_count');
                                         localStorage.removeItem('outer_1');
                                         localStorage.removeItem('outer_2');
+                                        $('#outer1').text('-');
+                                        $('#outer2').text('-');
 
-                                        setTimeout(() => {
-                                            window.location.reload();
-                                        }, 2000);
+
                                     }
                                     } else {
                                         // ❌ TIDAK COCOK
@@ -612,15 +641,5 @@
 
         });
 
-        function resetDailyInnerScanIfNeeded() {
-            const today = new Date().toISOString().split('T')[0]; // Format: "YYYY-MM-DD"
-            const lastScanDate = localStorage.getItem('scan_date');
-
-            if (lastScanDate !== today) {
-                localStorage.removeItem('scanned_inners');
-                localStorage.setItem('scan_date', today);
-                console.log('Reset inner harian karena ganti hari.');
-            }
-        }
     });
 </script>

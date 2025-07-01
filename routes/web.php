@@ -123,6 +123,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('pulling')->group(function () {
         Route::get('/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
         Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
+        Route::get('/internal-check/{internal}/{isinternal?}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
         Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
         Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
