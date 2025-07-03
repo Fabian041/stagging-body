@@ -32,8 +32,8 @@ class SyncExternalDeliveries extends Command
 
         try {
             $externalData = DB::connection('mssql_external')
-                ->table('IA31 as a')
-                ->join('IA01 as b', 'a.DEC_COD_BINID', '=', 'b.DEC_COD_BINID')
+                ->table('IA31NT as a')
+                ->join('IA01NT as b', 'a.DEC_COD_BINID', '=', 'b.DEC_COD_BINID')
                 ->select(
                     'a.CHR_COD_OMKCD as supplier_code',
                     'a.DEC_COD_BINID as flight_id',
