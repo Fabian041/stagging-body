@@ -278,6 +278,30 @@ class PullingController extends Controller
         // get internal part id
         $internalPart = InternalPart::where('part_number', $internal)->first();
 
+        $kanban = Kanban::select('id')
+            ->where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $seri)
+            ->first();
+
+        if(!$kanban){
+            return [
+                'status' => 'error',
+                'message' => 'Kanban tidak terdaftar!'
+            ]; 
+        }
+
+            if($kanban->status == 0){
+                return [
+                    'status' => 'error',
+                    'message' => 'Kanban belum di scan produksi!'
+                ]; 
+            }else if($kanban->status == 2){
+                return [
+                    'status' => 'error',
+                    'message' => 'Kanban sudah di scan!'
+                ];
+            }
+
         if (!$internalPart) {
             return [
                 'status' => 'notExists',
@@ -295,6 +319,11 @@ class PullingController extends Controller
                 'qty' => $qty,
                 'npk' => auth()->user()->npk,
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
+
+            // update status kanbans table
+            $kanban->update([
+                'status' => 2
             ]);
 
             // commented for temporary

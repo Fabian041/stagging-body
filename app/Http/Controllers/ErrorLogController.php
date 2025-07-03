@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Carbon\Carbon;
 use App\Models\ErrorLog;
 use Illuminate\Http\Request;
+use Illuminate\Queue\NullQueue;
 use Illuminate\Support\Facades\DB;
 
 class ErrorLogController extends Controller
@@ -12,7 +13,7 @@ class ErrorLogController extends Controller
     public function store(Request $request)
     {
         // get user dept
-        $dept = auth()->user()->role;
+        $dept = auth()->user()->role ?? null;
         $message = $request->message ?? null;
         $expected = $request->expected ?? null;
         $scanned = $request->scanned ?? null;

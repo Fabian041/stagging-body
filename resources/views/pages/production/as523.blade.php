@@ -557,6 +557,11 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                if (barcodecomplete == "regular") {
+                    window.location.replace("{{ url('/production') }}");
+                    return;
+                }
+
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess

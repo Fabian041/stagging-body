@@ -14,6 +14,12 @@
                     <span class="beep">Dashboard</span>
                 </a>
             </li>
+            <li class="{{ request()->is('dashboard/production/result') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('dashboard.prodResult') }}">
+                    <i class="fas fa-fire"></i>
+                    <span class="beep">Production Result</span>
+                </a>
+            </li>
             <li class="{{ request()->is('loading-list') || request()->is('loading-list/*') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('loadingList.index') }}">
                     <i class="fas fa-solid fa-list-ul"></i>

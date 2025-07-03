@@ -65,7 +65,67 @@ class DashboardController extends Controller
             'lines' => $lines,
         ]);
     }
-    
+
+    public function prodResult(Request $request)
+    {
+        $selectedDate = $request->input('date') ?? now()->toDateString(); // default hari ini
+
+        $data = DB::table('mutations')
+            ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
+            ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+            ->where('mutations.type', 'supply')
+            ->whereDate('mutations.created_at', $selectedDate) // ✅ ambil berdasarkan tanggal input
+            ->select(
+                'internal_parts.back_number',
+                'mutations.serial_number',
+                'mutations.type',
+                'mutations.qty',
+                'mutations.date',
+                'lines.name as line',
+                'internal_parts.id as internal_part_id'
+            )
+            ->orderBy('mutations.date', 'desc')
+            ->get();
+
+        // Organisasi data
+        $lines = [];
+        foreach ($data as $value) {
+            $lineKey = $value->line;
+            $backNumber = $value->back_number;
+
+            if (!isset($lines[$lineKey])) {
+                $lines[$lineKey] = [
+                    'line' => $lineKey,
+                    'items' => []
+                ];
+            }
+
+            if (!isset($lines[$lineKey]['items'][$backNumber])) {
+                $lines[$lineKey]['items'][$backNumber] = [
+                    'back_number' => $backNumber,
+                    'internal_part_id' => $value->internal_part_id,
+                    'details' => []
+                ];
+            }
+
+            $lines[$lineKey]['items'][$backNumber]['details'][] = [
+                'serial_number' => $value->serial_number,
+                'qty' => $value->qty,
+                'date' => $value->date,
+            ];
+        }
+
+        $result = [];
+        foreach ($lines as $line) {
+            $line['items'] = array_values($line['items']);
+            $result[] = (object) $line;
+        }
+
+        return view('pages.production.prodResult', [
+            'lines' => $result,
+            'selectedDate' => $selectedDate,
+        ]);
+    }
 
     public function progressPulling()
     {

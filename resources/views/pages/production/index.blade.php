@@ -506,6 +506,11 @@
                 barcodecomplete = barcode;
                 barcode = "";
 
+                if (barcodecomplete == "AS523") {
+                    window.location.replace("{{ url('/production/as523') }}");
+                    return;
+                }
+
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
