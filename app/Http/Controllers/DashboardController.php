@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use App\Models\Customer;
 use App\Models\Supplier;
 use App\Imports\PartImport;
@@ -107,12 +108,8 @@ class DashboardController extends Controller
     //Receiving Dashboard
     public function receivingDashboard()
     {
-        $dayMap = ['mon' => 1, 'tue' => 2, 'wed' => 3, 'thu' => 4, 'fri' => 5, 'sat' => 6, 'sun' => 7];
-        $startOfWeek = now()->startOfWeek(); // Senin
-        $endOfWeek = now()->endOfWeek();     // Minggu
-
         $statusColors = [
-            0 => '#cccccc', // default
+            0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
             2 => '#17a2b8', // Dikirim
             3 => '#ffc107', // Diterima Sebagian
@@ -120,90 +117,48 @@ class DashboardController extends Controller
             5 => '#fd7e14', // Pengiriman Sebagian
         ];
 
+        $startOfWeek = now()->startOfWeek(); // Senin
+        $endOfWeek = now()->endOfWeek();     // Minggu
+
+        // JOIN external_deliveries ke suppliers agar dapat nama supplier
+        $deliveries = DB::table('external_deliveries')
+            ->join('suppliers', 'external_deliveries.supplier_code', '=', 'suppliers.code')
+            ->select(
+                'external_deliveries.*',
+                'suppliers.name as supplier_name'
+            )
+            ->get();
+
         $seriesData = [];
-        $suppliers = Supplier::with('schedules')->get();
-        $deliveries = DB::table('external_deliveries')->get();
 
-        foreach ($suppliers as $supplier) {
-            $name = $supplier->name;
-            $code = $supplier->code;
+        foreach ($deliveries as $delivery) {
+            $date = \Carbon\Carbon::parse($delivery->delivery_date);
 
-            if ($supplier->schedule_type === 'daily') {
-                $schedule = $supplier->schedules->first();
-                if (!$schedule) continue;
-
-                foreach ($dayMap as $day => $i) {
-                    $start = $startOfWeek->copy()->addDays($i - 1)->setTimeFromTimeString($schedule->time);
-                    $end = (clone $start)->addMinutes(120);
-
-                    $matching = $deliveries->first(
-                        fn($d) =>
-                        $d->supplier_code === $code &&
-                            \Carbon\Carbon::parse($d->delivery_date)->isSameDay($start) &&
-                            \Carbon\Carbon::parse($d->delivery_time)->format('H:i') === $start->format('H:i')
-                    );
-
-                    $status = $matching->status ?? 0;
-                    $color = $statusColors[$status] ?? '#cccccc';
-
-                    $seriesData[] = [
-                        'x' => $name,
-                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
-                        'fillColor' => $color,
-                    ];
-                }
-            } elseif ($supplier->schedule_type === 'daily_2x') {
-                foreach ($dayMap as $day => $i) {
-                    foreach ($supplier->schedules as $sched) {
-                        $start = $startOfWeek->copy()->addDays($i - 1)->setTimeFromTimeString($sched->time);
-                        $end = (clone $start)->addMinutes(120);
-
-                        $matching = $deliveries->first(
-                            fn($d) =>
-                            $d->supplier_code === $code &&
-                                \Carbon\Carbon::parse($d->delivery_date)->isSameDay($start) &&
-                                \Carbon\Carbon::parse($d->delivery_time)->format('H:i') === $start->format('H:i')
-                        );
-
-                        $status = $matching->status ?? 0;
-                        $color = $statusColors[$status] ?? '#cccccc';
-
-                        $seriesData[] = [
-                            'x' => $name,
-                            'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
-                            'fillColor' => $color,
-                        ];
-                    }
-                }
-            } elseif ($supplier->schedule_type === 'custom') {
-                foreach ($supplier->schedules as $sched) {
-                    $dayIndex = $dayMap[$sched->day] ?? null;
-                    if (!$dayIndex) continue;
-
-                    $start = $startOfWeek->copy()->addDays($dayIndex - 1)->setTimeFromTimeString($sched->time);
-                    $end = (clone $start)->addMinutes(120);
-
-                    $matching = $deliveries->first(
-                        fn($d) =>
-                        $d->supplier_code === $code &&
-                            \Carbon\Carbon::parse($d->delivery_date)->isSameDay($start) &&
-                            \Carbon\Carbon::parse($d->delivery_time)->format('H:i') === $start->format('H:i')
-                    );
-
-                    $status = $matching->status ?? 0;
-                    $color = $statusColors[$status] ?? '#cccccc';
-
-                    $seriesData[] = [
-                        'x' => $name,
-                        'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
-                        'fillColor' => $color,
-                    ];
-                }
+            // Lewati data jika tidak termasuk minggu ini
+            if (!$date->between($startOfWeek, $endOfWeek)) {
+                continue;
             }
+
+            // Format "00:HH:MM", ambil HH dan MM
+            $timeParts = explode(':', $delivery->delivery_time);
+            $hour = (int)($timeParts[1] ?? 0);
+            $minute = (int)($timeParts[2] ?? 0);
+
+            $start = $date->copy()->setTime($hour, $minute);
+            $end = $start->copy()->addMinutes(120);
+
+            $status = $delivery->status ?? 0;
+            $color = $statusColors[$status] ?? '#cccccc';
+
+            $seriesData[] = [
+                'x' => $delivery->supplier_name,
+                'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
+                'fillColor' => $color,
+            ];
         }
 
         $series = [[
-            'name' => 'Jadwal Pengiriman',
+            'name' => 'Pengiriman Aktual',
             'data' => $seriesData
         ]];
 
@@ -214,6 +169,12 @@ class DashboardController extends Controller
             'annotationTimestamp' => $annotations
         ]);
     }
+    function applyTimeToDate(Carbon $date, string $time)
+    {
+        [$hour, $minute, $second] = explode(':', $time);
+        return $date->copy()->setTime((int) $hour, (int) $minute, (int) $second);
+    }
+
     public function getReceivingData(Request $request)
     {
         $supplierId = $request->input('supplier_id');
