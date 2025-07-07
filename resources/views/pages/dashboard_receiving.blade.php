@@ -12,11 +12,23 @@
     </div>
     <div class="row mt-4">
         <div class="col-12 col-sm-12 col-lg-12">
+
             <div class="card card-primary">
                 <div class="card-header justify-content-center mt-3 ">
                     <h3>Receiving Dashborad Monitoring</h3>
                 </div>
+
                 <div class="card-body">
+
+                    <form method="GET" class="form-inline mb-3">
+                        <label for="start_date" class="mr-2">Tanggal Mulai:</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control mr-2" value="{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}">
+
+                        <label for="end_date" class="mr-2">Tanggal Akhir:</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control mr-2" value="{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}">
+
+                        <button type="submit" class="btn btn-primary">Tampilkan</button>
+                    </form>
                         <div id="timelineChart"></div>
                 </div>
             </div>
@@ -27,8 +39,8 @@
     <ul class="list-inline mt-2">
         <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Belum Order</li>
         <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Sudah Order</li>
-        <li class="list-inline-item"><span style="background:#fd7e14;" class="legend-box"></span> Dikirim Sebagian</li>
-        <li class="list-inline-item"><span style="background:#f52899;" class="legend-box"></span> Dikirim Semua</li>
+        <li class="list-inline-item"><span style="background:#fd7e14;" class="legend-box"></span> Dikemas Sebagian</li>
+        <li class="list-inline-item"><span style="background:#f52899;" class="legend-box"></span> Dikemas Semua</li>
         <li class="list-inline-item"><span style="background:#ffc107;" class="legend-box"></span> Diterima Sebagian</li>
         <li class="list-inline-item"><span style="background:#28a745;" class="legend-box"></span> Diterima Semua</li>
     </ul>

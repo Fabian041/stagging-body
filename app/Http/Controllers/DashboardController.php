@@ -108,6 +108,8 @@ class DashboardController extends Controller
     //Receiving Dashboard
     public function receivingDashboard()
     {
+        $startOfWeek = request('start_date') ? Carbon::parse(request('start_date')) : now()->startOfWeek();
+        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->endOfWeek();
         $statusColors = [
             0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
@@ -117,9 +119,6 @@ class DashboardController extends Controller
             5 => '#fd7e14', // Pengiriman Sebagian
         ];
 
-        $startOfWeek = now()->startOfWeek(); // Senin
-        $endOfWeek = now()->endOfWeek();     // Minggu
-
         // JOIN external_deliveries ke suppliers agar dapat nama supplier
         $deliveries = DB::table('external_deliveries')
             ->join('suppliers', 'external_deliveries.supplier_code', '=', 'suppliers.code')
@@ -127,6 +126,7 @@ class DashboardController extends Controller
                 'external_deliveries.*',
                 'suppliers.name as supplier_name'
             )
+            ->whereBetween('delivery_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
             ->get();
 
         $seriesData = [];
@@ -161,8 +161,13 @@ class DashboardController extends Controller
             'name' => 'Pengiriman Aktual',
             'data' => $seriesData
         ]];
+        $now = now();
 
-        $annotations = now()->startOfDay()->timestamp * 1000;
+        if ($now->between($startOfWeek, $endOfWeek)) {
+            $annotations = $now->timestamp * 1000;
+        } else {
+            $annotations = null;
+        }
 
         return view('pages.dashboard_receiving', [
             'series' => $series,
