@@ -25,12 +25,12 @@
     <div class="legend mb-3">
     <strong>Status Legend:</strong>
     <ul class="list-inline mt-2">
-        <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Belum Terdaftar</li>
-        <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Terdaftar</li>
-        <li class="list-inline-item"><span style="background:#17a2b8;" class="legend-box"></span> Dikirim</li>
+        <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Belum Order</li>
+        <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Sudah Order</li>
+        <li class="list-inline-item"><span style="background:#fd7e14;" class="legend-box"></span> Dikirim Sebagian</li>
+        <li class="list-inline-item"><span style="background:#f52899;" class="legend-box"></span> Dikirim Semua</li>
         <li class="list-inline-item"><span style="background:#ffc107;" class="legend-box"></span> Diterima Sebagian</li>
         <li class="list-inline-item"><span style="background:#28a745;" class="legend-box"></span> Diterima Semua</li>
-        <li class="list-inline-item"><span style="background:#fd7e14;" class="legend-box"></span> Pengiriman Sebagian</li>
     </ul>
 </div>
 
@@ -47,13 +47,34 @@
 
 
 @push('scripts')
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.nicescroll/3.7.6/jquery.nicescroll.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const chartEl = document.querySelector("#timelineChart");
+
     const options = {
         chart: {
             type: 'rangeBar',
-            height: 700
+            height: 700,
+            defaultLocale: 'id',
+            locales: [{
+                name: 'id',
+                options: {
+                    toolbar: {
+                        exportToSVG: 'Unduh SVG',
+                        exportToPNG: 'Unduh PNG',
+                        exportToCSV: 'Unduh CSV',
+                        menu: 'Menu'
+                    },
+                    datetime: {
+                        // gunakan waktu lokal
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }
+                }
+            }]
         },
         plotOptions: {
             bar: {
@@ -62,7 +83,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         },
         xaxis: {
-            type: 'datetime'
+            type: 'datetime',
+            labels: {
+                    datetimeUTC: false // penting!
+                }
         },
         tooltip: {
             custom: function({ series, seriesIndex, dataPointIndex, w }) {
@@ -76,10 +100,10 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         annotations: {
             xaxis: [{
-                x: {{ $annotationTimestamp }},
+                x: Date.now(), // waktu awal
                 borderColor: '#FF0000',
                 label: {
-                    text: 'Hari Ini',
+                    text: new Date().toLocaleTimeString(),
                     style: {
                         color: '#fff',
                         background: '#FF0000'
@@ -90,11 +114,33 @@ document.addEventListener('DOMContentLoaded', function () {
         series: {!! json_encode($series) !!}
     };
 
-    const chart = new ApexCharts(document.querySelector("#timelineChart"), options);
+    const chart = new ApexCharts(chartEl, options);
     chart.render();
+
+    // ⏱ Perbarui anotasi garis setiap 30 detik
+    setInterval(() => {
+        const now = Date.now();
+        const nowLabel = new Date().toLocaleTimeString();
+
+        chart.updateOptions({
+            annotations: {
+                xaxis: [{
+                    x: now,
+                    borderColor: '#FF0000',
+                    label: {
+                        text: nowLabel,
+                        style: {
+                            color: '#fff',
+                            background: '#FF0000'
+                        }
+                    }
+                }]
+            }
+        });
+    }, 30000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik
 });
 </script>
-
 @endpush
+
 
 

@@ -16,7 +16,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
-        $schedule->command('sync:external-deliveries')->everyTenMinutes();
+        $schedule->command('sync:external-deliveries')->everyFiveMinutes();
+        $schedule->command('check:late-deliveries')->everyFiveMinutes();
     }
 
     /**

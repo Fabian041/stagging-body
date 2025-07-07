@@ -111,7 +111,7 @@ class DashboardController extends Controller
         $statusColors = [
             0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
-            2 => '#17a2b8', // Dikirim
+            2 => '#f52899', // Dikirim
             3 => '#ffc107', // Diterima Sebagian
             4 => '#28a745', // Diterima Semua
             5 => '#fd7e14', // Pengiriman Sebagian
