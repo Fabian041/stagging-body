@@ -37,8 +37,8 @@
     <div class="legend mb-3">
     <strong>Status Legend:</strong>
     <ul class="list-inline mt-2">
-        <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Sudah Order</li>
-        <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Konfirmasi Order</li>
+        <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Order</li>
+        <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Dikemas</li>
         {{-- <li class="list-inline-item"><span style="background:#fd7e14;" class="legend-box"></span> Dikemas Sebagian</li> --}}
         <li class="list-inline-item"><span style="background:#f52899;" class="legend-box"></span> Sedang Dijalan</li>
         <li class="list-inline-item"><span style="background:#ffc107;" class="legend-box"></span> Diterima Sebagian</li>
