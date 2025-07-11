@@ -32,7 +32,7 @@ class CheckLateDeliveries extends Command
         $now = now();
 
         $deliveries = DB::table('external_deliveries')
-            ->where('status', '<', 2)
+            ->where('status', '<', 3)
             ->get();
         foreach ($deliveries as $delivery) {
 
