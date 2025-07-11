@@ -121,10 +121,10 @@ class ProductionController extends Controller
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
         // get kanban_id based on internal part id
-        $kanban = Kanban::select('id')
-                    ->where('internal_part_id', $internalPart->id)
+        $kanban = Kanban::where('internal_part_id', $internalPart->id)
                     ->where('serial_number', $seri)
                     ->first();
+        
         if(!$kanban){
             return [
                 'status' => 'error',

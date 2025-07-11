@@ -50,31 +50,37 @@ class LoadingListController extends Controller
 
     public function getLoadingList()
     {
-        $input = LoadingList::with(['detail', 'customer'])->latest()->take(500)->get();
+        // Eager load 'customer' dan gunakan withSum untuk hitung agregat di database
+        $input = LoadingList::with(['customer'])
+            ->withSum('detail as total_kanban', 'kanban_qty')
+            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+            ->latest()
+            ->take(500)
+            ->get();
 
         return DataTables::of($input)
             ->addColumn('customer', function ($loadingList) {
-                return $loadingList->customer->name;
+                return $loadingList->customer->name ?? '-';
             })
             ->addColumn('detail', function($loadingList) {
-                $totalKanban = $loadingList->detail->sum('kanban_qty');
-                $actualKanban = $loadingList->detail->sum('actual_kanban_qty');
+                $totalKanban = $loadingList->total_kanban ?? 0;
+                $actualKanban = $loadingList->actual_kanban ?? 0;
 
-                $detailButton = '<a href="/loading-list/'. $loadingList->id.'" class="btn btn-info text-white mr-2">
+                $detailButton = '<a href="/loading-list/' . $loadingList->id . '" class="btn btn-info text-white mr-2">
                                     <i class="fas fa-info-circle mr-2"></i>
                                     DETAIL
                                 </a>';
 
-                if ($actualKanban >= $totalKanban) {
+                if ($actualKanban >= $totalKanban && $totalKanban > 0) {
                     $buttons = $detailButton . '<button class="btn btn-success">
                                                     <i class="fas fa-check" style="padding-right: 1px"></i>
                                                     COMPLETE
                                                 </button>';
-                } elseif ($actualKanban < $totalKanban && $actualKanban > 0) {
+                } elseif ($actualKanban > 0) {
                     $buttons = $detailButton . '<button class="btn btn-outline-warning">
                                                     INPROGRESS
                                                 </button>';
-                } elseif ($actualKanban == 0) {
+                } else {
                     $buttons = $detailButton . '<button class="btn btn-outline-danger">
                                                     INCOMPLETE
                                                 </button>';
@@ -83,40 +89,39 @@ class LoadingListController extends Controller
                 return $buttons;
             })
             ->addColumn('progress', function ($loadingList) {
-                $totalKanban = $loadingList->detail->sum('kanban_qty');
-                $actualKanban = $loadingList->detail->sum('actual_kanban_qty');
+                $totalKanban = $loadingList->total_kanban ?? 0;
+                $actualKanban = $loadingList->actual_kanban ?? 0;
                 $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
 
-                $statusClass = '';
-                $statusText = '';
-
-                if ($actualKanban >= $totalKanban) {
+                // Warna progress bar
+                if ($actualKanban >= $totalKanban && $totalKanban > 0) {
                     $statusClass = 'lightgreen';
                     $statusText = 'COMPLETE';
-                } elseif ($actualKanban == 0) {
-                    $statusClass = 'red';
-                    $statusText = 'INCOMPLETE';
-                } else {
+                } elseif ($actualKanban > 0) {
                     $statusClass = 'orange';
                     $statusText = 'INPROGRESS';
+                } else {
+                    $statusClass = 'red';
+                    $statusText = 'INCOMPLETE';
                 }
 
                 $progress = '
-                <div class="text-small float-right font-weight-bold text-muted ml-3">'. $actualKanban .' / '.$totalKanban .'</div>
-                                <div class="font-weight-bold mb-1" style="color: white">-</div>
-                <div class="progress" data-height="20" style="height: 15px;">
-                    <div class="progress-bar" role="progressbar" data-width="'.$progressPercentage .'"
-                        aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"
-                        style="width:'. $progressPercentage .'%; background-color: '. $statusClass .' !important">
-                    </div>
-                </div>';
+                    <div class="text-small float-right font-weight-bold text-muted ml-3">'
+                        . $actualKanban . ' / ' . $totalKanban .
+                    '</div>
+                    <div class="font-weight-bold mb-1" style="color: white">-</div>
+                    <div class="progress" data-height="20" style="height: 15px;">
+                        <div class="progress-bar" role="progressbar"
+                            style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
+                            aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>';
 
                 return $progress;
             })
             ->rawColumns(['detail', 'progress', 'customer'])
             ->make(true);
     }
-
 
     public function detail(LoadingList $loadingList)
     {
@@ -136,109 +141,104 @@ class LoadingListController extends Controller
 
     public function getLoadingListDetail(LoadingList $loadingList)
     {
-        $input = LoadingListDetail::where('loading_list_id', $loadingList->id)->get();
+        // Eager load untuk menghindari N+1
+        $input = LoadingListDetail::with([
+            'customerPart.internalPart'
+        ])->where('loading_list_id', $loadingList->id)->get();
 
         return DataTables::of($input)
-                ->addColumn('part_name', function ($loadingList) {
-                    return $loadingList->customerPart->internalPart->part_name;
-                })
-                ->addColumn('cust_partno', function ($loadingList) {
-                    $custPart = '<span class="customerPart">'. $loadingList->customerPart->part_number .'</span>';
+            ->addColumn('part_name', function ($loadingList) {
+                return optional($loadingList->customerPart->internalPart)->part_name ?? '-';
+            })
+            ->addColumn('cust_partno', function ($loadingList) {
+                return '<span class="customerPart">' . optional($loadingList->customerPart)->part_number . '</span>';
+            })
+            ->addColumn('int_partno', function ($loadingList) {
+                return optional($loadingList->customerPart->internalPart)->part_number ?? '-';
+            })
+            ->addColumn('cust_backno', function ($loadingList) {
+                return '<span class="backNumber">' . optional($loadingList->customerPart)->back_number . '</span>';
+            })
+            ->addColumn('int_backno', function ($loadingList) {
+                return optional($loadingList->customerPart->internalPart)->back_number ?? '-';
+            })
+            ->addColumn('kbn_qty', function ($loadingList) {
+                return $loadingList->kanban_qty;
+            })
+            ->addColumn('actual_kbn_qty', function ($loadingList) {
+                return '<span class="actual">' . $loadingList->actual_kanban_qty . '</span>
+                    <input id="editActual" class="form-control editActual" type="number"
+                    value="' . $loadingList->actual_kanban_qty . '" data-width="100"
+                    style="border-radius:6px; display:none">';
+            })
+            ->addColumn('pulling_date', function ($loadingList) {
+                return $loadingList->updated_at != $loadingList->created_at
+                    ? $loadingList->updated_at->format('Y-m-d H:i')
+                    : '<span class="text-danger">N/A</span>';
+            })
+            ->addColumn('serial_number', function ($loadingList) {
+                $internalPartId = optional($loadingList->customerPart->internalPart)->id;
+                $updateTime = $loadingList->updated_at->format('Y-m-d H:i');
 
-                    return $custPart;
-                })
-                ->addColumn('int_partno', function ($loadingList) {
-                    return $loadingList->customerPart->internalPart->part_number;
-                })
-                ->addColumn('cust_backno', function ($loadingList) {
-                    $custBackPart = '<span class="backNumber">'. $loadingList->customerPart->back_number .'</span>';
+                if (!$internalPartId) {
+                    return '<span class="text-danger">N/A</span>';
+                }
 
-                    return $custBackPart;
-                })
-                ->addColumn('int_backno', function ($loadingList) {
-                    return $loadingList->customerPart->internalPart->back_number;
-                })
-                ->addColumn('kbn_qty', function ($loadingList) {
-                    return $loadingList->kanban_qty;
-                })
-                ->addColumn('actual_kbn_qty', function ($loadingList) {
+                $serials = Mutation::select('serial_number')
+                    ->where('internal_part_id', $internalPartId)
+                    ->where('type', 'checkout')
+                    ->where('date', 'like', $updateTime . '%')
+                    ->pluck('serial_number')
+                    ->toArray();
 
-                    $actual = '<span class="actual">'. $loadingList->actual_kanban_qty .' </span>
-                        <input id="editActual" class="form-control editActual" type="number"
-                        value="'.$loadingList->actual_kanban_qty.'" data-width="100"
-                        style="border-radius:6px; display:none">';
+                $loadingList->temp_serial_numbers = $serials;
 
-                    return $actual;
-                })
-                ->addColumn('pulling_date', function ($loadingList) {
+                return !empty($serials)
+                    ? implode(', ', $serials)
+                    : '<span class="text-danger">N/A</span>';
+            })
+            ->addColumn('prod_date', function ($loadingList) {
+                $internalPartId = optional($loadingList->customerPart->internalPart)->id;
+                $serialNumbers = $loadingList->temp_serial_numbers ?? [];
 
-                    return $loadingList->updated_at != $loadingList->created_at 
-                    ? $loadingList->updated_at->format('Y-m-d H:i') 
-                    :  '<span class="text-danger"> N/A </span>';
-                })
-                ->addColumn('serial_number', function ($loadingList) {
-                    $datum = Mutation::select('serial_number')
-                        ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
-                        ->where('type', 'checkout')
-                        ->where('date', 'LIKE', $loadingList->updated_at->format('Y-m-d H:i') . '%')
-                        ->get();
-                
-                    $serialNumbers = $datum->pluck('serial_number')->toArray();
+                if (!$internalPartId || empty($serialNumbers)) {
+                    return '<span class="text-danger">N/A</span>';
+                }
 
-                    // Store the serial numbers in the model instance
-                    $loadingList->temp_serial_numbers = $serialNumbers;
-                    
-                    return !empty($serialNumbers) ? implode(', ', $serialNumbers) : '<span class="text-danger"> N/A </span>';
-                })
-                ->addColumn('prod_date', function ($loadingList) {
-                    // Retrieve the serial numbers from the model instance
-                    $serialNumbers = $loadingList->temp_serial_numbers;
-                
-                    if (empty($serialNumbers)) {
-                        return '<span class="text-danger"> N/A </span>';
-                    }
-                
-                    // Prepare an array to store serial number => date pairs
-                    $serialDates = [];
-                
-                    // Query to fetch dates for each serial number
-                    $data = Mutation::select('serial_number', 'date')
-                        ->where('internal_part_id', $loadingList->customerPart->internalPart->id)
-                        ->where('type', 'supply')
-                        ->whereIn('serial_number', $serialNumbers)
-                        ->where('date', '<=', $loadingList->updated_at)
-                        ->orderBy('date', 'asc') // Assuming you want the latest date
-                        ->get();
-                
-                    // Populate the serialDates array with serial number => date pairs
-                    foreach ($data as $item) {
-                        $serialDates[$item->serial_number] = $item->date;
-                    }
-                
-                    // Prepare the output format serial number => date
-                    $output = [];
-                    foreach ($serialNumbers as $serialNumber) {
-                        // Check if the key exists in $serialDates before accessing it
-                        $date = isset($serialDates[$serialNumber]) ? $serialDates[$serialNumber] : 'N/A';
-                        $output[] = "[$serialNumber] - [$date]";
-                    }
-                
-                    return implode('<br>', $output);
-                })                
-                ->addColumn('edit', function($row) use ($input){
+                $data = Mutation::select('serial_number', 'date')
+                    ->where('internal_part_id', $internalPartId)
+                    ->where('type', 'supply')
+                    ->whereIn('serial_number', $serialNumbers)
+                    ->where('date', '<=', $loadingList->updated_at)
+                    ->orderBy('date', 'asc')
+                    ->get();
 
-                    $btn = '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
-                    <button class="btn btn-icon btn-success save mb-1" style="display: none"><i
-                            class="fas fa-check"></i></button>
-                    <button class="btn btn-icon btn-danger cancel" style="display: none"><i
-                            class="fas fa-times"></i></button>';
+                $serialDates = $data->pluck('date', 'serial_number')->toArray();
 
-                    return $btn;
+                $output = array_map(function ($serial) use ($serialDates) {
+                    $date = $serialDates[$serial] ?? 'N/A';
+                    return "[$serial] - [$date]";
+                }, $serialNumbers);
 
-                })
-                ->rawColumns(['cust_partno','cust_backno','actual_kbn_qty','edit', 'pulling_date', 'serial_number', 'prod_date'])
-                ->toJson();
+                return implode('<br>', $output);
+            })
+            ->addColumn('edit', function ($row) {
+                return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
+                    <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-icon btn-danger cancel" style="display: none"><i class="fas fa-times"></i></button>';
+            })
+            ->rawColumns([
+                'cust_partno',
+                'cust_backno',
+                'actual_kbn_qty',
+                'edit',
+                'pulling_date',
+                'serial_number',
+                'prod_date'
+            ])
+            ->toJson();
     }
+
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {

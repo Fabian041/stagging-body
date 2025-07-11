@@ -244,14 +244,25 @@ class PullingController extends Controller
         ];
     }
 
-    public function internalCheck($internal)
+    public function internalCheck($internal, $isinternal = 0)
     {
-        // check internal 
-        $internal = InternalPart::with('customerPart', 'line')
-                            ->where('part_number', $internal)
-                            ->first();
-                            
-        if(!$internal){
+        // check internal
+        $internal = InternalPart::with('customerPart', 'line')->where('part_number', $internal)->first();
+        if ($isinternal == 0) {
+            DB::beginTransaction();
+            // insert into mutation table
+            Mutation::create([
+                'internal_part_id' => $internal->id,
+                'serial_number' => 'XXXX',
+                'type' => 'checkout',
+                'qty' => 0,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
+
+            DB::commit();
+        }
+        if (!$internal) {
             return [
                 'status' => 'error',
                 'message' => 'Part atau Kanban tidak ditemukan!'
@@ -262,10 +273,9 @@ class PullingController extends Controller
             'status' => 'success',
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
-            'target' => $internal->customerPart->qty_per_kanban,
-            'line' => $internal->line->name,
+            'target' => $internal->customerPart->qty_per_kanban ?? 0,
+            'line' => $internal->line->name ?? 'Tidak ada',
             'photo' => $internal->photo,
-            'internalPartId' => 'a'
         ];
     }
 
@@ -278,8 +288,7 @@ class PullingController extends Controller
         // get internal part id
         $internalPart = InternalPart::where('part_number', $internal)->first();
 
-        $kanban = Kanban::select('id')
-            ->where('internal_part_id', $internalPart->id)
+        $kanban = Kanban::where('internal_part_id', $internalPart->id)
             ->where('serial_number', $seri)
             ->first();
 

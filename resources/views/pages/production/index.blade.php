@@ -167,6 +167,7 @@
         sound.play();
     }
 
+
     function forgetSound() {
         var sound = document.getElementById("forget-sound");
         sound.play();
@@ -511,6 +512,11 @@
                     return;
                 }
 
+                if (barcodecomplete == "logout") {
+                    window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
@@ -703,12 +709,12 @@
                     }
                 }
 
-
                 // check if model is set in local storage
                 if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
+
                         // get current counter value
                         $.ajax({
                             type: 'get',
@@ -779,7 +785,7 @@
                                     notif("error", data.message);
 
                                     // notification sound
-                                    alreadyScanSound();
+                                    wrongKanbanSound();
 
                                     let interval = setInterval(function() {
                                         $('#notifModal').modal(

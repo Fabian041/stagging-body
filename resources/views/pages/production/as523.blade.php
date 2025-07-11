@@ -562,6 +562,11 @@
                     return;
                 }
 
+                if (barcodecomplete == "logout") {
+                    window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
@@ -663,13 +668,13 @@
                                     let target = dataPart.target;
                                     let line = dataPart.line;
 
+                                    localStorage.setItem('target', target);
                                     localStorage.setItem('model', dataPart.partNumber);
                                     localStorage.setItem('back_number', dataPart
                                         .backNumber);
                                     localStorage.setItem('scan_counter', scanCounter);
                                     localStorage.setItem('part_counter', partCounter);
                                     localStorage.setItem('photo', dataPart.photo);
-                                    localStorage.setItem('target', target);
                                     localStorage.setItem('line', line);
 
                                     // update target
