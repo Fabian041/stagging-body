@@ -15,6 +15,7 @@ use App\Models\ReceiveSchedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class DashboardController extends Controller
 {
@@ -125,8 +126,22 @@ class DashboardController extends Controller
             $result[] = (object) $line;
         }
 
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 20; // bebas, kamu bisa ubah sesuai kebutuhan
+
+        $collection = collect($result);
+        $currentPageItems = $collection->slice(($page - 1) * $perPage, $perPage)->values();
+        $paginatedResult = new LengthAwarePaginator(
+            $currentPageItems,
+            $collection->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+
         return view('pages.production.prodResult', [
-            'lines' => $result,
+            'lines' => $paginatedResult,
             'selectedDate' => $selectedDate,
         ]);
     }

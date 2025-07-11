@@ -300,17 +300,17 @@ class PullingController extends Controller
             ]; 
         }
 
-            if($kanban->status == 0){
-                return [
-                    'status' => 'error',
-                    'message' => 'Kanban belum di scan produksi!'
-                ]; 
-            }else if($kanban->status == 2){
-                return [
-                    'status' => 'error',
-                    'message' => 'Kanban sudah di scan!'
-                ];
-            }
+            // if($kanban->status == 0){
+            //     return [
+            //         'status' => 'error',
+            //         'message' => 'Kanban belum di scan produksi!'
+            //     ]; 
+            // }else if($kanban->status == 2){
+            //     return [
+            //         'status' => 'error',
+            //         'message' => 'Kanban sudah di scan!'
+            //     ];
+            // }
 
         if (!$internalPart) {
             return [

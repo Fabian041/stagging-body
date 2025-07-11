@@ -46,6 +46,7 @@
                                             <th>No</th>
                                             <th>Line</th>
                                             <th>Back Number</th>
+                                            <th>Last Scan Date</th>
                                             <th class="text-center">Action</th>
                                         </tr>
                                     </thead>
@@ -59,6 +60,7 @@
                                                     <td>
                                                         <h3><code>{{ $item['back_number'] }}</code></h3>
                                                     </td>
+                                                    <td>{{ $item['details'][0]['date'] ?? '-' }}</td>
                                                     <td class="text-center">
                                                         <button class="btn btn-info" data-toggle="collapse"
                                                             data-target="#collapse-all-{{ $line->line }}-{{ $loop->iteration }}">
@@ -67,7 +69,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td colspan="4" class="p-0">
+                                                    <td colspan="5" class="p-0">
                                                         <div id="collapse-all-{{ $line->line }}-{{ $loop->iteration }}"
                                                             class="collapse">
                                                             <div class="p-3">
@@ -100,6 +102,10 @@
                                     </tbody>
                                 </table>
                             </div>
+
+                            <div class="d-flex justify-content-center mt-3">
+                                {{ $lines->links() }}
+                            </div>
                         </div>
 
                         {{-- Tab per Line --}}
@@ -111,6 +117,7 @@
                                             <tr>
                                                 <th>No</th>
                                                 <th>Back Number</th>
+                                                <th>Last Scan Date</th>
                                                 <th class="text-center">Action</th>
                                             </tr>
                                         </thead>
@@ -121,6 +128,7 @@
                                                     <td>
                                                         <h3><code>{{ $item['back_number'] }}</code></h3>
                                                     </td>
+                                                    <td>{{ $item['details'][0]['date'] ?? '-' }}</td>
                                                     <td class="text-center">
                                                         <button class="btn btn-info" data-toggle="collapse"
                                                             data-target="#collapse-{{ $line->line }}-line-{{ $loop->iteration }}">
@@ -129,7 +137,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td colspan="3" class="p-0">
+                                                    <td colspan="4" class="p-0">
                                                         <div id="collapse-{{ $line->line }}-line-{{ $loop->iteration }}"
                                                             class="collapse">
                                                             <div class="p-3">
