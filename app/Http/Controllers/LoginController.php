@@ -46,8 +46,10 @@ class LoginController extends Controller
                 }
                 // redirect to ppic
                 return redirect()->route('pulling.index');
+            }else{
+                // redirect to dashboard
+                return redirect()->route('dashboard.index');
             }
-
         }
 
         return redirect()->back()->with('error', 'Email or password do not match our records!');
