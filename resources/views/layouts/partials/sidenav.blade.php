@@ -8,6 +8,12 @@
         </div>
         <ul class="sidebar-menu mt-2">
             <li class="menu-header">Dashboard</li>
+            <li class="{{ request()->is('dashboard.receiving') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('dashboard.receiving') }}">
+                    <i class="fas fa-truck"></i>
+                    <span class="beep">Receiving</span>
+                </a>
+            </li>
             <li class="{{ request()->is('dashboard') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('dashboard.index') }}">
                     <i class="fas fa-fire"></i>

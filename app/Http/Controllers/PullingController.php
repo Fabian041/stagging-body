@@ -269,6 +269,7 @@ class PullingController extends Controller
             ];
         }
 
+
         return [
             'status' => 'success',
             'partNumber' => $internal->part_number,

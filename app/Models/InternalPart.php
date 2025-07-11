@@ -19,14 +19,14 @@ class InternalPart extends Model
     }
     public function customerPart()
     {
-        return $this->hasOne(customerPart::class);
+        return $this->hasOne(CustomerPart::class);
     }
 
     public function kanbanAfterPulling()
     {
         return $this->hasMany(KanbanAfterPulling::class, 'internal_part_id');
     }
-    
+
     public function kanbanAfterProd()
     {
         return $this->hasMany(KanbanAfterProd::class, 'internal_part_id');
