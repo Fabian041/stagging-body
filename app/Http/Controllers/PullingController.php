@@ -128,6 +128,11 @@ class PullingController extends Controller
         return view('pages.pulling.index');
     }
 
+    public function showSettings()
+    {
+        return view('pages.pulling.setting');
+    }
+
     /**
      * Show the form for creating a new resource.
      *

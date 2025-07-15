@@ -20,6 +20,12 @@
                             <span>Receiving</span>
                         </a>
                     </li>
+                    <li class="{{ request()->is('dashboard.prodPlan') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('dashboard.prodPlan') }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>Production Plan</span>
+                        </a>
+                    </li>
                     <li class="{{ request()->is('loading-list') || request()->is('loading-list/*') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('loadingList.index') }}">
                             <i class="fas fa-truck-loading"></i>

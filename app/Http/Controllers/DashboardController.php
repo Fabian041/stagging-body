@@ -145,6 +145,11 @@ class DashboardController extends Controller
             'selectedDate' => $selectedDate,
         ]);
     }
+    
+    public function prodPlan(Request $request)
+    {
+        return view('pages.pulling.prodPlan');
+    }
 
     public function progressPulling()
     {
