@@ -114,6 +114,8 @@ class ProductionController extends Controller
             ];
         }
 
+        $partName = strtoupper($internalPart->part_name);
+
         // get line of internal part based on internal part id
         $line = Line::select('name')->where('id', $internalPart->line_id)->first();
 
@@ -132,11 +134,20 @@ class ProductionController extends Controller
             ]; 
         }
 
-        if($kanban->status == 1){
-            return [
-                'status' => 'error',
-                'message' => 'Kanban Sudah di scan!'
-            ]; 
+        // Cek jika mengandung kata SUB ASSY dalam variasi yang dimaksud
+        if (
+            str_contains($partName, 'SUB-ASSY') ||
+            str_contains($partName, 'SUB - ASSY') ||
+            str_contains($partName, 'SUB ASSY')
+        ) {
+            // Lewati pengecekan status
+        } else {
+            if ($kanban->status == 1) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Kanban Sudah di scan!'
+                ];
+            }
         }
 
         try {
