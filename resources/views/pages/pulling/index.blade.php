@@ -1046,8 +1046,10 @@
                                                 data) {
                                                 console.log(
                                                     data
-                                                    .status
-                                                )
+                                                    .status,
+                                                    data
+                                                    .data
+                                                    )
                                             },
                                             error: function(
                                                 xhr) {

@@ -394,6 +394,10 @@ class LoadingListController extends Controller
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',
+                'data' => [
+                    'int' => $internalPart,
+                    'cust' => $convertedPartNumber
+                ]
             ];
         } 
 
