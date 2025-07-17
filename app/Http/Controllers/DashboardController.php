@@ -152,6 +152,12 @@ class DashboardController extends Controller
         $start = $today->copy()->addHours(6); // jam 06:00 hari ini
         $end = $start->copy()->addDay(); // jam 06:00 besok
     
+        $allowedBackNos = [
+            'CI11', 'CI12', 'CI13', 'CI14', 'CI15', 'CI16', 'CI18', 'CI17', 'CI19',
+            'DI01', 'DI02',
+            'EI11', 'EI12', 'EI13', 'EI14'
+        ];
+    
         $rawData = DB::connection('mssql_external')
             ->table('TT_GIG_SYKMEISAI')
             ->select(
@@ -164,6 +170,7 @@ class DashboardController extends Controller
             )
             ->whereNotNull('CHR_TIM_SYUKKA')
             ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
+            ->whereIn('CHR_COD_SEBANGOU', $allowedBackNos)
             ->limit(1000)
             ->get()
             ->map(function ($item) use ($today) {
@@ -199,6 +206,7 @@ class DashboardController extends Controller
         ]);
     }
     
+
     public function progressPulling()
     {
         // get per delivery date 
