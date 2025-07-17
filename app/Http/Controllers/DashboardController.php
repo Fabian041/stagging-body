@@ -151,13 +151,16 @@ class DashboardController extends Controller
         $today = now()->startOfDay(); // hari ini jam 00:00
         $start = $today->copy()->addHours(6); // jam 06:00 hari ini
         $end = $start->copy()->addDay(); // jam 06:00 besok
-    
-        $allowedBackNos = [
-            'CI11', 'CI12', 'CI13', 'CI14', 'CI15', 'CI16', 'CI18', 'CI17', 'CI19',
-            'DI01', 'DI02',
-            'EI11', 'EI12', 'EI13', 'EI14'
+
+        // Mapping back_no untuk tiap line
+        $backNosByLine = [
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
+            'AS004' => ['CI15', 'CI16', 'CI19'],
         ];
-    
+
+        // Gabungkan semua back_no yg dibutuhkan
+        $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
+
         $rawData = DB::connection('mssql_external')
             ->table('TT_GIG_SYKMEISAI')
             ->select(
@@ -170,42 +173,45 @@ class DashboardController extends Controller
             )
             ->whereNotNull('CHR_TIM_SYUKKA')
             ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
-            ->whereIn('CHR_COD_SEBANGOU', $allowedBackNos)
+            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos) // hilangkan spasi kanan
             ->limit(1000)
             ->get()
             ->map(function ($item) use ($today) {
+                $item->back_no = trim($item->back_no); // pastikan back_no tidak ada spasi
+
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 $hour = substr($raw, 0, 2);
                 $minute = substr($raw, 2, 2);
                 $second = substr($raw, 4, 2);
-    
-                // Buat objek waktu dari tanggal hari ini + jam dari data
+
                 $time = $today->copy()->setTime($hour, $minute, $second);
-    
-                // Kalau jamnya < 06:00, berarti itu milik hari besok (setelah tengah malam)
+
                 if ($time->lt($today->copy()->addHours(6))) {
-                    $time->addDay(); // pindahkan ke hari besok
+                    $time->addDay();
                 }
-    
+
                 $item->formatted_time = $time->format('H:i');
                 $item->time_sort = $time->timestamp;
                 return $item;
             })
-            // Filter: hanya ambil yang dalam range 06:00 hari ini s.d. 05:59 besok
             ->filter(function ($item) use ($start, $end) {
                 return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
             });
-    
-        // Urutkan dan group berdasarkan customer + formatted_time
-        $grouped = $rawData
-            ->sortBy('time_sort')
-            ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
-    
+
+        // Filter dan group data per line
+        $grouped = [];
+
+        foreach ($backNosByLine as $line => $backNos) {
+            $grouped[$line] = $rawData
+                ->whereIn('back_no', $backNos)
+                ->sortBy('time_sort')
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
+        }
+
         return view('pages.pulling.prodPlan', [
             'grouped' => $grouped
         ]);
-    }
-    
+    }   
 
     public function progressPulling()
     {
