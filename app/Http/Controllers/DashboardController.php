@@ -148,6 +148,8 @@ class DashboardController extends Controller
     
     public function prodPlan()
     {
+        $today = now()->format('Ymd'); // ambil tanggal hari ini dalam format 20240716
+
         $rawData = DB::connection('mssql_external')
             ->table('TT_GIG_SYKMEISAI')
             ->select(
@@ -159,15 +161,20 @@ class DashboardController extends Controller
                 'CHR_TIM_SYUKKA'
             )
             ->whereNotNull('CHR_TIM_SYUKKA')
-            ->limit(50)
+            ->where('CHR_NGP_NOUNYU', $today)
+            ->limit(100)
             ->get()
             ->map(function ($item) {
+                // pastikan format jam 6 digit (hhmmss)
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+
+                // buat format jam:menit
                 $item->formatted_time = substr($raw, 0, 2) . ':' . substr($raw, 2, 2);
-                $item->time_sort = intval($raw);
+                $item->time_sort = intval($raw); // untuk sorting
                 return $item;
             });
 
+        // urutkan dan group berdasarkan customer + formatted_time
         $grouped = $rawData
             ->sortBy('time_sort')
             ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
@@ -176,7 +183,6 @@ class DashboardController extends Controller
             'grouped' => $grouped
         ]);
     }
-
 
     public function progressPulling()
     {
