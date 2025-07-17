@@ -148,14 +148,10 @@ class DashboardController extends Controller
     
     public function prodPlan()
     {
-        $today = now();
-        $todayYmd = $today->format('Ymd'); // Format: 20240716
-
-        // Batas waktu: 06:00 hari ini sampai 05:59 besok
-        $startTime = 60000; // 06:00:00 as integer
-        $endTime = 55959;   // 05:59:59 as integer
-
-        // Ambil data hari ini
+        $today = now()->startOfDay(); // hari ini jam 00:00
+        $start = $today->copy()->addHours(6); // jam 06:00 hari ini
+        $end = $start->copy()->addDay(); // jam 06:00 besok
+    
         $rawData = DB::connection('mssql_external')
             ->table('TT_GIG_SYKMEISAI')
             ->select(
@@ -164,36 +160,45 @@ class DashboardController extends Controller
                 'CHR_COD_SEBANGOU as back_no',
                 'INT_SUR_SYUUYOU as qty_per_pallet',
                 'INT_SUR_JYUCYUU as order_qty',
-                'CHR_TIM_SYUKKA',
-                'CHR_NGP_NOUNYU'
+                'CHR_TIM_SYUKKA'
             )
-            ->where('CHR_NGP_NOUNYU', $todayYmd)
             ->whereNotNull('CHR_TIM_SYUKKA')
+            ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
+            ->limit(1000)
             ->get()
-            ->filter(function ($item) use ($startTime, $endTime) {
-                $rawTime = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                $timeInt = intval($rawTime);
-                // Waktu valid: antara jam 06:00 hari ini sampai jam 05:59 besok
-                return ($timeInt >= 60000 || $timeInt <= 55959);
-            })
-            ->map(function ($item) {
+            ->map(function ($item) use ($today) {
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                $item->formatted_time = substr($raw, 0, 2) . ':' . substr($raw, 2, 2);
-                $item->time_sort = intval($raw);
+                $hour = substr($raw, 0, 2);
+                $minute = substr($raw, 2, 2);
+                $second = substr($raw, 4, 2);
+    
+                // Buat objek waktu dari tanggal hari ini + jam dari data
+                $time = $today->copy()->setTime($hour, $minute, $second);
+    
+                // Kalau jamnya < 06:00, berarti itu milik hari besok (setelah tengah malam)
+                if ($time->lt($today->copy()->addHours(6))) {
+                    $time->addDay(); // pindahkan ke hari besok
+                }
+    
+                $item->formatted_time = $time->format('H:i');
+                $item->time_sort = $time->timestamp;
                 return $item;
+            })
+            // Filter: hanya ambil yang dalam range 06:00 hari ini s.d. 05:59 besok
+            ->filter(function ($item) use ($start, $end) {
+                return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
             });
-
-        // Urut dan group berdasarkan customer + formatted_time
+    
+        // Urutkan dan group berdasarkan customer + formatted_time
         $grouped = $rawData
             ->sortBy('time_sort')
             ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
-
+    
         return view('pages.pulling.prodPlan', [
             'grouped' => $grouped
         ]);
     }
-
-
+    
     public function progressPulling()
     {
         // get per delivery date 
