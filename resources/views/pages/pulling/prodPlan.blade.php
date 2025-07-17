@@ -65,14 +65,6 @@
         <!-- Tambahan tab AS004 -->
         <ul class="nav nav-tabs mb-4" id="lineTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="line1-tab" data-bs-toggle="tab" data-bs-target="#line1" type="button"
-                    role="tab">AS001</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="line2-tab" data-bs-toggle="tab" data-bs-target="#line2" type="button"
-                    role="tab">AS002</button>
-            </li>
-            <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="line3-tab" data-bs-toggle="tab" data-bs-target="#line3"
                     type="button" role="tab">AS003</button>
             </li>
