@@ -148,8 +148,14 @@ class DashboardController extends Controller
     
     public function prodPlan()
     {
-        $today = now()->format('Ymd'); // ambil tanggal hari ini dalam format 20240716
+        $today = now();
+        $todayYmd = $today->format('Ymd'); // Format: 20240716
 
+        // Batas waktu: 06:00 hari ini sampai 05:59 besok
+        $startTime = 60000; // 06:00:00 as integer
+        $endTime = 55959;   // 05:59:59 as integer
+
+        // Ambil data hari ini
         $rawData = DB::connection('mssql_external')
             ->table('TT_GIG_SYKMEISAI')
             ->select(
@@ -158,23 +164,26 @@ class DashboardController extends Controller
                 'CHR_COD_SEBANGOU as back_no',
                 'INT_SUR_SYUUYOU as qty_per_pallet',
                 'INT_SUR_JYUCYUU as order_qty',
-                'CHR_TIM_SYUKKA'
+                'CHR_TIM_SYUKKA',
+                'CHR_NGP_NOUNYU'
             )
+            ->where('CHR_NGP_NOUNYU', $todayYmd)
             ->whereNotNull('CHR_TIM_SYUKKA')
-            ->where('CHR_NGP_NOUNYU', $today)
-            ->limit(100)
             ->get()
+            ->filter(function ($item) use ($startTime, $endTime) {
+                $rawTime = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                $timeInt = intval($rawTime);
+                // Waktu valid: antara jam 06:00 hari ini sampai jam 05:59 besok
+                return ($timeInt >= 60000 || $timeInt <= 55959);
+            })
             ->map(function ($item) {
-                // pastikan format jam 6 digit (hhmmss)
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-
-                // buat format jam:menit
                 $item->formatted_time = substr($raw, 0, 2) . ':' . substr($raw, 2, 2);
-                $item->time_sort = intval($raw); // untuk sorting
+                $item->time_sort = intval($raw);
                 return $item;
             });
 
-        // urutkan dan group berdasarkan customer + formatted_time
+        // Urut dan group berdasarkan customer + formatted_time
         $grouped = $rawData
             ->sortBy('time_sort')
             ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
@@ -183,6 +192,7 @@ class DashboardController extends Controller
             'grouped' => $grouped
         ]);
     }
+
 
     public function progressPulling()
     {
