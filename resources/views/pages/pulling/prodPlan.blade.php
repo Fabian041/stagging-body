@@ -112,7 +112,10 @@
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="bg-warning text-dark"><span class="flip">--</span></td>
+                                        <td class="bg-warning text-dark">
+                                            <span class="flip" data-key="stock">--</span>
+                                        </td>
+                                        </td>
                                         <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
@@ -155,53 +158,69 @@
     <audio id="clickSound" src="{{ asset('sounds/click.mp3') }}" preload="auto"></audio>
 
     <script>
-        const data = {
-            customer: "RFID TCC D41T",
-            route: "MCE2KB1",
-            cycle: 7,
-            back_no: "CI 18",
-            qty: 24,
-            order: 56,
-            direct: 24,
-            chute: 32,
-            prod: "0,55",
-            break: "-",
-            work: "13:41",
-            delivery: "-",
-            balance: "-"
-        };
-
-        const audio = document.getElementById("clickSound");
-
         function simulateUpdate() {
-            const newData = {
-                ...data,
-                chute: Math.floor(Math.random() * 40) + 10,
-                direct: Math.floor(Math.random() * 50),
-                prod: (Math.random() * 1.5).toFixed(2),
-                order: Math.floor(Math.random() * 100),
-                work: new Date().toLocaleTimeString('en-GB').slice(0, 5)
-            };
+            const table = document.getElementById("flipTable");
 
-            document.querySelectorAll("#flipTable .flip").forEach(el => {
-                const key = el.dataset.key;
-                const oldVal = el.textContent.trim();
-                const newVal = newData[key];
+            table.querySelectorAll("tr").forEach(row => {
+                const data = {
+                    customer: row.querySelector("[data-key='customer']")?.textContent.trim(),
+                    backno: row.querySelector("[data-key='backno']")?.textContent.trim(),
+                    name: row.querySelector("[data-key='name']")?.textContent.trim(),
+                    chute: row.querySelector("[data-key='chute']")?.textContent.trim(),
+                    direct: row.querySelector("[data-key='direct']")?.textContent.trim(),
+                    prod: row.querySelector("[data-key='prod']")?.textContent.trim(),
+                    order: row.querySelector("[data-key='order']")?.textContent.trim(),
+                    work: row.querySelector("[data-key='work']")?.textContent.trim(),
+                    stock: row.querySelector("[data-key='stock']")?.textContent.trim(),
+                };
 
-                if (newVal != null && oldVal !== newVal.toString()) {
-                    el.classList.add("animate");
+                const newData = {
+                    ...data,
+                    chute: Math.floor(Math.random() * 40) + 10,
+                    direct: Math.floor(Math.random() * 50),
+                    prod: (Math.random() * 1.5).toFixed(2),
+                    order: Math.floor(Math.random() * 100),
+                    work: new Date().toLocaleTimeString('en-GB').slice(0, 5),
+                    stock: Math.floor(Math.random() * 100) // update khusus kolom stock
+                };
+
+                // Update kolom stock saja dengan animasi flip
+                const stockEl = row.querySelector("[data-key='stock']");
+                if (stockEl && stockEl.textContent.trim() !== newData.stock.toString()) {
+                    stockEl.classList.add("flip-animate");
                     setTimeout(() => {
-                        el.textContent = newVal;
-                        el.classList.remove("animate");
-                        audio.currentTime = 0;
-                        audio.play();
-                    }, 300);
+                        stockEl.textContent = newData.stock;
+                        stockEl.classList.remove("flip-animate");
+                    }, 500);
                 }
             });
         }
 
+        // CSS untuk animasi flip
+        const style = document.createElement("style");
+        style.innerHTML = `
+            .flip-animate {
+                animation: flip 0.5s ease-in-out;
+            }
+    
+            @keyframes flip {
+                0% {
+                    transform: rotateX(0deg);
+                }
+                50% {
+                    transform: rotateX(90deg);
+                }
+                100% {
+                    transform: rotateX(0deg);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Jalankan simulasi update setiap 5 detik
         setInterval(simulateUpdate, 5000);
     </script>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
