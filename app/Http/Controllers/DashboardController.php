@@ -146,10 +146,37 @@ class DashboardController extends Controller
         ]);
     }
     
-    public function prodPlan(Request $request)
+    public function prodPlan()
     {
-        return view('pages.pulling.prodPlan');
+        $rawData = DB::connection('mssql_external')
+            ->table('TT_GIG_SYKMEISAI')
+            ->select(
+                'CHR_MEI_NOUNYU as customer',
+                'INT_NUB_NOUBIN as cycle',
+                'CHR_COD_SEBANGOU_TOK as back_no',
+                'INT_SUR_SYUUYOU as qty_per_pallet',
+                'INT_SUR_JYUCYUU as order_qty',
+                'CHR_TIM_SYUKKA'
+            )
+            ->whereNotNull('CHR_TIM_SYUKKA')
+            ->limit(50)
+            ->get()
+            ->map(function ($item) {
+                $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                $item->formatted_time = substr($raw, 0, 2) . ':' . substr($raw, 2, 2);
+                $item->time_sort = intval($raw);
+                return $item;
+            });
+
+        $grouped = $rawData
+            ->sortBy('time_sort')
+            ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
+
+        return view('pages.pulling.prodPlan', [
+            'grouped' => $grouped
+        ]);
     }
+
 
     public function progressPulling()
     {

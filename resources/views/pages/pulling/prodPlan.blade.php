@@ -83,7 +83,6 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
-                                <th>Route</th>
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Qty/Pallet</th>
@@ -97,76 +96,41 @@
                             </tr>
                         </thead>
                         <tbody id="flipTable">
-                            <!-- RFID TCC D41T @ 07:00 (2 baris) -->
-                            <tr>
-                                <td rowspan="2"><span class="flip">RFID TCC D41T</span></td>
-                                <td><span class="flip">MCE2KB1</span></td>
-                                <td><span class="flip">7</span></td>
-                                <td><span class="flip">CI 18</span></td>
-                                <td><span class="flip">24</span></td>
-                                <td><span class="flip">56</span></td>
-                                <td class="bg-success text-dark"><span class="flip">56</span></td>
-                                <td><span class="flip">0.55</span></td>
-                                <td><span class="flip">-</span></td>
-                                <td><span class="flip">06:45</span></td>
-                                <td rowspan="2"><span class="flip">07:00</span></td>
-                                <td><span class="flip">-</span></td>
-                            </tr>
-                            <tr>
-                                <!-- Customer & Delivery Time kosong karena rowspan -->
-                                <td><span class="flip">MCE2KB2</span></td>
-                                <td><span class="flip">4</span></td>
-                                <td><span class="flip">CI 20</span></td>
-                                <td><span class="flip">28</span></td>
-                                <td><span class="flip">62</span></td>
-                                <td class="bg-warning text-dark"><span class="flip">42</span></td>
-                                <td><span class="flip">0.45</span></td>
-                                <td><span class="flip">-</span></td>
-                                <td><span class="flip">06:59</span></td>
-                                <td><span class="flip">-</span></td>
-                            </tr>
+                            @forelse ($grouped as $key => $rows)
+                                @php
+                                    [$customer, $delivery] = explode('|', $key);
+                                    $rowspan = $rows->count();
+                                @endphp
+                                @foreach ($rows as $index => $item)
+                                    <tr>
+                                        @if ($index === 0)
+                                            <td rowspan="{{ $rowspan }}"><span
+                                                    class="flip">{{ $customer }}</span></td>
+                                        @endif
 
-                            <!-- RFID ABC X1 @ 08:00 (3 baris) -->
-                            <tr>
-                                <td rowspan="3"><span class="flip">RFID ABC X1</span></td>
-                                <td><span class="flip">MCE1AA1</span></td>
-                                <td><span class="flip">6</span></td>
-                                <td><span class="flip">CI 99</span></td>
-                                <td><span class="flip">18</span></td>
-                                <td><span class="flip">48</span></td>
-                                <td class="bg-warning text-dark"><span class="flip">32</span></td>
-                                <td><span class="flip">0.72</span></td>
-                                <td><span class="flip">-</span></td>
-                                <td><span class="flip">07:58</span></td>
-                                <td rowspan="3"><span class="flip">08:00</span></td>
-                                <td><span class="flip">-</span></td>
-                            </tr>
-                            <tr>
-                                <td><span class="flip">MCE1AA2</span></td>
-                                <td><span class="flip">5</span></td>
-                                <td><span class="flip">CI 77</span></td>
-                                <td><span class="flip">26</span></td>
-                                <td><span class="flip">64</span></td>
-                                <td class="bg-danger text-dark"><span class="flip">21</span></span></td>
-                                <td><span class="flip">0.91</span></td>
-                                <td><span class="flip">-</span></td>
-                                <td><span class="flip">08:10</span></td>
-                                <td><span class="flip">-</span></td>
-                            </tr>
-                            <tr>
-                                <td><span class="flip">MCE1AA3</span></td>
-                                <td><span class="flip">8</span></td>
-                                <td><span class="flip">CI 05</span></td>
-                                <td><span class="flip">30</span></td>
-                                <td><span class="flip">60</span></td>
-                                <td class="bg-warning text-dark"><span class="flip">44</span></td>
-                                <td><span class="flip">1.12</span></td>
-                                <td><span class="flip">-</span></td>
-                                <td><span class="flip">08:50</span></td>
-                                <td><span class="flip">-</span></td>
-                            </tr>
+                                        <td><span class="flip">{{ $item->cycle }}</span></td>
+                                        <td><span class="flip">{{ $item->back_no }}</span></td>
+                                        <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
+                                        <td><span class="flip">{{ $item->order_qty }}</span></td>
+                                        <td class="bg-warning text-dark"><span class="flip">--</span></td>
+                                        <td><span class="flip">--</span></td>
+                                        <td><span class="flip">--</span></td>
+                                        <td><span class="flip">--</span></td>
+
+                                        @if ($index === 0)
+                                            <td rowspan="{{ $rowspan }}"><span
+                                                    class="flip">{{ $delivery }}</span></td>
+                                        @endif
+
+                                        <td><span class="flip">--</span></td>
+                                    </tr>
+                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="11" class="text-center">Tidak ada data untuk hari ini.</td>
+                                </tr>
+                            @endforelse
                         </tbody>
-
                     </table>
                 </div>
             </div>
