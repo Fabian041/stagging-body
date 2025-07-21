@@ -167,7 +167,6 @@
         sound.play();
     }
 
-
     function forgetSound() {
         var sound = document.getElementById("forget-sound");
         sound.play();
@@ -233,6 +232,14 @@
         }
     }
 
+    function loopAlreadyScanSound() {
+        if (localStorage.getItem('kanban_exist_error') === 'true') {
+            alreadyScanSound(); // Putar suara
+            showModalConfirmation();
+            setTimeout(loopAlreadyScanSound, 2000); // Loop setiap 2 detik
+        }
+    }
+
     function initApp() {
         let model = localStorage.getItem('model');
         let backNumber = localStorage.getItem('back_number');
@@ -275,6 +282,7 @@
         loopNotMatchSound(); // Mulai looping suara
         loopDandoriSound(); // Mulai looping suara
         loopMasterDandoriSound(); // Mulai looping suara
+        loopAlreadyScanSound(); // Mulai looping suara
 
         $('#code').focus();
     }
@@ -781,6 +789,27 @@
 
                                     // start new timer
                                     // resetAndStartTimer();
+                                } else if (data.status == 'kanbanExist') {
+                                    notif("error", data.message);
+
+                                    // notification sound
+                                    alreadyScanSound();
+
+                                    let interval = setInterval(function() {
+                                        $('#notifModal').modal(
+                                            'hide');
+                                        clearInterval(interval);
+                                        $('#code').focus();
+                                    }, 1500);
+
+                                    localStorage.setItem('kanban_exist_error', 'true');
+
+                                    sendErrorLog('Seri Kanban sudah discan!', localStorage
+                                        .getItem('dandori_board'), internal.trim());
+
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1500);
                                 } else {
                                     notif("error", data.message);
 

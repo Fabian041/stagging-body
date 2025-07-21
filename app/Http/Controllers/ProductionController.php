@@ -144,7 +144,7 @@ class ProductionController extends Controller
         } else {
             if ($kanban->status == 1) {
                 return [
-                    'status' => 'error',
+                    'status' => 'kanbanExist',
                     'message' => 'Kanban Sudah di scan!'
                 ];
             }

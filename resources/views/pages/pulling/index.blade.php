@@ -558,22 +558,26 @@
         }, 1500);
     }
 
-    function customerCheck(customer) {
+    function customerCheck(customer, pds = null) {
         return new Promise(function(resolve, reject) {
+            let url = "{{ url('pulling/customer-check') }}/" + customer;
+
+            if (pds) {
+                url += '/' + encodeURIComponent(pds); // tanpa tanda tanya
+            }
+
             $.ajax({
                 type: 'GET',
-                url: "{{ url('pulling/customer-check/') }}" + '/' + customer,
-                _token: "{{ csrf_token() }}",
+                url: url,
                 dataType: 'json',
                 success: function(data) {
                     console.log(data);
-                    if (data.status == 'success') {
-                        // display customer
+                    if (data.status === 'success') {
                         $('#customer-display').text(data.customer);
                         localStorage.setItem('customer', data.customer);
                         resolve();
                     } else {
-                        reject();
+                        reject(data.message || 'Unknown error');
                     }
                 },
                 error: function(xhr) {
@@ -582,6 +586,7 @@
             });
         });
     }
+
 
     function checkLoadingList() {
         let pds = localStorage.getItem('pds_local');
@@ -676,38 +681,47 @@
         });
     }
 
-    function customerCharStore(customer) {
+    function customerCharStore(customer, pds = null) {
+        // Buat URL dengan path segment, tanpa tanda tanya
+        let url = "{{ url('pulling/customer-check') }}/" + customer;
+        if (pds) {
+            url += '/' + encodeURIComponent(pds);
+        }
+
         $.ajax({
             type: 'GET',
-            url: "{{ url('pulling/customer-check/') }}" + '/' + customer,
-            _token: "{{ csrf_token() }}",
+            url: url,
             dataType: 'json',
             success: function(data) {
                 console.log(data);
-                if (data.status == 'success') {
-
+                if (data.status === 'success') {
                     // save all data about customer in local storage
                     localStorage.setItem('char_first', data.first);
                     localStorage.setItem('char_length', data.length);
                     localStorage.setItem('char_total', data.total);
-
                 } else {
                     notif('error', data.message);
                     loadingListModal();
                 }
             },
             error: function(xhr) {
-                reject(new Error(xhr.statusText));
+                notif('error', xhr.statusText); // karena di sini ga pakai promise
+                loadingListModal();
             }
         });
     }
 
-    function errorStore(message) {
+    function errorStore(message = null, expected = null, scanned = null) {
         $.ajax({
             type: 'GET',
             url: "{{ route('error.store') }}",
             _token: "{{ csrf_token() }}",
             dataType: 'json',
+            data: {
+                message: message,
+                expected: expected,
+                scanned: scanned
+            },
             success: function(data) {
                 console.log("Error recorded");
             },
@@ -1049,7 +1063,7 @@
                                                     .status,
                                                     data
                                                     .data
-                                                    )
+                                                )
                                             },
                                             error: function(
                                                 xhr) {
@@ -1069,12 +1083,13 @@
                                 });
 
                                 // check customer if exist 
-                                customerCheck(data.data.customer_code)
+                                customerCheck(data.data.customer_code, data.data
+                                        .pds_number)
                                     .then(function() {
                                         // cycle display
                                         $('#cycle-display').text(data.data.cycle);
-                                        localStorage.setItem('cycle', data
-                                            .data.cycle);
+                                        localStorage.setItem('cycle', data.data
+                                            .cycle);
 
                                         // calculate total quantity of the orders
                                         pullingQuantity();
@@ -1085,38 +1100,38 @@
                                             if (!skid) {
                                                 localStorage.setItem('skid', 1);
                                             }
-                                            $('.skid-display').append(`<div class="row mt-2">
-                                                <div class="col-12" style="padding-right: 0px">
-                                                    <div
-                                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
-                                                        <small class="badge badge-dark"
-                                                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
-                                                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
-                                                            <span id="skid-display">${skid}</span>
-                                                        </h5>
-                                                        <div class="btn btn-danger"
-                                                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
-                                                            id="close-skid">
-                                                            Close Skid ${skid}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>`)
+
+                                            $('.skid-display').append(`
+                <div class="row mt-2">
+                    <div class="col-12" style="padding-right: 0px">
+                        <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
+                            <small class="badge badge-dark" style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
+                            <h5 style="color: #ffffff; display:inline; padding-left:5rem">
+                                <span id="skid-display">${skid}</span>
+                            </h5>
+                            <div class="btn btn-danger" style="display:inline-block; margin-left:220px; margin-top:-27px;" id="close-skid">
+                                Close Skid ${skid}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
                                         }
 
                                         // scan kanban
                                         $('#code').focus();
-
                                     })
                                     .catch(function(err) {
                                         notif('error', err);
-                                    })
+                                    });
+
 
                                 // loadingList qty
                                 checkLoadingList();
 
                                 // customer check char
-                                customerCharStore(data.data.customer_code);
+                                customerCharStore(data.data.customer_code, data.data
+                                    .pds_number);
 
                                 // Close the db when the transaction is done
                                 transaction.oncomplete = function() {
@@ -1466,6 +1481,7 @@
                 $('#indicator').addClass('bg-danger');
                 alreadyScanSound();
                 notif('error', 'Seri kanban sudah discan!');
+                errorStore('Seri kanban sudah discan!');
                 setInterval(() => {
                     $('#code').focus();
                 }, 1000);
@@ -1479,6 +1495,7 @@
                 $('#indicator').removeClass('bg-warning');
                 $('#indicator').addClass('bg-danger');
                 notif('error', 'Part number sudah complete!');
+                errorStore('Part number sudah complete!');
                 fullfilledSound();
                 setInterval(() => {
                     $('#code').focus();
@@ -1618,6 +1635,7 @@
                                                 'bg-warning');
                                             $('#indicator').addClass('bg-danger');
                                             notif('error', data.message);
+                                            errorStore(data.message);
 
                                             notExist();
 
@@ -1635,6 +1653,7 @@
                                                 'bg-warning');
                                             $('#indicator').addClass('bg-danger');
                                             notif('error', data.message);
+                                            errorStore(data.message);
 
                                             setInterval(() => {
                                                 $('#code').focus();
@@ -1663,6 +1682,7 @@
                                 $('#indicator').removeClass('bg-warning');
                                 $('#indicator').addClass('bg-danger');
                                 notif('error', data.message);
+                                errorStore(data.message);
 
                                 setInterval(() => {
                                     $('#code').focus();
@@ -1675,6 +1695,7 @@
                                 $('#indicator').removeClass('bg-warning');
                                 $('#indicator').addClass('bg-danger');
                                 notif('error', data.message);
+                                errorStore(data.message);
 
                                 notExist();
 
@@ -1786,6 +1807,8 @@
             {
                 barcodecomplete = barcode;
                 barcode = "";
+                console.log(barcodecomplete.length);
+                console.log(barcodecomplete);
                 if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length < 22) {
                     let loadingList = getLoadingListNumber();
                     barcodecomplete = barcodecomplete.substr(0, 11) + ' A';
@@ -2005,7 +2028,8 @@
                                     checkLoadingList();
 
                                     // customer check char
-                                    customerCharStore(data.data.customer_code);
+                                    customerCharStore(data.data.customer_code, data.data
+                                        .pds_number);
 
                                     // Close the db when the transaction is done
                                     transaction.oncomplete = function() {
@@ -2060,6 +2084,8 @@
                     } else {
                         barcodecomplete = barcodecomplete.toUpperCase();
                     }
+
+                    console.log(barcodecomplete);
 
                     // initiate database
                     request = window.indexedDB.open(pds);
