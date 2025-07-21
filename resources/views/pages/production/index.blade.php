@@ -460,6 +460,7 @@
                         '000040' || barcodecomplete == '000504') {
                         localStorage.removeItem('error');
                         localStorage.removeItem('dandori_error');
+                        localStorage.removeItem('kanban_exist_error');
                         localStorage.removeItem('master_dandori_error');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan!');
