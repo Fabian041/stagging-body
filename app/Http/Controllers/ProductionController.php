@@ -135,11 +135,7 @@ class ProductionController extends Controller
         }
 
         // Cek jika mengandung kata SUB ASSY dalam variasi yang dimaksud
-        if (
-            str_contains($partName, 'SUB-ASSY') ||
-            str_contains($partName, 'SUB - ASSY') ||
-            str_contains($partName, 'SUB ASSY')
-        ) {
+        if (isset($internalPart->back_number) && strlen($internalPart->back_number) >= 2 && $internalPart->back_number[1] === 'O') {
             // Lewati pengecekan status
         } else {
             if ($kanban->status == 1) {
@@ -148,7 +144,7 @@ class ProductionController extends Controller
                     'message' => 'Kanban Sudah di scan!'
                 ];
             }
-        }
+        }        
 
         try {
             DB::beginTransaction();
