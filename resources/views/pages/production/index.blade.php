@@ -720,6 +720,7 @@
 
                 // check if model is set in local storage
                 if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
+                    console.log(internal);
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {

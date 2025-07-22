@@ -161,6 +161,7 @@ class DashboardController extends Controller
         // Gabungkan semua back_no yg dibutuhkan
         $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
+        // Ambil data mentah
         $rawData = DB::connection('mssql_external')
             ->table('TT_GIG_SYKMEISAI')
             ->select(
@@ -173,11 +174,11 @@ class DashboardController extends Controller
             )
             ->whereNotNull('CHR_TIM_SYUKKA')
             ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
-            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos) // hilangkan spasi kanan
+            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
             ->limit(1000)
             ->get()
             ->map(function ($item) use ($today) {
-                $item->back_no = trim($item->back_no); // pastikan back_no tidak ada spasi
+                $item->back_no = trim($item->back_no); // Hilangkan spasi kanan
 
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 $hour = substr($raw, 0, 2);
@@ -185,25 +186,38 @@ class DashboardController extends Controller
                 $second = substr($raw, 4, 2);
 
                 $time = $today->copy()->setTime($hour, $minute, $second);
-
                 if ($time->lt($today->copy()->addHours(6))) {
                     $time->addDay();
                 }
 
                 $item->formatted_time = $time->format('H:i');
                 $item->time_sort = $time->timestamp;
+
                 return $item;
+            });
+
+        // Gabungkan berdasarkan customer + cycle + time + back_no
+        $rawData = $rawData
+            ->groupBy(function ($item) {
+                return $item->customer . '|' . $item->cycle . '|' . $item->formatted_time . '|' . $item->back_no;
             })
+            ->map(function ($group) {
+                $first = $group->first();
+                $first->order_qty = $group->sum('order_qty');
+                return $first;
+            })
+            ->values()
             ->filter(function ($item) use ($start, $end) {
                 return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
             });
 
         // Filter dan group data per line
         $grouped = [];
-
         foreach ($backNosByLine as $line => $backNos) {
             $grouped[$line] = $rawData
-                ->whereIn('back_no', $backNos)
+                ->filter(function ($item) use ($backNos) {
+                    return in_array($item->back_no, $backNos);
+                })
                 ->sortBy('time_sort')
                 ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
         }
