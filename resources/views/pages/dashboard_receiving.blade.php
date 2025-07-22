@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         const pickList = data.pick_list; // pastikan ada field ini
 
                         // Kirim ke controller pakai AJAX
-                        fetch(`/dashboard/receiving/detail-modal/${pickList}`)
+                        fetch(`/dashboard/receiving/detail/${pickList}`)
                             .then(res => res.text())
                             .then(html => {
                                 document.querySelector('#modalDetailContent').innerHTML = html;
