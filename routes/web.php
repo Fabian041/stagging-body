@@ -97,6 +97,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
         Route::get('/receiving', [DashboardController::class, 'receivingDashboard'])->name('dashboard.receiving');
         Route::get('/receiving/getData', [DashboardController::class, 'getReceivingData'])->name('dashboard.receiving.getData');
+        Route::get('/receiving/detail/{pick_list}', [DashboardController::class, 'showModal']);
     });
 
     // edcl

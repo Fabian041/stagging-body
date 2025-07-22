@@ -145,7 +145,7 @@ class DashboardController extends Controller
             'selectedDate' => $selectedDate,
         ]);
     }
-    
+
     public function prodPlan()
     {
         $today = now()->startOfDay(); // hari ini jam 00:00
@@ -211,7 +211,7 @@ class DashboardController extends Controller
         return view('pages.pulling.prodPlan', [
             'grouped' => $grouped
         ]);
-    }   
+    }
 
     public function progressPulling()
     {
@@ -296,6 +296,7 @@ class DashboardController extends Controller
                 'x' => $delivery->supplier_name,
                 'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
                 'fillColor' => $color,
+                'pick_list' => $delivery->pick_list, // ini penting untuk buka modal
             ];
         }
 
@@ -340,5 +341,27 @@ class DashboardController extends Controller
         }
 
         return response()->json($query->get());
+    }
+
+    public function showModal($pickList)
+    {
+        $data = DB::connection('mssql_external')
+            ->table('IAA1NT as a')
+            ->where('a.CHR_NUB_NYSJNO', $pickList)
+            ->select(
+                'a.CHR_COD_OMSS as supplier_code',
+                'a.CHR_COD_HINB as part_number',
+                'a.CHR_COD_SBNG as back_number',
+                'a.DEC_SUR_SHSU as qty_ordered',
+                'a.DEC_SUR_HSSU as qty_confirmed',
+                'a.CHR_INF_HTTN as uom',
+                'a.CHR_NUB_NYSJNO as pick_list'
+            )
+            ->get();
+
+        return view('components.receiving_detail_modal', [
+            'data' => $data,
+            'pickList' => $pickList
+        ]);
     }
 }
