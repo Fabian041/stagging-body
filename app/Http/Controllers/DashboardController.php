@@ -373,7 +373,7 @@ class DashboardController extends Controller
             )
             ->get();
 
-        return view('components.receiving_detail_modal', [
+        return view('receiving_detail_modal', [
             'data' => $data,
             'pickList' => $pickList
         ]);
