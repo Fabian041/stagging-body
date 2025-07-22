@@ -147,71 +147,87 @@ class DashboardController extends Controller
     }
     
     public function prodPlan()
-    {
-        $today = now()->startOfDay(); // hari ini jam 00:00
-        $start = $today->copy()->addHours(6); // jam 06:00 hari ini
-        $end = $start->copy()->addDay(); // jam 06:00 besok
+{
+    $today = now()->startOfDay(); // hari ini jam 00:00
+    $start = $today->copy()->addHours(6); // jam 06:00 hari ini
+    $end = $start->copy()->addDay(); // jam 06:00 besok
 
-        // Mapping back_no untuk tiap line
-        $backNosByLine = [
-            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
-            'AS004' => ['CI15', 'CI16', 'CI19'],
-        ];
+    // Mapping back_no untuk tiap line
+    $backNosByLine = [
+        'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
+        'AS004' => ['CI15', 'CI16', 'CI19'],
+    ];
 
-        // Gabungkan semua back_no yg dibutuhkan
-        $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
+    // Gabungkan semua back_no yg dibutuhkan
+    $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
-        $rawData = DB::connection('mssql_external')
-            ->table('TT_GIG_SYKMEISAI')
-            ->select(
-                'CHR_MEI_NOUNYU as customer',
-                'INT_NUB_NOUBIN as cycle',
-                'CHR_COD_SEBANGOU as back_no',
-                'INT_SUR_SYUUYOU as qty_per_pallet',
-                'INT_SUR_JYUCYUU as order_qty',
-                'CHR_TIM_SYUKKA'
-            )
-            ->whereNotNull('CHR_TIM_SYUKKA')
-            ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
-            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos) // hilangkan spasi kanan
-            ->limit(1000)
-            ->get()
-            ->map(function ($item) use ($today) {
-                $item->back_no = trim($item->back_no); // pastikan back_no tidak ada spasi
+    // Ambil data mentah
+    $rawData = DB::connection('mssql_external')
+        ->table('TT_GIG_SYKMEISAI')
+        ->select(
+            'CHR_MEI_NOUNYU as customer',
+            'INT_NUB_NOUBIN as cycle',
+            'CHR_COD_SEBANGOU as back_no',
+            'INT_SUR_SYUUYOU as qty_per_pallet',
+            'INT_SUR_JYUCYUU as order_qty',
+            'CHR_TIM_SYUKKA'
+        )
+        ->whereNotNull('CHR_TIM_SYUKKA')
+        ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
+        ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
+        ->limit(1000)
+        ->get()
+        ->map(function ($item) use ($today) {
+            $item->back_no = trim($item->back_no); // Hilangkan spasi kanan
 
-                $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                $hour = substr($raw, 0, 2);
-                $minute = substr($raw, 2, 2);
-                $second = substr($raw, 4, 2);
+            $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+            $hour = substr($raw, 0, 2);
+            $minute = substr($raw, 2, 2);
+            $second = substr($raw, 4, 2);
 
-                $time = $today->copy()->setTime($hour, $minute, $second);
+            $time = $today->copy()->setTime($hour, $minute, $second);
+            if ($time->lt($today->copy()->addHours(6))) {
+                $time->addDay();
+            }
 
-                if ($time->lt($today->copy()->addHours(6))) {
-                    $time->addDay();
-                }
+            $item->formatted_time = $time->format('H:i');
+            $item->time_sort = $time->timestamp;
 
-                $item->formatted_time = $time->format('H:i');
-                $item->time_sort = $time->timestamp;
-                return $item;
+            return $item;
+        });
+
+    // Gabungkan data berdasarkan cycle + formatted_time
+    $rawData = $rawData
+        ->groupBy(function ($item) {
+            return $item->cycle . '|' . $item->formatted_time;
+        })
+        ->map(function ($group) {
+            $first = $group->first(); // Ambil data acuan
+            $first->order_qty = $group->sum('order_qty'); // Jumlahkan order
+            $first->back_no_list = $group->pluck('back_no')->unique()->values()->all(); // Gabungan back_no (jika perlu)
+            return $first;
+        })
+        ->values() // Reset index
+        ->filter(function ($item) use ($start, $end) {
+            return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
+        });
+
+    // Filter dan group data per line
+    $grouped = [];
+    foreach ($backNosByLine as $line => $backNos) {
+        $grouped[$line] = $rawData
+            ->filter(function ($item) use ($backNos) {
+                return collect($item->back_no_list ?? [$item->back_no])
+                    ->intersect($backNos)->isNotEmpty();
             })
-            ->filter(function ($item) use ($start, $end) {
-                return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
-            });
+            ->sortBy('time_sort')
+            ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
+    }
 
-        // Filter dan group data per line
-        $grouped = [];
-
-        foreach ($backNosByLine as $line => $backNos) {
-            $grouped[$line] = $rawData
-                ->whereIn('back_no', $backNos)
-                ->sortBy('time_sort')
-                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
-        }
-
-        return view('pages.pulling.prodPlan', [
-            'grouped' => $grouped
-        ]);
-    }   
+    return view('pages.pulling.prodPlan', [
+        'grouped' => $grouped
+    ]);
+} 
 
     public function progressPulling()
     {
