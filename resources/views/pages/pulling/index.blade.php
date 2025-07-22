@@ -2166,7 +2166,8 @@
                     };
 
                 } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
-                    barcodecomplete.length == 220 || barcodecomplete.length == 241) {
+                    barcodecomplete.length == 220 || barcodecomplete.length == 241 || barcodecomplete
+                    .length == 242) {
                     barcodecomplete = barcodecomplete.toUpperCase();
                     let internal;
                     let seri;
@@ -2207,6 +2208,13 @@
                         // kanban suzuki
                         internal = barcodecomplete.substr(41, 16);
                         seri = barcodecomplete.substr(123, 4);
+
+                        // check existence of kanban and check if it already scanned by prod
+                        // checkKanban(seri, internal);
+                    } else if (barcodecomplete.length == 242) {
+                        // kanban direct warehouse
+                        internal = barcodecomplete.substr(35, 12);
+                        seri = barcodecomplete.substr(127, 4);
 
                         // check existence of kanban and check if it already scanned by prod
                         // checkKanban(seri, internal);
