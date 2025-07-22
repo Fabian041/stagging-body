@@ -111,7 +111,7 @@
                         <tbody>
                             @forelse ($grouped['AS003'] ?? collect() as $key => $rows)
                                 @php
-                                    [$customer, $delivery] = explode('|', $key);
+                                    $customer = $key;
                                     $rowspan = $rows->count();
                                 @endphp
                                 @foreach ($rows as $index => $item)
@@ -131,7 +131,7 @@
                                         <td><span class="flip">--</span></td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $delivery }}</span></td>
+                                                    class="flip">{{ $rows->first()->delivery_time }}</span></td>
                                         @endif
                                         <td><span class="flip">--</span></td>
                                     </tr>
