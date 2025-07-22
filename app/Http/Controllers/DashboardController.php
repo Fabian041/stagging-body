@@ -148,9 +148,9 @@ class DashboardController extends Controller
     
     public function prodPlan()
     {
-        $today = now()->startOfDay();
-        $start = $today->copy()->addHours(6);
-        $end = $start->copy()->addDay();
+        $today = now()->startOfDay(); // hari ini jam 00:00
+        $start = $today->copy()->addHours(6); // jam 06:00 hari ini
+        $end = $start->copy()->addDay(); // jam 06:00 besok
 
         $backNosByLine = [
             'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
@@ -195,36 +195,12 @@ class DashboardController extends Controller
                 $item->delivery_time = "$hour:$minute";
 
                 return $item;
-            })
-            ->groupBy(function ($item) {
-                return $item->customer . '|' . $item->back_no . '|' . $item->cycle . '|' . $item->delivery_time;
-            })
-            ->map(function ($group) {
-                $first = $group->first();
-                $first->order_qty = $group->sum('order_qty');
-                return $first;
-            })
-            ->values(); // reset keys
-
-        // ✳️ Grouping dan penggabungan berdasarkan 3 key: back_no, delivery_time, customer
-        $groupedData = [];
-
-        foreach ($rawData as $item) {
-            $key = $item->customer . '|' . $item->back_no . '|' . $item->delivery_time;
-
-            if (!isset($groupedData[$key])) {
-                $groupedData[$key] = clone $item;
-            } else {
-                $groupedData[$key]->order_qty += $item->order_qty;
-            }
-        }
-
-        $groupedCollection = collect($groupedData)->values();
+            });
 
         $grouped = [];
 
         foreach ($backNosByLine as $line => $backNos) {
-            $grouped[$line] = $groupedCollection
+            $grouped[$line] = $rawData
                 ->whereIn('back_no', $backNos)
                 ->groupBy(fn($item) => $item->customer);
         }
@@ -233,7 +209,6 @@ class DashboardController extends Controller
             'grouped' => $grouped
         ]);
     }
-
 
     public function progressPulling()
     {
