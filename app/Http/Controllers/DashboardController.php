@@ -152,23 +152,13 @@ class DashboardController extends Controller
         $start = $today->copy()->addHours(6); // jam 06:00 hari ini
         $end = $start->copy()->addDay(); // jam 06:00 besok
 
+        // Mapping back_no untuk tiap line
         $backNosByLine = [
             'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
             'AS004' => ['CI15', 'CI16', 'CI19'],
         ];
 
-        $prodTimes = [
-            'CI11' => '00:34',
-            'CI12' => '00:34',
-            'CI13' => '00:40',
-            'CI14' => '00:34',
-            'CI15' => '00:39',
-            'CI16' => '00:40',
-            'CI17' => '00:40',
-            'CI18' => '00:40',
-            'CI19' => '00:37',
-        ];
-
+        // Gabungkan semua back_no yg dibutuhkan
         $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
         $rawData = DB::connection('mssql_external')
@@ -181,34 +171,47 @@ class DashboardController extends Controller
                 'INT_SUR_JYUCYUU as order_qty',
                 'CHR_TIM_SYUKKA'
             )
+            ->whereNotNull('CHR_TIM_SYUKKA')
             ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
-            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
+            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos) // hilangkan spasi kanan
             ->limit(1000)
             ->get()
-            ->map(function ($item) use ($prodTimes) {
-                $item->back_no = trim($item->back_no);
-                $item->formatted_time = $prodTimes[$item->back_no] ?? '--';
+            ->map(function ($item) use ($today) {
+                $item->back_no = trim($item->back_no); // pastikan back_no tidak ada spasi
 
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 $hour = substr($raw, 0, 2);
                 $minute = substr($raw, 2, 2);
-                $item->delivery_time = "$hour:$minute";
+                $second = substr($raw, 4, 2);
 
+                $time = $today->copy()->setTime($hour, $minute, $second);
+
+                if ($time->lt($today->copy()->addHours(6))) {
+                    $time->addDay();
+                }
+
+                $item->formatted_time = $time->format('H:i');
+                $item->time_sort = $time->timestamp;
                 return $item;
+            })
+            ->filter(function ($item) use ($start, $end) {
+                return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
             });
 
+        // Filter dan group data per line
         $grouped = [];
 
         foreach ($backNosByLine as $line => $backNos) {
             $grouped[$line] = $rawData
                 ->whereIn('back_no', $backNos)
-                ->groupBy(fn($item) => $item->customer);
+                ->sortBy('time_sort')
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
         }
 
         return view('pages.pulling.prodPlan', [
             'grouped' => $grouped
         ]);
-    }
+    }   
 
     public function progressPulling()
     {

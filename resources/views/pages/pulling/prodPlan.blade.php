@@ -111,7 +111,7 @@
                         <tbody>
                             @forelse ($grouped['AS003'] ?? collect() as $key => $rows)
                                 @php
-                                    $customer = $key;
+                                    [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
                                 @endphp
                                 @foreach ($rows as $index => $item)
@@ -126,12 +126,12 @@
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
-                                        <td><span class="flip">{{ $item->formatted_time }}</span></td>
+                                        <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $rows->first()->delivery_time }}</span></td>
+                                                    class="flip">{{ $delivery }}</span></td>
                                         @endif
                                         <td><span class="flip">--</span></td>
                                     </tr>
@@ -168,7 +168,7 @@
                         <tbody>
                             @forelse ($grouped['AS004'] ?? collect() as $key => $rows)
                                 @php
-                                    $customer = $key;
+                                    [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
                                 @endphp
                                 @foreach ($rows as $index => $item)
@@ -183,19 +183,19 @@
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
-                                        <td><span class="flip">{{ $item->formatted_time }}</span></td>
+                                        <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $rows->first()->delivery_time }}</span></td>
+                                                    class="flip">{{ $delivery }}</span></td>
                                         @endif
                                         <td><span class="flip">--</span></td>
                                     </tr>
                                 @endforeach
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center">Tidak ada data untuk AS003.</td>
+                                    <td colspan="11" class="text-center">Tidak ada data untuk AS004.</td>
                                 </tr>
                             @endforelse
                         </tbody>
