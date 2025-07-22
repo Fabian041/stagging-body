@@ -148,9 +148,9 @@ class DashboardController extends Controller
     
     public function prodPlan()
     {
-        $today = now()->startOfDay(); // hari ini jam 00:00
-        $start = $today->copy()->addHours(6); // jam 06:00 hari ini
-        $end = $start->copy()->addDay(); // jam 06:00 besok
+        $today = now()->startOfDay();
+        $start = $today->copy()->addHours(6);
+        $end = $start->copy()->addDay();
 
         $backNosByLine = [
             'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
@@ -197,10 +197,25 @@ class DashboardController extends Controller
                 return $item;
             });
 
+        // ✳️ Grouping dan penggabungan berdasarkan 3 key: back_no, delivery_time, customer
+        $groupedData = [];
+
+        foreach ($rawData as $item) {
+            $key = $item->customer . '|' . $item->back_no . '|' . $item->delivery_time;
+
+            if (!isset($groupedData[$key])) {
+                $groupedData[$key] = clone $item;
+            } else {
+                $groupedData[$key]->order_qty += $item->order_qty;
+            }
+        }
+
+        $groupedCollection = collect($groupedData)->values();
+
         $grouped = [];
 
         foreach ($backNosByLine as $line => $backNos) {
-            $grouped[$line] = $rawData
+            $grouped[$line] = $groupedCollection
                 ->whereIn('back_no', $backNos)
                 ->groupBy(fn($item) => $item->customer);
         }
@@ -209,6 +224,7 @@ class DashboardController extends Controller
             'grouped' => $grouped
         ]);
     }
+
 
     public function progressPulling()
     {
