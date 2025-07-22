@@ -195,7 +195,16 @@ class DashboardController extends Controller
                 $item->delivery_time = "$hour:$minute";
 
                 return $item;
-            });
+            })
+            ->groupBy(function ($item) {
+                return $item->customer . '|' . $item->back_no . '|' . $item->cycle . '|' . $item->delivery_time;
+            })
+            ->map(function ($group) {
+                $first = $group->first();
+                $first->order_qty = $group->sum('order_qty');
+                return $first;
+            })
+            ->values(); // reset keys
 
         // ✳️ Grouping dan penggabungan berdasarkan 3 key: back_no, delivery_time, customer
         $groupedData = [];
