@@ -365,7 +365,7 @@ class DashboardController extends Controller
             ->select(
                 'a.CHR_COD_OMSS as supplier_code',
                 'a.CHR_COD_HINB as part_number',
-                'a.CHR_COD_SBNG as back_number',
+                'a.CHR_NUB_SBNG as back_number',
                 'a.DEC_SUR_SHSU as qty_ordered',
                 'a.DEC_SUR_HSSU as qty_confirmed',
                 'a.CHR_INF_HTTN as uom',
