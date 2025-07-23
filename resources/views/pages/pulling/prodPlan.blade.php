@@ -96,6 +96,7 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
+                                <th>Dock</th>
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Qty/Pallet</th>
@@ -119,6 +120,7 @@
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $customer }}</span></td>
+                                            <td><span class="flip">{{ $item->dock }}</span></td>
                                         @endif
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
@@ -153,6 +155,7 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
+                                <th>Dock</th>
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Qty/Pallet</th>
@@ -176,6 +179,7 @@
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $customer }}</span></td>
+                                            <td><span class="flip">{{ $item->dock }}</span></td>
                                         @endif
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>

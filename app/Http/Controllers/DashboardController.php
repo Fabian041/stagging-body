@@ -166,6 +166,7 @@ class DashboardController extends Controller
             ->table('TT_GIG_SYKMEISAI')
             ->select(
                 'CHR_MEI_NOUNYU as customer',
+                'CHR_COD_UKEIRE as dock',
                 'INT_NUB_NOUBIN as cycle',
                 'CHR_COD_SEBANGOU as back_no',
                 'INT_SUR_SYUUYOU as qty_per_pallet',
