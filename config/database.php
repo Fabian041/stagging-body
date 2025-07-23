@@ -100,10 +100,13 @@ return [
             'password' => env('DB_MSSQL_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
-            'encrypt' => 'no',
-            'trust_server_certificate' => true,
+            'encrypt' => 'optional', // ✅ ubah ini
+            'trust_server_certificate' => true, // ✅ wajib untuk non-CA certificate
+            'options' => extension_loaded('sqlsrv') ? array_filter([
+                // Hapus semua ATTR_* yang tidak dikenali
+                // PDO::ATTR_EMULATE_PREPARES => true, ❌ TIDAK SUPPORT!
+            ]) : [],
         ],
-
 
     ],
 

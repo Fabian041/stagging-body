@@ -55,6 +55,14 @@
         vertical-align: middle;
     }
 </style>
+<div class="modal fade" id="modalDetail" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-md" role="document">
+        <div class="modal-content" id="modalDetailContent">
+            <!-- AJAX isi detail di sini -->
+        </div>
+    </div>
+</div>
+
 @endsection
 
 
@@ -138,18 +146,21 @@ document.addEventListener('DOMContentLoaded', function () {
         const nowLabel = new Date().toLocaleTimeString();
 
         chart.updateOptions({
-            annotations: {
-                xaxis: [{
-                    x: now,
-                    borderColor: '#FF0000',
-                    label: {
-                        text: nowLabel,
-                        style: {
-                            color: '#fff',
-                            background: '#FF0000'
-                        }
+            chart: {
+                events: {
+                    dataPointSelection: function(event, chartContext, config) {
+                        const data = chartContext.w.config.series[config.seriesIndex].data[config.dataPointIndex];
+                        const pickList = data.pick_list; // pastikan ada field ini
+
+                        // Kirim ke controller pakai AJAX
+                        fetch(`/dashboard/receiving/detail/${pickList}`)
+                            .then(res => res.text())
+                            .then(html => {
+                                document.querySelector('#modalDetailContent').innerHTML = html;
+                                $('#modalDetail').modal('show');
+                            });
                     }
-                }]
+                }
             }
         });
     }, 30000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik

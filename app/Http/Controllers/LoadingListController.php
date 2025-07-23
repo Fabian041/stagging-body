@@ -298,14 +298,31 @@ class LoadingListController extends Controller
     
     public function store($loadingList, $pds, $cycle, $customerCode, $shippingDate, $deliveryDate)
     {
-        // get customer by customer code
-        $customer = Customer::select('id')->where('code', $customerCode)->first();
+        // Kondisi khusus: customer_code 7A00022 dan PDS mengandung 'RK11'
+        if ($customerCode == '7A00022' && str_contains($pds, 'RKK11')) {
+            $customer = Customer::select('id')
+                ->where('code', $customerCode)
+                ->where('name', 'like', '%SUZUKI RKK11%')
+                ->first();
+        } else {
+            $customer = Customer::select('id')
+                ->where('code', $customerCode)
+                ->first();
+        }
+
+        if (!$customer) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Customer tidak ditemukan!',
+            ], 404);
+        }
 
         $check = LoadingList::where('number', $loadingList)->first();
-        if(!$check){
+
+        if (!$check) {
             try {
                 DB::beginTransaction();
-                
+
                 LoadingList::create([
                     'number' => $loadingList,
                     'pds_number' => $pds,
@@ -317,10 +334,10 @@ class LoadingListController extends Controller
 
                 // push to websocket
                 // $this->pushData(true);
-                
+
                 DB::commit();
             } catch (\Throwable $th) {
-                DB::rollback();
+                DB::rollBack();
                 return [
                     'status' => 'error',
                     'message' => $th->getMessage(),
@@ -330,9 +347,10 @@ class LoadingListController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'loading list tersimpan!'
+            'message' => 'Loading list tersimpan!',
         ], 200);
     }
+
 
     public function storeDetail($loadingList, $customerPart, $internalPart, $kbnQty, $qtyPerKanban, $totalQty, $actualKanbanQty)
     {
@@ -394,6 +412,10 @@ class LoadingListController extends Controller
         if(!$customerPartId){
             return [
                 'status' => 'partNotExists',
+                'data' => [
+                    'int' => $internalPart,
+                    'cust' => $convertedPartNumber
+                ]
             ];
         } 
 

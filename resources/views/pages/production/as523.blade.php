@@ -240,6 +240,14 @@
         }
     }
 
+    function loopAlreadyScanSound() {
+        if (localStorage.getItem('kanban_exist_error') === 'true') {
+            alreadyScanSound(); // Putar suara
+            showModalConfirmation();
+            setTimeout(loopAlreadyScanSound, 2000); // Loop setiap 2 detik
+        }
+    }
+
     let hasNotified = false;
 
     function updateScanCounter() {
@@ -325,6 +333,7 @@
         loopNotMatchSound(); // Mulai looping suara
         loopDandoriSound(); // Mulai looping suara
         loopMasterDandoriSound(); // Mulai looping suara
+        loopAlreadyScanSound(); // Mulai looping suara
 
         $('#code').focus();
     }
@@ -801,40 +810,135 @@
                                     return;
                                 }
 
-                                // Sudah capai target → reset counter
+                                // store hasil produksi
                                 $.ajax({
-                                    url: `/production/reset-scan-count/${line}`,
-                                    method: 'POST',
+                                    type: 'get',
+                                    url: "{{ url('production/store/') }}",
+                                    _token: "{{ csrf_token() }}",
                                     data: {
-                                        _token: "{{ csrf_token() }}"
+                                        partNumber: internal.trim(),
+                                        seri: seri
                                     },
-                                    success: function() {
-                                        notif("success",
-                                            'Target tercapai, counter di-reset'
-                                        );
-                                        localStorage.setItem('scan_counter', 0);
-                                        localStorage.setItem('part_counter', 0);
+                                    dataType: 'json',
+                                    success: function(data) {
+                                        if (data.status == 'success') {
+                                            // Sudah capai target → reset counter
+                                            $.ajax({
+                                                url: `/production/reset-scan-count/${line}`,
+                                                method: 'POST',
+                                                data: {
+                                                    _token: "{{ csrf_token() }}"
+                                                },
+                                                success: function() {
+                                                    notif("success",
+                                                        'Target tercapai, counter di-reset'
+                                                    );
+                                                    localStorage
+                                                        .setItem(
+                                                            'scan_counter',
+                                                            0);
+                                                    localStorage
+                                                        .setItem(
+                                                            'part_counter',
+                                                            0);
 
-                                        $('#status').text('OK');
+                                                    $('#status')
+                                                        .text('OK');
 
-                                        setTimeout(() => {
-                                            $('.status-card')
-                                                .removeClass(
-                                                    'bg-danger');
-                                            $('.status-card')
-                                                .removeClass(
-                                                    'bg-success');
-                                            $('.status-card').addClass(
-                                                'bg-secondary');
-                                            $('#status').text('-');
-                                        }, 2000);
-                                        $('#total-scan').text(`0 / ${target}`);
-                                        $('#total-part').text(`0`);
+                                                    setTimeout(
+                                                        () => {
+                                                            $('.status-card')
+                                                                .removeClass(
+                                                                    'bg-danger'
+                                                                );
+                                                            $('.status-card')
+                                                                .removeClass(
+                                                                    'bg-success'
+                                                                );
+                                                            $('.status-card')
+                                                                .addClass(
+                                                                    'bg-secondary'
+                                                                );
+                                                            $('#status')
+                                                                .text(
+                                                                    '-'
+                                                                );
+                                                        }, 2000);
+                                                    $('#total-scan')
+                                                        .text(
+                                                            `0 / ${target}`
+                                                        );
+                                                    $('#total-part')
+                                                        .text(`0`);
+                                                },
+                                                error: function() {
+                                                    notif("error",
+                                                        'Gagal reset counter'
+                                                    );
+                                                }
+                                            });
+                                        } else if (data.status ==
+                                            'kanbanExist') {
+                                            notif("error", data.message);
+
+                                            // notification sound
+                                            alreadyScanSound();
+
+                                            let interval = setInterval(
+                                                function() {
+                                                    $('#notifModal').modal(
+                                                        'hide');
+                                                    clearInterval(interval);
+                                                    $('#code').focus();
+                                                }, 1500);
+
+                                            localStorage.setItem(
+                                                'kanban_exist_error', 'true'
+                                            );
+
+                                            sendErrorLog(
+                                                'Seri Kanban sudah discan!',
+                                                localStorage
+                                                .getItem('dandori_board'),
+                                                internal.trim());
+
+                                            setTimeout(() => {
+                                                window.location
+                                                    .reload();
+                                            }, 1500);
+                                        } else {
+                                            notif("error", data.message);
+
+                                            // notification sound
+                                            wrongKanbanSound();
+
+                                            let interval = setInterval(
+                                                function() {
+                                                    $('#notifModal').modal(
+                                                        'hide');
+                                                    clearInterval(interval);
+                                                    $('#code').focus();
+                                                }, 1500);
+
+                                            localStorage.setItem('error',
+                                                'true');
+
+                                            setTimeout(() => {
+                                                window.location
+                                                    .reload();
+                                            }, 1500);
+                                        }
                                     },
-                                    error: function() {
-                                        notif("error", 'Gagal reset counter');
+                                    error: function(xhr) {
+                                        if (xhr.status == 0) {
+                                            notif("error", 'Connection Error');
+                                            errConnection();
+                                            return;
+                                        }
+                                        notif("error", 'Internal Server Error');
+                                        return;
                                     }
-                                });
+                                })
                             },
                             error: function() {
                                 notif("error", 'Gagal ambil current scan count');

@@ -15,6 +15,7 @@ use App\Models\ReceiveSchedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class DashboardController extends Controller
 {
@@ -125,9 +126,110 @@ class DashboardController extends Controller
             $result[] = (object) $line;
         }
 
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 20; // bebas, kamu bisa ubah sesuai kebutuhan
+
+        $collection = collect($result);
+        $currentPageItems = $collection->slice(($page - 1) * $perPage, $perPage)->values();
+        $paginatedResult = new LengthAwarePaginator(
+            $currentPageItems,
+            $collection->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+
         return view('pages.production.prodResult', [
-            'lines' => $result,
+            'lines' => $paginatedResult,
             'selectedDate' => $selectedDate,
+        ]);
+    }
+
+    public function prodPlan()
+    {
+        $today = now()->startOfDay(); // hari ini jam 00:00
+        $start = $today->copy()->addHours(12); // jam 12:00 siang hari ini
+        $end = $start->copy()->addDay();       // jam 12:00 siang besok
+
+        // Mapping back_no untuk tiap line
+        $backNosByLine = [
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
+            'AS004' => ['CI15', 'CI16', 'CI19'],
+        ];
+
+        // Gabungkan semua back_no yg dibutuhkan
+        $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
+
+        // Ambil data mentah
+        $rawData = DB::connection('mssql_external')
+            ->table('TT_GIG_SYKMEISAI')
+            ->select(
+                'CHR_MEI_NOUNYU as customer',
+                'CHR_COD_UKEIRE as dock',
+                'INT_NUB_NOUBIN as cycle',
+                'CHR_COD_SEBANGOU as back_no',
+                'INT_SUR_SYUUYOU as qty_per_pallet',
+                'INT_SUR_JYUCYUU as order_qty',
+                'CHR_TIM_SYUKKA'
+            )
+            ->whereNotNull('CHR_TIM_SYUKKA')
+            ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
+            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
+            ->limit(1000)
+            ->get()
+            ->map(function ($item) use ($today, $start) {
+                $item->back_no = trim($item->back_no);
+
+                $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                $hour = substr($raw, 0, 2);
+                $minute = substr($raw, 2, 2);
+                $second = substr($raw, 4, 2);
+
+                $time = $today->copy()->setTime($hour, $minute, $second);
+                if ($time->lt($start)) {
+                    $time->addDay();
+                }
+
+                $item->formatted_time = $time->format('H:i');
+                $item->time_sort = $time->timestamp;
+
+                return $item;
+            });
+
+        // Gabungkan berdasarkan customer + cycle + time + back_no
+        $rawData = $rawData
+            ->groupBy(function ($item) {
+                return $item->customer . '|' . $item->cycle . '|' . $item->formatted_time . '|' . $item->back_no;
+            })
+            ->map(function ($group) {
+                $first = $group->first();
+                $first->order_qty = $group->sum('order_qty');
+                return $first;
+            })
+            ->values()
+            ->filter(function ($item) use ($start, $end) {
+                return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
+            });
+
+        // Filter dan group data per line
+        $grouped = [];
+        foreach ($backNosByLine as $line => $backNos) {
+            $grouped[$line] = $rawData
+                ->filter(function ($item) use ($backNos) {
+                    return in_array($item->back_no, $backNos);
+                })
+                ->sortBy('time_sort')
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
+                ->map(function ($group) {
+                    // ✨ Sorting dalam grup berdasarkan back_no ASC (atau cycle ASC kalau mau)
+                    return $group->sortBy('back_no')->values();
+                    // return $group->sortBy([['cycle', 'asc'], ['back_no', 'asc']])->values(); // <- opsional
+                });
+        }
+
+        return view('pages.pulling.prodPlan', [
+            'grouped' => $grouped
         ]);
     }
 
@@ -214,6 +316,7 @@ class DashboardController extends Controller
                 'x' => $delivery->supplier_name,
                 'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
                 'fillColor' => $color,
+                'pick_list' => $delivery->pick_list, // ini penting untuk buka modal
             ];
         }
 
@@ -259,4 +362,73 @@ class DashboardController extends Controller
 
         return response()->json($query->get());
     }
+
+    public function showModal($pickList)
+    {
+        $data = DB::connection('mssql_external')
+            ->table('IAA1NT as a')
+            ->where('a.CHR_NUB_NYSJNO', $pickList)
+            ->select(
+                'a.CHR_COD_OMSS as supplier_code',
+                'a.CHR_COD_HINB as part_number',
+                'a.CHR_NUB_SBNG as back_number',
+                'a.DEC_SUR_SHSU as qty_ordered',
+                'a.DEC_SUR_HSSU as qty_confirmed',
+                'a.CHR_INF_HTTN as uom',
+                'a.CHR_NUB_NYSJNO as pick_list'
+            )
+            ->get();
+
+        return view('pages.dashboard_receiving_modal', [
+            'data' => $data,
+            'pickList' => $pickList
+        ]);
+    }
+
+    public function kbnCheck()
+    {
+        return view('pages.production.kbnCheck');
+    }
+
+    public function kbnCheckSubmit(Request $request)
+    {
+        $request->validate([
+            'back_number' => 'required',
+            'serial_number' => 'required',
+        ]);
+
+        // Ambil data internal part berdasarkan back number
+        $internalPart = InternalPart::where('back_number', $request->back_number)->first();
+
+        // Jika tidak ditemukan, kembalikan dengan error
+        if (!$internalPart) {
+            return back()->with([
+                'error' => "Back Number <strong>{$request->back_number}</strong> tidak ditemukan."
+            ])->withInput();
+        }
+
+        // Ambil kanban berdasarkan internal_part_id dan serial_number
+        $kanban = DB::table('kanbans')
+            ->where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $request->serial_number)
+            ->first();
+
+        // Jika kanban tidak ditemukan
+        if (!$kanban) {
+            return view('pages.production.kbnCheck', compact('internalPart'))
+                ->with([
+                    'back_number' => $request->back_number,
+                    'serial_number' => $request->serial_number,
+                    'error' => "Serial Number <strong>{$request->serial_number}</strong> tidak ditemukan untuk Back Number <strong>{$request->back_number}</strong>."
+                ]);
+        }
+
+        // Tampilkan hasil jika ditemukan
+        return view('pages.production.kbnCheck', compact('internalPart', 'kanban'))
+            ->with([
+                'back_number' => $request->back_number,
+                'serial_number' => $request->serial_number
+            ]);
+    }
+
 }

@@ -114,6 +114,8 @@ class ProductionController extends Controller
             ];
         }
 
+        $partName = strtoupper($internalPart->part_name);
+
         // get line of internal part based on internal part id
         $line = Line::select('name')->where('id', $internalPart->line_id)->first();
 
@@ -132,12 +134,17 @@ class ProductionController extends Controller
             ]; 
         }
 
-        if($kanban->status == 1){
-            return [
-                'status' => 'error',
-                'message' => 'Kanban Sudah di scan!'
-            ]; 
-        }
+        // Cek jika mengandung kata SUB ASSY dalam variasi yang dimaksud
+        if (isset($internalPart->back_number) && strlen($internalPart->back_number) >= 2 && $internalPart->back_number[1] === 'O') {
+            // Lewati pengecekan status
+        } else {
+            if ($kanban->status == 1) {
+                return [
+                    'status' => 'kanbanExist',
+                    'message' => 'Kanban Sudah di scan!'
+                ];
+            }
+        }        
 
         try {
             DB::beginTransaction();

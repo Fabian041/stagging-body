@@ -128,6 +128,11 @@ class PullingController extends Controller
         return view('pages.pulling.index');
     }
 
+    public function showSettings()
+    {
+        return view('pages.pulling.setting');
+    }
+
     /**
      * Show the form for creating a new resource.
      *
@@ -224,24 +229,30 @@ class PullingController extends Controller
         //
     }
 
-    public function customerCheck($customer)
+    public function customerCheck($customer, $pds = null)
     {
-        // check customer 
-        $check = Customer::where('code', $customer)->first();
-        if (!$check) {
-            return [
-                'status' => 'error',
-                'message' => 'Customer tidak ditemukan'
-            ];
+        if ($customer == '7A00022' && $pds && str_contains($pds, 'RKK11')) {
+            $check = Customer::where('code', $customer)
+                            ->where('name', 'like', '%SUZUKI RKK11%')
+                            ->first();
+        } else {
+            $check = Customer::where('code', $customer)->first();
         }
 
-        return [
+        if (!$check) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Customer tidak ditemukan'
+            ]);
+        }
+
+        return response()->json([
             'status' => 'success',
             'customer' => $check->name,
             'first' => $check->char_first,
             'length' => $check->char_length,
             'total' => $check->char_total
-        ];
+        ]);
     }
 
     public function internalCheck($internal, $isinternal = 0)
@@ -300,17 +311,17 @@ class PullingController extends Controller
             ]; 
         }
 
-            if($kanban->status == 0){
-                return [
-                    'status' => 'error',
-                    'message' => 'Kanban belum di scan produksi!'
-                ]; 
-            }else if($kanban->status == 2){
-                return [
-                    'status' => 'error',
-                    'message' => 'Kanban sudah di scan!'
-                ];
-            }
+            // if($kanban->status == 0){
+            //     return [
+            //         'status' => 'error',
+            //         'message' => 'Kanban belum di scan produksi!'
+            //     ]; 
+            // }else if($kanban->status == 2){
+            //     return [
+            //         'status' => 'error',
+            //         'message' => 'Kanban sudah di scan!'
+            //     ];
+            // }
 
         if (!$internalPart) {
             return [

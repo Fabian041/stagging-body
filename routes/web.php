@@ -86,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard')->group(function () {
 
         Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
+        Route::get('/production/plan', [DashboardController::class, 'prodPlan'])->name('dashboard.prodPlan');
 
         // datatable
         Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');
@@ -97,6 +98,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
         Route::get('/receiving', [DashboardController::class, 'receivingDashboard'])->name('dashboard.receiving');
         Route::get('/receiving/getData', [DashboardController::class, 'getReceivingData'])->name('dashboard.receiving.getData');
+        Route::get('/receiving/detail/{pick_list}', [DashboardController::class, 'showModal']);
+
+        // check kanban
+        Route::get('/kanban/check', [DashboardController::class, 'kbnCheck'])->name('dashboard.kbnCheck');
+        Route::post('/kanban/check', [DashboardController::class, 'kbnCheckSubmit'])->name('dashboard.kbnCheckSubmit');        
     });
 
     // edcl
@@ -128,7 +134,8 @@ Route::middleware(['auth'])->group(function () {
     // pulling
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
     Route::prefix('pulling')->group(function () {
-        Route::get('/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
+        Route::get('/settings', [PullingController::class, 'showSettings'])->name('pulling.settings');
+        Route::get('/customer-check/{customer}/{pds?}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
         // Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/internal-check/{internal}/{isinternal?}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
