@@ -96,7 +96,7 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
-                                <th>Dock</th>
+                                <th>Dock</th> {{-- Kolom baru --}}
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Qty/Pallet</th>
@@ -114,15 +114,16 @@
                                 @php
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
+                                    $dock = $rows->first()->dock ?? '--'; // Ambil dock dari data pertama
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     <tr>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $customer }}</span></td>
-                                            <td><span class="flip">{{ $item->dock }}</span></td>
+                                            <td rowspan="{{ $rowspan }}"><span
+                                                    class="flip">{{ $dock }}</span></td>
                                         @endif
-                                        <td><span class="flip">{{ $item->dock }}</span></td>
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
@@ -141,7 +142,7 @@
                                 @endforeach
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center">Tidak ada data untuk AS003.</td>
+                                    <td colspan="12" class="text-center">Tidak ada data untuk AS003.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -156,7 +157,7 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
-                                <th>Dock</th>
+                                <th>Dock</th> {{-- Kolom baru --}}
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Qty/Pallet</th>
@@ -174,15 +175,16 @@
                                 @php
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
+                                    $dock = $rows->first()->dock ?? '--'; // Ambil dock dari data pertama
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     <tr>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $customer }}</span></td>
-                                            <td><span class="flip">{{ $item->dock }}</span></td>
+                                            <td rowspan="{{ $rowspan }}"><span
+                                                    class="flip">{{ $dock }}</span></td>
                                         @endif
-                                        <td><span class="flip">{{ $item->dock }}</span></td>
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
@@ -201,7 +203,7 @@
                                 @endforeach
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center">Tidak ada data untuk AS004.</td>
+                                    <td colspan="12" class="text-center">Tidak ada data untuk AS004.</td>
                                 </tr>
                             @endforelse
                         </tbody>
