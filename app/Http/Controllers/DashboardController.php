@@ -384,4 +384,51 @@ class DashboardController extends Controller
             'pickList' => $pickList
         ]);
     }
+
+    public function kbnCheck()
+    {
+        return view('pages.production.kbnCheck');
+    }
+
+    public function kbnCheckSubmit(Request $request)
+    {
+        $request->validate([
+            'back_number' => 'required',
+            'serial_number' => 'required',
+        ]);
+
+        // Ambil data internal part berdasarkan back number
+        $internalPart = InternalPart::where('back_number', $request->back_number)->first();
+
+        // Jika tidak ditemukan, kembalikan dengan error
+        if (!$internalPart) {
+            return back()->with([
+                'error' => "Back Number <strong>{$request->back_number}</strong> tidak ditemukan."
+            ])->withInput();
+        }
+
+        // Ambil kanban berdasarkan internal_part_id dan serial_number
+        $kanban = DB::table('kanbans')
+            ->where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $request->serial_number)
+            ->first();
+
+        // Jika kanban tidak ditemukan
+        if (!$kanban) {
+            return view('pages.production.kbnCheck', compact('internalPart'))
+                ->with([
+                    'back_number' => $request->back_number,
+                    'serial_number' => $request->serial_number,
+                    'error' => "Serial Number <strong>{$request->serial_number}</strong> tidak ditemukan untuk Back Number <strong>{$request->back_number}</strong>."
+                ]);
+        }
+
+        // Tampilkan hasil jika ditemukan
+        return view('pages.production.kbnCheck', compact('internalPart', 'kanban'))
+            ->with([
+                'back_number' => $request->back_number,
+                'serial_number' => $request->serial_number
+            ]);
+    }
+
 }

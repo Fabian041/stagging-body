@@ -47,6 +47,12 @@
                             <span>Production Stock</span>
                         </a>
                     </li>
+                    <li class="{{ request()->is('dashboard.kbnCheck') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('dashboard.kbnCheck') }}">
+                            <i class="fas fa-kanban"></i>
+                            <span>Check Kanban</span>
+                        </a>
+                    </li>
                     <li class="{{ request()->is('dashboard/production/result') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('dashboard.prodResult') }}">
                             <i class="fas fa-chart-line"></i>
