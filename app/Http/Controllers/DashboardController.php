@@ -179,7 +179,7 @@ class DashboardController extends Controller
             ->limit(1000)
             ->get()
             ->map(function ($item) use ($today, $start) {
-                $item->back_no = trim($item->back_no); // Hilangkan spasi kanan
+                $item->back_no = trim($item->back_no);
 
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 $hour = substr($raw, 0, 2);
@@ -220,7 +220,12 @@ class DashboardController extends Controller
                     return in_array($item->back_no, $backNos);
                 })
                 ->sortBy('time_sort')
-                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
+                ->map(function ($group) {
+                    // ✨ Sorting dalam grup berdasarkan back_no ASC (atau cycle ASC kalau mau)
+                    return $group->sortBy('back_no')->values();
+                    // return $group->sortBy([['cycle', 'asc'], ['back_no', 'asc']])->values(); // <- opsional
+                });
         }
 
         return view('pages.pulling.prodPlan', [
