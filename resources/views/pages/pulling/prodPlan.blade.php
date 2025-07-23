@@ -122,6 +122,7 @@
                                                     class="flip">{{ $customer }}</span></td>
                                             <td><span class="flip">{{ $item->dock }}</span></td>
                                         @endif
+                                        <td><span class="flip">{{ $item->dock }}</span></td>
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
@@ -181,6 +182,7 @@
                                                     class="flip">{{ $customer }}</span></td>
                                             <td><span class="flip">{{ $item->dock }}</span></td>
                                         @endif
+                                        <td><span class="flip">{{ $item->dock }}</span></td>
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
