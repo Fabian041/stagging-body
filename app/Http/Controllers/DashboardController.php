@@ -149,8 +149,8 @@ class DashboardController extends Controller
     public function prodPlan()
     {
         $today = now()->startOfDay(); // hari ini jam 00:00
-        $start = $today->copy()->addHours(6); // jam 06:00 hari ini
-        $end = $start->copy()->addDay(); // jam 06:00 besok
+        $start = $today->copy()->addHours(12); // jam 12:00 siang hari ini
+        $end = $start->copy()->addDay();       // jam 12:00 siang besok
 
         // Mapping back_no untuk tiap line
         $backNosByLine = [
@@ -177,7 +177,7 @@ class DashboardController extends Controller
             ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
             ->limit(1000)
             ->get()
-            ->map(function ($item) use ($today) {
+            ->map(function ($item) use ($today, $start) {
                 $item->back_no = trim($item->back_no); // Hilangkan spasi kanan
 
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
@@ -186,7 +186,7 @@ class DashboardController extends Controller
                 $second = substr($raw, 4, 2);
 
                 $time = $today->copy()->setTime($hour, $minute, $second);
-                if ($time->lt($today->copy()->addHours(6))) {
+                if ($time->lt($start)) {
                     $time->addDay();
                 }
 
