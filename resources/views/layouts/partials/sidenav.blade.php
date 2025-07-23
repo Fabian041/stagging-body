@@ -49,7 +49,7 @@
                     </li>
                     <li class="{{ request()->is('dashboard.kbnCheck') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('dashboard.kbnCheck') }}">
-                            <i class="fas fa-kanban"></i>
+                            <i class="fas fa-clipboard-list"></i>
                             <span>Check Kanban</span>
                         </a>
                     </li>
