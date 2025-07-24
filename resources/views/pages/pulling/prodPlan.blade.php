@@ -128,7 +128,7 @@
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
-                                        <td><span class="flip">00:34</span></td>
+                                        <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
                                         <td><span class="flip">--</span></td>
                                         @if ($index === 0)

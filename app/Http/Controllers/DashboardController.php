@@ -158,6 +158,18 @@ class DashboardController extends Controller
             'AS004' => ['CI15', 'CI16', 'CI19'],
         ];
 
+        $prodTimeByBackNo = [
+            'CI11' => '00:34',
+            'CI12' => '00:34',
+            'CI13' => '00:40',
+            'CI14' => '00:34',
+            'CI15' => '00:39',
+            'CI16' => '00:40',
+            'CI17' => '00:40',
+            'CI18' => '00:40',
+            'CI19' => '00:37',
+        ];
+
         // Gabungkan semua back_no yg dibutuhkan
         $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
@@ -178,22 +190,25 @@ class DashboardController extends Controller
             ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
             ->limit(1000)
             ->get()
-            ->map(function ($item) use ($today, $start) {
+            ->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
-
+            
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 $hour = substr($raw, 0, 2);
                 $minute = substr($raw, 2, 2);
                 $second = substr($raw, 4, 2);
-
+            
                 $time = $today->copy()->setTime($hour, $minute, $second);
                 if ($time->lt($start)) {
                     $time->addDay();
                 }
-
+            
                 $item->formatted_time = $time->format('H:i');
                 $item->time_sort = $time->timestamp;
-
+            
+                // Tambahkan static prod_time berdasarkan back_no
+                $item->prod_time = $prodTimeByBackNo[$item->back_no] ?? '-';
+            
                 return $item;
             });
 
