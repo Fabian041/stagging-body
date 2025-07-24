@@ -867,4 +867,31 @@ class PullingController extends Controller
             ], 500);
         }
     }
+
+    public function manual()
+    {
+        $customers = Customer::all(); // Atau filter sesuai kebutuhan
+        return view('pages.pulling.manual', compact('customers'));
+    }
+
+    public function manualReset(Request $request)
+    {
+        $request->validate([
+            'customer' => 'required|exists:customers,id',
+            'barcode' => 'required|string'
+        ]);
+
+        $customer = Customer::find($request->customer);
+
+        // Contoh parsing berdasar customer
+        $parsed = [];
+        if ($customer->code == 'TMMIN') {
+            $parsed = $this->parseTMMINBarcode($request->barcode);
+        } elseif ($customer->code == 'ADM') {
+            $parsed = $this->parseADMBarcode($request->barcode);
+        }
+
+        return back()->with(['parsedResult' => $parsed]);
+}
+
 }

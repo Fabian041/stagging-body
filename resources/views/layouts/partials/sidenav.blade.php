@@ -32,6 +32,12 @@
                             <span>Delivery</span>
                         </a>
                     </li>
+                    <li class="{{ request()->is('pulling.manual') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('pulling.manual') }}">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Kanban Reset</span>
+                        </a>
+                    </li>
                 </ul>
             </li>
 

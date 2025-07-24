@@ -136,6 +136,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
         Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
         Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
+
+        Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
+        Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
+
     });
 
     // get manifest

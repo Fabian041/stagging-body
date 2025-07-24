@@ -99,9 +99,8 @@
                                 <th>Dock</th> {{-- Kolom baru --}}
                                 <th>Cycle</th>
                                 <th>Back No</th>
-                                <th>Qty/Pallet</th>
                                 <th>Order</th>
-                                <th>Stock</th>
+                                <th>Qty</th>
                                 <th>Prod Time</th>
                                 <th>Break</th>
                                 <th>Working Time</th>
@@ -126,7 +125,6 @@
                                         @endif
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
-                                        <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
