@@ -126,7 +126,7 @@
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
+                                        <td class="bg-danger text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
@@ -170,7 +170,6 @@
                                 <th>Dock</th> {{-- Kolom baru --}}
                                 <th>Cycle</th>
                                 <th>Back No</th>
-                                <th>Qty/Pallet</th>
                                 <th>Order</th>
                                 <th>Stock</th>
                                 <th>Prod Time</th>
@@ -198,7 +197,7 @@
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
+                                        <td class="bg-danger text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
