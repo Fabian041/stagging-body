@@ -100,7 +100,7 @@
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Order</th>
-                                <th>Qty</th>
+                                <th>Current Qty</th>
                                 <th>Prod Time</th>
                                 <th>Break</th>
                                 <th>Working Time</th>
@@ -171,7 +171,7 @@
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Order</th>
-                                <th>Stock</th>
+                                <th>Current Qty</th>
                                 <th>Prod Time</th>
                                 <th>Break</th>
                                 <th>Working Time</th>
