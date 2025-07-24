@@ -876,22 +876,51 @@ class PullingController extends Controller
 
     public function manualReset(Request $request)
     {
-        $request->validate([
-            'customer' => 'required|exists:customers,id',
-            'barcode' => 'required|string'
+        $validated = $request->validate([
+            'internal' => 'required|string',
+            'serial' => 'required|string'
         ]);
 
-        $customer = Customer::find($request->customer);
+        // Cari internal part
+        $internalPart = InternalPart::with('customerPart')->where('part_number', $request->internal)->first();
 
-        // Contoh parsing berdasar customer
-        $parsed = [];
-        if ($customer->code == 'TMMIN') {
-            $parsed = $this->parseTMMINBarcode($request->barcode);
-        } elseif ($customer->code == 'ADM') {
-            $parsed = $this->parseADMBarcode($request->barcode);
+        if (!$internalPart) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Back Number <strong>{$request->internal}</strong> tidak ditemukan."
+            ], 404);
         }
 
-        return back()->with(['parsedResult' => $parsed]);
-}
+        // Ambil kanban berdasarkan internal_part_id dan serial_number
+        $kanban = \App\Models\Kanban::where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $request->serial)
+            ->first();
+
+        if (!$kanban) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Serial Number <strong>{$request->serial}</strong> tidak ditemukan untuk Back Number <strong>{$request->internal}</strong>."
+            ], 404);
+        }
+
+        // Update status kanban
+        $kanban->status = 2;
+        $kanban->save();
+
+        // update mutation
+        Mutation::create([
+            'internal_part_id' => $internalPart->id,
+            'serial_number' => $request->serial,
+            'qty' => $internalPart->customerPart->qty_per_kanban,
+            'type' => 'manual',
+            'npk' => auth()->user()->npk,
+            'date' => now()
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kanban berhasil di-reset.'
+        ]);
+    }
 
 }

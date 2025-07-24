@@ -97,13 +97,52 @@
             document.getElementById('result-area').style.display = 'block';
             showNotif('success', 'Barcode berhasil diproses.');
             focusInput();
+
+            $.ajax({
+                url: "{{ route('pulling.manualReset') }}",
+                method: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    internal: internal,
+                    serial: serial
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        showNotif('success', response.message);
+                        // ✅ Jeda 2 detik sebelum reset
+                        setTimeout(() => {
+                            $('#code').val('');
+                            $('#internal-part').text('');
+                            $('#serial-number').text('');
+                            $('#result-area').hide();
+                            focusInput();
+                        }, 5000);
+                    } else {
+                        showNotif('error', response.message || 'Terjadi kesalahan.');
+                    }
+                },
+                error: function(xhr) {
+                    let msg = 'Gagal kirim data ke server.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                    showNotif('error', msg);
+                    console.error("Gagal kirim data", xhr);
+                }
+            });
         }
 
         function showNotif(type, message) {
             const color = type === 'error' ? 'danger' : 'success';
-            document.getElementById('notif-area').innerHTML = `
-                <div class="alert alert-${color}">${message}</div>
-            `;
+            const notifArea = document.getElementById('notif-area');
+
+            notifArea.innerHTML = `
+        <div class="alert alert-${color}">${message}</div>
+    `;
+
+            setTimeout(() => {
+                notifArea.innerHTML = '';
+            }, 5000); // Hapus notif setelah 5 detik
         }
 
         function focusInput() {
