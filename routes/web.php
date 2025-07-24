@@ -15,6 +15,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
+use App\Http\Controllers\ValidationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -125,6 +126,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
     });
+
+    //Validation
+
+    Route::get('/validation', [ValidationController::class, 'index'])->name('validation.index');
 
     // pulling
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');

@@ -24,10 +24,10 @@ class LoginController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            if(auth()->user()->role == 'prod'){
+            if (auth()->user()->role == 'prod') {
                 // redirect to prod
                 return redirect()->route('production.index');
-            }else if(auth()->user()->role == 'ppic'){
+            } else if (auth()->user()->role == 'ppic') {
 
                 // Perform login and obtain the Bearer token (API Dea)
                 $response = Http::withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
@@ -35,18 +35,19 @@ class LoginController extends Controller
                     'password' => '123456'
                 ]);
 
-                if($response->successful()){
+                if ($response->successful()) {
                     $token = json_decode($response->body(), true)['data']['access_token'];
-    
+
                     // store  token to session
                     session()->put('token', $token);
-
-                }else{
+                } else {
                     return redirect()->back()->with('error', 'Failed to generate token');
                 }
                 // redirect to ppic
                 return redirect()->route('pulling.index');
-            }else{
+            } else if (auth()->user()->role == 'mh') {
+                return redirect()->route('validation.index');
+            } else {
                 // redirect to dashboard
                 return redirect()->route('dashboard.index');
             }
