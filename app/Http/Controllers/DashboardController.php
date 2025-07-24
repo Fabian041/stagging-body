@@ -170,7 +170,6 @@ class DashboardController extends Controller
             'CI19' => '00:37',
         ];
 
-        // Gabungkan semua back_no yg dibutuhkan
         $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
         // Ambil data mentah
@@ -192,23 +191,22 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
-            
+
                 $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 $hour = substr($raw, 0, 2);
                 $minute = substr($raw, 2, 2);
                 $second = substr($raw, 4, 2);
-            
+
                 $time = $today->copy()->setTime($hour, $minute, $second);
                 if ($time->lt($start)) {
                     $time->addDay();
                 }
-            
+
                 $item->formatted_time = $time->format('H:i');
                 $item->time_sort = $time->timestamp;
-            
-                // Tambahkan static prod_time berdasarkan back_no
-                $item->prod_time = $prodTimeByBackNo[$item->back_no] ?? '-';
-            
+
+                $item->prod_time = $prodTimeByBackNo[$item->back_no] ?? '00:00';
+
                 return $item;
             });
 
@@ -230,17 +228,52 @@ class DashboardController extends Controller
         // Filter dan group data per line
         $grouped = [];
         foreach ($backNosByLine as $line => $backNos) {
+            $startWorkingTime = $today->copy()->setTime(6, 0, 0); // reset per line, mulai dari 06:00
+
             $grouped[$line] = $rawData
-                ->filter(function ($item) use ($backNos) {
-                    return in_array($item->back_no, $backNos);
-                })
-                ->sortBy('time_sort')
-                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
-                ->map(function ($group) {
-                    // ✨ Sorting dalam grup berdasarkan back_no ASC (atau cycle ASC kalau mau)
-                    return $group->sortBy('back_no')->values();
-                    // return $group->sortBy([['cycle', 'asc'], ['back_no', 'asc']])->values(); // <- opsional
+            ->filter(function ($item) use ($backNos) {
+                return in_array($item->back_no, $backNos);
+            })
+            ->sortBy('time_sort')
+            ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
+            ->map(function ($group, $key) use (&$startWorkingTime) {
+                $group = $group->sortBy('back_no')->values()->map(function ($item) use (&$startWorkingTime) {
+                    [$mm, $ss] = explode(':', $item->prod_time);
+                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                
+                    $item->working_start = $startWorkingTime->format('H:i');
+                    $endWorkingTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
+                    $item->working_end = $endWorkingTime->format('H:i');
+                    $item->working_duration = gmdate('H:i:s', $totalSeconds);
+                
+                    $startWorkingTime = $endWorkingTime;
+                
+                    return $item;
                 });
+                
+                // Tambah balance_time untuk semua item
+                [$customer, $deliveryTime] = explode('|', $key);
+                $lastItem = $group->last();
+                $delivery = \Carbon\Carbon::parse($deliveryTime);
+                $lastEnd = \Carbon\Carbon::createFromFormat('H:i', $lastItem->working_end ?? '00:00');
+
+                // Jika delivery < lastEnd, maka delivery dianggap besok
+                if ($delivery->lt($lastEnd)) {
+                    $delivery->addDay();
+                }
+
+                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true); // bisa negatif
+                $isNegative = $balanceSeconds < 0;
+                $formattedBalance = gmdate('H:i:s', abs($balanceSeconds));
+                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
+
+                foreach ($group as $item) {
+                    $item->balance_time = $balanceTime;
+                }
+                
+                return $group;                
+            });        
         }
 
         return view('pages.pulling.prodPlan', [

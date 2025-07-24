@@ -96,7 +96,7 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
-                                <th>Dock</th> {{-- Kolom baru --}}
+                                <th>Dock</th>
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Order</th>
@@ -113,7 +113,7 @@
                                 @php
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
-                                    $dock = $rows->first()->dock ?? '--'; // Ambil dock dari data pertama
+                                    $dock = $rows->first()->dock ?? '--';
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     <tr>
@@ -130,12 +130,24 @@
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
-                                        <td><span class="flip">--</span></td>
+                                        <td>
+                                            <span class="flip">
+                                                {{ $item->working_start ?? '--' }} - {{ $item->working_end ?? '--' }}
+                                                <br>
+                                                <small class="text-warning">duration :
+                                                    {{ $item->working_duration ?? '--' }}</small>
+                                            </span>
+                                        </td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
+                                            <td rowspan="{{ $rowspan }}">
+                                                <span
+                                                    class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
+                                                    {{ $item->balance_time ?? '--' }}
+                                                </span>
+                                            </td>
                                         @endif
-                                        <td><span class="flip">--</span></td>
                                     </tr>
                                 @endforeach
                             @empty
@@ -173,7 +185,7 @@
                                 @php
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
-                                    $dock = $rows->first()->dock ?? '--'; // Ambil dock dari data pertama
+                                    $dock = $rows->first()->dock ?? '--';
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     <tr>
@@ -185,18 +197,29 @@
                                         @endif
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
-                                        <td><span class="flip">{{ $item->qty_per_pallet }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td class="bg-warning text-dark"><span class="flip" data-key="stock">--</span>
                                         </td>
-                                        <td><span class="flip">00:40</span></td>
+                                        <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
-                                        <td><span class="flip">--</span></td>
+                                        <td>
+                                            <span class="flip">
+                                                {{ $item->working_start ?? '--' }} - {{ $item->working_end ?? '--' }}
+                                                <br>
+                                                <small class="text-warning">duration :
+                                                    {{ $item->working_duration ?? '--' }}</small>
+                                            </span>
+                                        </td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
+                                            <td rowspan="{{ $rowspan }}">
+                                                <span
+                                                    class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
+                                                    {{ $item->balance_time ?? '--' }}
+                                                </span>
+                                            </td>
                                         @endif
-                                        <td><span class="flip">--</span></td>
                                     </tr>
                                 @endforeach
                             @empty
