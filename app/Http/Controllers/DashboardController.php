@@ -231,49 +231,49 @@ class DashboardController extends Controller
             $startWorkingTime = $today->copy()->setTime(6, 0, 0); // reset per line, mulai dari 06:00
 
             $grouped[$line] = $rawData
-            ->filter(function ($item) use ($backNos) {
-                return in_array($item->back_no, $backNos);
-            })
-            ->sortBy('time_sort')
-            ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
-            ->map(function ($group, $key) use (&$startWorkingTime) {
-                $group = $group->sortBy('back_no')->values()->map(function ($item) use (&$startWorkingTime) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
-                
-                    $item->working_start = $startWorkingTime->format('H:i');
-                    $endWorkingTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
-                    $item->working_end = $endWorkingTime->format('H:i');
-                    $item->working_duration = gmdate('H:i:s', $totalSeconds);
-                
-                    $startWorkingTime = $endWorkingTime;
-                
-                    return $item;
+                ->filter(function ($item) use ($backNos) {
+                    return in_array($item->back_no, $backNos);
+                })
+                ->sortBy('time_sort')
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
+                ->map(function ($group, $key) use (&$startWorkingTime) {
+                    $group = $group->sortBy('back_no')->values()->map(function ($item) use (&$startWorkingTime) {
+                        [$mm, $ss] = explode(':', $item->prod_time);
+                        $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                        $totalSeconds = $prodSeconds * (int)$item->order_qty;
+
+                        $item->working_start = $startWorkingTime->format('H:i');
+                        $endWorkingTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
+                        $item->working_end = $endWorkingTime->format('H:i');
+                        $item->working_duration = gmdate('H:i:s', $totalSeconds);
+
+                        $startWorkingTime = $endWorkingTime;
+
+                        return $item;
+                    });
+
+                    // Tambah balance_time untuk semua item
+                    [$customer, $deliveryTime] = explode('|', $key);
+                    $lastItem = $group->last();
+                    $delivery = \Carbon\Carbon::parse($deliveryTime);
+                    $lastEnd = \Carbon\Carbon::createFromFormat('H:i', $lastItem->working_end ?? '00:00');
+
+                    // Jika delivery < lastEnd, maka delivery dianggap besok
+                    if ($delivery->lt($lastEnd)) {
+                        $delivery->addDay();
+                    }
+
+                    $balanceSeconds = $delivery->diffInSeconds($lastEnd, true); // bisa negatif
+                    $isNegative = $balanceSeconds < 0;
+                    $formattedBalance = gmdate('H:i:s', abs($balanceSeconds));
+                    $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
+
+                    foreach ($group as $item) {
+                        $item->balance_time = $balanceTime;
+                    }
+
+                    return $group;
                 });
-                
-                // Tambah balance_time untuk semua item
-                [$customer, $deliveryTime] = explode('|', $key);
-                $lastItem = $group->last();
-                $delivery = \Carbon\Carbon::parse($deliveryTime);
-                $lastEnd = \Carbon\Carbon::createFromFormat('H:i', $lastItem->working_end ?? '00:00');
-
-                // Jika delivery < lastEnd, maka delivery dianggap besok
-                if ($delivery->lt($lastEnd)) {
-                    $delivery->addDay();
-                }
-
-                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true); // bisa negatif
-                $isNegative = $balanceSeconds < 0;
-                $formattedBalance = gmdate('H:i:s', abs($balanceSeconds));
-                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
-
-                foreach ($group as $item) {
-                    $item->balance_time = $balanceTime;
-                }
-                
-                return $group;                
-            });        
         }
 
         return view('pages.pulling.prodPlan', [
@@ -320,11 +320,20 @@ class DashboardController extends Controller
     {
         $startOfWeek = request('start_date') ? Carbon::parse(request('start_date')) : now()->startOfWeek();
         $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->endOfWeek();
-        $statusColors = [
+        $statusColorss = [
             0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
             2 => '#f52899', // Dikirim
             3 => '#ffc107', // Diterima Sebagian
+            4 => '#28a745', // Diterima Semua
+            5 => '#fd7e14', // Pengiriman Sebagian
+        ];
+
+        $statusColors = [
+            0 => '#cccccc', // Default / tidak diketahui
+            1 => '#cccccc', // Terdaftar
+            2 => '#cccccc', // Dikirim
+            3 => '#cccccc', // Diterima Sebagian
             4 => '#28a745', // Diterima Semua
             5 => '#fd7e14', // Pengiriman Sebagian
         ];
@@ -478,5 +487,4 @@ class DashboardController extends Controller
                 'serial_number' => $request->serial_number
             ]);
     }
-
 }
