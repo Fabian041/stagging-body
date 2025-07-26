@@ -102,7 +102,7 @@ Route::middleware(['auth'])->group(function () {
 
         // check kanban
         Route::get('/kanban/check', [DashboardController::class, 'kbnCheck'])->name('dashboard.kbnCheck');
-        Route::post('/kanban/check', [DashboardController::class, 'kbnCheckSubmit'])->name('dashboard.kbnCheckSubmit');        
+        Route::post('/kanban/check', [DashboardController::class, 'kbnCheckSubmit'])->name('dashboard.kbnCheckSubmit');
     });
 
     // edcl
@@ -144,7 +144,6 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
         Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
-
     });
 
     // get manifest
@@ -153,6 +152,8 @@ Route::middleware(['auth'])->group(function () {
     // error log
     Route::prefix('error')->group(function () {
         Route::get('/store', [ErrorLogController::class, 'store'])->name('error.store');
+        Route::get('/log', [ErrorLogController::class, 'index'])->name('error.log');
+        Route::get('/getErrorLogs', [ErrorLogController::class, 'getErrorLogs'])->name('error.getErrorLogs');
     });
 
     Route::get('/test', [ProductionController::class, 'test'])->name('test');

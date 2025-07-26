@@ -6,10 +6,27 @@ use Carbon\Carbon;
 use App\Models\ErrorLog;
 use Illuminate\Http\Request;
 use Illuminate\Queue\NullQueue;
+use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
 
 class ErrorLogController extends Controller
 {
+    public function index()
+    {
+        // get error logs
+
+        return view('pages.error.index');
+    }
+
+    public function getErrorLogs(Request $request)
+    {
+
+        $errorLogs = ErrorLog::get();
+
+        return DataTables::of($errorLogs)
+            ->make(true);
+    }
+
     public function store(Request $request)
     {
         // get user dept

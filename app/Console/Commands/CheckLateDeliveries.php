@@ -55,8 +55,10 @@ class CheckLateDeliveries extends Command
                     ]);
 
                     $this->sendNotification($delivery, $expectedTime);
-                } elseif (is_null($existingLog->notified_at)) {
-                    // dd('masih null');
+                }
+
+                if ($existingLog->notified_at == NULL) {
+                    dd('masih null', $existingLog);
                     // Sudah ada di log tapi belum dikirim notifikasi
                     DB::table('receiving_logs')
                         ->where('id', $existingLog->id)
