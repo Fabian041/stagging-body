@@ -420,8 +420,12 @@ class DashboardController extends Controller
         return response()->json($query->get());
     }
 
-    public function showModal($pickList)
+    public function showModal(Request $request)
     {
+        $request->validate([
+            'pick_list' => 'required|string',
+        ]);
+        $pickList = $request->pick_list;
         $data = DB::connection('mssql_external')
             ->table('IAA1NT as a')
             ->where('a.CHR_NUB_NYSJNO', $pickList)
@@ -435,11 +439,28 @@ class DashboardController extends Controller
                 'a.CHR_NUB_NYSJNO as pick_list'
             )
             ->get();
-
-        return view('pages.dashboard_receiving_modal', [
-            'data' => $data,
-            'pickList' => $pickList
-        ]);
+        //dummy data
+        // $data = [
+        //     (object)[
+        //         'supplier_code' => 'SUP123',
+        //         'part_number' => 'PN123',
+        //         'back_number' => 'BN123',
+        //         'qty_ordered' => 100,
+        //         'qty_confirmed' => 80,
+        //         'uom' => 'pcs',
+        //         'pick_list' => $pickList
+        //     ],
+        //     [
+        //         'supplier_code' => 'SUP456',
+        //         'part_number' => 'PN456',
+        //         'back_number' => 'BN456',
+        //         'qty_ordered' => 200,
+        //         'qty_confirmed' => 150,
+        //         'uom' => 'pcs',
+        //         'pick_list' => $pickList
+        //     ]
+        // ];
+        return response()->json($data);
     }
 
     public function kbnCheck()

@@ -1,6 +1,7 @@
 @extends('layouts.root.main')
 
 @section('main')
+
     <div class="row">
         <div class="col mt-3 text-right">
             <div class="col-md-12">
@@ -44,7 +45,6 @@
         <li class="list-inline-item"><span style="background:#28a745;" class="legend-box"></span> Diterima Semua</li>
     </ul>
 </div>
-
 <style>
     .legend-box {
         display: inline-block;
@@ -53,23 +53,47 @@
         margin-right: 5px;
         vertical-align: middle;
     }
+    .modal {
+    z-index: 1055;
+    }
+    .modal-backdrop {
+    z-index: 1050;
+    }
+
 </style>
-<div class="modal fade" id="modalDetail" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-md" role="document">
-        <div class="modal-content" id="modalDetailContent">
-            <!-- AJAX isi detail di sini -->
-        </div>
-    </div>
-</div>
+
 
 @endsection
 
+<!-- Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail Pick List</h5>
+      </div>
+      <div class="modal-body">
+        <table class="table table-bordered" id="detailTable">
+          <thead>
+            <tr>
+              <th>Part Number</th>
+              <th>Back Number</th>
+              <th>Qty Ordered</th>
+              <th>Qty Confirmed</th>
+              <th>UOM</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
-@push('scripts')
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.nicescroll/3.7.6/jquery.nicescroll.min.js"></script>
 
+@push('scripts')<!-- jQuery harus di atas -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const chartEl = document.querySelector("#timelineChart");
@@ -79,8 +103,8 @@ document.addEventListener('DOMContentLoaded', function () {
             type: 'rangeBar',
             height: 700,
             zoom: {
-                    enabled: false
-                },
+                enabled: false
+            },
             defaultLocale: 'id',
             locales: [{
                 name: 'id',
@@ -92,11 +116,19 @@ document.addEventListener('DOMContentLoaded', function () {
                         menu: 'Menu'
                     },
                     datetime: {
-                        // gunakan waktu lokal
                         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
                     }
                 }
-            }]
+            }],
+            events: {
+                dataPointSelection: function(event, chartContext, config) {
+                    const dataPoint = config.w.config.series[config.seriesIndex].data[config.dataPointIndex];
+                    const pickList = dataPoint.pick_list || null;
+                    if (pickList) {
+                        showDetailModal(pickList);
+                    }
+                }
+            }
         },
         plotOptions: {
             bar: {
@@ -107,8 +139,8 @@ document.addEventListener('DOMContentLoaded', function () {
         xaxis: {
             type: 'datetime',
             labels: {
-                    datetimeUTC: false // penting!
-                }
+                datetimeUTC: false
+            }
         },
         tooltip: {
             custom: function({ series, seriesIndex, dataPointIndex, w }) {
@@ -122,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         annotations: {
             xaxis: [{
-                x: Date.now(), // waktu awal
+                x: Date.now(),
                 borderColor: '#FF0000',
                 label: {
                     text: new Date().toLocaleTimeString(),
@@ -145,25 +177,61 @@ document.addEventListener('DOMContentLoaded', function () {
         const nowLabel = new Date().toLocaleTimeString();
 
         chart.updateOptions({
-            chart: {
-                events: {
-                    dataPointSelection: function(event, chartContext, config) {
-                        const data = chartContext.w.config.series[config.seriesIndex].data[config.dataPointIndex];
-                        const pickList = data.pick_list; // pastikan ada field ini
-
-                        // Kirim ke controller pakai AJAX
-                        fetch(`/dashboard/receiving/detail/${pickList}`)
-                            .then(res => res.text())
-                            .then(html => {
-                                document.querySelector('#modalDetailContent').innerHTML = html;
-                                $('#modalDetail').modal('show');
-                            });
+            annotations: {
+                xaxis: [{
+                    x: now,
+                    borderColor: '#FF0000',
+                    label: {
+                        text: nowLabel,
+                        style: {
+                            color: '#fff',
+                            background: '#FF0000'
+                        }
                     }
-                }
+                }]
             }
         });
-    }, 30000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik
+    }, 1000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik
 });
+
+function showDetailModal(pickList) {
+    console.log("Showing details for pick list:", pickList);
+
+    const modalEl = document.getElementById('detailModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    $('#detailTable tbody').html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
+
+    $.ajax({
+        url: "{{ route('dashboard.receiving.detail') }}",
+        type: 'GET',
+        data: { pick_list: pickList },
+        success: function(response) {
+            if (response.length === 0) {
+                $('#detailTable tbody').html('<tr><td colspan="5" class="text-center">Data tidak ditemukan</td></tr>');
+                return;
+            }
+
+            let rows = '';
+            response.forEach(item => {
+                rows += `<tr>
+                    <td>${item.part_number}</td>
+                    <td>${item.back_number}</td>
+                    <td>${item.qty_ordered}</td>
+                    <td>${item.qty_confirmed}</td>
+                    <td>${item.uom}</td>
+                </tr>`;
+            });
+            $('#detailTable tbody').html(rows);
+        },
+        error: function() {
+            $('#detailTable tbody').html('<tr><td colspan="5" class="text-center text-danger">Gagal mengambil data</td></tr>');
+        }
+    });
+}
+
+
 </script>
 @endpush
 
