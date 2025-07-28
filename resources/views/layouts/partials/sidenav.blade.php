@@ -70,7 +70,7 @@
 
             <li class="{{ request()->is('error/log') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('error.log') }}">
-                    <i class="fas fa-chart-line"></i>
+                    <i class="fas fa-exclamation-circle"></i>
                     <span>Error Log</span>
                 </a>
             </li>
