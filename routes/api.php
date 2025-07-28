@@ -28,7 +28,7 @@ Route::group(['prefix' => 'v1'], function () {
     Route::post('/import', [ProductionController::class , 'import']);
     Route::post('/login', [APILoginController::class , 'authenticate']);
 
-    Route::group(['production-plan'], function(){
+    Route::group(['prefix' => 'production-plan'], function(){
         // production plan
         Route::post('/update-qty', [ProductionPlan::class, 'updateQty']);
     });
