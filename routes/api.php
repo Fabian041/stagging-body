@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\API\LoginController as APILoginController;
+use App\Http\Controllers\API\ProductionPlanApiController as ProductionPlan;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,5 +27,9 @@ Route::group(['prefix' => 'v1'], function () {
     Route::post('/injection', [ProductionController::class , 'post']);
     Route::post('/import', [ProductionController::class , 'import']);
     Route::post('/login', [APILoginController::class , 'authenticate']);
-    
+
+    Route::group(['production-plan'], function(){
+        // production plan
+        Route::post('/update-qty', [ProductionPlan::class, 'updateQty']);
+    });
 });

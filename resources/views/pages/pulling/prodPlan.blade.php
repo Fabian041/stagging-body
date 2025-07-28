@@ -53,7 +53,7 @@
 <body>
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="fw-bold text-uppercase">Pulling Day - {{ Carbon\Carbon::now()->format('l, j F Y') }}</h2>
+            <h2 class="text-uppercase">Pulling Day - {{ Carbon\Carbon::now()->format('l, j F Y') }}</h2>
             <a class="btn btn-outline-warning" href="/pulling/settings">
                 <i class="bi bi-gear-fill"></i> Setting
             </a>
@@ -75,20 +75,6 @@
         </ul>
 
         <div class="tab-content" id="lineTabsContent">
-            <!-- AS001 -->
-            <div class="tab-pane fade" id="line1" role="tabpanel" aria-labelledby="line1-tab">
-                <div class="table-responsive">
-                    <p class="text-center mt-4">Data untuk AS001 belum tersedia.</p>
-                </div>
-            </div>
-
-            <!-- AS002 -->
-            <div class="tab-pane fade" id="line2" role="tabpanel" aria-labelledby="line2-tab">
-                <div class="table-responsive">
-                    <p class="text-center mt-4">Data untuk AS002 belum tersedia.</p>
-                </div>
-            </div>
-
             <!-- AS003 -->
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
                 <div class="table-responsive">
@@ -96,11 +82,13 @@
                         <thead>
                             <tr>
                                 <th>Customer</th>
+                                {{-- <th>DN</th> --}}
                                 <th>Dock</th>
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Order</th>
-                                <th>Current Qty</th>
+                                <th>Direct Pulling</th>
+                                <th>Stock Chute</th>
                                 <th>Prod Time</th>
                                 <th>Break</th>
                                 <th>Working Time</th>
@@ -120,13 +108,26 @@
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $customer }}</span></td>
+                                            {{-- <td rowspan="{{ $rowspan }}"><span
+                                                    class="flip">{{ $item->dn_number ?? '--' }}</span></td> --}}
+                                            {{-- ✅ pakai rowspan --}}
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $dock }}</span></td>
                                         @endif
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="bg-danger text-dark"><span class="flip" data-key="stock">--</span>
+                                        <td
+                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-success bg-opacity-75 fw-bold text-white' : 'bg-success bg-opacity-25 fw-bold text-success' }}">
+                                            <span class="flip" data-key="direct-pulling">
+                                                {{ $item->direct_pulling_qty > 0 ? $item->direct_pulling_qty : '0' }}
+                                            </span>
+                                        </td>
+                                        <td
+                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-warning bg-opacity-75 fw-bold text-white' : 'bg-warning bg-opacity-25 text-warning' }}">
+                                            <span class="flip" data-key="stock-chute">
+                                                {{ $item->stock_chute_qty > 0 ? $item->stock_chute_qty : '0' }}
+                                            </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
@@ -161,17 +162,19 @@
             </div>
 
             <!-- AS004 -->
-            <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
+            <div class="tab-pane fade show  " id="line4" role="tabpanel" aria-labelledby="line4-tab">
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
                         <thead>
                             <tr>
                                 <th>Customer</th>
-                                <th>Dock</th> {{-- Kolom baru --}}
+                                {{-- <th>DN</th> --}}
+                                <th>Dock</th>
                                 <th>Cycle</th>
                                 <th>Back No</th>
                                 <th>Order</th>
-                                <th>Current Qty</th>
+                                <th>Direct Pulling</th>
+                                <th>Stock Chute</th>
                                 <th>Prod Time</th>
                                 <th>Break</th>
                                 <th>Working Time</th>
@@ -191,13 +194,26 @@
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $customer }}</span></td>
+                                            {{-- <td rowspan="{{ $rowspan }}"><span
+                                                    class="flip">{{ $item->dn_number ?? '--' }}</span></td> --}}
+                                            {{-- ✅ pakai rowspan --}}
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $dock }}</span></td>
                                         @endif
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="bg-danger text-dark"><span class="flip" data-key="stock">--</span>
+                                        <td
+                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-success bg-opacity-75 fw-bold text-white' : 'bg-success bg-opacity-25 fw-bold text-success' }}">
+                                            <span class="flip" data-key="direct-pulling">
+                                                {{ $item->direct_pulling_qty > 0 ? $item->direct_pulling_qty : '0' }}
+                                            </span>
+                                        </td>
+                                        <td
+                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-warning bg-opacity-75 fw-bold text-white' : 'bg-warning bg-opacity-25 text-warning' }}">
+                                            <span class="flip" data-key="stock-chute">
+                                                {{ $item->stock_chute_qty > 0 ? $item->stock_chute_qty : '0' }}
+                                            </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>

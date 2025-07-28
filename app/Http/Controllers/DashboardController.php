@@ -10,6 +10,7 @@ use App\Models\Agstar\Ia31;
 use App\Imports\StockImport;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
+use App\Models\ProductionPlan;
 use App\Imports\ManifestImport;
 use App\Models\ReceiveSchedule;
 use Illuminate\Support\Facades\DB;
@@ -148,11 +149,11 @@ class DashboardController extends Controller
 
     public function prodPlan()
     {
-        $today = now()->startOfDay(); // hari ini jam 00:00
-        $start = $today->copy()->addHours(12); // jam 12:00 siang hari ini
-        $end = $start->copy()->addDay();       // jam 12:00 siang besok
+        set_time_limit(90);
+        $today = now()->startOfDay();
+        $start = $today->copy()->addHours(12); // 12:00 today
+        $end = $start->copy()->addDay();      // 12:00 tomorrow
 
-        // Mapping back_no untuk tiap line
         $backNosByLine = [
             'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
             'AS004' => ['CI15', 'CI16', 'CI19'],
@@ -172,46 +173,271 @@ class DashboardController extends Controller
 
         $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
-        // Ambil data mentah
-        $rawData = DB::connection('mssql_external')
-            ->table('TT_GIG_SYKMEISAI')
-            ->select(
-                'CHR_MEI_NOUNYU as customer',
-                'CHR_COD_UKEIRE as dock',
-                'INT_NUB_NOUBIN as cycle',
-                'CHR_COD_SEBANGOU as back_no',
-                'INT_SUR_SYUUYOU as qty_per_pallet',
-                'INT_SUR_JYUCYUU as order_qty',
-                'CHR_TIM_SYUKKA'
-            )
-            ->whereNotNull('CHR_TIM_SYUKKA')
-            ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
-            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
-            ->limit(1000)
-            ->get()
-            ->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
+        // Check if we have fresh data in database (last 30 minutes)
+        $lastUpdate = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
+            ->max('updated_at');
+            
+        if (!$lastUpdate || ($lastUpdate instanceof \Carbon\Carbon && $lastUpdate->diffInMinutes(now()) > 30)) {
+            try {
+                DB::beginTransaction();
+                ProductionPlan::where('plan_date', $today->format('Y-m-d'))->delete();
+
+                // Try optimized fetch methods in sequence
+                $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo);
+                
+                if ($rawData->isEmpty()) {
+                    $rawData = $this->fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo);
+                }
+
+                if ($rawData->isEmpty()) {
+                    $rawData = $this->fetchWithFallbackMethod($today, $start, $allBackNos, $prodTimeByBackNo);
+                }
+
+                if ($rawData->isEmpty()) {
+                    throw new \Exception("All data fetch methods returned empty results");
+                }
+
+                $processedData = $this->processRawData($rawData, $start, $end);
+                $this->storeProductionData($processedData, $backNosByLine, $today);
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error('Production data processing failed: ' . $e->getMessage());
+                
+                $lastData = ProductionPlan::where('plan_date', $today->copy()->subDay()->format('Y-m-d'))
+                    ->orderBy('updated_at', 'desc')
+                    ->first();
+                    
+                if ($lastData) {
+                    return back()->with('warning', 'Using cached data from previous day');
+                }
+                
+                return view('pages.pulling.prodPlan', [
+                    'grouped' => [],
+                    'lastUpdate' => now(),
+                    'error' => 'No production data available'
+                ]);
+            }
+        }
+
+        $grouped = $this->getGroupedData($backNosByLine, $today);
+
+        return view('pages.pulling.prodPlan', [
+            'grouped' => $grouped,
+            'lastUpdate' => $lastUpdate ?? now()
+        ]);
+    }
+
+    protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo)
+    {
+        try {
+            $query = DB::connection('mssql_external')
+                ->table('TT_GIG_SYKMEISAI')
+                ->select(
+                    'CHR_MEI_NOUNYU as customer',
+                    'CHR_COD_UKEIRE as dock',
+                    'INT_NUB_NOUBIN as cycle',
+                    DB::raw('RTRIM(CHR_COD_SEBANGOU) as back_no'),
+                    'INT_SUR_SYUUYOU as qty_per_pallet',
+                    'INT_SUR_JYUCYUU as order_qty',
+                    'CHR_TIM_SYUKKA',
+                    'CHR_COD_TKS_NOUBAN as dn_number'
+                )
+                ->whereNotNull('CHR_TIM_SYUKKA')
+                ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
+                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
+                ->limit(500);
+
+            return $query->get()->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
 
-                $raw = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                $hour = substr($raw, 0, 2);
-                $minute = substr($raw, 2, 2);
-                $second = substr($raw, 4, 2);
+                $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                $time = $today->copy()->setTime(
+                    substr($timeStr, 0, 2),
+                    substr($timeStr, 2, 2),
+                    substr($timeStr, 4, 2)
+                );
 
-                $time = $today->copy()->setTime($hour, $minute, $second);
                 if ($time->lt($start)) {
                     $time->addDay();
                 }
 
-                $item->formatted_time = $time->format('H:i');
-                $item->time_sort = $time->timestamp;
-
-                $item->prod_time = $prodTimeByBackNo[$item->back_no] ?? '00:00';
-
-                return $item;
+                return (object)[
+                    'customer' => $item->customer,
+                    'dock' => $item->dock,
+                    'cycle' => $item->cycle,
+                    'back_no' => $item->back_no,
+                    'qty_per_pallet' => $item->qty_per_pallet,
+                    'order_qty' => $item->order_qty,
+                    'dn_number' => $item->dn_number,
+                    'formatted_time' => $time->format('H:i'),
+                    'time_sort' => $time->timestamp,
+                    'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00'
+                ];
             });
+        } catch (\Exception $e) {
+            \Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
+            
+            try {
+                $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
+                $date = now()->format('Ymd');
+                
+                $sql = "SELECT TOP 500 
+                        CHR_MEI_NOUNYU as customer,
+                        CHR_COD_UKEIRE as dock,
+                        INT_NUB_NOUBIN as cycle,
+                        RTRIM(CHR_COD_SEBANGOU) as back_no,
+                        INT_SUR_SYUUYOU as qty_per_pallet,
+                        INT_SUR_JYUCYUU as order_qty,
+                        CHR_TIM_SYUKKA,
+                        CHR_COD_TKS_NOUBAN as dn_number
+                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
+                    WHERE CHR_TIM_SYUKKA IS NOT NULL
+                    AND CHR_NGP_NOUNYU = '{$date}'
+                    AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
+                    ORDER BY CHR_COD_SEBANGOU";
+                
+                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
+                    $item->back_no = trim($item->back_no);
+                    
+                    $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                    $time = $today->copy()->setTime(
+                        substr($timeStr, 0, 2),
+                        substr($timeStr, 2, 2),
+                        substr($timeStr, 4, 2)
+                    );
 
-        // Gabungkan berdasarkan customer + cycle + time + back_no
-        $rawData = $rawData
+                    if ($time->lt($start)) {
+                        $time->addDay();
+                    }
+
+                    return (object)[
+                        'customer' => $item->customer,
+                        'dock' => $item->dock,
+                        'cycle' => $item->cycle,
+                        'back_no' => $item->back_no,
+                        'qty_per_pallet' => $item->qty_per_pallet,
+                        'order_qty' => $item->order_qty,
+                        'dn_number' => $item->dn_number,
+                        'formatted_time' => $time->format('H:i'),
+                        'time_sort' => $time->timestamp,
+                        'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00'
+                    ];
+                });
+            } catch (\Exception $e) {
+                \Log::warning('Laravel DB raw query failed: ' . $e->getMessage());
+                return collect();
+            }
+        }
+    }
+
+    protected function fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo)
+    {
+        $maxRetries = 2;
+        $retryDelay = 1;
+        
+        $config = config('database.connections.mssql_external');
+        
+        $connectionOptions = [
+            "Database" => $config['database'],
+            "UID" => $config['username'],
+            "PWD" => $config['password'],
+            "Encrypt" => false,
+            "TrustServerCertificate" => true,
+            "CharacterSet" => "UTF-8",
+            "ConnectionPooling" => true
+        ];
+        
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            $conn = null;
+            try {
+                $conn = sqlsrv_connect($config['host'], $connectionOptions);
+                
+                if ($conn === false) {
+                    throw new \Exception("Connection failed: " . print_r(sqlsrv_errors(), true));
+                }
+                
+                $queryOptions = ["QueryTimeout" => 30];
+                
+                $date = now()->format('Ymd');
+                $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
+                
+                $sql = "SELECT TOP 500 
+                        CHR_MEI_NOUNYU as customer,
+                        CHR_COD_UKEIRE as dock,
+                        INT_NUB_NOUBIN as cycle,
+                        RTRIM(CHR_COD_SEBANGOU) as back_no,
+                        INT_SUR_SYUUYOU as qty_per_pallet,
+                        INT_SUR_JYUCYUU as order_qty,
+                        CHR_TIM_SYUKKA,
+                        CHR_COD_TKS_NOUBAN as dn_number
+                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
+                    WHERE CHR_TIM_SYUKKA IS NOT NULL
+                    AND CHR_NGP_NOUNYU = '{$date}'
+                    AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
+                    ORDER BY CHR_COD_SEBANGOU";
+                
+                $stmt = sqlsrv_query($conn, $sql, [], $queryOptions);
+                
+                if ($stmt === false) {
+                    throw new \Exception("Query failed: " . print_r(sqlsrv_errors(), true));
+                }
+                
+                $results = [];
+                while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                    $row['back_no'] = trim($row['back_no']);
+                    
+                    $timeStr = str_pad($row['CHR_TIM_SYUKKA'], 6, '0', STR_PAD_LEFT);
+                    $time = $today->copy()->setTime(
+                        substr($timeStr, 0, 2),
+                        substr($timeStr, 2, 2),
+                        substr($timeStr, 4, 2)
+                    );
+
+                    if ($time->lt($start)) {
+                        $time->addDay();
+                    }
+
+                    $results[] = (object)[
+                        'customer' => $row['customer'],
+                        'dock' => $row['dock'],
+                        'cycle' => $row['cycle'],
+                        'back_no' => $row['back_no'],
+                        'qty_per_pallet' => $row['qty_per_pallet'],
+                        'order_qty' => $row['order_qty'],
+                        'dn_number' => $row['dn_number'],
+                        'formatted_time' => $time->format('H:i'),
+                        'time_sort' => $time->timestamp,
+                        'prod_time' => $prodTimeByBackNo[$row['back_no']] ?? '00:00'
+                    ];
+                }
+                
+                return collect($results);
+
+            } catch (\Exception $e) {
+                \Log::error("Attempt $attempt failed: " . $e->getMessage());
+                
+                if ($attempt === $maxRetries) {
+                    return collect();
+                }
+                
+                sleep($retryDelay);
+            } finally {
+                if (isset($stmt) && is_resource($stmt)) {
+                    sqlsrv_free_stmt($stmt);
+                }
+                if (isset($conn) && is_resource($conn)) {
+                    sqlsrv_close($conn);
+                }
+            }
+        }
+        
+        return collect();
+    }
+
+    protected function processRawData($rawData, $start, $end)
+    {
+        return $rawData
             ->groupBy(function ($item) {
                 return $item->customer . '|' . $item->cycle . '|' . $item->formatted_time . '|' . $item->back_no;
             })
@@ -224,61 +450,112 @@ class DashboardController extends Controller
             ->filter(function ($item) use ($start, $end) {
                 return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
             });
+    }
 
-        // Filter dan group data per line
-        $grouped = [];
+    protected function storeProductionData($processedData, $backNosByLine, $today)
+    {
+        $batchData = [];
+        
         foreach ($backNosByLine as $line => $backNos) {
-            $startWorkingTime = $today->copy()->setTime(6, 0, 0); // reset per line, mulai dari 06:00
+            $startWorkingTime = $today->copy()->setTime(6, 0, 0);
 
-            $grouped[$line] = $rawData
+            $lineData = $processedData
                 ->filter(function ($item) use ($backNos) {
                     return in_array($item->back_no, $backNos);
                 })
                 ->sortBy('time_sort')
-                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time)
-                ->map(function ($group, $key) use (&$startWorkingTime) {
-                    $group = $group->sortBy('back_no')->values()->map(function ($item) use (&$startWorkingTime) {
-                        [$mm, $ss] = explode(':', $item->prod_time);
-                        $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                        $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
 
-                        $item->working_start = $startWorkingTime->format('H:i');
-                        $endWorkingTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
-                        $item->working_end = $endWorkingTime->format('H:i');
-                        $item->working_duration = gmdate('H:i:s', $totalSeconds);
-
-                        $startWorkingTime = $endWorkingTime;
-
-                        return $item;
-                    });
-
-                    // Tambah balance_time untuk semua item
-                    [$customer, $deliveryTime] = explode('|', $key);
-                    $lastItem = $group->last();
-                    $delivery = \Carbon\Carbon::parse($deliveryTime);
-                    $lastEnd = \Carbon\Carbon::createFromFormat('H:i', $lastItem->working_end ?? '00:00');
-
-                    // Jika delivery < lastEnd, maka delivery dianggap besok
-                    if ($delivery->lt($lastEnd)) {
-                        $delivery->addDay();
-                    }
-
-                    $balanceSeconds = $delivery->diffInSeconds($lastEnd, true); // bisa negatif
-                    $isNegative = $balanceSeconds < 0;
-                    $formattedBalance = gmdate('H:i:s', abs($balanceSeconds));
-                    $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
-
-                    foreach ($group as $item) {
-                        $item->balance_time = $balanceTime;
-                    }
-
-                    return $group;
-                });
+            foreach ($lineData as $groupKey => $group) {
+                $group = $group->sortBy('back_no')->values();
+                
+                [$customer, $deliveryTime] = explode('|', $groupKey);
+                
+                // Calculate working times for the group
+                $currentWorkingTime = $startWorkingTime->copy();
+                foreach ($group as $item) {
+                    [$mm, $ss] = explode(':', $item->prod_time);
+                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                    
+                    $workingStart = $currentWorkingTime->format('H:i');
+                    $workingEnd = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
+                    $workingDuration = gmdate('H:i:s', $totalSeconds);
+                    
+                    $currentWorkingTime->addSeconds($totalSeconds);
+                }
+                
+                // Calculate balance time for the group
+                $lastEnd = Carbon::createFromFormat('H:i', $workingEnd);
+                $delivery = Carbon::parse($deliveryTime);
+                
+                if ($delivery->lt($lastEnd)) {
+                    $delivery->addDay();
+                }
+                
+                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true);
+                $isNegative = $balanceSeconds < 0;
+                $formattedBalance = gmdate('H:i', abs($balanceSeconds));
+                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
+                
+                // Prepare batch insert for the group
+                $currentWorkingTime = $startWorkingTime->copy();
+                foreach ($group as $item) {
+                    [$mm, $ss] = explode(':', $item->prod_time);
+                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                    
+                    $batchData[] = [
+                        'line' => $line,
+                        'customer' => $customer,
+                        'dock' => $item->dock,
+                        'cycle' => $item->cycle,
+                        'back_no' => $item->back_no,
+                        'order_qty' => $item->order_qty,
+                        'prod_time' => $item->prod_time,
+                        'working_start' => $currentWorkingTime->format('H:i'),
+                        'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
+                        'working_duration' => gmdate('H:i:s', $totalSeconds),
+                        'delivery_time' => $deliveryTime,
+                        'balance_time' => $balanceTime,
+                        'dn_number' => $item->dn_number,
+                        'direct_pulling_qty' => 0,
+                        'stock_chute_qty' => 0,
+                        'plan_date' => $today->format('Y-m-d'),
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ];
+                    
+                    $currentWorkingTime->addSeconds($totalSeconds);
+                }
+                
+                $startWorkingTime = $currentWorkingTime;
+            }
         }
+        
+        // Batch insert in chunks
+        foreach (array_chunk($batchData, 100) as $chunk) {
+            ProductionPlan::insert($chunk);
+        }
+    }
 
-        return view('pages.pulling.prodPlan', [
-            'grouped' => $grouped
-        ]);
+    protected function getGroupedData($backNosByLine, $today)
+    {
+        $grouped = [];
+        
+        foreach ($backNosByLine as $line => $backNos) {
+            $lineData = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
+                ->where('line', $line)
+                ->orderBy('id') // or whatever column determines the original order
+                ->get()
+                ->groupBy(function($item) {
+                    return $item->customer . '|' . $item->delivery_time;
+                });
+                
+            $grouped[$line] = $lineData;
+        }
+        
+        return $grouped;
     }
 
     public function progressPulling()
