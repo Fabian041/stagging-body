@@ -75,24 +75,23 @@
 
             0%,
             100% {
-                background-color: var(--highlight-color);
+                opacity: 1;
             }
 
             50% {
-                background-color: rgba(255, 255, 255, 0.05);
-                /* sedikit putih */
+                opacity: 0.3;
             }
         }
 
         .highlight-beep-direct {
-            --highlight-color: rgba(158, 255, 173, 0.6);
-            /* Pastel green, agak tebal */
+            background-color: rgba(158, 255, 173, 1);
+            /* Pastel green penuh */
             animation: continuousBlink 5s ease-in-out infinite;
         }
 
         .highlight-beep-stock {
-            --highlight-color: rgba(255, 255, 177, 0.6);
-            /* Pastel yellow, agak tebal */
+            background-color: rgba(255, 255, 177, 1);
+            /* Pastel yellow penuh */
             animation: continuousBlink 5s ease-in-out infinite;
         }
 
