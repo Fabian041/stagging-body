@@ -70,36 +70,21 @@
             }
         }
 
-        /* Add these to your existing styles */
-        @keyframes beepHighlight {
-            0% {
-                background-color: transparent;
-            }
-
-            20% {
-                background-color: rgba(255, 255, 200, 0.3);
-            }
-
-            100% {
-                background-color: transparent;
-            }
-        }
-
+        /* Simplified highlight styles with lighter opacity */
         .highlight-beep {
             animation: beepHighlight 2s ease-out;
         }
 
-        /* Pastel color variations for different update types */
         .highlight-beep-direct {
-            animation: beepHighlight 2s ease-out;
-            --highlight-color: rgba(200, 255, 200, 0.3);
-            /* Pastel green */
+            --highlight-color: rgba(200, 255, 200, 0.2);
+            /* Lighter pastel green */
+            animation: beepHighlight 2s ease-out forwards;
         }
 
         .highlight-beep-stock {
-            animation: beepHighlight 2s ease-out;
-            --highlight-color: rgba(255, 255, 200, 0.3);
-            /* Pastel yellow */
+            --highlight-color: rgba(255, 255, 200, 0.2);
+            /* Lighter pastel yellow */
+            animation: beepHighlight 2s ease-out forwards;
         }
 
         @keyframes beepHighlight {
@@ -108,39 +93,12 @@
             }
 
             20% {
-                background-color: var(--highlight-color, rgba(255, 255, 200, 0.3));
+                background-color: var(--highlight-color);
             }
 
             100% {
-                background-color: transparent;
+                background-color: var(--highlight-color);
             }
-        }
-
-        /* Add these to your existing styles */
-        @keyframes beepHighlight {
-            0% {
-                background-color: transparent;
-            }
-
-            10% {
-                background-color: var(--highlight-color, rgba(255, 255, 200, 0.3));
-            }
-
-            100% {
-                background-color: var(--highlight-color, rgba(255, 255, 200, 0.3));
-            }
-        }
-
-        .highlight-beep-direct {
-            animation: beepHighlight 0.5s ease-out forwards;
-            --highlight-color: rgba(200, 255, 200, 0.3);
-            /* Pastel green */
-        }
-
-        .highlight-beep-stock {
-            animation: beepHighlight 0.5s ease-out forwards;
-            --highlight-color: rgba(255, 255, 200, 0.3);
-            /* Pastel yellow */
         }
 
         /* Make sure table cells inherit the highlight */
@@ -580,7 +538,8 @@
 
                     row.classList.remove(
                         'highlight-beep-direct',
-                        'highlight-beep-stock'
+                        'highlight-beep-stock',
+                        'highlight-beep'
                     );
 
                     // Add appropriate highlight class
