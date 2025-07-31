@@ -87,14 +87,14 @@
         .highlight-beep-direct {
             --highlight-color: #a0ffa0;
             /* Light green */
-            animation: slowBlink 3s ease-in-out infinite;
+            animation: continuousBlink 3s ease-in-out infinite;
             /* Slower blink (2 seconds) */
         }
 
         .highlight-beep-stock {
             --highlight-color: #ffffa0;
             /* Light yellow */
-            animation: slowBlink 3s ease-in-out infinite;
+            animation: continuousBlink 3s ease-in-out infinite;
             /* Slower blink (2 seconds) */
         }
 
