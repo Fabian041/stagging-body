@@ -188,15 +188,15 @@ class DashboardController extends Controller
                 DB::beginTransaction();
                 ProductionPlan::where('plan_date', $today->format('Y-m-d'))->delete();
 
-                // Try optimized fetch methods in sequence
-                $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo);
+                // Try optimized fetch methods in sequence - pass $selectedDate
+                $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
                 
                 if ($rawData->isEmpty()) {
-                    $rawData = $this->fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo);
+                    $rawData = $this->fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
                 }
 
                 if ($rawData->isEmpty()) {
-                    $rawData = $this->fetchWithFallbackMethod($today, $start, $allBackNos, $prodTimeByBackNo);
+                    $rawData = $this->fetchWithFallbackMethod($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
                 }
 
                 if ($rawData->isEmpty()) {
@@ -236,7 +236,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo)
+    protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
     {
         try {
             $query = DB::connection('mssql_external')
@@ -252,7 +252,7 @@ class DashboardController extends Controller
                     'CHR_COD_TKS_NOUBAN as dn_number'
                 )
                 ->whereNotNull('CHR_TIM_SYUKKA')
-                ->where('CHR_NGP_NOUNYU', now()->format('Ymd'))
+                ->where('CHR_NGP_NOUNYU', $selectedDate->format('Ymd'))  // Use selected date instead of now()
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
                 ->limit(500);
 
@@ -288,7 +288,7 @@ class DashboardController extends Controller
             
             try {
                 $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
-                $date = now()->format('Ymd');
+                $date = $selectedDate->format('Ymd');  // Use selected date instead of now()
                 
                 $sql = "SELECT TOP 500 
                         CHR_MEI_NOUNYU as customer,
@@ -339,7 +339,7 @@ class DashboardController extends Controller
         }
     }
 
-    protected function fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo)
+    protected function fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
     {
         $maxRetries = 2;
         $retryDelay = 1;
@@ -367,7 +367,7 @@ class DashboardController extends Controller
                 
                 $queryOptions = ["QueryTimeout" => 30];
                 
-                $date = now()->format('Ymd');
+                $date = $selectedDate->format('Ymd');  // Use selected date instead of now()
                 $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
                 
                 $sql = "SELECT TOP 500 
@@ -441,7 +441,7 @@ class DashboardController extends Controller
         }
         
         return collect();
-    }
+    }   
 
     protected function processRawData($rawData, $start, $end)
     {
