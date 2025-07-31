@@ -69,6 +69,52 @@
                 opacity: 1;
             }
         }
+
+        /* Add these to your existing styles */
+        @keyframes beepHighlight {
+            0% {
+                background-color: transparent;
+            }
+
+            20% {
+                background-color: rgba(255, 255, 200, 0.3);
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .highlight-beep {
+            animation: beepHighlight 2s ease-out;
+        }
+
+        /* Pastel color variations for different update types */
+        .highlight-beep-direct {
+            animation: beepHighlight 2s ease-out;
+            --highlight-color: rgba(200, 255, 200, 0.3);
+            /* Pastel green */
+        }
+
+        .highlight-beep-stock {
+            animation: beepHighlight 2s ease-out;
+            --highlight-color: rgba(255, 255, 200, 0.3);
+            /* Pastel yellow */
+        }
+
+        @keyframes beepHighlight {
+            0% {
+                background-color: transparent;
+            }
+
+            20% {
+                background-color: var(--highlight-color, rgba(255, 255, 200, 0.3));
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
     </style>
 </head>
 
@@ -437,20 +483,26 @@
 
             handleUpdates(updates) {
                 updates.forEach(item => {
+                    // Find all rows containing this item
+                    const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
+
+                    // Update quantities and highlight
                     this.updateQuantity(
                         `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
                         item.direct_pulling_qty,
-                        'success'
+                        'success',
+                        rows
                     );
                     this.updateQuantity(
                         `[data-item-id="${item.id}"][data-type="stock-chute"]`,
                         item.stock_chute_qty,
-                        'warning'
+                        'warning',
+                        rows
                     );
                 });
             }
 
-            updateQuantity(selector, newValue, type) {
+            updateQuantity(selector, newValue, type, rows = null) {
                 const elements = document.querySelectorAll(selector);
                 elements.forEach(el => {
                     const currentValue = parseInt(el.textContent) || 0;
@@ -458,6 +510,12 @@
                         el.textContent = newValue > 0 ? newValue : '0';
                         this.updateCellStyle(el.closest('td'), newValue, type);
                         this.animateChange(el.closest('td'));
+
+                        // Highlight the entire row(s) if value changed
+                        if (!rows) {
+                            rows = document.querySelectorAll(`tr:has([data-item-id="${el.dataset.itemId}"])`);
+                        }
+                        this.highlightRows(rows, type);
                     }
                 });
             }
@@ -477,6 +535,29 @@
                     flipElement.classList.add('animate-flip');
                     setTimeout(() => flipElement.classList.remove('animate-flip'), 600);
                 }
+            }
+
+            highlightRows(rows, updateType) {
+                rows.forEach(row => {
+                    // Remove any existing highlight classes
+                    row.classList.remove(
+                        'highlight-beep',
+                        'highlight-beep-direct',
+                        'highlight-beep-stock'
+                    );
+
+                    // Add appropriate highlight class based on update type
+                    const highlightClass = updateType === 'success' ?
+                        'highlight-beep-direct' :
+                        'highlight-beep-stock';
+
+                    row.classList.add(highlightClass);
+
+                    // Remove the class after animation completes
+                    setTimeout(() => {
+                        row.classList.remove(highlightClass);
+                    }, 2000);
+                });
             }
 
             reconnect() {
