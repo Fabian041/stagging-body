@@ -75,24 +75,24 @@
 
             0%,
             100% {
-                opacity: 1;
+                background-color: var(--highlight-color);
             }
 
             50% {
-                opacity: 0.3;
+                background-color: transparent;
             }
         }
 
         .highlight-beep-direct {
-            background-color: rgba(158, 255, 173, 1);
-            /* Pastel green penuh */
-            animation: continuousBlink 5s ease-in-out infinite;
+            --highlight-color: #12341E;
+            /* Pastel green */
+            animation: continuousBlink 1s infinite;
         }
 
         .highlight-beep-stock {
-            background-color: rgba(255, 255, 177, 1);
-            /* Pastel yellow penuh */
-            animation: continuousBlink 5s ease-in-out infinite;
+            --highlight-color: #4D3A0A;
+            /* Pastel yellow */
+            animation: continuousBlink 1s infinite;
         }
 
         /* Make sure table cells inherit the highlight */
