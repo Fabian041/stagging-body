@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use App\Models\ProductionPlan;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,21 +17,26 @@ class DirectPullingSSEController extends Controller
     {
         $this->clientId = $request->ip() . '-' . substr(md5(microtime()), 0, 6);
 
-        return new StreamedResponse(function () {
+        // Get the date parameter from the request or default to today
+        $selectedDate = $request->has('date') 
+            ? Carbon::parse($request->input('date'))->startOfDay()
+            : now()->startOfDay();
+
+        return new StreamedResponse(function () use ($selectedDate) {
             // Setup SSE headers
             header('Content-Type: text/event-stream');
             header('Cache-Control: no-cache');
             header('Connection: keep-alive');
             header('X-Accel-Buffering: no');
 
-            $today = now()->startOfDay();
-            $lastCheck = now()->subSeconds(3); // Start with 3-second buffer
+            $lastCheck = now()->subSeconds(3);
             $connectionStart = now();
             $lastHeartbeat = now();
 
             $this->sendEvent('connected', [
                 'message' => 'Connected to production plan updates',
                 'clientId' => $this->clientId,
+                'date' => $selectedDate->format('Y-m-d'),
                 'timestamp' => now()->toISOString()
             ]);
 
@@ -40,7 +45,7 @@ class DirectPullingSSEController extends Controller
             
             while (true) {
                 try {
-                    // Connection check every 10 iterations
+                    // Connection check
                     if ($loopCount++ % 10 === 0) {
                         if (now()->diffInMinutes($connectionStart) > 30 || connection_aborted()) {
                             if (connection_aborted()) {
@@ -51,10 +56,30 @@ class DirectPullingSSEController extends Controller
                         }
                     }
             
-                    // Get updates with buffer
-                    $updates = $this->getUpdatedRecords($today, $lastCheck->copy()->subSeconds(2));
+                    // Get updates for the selected date
+                    $updates = ProductionPlan::where('plan_date', $selectedDate->format('Y-m-d'))
+                        ->where(function($query) use ($lastCheck) {
+                            $query->where('updated_at', '>', $lastCheck)
+                                ->orWhere('created_at', '>', $lastCheck)
+                                ->orWhere(function($q) {
+                                    $q->where('direct_pulling_qty', '>', 0)
+                                        ->orWhere('stock_chute_qty', '>', 0);
+                                });
+                        })
+                        ->orderBy('updated_at', 'desc')
+                        ->get()
+                        ->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'direct_pulling_qty' => $item->direct_pulling_qty,
+                                'stock_chute_qty' => $item->stock_chute_qty,
+                                'back_no' => $item->back_no,
+                                'cycle' => $item->cycle,
+                                'line' => $item->line,
+                                'updated_at' => $item->updated_at->toISOString()
+                            ];
+                        });
             
-                    // Handle updates
                     if ($updates->isNotEmpty()) {
                         $payload = $updates->count() > 15 
                             ? ['batches' => $updates->chunk(5)]
@@ -62,15 +87,12 @@ class DirectPullingSSEController extends Controller
             
                         $this->sendEvent('directPullingUpdate', $payload + [
                             'timestamp' => now()->toISOString(),
-                            'clientId' => $this->clientId
+                            'clientId' => $this->clientId,
+                            'date' => $selectedDate->format('Y-m-d')
                         ]);
             
                         $lastCheck = now();
                         $emptyPolls = 0;
-                        Log::channel('sse')->debug("Sent updates to {$this->clientId}", [
-                            'count' => $updates->count(),
-                            'batched' => $updates->count() > 15
-                        ]);
                     } else {
                         $emptyPolls++;
                     }
@@ -81,14 +103,13 @@ class DirectPullingSSEController extends Controller
                         $lastHeartbeat = now();
                     }
             
-                    // Dynamic sleep with exponential backoff
+                    // Dynamic sleep
                     $sleepTime = $updates->isEmpty() 
-                        ? min(5000000, 100000 * pow(2, min($emptyPolls, 5))) // 0.1s to 5s
-                        : 500000; // 0.5s when updates found
+                        ? min(5000000, 100000 * pow(2, min($emptyPolls, 5)))
+                        : 500000;
                         
                     usleep($sleepTime);
             
-                    // Memory management
                     if ($loopCount % 100 === 0) {
                         gc_collect_cycles();
                     }
@@ -106,38 +127,9 @@ class DirectPullingSSEController extends Controller
         ]);
     }
 
-    protected function getUpdatedRecords($today, $lastCheck)
+    protected function handleStreamError(\Throwable $e): void
     {
-        return ProductionPlan::where('plan_date', $today->format('Y-m-d'))
-            ->where(function($query) use ($lastCheck) {
-                $query->where('updated_at', '>', $lastCheck)
-                    ->orWhere('created_at', '>', $lastCheck)
-                    ->orWhere(function($q) {
-                        $q->where('direct_pulling_qty', '>', 0)
-                        ->orWhere('stock_chute_qty', '>', 0);
-                    });
-            })
-            ->orderBy('updated_at', 'desc')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'direct_pulling_qty' => $item->direct_pulling_qty,
-                    'stock_chute_qty' => $item->stock_chute_qty,
-                    'back_no' => $item->back_no,
-                    'cycle' => $item->cycle,
-                    'line' => $item->line,
-                    'updated_at' => $item->updated_at->toISOString()
-                ];
-            });
-    }
-
-    protected function handleStreamError(\Exception $e): void
-    {
-        Log::channel('sse')->error("SSE Error [{$this->clientId}]: " . $e->getMessage(), [
-            'errorCount' => $this->errorCount
-        ]);
-
+        Log::channel('sse')->error("SSE Error [{$this->clientId}]: " . $e->getMessage());
         $this->sendEvent('error', [
             'message' => 'Temporary connection issue',
             'clientId' => $this->clientId,
@@ -145,7 +137,7 @@ class DirectPullingSSEController extends Controller
         ]);
     }
 
-    protected function sendEvent($event, $data)
+    protected function sendEvent(string $event, array $data): void
     {
         echo "event: {$event}\n";
         echo "data: " . json_encode($data) . "\n\n";
@@ -153,7 +145,7 @@ class DirectPullingSSEController extends Controller
         flush();
     }
 
-    protected function sendHeartbeat()
+    protected function sendHeartbeat(): void
     {
         echo ":heartbeat\n\n";
         ob_flush();

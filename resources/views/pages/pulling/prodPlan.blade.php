@@ -317,6 +317,7 @@
             constructor() {
                 this.eventSource = null;
                 this.statusElement = null;
+                this.currentDate = this.getCurrentDate();
                 this.init();
             }
 
@@ -324,45 +325,51 @@
                 this.createStatusIndicator();
                 this.addFlipStyles();
                 this.connect();
+                this.setupDateChangeListener();
                 this.setupErrorHandling();
+            }
+
+            getCurrentDate() {
+                const dateInput = document.querySelector('input[name="date"]');
+                return dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
             }
 
             createStatusIndicator() {
                 this.statusElement = document.createElement('div');
                 this.statusElement.id = 'sse-connection-status';
                 this.statusElement.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    left: 20px;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    font-weight: bold;
-                    z-index: 9999;
-                    transition: all 0.3s ease;
-                `;
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 9999;
+            transition: all 0.3s ease;
+        `;
                 document.body.appendChild(this.statusElement);
             }
 
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
-                    .flip {
-                        display: inline-block;
-                        transition: all 0.3s ease;
-                        transform-style: preserve-3d;
-                        transform-origin: bottom center;
-                    }
-                    .animate-flip {
-                        animation: flipAnimation 0.6s ease;
-                    }
-                    @keyframes flipAnimation {
-                        0% { transform: rotateX(0deg); opacity: 1; }
-                        50% { transform: rotateX(90deg); opacity: 0; }
-                        51% { transform: rotateX(-90deg); }
-                        100% { transform: rotateX(0deg); opacity: 1; }
-                    }
-                `;
+            .flip {
+                display: inline-block;
+                transition: all 0.3s ease;
+                transform-style: preserve-3d;
+                transform-origin: bottom center;
+            }
+            .animate-flip {
+                animation: flipAnimation 0.6s ease;
+            }
+            @keyframes flipAnimation {
+                0% { transform: rotateX(0deg); opacity: 1; }
+                50% { transform: rotateX(90deg); opacity: 0; }
+                51% { transform: rotateX(-90deg); }
+                100% { transform: rotateX(0deg); opacity: 1; }
+            }
+        `;
                 document.head.appendChild(style);
             }
 
@@ -371,7 +378,7 @@
                     this.eventSource.close();
                 }
 
-                this.eventSource = new EventSource('/stream/direct-pulling-updates');
+                this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
                 this.updateConnectionStatus('connecting');
 
                 this.eventSource.onopen = () => {
@@ -380,16 +387,27 @@
 
                 this.eventSource.addEventListener('directPullingUpdate', (e) => {
                     const data = JSON.parse(e.data);
-                    console.log('Received update:', data); // Debug log
-                    this.handleUpdates(data.updates || []);
-                    this.updateConnectionStatus('connected');
+                    if (data.date === this.currentDate) {
+                        this.handleUpdates(data.updates || []);
+                        this.updateConnectionStatus('connected');
+                    }
                 });
 
-                this.eventSource.addEventListener('error', (e) => {
+                this.eventSource.onerror = (e) => {
                     console.error('SSE Error:', e);
                     this.updateConnectionStatus('disconnected');
                     this.reconnect();
-                });
+                };
+            }
+
+            setupDateChangeListener() {
+                const dateInput = document.querySelector('input[name="date"]');
+                if (dateInput) {
+                    dateInput.addEventListener('change', () => {
+                        this.currentDate = this.getCurrentDate();
+                        this.reconnect();
+                    });
+                }
             }
 
             updateConnectionStatus(status, message = '') {
@@ -419,14 +437,11 @@
 
             handleUpdates(updates) {
                 updates.forEach(item => {
-                    // Update direct pulling quantities in both tabs
                     this.updateQuantity(
                         `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
                         item.direct_pulling_qty,
                         'success'
                     );
-
-                    // Update stock chute quantities in both tabs
                     this.updateQuantity(
                         `[data-item-id="${item.id}"][data-type="stock-chute"]`,
                         item.stock_chute_qty,
@@ -437,7 +452,6 @@
 
             updateQuantity(selector, newValue, type) {
                 const elements = document.querySelectorAll(selector);
-
                 elements.forEach(el => {
                     const currentValue = parseInt(el.textContent) || 0;
                     if (currentValue !== newValue) {
@@ -459,12 +473,10 @@
 
             animateChange(element) {
                 const flipElement = element.querySelector('.flip');
-                if (!flipElement) return;
-
-                flipElement.classList.add('animate-flip');
-                setTimeout(() => {
-                    flipElement.classList.remove('animate-flip');
-                }, 600);
+                if (flipElement) {
+                    flipElement.classList.add('animate-flip');
+                    setTimeout(() => flipElement.classList.remove('animate-flip'), 600);
+                }
             }
 
             reconnect() {
@@ -484,18 +496,16 @@
             }
         }
 
+        // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
         });
 
+        // Date navigation function
         function navigateDate(days) {
-            const currentDate = new Date('{{ $selectedDate ?? now()->format('Y-m-d') }}');
+            const currentDate = new Date(document.querySelector('input[name="date"]').value);
             currentDate.setDate(currentDate.getDate() + days);
-
-            // Format as YYYY-MM-DD
             const newDate = currentDate.toISOString().split('T')[0];
-
-            // Update the date input and submit the form
             document.querySelector('input[name="date"]').value = newDate;
             document.querySelector('form').submit();
         }
