@@ -94,8 +94,7 @@
                                 <i class="bi bi-calendar3"></i>
                             </span>
                             <input type="date" class="form-control border-dark bg-light" name="date"
-                                value="{{ $selectedDate ?? now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}"
-                                style="font-weight: bold;">
+                                value="{{ $selectedDate ?? now()->format('Y-m-d') }}" style="font-weight: bold;">
                         </div>
                     </div>
                     <div class="col-md-4">
