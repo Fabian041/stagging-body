@@ -108,10 +108,10 @@
                                 </a>
                             @endif
                             <button type="button" class="btn btn-outline-dark" onclick="navigateDate(-1)">
-                                <i class="fa fa-chevron-left"></i>
+                                <i class="fas fa-arrow-left"></i>
                             </button>
                             <button type="button" class="btn btn-outline-dark" onclick="navigateDate(1)">
-                                <i class="fa fa-chevron-right"></i>
+                                <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
                     </div>
