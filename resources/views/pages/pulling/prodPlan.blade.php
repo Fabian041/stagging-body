@@ -85,15 +85,17 @@
         }
 
         .highlight-beep-direct {
-            --highlight-color: rgba(200, 255, 200, 0.3);
-            /* Pastel green */
-            animation: continuousBlink 1s ease-in-out infinite;
+            --highlight-color: #a0ffa0;
+            /* Light green */
+            animation: slowBlink 3s ease-in-out infinite;
+            /* Slower blink (2 seconds) */
         }
 
         .highlight-beep-stock {
-            --highlight-color: rgba(255, 255, 200, 0.3);
-            /* Pastel yellow */
-            animation: continuousBlink 1s ease-in-out infinite;
+            --highlight-color: #ffffa0;
+            /* Light yellow */
+            animation: slowBlink 3s ease-in-out infinite;
+            /* Slower blink (2 seconds) */
         }
 
         /* Make sure table cells inherit the highlight */
