@@ -70,41 +70,123 @@
             }
         }
 
-        /* Simplified highlight styles with lighter opacity */
-        .highlight-beep {
-            animation: beepHighlight 2s ease-out;
-        }
+        /* Continuous blinking highlight styles */
+        @keyframes continuousBlink {
 
-        .highlight-beep-direct {
-            --highlight-color: rgba(200, 255, 200, 0.2);
-            /* Lighter pastel green */
-            animation: beepHighlight 2s ease-out forwards;
-        }
-
-        .highlight-beep-stock {
-            --highlight-color: rgba(255, 255, 200, 0.2);
-            /* Lighter pastel yellow */
-            animation: beepHighlight 2s ease-out forwards;
-        }
-
-        @keyframes beepHighlight {
-            0% {
-                background-color: transparent;
-            }
-
-            20% {
-                background-color: var(--highlight-color);
-            }
-
+            0%,
             100% {
                 background-color: var(--highlight-color);
             }
+
+            50% {
+                background-color: transparent;
+            }
+        }
+
+        .highlight-beep-direct {
+            --highlight-color: rgba(200, 255, 200, 0.3);
+            /* Pastel green */
+            animation: continuousBlink 1s ease-in-out infinite;
+        }
+
+        .highlight-beep-stock {
+            --highlight-color: rgba(255, 255, 200, 0.3);
+            /* Pastel yellow */
+            animation: continuousBlink 1s ease-in-out infinite;
         }
 
         /* Make sure table cells inherit the highlight */
         .highlight-beep-direct td,
         .highlight-beep-stock td {
             background-color: inherit !important;
+        }
+
+        /* Status indicator styles */
+        #sse-connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 9999;
+            transition: all 0.3s ease;
+        }
+
+        /* Table cell styles for quantities */
+        .bg-success.bg-opacity-75 {
+            background-color: rgba(40, 167, 69, 0.75) !important;
+        }
+
+        .bg-success.bg-opacity-25 {
+            background-color: rgba(40, 167, 69, 0.25) !important;
+        }
+
+        .bg-warning.bg-opacity-75 {
+            background-color: rgba(255, 193, 7, 0.75) !important;
+        }
+
+        .bg-warning.bg-opacity-25 {
+            background-color: rgba(255, 193, 7, 0.25) !important;
+        }
+
+        /* Tab styles */
+        .nav-tabs .nav-link {
+            color: #ccc;
+            background-color: #333;
+            border-color: #444;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #fff;
+            background-color: #222;
+            border-color: #444;
+        }
+
+        /* Card styles */
+        .card {
+            background-color: #222;
+            border-color: #333;
+        }
+
+        .card-header {
+            border-bottom-color: #333;
+        }
+
+        /* Form control styles */
+        .form-control {
+            background-color: #333;
+            border-color: #444;
+            color: #fff;
+        }
+
+        .input-group-text {
+            background-color: #444;
+            border-color: #555;
+            color: #fff;
+        }
+
+        /* Button styles */
+        .btn-dark {
+            background-color: #333;
+            border-color: #444;
+            color: #fff;
+        }
+
+        .btn-outline-dark {
+            border-color: #444;
+            color: #ccc;
+        }
+
+        .btn-outline-dark:hover {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .btn-outline-warning {
+            color: #ffc107;
+            border-color: #ffc107;
         }
     </style>
 </head>
@@ -530,33 +612,59 @@
             }
 
             highlightRows(rows, updateType) {
-                rows.forEach(row => {
-                    // Clear any existing highlights and timeouts
-                    if (row.highlightTimeout) {
-                        clearTimeout(row.highlightTimeout);
-                    }
+                // First clear any existing highlights
+                this.clearAllHighlights();
 
+                // Store the current timestamp
+                const highlightStartTime = Date.now();
+
+                rows.forEach(row => {
+                    // Remove all highlight classes first
                     row.classList.remove(
                         'highlight-beep-direct',
-                        'highlight-beep-stock',
-                        'highlight-beep'
+                        'highlight-beep-stock'
                     );
+
+                    // Force reflow to reset animation
+                    void row.offsetWidth;
 
                     // Add appropriate highlight class
                     const highlightClass = updateType === 'success' ?
                         'highlight-beep-direct' :
                         updateType === 'warning' ?
                         'highlight-beep-stock' :
-                        'highlight-beep-direct'; // Default to direct for mixed
+                        'highlight-beep-direct';
 
                     row.classList.add(highlightClass);
 
-                    // Set timeout to remove highlight after 1 minute (60000ms)
-                    row.highlightTimeout = setTimeout(() => {
+                    // Set timeout to remove highlight after 1 minute
+                    const timeoutId = setTimeout(() => {
                         row.classList.remove(highlightClass);
-                        delete row.highlightTimeout;
-                    }, 60000);
+                        this.highlightTimeouts.delete(timeoutId);
+                    }, 60000); // 60 seconds = 1 minute
+
+                    this.highlightTimeouts.add(timeoutId);
                 });
+
+                // Store the highlight end time
+                this.lastHighlightTime = highlightStartTime;
+            }
+
+            clearAllHighlights() {
+                // Clear all existing highlight timeouts
+                this.highlightTimeouts.forEach(timeoutId => {
+                    clearTimeout(timeoutId);
+                });
+                this.highlightTimeouts.clear();
+
+                // Remove all highlight classes
+                document.querySelectorAll('.highlight-beep-direct, .highlight-beep-stock').forEach(el => {
+                    el.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
+                });
+            }
+
+            isWithinHighlightPeriod() {
+                return (Date.now() - this.lastHighlightTime) < 60000;
             }
 
             reconnect() {
