@@ -71,6 +71,7 @@
         }
 
         /* Continuous blinking highlight styles */
+        /* Continuous blinking highlight styles */
         @keyframes continuousBlink {
 
             0%,
@@ -152,41 +153,6 @@
 
         .card-header {
             border-bottom-color: #333;
-        }
-
-        /* Form control styles */
-        .form-control {
-            background-color: #333;
-            border-color: #444;
-            color: #fff;
-        }
-
-        .input-group-text {
-            background-color: #444;
-            border-color: #555;
-            color: #fff;
-        }
-
-        /* Button styles */
-        .btn-dark {
-            background-color: #333;
-            border-color: #444;
-            color: #fff;
-        }
-
-        .btn-outline-dark {
-            border-color: #444;
-            color: #ccc;
-        }
-
-        .btn-outline-dark:hover {
-            background-color: #333;
-            color: #fff;
-        }
-
-        .btn-outline-warning {
-            color: #ffc107;
-            border-color: #ffc107;
         }
     </style>
 </head>
@@ -437,8 +403,11 @@
                 this.eventSource = null;
                 this.statusElement = null;
                 this.currentDate = this.getCurrentDate();
+                this.highlightTimeouts = new Set(); // Add this line
+                this.lastHighlightTime = 0; // Add this line
                 this.init();
             }
+
 
             init() {
                 this.createStatusIndicator();
