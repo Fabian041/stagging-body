@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>Pulling Day Shift - 05-Jul-25</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
+    <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
     <style>
         body {
             background-color: #111;
