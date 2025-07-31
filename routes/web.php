@@ -13,9 +13,10 @@ use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
-use App\Http\Controllers\ValidationController;
+use App\Http\Controllers\DirectPullingSSEController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,10 @@ Route::middleware(['guest'])->group(function () {
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
 });
+
+// stream SSE
+Route::get('/stream/direct-pulling-updates', [DirectPullingSSEController::class, 'streamDirectPullingUpdates'])
+    ->name('sse.direct-pulling-updates');
 
 Route::post('/refresh-token', function () {
     if (Auth::check()) {

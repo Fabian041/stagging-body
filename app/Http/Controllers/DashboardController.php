@@ -147,12 +147,18 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function prodPlan()
+    public function prodPlan(Request $request)
     {
         set_time_limit(90);
-        $today = now()->startOfDay();
-        $start = $today->copy()->addHours(12); // 12:00 today
-        $end = $start->copy()->addDay();      // 12:00 tomorrow
+        
+        // Get the date from request or use today
+        $selectedDate = $request->input('date') 
+            ? Carbon::parse($request->input('date'))->startOfDay() 
+            : now()->startOfDay();
+        
+        $today = $selectedDate->copy();
+        $start = $today->copy()->addHours(12); // 12:00 selected date
+        $end = $start->copy()->addDay();      // 12:00 next day
 
         $backNosByLine = [
             'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
@@ -215,7 +221,8 @@ class DashboardController extends Controller
                 return view('pages.pulling.prodPlan', [
                     'grouped' => [],
                     'lastUpdate' => now(),
-                    'error' => 'No production data available'
+                    'error' => 'No production data available',
+                    'selectedDate' => $selectedDate->format('Y-m-d')
                 ]);
             }
         }
@@ -224,7 +231,8 @@ class DashboardController extends Controller
 
         return view('pages.pulling.prodPlan', [
             'grouped' => $grouped,
-            'lastUpdate' => $lastUpdate ?? now()
+            'lastUpdate' => $lastUpdate ?? now(),
+            'selectedDate' => $selectedDate->format('Y-m-d')
         ]);
     }
 
