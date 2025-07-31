@@ -86,13 +86,13 @@
         .highlight-beep-direct {
             --highlight-color: rgba(158, 255, 173, 0.432);
             /* Pastel green */
-            animation: continuousBlink 5s ease-in-out infinite;
+            animation: continuousBlink 5s infinite;
         }
 
         .highlight-beep-stock {
             --highlight-color: rgba(255, 255, 177, 0.3);
             /* Pastel yellow */
-            animation: continuousBlink 5s ease-in-out infinite;
+            animation: continuousBlink 5s infinite;
         }
 
         /* Make sure table cells inherit the highlight */
