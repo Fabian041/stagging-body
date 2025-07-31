@@ -71,7 +71,6 @@
         }
 
         /* Continuous blinking highlight styles */
-        /* Continuous blinking highlight styles */
         @keyframes continuousBlink {
 
             0%,
@@ -85,17 +84,15 @@
         }
 
         .highlight-beep-direct {
-            --highlight-color: #a0ffa0;
-            /* Light green */
-            animation: continuousBlink 3s ease-in-out infinite;
-            /* Slower blink (2 seconds) */
+            --highlight-color: rgba(158, 255, 173, 0.432);
+            /* Pastel green */
+            animation: continuousBlink 2s ease-in-out infinite;
         }
 
         .highlight-beep-stock {
-            --highlight-color: #ffffa0;
-            /* Light yellow */
-            animation: continuousBlink 3s ease-in-out infinite;
-            /* Slower blink (2 seconds) */
+            --highlight-color: rgba(255, 255, 177, 0.3);
+            /* Pastel yellow */
+            animation: continuousBlink 2s ease-in-out infinite;
         }
 
         /* Make sure table cells inherit the highlight */
