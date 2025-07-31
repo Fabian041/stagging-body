@@ -31,8 +31,12 @@ class ProductionPlanApiController extends Controller
 
         // Find matching records from today
         $today = now()->format('Y-m-d');
-        $plans = ProductionPlan::where('plan_date', $today)
-            ->where('dn_number', $request->dn_number)
+        // $plans = ProductionPlan::where('plan_date', $today)
+        //     ->where('dn_number', $request->dn_number)
+        //     ->where('back_no', $request->back_no)
+        //     ->get();
+            
+        $plans = ProductionPlan::where('dn_number', $request->dn_number)
             ->where('back_no', $request->back_no)
             ->get();
 
