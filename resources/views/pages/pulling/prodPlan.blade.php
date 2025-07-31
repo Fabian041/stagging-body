@@ -79,21 +79,26 @@
             }
 
             50% {
-                background-color: transparent;
+                background-color: var(--base-bg);
+                /* bukan transparent */
             }
         }
 
         .highlight-beep-direct {
             --highlight-color: #12341E;
-            /* Pastel green */
-            animation: continuousBlink 1s infinite;
+            /* hijau tua */
+            --base-bg: #1E2024;
+            /* abu gelap dari background kamu */
+            animation: continuousBlink 1s ease-in-out infinite;
         }
 
         .highlight-beep-stock {
             --highlight-color: #4D3A0A;
-            /* Pastel yellow */
-            animation: continuousBlink 1s infinite;
+            /* coklat tua */
+            --base-bg: #1E2024;
+            animation: continuousBlink 1s ease-in-out infinite;
         }
+
 
         /* Make sure table cells inherit the highlight */
         .highlight-beep-direct td,
