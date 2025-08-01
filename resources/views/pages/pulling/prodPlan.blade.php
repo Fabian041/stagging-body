@@ -255,7 +255,7 @@
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead>
+                        <thead style="position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th>Customer</th>
                                 <th>Dock</th>
@@ -339,7 +339,7 @@
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead>
+                        <thead style="position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th>Customer</th>
                                 <th>Dock</th>
