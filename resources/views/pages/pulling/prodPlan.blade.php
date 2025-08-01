@@ -193,7 +193,8 @@
                             </button>
                             @if (request()->has('date'))
                                 <button type="submit" class="btn btn-outline-dark">
-                                    <a href="{{ route('dashboard.prodPlan') }}">
+                                    <a href="{{ route('dashboard.prodPlan') }}"
+                                        style="color: black; text-decoration:none">
                                         <i class="bi bi-arrow-counterclockwise me-1"></i> RESET
                                     </a>
                                 </button>
