@@ -89,14 +89,14 @@
             /* hijau tua */
             --base-bg: #1E2024;
             /* abu gelap dari background kamu */
-            animation: continuousBlink 1s ease-in-out;
+            animation: continuousBlink 1s ease-in-out infinite;
         }
 
         .highlight-beep-stock {
             --highlight-color: #4D3A0A;
             /* coklat tua */
             --base-bg: #1E2024;
-            animation: continuousBlink 1s ease-in-out;
+            animation: continuousBlink 1s ease-in-out infinite;
         }
 
 

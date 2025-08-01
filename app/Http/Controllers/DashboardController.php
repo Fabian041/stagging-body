@@ -188,19 +188,11 @@ class DashboardController extends Controller
                 DB::beginTransaction();
                 ProductionPlan::where('plan_date', $today->format('Y-m-d'))->delete();
 
-                // Try optimized fetch methods in sequence - pass $selectedDate
+                // Only use fetchWithLaravelDB method
                 $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
                 
                 if ($rawData->isEmpty()) {
-                    $rawData = $this->fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
-                }
-
-                if ($rawData->isEmpty()) {
-                    $rawData = $this->fetchWithFallbackMethod($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
-                }
-
-                if ($rawData->isEmpty()) {
-                    throw new \Exception("All data fetch methods returned empty results");
+                    throw new \Exception("No production data available");
                 }
 
                 $processedData = $this->processRawData($rawData, $start, $end);
