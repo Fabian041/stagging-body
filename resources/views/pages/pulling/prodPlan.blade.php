@@ -545,31 +545,52 @@
             }
 
             handleUpdates(updates) {
+                console.log('Processing updates:', updates); // Debug log
+
                 // Track all rows that need highlighting
                 const rowsToHighlight = new Set();
 
                 updates.forEach(item => {
-                    // Find all rows containing this item
-                    const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
+                    console.log(`Processing item ID: ${item.id}`); // Debug log
 
-                    // Update quantities
-                    this.updateQuantity(
-                        `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
-                        item.direct_pulling_qty,
-                        'success'
+                    // Find all matching elements
+                    const directPullingElements = document.querySelectorAll(
+                        `[data-item-id="${item.id}"][data-type="direct-pulling"]`
                     );
-                    this.updateQuantity(
-                        `[data-item-id="${item.id}"][data-type="stock-chute"]`,
-                        item.stock_chute_qty,
-                        'warning'
+                    const stockChuteElements = document.querySelectorAll(
+                        `[data-item-id="${item.id}"][data-type="stock-chute"]`
                     );
 
-                    // Add rows to highlight set
-                    rows.forEach(row => rowsToHighlight.add(row));
+                    console.log(`Found ${directPullingElements.length} direct-pulling elements`);
+                    console.log(`Found ${stockChuteElements.length} stock-chute elements`);
+
+                    // Update quantities if elements found
+                    if (directPullingElements.length > 0 || stockChuteElements.length > 0) {
+                        this.updateQuantity(
+                            `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
+                            item.direct_pulling_qty,
+                            'success'
+                        );
+                        this.updateQuantity(
+                            `[data-item-id="${item.id}"][data-type="stock-chute"]`,
+                            item.stock_chute_qty,
+                            'warning'
+                        );
+
+                        // Find all rows containing this item
+                        const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
+                        rows.forEach(row => rowsToHighlight.add(row));
+                    } else {
+                        console.warn(`No elements found for item ID: ${item.id}`);
+                    }
                 });
 
                 // Apply highlight to all affected rows
-                this.highlightRows(Array.from(rowsToHighlight), 'mixed');
+                if (rowsToHighlight.size > 0) {
+                    this.highlightRows(Array.from(rowsToHighlight), 'mixed');
+                } else {
+                    console.log('No rows to highlight');
+                }
             }
 
             updateQuantity(selector, newValue, type) {
