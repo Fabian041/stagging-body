@@ -60,11 +60,7 @@ class DirectPullingSSEController extends Controller
                     $updates = ProductionPlan::where('plan_date', $selectedDate->format('Y-m-d'))
                         ->where(function($query) use ($lastCheck) {
                             $query->where('updated_at', '>', $lastCheck)
-                                ->orWhere('created_at', '>', $lastCheck)
-                                ->orWhere(function($q) {
-                                    $q->where('direct_pulling_qty', '>', 0)
-                                        ->orWhere('stock_chute_qty', '>', 0);
-                                });
+                                ->orWhere('created_at', '>', $lastCheck);
                         })
                         ->orderBy('updated_at', 'desc')
                         ->get()
