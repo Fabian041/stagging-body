@@ -503,14 +503,14 @@
                 }
             }
 
-            setupTabChangeListener() {
-                const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
-                tabButtons.forEach(button => {
-                    button.addEventListener('shown.bs.tab', () => {
-                        this.clearAllHighlights();
-                    });
-                });
-            }
+            // setupTabChangeListener() {
+            //     const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
+            //     tabButtons.forEach(button => {
+            //         button.addEventListener('shown.bs.tab', () => {
+            //             this.clearAllHighlights();
+            //         });
+            //     });
+            // }
 
             updateConnectionStatus(status, message = '') {
                 const statusConfig = {
