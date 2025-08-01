@@ -588,9 +588,6 @@
                 // First clear any existing highlights
                 this.clearAllHighlights();
 
-                // Store the current timestamp
-                const highlightStartTime = Date.now();
-
                 rows.forEach(row => {
                     // Remove all highlight classes first
                     row.classList.remove(
@@ -610,17 +607,14 @@
 
                     row.classList.add(highlightClass);
 
-                    // Set timeout to remove highlight after 1 minute
+                    // Set timeout to remove highlight after 5 seconds instead of 60
                     const timeoutId = setTimeout(() => {
                         row.classList.remove(highlightClass);
                         this.highlightTimeouts.delete(timeoutId);
-                    }, 60000); // 60 seconds = 1 minute
+                    }, 5000); // 5 seconds instead of 60
 
                     this.highlightTimeouts.add(timeoutId);
                 });
-
-                // Store the highlight end time
-                this.lastHighlightTime = highlightStartTime;
             }
 
             clearAllHighlights() {
