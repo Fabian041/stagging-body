@@ -89,14 +89,14 @@
             /* hijau tua */
             --base-bg: #1E2024;
             /* abu gelap dari background kamu */
-            animation: continuousBlink 1s ease-in-out infinite;
+            animation: continuousBlink 1s ease-in-out;
         }
 
         .highlight-beep-stock {
             --highlight-color: #4D3A0A;
             /* coklat tua */
             --base-bg: #1E2024;
-            animation: continuousBlink 1s ease-in-out infinite;
+            animation: continuousBlink 1s ease-in-out;
         }
 
 
@@ -407,17 +407,17 @@
                 this.eventSource = null;
                 this.statusElement = null;
                 this.currentDate = this.getCurrentDate();
-                this.highlightTimeouts = new Set(); // Add this line
-                this.lastHighlightTime = 0; // Add this line
+                this.highlightTimeouts = new Set();
+                this.lastHighlightTime = 0;
                 this.init();
             }
-
 
             init() {
                 this.createStatusIndicator();
                 this.addFlipStyles();
                 this.connect();
                 this.setupDateChangeListener();
+                this.setupTabChangeListener();
                 this.setupErrorHandling();
             }
 
@@ -430,38 +430,38 @@
                 this.statusElement = document.createElement('div');
                 this.statusElement.id = 'sse-connection-status';
                 this.statusElement.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            z-index: 9999;
-            transition: all 0.3s ease;
-        `;
+                    position: fixed;
+                    bottom: 20px;
+                    left: 20px;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    z-index: 9999;
+                    transition: all 0.3s ease;
+                `;
                 document.body.appendChild(this.statusElement);
             }
 
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
-            .flip {
-                display: inline-block;
-                transition: all 0.3s ease;
-                transform-style: preserve-3d;
-                transform-origin: bottom center;
-            }
-            .animate-flip {
-                animation: flipAnimation 0.6s ease;
-            }
-            @keyframes flipAnimation {
-                0% { transform: rotateX(0deg); opacity: 1; }
-                50% { transform: rotateX(90deg); opacity: 0; }
-                51% { transform: rotateX(-90deg); }
-                100% { transform: rotateX(0deg); opacity: 1; }
-            }
-        `;
+                    .flip {
+                        display: inline-block;
+                        transition: all 0.3s ease;
+                        transform-style: preserve-3d;
+                        transform-origin: bottom center;
+                    }
+                    .animate-flip {
+                        animation: flipAnimation 0.6s ease;
+                    }
+                    @keyframes flipAnimation {
+                        0% { transform: rotateX(0deg); opacity: 1; }
+                        50% { transform: rotateX(90deg); opacity: 0; }
+                        51% { transform: rotateX(-90deg); }
+                        100% { transform: rotateX(0deg); opacity: 1; }
+                    }
+                `;
                 document.head.appendChild(style);
             }
 
@@ -496,10 +496,20 @@
                 const dateInput = document.querySelector('input[name="date"]');
                 if (dateInput) {
                     dateInput.addEventListener('change', () => {
+                        this.clearAllHighlights();
                         this.currentDate = this.getCurrentDate();
                         this.reconnect();
                     });
                 }
+            }
+
+            setupTabChangeListener() {
+                const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
+                tabButtons.forEach(button => {
+                    button.addEventListener('shown.bs.tab', () => {
+                        this.clearAllHighlights();
+                    });
+                });
             }
 
             updateConnectionStatus(status, message = '') {
@@ -528,14 +538,11 @@
             }
 
             handleUpdates(updates) {
-                // Track all rows that need highlighting
                 const rowsToHighlight = new Set();
 
                 updates.forEach(item => {
-                    // Find all rows containing this item
                     const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
 
-                    // Update quantities
                     this.updateQuantity(
                         `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
                         item.direct_pulling_qty,
@@ -547,11 +554,9 @@
                         'warning'
                     );
 
-                    // Add rows to highlight set
                     rows.forEach(row => rowsToHighlight.add(row));
                 });
 
-                // Apply highlight to all affected rows
                 this.highlightRows(Array.from(rowsToHighlight), 'mixed');
             }
 
@@ -585,20 +590,13 @@
             }
 
             highlightRows(rows, updateType) {
-                // First clear any existing highlights
                 this.clearAllHighlights();
+                this.lastHighlightTime = Date.now();
 
                 rows.forEach(row => {
-                    // Remove all highlight classes first
-                    row.classList.remove(
-                        'highlight-beep-direct',
-                        'highlight-beep-stock'
-                    );
+                    row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
+                    void row.offsetWidth; // Force reflow
 
-                    // Force reflow to reset animation
-                    void row.offsetWidth;
-
-                    // Add appropriate highlight class
                     const highlightClass = updateType === 'success' ?
                         'highlight-beep-direct' :
                         updateType === 'warning' ?
@@ -607,31 +605,24 @@
 
                     row.classList.add(highlightClass);
 
-                    // Set timeout to remove highlight after 5 seconds instead of 60
                     const timeoutId = setTimeout(() => {
                         row.classList.remove(highlightClass);
                         this.highlightTimeouts.delete(timeoutId);
-                    }, 5000); // 5 seconds instead of 60
+                    }, 5000); // 5 seconds
 
                     this.highlightTimeouts.add(timeoutId);
                 });
             }
 
             clearAllHighlights() {
-                // Clear all existing highlight timeouts
                 this.highlightTimeouts.forEach(timeoutId => {
                     clearTimeout(timeoutId);
                 });
                 this.highlightTimeouts.clear();
 
-                // Remove all highlight classes
                 document.querySelectorAll('.highlight-beep-direct, .highlight-beep-stock').forEach(el => {
                     el.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 });
-            }
-
-            isWithinHighlightPeriod() {
-                return (Date.now() - this.lastHighlightTime) < 60000;
             }
 
             reconnect() {
@@ -651,12 +642,10 @@
             }
         }
 
-        // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
         });
 
-        // Date navigation function
         function navigateDate(days) {
             const currentDate = new Date(document.querySelector('input[name="date"]').value);
             currentDate.setDate(currentDate.getDate() + days);
