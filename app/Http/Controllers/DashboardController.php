@@ -179,16 +179,18 @@ class DashboardController extends Controller
 
         $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
 
+        // Check if we should force refresh (triggered by the button)
+        $forceRefresh = $request->has('force_refresh');
+
         // Check if we have fresh data in database (last 30 minutes)
         $lastUpdate = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
             ->max('updated_at');
             
-        if (!$lastUpdate || ($lastUpdate instanceof \Carbon\Carbon && $lastUpdate->diffInMinutes(now()) > 30)) {
+        if ($forceRefresh || !$lastUpdate || ($lastUpdate instanceof \Carbon\Carbon && $lastUpdate->diffInMinutes(now()) > 30)) {
             try {
                 DB::beginTransaction();
-                ProductionPlan::where('plan_date', $today->format('Y-m-d'))->delete();
-
-                // Only use fetchWithLaravelDB method
+                
+                // Fetch new data
                 $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
                 
                 if ($rawData->isEmpty()) {
@@ -196,26 +198,29 @@ class DashboardController extends Controller
                 }
 
                 $processedData = $this->processRawData($rawData, $start, $end);
-                $this->storeProductionData($processedData, $backNosByLine, $today);
+                
+                // Update or create records instead of replacing
+                $this->updateProductionData($processedData, $backNosByLine, $today);
+                
                 DB::commit();
+                
+                $message = 'Production data updated successfully!';
+                $messageType = 'success';
             } catch (\Exception $e) {
                 DB::rollBack();
                 \Log::error('Production data processing failed: ' . $e->getMessage());
+                
+                $message = 'Failed to update data: ' . $e->getMessage();
+                $messageType = 'error';
                 
                 $lastData = ProductionPlan::where('plan_date', $today->copy()->subDay()->format('Y-m-d'))
                     ->orderBy('updated_at', 'desc')
                     ->first();
                     
                 if ($lastData) {
-                    return back()->with('warning', 'Using cached data from previous day');
+                    $message = 'Using cached data from previous day';
+                    $messageType = 'warning';
                 }
-                
-                return view('pages.pulling.prodPlan', [
-                    'grouped' => [],
-                    'lastUpdate' => now(),
-                    'error' => 'No production data available',
-                    'selectedDate' => $selectedDate->format('Y-m-d')
-                ]);
             }
         }
 
@@ -224,8 +229,112 @@ class DashboardController extends Controller
         return view('pages.pulling.prodPlan', [
             'grouped' => $grouped,
             'lastUpdate' => $lastUpdate ?? now(),
-            'selectedDate' => $selectedDate->format('Y-m-d')
+            'selectedDate' => $selectedDate->format('Y-m-d'),
+            'message' => $message ?? null,
+            'messageType' => $messageType ?? null
         ]);
+    }
+
+    protected function updateProductionData($processedData, $backNosByLine, $today)
+    {
+        foreach ($backNosByLine as $line => $backNos) {
+            $startWorkingTime = $today->copy()->setTime(6, 0, 0);
+
+            $lineData = $processedData
+                ->filter(function ($item) use ($backNos) {
+                    return in_array($item->back_no, $backNos);
+                })
+                ->sortBy('time_sort')
+                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
+
+            foreach ($lineData as $groupKey => $group) {
+                $group = $group->sortBy('back_no')->values();
+                
+                [$customer, $deliveryTime] = explode('|', $groupKey);
+                
+                // Calculate working times for the group
+                $currentWorkingTime = $startWorkingTime->copy();
+                foreach ($group as $item) {
+                    [$mm, $ss] = explode(':', $item->prod_time);
+                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                    
+                    $workingStart = $currentWorkingTime->format('H:i');
+                    $workingEnd = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
+                    $workingDuration = gmdate('H:i:s', $totalSeconds);
+                    
+                    $currentWorkingTime->addSeconds($totalSeconds);
+                }
+                
+                // Calculate balance time for the group
+                $lastEnd = Carbon::createFromFormat('H:i', $workingEnd);
+                $delivery = Carbon::parse($deliveryTime);
+                
+                if ($delivery->lt($lastEnd)) {
+                    $delivery->addDay();
+                }
+                
+                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true);
+                $isNegative = $balanceSeconds < 0;
+                $formattedBalance = gmdate('H:i', abs($balanceSeconds));
+                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
+                
+                // Update or create each record
+                $currentWorkingTime = $startWorkingTime->copy();
+                foreach ($group as $item) {
+                    [$mm, $ss] = explode(':', $item->prod_time);
+                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                    
+                    // Get existing record to preserve quantities
+                    $existingRecord = ProductionPlan::where([
+                        'plan_date' => $today->format('Y-m-d'),
+                        'line' => $line,
+                        'customer' => $customer,
+                        'back_no' => $item->back_no,
+                        'dn_number' => $item->dn_number
+                    ])->first();
+                    
+                    $updateData = [
+                        'dock' => $item->dock,
+                        'cycle' => $item->cycle,
+                        'order_qty' => $item->order_qty,
+                        'prod_time' => $item->prod_time,
+                        'working_start' => $currentWorkingTime->format('H:i'),
+                        'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
+                        'working_duration' => gmdate('H:i:s', $totalSeconds),
+                        'delivery_time' => $deliveryTime,
+                        'balance_time' => $balanceTime,
+                        'updated_at' => now()
+                    ];
+                    
+                    // Preserve existing quantities if they exist
+                    if ($existingRecord) {
+                        $updateData['direct_pulling_qty'] = $existingRecord->direct_pulling_qty;
+                        $updateData['stock_chute_qty'] = $existingRecord->stock_chute_qty;
+                    } else {
+                        $updateData['direct_pulling_qty'] = 0;
+                        $updateData['stock_chute_qty'] = 0;
+                        $updateData['created_at'] = now();
+                    }
+                    
+                    ProductionPlan::updateOrCreate(
+                        [
+                            'plan_date' => $today->format('Y-m-d'),
+                            'line' => $line,
+                            'customer' => $customer,
+                            'back_no' => $item->back_no,
+                            'dn_number' => $item->dn_number
+                        ],
+                        $updateData
+                    );
+                    
+                    $currentWorkingTime->addSeconds($totalSeconds);
+                }
+                
+                $startWorkingTime = $currentWorkingTime;
+            }
+        }
     }
 
     protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
@@ -329,111 +438,7 @@ class DashboardController extends Controller
                 return collect();
             }
         }
-    }
-
-    protected function fetchWithNativeSQLSRV($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
-    {
-        $maxRetries = 2;
-        $retryDelay = 1;
-        
-        $config = config('database.connections.mssql_external');
-        
-        $connectionOptions = [
-            "Database" => $config['database'],
-            "UID" => $config['username'],
-            "PWD" => $config['password'],
-            "Encrypt" => false,
-            "TrustServerCertificate" => true,
-            "CharacterSet" => "UTF-8",
-            "ConnectionPooling" => true
-        ];
-        
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-            $conn = null;
-            try {
-                $conn = sqlsrv_connect($config['host'], $connectionOptions);
-                
-                if ($conn === false) {
-                    throw new \Exception("Connection failed: " . print_r(sqlsrv_errors(), true));
-                }
-                
-                $queryOptions = ["QueryTimeout" => 30];
-                
-                $date = $selectedDate->format('Ymd');  // Use selected date instead of now()
-                $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
-                
-                $sql = "SELECT TOP 500 
-                        CHR_MEI_NOUNYU as customer,
-                        CHR_COD_UKEIRE as dock,
-                        INT_NUB_NOUBIN as cycle,
-                        RTRIM(CHR_COD_SEBANGOU) as back_no,
-                        INT_SUR_SYUUYOU as qty_per_pallet,
-                        INT_SUR_JYUCYUU as order_qty,
-                        CHR_TIM_SYUKKA,
-                        CHR_COD_TKS_NOUBAN as dn_number
-                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
-                    WHERE CHR_TIM_SYUKKA IS NOT NULL
-                    AND CHR_NGP_NOUNYU = '{$date}'
-                    AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
-                    ORDER BY CHR_COD_SEBANGOU";
-                
-                $stmt = sqlsrv_query($conn, $sql, [], $queryOptions);
-                
-                if ($stmt === false) {
-                    throw new \Exception("Query failed: " . print_r(sqlsrv_errors(), true));
-                }
-                
-                $results = [];
-                while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                    $row['back_no'] = trim($row['back_no']);
-                    
-                    $timeStr = str_pad($row['CHR_TIM_SYUKKA'], 6, '0', STR_PAD_LEFT);
-                    $time = $today->copy()->setTime(
-                        substr($timeStr, 0, 2),
-                        substr($timeStr, 2, 2),
-                        substr($timeStr, 4, 2)
-                    );
-
-                    if ($time->lt($start)) {
-                        $time->addDay();
-                    }
-
-                    $results[] = (object)[
-                        'customer' => $row['customer'],
-                        'dock' => $row['dock'],
-                        'cycle' => $row['cycle'],
-                        'back_no' => $row['back_no'],
-                        'qty_per_pallet' => $row['qty_per_pallet'],
-                        'order_qty' => $row['order_qty'],
-                        'dn_number' => $row['dn_number'],
-                        'formatted_time' => $time->format('H:i'),
-                        'time_sort' => $time->timestamp,
-                        'prod_time' => $prodTimeByBackNo[$row['back_no']] ?? '00:00'
-                    ];
-                }
-                
-                return collect($results);
-
-            } catch (\Exception $e) {
-                \Log::error("Attempt $attempt failed: " . $e->getMessage());
-                
-                if ($attempt === $maxRetries) {
-                    return collect();
-                }
-                
-                sleep($retryDelay);
-            } finally {
-                if (isset($stmt) && is_resource($stmt)) {
-                    sqlsrv_free_stmt($stmt);
-                }
-                if (isset($conn) && is_resource($conn)) {
-                    sqlsrv_close($conn);
-                }
-            }
-        }
-        
-        return collect();
-    }   
+    } 
 
     protected function processRawData($rawData, $start, $end)
     {

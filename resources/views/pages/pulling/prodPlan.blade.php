@@ -202,20 +202,37 @@
                             <button type="button" class="btn btn-outline-dark" onclick="navigateDate(1)">
                                 <i class="fas fa-arrow-right"></i>
                             </button>
+                            <!-- Add the Re-fetch Data button -->
+                            <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
+                                <i class="fas fa-sync-alt me-1"></i> RE-FETCH
+                            </button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
 
+        <!-- Add message display area -->
+        @if (isset($message))
+            <div class="alert alert-{{ $messageType ?? 'info' }} alert-dismissible fade show mb-3" role="alert">
+                {{ $message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="text-uppercase fw-bold" style="letter-spacing: 1px;">
                 <i class="bi bi-clipboard2-data me-2"></i>
                 PRODUCTION PULLING PLAN - {{ Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y') }}
             </h2>
-            <a class="btn btn-outline-warning" href="/pulling/settings">
-                <i class="bi bi-gear-fill"></i> SETTINGS
-            </a>
+            <div>
+                <span class="badge bg-secondary me-2">
+                    Last Update: {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
+                </span>
+                {{-- <a class="btn btn-outline-warning" href="/pulling/settings">
+                    <i class="bi bi-gear-fill"></i> SETTINGS
+                </a> --}}
+            </div>
         </div>
 
         <!-- Tab Navigation -->

@@ -43,7 +43,10 @@ class ProductionPlanApiController extends Controller
         if ($plans->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No matching production plans found for today'
+                'message' => 'No matching production plans found for today',
+                'data' => [
+                    'dn_number' => $request->dn_number
+                ]
             ], 404);
         }
 
