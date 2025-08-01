@@ -253,9 +253,9 @@
         <div class="tab-content" id="lineTabsContent">
             <!-- AS003 Tab -->
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
-                <div class="table-responsive">
+                <div style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead style="position: sticky; top: 0; z-index: 10;">
+                        <thead style="position: sticky; top: 0; z-index: 10; background-color: #343a40; color: white;">
                             <tr>
                                 <th>Customer</th>
                                 <th>Dock</th>
@@ -337,9 +337,9 @@
 
             <!-- AS004 Tab -->
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
-                <div class="table-responsive">
+                <div style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead style="position: sticky; top: 0; z-index: 10;">
+                        <thead style="position: sticky; top: 0; z-index: 10; background-color: #343a40; color: white;">
                             <tr>
                                 <th>Customer</th>
                                 <th>Dock</th>
