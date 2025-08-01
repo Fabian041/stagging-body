@@ -192,9 +192,11 @@
                                 <i class="bi bi-funnel-fill me-1"></i> FILTER
                             </button>
                             @if (request()->has('date'))
-                                <a href="{{ route('dashboard.prodPlan') }}" class="btn btn-outline-dark">
-                                    <i class="bi bi-arrow-counterclockwise me-1"></i> RESET
-                                </a>
+                                <button type="submit" class="btn btn-outline-dark">
+                                    <a href="{{ route('dashboard.prodPlan') }}">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i> RESET
+                                    </a>
+                                </button>
                             @endif
                             <button type="button" class="btn btn-outline-dark" onclick="navigateDate(-1)">
                                 <i class="fas fa-arrow-left"></i>
