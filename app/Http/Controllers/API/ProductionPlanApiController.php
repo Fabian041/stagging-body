@@ -45,7 +45,8 @@ class ProductionPlanApiController extends Controller
                 'success' => false,
                 'message' => 'No matching production plans found for today',
                 'data' => [
-                    'dn_number' => $request->dn_number
+                    'dn_number' => $request->dn_number,
+                    'b_number' => $request->back_no
                 ]
             ], 404);
         }
