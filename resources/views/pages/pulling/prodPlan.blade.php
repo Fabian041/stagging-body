@@ -611,7 +611,7 @@
                     const timeoutId = setTimeout(() => {
                         row.classList.remove(highlightClass);
                         this.highlightTimeouts.delete(timeoutId);
-                    }, 5000); // 5 seconds instead of 60
+                    }, 60000); // 5 seconds instead of 60
 
                     this.highlightTimeouts.add(timeoutId);
                 });
