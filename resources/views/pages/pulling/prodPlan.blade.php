@@ -202,37 +202,20 @@
                             <button type="button" class="btn btn-outline-dark" onclick="navigateDate(1)">
                                 <i class="fas fa-arrow-right"></i>
                             </button>
-                            <!-- Add the Re-fetch Data button -->
-                            <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
-                                <i class="fas fa-sync-alt me-1"></i> RE-FETCH
-                            </button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- Add message display area -->
-        @if (isset($message))
-            <div class="alert alert-{{ $messageType ?? 'info' }} alert-dismissible fade show mb-3" role="alert">
-                {{ $message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="text-uppercase fw-bold" style="letter-spacing: 1px;">
                 <i class="bi bi-clipboard2-data me-2"></i>
                 PRODUCTION PULLING PLAN - {{ Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y') }}
             </h2>
-            <div>
-                <span class="badge bg-secondary me-2">
-                    Last Update: {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
-                </span>
-                {{-- <a class="btn btn-outline-warning" href="/pulling/settings">
-                    <i class="bi bi-gear-fill"></i> SETTINGS
-                </a> --}}
-            </div>
+            <a class="btn btn-outline-warning" href="/pulling/settings">
+                <i class="bi bi-gear-fill"></i> SETTINGS
+            </a>
         </div>
 
         <!-- Tab Navigation -->
@@ -545,52 +528,31 @@
             }
 
             handleUpdates(updates) {
-                console.log('Processing updates:', updates); // Debug log
-
                 // Track all rows that need highlighting
                 const rowsToHighlight = new Set();
 
                 updates.forEach(item => {
-                    console.log(`Processing item ID: ${item.id}`); // Debug log
+                    // Find all rows containing this item
+                    const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
 
-                    // Find all matching elements
-                    const directPullingElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="direct-pulling"]`
+                    // Update quantities
+                    this.updateQuantity(
+                        `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
+                        item.direct_pulling_qty,
+                        'success'
                     );
-                    const stockChuteElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="stock-chute"]`
+                    this.updateQuantity(
+                        `[data-item-id="${item.id}"][data-type="stock-chute"]`,
+                        item.stock_chute_qty,
+                        'warning'
                     );
 
-                    console.log(`Found ${directPullingElements.length} direct-pulling elements`);
-                    console.log(`Found ${stockChuteElements.length} stock-chute elements`);
-
-                    // Update quantities if elements found
-                    if (directPullingElements.length > 0 || stockChuteElements.length > 0) {
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
-                            item.direct_pulling_qty,
-                            'success'
-                        );
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="stock-chute"]`,
-                            item.stock_chute_qty,
-                            'warning'
-                        );
-
-                        // Find all rows containing this item
-                        const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
-                        rows.forEach(row => rowsToHighlight.add(row));
-                    } else {
-                        console.warn(`No elements found for item ID: ${item.id}`);
-                    }
+                    // Add rows to highlight set
+                    rows.forEach(row => rowsToHighlight.add(row));
                 });
 
                 // Apply highlight to all affected rows
-                if (rowsToHighlight.size > 0) {
-                    this.highlightRows(Array.from(rowsToHighlight), 'mixed');
-                } else {
-                    console.log('No rows to highlight');
-                }
+                this.highlightRows(Array.from(rowsToHighlight), 'mixed');
             }
 
             updateQuantity(selector, newValue, type) {
@@ -626,6 +588,9 @@
                 // First clear any existing highlights
                 this.clearAllHighlights();
 
+                // Store the current timestamp
+                const highlightStartTime = Date.now();
+
                 rows.forEach(row => {
                     // Remove all highlight classes first
                     row.classList.remove(
@@ -645,14 +610,17 @@
 
                     row.classList.add(highlightClass);
 
-                    // Set timeout to remove highlight after 5 seconds instead of 60
+                    // Set timeout to remove highlight after 1 minute
                     const timeoutId = setTimeout(() => {
                         row.classList.remove(highlightClass);
                         this.highlightTimeouts.delete(timeoutId);
-                    }, 60000); // 5 seconds instead of 60
+                    }, 60000); // 60 seconds = 1 minute
 
                     this.highlightTimeouts.add(timeoutId);
                 });
+
+                // Store the highlight end time
+                this.lastHighlightTime = highlightStartTime;
             }
 
             clearAllHighlights() {
