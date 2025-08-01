@@ -255,7 +255,7 @@
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
                 <div style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead style="position: sticky; top: -1; z-index: 10; background-color: #343a40; color: white;">
+                        <thead style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
                             <tr>
                                 <th>Customer</th>
                                 <th>Dock</th>
@@ -340,7 +340,7 @@
                 <div style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
                         <thead
-                            style="position: sticky; top: -1; z-index: 10; background-color: #343a40; color: white;">
+                            style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
                             <tr>
                                 <th>Customer</th>
                                 <th>Dock</th>
