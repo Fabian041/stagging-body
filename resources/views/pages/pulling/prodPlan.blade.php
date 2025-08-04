@@ -309,8 +309,6 @@
                                             <span class="flip">
                                                 {{ $item->working_start ?? '--' }} - {{ $item->working_end ?? '--' }}
                                                 <br>
-                                                <small class="text-warning">duration :
-                                                    {{ $item->working_duration ?? '--' }}</small>
                                             </span>
                                         </td>
                                         @if ($index === 0)
@@ -394,8 +392,6 @@
                                             <span class="flip">
                                                 {{ $item->working_start ?? '--' }} - {{ $item->working_end ?? '--' }}
                                                 <br>
-                                                <small class="text-warning">duration :
-                                                    {{ $item->working_duration ?? '--' }}</small>
                                             </span>
                                         </td>
                                         @if ($index === 0)

@@ -299,7 +299,7 @@ class LoadingListController extends Controller
     public function store($loadingList, $pds, $cycle, $customerCode, $shippingDate, $deliveryDate)
     {
         // Kondisi khusus: customer_code 7A00022 dan PDS mengandung 'RK11'
-        if ($customerCode == '7A00022' && str_contains($pds, 'RKK11')) {
+        if ($customerCode == '7A00022' && str_contains($pds, 'KK11')) {
             $customer = Customer::select('id')
                 ->where('code', $customerCode)
                 ->where('name', 'like', '%SUZUKI RKK11%')
