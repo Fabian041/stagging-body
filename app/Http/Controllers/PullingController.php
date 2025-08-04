@@ -231,7 +231,7 @@ class PullingController extends Controller
 
     public function customerCheck($customer, $pds = null)
     {
-        if ($customer == '7A00022' && $pds && str_contains($pds, 'RKK11')) {
+        if ($customer == '7A00022' && $pds && str_contains($pds, 'KK11')) {
             $check = Customer::where('code', $customer)
                             ->where('name', 'like', '%SUZUKI RKK11%')
                             ->first();
