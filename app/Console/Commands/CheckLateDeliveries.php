@@ -49,25 +49,9 @@ class CheckLateDeliveries extends Command
                         'supplier_code' => $delivery->supplier_code,
                         'expected_time' => $expectedTime,
                         'status' => $delivery->status,
-                        'notified_at' => now(),
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
-
-                    $this->sendNotification($delivery, $expectedTime);
-                }
-
-                if ($existingLog->notified_at == NULL) {
-                    dd('masih null', $existingLog);
-                    // Sudah ada di log tapi belum dikirim notifikasi
-                    DB::table('receiving_logs')
-                        ->where('id', $existingLog->id)
-                        ->update([
-                            'notified_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-
-                    $this->sendNotification($delivery, $expectedTime);
                 }
             }
         }
