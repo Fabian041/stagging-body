@@ -666,54 +666,112 @@
             }
 
             processUpdatedRows(rows) {
-                // Group rows by their parent tbody
-                const rowsByTable = new Map();
+                // First, group rows by their rowspan groups (customer+dock groups)
+                const rowGroups = new Map();
                 rows.forEach(row => {
-                    const tbody = row.closest('tbody');
-                    if (!tbody) return;
-
-                    if (!rowsByTable.has(tbody)) {
-                        rowsByTable.set(tbody, []);
+                    // Find the first row of this rowspan group (the one with rowspan attributes)
+                    let groupStartRow = row;
+                    while (groupStartRow.previousElementSibling &&
+                        groupStartRow.previousElementSibling.querySelector('[rowspan]')) {
+                        groupStartRow = groupStartRow.previousElementSibling;
                     }
-                    rowsByTable.get(tbody).push(row);
+
+                    // Get all rows in this group
+                    const rowspan = parseInt(groupStartRow.querySelector('[rowspan]')?.getAttribute(
+                        'rowspan')) || 1;
+                    const groupRows = [groupStartRow];
+                    for (let i = 1; i < rowspan; i++) {
+                        if (groupStartRow.nextElementSibling) {
+                            groupRows.push(groupStartRow.nextElementSibling);
+                            groupStartRow = groupStartRow.nextElementSibling;
+                        }
+                    }
+
+                    // Add to our groups map
+                    if (!rowGroups.has(groupStartRow)) {
+                        rowGroups.set(groupStartRow, new Set(groupRows));
+                    } else {
+                        groupRows.forEach(r => rowGroups.get(groupStartRow).add(r));
+                    }
                 });
 
-                // Process each table's rows
-                for (const [tbody, tableRows] of rowsByTable) {
+                // Now process each table's groups
+                const tablesProcessed = new Set();
+                for (const [groupStart, groupRows] of rowGroups) {
+                    const tbody = groupStart.closest('tbody');
+                    if (!tbody || tablesProcessed.has(tbody)) continue;
+
+                    tablesProcessed.add(tbody);
+
                     // Cancel any pending restore for this table
                     if (this.orderRestoreTimeouts.has(tbody)) {
                         clearTimeout(this.orderRestoreTimeouts.get(tbody));
                         this.orderRestoreTimeouts.delete(tbody);
                     }
 
-                    // Get the first row of the tbody
-                    const firstRow = tbody.querySelector('tr:first-child');
+                    // Get all rows in the table
+                    const allRows = Array.from(tbody.querySelectorAll('tr'));
 
-                    // Move each updated row to the top, but maintain their relative order
-                    // We need to process them in reverse order to maintain proper positioning
-                    const rowsToMove = Array.from(tableRows).reverse();
+                    // Find all groups in this table
+                    const allGroups = [];
+                    let currentRow = allRows[0];
 
-                    rowsToMove.forEach(row => {
-                        // Skip if already at the top
-                        if (row === firstRow) return;
+                    while (currentRow) {
+                        const rowspan = parseInt(currentRow.querySelector('[rowspan]')?.getAttribute(
+                            'rowspan') || '1');
+                        const group = [currentRow];
 
-                        // Remove the row
-                        row.parentNode.removeChild(row);
+                        for (let i = 1; i < rowspan && currentRow.nextElementSibling; i++) {
+                            group.push(currentRow.nextElementSibling);
+                            currentRow = currentRow.nextElementSibling;
+                        }
 
-                        // Insert it at the top of the tbody
-                        tbody.insertBefore(row, firstRow);
+                        allGroups.push(group);
+                        currentRow = currentRow?.nextElementSibling;
+                    }
 
-                        // Apply highlight effect
-                        this.highlightRow(row, 'mixed');
-                    });
+                    // Find which groups contain updated rows
+                    const updatedGroups = allGroups.filter(group =>
+                        group.some(row => rows.includes(row))
+                    );
 
-                    // Schedule restoration of original order after 1 minute
-                    const restoreTimeout = setTimeout(() => {
-                        this.restoreOriginalOrder(tbody);
-                        this.orderRestoreTimeouts.delete(tbody);
-                    }, 60000); // 1 minute
+                    // Move updated groups to the top while maintaining their order
+                    if (updatedGroups.length > 0) {
+                        // Remove all rows from the table
+                        while (tbody.firstChild) {
+                            tbody.removeChild(tbody.firstChild);
+                        }
 
-                    this.orderRestoreTimeouts.set(tbody, restoreTimeout);
+                        // Rebuild the table with updated groups first, then others
+                        const remainingGroups = allGroups.filter(group =>
+                            !updatedGroups.includes(group)
+                        );
+
+                        // Add updated groups first
+                        updatedGroups.forEach(group => {
+                            group.forEach(row => tbody.appendChild(row));
+                        });
+
+                        // Then add remaining groups
+                        remainingGroups.forEach(group => {
+                            group.forEach(row => tbody.appendChild(row));
+                        });
+
+                        // Highlight all updated rows
+                        rows.forEach(row => {
+                            if (tbody.contains(row)) {
+                                this.highlightRow(row, 'mixed');
+                            }
+                        });
+
+                        // Schedule restoration of original order after 1 minute
+                        const restoreTimeout = setTimeout(() => {
+                            this.restoreOriginalOrder(tbody);
+                            this.orderRestoreTimeouts.delete(tbody);
+                        }, 60000);
+
+                        this.orderRestoreTimeouts.set(tbody, restoreTimeout);
+                    }
                 }
             }
 
