@@ -264,10 +264,12 @@
                                 <th rowspan="2">Order</th>
                                 <th colspan="2">Running Qty</th>
                                 <th rowspan="2">Prod Time</th>
-                                <th rowspan="2">Break</th>
+                                <th rowspan="2">Work Start</th>
                                 <th rowspan="2">Working Duration</th>
+                                <th rowspan="2">Finish Target</th>
                                 <th rowspan="2">Delivery Time</th>
                                 <th rowspan="2">Delivery Date</th>
+                                <th rowspan="2">Balance Time</th>
                             </tr>
                             <tr>
                                 <th>Direct Pulling</th>
@@ -280,6 +282,17 @@
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
                                     $dock = $rows->first()->dock ?? '--';
+
+                                    $balanceTime = $item->balance_time;
+
+                                    // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
+                                    $minutes = 0;
+                                    if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
+                                        $minutes = $matches[1] * 60 + $matches[2];
+                                    }
+
+                                    $isNegative = str_starts_with($balanceTime, '-');
+                                    $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     <tr>
@@ -307,19 +320,28 @@
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td><span class="flip">--</span></td>
+                                        <td><span class="flip">{{ $item->working_start }}</span></td>
                                         <td>
                                             <span class="flip text-warning  ">
                                                 {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
+                                        <td><span class="flip">{{ $item->working_end }}</span></td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
                                             <td rowspan="{{ $rowspan }}">
                                                 <span
                                                     class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
-                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('Y/m/d') : '--' }}
+                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
+                                                </span>
+                                            </td>
+                                            <td rowspan="{{ $rowspan }}">
+                                                <span
+                                                    class="flip
+                                                    {{ $isNegative ? 'text-danger' : '' }}
+                                                    {{ $isWarning ? 'text-warning fw-bold' : '' }}">
+                                                    {{ $balanceTime ?? '--' }}
                                                 </span>
                                             </td>
                                         @endif
@@ -349,8 +371,9 @@
                                 <th rowspan="2">Order</th>
                                 <th colspan="2">Running Qty</th>
                                 <th rowspan="2">Prod Time</th>
-                                <th rowspan="2">Break</th>
+                                <th rowspan="2">Work Start</th>
                                 <th rowspan="2">Working Duration</th>
+                                <th rowspan="2">Finish Target</th>
                                 <th rowspan="2">Delivery Time</th>
                                 <th rowspan="2">Balance Time</th>
                             </tr>
@@ -365,6 +388,17 @@
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
                                     $dock = $rows->first()->dock ?? '--';
+
+                                    $balanceTime = $item->balance_time;
+
+                                    // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
+                                    $minutes = 0;
+                                    if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
+                                        $minutes = $matches[1] * 60 + $matches[2];
+                                    }
+
+                                    $isNegative = str_starts_with($balanceTime, '-');
+                                    $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     <tr>
@@ -392,19 +426,28 @@
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td><span class="flip">--</span></td>
+                                        <td><span class="flip">{{ $item->working_start }}</span></td>
                                         <td>
                                             <span class="flip text-warning">
                                                 {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
+                                        <td><span class="flip">{{ $item->working_end }}</span></td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
                                             <td rowspan="{{ $rowspan }}">
                                                 <span
                                                     class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
-                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('Y/m/d') : '--' }}
+                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
+                                                </span>
+                                            </td>
+                                            <td rowspan="{{ $rowspan }}">
+                                                <span
+                                                    class="flip
+                                                    {{ $isNegative ? 'text-danger' : '' }}
+                                                    {{ $isWarning ? 'text-warning fw-bold' : '' }}">
+                                                    {{ $balanceTime ?? '--' }}
                                                 </span>
                                             </td>
                                         @endif
