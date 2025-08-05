@@ -355,7 +355,7 @@ class DashboardController extends Controller
                 ->whereNotNull('CHR_TIM_SYUKKA')
                 ->where('CHR_NGP_NOUNYU', $selectedDate->format('Ymd'))  // Use selected date instead of now()
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
-                ->limit(500);
+                ->limit(1000);
 
             return $query->get()->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
@@ -391,7 +391,7 @@ class DashboardController extends Controller
                 $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
                 $date = $selectedDate->format('Ymd');  // Use selected date instead of now()
                 
-                $sql = "SELECT TOP 500 
+                $sql = "SELECT TOP 1000 
                         CHR_MEI_NOUNYU as customer,
                         CHR_COD_UKEIRE as dock,
                         INT_NUB_NOUBIN as cycle,
