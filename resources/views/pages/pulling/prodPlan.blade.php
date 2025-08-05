@@ -376,6 +376,7 @@
                                 <th rowspan="2">Working Duration</th>
                                 <th rowspan="2">Finish Target</th>
                                 <th rowspan="2">Delivery Time</th>
+                                <th rowspan="2">Delivery Date</th>
                                 <th rowspan="2">Balance Time</th>
                             </tr>
                             <tr>
