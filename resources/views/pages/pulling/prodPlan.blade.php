@@ -428,13 +428,13 @@
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td><span class="flip">{{ $item->working_start }}</span></td>
+                                        <td><span class="flip">{{ $item->working_start ?? '--' }}</span></td>
                                         <td>
                                             <span class="flip text-warning">
                                                 {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
-                                        <td><span class="flip">{{ $item->working_end }}</span></td>
+                                        <td><span class="flip">{{ $item->working_end ?? '--' }}</span></td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
