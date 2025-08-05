@@ -263,17 +263,17 @@
                                 <th rowspan="2">Back No</th>
                                 <th rowspan="2">Order</th>
                                 <th colspan="2">Running Qty</th>
-                                <th rowspan="2">Prod Time</th>
-                                <th rowspan="2">Work Start</th>
-                                <th rowspan="2">Working Duration</th>
-                                <th rowspan="2">Finish Target</th>
+                                <th colspan="3">Working Time</th>
+                                <th rowspan="2">Break</th>
                                 <th rowspan="2">Delivery Time</th>
-                                <th rowspan="2">Delivery Date</th>
                                 <th rowspan="2">Balance Time</th>
                             </tr>
                             <tr>
                                 <th>Direct Pulling</th>
                                 <th>Stock Chute</th>
+                                <th>Start</th>
+                                <th>Duration</th>
+                                <th>Target</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -371,17 +371,17 @@
                                 <th rowspan="2">Back No</th>
                                 <th rowspan="2">Order</th>
                                 <th colspan="2">Running Qty</th>
-                                <th rowspan="2">Prod Time</th>
-                                <th rowspan="2">Work Start</th>
-                                <th rowspan="2">Working Duration</th>
-                                <th rowspan="2">Finish Target</th>
+                                <th colspan="3">Working Time</th>
+                                <th rowspan="2">Break</th>
                                 <th rowspan="2">Delivery Time</th>
-                                <th rowspan="2">Delivery Date</th>
                                 <th rowspan="2">Balance Time</th>
                             </tr>
                             <tr>
                                 <th>Direct Pulling</th>
                                 <th>Stock Chute</th>
+                                <th>Start</th>
+                                <th>Duration</th>
+                                <th>Target</th>
                             </tr>
                         </thead>
                         <tbody>
