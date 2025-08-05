@@ -144,9 +144,9 @@
         }
 
         .nav-tabs .nav-link.active {
-            color: #fff;
-            background-color: #222;
-            border-color: #444;
+            color: #222;
+            background-color: white;
+            border-color: #222;
         }
 
         /* Card styles */
