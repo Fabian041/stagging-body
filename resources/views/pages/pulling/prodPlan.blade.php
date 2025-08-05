@@ -282,19 +282,20 @@
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
                                     $dock = $rows->first()->dock ?? '--';
-
-                                    $balanceTime = $item->balance_time;
-
-                                    // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
-                                    $minutes = 0;
-                                    if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
-                                        $minutes = $matches[1] * 60 + $matches[2];
-                                    }
-
-                                    $isNegative = str_starts_with($balanceTime, '-');
-                                    $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
                                 @endphp
                                 @foreach ($rows as $index => $item)
+                                    @php
+                                        $balanceTime = $item->balance_time;
+
+                                        // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
+                                        $minutes = 0;
+                                        if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
+                                            $minutes = $matches[1] * 60 + $matches[2];
+                                        }
+
+                                        $isNegative = str_starts_with($balanceTime, '-');
+                                        $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
+                                    @endphp
                                     <tr>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
@@ -388,19 +389,20 @@
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
                                     $dock = $rows->first()->dock ?? '--';
-
-                                    $balanceTime = $item->balance_time;
-
-                                    // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
-                                    $minutes = 0;
-                                    if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
-                                        $minutes = $matches[1] * 60 + $matches[2];
-                                    }
-
-                                    $isNegative = str_starts_with($balanceTime, '-');
-                                    $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
                                 @endphp
                                 @foreach ($rows as $index => $item)
+                                    @php
+                                        $balanceTime = $item->balance_time;
+
+                                        // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
+                                        $minutes = 0;
+                                        if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
+                                            $minutes = $matches[1] * 60 + $matches[2];
+                                        }
+
+                                        $isNegative = str_starts_with($balanceTime, '-');
+                                        $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
+                                    @endphp
                                     <tr>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
