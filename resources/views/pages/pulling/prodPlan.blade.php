@@ -492,6 +492,26 @@
                 51% { transform: rotateX(-90deg); }
                 100% { transform: rotateX(0deg); opacity: 1; }
             }
+            
+            /* Continuous blinking highlight styles */
+            @keyframes continuousBlink {
+                0%, 100% { background-color: var(--highlight-color); }
+                50% { background-color: var(--base-bg); }
+            }
+            .highlight-beep-direct {
+                --highlight-color: #12341E;
+                --base-bg: #1E2024;
+                animation: continuousBlink 1s ease-in-out infinite;
+            }
+            .highlight-beep-stock {
+                --highlight-color: #4D3A0A;
+                --base-bg: #1E2024;
+                animation: continuousBlink 1s ease-in-out infinite;
+            }
+            .highlight-beep-direct td,
+            .highlight-beep-stock td {
+                background-color: inherit !important;
+            }
         `;
                 document.head.appendChild(style);
             }
@@ -599,19 +619,19 @@
 
             processUpdatedRows(rows) {
                 // Group rows by their parent tbody
-                const rowsByTable = {};
+                const rowsByTable = new Map();
                 rows.forEach(row => {
                     const tbody = row.closest('tbody');
                     if (!tbody) return;
 
-                    if (!rowsByTable[tbody]) {
-                        rowsByTable[tbody] = [];
+                    if (!rowsByTable.has(tbody)) {
+                        rowsByTable.set(tbody, []);
                     }
-                    rowsByTable[tbody].push(row);
+                    rowsByTable.get(tbody).push(row);
                 });
 
                 // Process each table's rows
-                for (const [tbody, tableRows] of Object.entries(rowsByTable)) {
+                for (const [tbody, tableRows] of rowsByTable) {
                     // Cancel any pending restore for this table
                     if (this.orderRestoreTimeouts.has(tbody)) {
                         clearTimeout(this.orderRestoreTimeouts.get(tbody));
@@ -621,14 +641,16 @@
                     // Get the first row of the tbody
                     const firstRow = tbody.querySelector('tr:first-child');
 
-                    // Move each updated row to the top
-                    tableRows.forEach(row => {
+                    // Move each updated row to the top, but maintain their relative order
+                    // We need to process them in reverse order to maintain proper positioning
+                    const rowsToMove = Array.from(tableRows).reverse();
+
+                    rowsToMove.forEach(row => {
                         // Skip if already at the top
                         if (row === firstRow) return;
 
                         // Remove the row
-                        const parent = row.parentNode;
-                        parent.removeChild(row);
+                        row.parentNode.removeChild(row);
 
                         // Insert it at the top of the tbody
                         tbody.insertBefore(row, firstRow);
@@ -659,14 +681,14 @@
                     return;
                 }
 
-                // Create a set of current rows for quick lookup
-                const currentRowSet = new Set(currentRows);
+                // Remove all current rows
+                while (tbody.firstChild) {
+                    tbody.removeChild(tbody.firstChild);
+                }
 
-                // Reorder rows according to original order
-                originalRows.forEach(originalRow => {
-                    if (currentRowSet.has(originalRow)) {
-                        tbody.appendChild(originalRow);
-                    }
+                // Add back rows in original order
+                originalRows.forEach(row => {
+                    tbody.appendChild(row);
                 });
             }
 
