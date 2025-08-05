@@ -264,7 +264,6 @@
                                 <th rowspan="2">Order</th>
                                 <th colspan="2">Running Qty</th>
                                 <th colspan="3">Working Time</th>
-                                <th rowspan="2">Break</th>
                                 <th rowspan="2">Delivery Time</th>
                                 <th rowspan="2">Balance Time</th>
                             </tr>
@@ -372,7 +371,6 @@
                                 <th rowspan="2">Order</th>
                                 <th colspan="2">Running Qty</th>
                                 <th colspan="3">Working Time</th>
-                                <th rowspan="2">Break</th>
                                 <th rowspan="2">Delivery Time</th>
                                 <th rowspan="2">Balance Time</th>
                             </tr>
