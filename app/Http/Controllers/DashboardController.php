@@ -235,6 +235,148 @@ class DashboardController extends Controller
         ]);
     }
 
+    protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
+    {
+        try {
+            $deliveryDate = $selectedDate->format('Ymd');
+            $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
+            
+            $query = DB::connection('mssql_external')
+                ->table('TT_GIG_SYKMEISAI')
+                ->select(
+                    'CHR_MEI_NOUNYU as customer',
+                    'CHR_COD_UKEIRE as dock',
+                    'INT_NUB_NOUBIN as cycle',
+                    DB::raw('RTRIM(CHR_COD_SEBANGOU) as back_no'),
+                    'INT_SUR_SYUUYOU as qty_per_pallet',
+                    'INT_SUR_JYUCYUU as order_qty',
+                    'CHR_TIM_SYUKKA',
+                    'CHR_COD_TKS_NOUBAN as dn_number',
+                    'CHR_NGP_NOUNYU as delivery_date'
+                )
+                ->whereNotNull('CHR_TIM_SYUKKA')
+                ->where(function($query) use ($deliveryDate, $nextDay) {
+                    // Records from today with time >= 120000
+                    $query->where(function($q) use ($deliveryDate) {
+                        $q->where('CHR_NGP_NOUNYU', $deliveryDate)
+                            ->where('CHR_TIM_SYUKKA', '>=', '120000');
+                    })
+                    // OR records from tomorrow with time < 120000
+                    ->orWhere(function($q) use ($nextDay) {
+                        $q->where('CHR_NGP_NOUNYU', $nextDay)
+                            ->where('CHR_TIM_SYUKKA', '<', '120000');
+                    });
+                })
+                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
+
+            return $query->get()->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
+                $item->back_no = trim($item->back_no);
+
+                $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                $time = $today->copy()->setTime(
+                    substr($timeStr, 0, 2),
+                    substr($timeStr, 2, 2),
+                    substr($timeStr, 4, 2)
+                );
+
+                // Adjust date based on delivery date
+                $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
+                if ($deliveryDate->gt($today)) {
+                    $time->addDay();
+                }
+
+                return (object)[
+                    'customer' => $item->customer,
+                    'dock' => $item->dock,
+                    'cycle' => $item->cycle,
+                    'back_no' => $item->back_no,
+                    'qty_per_pallet' => $item->qty_per_pallet,
+                    'order_qty' => $item->order_qty,
+                    'dn_number' => $item->dn_number,
+                    'formatted_time' => $time->format('H:i'),
+                    'time_sort' => $time->timestamp,
+                    'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00',
+                    'delivery_date' => $item->delivery_date
+                ];
+            });
+        } catch (\Exception $e) {
+            \Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
+            
+            try {
+                $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
+                $date = $selectedDate->format('Ymd');
+                $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
+                
+                $sql = "SELECT 
+                        CHR_MEI_NOUNYU as customer,
+                        CHR_COD_UKEIRE as dock,
+                        INT_NUB_NOUBIN as cycle,
+                        RTRIM(CHR_COD_SEBANGOU) as back_no,
+                        INT_SUR_SYUUYOU as qty_per_pallet,
+                        INT_SUR_JYUCYUU as order_qty,
+                        CHR_TIM_SYUKKA,
+                        CHR_COD_TKS_NOUBAN as dn_number,
+                        CHR_NGP_NOUNYU as delivery_date
+                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
+                    WHERE CHR_TIM_SYUKKA IS NOT NULL
+                        AND (
+                            (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '120000')
+                            OR 
+                            (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '120000')
+                        )
+                        AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
+                    ORDER BY CHR_COD_SEBANGOU";
+                
+                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
+                    $item->back_no = trim($item->back_no);
+                    
+                    $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
+                    $time = $today->copy()->setTime(
+                        substr($timeStr, 0, 2),
+                        substr($timeStr, 2, 2),
+                        substr($timeStr, 4, 2)
+                    );
+
+                    $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
+                    if ($deliveryDate->gt($today)) {
+                        $time->addDay();
+                    }
+
+                    return (object)[
+                        'customer' => $item->customer,
+                        'dock' => $item->dock,
+                        'cycle' => $item->cycle,
+                        'back_no' => $item->back_no,
+                        'qty_per_pallet' => $item->qty_per_pallet,
+                        'order_qty' => $item->order_qty,
+                        'dn_number' => $item->dn_number,
+                        'formatted_time' => $time->format('H:i'),
+                        'time_sort' => $time->timestamp,
+                        'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00',
+                        'delivery_date' => $item->delivery_date
+                    ];
+                });
+            } catch (\Exception $e) {
+                \Log::warning('Laravel DB raw query failed: ' . $e->getMessage());
+                return collect();
+            }
+        }
+    }
+
+    protected function processRawData($rawData, $start, $end)
+    {
+        return $rawData
+            ->groupBy(function ($item) {
+                return $item->dn_number . '|' . $item->back_no;
+            })
+            ->map(function ($group) {
+                $first = $group->first();
+                $first->order_qty = $group->sum('order_qty');
+                return $first;
+            })
+            ->values();
+    }
+
     protected function updateProductionData($processedData, $backNosByLine, $today)
     {
         foreach ($backNosByLine as $line => $backNos) {
@@ -245,12 +387,12 @@ class DashboardController extends Controller
                     return in_array($item->back_no, $backNos);
                 })
                 ->sortBy('time_sort')
-                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
+                ->groupBy('dn_number');
 
-            foreach ($lineData as $groupKey => $group) {
+            foreach ($lineData as $dnNumber => $group) {
                 $group = $group->sortBy('back_no')->values();
-                
-                [$customer, $deliveryTime] = explode('|', $groupKey);
+                $customer = $group->first()->customer;
+                $deliveryTime = $group->first()->formatted_time;
                 
                 // Calculate working times for the group
                 $currentWorkingTime = $startWorkingTime->copy();
@@ -304,6 +446,7 @@ class DashboardController extends Controller
                         'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
                         'working_duration' => gmdate('H:i:s', $totalSeconds),
                         'delivery_time' => $deliveryTime,
+                        'delivery_date' => \Carbon\Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
                         'balance_time' => $balanceTime,
                         'updated_at' => now()
                     ];
@@ -337,213 +480,6 @@ class DashboardController extends Controller
         }
     }
 
-    protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
-    {
-        try {
-            $query = DB::connection('mssql_external')
-                ->table('TT_GIG_SYKMEISAI')
-                ->select(
-                    'CHR_MEI_NOUNYU as customer',
-                    'CHR_COD_UKEIRE as dock',
-                    'INT_NUB_NOUBIN as cycle',
-                    DB::raw('RTRIM(CHR_COD_SEBANGOU) as back_no'),
-                    'INT_SUR_SYUUYOU as qty_per_pallet',
-                    'INT_SUR_JYUCYUU as order_qty',
-                    'CHR_TIM_SYUKKA',
-                    'CHR_COD_TKS_NOUBAN as dn_number'
-                )
-                ->whereNotNull('CHR_TIM_SYUKKA')
-                ->where('CHR_NGP_NOUNYU', $selectedDate->format('Ymd'))  // Use selected date instead of now()
-                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos)
-                ->limit(1000);
-
-            return $query->get()->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
-                $item->back_no = trim($item->back_no);
-
-                $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                $time = $today->copy()->setTime(
-                    substr($timeStr, 0, 2),
-                    substr($timeStr, 2, 2),
-                    substr($timeStr, 4, 2)
-                );
-
-                if ($time->lt($start)) {
-                    $time->addDay();
-                }
-
-                return (object)[
-                    'customer' => $item->customer,
-                    'dock' => $item->dock,
-                    'cycle' => $item->cycle,
-                    'back_no' => $item->back_no,
-                    'qty_per_pallet' => $item->qty_per_pallet,
-                    'order_qty' => $item->order_qty,
-                    'dn_number' => $item->dn_number,
-                    'formatted_time' => $time->format('H:i'),
-                    'time_sort' => $time->timestamp,
-                    'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00'
-                ];
-            });
-        } catch (\Exception $e) {
-            \Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
-            
-            try {
-                $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
-                $date = $selectedDate->format('Ymd');  // Use selected date instead of now()
-                
-                $sql = "SELECT TOP 1000 
-                        CHR_MEI_NOUNYU as customer,
-                        CHR_COD_UKEIRE as dock,
-                        INT_NUB_NOUBIN as cycle,
-                        RTRIM(CHR_COD_SEBANGOU) as back_no,
-                        INT_SUR_SYUUYOU as qty_per_pallet,
-                        INT_SUR_JYUCYUU as order_qty,
-                        CHR_TIM_SYUKKA,
-                        CHR_COD_TKS_NOUBAN as dn_number
-                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
-                    WHERE CHR_TIM_SYUKKA IS NOT NULL
-                    AND CHR_NGP_NOUNYU = '{$date}'
-                    AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
-                    ORDER BY CHR_COD_SEBANGOU";
-                
-                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
-                    $item->back_no = trim($item->back_no);
-                    
-                    $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                    $time = $today->copy()->setTime(
-                        substr($timeStr, 0, 2),
-                        substr($timeStr, 2, 2),
-                        substr($timeStr, 4, 2)
-                    );
-
-                    if ($time->lt($start)) {
-                        $time->addDay();
-                    }
-
-                    return (object)[
-                        'customer' => $item->customer,
-                        'dock' => $item->dock,
-                        'cycle' => $item->cycle,
-                        'back_no' => $item->back_no,
-                        'qty_per_pallet' => $item->qty_per_pallet,
-                        'order_qty' => $item->order_qty,
-                        'dn_number' => $item->dn_number,
-                        'formatted_time' => $time->format('H:i'),
-                        'time_sort' => $time->timestamp,
-                        'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00'
-                    ];
-                });
-            } catch (\Exception $e) {
-                \Log::warning('Laravel DB raw query failed: ' . $e->getMessage());
-                return collect();
-            }
-        }
-    } 
-
-    protected function processRawData($rawData, $start, $end)
-    {
-        return $rawData
-            ->groupBy(function ($item) {
-                return $item->customer . '|' . $item->cycle . '|' . $item->formatted_time . '|' . $item->back_no;
-            })
-            ->map(function ($group) {
-                $first = $group->first();
-                $first->order_qty = $group->sum('order_qty');
-                return $first;
-            })
-            ->values()
-            ->filter(function ($item) use ($start, $end) {
-                return $item->time_sort >= $start->timestamp && $item->time_sort < $end->timestamp;
-            });
-    }
-
-    protected function storeProductionData($processedData, $backNosByLine, $today)
-    {
-        $batchData = [];
-        
-        foreach ($backNosByLine as $line => $backNos) {
-            $startWorkingTime = $today->copy()->setTime(6, 0, 0);
-
-            $lineData = $processedData
-                ->filter(function ($item) use ($backNos) {
-                    return in_array($item->back_no, $backNos);
-                })
-                ->sortBy('time_sort')
-                ->groupBy(fn($item) => $item->customer . '|' . $item->formatted_time);
-
-            foreach ($lineData as $groupKey => $group) {
-                $group = $group->sortBy('back_no')->values();
-                
-                [$customer, $deliveryTime] = explode('|', $groupKey);
-                
-                // Calculate working times for the group
-                $currentWorkingTime = $startWorkingTime->copy();
-                foreach ($group as $item) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
-                    
-                    $workingStart = $currentWorkingTime->format('H:i');
-                    $workingEnd = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
-                    $workingDuration = gmdate('H:i:s', $totalSeconds);
-                    
-                    $currentWorkingTime->addSeconds($totalSeconds);
-                }
-                
-                // Calculate balance time for the group
-                $lastEnd = Carbon::createFromFormat('H:i', $workingEnd);
-                $delivery = Carbon::parse($deliveryTime);
-                
-                if ($delivery->lt($lastEnd)) {
-                    $delivery->addDay();
-                }
-                
-                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true);
-                $isNegative = $balanceSeconds < 0;
-                $formattedBalance = gmdate('H:i', abs($balanceSeconds));
-                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
-                
-                // Prepare batch insert for the group
-                $currentWorkingTime = $startWorkingTime->copy();
-                foreach ($group as $item) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
-                    
-                    $batchData[] = [
-                        'line' => $line,
-                        'customer' => $customer,
-                        'dock' => $item->dock,
-                        'cycle' => $item->cycle,
-                        'back_no' => $item->back_no,
-                        'order_qty' => $item->order_qty,
-                        'prod_time' => $item->prod_time,
-                        'working_start' => $currentWorkingTime->format('H:i'),
-                        'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
-                        'working_duration' => gmdate('H:i:s', $totalSeconds),
-                        'delivery_time' => $deliveryTime,
-                        'balance_time' => $balanceTime,
-                        'dn_number' => $item->dn_number,
-                        'direct_pulling_qty' => 0,
-                        'stock_chute_qty' => 0,
-                        'plan_date' => $today->format('Y-m-d'),
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ];
-                    
-                    $currentWorkingTime->addSeconds($totalSeconds);
-                }
-                
-                $startWorkingTime = $currentWorkingTime;
-            }
-        }
-        
-        // Batch insert in chunks
-        foreach (array_chunk($batchData, 100) as $chunk) {
-            ProductionPlan::insert($chunk);
-        }
-    }
-
     protected function getGroupedData($backNosByLine, $today)
     {
         $grouped = [];
@@ -551,7 +487,8 @@ class DashboardController extends Controller
         foreach ($backNosByLine as $line => $backNos) {
             $lineData = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
                 ->where('line', $line)
-                ->orderBy('id') // or whatever column determines the original order
+                ->orderBy('delivery_date') // or whatever column determines the original order
+                ->orderBy('delivery_time') // or whatever column determines the original order
                 ->get()
                 ->groupBy(function($item) {
                     return $item->customer . '|' . $item->delivery_time;

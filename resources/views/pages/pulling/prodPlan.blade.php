@@ -257,18 +257,21 @@
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
                         <thead style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
                             <tr>
-                                <th>Customer</th>
-                                <th>Dock</th>
-                                <th>Cycle</th>
-                                <th>Back No</th>
-                                <th>Order</th>
+                                <th rowspan="2">Customer</th>
+                                <th rowspan="2">Dock</th>
+                                <th rowspan="2">Cycle</th>
+                                <th rowspan="2">Back No</th>
+                                <th rowspan="2">Order</th>
+                                <th colspan="2">Running Qty</th>
+                                <th rowspan="2">Prod Time</th>
+                                <th rowspan="2">Break</th>
+                                <th rowspan="2">Working Duration</th>
+                                <th rowspan="2">Delivery Time</th>
+                                <th rowspan="2">Delivery Date</th>
+                            </tr>
+                            <tr>
                                 <th>Direct Pulling</th>
                                 <th>Stock Chute</th>
-                                <th>Prod Time</th>
-                                <th>Break</th>
-                                <th>Working Time</th>
-                                <th>Delivery Time</th>
-                                <th>Balance Time</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -306,9 +309,8 @@
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
                                         <td>
-                                            <span class="flip">
-                                                {{ $item->working_start ?? '--' }} - {{ $item->working_end ?? '--' }}
-                                                <br>
+                                            <span class="flip text-warning  ">
+                                                {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
                                         @if ($index === 0)
@@ -317,7 +319,7 @@
                                             <td rowspan="{{ $rowspan }}">
                                                 <span
                                                     class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
-                                                    {{ $item->balance_time ?? '--' }}
+                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('Y/m/d') : '--' }}
                                                 </span>
                                             </td>
                                         @endif
@@ -340,18 +342,21 @@
                         <thead
                             style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
                             <tr>
-                                <th>Customer</th>
-                                <th>Dock</th>
-                                <th>Cycle</th>
-                                <th>Back No</th>
-                                <th>Order</th>
+                                <th rowspan="2">Customer</th>
+                                <th rowspan="2">Dock</th>
+                                <th rowspan="2">Cycle</th>
+                                <th rowspan="2">Back No</th>
+                                <th rowspan="2">Order</th>
+                                <th colspan="2">Running Qty</th>
+                                <th rowspan="2">Prod Time</th>
+                                <th rowspan="2">Break</th>
+                                <th rowspan="2">Working Duration</th>
+                                <th rowspan="2">Delivery Time</th>
+                                <th rowspan="2">Balance Time</th>
+                            </tr>
+                            <tr>
                                 <th>Direct Pulling</th>
                                 <th>Stock Chute</th>
-                                <th>Prod Time</th>
-                                <th>Break</th>
-                                <th>Working Time</th>
-                                <th>Delivery Time</th>
-                                <th>Balance Time</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -389,9 +394,8 @@
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
                                         <td><span class="flip">--</span></td>
                                         <td>
-                                            <span class="flip">
-                                                {{ $item->working_start ?? '--' }} - {{ $item->working_end ?? '--' }}
-                                                <br>
+                                            <span class="flip text-warning">
+                                                {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
                                         @if ($index === 0)
@@ -400,7 +404,7 @@
                                             <td rowspan="{{ $rowspan }}">
                                                 <span
                                                     class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
-                                                    {{ $item->balance_time ?? '--' }}
+                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('Y/m/d') : '--' }}
                                                 </span>
                                             </td>
                                         @endif
@@ -424,11 +428,12 @@
                 this.eventSource = null;
                 this.statusElement = null;
                 this.currentDate = this.getCurrentDate();
-                this.highlightTimeouts = new Set(); // Add this line
-                this.lastHighlightTime = 0; // Add this line
+                this.highlightTimeouts = new Set();
+                this.lastHighlightTime = 0;
+                this.originalOrder = new Map(); // Stores original order of rows for each table
+                this.orderRestoreTimeouts = new Map(); // Timeouts for restoring original order
                 this.init();
             }
-
 
             init() {
                 this.createStatusIndicator();
@@ -436,6 +441,15 @@
                 this.connect();
                 this.setupDateChangeListener();
                 this.setupErrorHandling();
+                this.storeOriginalOrder(); // Store original order on initialization
+            }
+
+            storeOriginalOrder() {
+                // Store original order of all rows in each table
+                document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    this.originalOrder.set(tbody, rows);
+                });
             }
 
             getCurrentDate() {
@@ -545,24 +559,18 @@
             }
 
             handleUpdates(updates) {
-                console.log('Processing updates:', updates); // Debug log
+                console.log('Processing updates:', updates);
 
-                // Track all rows that need highlighting
-                const rowsToHighlight = new Set();
+                // Track all rows that need processing
+                const rowsToProcess = new Set();
 
                 updates.forEach(item => {
-                    console.log(`Processing item ID: ${item.id}`); // Debug log
-
-                    // Find all matching elements
                     const directPullingElements = document.querySelectorAll(
                         `[data-item-id="${item.id}"][data-type="direct-pulling"]`
                     );
                     const stockChuteElements = document.querySelectorAll(
                         `[data-item-id="${item.id}"][data-type="stock-chute"]`
                     );
-
-                    console.log(`Found ${directPullingElements.length} direct-pulling elements`);
-                    console.log(`Found ${stockChuteElements.length} stock-chute elements`);
 
                     // Update quantities if elements found
                     if (directPullingElements.length > 0 || stockChuteElements.length > 0) {
@@ -579,18 +587,115 @@
 
                         // Find all rows containing this item
                         const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
-                        rows.forEach(row => rowsToHighlight.add(row));
-                    } else {
-                        console.warn(`No elements found for item ID: ${item.id}`);
+                        rows.forEach(row => rowsToProcess.add(row));
                     }
                 });
 
-                // Apply highlight to all affected rows
-                if (rowsToHighlight.size > 0) {
-                    this.highlightRows(Array.from(rowsToHighlight), 'mixed');
-                } else {
-                    console.log('No rows to highlight');
+                // Process all affected rows
+                if (rowsToProcess.size > 0) {
+                    this.processUpdatedRows(Array.from(rowsToProcess));
                 }
+            }
+
+            processUpdatedRows(rows) {
+                // Group rows by their parent tbody
+                const rowsByTable = {};
+                rows.forEach(row => {
+                    const tbody = row.closest('tbody');
+                    if (!tbody) return;
+
+                    if (!rowsByTable[tbody]) {
+                        rowsByTable[tbody] = [];
+                    }
+                    rowsByTable[tbody].push(row);
+                });
+
+                // Process each table's rows
+                for (const [tbody, tableRows] of Object.entries(rowsByTable)) {
+                    // Cancel any pending restore for this table
+                    if (this.orderRestoreTimeouts.has(tbody)) {
+                        clearTimeout(this.orderRestoreTimeouts.get(tbody));
+                        this.orderRestoreTimeouts.delete(tbody);
+                    }
+
+                    // Get the first row of the tbody
+                    const firstRow = tbody.querySelector('tr:first-child');
+
+                    // Move each updated row to the top
+                    tableRows.forEach(row => {
+                        // Skip if already at the top
+                        if (row === firstRow) return;
+
+                        // Remove the row
+                        const parent = row.parentNode;
+                        parent.removeChild(row);
+
+                        // Insert it at the top of the tbody
+                        tbody.insertBefore(row, firstRow);
+
+                        // Apply highlight effect
+                        this.highlightRow(row, 'mixed');
+                    });
+
+                    // Schedule restoration of original order after 1 minute
+                    const restoreTimeout = setTimeout(() => {
+                        this.restoreOriginalOrder(tbody);
+                        this.orderRestoreTimeouts.delete(tbody);
+                    }, 60000); // 1 minute
+
+                    this.orderRestoreTimeouts.set(tbody, restoreTimeout);
+                }
+            }
+
+            restoreOriginalOrder(tbody) {
+                if (!this.originalOrder.has(tbody)) return;
+
+                const originalRows = this.originalOrder.get(tbody);
+                const currentRows = Array.from(tbody.querySelectorAll('tr'));
+
+                // Only restore if the number of rows matches
+                if (originalRows.length !== currentRows.length) {
+                    console.warn('Row count mismatch, skipping restore');
+                    return;
+                }
+
+                // Create a set of current rows for quick lookup
+                const currentRowSet = new Set(currentRows);
+
+                // Reorder rows according to original order
+                originalRows.forEach(originalRow => {
+                    if (currentRowSet.has(originalRow)) {
+                        tbody.appendChild(originalRow);
+                    }
+                });
+            }
+
+            highlightRow(row, updateType) {
+                // Remove all highlight classes first
+                row.classList.remove(
+                    'highlight-beep-direct',
+                    'highlight-beep-stock'
+                );
+
+                // Force reflow to reset animation
+                void row.offsetWidth;
+
+                // Add appropriate highlight class
+                const highlightClass = updateType === 'success' ?
+                    'highlight-beep-direct' :
+                    updateType === 'warning' ?
+                    'highlight-beep-stock' :
+                    'highlight-beep-direct';
+
+                row.classList.add(highlightClass);
+
+                // Set timeout to remove highlight after 5 seconds
+                const timeoutId = setTimeout(() => {
+                    row.classList.remove(highlightClass);
+                    this.highlightTimeouts.delete(timeoutId);
+                }, 5000);
+
+                this.highlightTimeouts.add(timeoutId);
             }
 
             updateQuantity(selector, newValue, type) {
@@ -622,54 +727,15 @@
                 }
             }
 
-            highlightRows(rows, updateType) {
-                // First clear any existing highlights
-                this.clearAllHighlights();
-
-                rows.forEach(row => {
-                    // Remove all highlight classes first
-                    row.classList.remove(
-                        'highlight-beep-direct',
-                        'highlight-beep-stock'
-                    );
-
-                    // Force reflow to reset animation
-                    void row.offsetWidth;
-
-                    // Add appropriate highlight class
-                    const highlightClass = updateType === 'success' ?
-                        'highlight-beep-direct' :
-                        updateType === 'warning' ?
-                        'highlight-beep-stock' :
-                        'highlight-beep-direct';
-
-                    row.classList.add(highlightClass);
-
-                    // Set timeout to remove highlight after 5 seconds instead of 60
-                    const timeoutId = setTimeout(() => {
-                        row.classList.remove(highlightClass);
-                        this.highlightTimeouts.delete(timeoutId);
-                    }, 60000); // 5 seconds instead of 60
-
-                    this.highlightTimeouts.add(timeoutId);
-                });
-            }
-
             clearAllHighlights() {
-                // Clear all existing highlight timeouts
                 this.highlightTimeouts.forEach(timeoutId => {
                     clearTimeout(timeoutId);
                 });
                 this.highlightTimeouts.clear();
 
-                // Remove all highlight classes
                 document.querySelectorAll('.highlight-beep-direct, .highlight-beep-stock').forEach(el => {
                     el.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 });
-            }
-
-            isWithinHighlightPeriod() {
-                return (Date.now() - this.lastHighlightTime) < 60000;
             }
 
             reconnect() {
