@@ -150,12 +150,12 @@ class DashboardController extends Controller
     public function prodPlan(Request $request)
     {
         set_time_limit(90);
-        
+
         // Get the date from request or use today
-        $selectedDate = $request->input('date') 
-            ? Carbon::parse($request->input('date'))->startOfDay() 
+        $selectedDate = $request->input('date')
+            ? Carbon::parse($request->input('date'))->startOfDay()
             : now()->startOfDay();
-        
+
         $today = $selectedDate->copy();
         $start = $today->copy()->addHours(12); // 12:00 selected date
         $end = $start->copy()->addDay();      // 12:00 next day
@@ -185,38 +185,38 @@ class DashboardController extends Controller
         // Check if we have fresh data in database (last 30 minutes)
         $lastUpdate = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
             ->max('updated_at');
-            
+
         if ($forceRefresh || !$lastUpdate || ($lastUpdate instanceof \Carbon\Carbon && $lastUpdate->diffInMinutes(now()) > 30)) {
             try {
                 DB::beginTransaction();
-                
+
                 // Fetch new data
                 $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
-                
+
                 if ($rawData->isEmpty()) {
                     throw new \Exception("No production data available");
                 }
 
                 $processedData = $this->processRawData($rawData, $start, $end);
-                
+
                 // Update or create records instead of replacing
                 $this->updateProductionData($processedData, $backNosByLine, $today);
-                
+
                 DB::commit();
-                
+
                 $message = 'Production data updated successfully!';
                 $messageType = 'success';
             } catch (\Exception $e) {
                 DB::rollBack();
                 \Log::error('Production data processing failed: ' . $e->getMessage());
-                
+
                 $message = 'Failed to update data: ' . $e->getMessage();
                 $messageType = 'error';
-                
+
                 $lastData = ProductionPlan::where('plan_date', $today->copy()->subDay()->format('Y-m-d'))
                     ->orderBy('updated_at', 'desc')
                     ->first();
-                    
+
                 if ($lastData) {
                     $message = 'Using cached data from previous day';
                     $messageType = 'warning';
@@ -240,7 +240,7 @@ class DashboardController extends Controller
         try {
             $deliveryDate = $selectedDate->format('Ymd');
             $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
-            
+
             $query = DB::connection('mssql_external')
                 ->table('TT_GIG_SYKMEISAI')
                 ->select(
@@ -255,17 +255,17 @@ class DashboardController extends Controller
                     'CHR_NGP_NOUNYU as delivery_date'
                 )
                 ->whereNotNull('CHR_TIM_SYUKKA')
-                ->where(function($query) use ($deliveryDate, $nextDay) {
+                ->where(function ($query) use ($deliveryDate, $nextDay) {
                     // Records from today with time >= 120000
-                    $query->where(function($q) use ($deliveryDate) {
+                    $query->where(function ($q) use ($deliveryDate) {
                         $q->where('CHR_NGP_NOUNYU', $deliveryDate)
                             ->where('CHR_TIM_SYUKKA', '>=', '120000');
                     })
-                    // OR records from tomorrow with time < 120000
-                    ->orWhere(function($q) use ($nextDay) {
-                        $q->where('CHR_NGP_NOUNYU', $nextDay)
-                            ->where('CHR_TIM_SYUKKA', '<', '120000');
-                    });
+                        // OR records from tomorrow with time < 120000
+                        ->orWhere(function ($q) use ($nextDay) {
+                            $q->where('CHR_NGP_NOUNYU', $nextDay)
+                                ->where('CHR_TIM_SYUKKA', '<', '120000');
+                        });
                 })
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
 
@@ -301,12 +301,12 @@ class DashboardController extends Controller
             });
         } catch (\Exception $e) {
             \Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
-            
+
             try {
                 $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
                 $date = $selectedDate->format('Ymd');
                 $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
-                
+
                 $sql = "SELECT 
                         CHR_MEI_NOUNYU as customer,
                         CHR_COD_UKEIRE as dock,
@@ -326,10 +326,10 @@ class DashboardController extends Controller
                         )
                         AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
                     ORDER BY CHR_COD_SEBANGOU";
-                
+
                 return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
                     $item->back_no = trim($item->back_no);
-                    
+
                     $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                     $time = $today->copy()->setTime(
                         substr($timeStr, 0, 2),
@@ -393,41 +393,41 @@ class DashboardController extends Controller
                 $group = $group->sortBy('back_no')->values();
                 $customer = $group->first()->customer;
                 $deliveryTime = $group->first()->formatted_time;
-                
+
                 // Calculate working times for the group
                 $currentWorkingTime = $startWorkingTime->copy();
                 foreach ($group as $item) {
                     [$mm, $ss] = explode(':', $item->prod_time);
                     $prodSeconds = ((int)$mm * 60) + (int)$ss;
                     $totalSeconds = $prodSeconds * (int)$item->order_qty;
-                    
+
                     $workingStart = $currentWorkingTime->format('H:i');
                     $workingEnd = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
                     $workingDuration = gmdate('H:i:s', $totalSeconds);
-                    
+
                     $currentWorkingTime->addSeconds($totalSeconds);
                 }
-                
+
                 // Calculate balance time for the group
                 $lastEnd = Carbon::createFromFormat('H:i', $workingEnd);
                 $delivery = Carbon::parse($deliveryTime);
-                
+
                 if ($delivery->lt($lastEnd)) {
                     $delivery->addDay();
                 }
-                
+
                 $balanceSeconds = $delivery->diffInSeconds($lastEnd, true);
                 $isNegative = $balanceSeconds < 0;
                 $formattedBalance = gmdate('H:i', abs($balanceSeconds));
                 $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
-                
+
                 // Update or create each record
                 $currentWorkingTime = $startWorkingTime->copy();
                 foreach ($group as $item) {
                     [$mm, $ss] = explode(':', $item->prod_time);
                     $prodSeconds = ((int)$mm * 60) + (int)$ss;
                     $totalSeconds = $prodSeconds * (int)$item->order_qty;
-                    
+
                     // Get existing record to preserve quantities
                     $existingRecord = ProductionPlan::where([
                         'plan_date' => $today->format('Y-m-d'),
@@ -436,7 +436,7 @@ class DashboardController extends Controller
                         'back_no' => $item->back_no,
                         'dn_number' => $item->dn_number
                     ])->first();
-                    
+
                     // $updateData = [
                     //     'dock' => $item->dock,
                     //     'cycle' => $item->cycle,
@@ -450,7 +450,7 @@ class DashboardController extends Controller
                     //     'balance_time' => $balanceTime,
                     //     'updated_at' => now()
                     // ];
-                    
+
                     $updateData = [
                         'dock' => $item->dock,
                         'cycle' => $item->cycle,
@@ -464,7 +464,7 @@ class DashboardController extends Controller
                         'balance_time' => null,
                         'updated_at' => now()
                     ];
-                    
+
                     // Preserve existing quantities if they exist
                     if ($existingRecord) {
                         $updateData['direct_pulling_qty'] = $existingRecord->direct_pulling_qty;
@@ -474,7 +474,7 @@ class DashboardController extends Controller
                         $updateData['stock_chute_qty'] = 0;
                         $updateData['created_at'] = now();
                     }
-                    
+
                     ProductionPlan::updateOrCreate(
                         [
                             'plan_date' => $today->format('Y-m-d'),
@@ -485,10 +485,10 @@ class DashboardController extends Controller
                         ],
                         $updateData
                     );
-                    
+
                     $currentWorkingTime->addSeconds($totalSeconds);
                 }
-                
+
                 $startWorkingTime = $currentWorkingTime;
             }
         }
@@ -497,20 +497,20 @@ class DashboardController extends Controller
     protected function getGroupedData($backNosByLine, $today)
     {
         $grouped = [];
-        
+
         foreach ($backNosByLine as $line => $backNos) {
             $lineData = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
                 ->where('line', $line)
                 ->orderBy('delivery_date') // or whatever column determines the original order
                 ->orderBy('delivery_time') // or whatever column determines the original order
                 ->get()
-                ->groupBy(function($item) {
+                ->groupBy(function ($item) {
                     return $item->customer . '|' . $item->delivery_time;
                 });
-                
+
             $grouped[$line] = $lineData;
         }
-        
+
         return $grouped;
     }
 
@@ -553,6 +553,7 @@ class DashboardController extends Controller
     {
         $startOfWeek = request('start_date') ? Carbon::parse(request('start_date')) : now()->startOfWeek();
         $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->endOfWeek();
+        $area = request('area') ? request('area') : 'unit';
         $statusColorss = [
             0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
@@ -579,6 +580,7 @@ class DashboardController extends Controller
                 'suppliers.name as supplier_name'
             )
             ->whereBetween('delivery_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
+            ->where('area', 'LIKE', '%' . $area . '%') // Filter berdasarkan area
             ->get();
 
         $seriesData = [];

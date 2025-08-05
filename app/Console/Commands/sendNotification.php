@@ -34,17 +34,15 @@ class sendNotification extends Command
             ->whereNull('notified_at')
             ->get();
         foreach ($existingLogs as $existingLog) {
-
             $supplier = DB::table('suppliers')->where('code', $existingLog->supplier_code)->first();
-            if (!$supplier) {
-                return;
-            }
+            echo "Notifikasi untuk supplier: $existingLog->supplier_code\n";
+            $name = $supplier ? $supplier->name : $existingLog->supplier_code;
             $groupWa = env('GROUP_WHATSAPP_RECEIVING');
 
             // Atau implementasikan logic email/telegram di sini
 
             $token = "v2n49drKeWNoRDN4jgqcdsR8a6bcochcmk6YphL6vLcCpRZdV1";
-            $message = sprintf("```---- ``` *Supplier Receiving Alert* ``` ----%cSupplier Code  : $existingLog->supplier_code %cSupplier Name  : $supplier->name %cKedatangan     : $existingLog->expected_time %cStatus         : ``` *Delay Kedatangan* ``` %c------------------------------``` ", 10, 10, 10, 10, 10, 10);
+            $message = sprintf("```---- ``` *Supplier Receiving Alert* ``` ----%cSupplier Code  : $existingLog->supplier_code %cSupplier Name  : $name %cKedatangan     : $existingLog->expected_time %cStatus         : ``` *Delay Kedatangan* ``` %c------------------------------``` ", 10, 10, 10, 10, 10, 10);
             $curl = curl_init();
             curl_setopt_array($curl, array(
                 CURLOPT_URL => 'https://app.ruangwa.id/api/send_message',

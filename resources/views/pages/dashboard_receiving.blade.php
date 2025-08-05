@@ -22,11 +22,18 @@
                 <div class="card-body">
 
                     <form method="GET" class="form-inline mb-3">
+                        <label for="area" class="mr-2">Area:</label>
+                        <select id="area" name="area" class="form-control mr-5">
+                            <option value="">Pilih Area</option>
+                            <option value="unit" {{ request('area') == 'unit' ? 'selected' : '' }}>Unit</option>
+                            <option value="body" {{ request('area') == 'body' ? 'selected' : '' }}>Body</option>
+                        </select>
+                        
                         <label for="start_date" class="mr-2">Tanggal Mulai:</label>
-                        <input type="date" id="start_date" name="start_date" class="form-control mr-2" value="{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}">
+                        <input type="date" id="start_date" name="start_date" class="form-control mr-5" value="{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}">
 
                         <label for="end_date" class="mr-2">Tanggal Akhir:</label>
-                        <input type="date" id="end_date" name="end_date" class="form-control mr-2" value="{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}">
+                        <input type="date" id="end_date" name="end_date" class="form-control mr-5" value="{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}">
 
                         <button type="submit" class="btn btn-primary">Tampilkan</button>
                     </form>
