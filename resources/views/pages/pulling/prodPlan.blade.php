@@ -286,16 +286,10 @@
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     @php
-                                        $balanceTime = $item->balance_time;
-
-                                        // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
-                                        $minutes = 0;
-                                        if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
-                                            $minutes = $matches[1] * 60 + $matches[2];
-                                        }
-
-                                        $isNegative = str_starts_with($balanceTime, '-');
-                                        $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
+                                        $timeParts = explode(':', $item->balance_time ?? '00:00');
+                                        $hours = (int) $timeParts[0];
+                                        $minutes = (int) $timeParts[1];
+                                        $totalMinutes = $hours * 60 + $minutes;
                                     @endphp
                                     <tr>
                                         @if ($index === 0)
@@ -338,12 +332,10 @@
                                                     {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
                                                 </span>
                                             </td>
-                                            <td rowspan="{{ $rowspan }}">
-                                                <span
-                                                    class="flip
-                                                    {{ $isNegative ? 'text-danger' : '' }}
-                                                    {{ $isWarning ? 'text-warning fw-bold' : '' }}">
-                                                    {{ $balanceTime ?? '--' }}
+                                            <td rowspan="{{ $rowspan }}"
+                                                class="{{ $totalMinutes < 180 ? 'table-warning' : '' }}">
+                                                <span class="flip">
+                                                    {{ $item->balance_time ?? '--' }}
                                                 </span>
                                             </td>
                                         @endif
@@ -395,16 +387,10 @@
                                 @endphp
                                 @foreach ($rows as $index => $item)
                                     @php
-                                        $balanceTime = $item->balance_time;
-
-                                        // Ubah string "HH:MM" menjadi total menit (jika format valid dan bukan null)
-                                        $minutes = 0;
-                                        if ($balanceTime && preg_match('/^(\d+):(\d+)$/', $balanceTime, $matches)) {
-                                            $minutes = $matches[1] * 60 + $matches[2];
-                                        }
-
-                                        $isNegative = str_starts_with($balanceTime, '-');
-                                        $isWarning = !$isNegative && $minutes > 0 && $minutes < 180;
+                                        $timeParts = explode(':', $item->balance_time ?? '00:00');
+                                        $hours = (int) $timeParts[0];
+                                        $minutes = (int) $timeParts[1];
+                                        $totalMinutes = $hours * 60 + $minutes;
                                     @endphp
                                     <tr>
                                         @if ($index === 0)
@@ -447,12 +433,10 @@
                                                     {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
                                                 </span>
                                             </td>
-                                            <td rowspan="{{ $rowspan }}">
-                                                <span
-                                                    class="flip
-                                                    {{ $isNegative ? 'text-danger' : '' }}
-                                                    {{ $isWarning ? 'text-warning fw-bold' : '' }}">
-                                                    {{ $balanceTime ?? '--' }}
+                                            <td rowspan="{{ $rowspan }}"
+                                                class="{{ $totalMinutes < 180 ? 'table-warning' : '' }}">
+                                                <span class="flip">
+                                                    {{ $item->balance_time ?? '--' }}
                                                 </span>
                                             </td>
                                         @endif
