@@ -330,7 +330,7 @@
                                                 </span>
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
-                                                class="{{ $item->balance_time && $hours < 3 ? 'table-warning' : '' }}">
+                                                class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
                                                 <span class="flip">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
@@ -428,7 +428,7 @@
                                                 </span>
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
-                                                class="{{ $item->balance_time && $hours < 3 ? 'table-warning' : '' }}">
+                                                class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
                                                 <span class="flip">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
