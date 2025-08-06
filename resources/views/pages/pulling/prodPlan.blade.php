@@ -314,13 +314,21 @@
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td><span class="flip">{{ $item->working_start ?? '--' }}</span></td>
+                                        <td>
+                                            <span data-type="start"
+                                                data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
+                                            </span>
+                                        </td>
                                         <td>
                                             <span class="flip text-warning  ">
                                                 {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
-                                        <td><span class="flip">{{ $item->working_end ?? '--' }}</span></td>
+                                        <td>
+                                            <span data-type="end"
+                                                data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
+                                            </span>
+                                        </td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
@@ -331,7 +339,7 @@
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
                                                 class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
-                                                <span class="flip">
+                                                <span data-type="balance" data-item-id="{{ $item->id }}">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
                                             </td>
@@ -340,7 +348,7 @@
                                 @endforeach
                             @empty
                                 <tr>
-                                    <td colspan="12" class="text-center">No data for AS003.</td>
+                                    <td colspan="14" class="text-center">No data for AS003.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -412,13 +420,21 @@
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td><span class="flip">{{ $item->working_start ?? '--' }}</span></td>
+                                        <td>
+                                            <span data-type="start"
+                                                data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
+                                            </span>
+                                        </td>
                                         <td>
                                             <span class="flip text-warning">
                                                 {{ $item->working_duration ?? '--' }}
                                             </span>
                                         </td>
-                                        <td><span class="flip">{{ $item->working_end ?? '--' }}</span></td>
+                                        <td>
+                                            <span data-type="end"
+                                                data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
+                                            </span>
+                                        </td>
                                         @if ($index === 0)
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
@@ -429,7 +445,7 @@
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
                                                 class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
-                                                <span class="flip">
+                                                <span data-type="balance" data-item-id="{{ $item->id }}">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
                                             </td>
@@ -438,7 +454,7 @@
                                 @endforeach
                             @empty
                                 <tr>
-                                    <td colspan="12" class="text-center">No data for AS004.</td>
+                                    <td colspan="14" class="text-center">No data for AS004.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -617,6 +633,15 @@
                     const stockChuteElements = document.querySelectorAll(
                         `[data-item-id="${item.id}"][data-type="stock-chute"]`
                     );
+                    const startElements = document.querySelectorAll(
+                        `[data-item-id="${item.id}"][data-type="start"]`
+                    );
+                    const endElements = document.querySelectorAll(
+                        `[data-item-id="${item.id}"][data-type="end"]`
+                    );
+                    const balanceElements = document.querySelectorAll(
+                        `[data-item-id="${item.id}"][data-type="balance"]`
+                    );
 
                     // Update quantities if elements found
                     if (directPullingElements.length > 0 || stockChuteElements.length > 0) {
@@ -629,6 +654,21 @@
                             `[data-item-id="${item.id}"][data-type="stock-chute"]`,
                             item.stock_chute_qty,
                             'warning'
+                        );
+                        this.updateQuantity(
+                            `[data-item-id="${item.id}"][data-type="start"]`,
+                            item.start,
+                            'time'
+                        );
+                        this.updateQuantity(
+                            `[data-item-id="${item.id}"][data-type="end"]`,
+                            item.end,
+                            'time'
+                        );
+                        this.updateQuantity(
+                            `[data-item-id="${item.id}"][data-type="balance"]`,
+                            item.balance,
+                            'time'
                         );
 
                         // Find all rows containing this item
@@ -817,6 +857,11 @@
             }
 
             updateCellStyle(cell, value, type) {
+                // dont update style if type 'time'
+                if (type == 'time') {
+                    return;
+                }
+
                 if (value > 0) {
                     cell.className = `bg-${type} bg-opacity-75 fw-bold text-white`;
                 } else {

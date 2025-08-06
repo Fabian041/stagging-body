@@ -72,6 +72,9 @@ class DirectPullingSSEController extends Controller
                                 'back_no' => $item->back_no,
                                 'cycle' => $item->cycle,
                                 'line' => $item->line,
+                                'balance' => $item->balance_time,
+                                'start' => $item->working_start,
+                                'end' => $item->working_end,
                                 'updated_at' => $item->updated_at->toISOString()
                             ];
                         });

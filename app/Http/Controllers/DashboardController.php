@@ -240,7 +240,7 @@ class DashboardController extends Controller
         try {
             $deliveryDate = $selectedDate->format('Ymd');
             $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
-
+    
             $query = DB::connection('mssql_external')
                 ->table('TT_GIG_SYKMEISAI')
                 ->select(
@@ -256,35 +256,30 @@ class DashboardController extends Controller
                 )
                 ->whereNotNull('CHR_TIM_SYUKKA')
                 ->where(function ($query) use ($deliveryDate, $nextDay) {
-                    // Records from today with time >= 120000
                     $query->where(function ($q) use ($deliveryDate) {
                         $q->where('CHR_NGP_NOUNYU', $deliveryDate)
                             ->where('CHR_TIM_SYUKKA', '>=', '120000');
                     })
-                        // OR records from tomorrow with time < 120000
-                        ->orWhere(function ($q) use ($nextDay) {
-                            $q->where('CHR_NGP_NOUNYU', $nextDay)
-                                ->where('CHR_TIM_SYUKKA', '<', '120000');
-                        });
+                    ->orWhere(function ($q) use ($nextDay) {
+                        $q->where('CHR_NGP_NOUNYU', $nextDay)
+                            ->where('CHR_TIM_SYUKKA', '<', '120000');
+                    });
                 })
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
-
-            return $query->get()->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
+                
+            return $query->get()->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
-
+    
                 $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                $time = $today->copy()->setTime(
+                
+                // Use the delivery date to determine which date to use as base
+                $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
+                $time = $deliveryDate->copy()->setTime(
                     substr($timeStr, 0, 2),
                     substr($timeStr, 2, 2),
                     substr($timeStr, 4, 2)
                 );
-
-                // Adjust date based on delivery date
-                $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
-                if ($deliveryDate->gt($today)) {
-                    $time->addDay();
-                }
-
+    
                 return (object)[
                     'customer' => $item->customer,
                     'dock' => $item->dock,
@@ -301,12 +296,12 @@ class DashboardController extends Controller
             });
         } catch (\Exception $e) {
             \Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
-
+    
             try {
                 $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
                 $date = $selectedDate->format('Ymd');
                 $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
-
+    
                 $sql = "SELECT 
                         CHR_MEI_NOUNYU as customer,
                         CHR_COD_UKEIRE as dock,
@@ -326,22 +321,18 @@ class DashboardController extends Controller
                         )
                         AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
                     ORDER BY CHR_COD_SEBANGOU";
-
-                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($today, $start, $prodTimeByBackNo) {
+    
+                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
                     $item->back_no = trim($item->back_no);
-
+    
                     $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                    $time = $today->copy()->setTime(
+                    $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
+                    $time = $deliveryDate->copy()->setTime(
                         substr($timeStr, 0, 2),
                         substr($timeStr, 2, 2),
                         substr($timeStr, 4, 2)
                     );
-
-                    $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
-                    if ($deliveryDate->gt($today)) {
-                        $time->addDay();
-                    }
-
+    
                     return (object)[
                         'customer' => $item->customer,
                         'dock' => $item->dock,
@@ -475,20 +466,24 @@ class DashboardController extends Controller
                         $updateData['created_at'] = now();
                     }
 
-                    ProductionPlan::updateOrCreate(
-                        [
-                            'plan_date' => $today->format('Y-m-d'),
-                            'line' => $line,
-                            'customer' => $customer,
-                            'back_no' => $item->back_no,
-                            'dn_number' => $item->dn_number
-                        ],
-                        $updateData
-                    );
+                    try {
+                        ProductionPlan::updateOrCreate(
+                            [
+                                'plan_date' => $today->format('Y-m-d'),
+                                'line' => $line,
+                                'customer' => $customer,
+                                'back_no' => $item->back_no,
+                                'dn_number' => $item->dn_number
+                            ],
+                            $updateData
+                        );
+                    } catch (\Exception $e) {
+                        $message = 'Failed to update data: ' . $e->getMessage();
+                        $messageType = 'error';
+                    }
 
                     $currentWorkingTime->addSeconds($totalSeconds);
                 }
-
                 $startWorkingTime = $currentWorkingTime;
             }
         }
