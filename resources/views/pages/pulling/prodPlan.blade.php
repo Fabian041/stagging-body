@@ -325,13 +325,12 @@
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
                                             <td rowspan="{{ $rowspan }}">
-                                                <span
-                                                    class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
+                                                <span class="flip">
                                                     {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
                                                 </span>
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
-                                                class="{{ $hours < 3 ? 'table-warning' : '' }}">
+                                                class="{{ $item->balance_time && $hours < 3 ? 'table-warning' : '' }}">
                                                 <span class="flip">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
@@ -424,13 +423,12 @@
                                             <td rowspan="{{ $rowspan }}"><span
                                                     class="flip">{{ $delivery }}</span></td>
                                             <td rowspan="{{ $rowspan }}">
-                                                <span
-                                                    class="flip {{ str_starts_with($item->balance_time, '-') ? 'text-danger' : '' }}">
+                                                <span class="flip">
                                                     {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
                                                 </span>
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
-                                                class="{{ $hours < 3 ? 'table-warning' : '' }}">
+                                                class="{{ $item->balance_time && $hours < 3 ? 'table-warning' : '' }}">
                                                 <span class="flip">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
