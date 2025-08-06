@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\ProductionPlan;
 use Illuminate\Support\Facades\DB;
@@ -92,56 +93,38 @@ class ProductionPlanApiController extends Controller
 
         // If this is the first update, set working_start to current time
         if ($shouldUpdateTimestamps) {
-            $currentTime = now()->format('H:i');
-            $updateData['working_start'] = $currentTime;
-
-            // Calculate working_end (prod_time * order_qty + working_start)
+            $currentTime = now();
+            $updateData['working_start'] = $currentTime->format('H:i');
+        
             foreach ($plans as $plan) {
-                // Parse prod_time (format: "00:40" meaning 40 seconds)
-                $prodTimeParts = explode(':', $plan->prod_time);
-                $prodTimeMinutes = (int)$prodTimeParts[0];
-                $prodTimeSeconds = (int)$prodTimeParts[1];
-                $totalProdSeconds = ($prodTimeMinutes * 60 + $prodTimeSeconds) * $plan->order_qty;
-
-                // Parse working_start time
-                $startTimeParts = explode(':', $currentTime);
-                $startHour = (int)$startTimeParts[0];
-                $startMinute = (int)$startTimeParts[1];
-                
-                // Add production time to start time
-                $endTimestamp = $startHour * 3600 + $startMinute * 60 + $totalProdSeconds;
-                
-                // Handle next day if needed
-                $endHour = floor($endTimestamp / 3600) % 24;
-                $endMinute = floor(($endTimestamp % 3600) / 60);
-                
-                $workingEnd = sprintf('%02d:%02d', $endHour, $endMinute);
-                $updateData['working_end'] = $workingEnd;
-
-                // Calculate balance_time (delivery_time - working_end)
+                // Hitung total waktu produksi (detik)
+                [$prodMin, $prodSec] = explode(':', $plan->prod_time);
+                $totalProdSeconds = (($prodMin * 60) + $prodSec) * $plan->order_qty;
+        
+                // Hitung working_end
+                $workingEnd = (clone $currentTime)->addSeconds($totalProdSeconds);
+                $updateData['working_end'] = $workingEnd->format('H:i');
+        
+                // Hitung balance_time
                 if ($plan->delivery_time) {
-                    $deliveryParts = explode(':', $plan->delivery_time);
-                    $deliveryHour = (int)$deliveryParts[0];
-                    $deliveryMinute = (int)$deliveryParts[1];
-                    $deliveryTimestamp = $deliveryHour * 3600 + $deliveryMinute * 60;
-                    
-                    // If working end is next day (smaller hour number), add 24 hours
-                    if ($endHour < $startHour) {
-                        $deliveryTimestamp += 24 * 3600;
+                    $deliveryTime = Carbon::createFromFormat('H:i', $plan->delivery_time);
+        
+                    // Jika delivery lebih kecil dari working_end (artinya hari berikutnya), tambahkan 1 hari
+                    if ($deliveryTime->lessThan($workingEnd)) {
+                        $deliveryTime->addDay();
                     }
-                    
-                    $balanceSeconds = $deliveryTimestamp - $endTimestamp;
+        
+                    // Hitung selisih
+                    $balanceSeconds = $deliveryTime->diffInSeconds($workingEnd);
                     $balanceHour = floor($balanceSeconds / 3600);
                     $balanceMinute = floor(($balanceSeconds % 3600) / 60);
-                    
-                    $balanceTime = sprintf('%02d:%02d', $balanceHour, $balanceMinute);
-                    $updateData['balance_time'] = $balanceTime;
+                    $updateData['balance_time'] = sprintf('%02d:%02d', $balanceHour, $balanceMinute);
                 }
-                
-                // We only need to calculate once since all plans share the same timestamps
+        
+                // Hanya hitung sekali
                 break;
             }
-        }
+        }        
 
         // Update all matching records with increment and timestamps if needed
         $updated = ProductionPlan::whereIn('id', $plans->pluck('id'))
