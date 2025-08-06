@@ -288,6 +288,19 @@
                                     @php
                                         $timeParts = explode(':', $item->balance_time ?? '00:00');
                                         $hours = (int) $timeParts[0];
+
+                                        if (!function_exists('getQtyClass')) {
+                                            function getQtyClass($qty, $orderQty)
+                                            {
+                                                if ($qty >= $orderQty) {
+                                                    return 'bg-success bg-opacity-75 fw-bold text-white';
+                                                } elseif ($qty > 0) {
+                                                    return 'bg-warning bg-opacity-75 fw-bold text-dark';
+                                                } else {
+                                                    return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                                                }
+                                            }
+                                        }
                                     @endphp
                                     <tr>
                                         @if ($index === 0)
@@ -299,18 +312,16 @@
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td
-                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 fw-bold text-secondary' }}">
+                                        <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
                                             <span class="flip" data-type="direct-pulling"
                                                 data-item-id="{{ $item->id }}">
-                                                {{ $item->direct_pulling_qty > 0 ? $item->direct_pulling_qty : '0' }}
+                                                {{ $item->direct_pulling_qty ?: '0' }}
                                             </span>
                                         </td>
-                                        <td
-                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 text-secondary' }}">
+                                        <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
                                             <span class="flip" data-type="stock-chute"
                                                 data-item-id="{{ $item->id }}">
-                                                {{ $item->stock_chute_qty > 0 ? $item->stock_chute_qty : '0' }}
+                                                {{ $item->stock_chute_qty ?: '0' }}
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
@@ -394,6 +405,19 @@
                                     @php
                                         $timeParts = explode(':', $item->balance_time ?? '00:00');
                                         $hours = (int) $timeParts[0];
+
+                                        if (!function_exists('getQtyClass')) {
+                                            function getQtyClass($qty, $orderQty)
+                                            {
+                                                if ($qty >= $orderQty) {
+                                                    return 'bg-success bg-opacity-75 fw-bold text-white';
+                                                } elseif ($qty > 0) {
+                                                    return 'bg-warning bg-opacity-75 fw-bold text-dark';
+                                                } else {
+                                                    return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                                                }
+                                            }
+                                        }
                                     @endphp
                                     <tr>
                                         @if ($index === 0)
@@ -405,18 +429,16 @@
                                         <td><span class="flip">{{ $item->cycle }}</span></td>
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td
-                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 fw-bold text-secondary' }}">
+                                        <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
                                             <span class="flip" data-type="direct-pulling"
                                                 data-item-id="{{ $item->id }}">
-                                                {{ $item->direct_pulling_qty > 0 ? $item->direct_pulling_qty : '0' }}
+                                                {{ $item->direct_pulling_qty ?: '0' }}
                                             </span>
                                         </td>
-                                        <td
-                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 text-secondary' }}">
+                                        <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
                                             <span class="flip" data-type="stock-chute"
                                                 data-item-id="{{ $item->id }}">
-                                                {{ $item->stock_chute_qty > 0 ? $item->stock_chute_qty : '0' }}
+                                                {{ $item->stock_chute_qty ?: '0' }}
                                             </span>
                                         </td>
                                         <td><span class="flip">{{ $item->prod_time }}</span></td>
