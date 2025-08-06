@@ -847,10 +847,19 @@
             updateQuantity(selector, newValue, type) {
                 const elements = document.querySelectorAll(selector);
                 elements.forEach(el => {
-                    const currentValue = parseInt(el.textContent) || 0;
-                    if (currentValue !== newValue) {
-                        el.textContent = newValue > 0 ? newValue : '0';
-                        this.updateCellStyle(el.closest('td'), newValue, type);
+                    const currentValue = el.textContent.trim(); // Ambil nilai asli sebagai string
+
+                    if (currentValue !== String(newValue)) {
+                        el.textContent = newValue; // Tampilkan sesuai value yang diberikan
+
+                        // Jika newValue berupa angka, update style
+                        if (!isNaN(parseFloat(newValue))) {
+                            this.updateCellStyle(el.closest('td'), parseFloat(newValue), type);
+                        } else {
+                            // Jika string (contoh: "--"), reset style
+                            this.updateCellStyle(el.closest('td'), null, type);
+                        }
+
                         this.animateChange(el.closest('td'));
                     }
                 });
