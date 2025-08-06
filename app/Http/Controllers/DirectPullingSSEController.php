@@ -67,6 +67,7 @@ class DirectPullingSSEController extends Controller
                         ->map(function ($item) {
                             return [
                                 'id' => $item->id,
+                                'order_qty' => $item->order_qty,
                                 'direct_pulling_qty' => $item->direct_pulling_qty,
                                 'stock_chute_qty' => $item->stock_chute_qty,
                                 'back_no' => $item->back_no,

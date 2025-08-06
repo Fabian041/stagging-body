@@ -300,14 +300,14 @@
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td
-                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-success bg-opacity-75 fw-bold text-white' : 'bg-success bg-opacity-25 fw-bold text-success' }}">
+                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 fw-bold text-secondary' }}">
                                             <span class="flip" data-type="direct-pulling"
                                                 data-item-id="{{ $item->id }}">
                                                 {{ $item->direct_pulling_qty > 0 ? $item->direct_pulling_qty : '0' }}
                                             </span>
                                         </td>
                                         <td
-                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-warning bg-opacity-75 fw-bold text-white' : 'bg-warning bg-opacity-25 text-warning' }}">
+                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 text-secondary' }}">
                                             <span class="flip" data-type="stock-chute"
                                                 data-item-id="{{ $item->id }}">
                                                 {{ $item->stock_chute_qty > 0 ? $item->stock_chute_qty : '0' }}
@@ -406,14 +406,14 @@
                                         <td><span class="flip">{{ $item->back_no }}</span></td>
                                         <td><span class="flip">{{ $item->order_qty }}</span></td>
                                         <td
-                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-success bg-opacity-75 fw-bold text-white' : 'bg-success bg-opacity-25 fw-bold text-success' }}">
+                                            class="{{ $item->direct_pulling_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 fw-bold text-secondary' }}">
                                             <span class="flip" data-type="direct-pulling"
                                                 data-item-id="{{ $item->id }}">
                                                 {{ $item->direct_pulling_qty > 0 ? $item->direct_pulling_qty : '0' }}
                                             </span>
                                         </td>
                                         <td
-                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-warning bg-opacity-75 fw-bold text-white' : 'bg-warning bg-opacity-25 text-warning' }}">
+                                            class="{{ $item->stock_chute_qty > 0 ? 'bg-secondary bg-opacity-75 fw-bold text-white' : 'bg-secondary bg-opacity-25 text-secondary' }}">
                                             <span class="flip" data-type="stock-chute"
                                                 data-item-id="{{ $item->id }}">
                                                 {{ $item->stock_chute_qty > 0 ? $item->stock_chute_qty : '0' }}
@@ -648,12 +648,14 @@
                         this.updateQuantity(
                             `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
                             item.direct_pulling_qty,
-                            'success'
+                            'direct-pulling',
+                            item.order_qty // <-- tambahkan target order
                         );
                         this.updateQuantity(
                             `[data-item-id="${item.id}"][data-type="stock-chute"]`,
                             item.stock_chute_qty,
-                            'warning'
+                            'stock-chute',
+                            item.order_qty // <-- tambahkan target order
                         );
                         this.updateQuantity(
                             `[data-item-id="${item.id}"][data-type="start"]`,
@@ -844,19 +846,17 @@
                 this.highlightTimeouts.add(timeoutId);
             }
 
-            updateQuantity(selector, newValue, type) {
+            updateQuantity(selector, newValue, type, targetQty = null) {
                 const elements = document.querySelectorAll(selector);
                 elements.forEach(el => {
-                    const currentValue = el.textContent.trim(); // Ambil nilai asli sebagai string
+                    const currentValue = el.textContent.trim();
 
                     if (currentValue !== String(newValue)) {
-                        el.textContent = newValue; // Tampilkan sesuai value yang diberikan
+                        el.textContent = newValue;
 
-                        // Jika newValue berupa angka, update style
                         if (!isNaN(parseFloat(newValue))) {
-                            this.updateCellStyle(el.closest('td'), parseFloat(newValue), type);
+                            this.updateCellStyle(el.closest('td'), parseFloat(newValue), type, targetQty);
                         } else {
-                            // Jika string (contoh: "--"), reset style
                             this.updateCellStyle(el.closest('td'), null, type);
                         }
 
@@ -865,19 +865,38 @@
                 });
             }
 
-            updateCellStyle(cell, value, type) {
-                // dont update style if type 'time'
-                if (type == 'time') {
+            updateCellStyle(cell, value, type, targetQty = null) {
+                // Jangan ubah style untuk waktu
+                if (type === 'time') return;
+
+                // Reset style kalau value null
+                if (value === null) {
+                    cell.className = '';
                     return;
                 }
 
-                if (value > 0) {
-                    cell.className = `bg-${type} bg-opacity-75 fw-bold text-white`;
-                } else {
-                    const textColor = type === 'success' ? 'text-success' : 'text-warning';
-                    cell.className = `bg-${type} bg-opacity-25 fw-bold ${textColor}`;
+                // Default warna
+                let bgClass = 'bg-secondary';
+                let textClass = 'text-dark';
+
+                if (type === 'direct-pulling' || type === 'stock-chute') {
+                    if (targetQty !== null && !isNaN(targetQty)) {
+                        if (value >= targetQty) {
+                            bgClass = 'bg-success'; // Hijau jika sudah complete
+                            textClass = 'text-white';
+                        } else {
+                            bgClass = 'bg-warning'; // Kuning jika belum complete
+                            textClass = 'text-dark';
+                        }
+                    } else {
+                        bgClass = value > 0 ? 'bg-success' : 'bg-warning';
+                        textClass = 'text-white';
+                    }
                 }
+
+                cell.className = `${bgClass} bg-opacity-75 fw-bold ${textClass}`;
             }
+
 
             animateChange(element) {
                 const flipElement = element.querySelector('.flip');
