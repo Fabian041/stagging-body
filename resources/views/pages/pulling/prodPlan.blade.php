@@ -288,8 +288,6 @@
                                     @php
                                         $timeParts = explode(':', $item->balance_time ?? '00:00');
                                         $hours = (int) $timeParts[0];
-                                        $minutes = (int) $timeParts[1];
-                                        $totalMinutes = $hours * 60 + $minutes;
                                     @endphp
                                     <tr>
                                         @if ($index === 0)
@@ -333,7 +331,7 @@
                                                 </span>
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
-                                                class="{{ $totalMinutes < 180 ? 'table-warning' : '' }}">
+                                                class="{{ $hours < 3 ? 'table-warning' : '' }}">
                                                 <span class="flip">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
@@ -389,8 +387,6 @@
                                     @php
                                         $timeParts = explode(':', $item->balance_time ?? '00:00');
                                         $hours = (int) $timeParts[0];
-                                        $minutes = (int) $timeParts[1];
-                                        $totalMinutes = $hours * 60 + $minutes;
                                     @endphp
                                     <tr>
                                         @if ($index === 0)
@@ -434,7 +430,7 @@
                                                 </span>
                                             </td>
                                             <td rowspan="{{ $rowspan }}"
-                                                class="{{ $totalMinutes < 180 ? 'table-warning' : '' }}">
+                                                class="{{ $hours < 3 ? 'table-warning' : '' }}">
                                                 <span class="flip">
                                                     {{ $item->balance_time ?? '--' }}
                                                 </span>
