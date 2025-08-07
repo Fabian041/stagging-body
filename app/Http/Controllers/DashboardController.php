@@ -428,33 +428,33 @@ class DashboardController extends Controller
                         'dn_number' => $item->dn_number
                     ])->first();
 
-                    // $updateData = [
-                    //     'dock' => $item->dock,
-                    //     'cycle' => $item->cycle,
-                    //     'order_qty' => $item->order_qty,
-                    //     'prod_time' => $item->prod_time,
-                    //     'working_start' => $currentWorkingTime->format('H:i'),
-                    //     'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
-                    //     'working_duration' => gmdate('H:i:s', $totalSeconds),
-                    //     'delivery_time' => $deliveryTime,
-                    //     'delivery_date' => \Carbon\Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
-                    //     'balance_time' => $balanceTime,
-                    //     'updated_at' => now()
-                    // ];
-
                     $updateData = [
                         'dock' => $item->dock,
                         'cycle' => $item->cycle,
                         'order_qty' => $item->order_qty,
                         'prod_time' => $item->prod_time,
-                        'working_start' => null,
-                        'working_end' => null,
+                        'working_start' => $currentWorkingTime->format('H:i'),
+                        'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
                         'working_duration' => gmdate('H:i:s', $totalSeconds),
                         'delivery_time' => $deliveryTime,
                         'delivery_date' => \Carbon\Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
-                        'balance_time' => null,
+                        'balance_time' => $balanceTime,
                         'updated_at' => now()
                     ];
+
+                    // $updateData = [
+                    //     'dock' => $item->dock,
+                    //     'cycle' => $item->cycle,
+                    //     'order_qty' => $item->order_qty,
+                    //     'prod_time' => $item->prod_time,
+                    //     'working_start' => null,
+                    //     'working_end' => null,
+                    //     'working_duration' => gmdate('H:i:s', $totalSeconds),
+                    //     'delivery_time' => $deliveryTime,
+                    //     'delivery_date' => \Carbon\Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
+                    //     'balance_time' => null,
+                    //     'updated_at' => now()
+                    // ];
 
                     // Preserve existing quantities if they exist
                     if ($existingRecord) {
