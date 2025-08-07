@@ -259,7 +259,22 @@
 
         <div class="tab-content" id="lineTabsContent">
             <!-- AS003 Tab -->
+            @php
+                $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
+                $as003ShiftStatus = '';
+                if ($as003MorningQty > 1050) {
+                    $as003ShiftStatus = 'advanced to LS1';
+                } elseif ($as003MorningQty > 850) {
+                    $as003ShiftStatus = 'advanced to NS';
+                }
+            @endphp
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
+                <div class="alert alert-info">
+                    Morning Shift Total Qty: {{ $as003MorningQty }}
+                    @if ($as003ShiftStatus)
+                        <button class="btn btn-warning ms-2">{{ $as003ShiftStatus }}</button>
+                    @endif
+                </div>
                 <div style="max-height: 800px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
                         <thead style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
@@ -285,7 +300,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($grouped['AS003'] ?? collect() as $key => $rows)
+                            @forelse ($grouped['AS003']['data'] ?? [] as $key => $rows)
                                 @php
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();
@@ -376,6 +391,21 @@
 
             <!-- AS004 Tab -->
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
+                @php
+                    $as004MorningQty = $grouped['AS004']['morning_shift_qty'] ?? 0;
+                    $as004ShiftStatus = '';
+                    if ($as004MorningQty > 900) {
+                        $as004ShiftStatus = 'advanced to LS1';
+                    } elseif ($as004MorningQty > 750) {
+                        $as004ShiftStatus = 'advanced to NS';
+                    }
+                @endphp
+                <div class="alert alert-info">
+                    Morning Shift Total Qty: {{ $as004MorningQty }}
+                    @if ($as004ShiftStatus)
+                        <button class="btn btn-warning ms-2">{{ $as004ShiftStatus }}</button>
+                    @endif
+                </div>
                 <div style="max-height: 800px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
                         <thead
@@ -402,7 +432,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($grouped['AS004'] ?? collect() as $key => $rows)
+                            @forelse ($grouped['AS004']['data'] ?? [] as $key => $rows)
                                 @php
                                     [$customer, $delivery] = explode('|', $key);
                                     $rowspan = $rows->count();

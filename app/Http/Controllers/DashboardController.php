@@ -520,12 +520,53 @@ class DashboardController extends Controller
                 ->where('line', $line)
                 ->orderBy('delivery_date')
                 ->orderBy('delivery_time')
-                ->get()
-                ->groupBy(function ($item) {
-                    return $item->customer . '|' . $item->delivery_time;
-                });
+                ->get();
 
-            $grouped[$line] = $lineData;
+            // Debug: Check working times
+            \Log::info("Line {$line} working times:", [
+                'total_records' => $lineData->count(),
+                'null_working_start' => $lineData->whereNull('working_start')->count(),
+                'null_working_end' => $lineData->whereNull('working_end')->count(),
+                'sample_working_times' => $lineData->take(5)->map(function($item) {
+                    return [
+                        'working_start' => $item->working_start,
+                        'working_end' => $item->working_end,
+                        'order_qty' => $item->order_qty
+                    ];
+                })
+            ]);
+
+            // Calculate morning shift quantity with more inclusive condition
+            $morningShiftQty = $lineData->filter(function ($item) {
+                try {
+                    if (!$item->working_start || !$item->working_end) {
+                        return false;
+                    }
+
+                    $workingStart = Carbon::parse($item->working_start);
+                    $workingEnd = Carbon::parse($item->working_end);
+                    
+                    $windowStart = Carbon::createFromTime(6, 0, 0);
+                    $windowEnd = Carbon::createFromTime(14, 15, 0);
+                    
+                    // More inclusive condition - any overlap with morning window
+                    return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)))   ;
+                } catch (\Exception $e) {
+                    \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
+                        'item_id' => $item->id ?? null,
+                        'working_start' => $item->working_start,
+                        'working_end' => $item->working_end
+                    ]);
+                    return false;
+                }
+            })->sum('order_qty');
+
+            $grouped[$line] = [
+                'data' => $lineData->groupBy(function ($item) {
+                    return $item->customer . '|' . $item->delivery_time;
+                }),
+                'morning_shift_qty' => $morningShiftQty
+            ];
         }
 
         return $grouped;
