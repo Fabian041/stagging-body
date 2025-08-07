@@ -356,16 +356,17 @@ class DashboardController extends Controller
 
     protected function processRawData($rawData, $start, $end)
     {
-
         return $rawData
-        ->groupBy(function ($item) {
-            // Jika dock = '6I', grup berdasarkan delivery_time dan back_no
-            dd(trim($item->dock));
-                if ($item->dock == '6I') {
+            ->groupBy(function ($item) {
+                // Trim spasi dari dock sebelum pengecekan
+                $dock = trim($item->dock);
+
+                // Jika dock = '6I', grup berdasarkan delivery_time dan back_no
+                if ($dock === '6I') {
                     return $item->delivery_time . '|' . $item->back_no;
                 }
 
-                // Selain itu, tetap gunakan dn_number dan back_no
+                // Selain itu, grup berdasarkan dn_number dan back_no
                 return $item->dn_number . '|' . $item->back_no;
             })
             ->map(function ($group) {
