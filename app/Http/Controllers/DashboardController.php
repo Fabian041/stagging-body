@@ -242,7 +242,6 @@ class DashboardController extends Controller
             $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
 
             $excludedCustomers = [
-                'TMMIN ASSY PLANT',
                 'ADM SERVICE PART DIVISION',
                 'TMMIN SERVICE PARTS DIVISION',
                 'TAM SPARE PART DIVISION (DAIHATSU)',
@@ -311,7 +310,6 @@ class DashboardController extends Controller
                 $date = $selectedDate->format('Ymd');
                 $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
                 $excludedCustomersString = implode("','", [
-                    'TMMIN ASSY PLANT',
                     'ADM SERVICE PART DIVISION',
                     'TMMIN SERVICE PARTS DIVISION',
                     'TAM SPARE PART DIVISION (DAIHATSU)',
