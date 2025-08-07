@@ -358,13 +358,16 @@ class DashboardController extends Controller
     {
         return $rawData
             ->groupBy(function ($item) {
-                // Paksa cast ke string dulu sebelum di-trim untuk mencegah error
-                $dock = trim((string) $item->dock);
-        
+                try {
+                    $dock = trim((string) $item->dock);
+                } catch (\Throwable $e) {
+                    dd('Error saat trim:', $item, $e->getMessage());
+                }
+    
                 if ($dock === '6I') {
                     return $item->delivery_time . '|' . $item->back_no;
                 }
-        
+    
                 return $item->dn_number . '|' . $item->back_no;
             })
             ->map(function ($group) {
@@ -372,7 +375,7 @@ class DashboardController extends Controller
                 $first->order_qty = $group->sum('order_qty');
                 return $first;
             })
-            ->values();    
+            ->values();
     }
 
     protected function updateProductionData($processedData, $backNosByLine, $today)
