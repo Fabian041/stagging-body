@@ -240,7 +240,15 @@ class DashboardController extends Controller
         try {
             $deliveryDate = $selectedDate->format('Ymd');
             $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
-    
+
+            $excludedCustomers = [
+                'TMMIN ASSY PLANT',
+                'ADM SERVICE PART DIVISION',
+                'TMMIN SERVICE PARTS DIVISION',
+                'TAM SPARE PART DIVISION (DAIHATSU)',
+                'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
+            ];
+
             $query = DB::connection('mssql_external')
                 ->table('TT_GIG_SYKMEISAI')
                 ->select(
@@ -265,11 +273,12 @@ class DashboardController extends Controller
                             ->where('CHR_TIM_SYUKKA', '<', '104000');
                     });
                 })
+                ->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
                 
             return $query->get()->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
-    
+
                 $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                 
                 // Use the delivery date to determine which date to use as base
@@ -279,7 +288,7 @@ class DashboardController extends Controller
                     substr($timeStr, 2, 2),
                     substr($timeStr, 4, 2)
                 );
-    
+
                 return (object)[
                     'customer' => $item->customer,
                     'dock' => $item->dock,
@@ -296,12 +305,19 @@ class DashboardController extends Controller
             });
         } catch (\Exception $e) {
             \Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
-    
+
             try {
                 $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
                 $date = $selectedDate->format('Ymd');
                 $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
-    
+                $excludedCustomersString = implode("','", [
+                    'TMMIN ASSY PLANT',
+                    'ADM SERVICE PART DIVISION',
+                    'TMMIN SERVICE PARTS DIVISION',
+                    'TAM SPARE PART DIVISION (DAIHATSU)',
+                    'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
+                ]);
+
                 $sql = "SELECT 
                         CHR_MEI_NOUNYU as customer,
                         CHR_COD_UKEIRE as dock,
@@ -319,12 +335,13 @@ class DashboardController extends Controller
                             OR 
                             (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
                         )
+                        AND CHR_MEI_NOUNYU NOT IN ('{$excludedCustomersString}')
                         AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
                     ORDER BY CHR_COD_SEBANGOU";
-    
+
                 return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
                     $item->back_no = trim($item->back_no);
-    
+
                     $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                     $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
                     $time = $deliveryDate->copy()->setTime(
@@ -332,7 +349,7 @@ class DashboardController extends Controller
                         substr($timeStr, 2, 2),
                         substr($timeStr, 4, 2)
                     );
-    
+
                     return (object)[
                         'customer' => $item->customer,
                         'dock' => $item->dock,
