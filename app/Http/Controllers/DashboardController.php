@@ -719,40 +719,55 @@ class DashboardController extends Controller
             'pick_list' => 'required|string',
         ]);
         $pickList = $request->pick_list;
-        $data = DB::connection('mssql_external')
-            ->table('IAA1NT as a')
+        // $data = DB::connection('mssql_external')
+        //     ->table('IAA1NT as a')
+        //     ->where('a.CHR_NUB_NYSJNO', $pickList)
+        //     ->select(
+        //         'a.CHR_COD_OMSS as supplier_code',
+        //         'a.CHR_COD_HINB as part_number',
+        //         'a.CHR_NUB_SBNG as back_number',
+        //         'a.DEC_SUR_SHSU as qty_ordered',
+        //         'a.DEC_SUR_HSSU as qty_confirmed',
+        //         'a.CHR_INF_HTTN as uom',
+        //         'a.CHR_NUB_NYSJNO as pick_list'
+        //     )
+        //     ->get();
+        // ambil picklist dari IA31NT terus dapat dec_cod_binid cari cod_binid di IA16NT
+        $ia31nt = DB::connection('mssql_external')
+            ->table('IA31NT as a')
             ->where('a.CHR_NUB_NYSJNO', $pickList)
             ->select(
-                'a.CHR_COD_OMSS as supplier_code',
+                'a.DEC_COD_BINID as flight',
+            )
+            ->first();
+
+        $data = DB::connection('mssql_external')
+            ->table('IA16NT as a')
+            ->where('a.DEC_COD_BINID', $ia31nt->flight)
+            ->select(
+                'a.CHR_NUB_MLNO as supplier_code',
                 'a.CHR_COD_HINB as part_number',
                 'a.CHR_NUB_SBNG as back_number',
-                'a.DEC_SUR_SHSU as qty_ordered',
-                'a.DEC_SUR_HSSU as qty_confirmed',
-                'a.CHR_INF_HTTN as uom',
-                'a.CHR_NUB_NYSJNO as pick_list'
+                'a.DEC_SUR_KKSUH as qty_ordered',
+                'a.CHR_INF_HTTN as uom'
             )
-            ->get();
-        //dummy data
-        // $data = [
-        //     (object)[
-        //         'supplier_code' => 'SUP123',
-        //         'part_number' => 'PN123',
-        //         'back_number' => 'BN123',
-        //         'qty_ordered' => 100,
-        //         'qty_confirmed' => 80,
-        //         'uom' => 'pcs',
-        //         'pick_list' => $pickList
-        //     ],
-        //     [
-        //         'supplier_code' => 'SUP456',
-        //         'part_number' => 'PN456',
-        //         'back_number' => 'BN456',
-        //         'qty_ordered' => 200,
-        //         'qty_confirmed' => 150,
-        //         'uom' => 'pcs',
-        //         'pick_list' => $pickList
-        //     ]
-        // ];
+            ->get()
+            ->map(function ($item) use ($pickList) {
+                $item->pick_list = $pickList;
+
+                $iaa1nt = DB::connection('mssql_external')
+                    ->table('IAA1NT as a')
+                    ->where('a.CHR_COD_HINB', $item->part_number)
+                    ->select(
+                        'a.CHR_NUB_SBNG as back_number',
+                    )
+                    ->first();
+
+                $item->back_number = $iaa1nt->back_number; // Menambahkan custom2 dengan part_number
+                return $item;
+            });
+
+
         return response()->json($data);
     }
 

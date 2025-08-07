@@ -83,10 +83,10 @@
         <table class="table table-bordered" id="detailTable">
           <thead>
             <tr>
+              <th>Picklist</th>
               <th>Part Number</th>
               <th>Back Number</th>
               <th>Qty Ordered</th>
-              <th>Qty Confirmed</th>
               <th>UOM</th>
             </tr>
           </thead>
@@ -223,10 +223,10 @@ function showDetailModal(pickList) {
             let rows = '';
             response.forEach(item => {
                 rows += `<tr>
+                    <td>${item.pick_list}</td>
                     <td>${item.part_number}</td>
                     <td>${item.back_number}</td>
                     <td>${item.qty_ordered}</td>
-                    <td>${item.qty_confirmed}</td>
                     <td>${item.uom}</td>
                 </tr>`;
             });

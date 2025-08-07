@@ -37,7 +37,8 @@ class sendNotification extends Command
             $supplier = DB::table('suppliers')->where('code', $existingLog->supplier_code)->first();
             echo "Notifikasi untuk supplier: $existingLog->supplier_code\n";
             $name = $supplier ? $supplier->name : $existingLog->supplier_code;
-            $groupWa = env('GROUP_WHATSAPP_RECEIVING');
+            // $groupWa = env('GROUP_WHATSAPP_RECEIVING');
+            $groupWa = '6282111707754';
 
             // Atau implementasikan logic email/telegram di sini
 
