@@ -207,9 +207,9 @@
                                 <i class="fas fa-arrow-right"></i>
                             </button>
                             <!-- Add the Re-fetch Data button -->
-                            {{-- <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
+                            <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
                                 <i class="fas fa-sync-alt me-1"></i> RE-FETCH
-                            </button> --}}
+                            </button>
                         </div>
                     </div>
                 </form>
