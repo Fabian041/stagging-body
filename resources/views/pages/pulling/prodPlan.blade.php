@@ -203,7 +203,13 @@
                             <button type="button" class="btn btn-outline-dark" onclick="navigateDate(-1)">
                                 <i class="fas fa-arrow-left"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-dark" onclick="navigateDate(1)">
+                            @php
+                                $selected = $selectedDate ?? now()->format('Y-m-d');
+                                $isToday = $selected === now()->format('Y-m-d');
+                            @endphp
+
+                            <button type="button" class="btn btn-outline-dark {{ $isToday ? 'disabled' : '' }}"
+                                onclick="navigateDate(1)" {{ $isToday ? 'disabled' : '' }}>
                                 <i class="fas fa-arrow-right"></i>
                             </button>
                             <!-- Add the Re-fetch Data button -->
