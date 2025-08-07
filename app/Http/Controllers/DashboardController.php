@@ -360,7 +360,7 @@ class DashboardController extends Controller
         return $rawData
         ->groupBy(function ($item) {
             // Jika dock = '6I', grup berdasarkan delivery_time dan back_no
-            dd($item->dock);
+            dd(trim($item->dock));
                 if ($item->dock == '6I') {
                     return $item->delivery_time . '|' . $item->back_no;
                 }
