@@ -356,15 +356,15 @@ class DashboardController extends Controller
 
     protected function processRawData($rawData, $start, $end)
     {
-
         return $rawData
-        ->groupBy(function ($item) {
-            // Jika dock = '6I', grup berdasarkan delivery_time dan back_no
-                if ($item->dock == '6I') {
+            ->groupBy(function ($item) {
+                // Paksa cast ke string dulu sebelum di-trim untuk mencegah error
+                $dock = trim((string) $item->dock);
+        
+                if ($dock === '6I') {
                     return $item->delivery_time . '|' . $item->back_no;
                 }
-
-                // Selain itu, tetap gunakan dn_number dan back_no
+        
                 return $item->dn_number . '|' . $item->back_no;
             })
             ->map(function ($group) {
@@ -372,7 +372,7 @@ class DashboardController extends Controller
                 $first->order_qty = $group->sum('order_qty');
                 return $first;
             })
-            ->values();
+            ->values();    
     }
 
     protected function updateProductionData($processedData, $backNosByLine, $today)
