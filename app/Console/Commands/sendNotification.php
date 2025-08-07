@@ -38,7 +38,7 @@ class sendNotification extends Command
             echo "Notifikasi untuk supplier: $existingLog->supplier_code\n";
             $name = $supplier ? $supplier->name : $existingLog->supplier_code;
             // $groupWa = env('GROUP_WHATSAPP_RECEIVING');
-            $groupWa = '6282111707754';
+            $groupWa = '6282111707754,6281220936456,6281234583065,628124885590,628111932178,6282260050066';
 
             // Atau implementasikan logic email/telegram di sini
 
