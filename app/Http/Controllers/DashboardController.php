@@ -358,6 +358,12 @@ class DashboardController extends Controller
     {
         return $rawData
             ->groupBy(function ($item) {
+                // Jika dock = '6I', grup berdasarkan delivery_time dan back_no
+                if ($item->dock === '6I') {
+                    return $item->delivery_time . '|' . $item->back_no;
+                }
+
+                // Selain itu, tetap gunakan dn_number dan back_no
                 return $item->dn_number . '|' . $item->back_no;
             })
             ->map(function ($group) {
@@ -496,8 +502,8 @@ class DashboardController extends Controller
         foreach ($backNosByLine as $line => $backNos) {
             $lineData = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
                 ->where('line', $line)
-                ->orderBy('delivery_date') // or whatever column determines the original order
-                ->orderBy('delivery_time') // or whatever column determines the original order
+                ->orderBy('delivery_date')
+                ->orderBy('delivery_time')
                 ->get()
                 ->groupBy(function ($item) {
                     return $item->customer . '|' . $item->delivery_time;
