@@ -183,7 +183,8 @@
                                 <i class="bi bi-calendar3"></i>
                             </span>
                             <input type="date" class="form-control border-dark bg-light" name="date"
-                                value="{{ $selectedDate ?? now()->format('Y-m-d') }}" style="font-weight: bold;">
+                                value="{{ $selectedDate ?? now()->format('Y-m-d') }}" style="font-weight: bold;"
+                                max="{{ now()->format('Y-m-d') }}">
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -206,9 +207,9 @@
                                 <i class="fas fa-arrow-right"></i>
                             </button>
                             <!-- Add the Re-fetch Data button -->
-                            <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
+                            {{-- <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
                                 <i class="fas fa-sync-alt me-1"></i> RE-FETCH
-                            </button>
+                            </button> --}}
                         </div>
                     </div>
                 </form>

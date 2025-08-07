@@ -157,7 +157,7 @@ class DashboardController extends Controller
             : now()->startOfDay();
 
         $today = $selectedDate->copy();
-        $start = $today->copy()->addHours(12); // 12:00 selected date
+        $start = $today->copy()->addHours(10); // 12:00 selected date
         $end = $start->copy()->addDay();      // 12:00 next day
 
         $backNosByLine = [
@@ -258,11 +258,11 @@ class DashboardController extends Controller
                 ->where(function ($query) use ($deliveryDate, $nextDay) {
                     $query->where(function ($q) use ($deliveryDate) {
                         $q->where('CHR_NGP_NOUNYU', $deliveryDate)
-                            ->where('CHR_TIM_SYUKKA', '>=', '120000');
+                            ->where('CHR_TIM_SYUKKA', '>=', '100000');
                     })
                     ->orWhere(function ($q) use ($nextDay) {
                         $q->where('CHR_NGP_NOUNYU', $nextDay)
-                            ->where('CHR_TIM_SYUKKA', '<', '120000');
+                            ->where('CHR_TIM_SYUKKA', '<', '104000');
                     });
                 })
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
@@ -315,9 +315,9 @@ class DashboardController extends Controller
                     FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
                     WHERE CHR_TIM_SYUKKA IS NOT NULL
                         AND (
-                            (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '120000')
+                            (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '100000')
                             OR 
-                            (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '120000')
+                            (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
                         )
                         AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
                     ORDER BY CHR_COD_SEBANGOU";
