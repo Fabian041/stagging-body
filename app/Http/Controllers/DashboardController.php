@@ -558,7 +558,7 @@ class DashboardController extends Controller
 
                     // Night shift window (22:00 - 05:59 next day)
                     $windowStart = Carbon::createFromTime(22, 0, 0);
-                    $windowEnd = Carbon::createFromTime(5, 59, 59)->addDay(); // Next day 05:59
+                    $windowEnd = Carbon::createFromTime(5, 59, 59); // Next day 05:59
 
                     // Handle cases where working time spans midnight
                     if ($workingEnd->isBefore($workingStart)) {
