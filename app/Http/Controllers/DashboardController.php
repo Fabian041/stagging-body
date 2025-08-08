@@ -532,8 +532,8 @@ class DashboardController extends Controller
                     $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
                     $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
 
-                    $isStartMorning = ($startHour >= 6 && $startHour < 22);
-                    $isEndMorning   = ($endHour >= 6 && $endHour < 22);
+                    $isStartMorning = ($startHour >= 6 && $startHour < 14);
+                    $isEndMorning   = ($endHour >= 6 && $endHour < 14);
 
                     return $isStartMorning || $isEndMorning;
                 } catch (\Exception $e) {
