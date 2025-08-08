@@ -258,26 +258,100 @@
         </ul>
 
         <div class="tab-content" id="lineTabsContent">
-            <!-- AS003 Tab -->
-            @php
-                $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
-                $as003ShiftStatus = 'Normal Shift';
-                if ($as003MorningQty > 1050) {
-                    $as003ShiftStatus = 'advanced to LS1';
-                } elseif ($as003MorningQty > 850) {
-                    $as003ShiftStatus = 'advanced to NS';
-                }
-            @endphp
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
-                <div class="alert alert-info">
-                    Morning Shift Total Qty: {{ $as003MorningQty }}
-                    @if ($as003ShiftStatus)
-                        <button class="btn btn-warning ms-2">{{ $as003ShiftStatus }}</button>
-                    @endif
+                <!-- AS003 Tab -->
+                @php
+                    $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
+                    $as003NightQty = $grouped['AS003']['night_shift_qty'] ?? 0;
+                    $as003TotalQty = $grouped['AS003']['total_qty'] ?? 0;
+
+                    // Morning shift status
+                    $as003MorningStatus = 'Normal Shift';
+                    if ($as003MorningQty > 900) {
+                        $as003MorningStatus = 'Advance to LS1';
+                    } elseif ($as003MorningQty > 750) {
+                        $as003MorningStatus = 'Advance to NS';
+                    }
+
+                    // Night shift status
+                    $as003NightStatus = 'Normal Shift';
+                    if ($as003NightQty > 630) {
+                        $as003NightStatus = 'Advance to LS3';
+                    }
+                @endphp
+                <div class="alert alert-dark p-2 mb-4"
+                    style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <!-- Shift Data - Industrial Style -->
+                        <div class="d-flex gap-3 align-items-end">
+                            <!-- Morning Shift -->
+                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
+                                </div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-4 fw-bold" style="color: #ff6b00;">{{ $as003MorningQty }}</span>
+                                    @if ($as003MorningStatus != 'Normal Shift')
+                                        <span class="badge rounded-0"
+                                            style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                            {{ $as003MorningStatus }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Night Shift -->
+                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT</div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as003NightQty }}</span>
+                                    @if ($as003NightStatus != 'Normal Shift')
+                                        <span class="badge rounded-0"
+                                            style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                            {{ $as003NightStatus }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Total -->
+                            <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">TOTAL
+                                </div>
+                                <div class="fs-4 fw-bold" style="color: #fff;">{{ $as003TotalQty }}</div>
+                            </div>
+                        </div>
+
+                        <!-- Status Indicator (if any) -->
+                        @if ($as003MorningStatus != 'Normal Shift' || $as003NightStatus != 'Normal Shift')
+                            <div class="d-flex gap-2">
+                                @if ($as003MorningStatus != 'Normal Shift')
+                                    <div class="d-flex flex-column align-items-center">
+                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">MORNING
+                                        </div>
+                                        <span class="badge rounded-0 mt-1"
+                                            style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                            {{ $as003MorningStatus }}
+                                        </span>
+                                    </div>
+                                @endif
+                                @if ($as003NightStatus != 'Normal Shift')
+                                    <div class="d-flex flex-column align-items-center">
+                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">NIGHT
+                                        </div>
+                                        <span class="badge rounded-0 mt-1"
+                                            style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                            {{ $as003NightStatus }}
+                                        </span>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
                 </div>
                 <div style="max-height: 800px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
+                        <thead
+                            style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
                             <tr>
                                 <th rowspan="2">Customer</th>
                                 <th rowspan="2">Dock</th>
@@ -393,18 +467,92 @@
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
                 @php
                     $as004MorningQty = $grouped['AS004']['morning_shift_qty'] ?? 0;
-                    $as004ShiftStatus = 'Normal Shift';
+                    $as004NightQty = $grouped['AS004']['night_shift_qty'] ?? 0;
+                    $as004TotalQty = $grouped['AS004']['total_qty'] ?? 0;
+
+                    // Morning shift status
+                    $as004MorningStatus = 'Normal Shift';
                     if ($as004MorningQty > 900) {
-                        $as004ShiftStatus = 'advanced to LS1';
+                        $as004MorningStatus = 'Advance to LS1';
                     } elseif ($as004MorningQty > 750) {
-                        $as004ShiftStatus = 'advanced to NS';
+                        $as004MorningStatus = 'Advance to NS';
+                    }
+
+                    // Night shift status
+                    $as004NightStatus = 'Normal Shift';
+                    if ($as004NightQty > 630) {
+                        $as004NightStatus = 'Advance to LS3';
                     }
                 @endphp
-                <div class="alert alert-info">
-                    Morning Shift Total Qty: {{ $as004MorningQty }}
-                    @if ($as004ShiftStatus)
-                        <button class="btn btn-warning ms-2">{{ $as004ShiftStatus }}</button>
-                    @endif
+                <div class="alert alert-dark p-2 mb-4"
+                    style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <!-- Shift Data - Industrial Style -->
+                        <div class="d-flex gap-3 align-items-end">
+                            <!-- Morning Shift -->
+                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
+                                </div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-4 fw-bold" style="color: #ff6b00;">{{ $as004MorningQty }}</span>
+                                    @if ($as004MorningStatus != 'Normal Shift')
+                                        <span class="badge rounded-0"
+                                            style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                            {{ $as004MorningStatus }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Night Shift -->
+                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
+                                </div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as004NightQty }}</span>
+                                    @if ($as004NightStatus != 'Normal Shift')
+                                        <span class="badge rounded-0"
+                                            style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                            {{ $as004NightStatus }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Total -->
+                            <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">TOTAL
+                                </div>
+                                <div class="fs-4 fw-bold" style="color: #fff;">{{ $as004TotalQty }}</div>
+                            </div>
+                        </div>
+
+                        <!-- Status Indicator (if any) -->
+                        @if ($as004MorningStatus != 'Normal Shift' || $as004NightStatus != 'Normal Shift')
+                            <div class="d-flex gap-2">
+                                @if ($as004MorningStatus != 'Normal Shift')
+                                    <div class="d-flex flex-column align-items-center">
+                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">MORNING
+                                        </div>
+                                        <span class="badge rounded-0 mt-1"
+                                            style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                            {{ $as004MorningStatus }}
+                                        </span>
+                                    </div>
+                                @endif
+                                @if ($as004NightStatus != 'Normal Shift')
+                                    <div class="d-flex flex-column align-items-center">
+                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">NIGHT
+                                        </div>
+                                        <span class="badge rounded-0 mt-1"
+                                            style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                            {{ $as004NightStatus }}
+                                        </span>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
                 </div>
                 <div style="max-height: 800px; overflow-y: auto;">
                     <table class="table table-bordered table-hover text-center align-middle table-dark">

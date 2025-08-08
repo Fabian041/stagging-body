@@ -522,21 +522,7 @@ class DashboardController extends Controller
                 ->orderBy('delivery_time')
                 ->get();
 
-            // Debug: Check working times
-            \Log::info("Line {$line} working times:", [
-                'total_records' => $lineData->count(),
-                'null_working_start' => $lineData->whereNull('working_start')->count(),
-                'null_working_end' => $lineData->whereNull('working_end')->count(),
-                'sample_working_times' => $lineData->take(5)->map(function ($item) {
-                    return [
-                        'working_start' => $item->working_start,
-                        'working_end' => $item->working_end,
-                        'order_qty' => $item->order_qty
-                    ];
-                })
-            ]);
-
-            // Calculate morning shift quantity with more inclusive condition
+            // Calculate morning shift quantity (06:00 - 14:15)
             $morningShiftQty = $lineData->filter(function ($item) {
                 try {
                     if (!$item->working_start || !$item->working_end) {
@@ -549,8 +535,39 @@ class DashboardController extends Controller
                     $windowStart = Carbon::createFromTime(6, 0, 0);
                     $windowEnd = Carbon::createFromTime(14, 15, 0);
 
-                    // More inclusive condition - any overlap with morning window
                     return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)));
+                } catch (\Exception $e) {
+                    \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
+                        'item_id' => $item->id ?? null,
+                        'working_start' => $item->working_start,
+                        'working_end' => $item->working_end
+                    ]);
+                    return false;
+                }
+            })->sum('order_qty');
+
+            // Calculate night shift quantity (22:00 - 05:59 next day)
+            $nightShiftQty = $lineData->filter(function ($item) {
+                try {
+                    if (!$item->working_start || !$item->working_end) {
+                        return false;
+                    }
+
+                    $workingStart = Carbon::parse($item->working_start);
+                    $workingEnd = Carbon::parse($item->working_end);
+
+                    // Night shift window (22:00 - 05:59 next day)
+                    $windowStart = Carbon::createFromTime(22, 0, 0);
+                    $windowEnd = Carbon::createFromTime(5, 59, 59)->addDay(); // Next day 05:59
+
+                    // Handle cases where working time spans midnight
+                    if ($workingEnd->isBefore($workingStart)) {
+                        // If end time is before start time, it means it spans midnight
+                        return $workingStart->lt($windowEnd) || $workingEnd->gt($windowStart);
+                    } else {
+                        // Normal case (within same day)
+                        return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)));
+                    }
                 } catch (\Exception $e) {
                     \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
                         'item_id' => $item->id ?? null,
@@ -565,7 +582,9 @@ class DashboardController extends Controller
                 'data' => $lineData->groupBy(function ($item) {
                     return $item->customer . '|' . $item->delivery_time;
                 }),
-                'morning_shift_qty' => $morningShiftQty
+                'morning_shift_qty' => $morningShiftQty,
+                'night_shift_qty' => $nightShiftQty,
+                'total_qty' => $morningShiftQty + $nightShiftQty
             ];
         }
 
