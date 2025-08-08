@@ -267,19 +267,19 @@ class DashboardController extends Controller
                         $q->where('CHR_NGP_NOUNYU', $deliveryDate)
                             ->where('CHR_TIM_SYUKKA', '>=', '100000');
                     })
-                    ->orWhere(function ($q) use ($nextDay) {
-                        $q->where('CHR_NGP_NOUNYU', $nextDay)
-                            ->where('CHR_TIM_SYUKKA', '<', '104000');
-                    });
+                        ->orWhere(function ($q) use ($nextDay) {
+                            $q->where('CHR_NGP_NOUNYU', $nextDay)
+                                ->where('CHR_TIM_SYUKKA', '<', '104000');
+                        });
                 })
                 ->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)
                 ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
-                
+
             return $query->get()->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
                 $item->back_no = trim($item->back_no);
 
                 $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                
+
                 // Use the delivery date to determine which date to use as base
                 $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
                 $time = $deliveryDate->copy()->setTime(
@@ -375,11 +375,11 @@ class DashboardController extends Controller
             ->groupBy(function ($item) {
                 // Paksa cast ke string dulu sebelum di-trim untuk mencegah error
                 $dock = trim((string) $item->dock);
-        
+
                 if ($dock === '6I') {
                     return $item->delivery_date . '|' . $item->formatted_time . '|' . $item->back_no;
                 }
-        
+
                 return $item->dn_number . '|' . $item->back_no;
             })
             ->map(function ($group) {
@@ -387,7 +387,7 @@ class DashboardController extends Controller
                 $first->order_qty = $group->sum('order_qty');
                 return $first;
             })
-            ->values();    
+            ->values();
     }
 
     protected function updateProductionData($processedData, $backNosByLine, $today)
@@ -527,7 +527,7 @@ class DashboardController extends Controller
                 'total_records' => $lineData->count(),
                 'null_working_start' => $lineData->whereNull('working_start')->count(),
                 'null_working_end' => $lineData->whereNull('working_end')->count(),
-                'sample_working_times' => $lineData->take(5)->map(function($item) {
+                'sample_working_times' => $lineData->take(5)->map(function ($item) {
                     return [
                         'working_start' => $item->working_start,
                         'working_end' => $item->working_end,
@@ -545,12 +545,12 @@ class DashboardController extends Controller
 
                     $workingStart = Carbon::parse($item->working_start);
                     $workingEnd = Carbon::parse($item->working_end);
-                    
+
                     $windowStart = Carbon::createFromTime(6, 0, 0);
                     $windowEnd = Carbon::createFromTime(14, 15, 0);
-                    
+
                     // More inclusive condition - any overlap with morning window
-                    return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)))   ;
+                    return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)));
                 } catch (\Exception $e) {
                     \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
                         'item_id' => $item->id ?? null,
@@ -610,7 +610,8 @@ class DashboardController extends Controller
     public function receivingDashboard()
     {
         $startOfWeek = request('start_date') ? Carbon::parse(request('start_date')) : now()->startOfWeek();
-        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->endOfWeek();
+        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->addWeek()->endOfWeek();
+
         $area = request('area') ? request('area') : 'unit';
         $statusColorss = [
             0 => '#cccccc', // Default / tidak diketahui
@@ -719,40 +720,54 @@ class DashboardController extends Controller
             'pick_list' => 'required|string',
         ]);
         $pickList = $request->pick_list;
-        $data = DB::connection('mssql_external')
-            ->table('IAA1NT as a')
+        // $data = DB::connection('mssql_external')
+        //     ->table('IAA1NT as a')
+        //     ->where('a.CHR_NUB_NYSJNO', $pickList)
+        //     ->select(
+        //         'a.CHR_COD_OMSS as supplier_code',
+        //         'a.CHR_COD_HINB as part_number',
+        //         'a.CHR_NUB_SBNG as back_number',
+        //         'a.DEC_SUR_SHSU as qty_ordered',
+        //         'a.DEC_SUR_HSSU as qty_confirmed',
+        //         'a.CHR_INF_HTTN as uom',
+        //         'a.CHR_NUB_NYSJNO as pick_list'
+        //     )
+        //     ->get();
+        // ambil picklist dari IA31NT terus dapat dec_cod_binid cari cod_binid di IA16NT
+        $ia31nt = DB::connection('mssql_external')
+            ->table('IA31NT as a')
             ->where('a.CHR_NUB_NYSJNO', $pickList)
             ->select(
-                'a.CHR_COD_OMSS as supplier_code',
-                'a.CHR_COD_HINB as part_number',
-                'a.CHR_NUB_SBNG as back_number',
-                'a.DEC_SUR_SHSU as qty_ordered',
-                'a.DEC_SUR_HSSU as qty_confirmed',
-                'a.CHR_INF_HTTN as uom',
-                'a.CHR_NUB_NYSJNO as pick_list'
+                'a.DEC_COD_BINID as flight',
             )
-            ->get();
-        //dummy data
-        // $data = [
-        //     (object)[
-        //         'supplier_code' => 'SUP123',
-        //         'part_number' => 'PN123',
-        //         'back_number' => 'BN123',
-        //         'qty_ordered' => 100,
-        //         'qty_confirmed' => 80,
-        //         'uom' => 'pcs',
-        //         'pick_list' => $pickList
-        //     ],
-        //     [
-        //         'supplier_code' => 'SUP456',
-        //         'part_number' => 'PN456',
-        //         'back_number' => 'BN456',
-        //         'qty_ordered' => 200,
-        //         'qty_confirmed' => 150,
-        //         'uom' => 'pcs',
-        //         'pick_list' => $pickList
-        //     ]
-        // ];
+            ->first();
+
+        $data = DB::connection('mssql_external')
+            ->table('IA16NT as a')
+            ->where('a.DEC_COD_BINID', $ia31nt->flight)
+            ->select(
+                'a.CHR_NUB_MLNO as supplier_code',
+                'a.CHR_COD_HINB as part_number',
+                'a.DEC_SUR_KKSUH as qty_ordered',
+                'a.CHR_INF_HTTN as uom'
+            )
+            ->get()
+            ->map(function ($item) use ($pickList) {
+                $item->pick_list = $pickList;
+
+                $iaa1nt = DB::connection('mssql_external')
+                    ->table('IAA1NT as a')
+                    ->where('a.CHR_COD_HINB', $item->part_number)
+                    ->select(
+                        'a.CHR_NUB_SBNG as back_number',
+                    )
+                    ->first();
+
+                $item->back_number = $iaa1nt->back_number; // Menambahkan custom2 dengan part_number
+                return $item;
+            });
+
+
         return response()->json($data);
     }
 
