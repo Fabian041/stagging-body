@@ -552,22 +552,22 @@ class DashboardController extends Controller
                     if (!$item->working_start || !$item->working_end) {
                         return false;
                     }
-
-                    $workingStart = Carbon::parse($item->working_start);
-                    $workingEnd = Carbon::parse($item->working_end);
-
-                    // Night shift window (22:00 - 05:59 next day)
-                    $windowStart = Carbon::createFromTime(22, 0, 0);
-                    $windowEnd = Carbon::createFromTime(5, 59, 59); // Next day 05:59
-
-                    // Handle cases where working time spans midnight
-                    if ($workingEnd->isBefore($workingStart)) {
-                        // If end time is before start time, it means it spans midnight
-                        return $workingStart->lt($windowEnd) || $workingEnd->gt($windowStart);
-                    } else {
-                        // Normal case (within same day)
-                        return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)));
+            
+                    // Parse jam hari ini
+                    $today = Carbon::today();
+                    $workingStart = $today->copy()->setTimeFromTimeString($item->working_start);
+                    $workingEnd   = $today->copy()->setTimeFromTimeString($item->working_end);
+            
+                    // Kalau working_end < working_start → berarti nyebrang hari
+                    if ($workingEnd->lt($workingStart)) {
+                        $workingEnd->addDay();
                     }
+            
+                    // Window shift malam
+                    $windowStart = $today->copy()->setTime(22, 0, 0);
+                    $windowEnd   = $today->copy()->addDay()->setTime(5, 59, 59);
+            
+                    return $workingStart->lt($windowEnd) && $workingEnd->gt($windowStart);
                 } catch (\Exception $e) {
                     \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
                         'item_id' => $item->id ?? null,
