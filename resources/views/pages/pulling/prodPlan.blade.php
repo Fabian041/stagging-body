@@ -261,7 +261,7 @@
             <!-- AS003 Tab -->
             @php
                 $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
-                $as003ShiftStatus = '';
+                $as003ShiftStatus = 'Normal Shift';
                 if ($as003MorningQty > 1050) {
                     $as003ShiftStatus = 'advanced to LS1';
                 } elseif ($as003MorningQty > 850) {
@@ -393,7 +393,7 @@
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
                 @php
                     $as004MorningQty = $grouped['AS004']['morning_shift_qty'] ?? 0;
-                    $as004ShiftStatus = '';
+                    $as004ShiftStatus = 'Normal Shift';
                     if ($as004MorningQty > 900) {
                         $as004ShiftStatus = 'advanced to LS1';
                     } elseif ($as004MorningQty > 750) {
