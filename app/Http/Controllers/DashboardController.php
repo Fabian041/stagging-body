@@ -522,20 +522,20 @@ class DashboardController extends Controller
                 ->orderBy('delivery_time')
                 ->get();
 
-            // Calculate morning shift quantity (06:00 - 14:15)
+            // Morning shift (06:00 - 21:59)
             $morningShiftQty = $lineData->filter(function ($item) {
                 try {
                     if (!$item->working_start || !$item->working_end) {
                         return false;
                     }
 
-                    $workingStart = Carbon::parse($item->working_start);
-                    $workingEnd = Carbon::parse($item->working_end);
+                    $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
+                    $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
 
-                    $windowStart = Carbon::createFromTime(6, 0, 0);
-                    $windowEnd = Carbon::createFromTime(14, 15, 0);
+                    $isStartMorning = ($startHour >= 6 && $startHour < 22);
+                    $isEndMorning   = ($endHour >= 6 && $endHour < 22);
 
-                    return ($workingStart->lt($windowEnd) && ($workingEnd->gt($windowStart)));
+                    return $isStartMorning || $isEndMorning;
                 } catch (\Exception $e) {
                     \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
                         'item_id' => $item->id ?? null,
@@ -546,35 +546,20 @@ class DashboardController extends Controller
                 }
             })->sum('order_qty');
 
-            // Calculate night shift quantity (22:00 - 05:59 next day)
+            // Night shift (22:00 - 05:59)
             $nightShiftQty = $lineData->filter(function ($item) {
                 try {
                     if (!$item->working_start || !$item->working_end) {
                         return false;
                     }
-    
-                    $today = Carbon::today();
-                    $workingStart = $today->copy()->setTimeFromTimeString($item->working_start);
-                    $workingEnd   = $today->copy()->setTimeFromTimeString($item->working_end);
-    
-                    // Kalau working_end < working_start → berarti nyebrang hari
-                    if ($workingEnd->lt($workingStart)) {
-                        $workingEnd->addDay();
-                    }
-    
-                    // Force masuk shift malam jika jam < 06:00
-                    if ($workingStart->hour < 6) {
-                        $workingStart->addDay();
-                    }
-                    if ($workingEnd->hour < 6) {
-                        $workingEnd->addDay();
-                    }
-    
-                    // Window shift malam
-                    $windowStart = $today->copy()->setTime(22, 0, 0);
-                    $windowEnd   = $today->copy()->addDay()->setTime(5, 59, 59);
-    
-                    return $workingStart->lt($windowEnd) && $workingEnd->gt($windowStart);
+
+                    $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
+                    $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
+
+                    $isStartNight = ($startHour >= 22 || $startHour < 6);
+                    $isEndNight   = ($endHour >= 22 || $endHour < 6);
+
+                    return $isStartNight || $isEndNight;
                 } catch (\Exception $e) {
                     \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
                         'item_id' => $item->id ?? null,
