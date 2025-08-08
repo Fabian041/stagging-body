@@ -552,21 +552,28 @@ class DashboardController extends Controller
                     if (!$item->working_start || !$item->working_end) {
                         return false;
                     }
-            
-                    // Parse jam hari ini
+    
                     $today = Carbon::today();
                     $workingStart = $today->copy()->setTimeFromTimeString($item->working_start);
                     $workingEnd   = $today->copy()->setTimeFromTimeString($item->working_end);
-            
+    
                     // Kalau working_end < working_start → berarti nyebrang hari
                     if ($workingEnd->lt($workingStart)) {
                         $workingEnd->addDay();
                     }
-            
+    
+                    // Force masuk shift malam jika jam < 06:00
+                    if ($workingStart->hour < 6) {
+                        $workingStart->addDay();
+                    }
+                    if ($workingEnd->hour < 6) {
+                        $workingEnd->addDay();
+                    }
+    
                     // Window shift malam
                     $windowStart = $today->copy()->setTime(22, 0, 0);
                     $windowEnd   = $today->copy()->addDay()->setTime(5, 59, 59);
-            
+    
                     return $workingStart->lt($windowEnd) && $workingEnd->gt($windowStart);
                 } catch (\Exception $e) {
                     \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
