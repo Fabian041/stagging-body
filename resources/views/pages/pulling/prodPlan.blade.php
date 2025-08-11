@@ -163,6 +163,12 @@
 
 <body>
     <div class="container py-4">
+        <div class="mb-3">
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Back
+            </a>
+        </div>
+
         <div class="card mb-4 border-dark bg-light">
             <div class="card-header bg-dark text-white py-2">
                 <div class="d-flex justify-content-between align-items-center">
@@ -301,7 +307,8 @@
 
                             <!-- Night Shift -->
                             <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT</div>
+                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
+                                </div>
                                 <div class="d-flex align-items-baseline gap-2">
                                     <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as003NightQty }}</span>
                                     @if ($as003NightStatus != 'Normal Shift')
