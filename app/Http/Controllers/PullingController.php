@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
+use App\Models\ProductionPlan;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
 use App\Models\LoadingListDetail;
@@ -128,9 +129,146 @@ class PullingController extends Controller
         return view('pages.pulling.index');
     }
 
-    public function showSettings()
+    public function settingIndex()
     {
-        return view('pages.pulling.setting');
+        // Get current line assignments
+        $lineAssignments = [
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
+            'AS004' => ['CI15', 'CI16', 'CI19'],
+        ];
+
+        // Get current cycle times
+        $cycleTimes = [
+            'CI11' => '00:34',
+            'CI12' => '00:34',
+            'CI13' => '00:40',
+            'CI14' => '00:34',
+            'CI15' => '00:39',
+            'CI16' => '00:40',
+            'CI17' => '00:40',
+            'CI18' => '00:40',
+            'CI19' => '00:37',
+        ];
+
+        return view('pages.pulling.setting', [
+            'lineAssignments' => $lineAssignments,
+            'cycleTimes' => $cycleTimes,
+        ]);
+    }
+
+    public function settingUpdate(Request $request)
+    {
+        $request->validate([
+            'line_assignments' => 'required|array',
+            'cycle_times' => 'required|array',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Update line assignments in your configuration or database
+            // This would depend on how you're storing these settings
+            // For now, we'll just return the updated values
+            
+            // Example if storing in database:
+            // foreach ($request->line_assignments as $line => $backNos) {
+            //     Setting::updateOrCreate(
+            //         ['key' => 'line_assignments_'.$line],
+            //         ['value' => json_encode($backNos)]
+            //     );
+            // }
+
+            // Update cycle times
+            // foreach ($request->cycle_times as $backNo => $time) {
+            //     Setting::updateOrCreate(
+            //         ['key' => 'cycle_time_'.$backNo],
+            //         ['value' => $time]
+            //     );
+            // }
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Settings updated successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update settings: ' . $e->getMessage());
+        }
+    }
+
+    public function reorderProduction(Request $request)
+    {
+        $validated = $request->validate([
+            'date' => 'required|date',
+            'line' => 'required|string|in:AS003,AS004',
+            'new_order' => 'required|array',
+            'new_order.*.id' => 'required|exists:production_plans,id'
+        ]);
+    
+        try {
+            DB::beginTransaction();
+            
+            $date = Carbon::parse($validated['date'])->format('Y-m-d');
+            $line = $validated['line'];
+            $startWorkingTime = Carbon::parse($date)->setTime(6, 0, 0); // Start at 6:00 AM
+            
+            foreach ($validated['new_order'] as $orderItem) {
+                $item = ProductionPlan::findOrFail($orderItem['id']);
+                
+                // Verify this item belongs to the selected date and line
+                if ($item->plan_date != $date || $item->line != $line) {
+                    throw new \Exception("Item {$item->id} doesn't belong to selected date/line");
+                }
+                
+                // Calculate production duration in seconds
+                [$mm, $ss] = explode(':', $item->prod_time);
+                $prodSeconds = ((int)$mm * 60) + (int)$ss;
+                $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                
+                // Set working times
+                $workingStart = $startWorkingTime->format('H:i');
+                $workingEnd = $startWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
+                $workingDuration = gmdate('H:i:s', $totalSeconds);
+                
+                // Calculate balance time (time until delivery)
+                $deliveryTime = Carbon::parse($item->delivery_time);
+                $endTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
+                
+                if ($deliveryTime->lt($endTime)) {
+                    $deliveryTime->addDay();
+                }
+                
+                $balanceSeconds = $deliveryTime->diffInSeconds($endTime);
+                $balanceTime = ($balanceSeconds < 0 ? '-' : '') . gmdate('H:i', abs($balanceSeconds));
+                
+                // Update the item (without sequence)
+                $item->update([
+                    'working_start' => $workingStart,
+                    'working_end' => $workingEnd,
+                    'working_duration' => $workingDuration,
+                    'balance_time' => $balanceTime
+                ]);
+                
+                $startWorkingTime->addSeconds($totalSeconds);
+            }
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Production sequence updated successfully',
+                'data' => ProductionPlan::where('plan_date', $date)
+                                    ->where('line', $line)
+                                    ->orderBy('working_start') // Order by working time instead
+                                    ->get()
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update production sequence: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

@@ -22,6 +22,22 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
+Route::get('/production-items', function(Request $request) {
+    $date = $request->input('date');
+    $line = $request->input('line');
+    
+    if (!$date || !$line) {
+        return response()->json(['message' => 'Date and line are required'], 400);
+    }
+
+    $items = \App\Models\ProductionPlan::where('plan_date', $date)
+        ->where('line', $line)
+        // ->orderBy('delivery_time')
+        ->get(['id', 'customer', 'back_no', 'order_qty', 'delivery_time', 'working_start']);
+
+    return response()->json($items);
+});
+
 Route::group(['prefix' => 'v1'], function () {
     Route::get('/scan/{line}', [ProductionController::class, 'scan']);
     Route::post('/injection', [ProductionController::class , 'post']);

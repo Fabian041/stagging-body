@@ -245,9 +245,9 @@
                 <span class="badge bg-secondary me-2">
                     Last Update: {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
                 </span>
-                {{-- <a class="btn btn-outline-warning" href="/pulling/settings">
-                    <i class="bi bi-gear-fill"></i> SETTINGS
-                </a> --}}
+                <a class="btn btn-outline-warning" href="/pulling/settings">
+                    <i class="fas fa-cog me-1"></i> SETTINGS
+                </a>
             </div>
         </div>
 

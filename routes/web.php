@@ -139,7 +139,15 @@ Route::middleware(['auth'])->group(function () {
     // pulling
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
     Route::prefix('pulling')->group(function () {
-        Route::get('/settings', [PullingController::class, 'showSettings'])->name('pulling.settings');
+        Route::get('/settings', [PullingController::class, 'settingIndex'])
+        ->name('pulling.settings');
+    
+        Route::post('/settings/update', [PullingController::class, 'settingUpdate'])
+            ->name('pulling.settings.update');
+        
+        Route::post('/settings/reorder', [PullingController::class, 'reorderProduction'])
+            ->name('pulling.settings.reorder');
+            
         Route::get('/customer-check/{customer}/{pds?}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
         // Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/internal-check/{internal}/{isinternal?}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');

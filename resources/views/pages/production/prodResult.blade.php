@@ -180,11 +180,9 @@
 @endsection
 
 {{-- mqtt --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
 <script src="{{ asset('assets/js/jquery-3.6.3.min.js') }}"></script>
 <script src="{{ asset('assets/js/apexcharts.js') }}"></script>
 <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}></script>
-<script src="<https://unpkg.com/mqtt/dist/mqtt.min.js>"></script>
 <script>
     var errorMessege = "{!! session('error') !!}";
     var successMessege = "{!! session('success') !!}";
