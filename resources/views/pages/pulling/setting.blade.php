@@ -153,7 +153,11 @@
 
 @push('scripts')
     <script>
-        // Add CSS for the enhanced highlight effect
+        // Global variables to track order
+        let originalSequenceData = [];
+        let currentOrder = [];
+
+        // Add CSS styles
         document.head.insertAdjacentHTML('beforeend', `
             <style>
                 .sequence-changed {
@@ -161,18 +165,21 @@
                     border-left: 3px solid #ffc107;
                     position: relative;
                 }
-                .sequence-changed::after {
-                    content: attr(data-swap-info);
+                .swap-info {
                     position: absolute;
-                    right: 10px;
+                    left: 10px;
                     top: 50%;
                     transform: translateY(-50%);
                     font-size: 0.8em;
-                    color: #28a745;
-                    font-weight: bold;
+                    background: #28a745;
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 10px;
+                    z-index: 1;
                 }
                 .sequence-input-container {
                     position: relative;
+                    margin-left: 60px;
                 }
                 .sequence-input-container::after {
                     content: '↕';
@@ -186,12 +193,11 @@
                 #resetChangesBtn {
                     margin-left: 10px;
                 }
+                .item-row {
+                    position: relative;
+                }
             </style>
         `);
-
-        // Store original order for reset functionality
-        let originalOrder = [];
-        let currentOrder = [];
 
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('loadItemsBtn').addEventListener('click', loadProductionItems);
@@ -200,7 +206,8 @@
             // Add Reset Changes button
             const saveBtnContainer = document.querySelector('#saveOrderBtn').parentNode;
             saveBtnContainer.insertAdjacentHTML('beforeend',
-                '<button id="resetChangesBtn" class="btn btn-outline-danger">Reset Changes</button>');
+                '<button id="resetChangesBtn" class="btn btn-outline-danger" style="display:none;">Reset Changes</button>'
+            );
 
             document.getElementById('resetChangesBtn').addEventListener('click', resetChanges);
         });
@@ -232,12 +239,22 @@
                     const container = document.getElementById('itemsContainer');
                     container.innerHTML = '';
 
-                    // Sort by original sequence and store original order
-                    data.sort((a, b) => a.sequence - b.sequence);
-                    originalOrder = data.map(item => item.id);
-                    currentOrder = [...originalOrder];
+                    // Store original data and order
+                    originalSequenceData = data.map(item => ({
+                        id: item.id,
+                        back_no: item.back_no,
+                        customer: item.customer,
+                        order_qty: item.order_qty,
+                        delivery_time: item.delivery_time,
+                        sequence: item.sequence
+                    }));
 
-                    data.forEach((item, index) => {
+                    // Sort by original sequence
+                    originalSequenceData.sort((a, b) => a.sequence - b.sequence);
+                    currentOrder = originalSequenceData.map(item => item.id);
+
+                    // Create items in original order
+                    originalSequenceData.forEach((item, index) => {
                         const itemElement = document.createElement('div');
                         itemElement.className = 'item-row';
                         itemElement.setAttribute('data-id', item.id);
@@ -251,7 +268,7 @@
                                            class="industrial-sequence-input" 
                                            value="${index + 1}" 
                                            min="1" 
-                                           max="${data.length}"
+                                           max="${originalSequenceData.length}"
                                            onchange="handleSequenceChange(this)">
                                 </div>
                             </div>
@@ -284,29 +301,48 @@
 
         function resetChanges() {
             const container = document.getElementById('itemsContainer');
-            const rows = Array.from(container.querySelectorAll('.item-row'));
+            container.innerHTML = ''; // Clear current items
 
-            // Re-sort rows based on original sequence
-            rows.sort((a, b) => {
-                return parseInt(a.getAttribute('data-original-seq')) - parseInt(b.getAttribute(
-                    'data-original-seq'));
-            });
+            // Recreate items in original order
+            originalSequenceData
+                .sort((a, b) => a.sequence - b.sequence)
+                .forEach((item, index) => {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'item-row';
+                    itemElement.setAttribute('data-id', item.id);
+                    itemElement.setAttribute('data-original-seq', item.sequence);
+                    itemElement.setAttribute('data-current-seq', index + 1);
 
-            // Clear container and re-append in original order
-            container.innerHTML = '';
-            rows.forEach((row, index) => {
-                // Reset sequence numbers and attributes
-                const input = row.querySelector('.industrial-sequence-input');
-                input.value = index + 1;
-                row.setAttribute('data-current-seq', index + 1);
-                row.classList.remove('sequence-changed');
-                row.removeAttribute('data-swap-info');
+                    itemElement.innerHTML = `
+                        <div class="col-md-2">
+                            <div class="sequence-input-container">
+                                <input type="number" 
+                                       class="industrial-sequence-input" 
+                                       value="${index + 1}" 
+                                       min="1" 
+                                       max="${originalSequenceData.length}"
+                                       onchange="handleSequenceChange(this)">
+                            </div>
+                        </div>
+                        <div class="col-md-3 font-weight-bold">
+                            ${item.back_no}
+                        </div>
+                        <div class="col-md-3">
+                            ${item.customer}
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <span class="badge item-badge">${item.order_qty} UNITS</span>
+                        </div>
+                        <div class="col-md-2 text-right font-weight-bold">
+                            ${item.delivery_time}
+                        </div>
+                    `;
 
-                container.appendChild(row);
-            });
+                    container.appendChild(itemElement);
+                });
 
-            // Reset tracking variables
-            currentOrder = [...originalOrder];
+            // Reset tracking
+            currentOrder = originalSequenceData.map(item => item.id);
             document.getElementById('resetChangesBtn').style.display = 'none';
         }
 
@@ -341,7 +377,7 @@
                 return;
             }
 
-            // Show reset button when changes are made
+            // Show reset button
             document.getElementById('resetChangesBtn').style.display = 'inline-block';
 
             // Find the row that currently has the new position value
@@ -358,65 +394,44 @@
             const targetRowId = targetRow.getAttribute('data-id');
             const targetOldPosition = parseInt(targetRow.getAttribute('data-current-seq'));
 
-            // Create swap info element (moved to left side)
+            // Remove any existing swap info
+            const existingSwapInfo = changedRow.querySelector('.swap-info');
+            if (existingSwapInfo) changedRow.removeChild(existingSwapInfo);
+            const existingTargetSwapInfo = targetRow.querySelector('.swap-info');
+            if (existingTargetSwapInfo) targetRow.removeChild(existingTargetSwapInfo);
+
+            // Create and add new swap info
             const swapInfo = document.createElement('div');
             swapInfo.className = 'swap-info';
             swapInfo.textContent = `${oldPosition} ↔ ${newPosition}`;
+            changedRow.insertBefore(swapInfo, changedRow.firstChild);
 
             const targetSwapInfo = document.createElement('div');
             targetSwapInfo.className = 'swap-info';
             targetSwapInfo.textContent = `${targetOldPosition} ↔ ${oldPosition}`;
-
-            // Highlight both rows and add swap info
-            changedRow.classList.add('sequence-changed');
-            changedRow.insertBefore(swapInfo, changedRow.firstChild);
-
-            targetRow.classList.add('sequence-changed');
             targetRow.insertBefore(targetSwapInfo, targetRow.firstChild);
 
+            // Highlight both rows
+            changedRow.classList.add('sequence-changed');
+            targetRow.classList.add('sequence-changed');
+
             // Swap the DOM positions
-            const changedRowClone = changedRow.cloneNode(true);
-            const targetRowClone = targetRow.cloneNode(true);
+            container.insertBefore(targetRow, changedRow);
+            container.insertBefore(changedRow, targetRow.nextSibling);
 
-            container.replaceChild(targetRowClone, changedRow);
-            container.replaceChild(changedRowClone, targetRow);
-
-            // Update the sequence numbers for both swapped rows
-            const changedRowInput = changedRowClone.querySelector('.industrial-sequence-input');
-            const targetRowInput = targetRowClone.querySelector('.industrial-sequence-input');
-
-            changedRowInput.value = newPosition;
-            changedRowClone.setAttribute('data-current-seq', newPosition);
-
-            targetRowInput.value = oldPosition;
-            targetRowClone.setAttribute('data-current-seq', oldPosition);
+            // Update sequence numbers
+            const updatedRows = Array.from(container.querySelectorAll('.item-row'));
+            updatedRows.forEach((row, index) => {
+                const input = row.querySelector('.industrial-sequence-input');
+                input.value = index + 1;
+                row.setAttribute('data-current-seq', index + 1);
+            });
 
             // Update current order tracking
             const changedIndex = currentOrder.indexOf(changedRowId);
             const targetIndex = currentOrder.indexOf(targetRowId);
             currentOrder[changedIndex] = targetRowId;
             currentOrder[targetIndex] = changedRowId;
-
-            // Update all other sequence numbers to be sequential
-            const updatedRows = Array.from(container.querySelectorAll('.item-row'));
-            updatedRows.forEach((row, index) => {
-                // Skip the two rows we already updated
-                if (row !== changedRowClone && row !== targetRowClone) {
-                    const input = row.querySelector('.industrial-sequence-input');
-                    input.value = index + 1;
-                    row.setAttribute('data-current-seq', index + 1);
-                }
-            });
-
-            // Re-sort all rows based on the new sequence numbers
-            const sortedRows = updatedRows.sort((a, b) => {
-                const aSeq = parseInt(a.getAttribute('data-current-seq'));
-                const bSeq = parseInt(b.getAttribute('data-current-seq'));
-                return aSeq - bSeq;
-            });
-
-            // Re-append all rows in the correct order
-            sortedRows.forEach(row => container.appendChild(row));
         }
 
         function saveProductionSequence() {
@@ -468,18 +483,17 @@
                         throw new Error(data.message || 'Unknown server error');
                     }
 
-                    // Update original order to match current order after save
-                    originalOrder = [...currentOrder];
-                    document.getElementById('resetChangesBtn').style.display = 'none';
-
-                    // Add save confirmation to highlights
-                    const now = new Date();
-                    const timeString = now.toLocaleTimeString();
-                    document.querySelectorAll('.sequence-changed').forEach(row => {
-                        const currentInfo = row.getAttribute('data-swap-info') || '';
-                        row.setAttribute('data-swap-info', `${currentInfo} (Saved ${timeString})`);
+                    // Update original sequence data to match current order
+                    originalSequenceData.sort((a, b) => {
+                        return currentOrder.indexOf(a.id) - currentOrder.indexOf(b.id);
                     });
 
+                    // Update original sequence numbers
+                    originalSequenceData.forEach((item, index) => {
+                        item.sequence = index + 1;
+                    });
+
+                    document.getElementById('resetChangesBtn').style.display = 'none';
                     alert('Production sequence updated successfully');
                 })
                 .catch(error => {
