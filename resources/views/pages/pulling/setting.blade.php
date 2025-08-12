@@ -301,17 +301,12 @@
             // Clear container and re-append in original order
             container.innerHTML = '';
             rows.forEach((row, index) => {
-                // Remove any existing swap info elements
-                const existingSwapInfo = row.querySelector('.swap-info');
-                if (existingSwapInfo) {
-                    row.removeChild(existingSwapInfo);
-                }
-
                 // Reset sequence numbers and attributes
                 const input = row.querySelector('.industrial-sequence-input');
                 input.value = index + 1;
                 row.setAttribute('data-current-seq', index + 1);
                 row.classList.remove('sequence-changed');
+                row.removeAttribute('data-swap-info');
 
                 container.appendChild(row);
             });
