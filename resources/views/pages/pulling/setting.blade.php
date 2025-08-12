@@ -393,58 +393,38 @@
 
             const targetOldPosition = parseInt(targetRow.getAttribute('data-current-seq'));
 
-            // Remove all rows from container temporarily
-            const rows = Array.from(container.children);
-            rows.forEach(row => container.removeChild(row));
-
-            // Update the positions in our array
-            if (newPosition > oldPosition) {
-                // Moving down (higher sequence number)
-                for (let i = oldPosition - 1; i < newPosition; i++) {
-                    if (i === oldPosition - 1) {
-                        // This is our changed row - it will take the new position
-                        rows[i].setAttribute('data-current-seq', newPosition);
-                    } else {
-                        // Other rows move up
-                        rows[i].setAttribute('data-current-seq', i);
-                    }
-                }
-            } else {
-                // Moving up (lower sequence number)
-                for (let i = newPosition - 1; i < oldPosition; i++) {
-                    if (i === newPosition - 1) {
-                        // This is our changed row - it will take the new position
-                        rows[i].setAttribute('data-current-seq', newPosition);
-                    } else {
-                        // Other rows move down
-                        rows[i].setAttribute('data-current-seq', i + 2);
-                    }
-                }
-            }
-
-            // Sort rows based on their new sequence numbers
-            rows.sort((a, b) => {
-                return parseInt(a.getAttribute('data-current-seq')) - parseInt(b.getAttribute('data-current-seq'));
+            // Remove all highlights and swap info first
+            allRows.forEach(row => {
+                row.classList.remove('sequence-changed');
+                const swapInfo = row.querySelector('.swap-info');
+                if (swapInfo) row.removeChild(swapInfo);
             });
 
-            // Re-insert rows in correct order
-            rows.forEach(row => container.appendChild(row));
+            // Create a copy of all rows in their current order
+            const rowsArray = Array.from(allRows);
 
-            // Update all input values to match their new positions
-            const updatedRows = Array.from(container.querySelectorAll('.item-row'));
-            updatedRows.forEach((row, index) => {
+            // Swap the positions of the two items
+            const changedIndex = oldPosition - 1;
+            const targetIndex = newPosition - 1;
+
+            // Move the changed item to its new position
+            rowsArray.splice(changedIndex, 1); // Remove from old position
+            rowsArray.splice(targetIndex, 0, changedRow); // Insert at new position
+
+            // Clear the container
+            container.innerHTML = '';
+
+            // Re-insert all rows in their new order
+            rowsArray.forEach((row, index) => {
+                container.appendChild(row);
+                // Update sequence numbers
                 const input = row.querySelector('.industrial-sequence-input');
                 input.value = index + 1;
                 row.setAttribute('data-current-seq', index + 1);
-
-                // Remove any existing highlights and swap info
-                row.classList.remove('sequence-changed');
-                const existingSwapInfo = row.querySelector('.swap-info');
-                if (existingSwapInfo) row.removeChild(existingSwapInfo);
             });
 
             // Update current order tracking
-            currentOrder = updatedRows.map(row => row.getAttribute('data-id'));
+            currentOrder = Array.from(container.querySelectorAll('.item-row')).map(row => row.getAttribute('data-id'));
 
             // Highlight both the changed row and the target row
             changedRow.classList.add('sequence-changed');
@@ -453,12 +433,12 @@
             // Add swap info to both rows
             const changedSwapInfo = document.createElement('div');
             changedSwapInfo.className = 'swap-info';
-            changedSwapInfo.textContent = `${oldPosition} → ${newPosition}`;
+            changedSwapInfo.textContent = `${oldPosition} ↔ ${newPosition}`;
             changedRow.insertBefore(changedSwapInfo, changedRow.firstChild);
 
             const targetSwapInfo = document.createElement('div');
             targetSwapInfo.className = 'swap-info';
-            targetSwapInfo.textContent = `${newPosition} → ${oldPosition}`;
+            targetSwapInfo.textContent = `${newPosition} ↔ ${oldPosition}`;
             targetRow.insertBefore(targetSwapInfo, targetRow.firstChild);
         }
 
