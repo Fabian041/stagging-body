@@ -302,14 +302,11 @@
             container.innerHTML = '';
             rows.forEach((row, index) => {
                 // Remove any existing swap info elements
-                const existingSwapInfo = changedRow.querySelector('.swap-info');
+                const existingSwapInfo = row.querySelector('.swap-info');
                 if (existingSwapInfo) {
-                    changedRow.removeChild(existingSwapInfo);
+                    row.removeChild(existingSwapInfo);
                 }
-                const existingTargetSwapInfo = targetRow.querySelector('.swap-info');
-                if (existingTargetSwapInfo) {
-                    targetRow.removeChild(existingTargetSwapInfo);
-                }
+
                 // Reset sequence numbers and attributes
                 const input = row.querySelector('.industrial-sequence-input');
                 input.value = index + 1;
