@@ -192,10 +192,6 @@
                 .item-row {
                     position: relative;
                 }
-                /* Remove the old ::after pseudo-element */
-                .sequence-changed::after {
-                    content: none !important;
-                }
             </style>
         `);
 
@@ -305,12 +301,20 @@
             // Clear container and re-append in original order
             container.innerHTML = '';
             rows.forEach((row, index) => {
+                // Remove any existing swap info elements
+                const existingSwapInfo = changedRow.querySelector('.swap-info');
+                if (existingSwapInfo) {
+                    changedRow.removeChild(existingSwapInfo);
+                }
+                const existingTargetSwapInfo = targetRow.querySelector('.swap-info');
+                if (existingTargetSwapInfo) {
+                    targetRow.removeChild(existingTargetSwapInfo);
+                }
                 // Reset sequence numbers and attributes
                 const input = row.querySelector('.industrial-sequence-input');
                 input.value = index + 1;
                 row.setAttribute('data-current-seq', index + 1);
                 row.classList.remove('sequence-changed');
-                row.removeAttribute('data-swap-info');
 
                 container.appendChild(row);
             });
