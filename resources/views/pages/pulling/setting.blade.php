@@ -222,6 +222,7 @@
             // Add reset buttons
             const saveBtnContainer = document.querySelector('#saveOrderBtn').parentNode;
             saveBtnContainer.insertAdjacentHTML('beforeend',
+                '<button id="resetHighlightsBtn" class="btn btn-outline-secondary">Reset Highlights</button>' +
                 '<button id="resetChangesBtn" class="btn btn-outline-danger" style="display:none;">Reset All Changes</button>'
             );
 
