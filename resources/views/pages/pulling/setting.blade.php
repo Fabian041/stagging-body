@@ -160,12 +160,6 @@
                     background-color: #fff3cd !important;
                     border-left: 3px solid #ffc107;
                     position: relative;
-                    animation: pulse 2s infinite;
-                }
-                @keyframes pulse {
-                    0% { background-color: #fff3cd; }
-                    50% { background-color: #ffe8a1; }
-                    100% { background-color: #fff3cd; }
                 }
                 .sequence-changed::after {
                     content: attr(data-swap-info);
@@ -176,10 +170,6 @@
                     font-size: 0.8em;
                     color: #28a745;
                     font-weight: bold;
-                    padding: 2px 8px;
-                    background: white;
-                    border-radius: 10px;
-                    border: 1px solid #28a745;
                 }
                 .sequence-input-container {
                     position: relative;
@@ -193,51 +183,29 @@
                     color: #666;
                     pointer-events: none;
                 }
-                #resetHighlightsBtn {
+                #resetChangesBtn {
                     margin-left: 10px;
-                }
-                .swap-info-badge {
-                    display: inline-block;
-                    margin-left: 5px;
-                    font-size: 0.7em;
-                    background: #17a2b8;
-                    color: white;
-                    padding: 1px 5px;
-                    border-radius: 3px;
                 }
             </style>
         `);
 
-        // Track all changed rows with their swap info
-        let changedRows = new Map();
+        // Store original order for reset functionality
+        let originalOrder = [];
+        let currentOrder = [];
 
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('loadItemsBtn').addEventListener('click', loadProductionItems);
             document.getElementById('saveOrderBtn').addEventListener('click', saveProductionSequence);
 
-            // Add reset highlights button
+            // Add Reset Changes button
             const saveBtnContainer = document.querySelector('#saveOrderBtn').parentNode;
             saveBtnContainer.insertAdjacentHTML('beforeend',
-                '<button id="resetHighlightsBtn" class="btn btn-outline-secondary">Reset Highlights</button>');
+                '<button id="resetChangesBtn" class="btn btn-outline-danger">Reset Changes</button>');
 
-            document.getElementById('resetHighlightsBtn').addEventListener('click', function() {
-                document.querySelectorAll('.sequence-changed').forEach(el => {
-                    el.classList.remove('sequence-changed');
-                    el.removeAttribute('data-swap-info');
-                });
-                changedRows.clear();
-            });
+            document.getElementById('resetChangesBtn').addEventListener('click', resetChanges);
         });
 
         function loadProductionItems() {
-            // Clear highlights when loading new items
-            changedRows.clear();
-            document.querySelectorAll('.sequence-changed').forEach(el => {
-                el.classList.remove('sequence-changed');
-                el.removeAttribute('data-swap-info');
-            });
-
-            // Rest of your existing loadProductionItems function...
             const date = document.getElementById('reorderDate').value;
             const line = document.getElementById('reorderLine').value;
 
@@ -264,19 +232,17 @@
                     const container = document.getElementById('itemsContainer');
                     container.innerHTML = '';
 
+                    // Sort by original sequence and store original order
                     data.sort((a, b) => a.sequence - b.sequence);
+                    originalOrder = data.map(item => item.id);
+                    currentOrder = [...originalOrder];
 
                     data.forEach((item, index) => {
                         const itemElement = document.createElement('div');
                         itemElement.className = 'item-row';
                         itemElement.setAttribute('data-id', item.id);
-                        itemElement.setAttribute('data-sequence', index + 1);
-
-                        // Add highlight if this row was previously changed
-                        if (changedRows.has(item.id.toString())) {
-                            itemElement.classList.add('sequence-changed');
-                            itemElement.setAttribute('data-swap-info', changedRows.get(item.id.toString()));
-                        }
+                        itemElement.setAttribute('data-original-seq', item.sequence);
+                        itemElement.setAttribute('data-current-seq', index + 1);
 
                         itemElement.innerHTML = `
                             <div class="col-md-2">
@@ -291,8 +257,6 @@
                             </div>
                             <div class="col-md-3 font-weight-bold">
                                 ${item.back_no}
-                                ${changedRows.has(item.id.toString()) ? 
-                                 `<span class="swap-info-badge">Modified</span>` : ''}
                             </div>
                             <div class="col-md-3">
                                 ${item.customer}
@@ -309,12 +273,41 @@
                     });
 
                     document.getElementById('reorderContainer').classList.remove('d-none');
+                    document.getElementById('resetChangesBtn').style.display = 'none';
                 })
                 .catch(error => {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-search me-2"></i> LOAD PRODUCTION';
                     alert('Error loading production data: ' + (error.message || 'Unknown error'));
                 });
+        }
+
+        function resetChanges() {
+            const container = document.getElementById('itemsContainer');
+            const rows = Array.from(container.querySelectorAll('.item-row'));
+
+            // Re-sort rows based on original sequence
+            rows.sort((a, b) => {
+                return parseInt(a.getAttribute('data-original-seq')) - parseInt(b.getAttribute(
+                    'data-original-seq'));
+            });
+
+            // Clear container and re-append in original order
+            container.innerHTML = '';
+            rows.forEach((row, index) => {
+                // Reset sequence numbers and attributes
+                const input = row.querySelector('.industrial-sequence-input');
+                input.value = index + 1;
+                row.setAttribute('data-current-seq', index + 1);
+                row.classList.remove('sequence-changed');
+                row.removeAttribute('data-swap-info');
+
+                container.appendChild(row);
+            });
+
+            // Reset tracking variables
+            currentOrder = [...originalOrder];
+            document.getElementById('resetChangesBtn').style.display = 'none';
         }
 
         function handleSequenceChange(changedInput) {
@@ -325,7 +318,7 @@
             const changedRow = changedInput.closest('.item-row');
             const changedRowId = changedRow.getAttribute('data-id');
             const newPosition = parseInt(changedInput.value);
-            const oldPosition = parseInt(changedRow.getAttribute('data-sequence'));
+            const oldPosition = parseInt(changedRow.getAttribute('data-current-seq'));
 
             // Validate input
             if (isNaN(newPosition)) {
@@ -348,6 +341,9 @@
                 return;
             }
 
+            // Show reset button when changes are made
+            document.getElementById('resetChangesBtn').style.display = 'inline-block';
+
             // Find the row that currently has the new position value
             const targetRow = allRows.find(row => {
                 const input = row.querySelector('.industrial-sequence-input');
@@ -360,15 +356,11 @@
             }
 
             const targetRowId = targetRow.getAttribute('data-id');
-            const targetOldPosition = parseInt(targetRow.getAttribute('data-sequence'));
+            const targetOldPosition = parseInt(targetRow.getAttribute('data-current-seq'));
 
             // Create swap info text
             const swapInfo = `Swapped ${oldPosition} ↔ ${newPosition}`;
             const targetSwapInfo = `Swapped ${targetOldPosition} ↔ ${oldPosition}`;
-
-            // Store swap info for both rows
-            changedRows.set(changedRowId, swapInfo);
-            changedRows.set(targetRowId, targetSwapInfo);
 
             // Highlight both rows with swap info
             changedRow.classList.add('sequence-changed');
@@ -389,10 +381,16 @@
             const targetRowInput = targetRowClone.querySelector('.industrial-sequence-input');
 
             changedRowInput.value = newPosition;
-            changedRowClone.setAttribute('data-sequence', newPosition);
+            changedRowClone.setAttribute('data-current-seq', newPosition);
 
             targetRowInput.value = oldPosition;
-            targetRowClone.setAttribute('data-sequence', oldPosition);
+            targetRowClone.setAttribute('data-current-seq', oldPosition);
+
+            // Update current order tracking
+            const changedIndex = currentOrder.indexOf(changedRowId);
+            const targetIndex = currentOrder.indexOf(targetRowId);
+            currentOrder[changedIndex] = targetRowId;
+            currentOrder[targetIndex] = changedRowId;
 
             // Update all other sequence numbers to be sequential
             const updatedRows = Array.from(container.querySelectorAll('.item-row'));
@@ -401,14 +399,14 @@
                 if (row !== changedRowClone && row !== targetRowClone) {
                     const input = row.querySelector('.industrial-sequence-input');
                     input.value = index + 1;
-                    row.setAttribute('data-sequence', index + 1);
+                    row.setAttribute('data-current-seq', index + 1);
                 }
             });
 
             // Re-sort all rows based on the new sequence numbers
             const sortedRows = updatedRows.sort((a, b) => {
-                const aSeq = parseInt(a.getAttribute('data-sequence'));
-                const bSeq = parseInt(b.getAttribute('data-sequence'));
+                const aSeq = parseInt(a.getAttribute('data-current-seq'));
+                const bSeq = parseInt(b.getAttribute('data-current-seq'));
                 return aSeq - bSeq;
             });
 
@@ -416,7 +414,6 @@
             sortedRows.forEach(row => container.appendChild(row));
         }
 
-        // Your existing saveProductionSequence function...
         function saveProductionSequence() {
             const date = document.getElementById('reorderDate').value;
             const line = document.getElementById('reorderLine').value;
@@ -465,6 +462,10 @@
                     if (!data.success) {
                         throw new Error(data.message || 'Unknown server error');
                     }
+
+                    // Update original order to match current order after save
+                    originalOrder = [...currentOrder];
+                    document.getElementById('resetChangesBtn').style.display = 'none';
 
                     // Add save confirmation to highlights
                     const now = new Date();
