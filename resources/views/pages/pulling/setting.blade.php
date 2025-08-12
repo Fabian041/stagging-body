@@ -380,46 +380,44 @@
             // Show reset button
             document.getElementById('resetChangesBtn').style.display = 'inline-block';
 
-            // Find the row that currently has the new position value
-            const targetRow = allRows.find(row => {
-                const input = row.querySelector('.industrial-sequence-input');
-                return row !== changedRow && parseInt(input.value) === newPosition;
-            });
+            // Remove all rows from container temporarily
+            const rows = Array.from(container.children);
+            rows.forEach(row => container.removeChild(row));
 
-            if (!targetRow) {
-                changedInput.value = oldPosition;
-                return;
+            // Update the positions in our array
+            if (newPosition > oldPosition) {
+                // Moving down (higher sequence number)
+                for (let i = oldPosition - 1; i < newPosition; i++) {
+                    if (i === oldPosition - 1) {
+                        // This is our changed row - it will take the new position
+                        rows[i].setAttribute('data-current-seq', newPosition);
+                    } else {
+                        // Other rows move up
+                        rows[i].setAttribute('data-current-seq', i);
+                    }
+                }
+            } else {
+                // Moving up (lower sequence number)
+                for (let i = newPosition - 1; i < oldPosition; i++) {
+                    if (i === newPosition - 1) {
+                        // This is our changed row - it will take the new position
+                        rows[i].setAttribute('data-current-seq', newPosition);
+                    } else {
+                        // Other rows move down
+                        rows[i].setAttribute('data-current-seq', i + 2);
+                    }
+                }
             }
 
-            const targetRowId = targetRow.getAttribute('data-id');
-            const targetOldPosition = parseInt(targetRow.getAttribute('data-current-seq'));
+            // Sort rows based on their new sequence numbers
+            rows.sort((a, b) => {
+                return parseInt(a.getAttribute('data-current-seq')) - parseInt(b.getAttribute('data-current-seq'));
+            });
 
-            // Remove any existing swap info
-            const existingSwapInfo = changedRow.querySelector('.swap-info');
-            if (existingSwapInfo) changedRow.removeChild(existingSwapInfo);
-            const existingTargetSwapInfo = targetRow.querySelector('.swap-info');
-            if (existingTargetSwapInfo) targetRow.removeChild(existingTargetSwapInfo);
+            // Re-insert rows in correct order
+            rows.forEach(row => container.appendChild(row));
 
-            // Create and add new swap info
-            const swapInfo = document.createElement('div');
-            swapInfo.className = 'swap-info';
-            swapInfo.textContent = `${oldPosition} ↔ ${newPosition}`;
-            changedRow.insertBefore(swapInfo, changedRow.firstChild);
-
-            const targetSwapInfo = document.createElement('div');
-            targetSwapInfo.className = 'swap-info';
-            targetSwapInfo.textContent = `${targetOldPosition} ↔ ${oldPosition}`;
-            targetRow.insertBefore(targetSwapInfo, targetRow.firstChild);
-
-            // Highlight both rows
-            changedRow.classList.add('sequence-changed');
-            targetRow.classList.add('sequence-changed');
-
-            // Swap the DOM positions
-            container.insertBefore(targetRow, changedRow);
-            container.insertBefore(changedRow, targetRow.nextSibling);
-
-            // Update sequence numbers
+            // Update all input values to match their new positions
             const updatedRows = Array.from(container.querySelectorAll('.item-row'));
             updatedRows.forEach((row, index) => {
                 const input = row.querySelector('.industrial-sequence-input');
@@ -428,10 +426,14 @@
             });
 
             // Update current order tracking
-            const changedIndex = currentOrder.indexOf(changedRowId);
-            const targetIndex = currentOrder.indexOf(targetRowId);
-            currentOrder[changedIndex] = targetRowId;
-            currentOrder[targetIndex] = changedRowId;
+            currentOrder = updatedRows.map(row => row.getAttribute('data-id'));
+
+            // Highlight the changed row and show swap info
+            changedRow.classList.add('sequence-changed');
+            const swapInfo = document.createElement('div');
+            swapInfo.className = 'swap-info';
+            swapInfo.textContent = `${oldPosition} → ${newPosition}`;
+            changedRow.insertBefore(swapInfo, changedRow.firstChild);
         }
 
         function saveProductionSequence() {
