@@ -318,7 +318,7 @@
             const changedRow = changedInput.closest('.item-row');
             const changedRowId = changedRow.getAttribute('data-id');
             const newPosition = parseInt(changedInput.value);
-            const oldPosition = parseInt(changedRow.getAttribute('data-sequence'));
+            const oldPosition = parseInt(changedRow.getAttribute('data-current-seq'));
 
             // Validate input
             if (isNaN(newPosition)) {
@@ -341,6 +341,9 @@
                 return;
             }
 
+            // Show reset button when changes are made
+            document.getElementById('resetChangesBtn').style.display = 'inline-block';
+
             // Find the row that currently has the new position value
             const targetRow = allRows.find(row => {
                 const input = row.querySelector('.industrial-sequence-input');
@@ -353,15 +356,11 @@
             }
 
             const targetRowId = targetRow.getAttribute('data-id');
-            const targetOldPosition = parseInt(targetRow.getAttribute('data-sequence'));
+            const targetOldPosition = parseInt(targetRow.getAttribute('data-current-seq'));
 
             // Create swap info text
             const swapInfo = `Swapped ${oldPosition} ↔ ${newPosition}`;
             const targetSwapInfo = `Swapped ${targetOldPosition} ↔ ${oldPosition}`;
-
-            // Store swap info for both rows
-            changedRows.set(changedRowId, swapInfo);
-            changedRows.set(targetRowId, targetSwapInfo);
 
             // Highlight both rows with swap info
             changedRow.classList.add('sequence-changed');
@@ -382,10 +381,16 @@
             const targetRowInput = targetRowClone.querySelector('.industrial-sequence-input');
 
             changedRowInput.value = newPosition;
-            changedRowClone.setAttribute('data-sequence', newPosition);
+            changedRowClone.setAttribute('data-current-seq', newPosition);
 
             targetRowInput.value = oldPosition;
-            targetRowClone.setAttribute('data-sequence', oldPosition);
+            targetRowClone.setAttribute('data-current-seq', oldPosition);
+
+            // Update current order tracking
+            const changedIndex = currentOrder.indexOf(changedRowId);
+            const targetIndex = currentOrder.indexOf(targetRowId);
+            currentOrder[changedIndex] = targetRowId;
+            currentOrder[targetIndex] = changedRowId;
 
             // Update all other sequence numbers to be sequential
             const updatedRows = Array.from(container.querySelectorAll('.item-row'));
@@ -394,14 +399,14 @@
                 if (row !== changedRowClone && row !== targetRowClone) {
                     const input = row.querySelector('.industrial-sequence-input');
                     input.value = index + 1;
-                    row.setAttribute('data-sequence', index + 1);
+                    row.setAttribute('data-current-seq', index + 1);
                 }
             });
 
             // Re-sort all rows based on the new sequence numbers
             const sortedRows = updatedRows.sort((a, b) => {
-                const aSeq = parseInt(a.getAttribute('data-sequence'));
-                const bSeq = parseInt(b.getAttribute('data-sequence'));
+                const aSeq = parseInt(a.getAttribute('data-current-seq'));
+                const bSeq = parseInt(b.getAttribute('data-current-seq'));
                 return aSeq - bSeq;
             });
 
