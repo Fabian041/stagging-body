@@ -161,21 +161,18 @@
                     border-left: 3px solid #ffc107;
                     position: relative;
                 }
-                .swap-info {
+                .sequence-changed::after {
+                    content: attr(data-swap-info);
                     position: absolute;
-                    left: 10px;
+                    right: 10px;
                     top: 50%;
                     transform: translateY(-50%);
                     font-size: 0.8em;
-                    background: #28a745;
-                    color: white;
-                    padding: 2px 6px;
-                    border-radius: 10px;
-                    z-index: 1;
+                    color: #28a745;
+                    font-weight: bold;
                 }
                 .sequence-input-container {
                     position: relative;
-                    margin-left: 60px;
                 }
                 .sequence-input-container::after {
                     content: '↕';
@@ -188,9 +185,6 @@
                 }
                 #resetChangesBtn {
                     margin-left: 10px;
-                }
-                .item-row {
-                    position: relative;
                 }
             </style>
         `);
