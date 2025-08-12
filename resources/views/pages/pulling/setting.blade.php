@@ -161,18 +161,21 @@
                     border-left: 3px solid #ffc107;
                     position: relative;
                 }
-                .sequence-changed::after {
-                    content: attr(data-swap-info);
+                .swap-info {
                     position: absolute;
-                    right: 10px;
+                    left: 10px;
                     top: 50%;
                     transform: translateY(-50%);
                     font-size: 0.8em;
-                    color: #28a745;
-                    font-weight: bold;
+                    background: #28a745;
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 10px;
+                    z-index: 1;
                 }
                 .sequence-input-container {
                     position: relative;
+                    margin-left: 60px;
                 }
                 .sequence-input-container::after {
                     content: '↕';
@@ -185,6 +188,13 @@
                 }
                 #resetChangesBtn {
                     margin-left: 10px;
+                }
+                .item-row {
+                    position: relative;
+                }
+                /* Remove the old ::after pseudo-element */
+                .sequence-changed::after {
+                    content: none !important;
                 }
             </style>
         `);
@@ -358,16 +368,21 @@
             const targetRowId = targetRow.getAttribute('data-id');
             const targetOldPosition = parseInt(targetRow.getAttribute('data-current-seq'));
 
-            // Create swap info text
-            const swapInfo = `Swapped ${oldPosition} ↔ ${newPosition}`;
-            const targetSwapInfo = `Swapped ${targetOldPosition} ↔ ${oldPosition}`;
+            // Create swap info element (moved to left side)
+            const swapInfo = document.createElement('div');
+            swapInfo.className = 'swap-info';
+            swapInfo.textContent = `${oldPosition} ↔ ${newPosition}`;
 
-            // Highlight both rows with swap info
+            const targetSwapInfo = document.createElement('div');
+            targetSwapInfo.className = 'swap-info';
+            targetSwapInfo.textContent = `${targetOldPosition} ↔ ${oldPosition}`;
+
+            // Highlight both rows and add swap info
             changedRow.classList.add('sequence-changed');
-            changedRow.setAttribute('data-swap-info', swapInfo);
+            changedRow.insertBefore(swapInfo, changedRow.firstChild);
 
             targetRow.classList.add('sequence-changed');
-            targetRow.setAttribute('data-swap-info', targetSwapInfo);
+            targetRow.insertBefore(targetSwapInfo, targetRow.firstChild);
 
             // Swap the DOM positions
             const changedRowClone = changedRow.cloneNode(true);
