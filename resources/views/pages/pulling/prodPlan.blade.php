@@ -158,16 +158,137 @@
         .card-header {
             border-bottom-color: #333;
         }
+
+        .column-toggle-panel {
+            background-color: #1c1f24;
+            border: 2px solid #444;
+            border-radius: 8px;
+            color: #f1f1f1;
+            font-family: 'Consolas', 'Courier New', monospace;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .column-toggle-panel .panel-title {
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #555;
+            color: #ffcc00;
+        }
+
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 8px;
+        }
+
+        .toggle-grid label {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            background-color: #2a2d33;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .toggle-grid label:hover {
+            background-color: #33373f;
+        }
+
+        .toggle-grid input[type="checkbox"] {
+            accent-color: #ffcc00;
+            /* warna toggle */
+            margin-right: 8px;
+            transform: scale(1.2);
+        }
+
+        .column-toggle-panel {
+            background-color: #1c1f24;
+            border: 2px solid #444;
+            border-radius: 8px;
+            color: #f1f1f1;
+            font-family: 'Consolas', 'Courier New', monospace;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #555;
+            color: #ffcc00;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .toggle-icon {
+            font-size: 14px;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-grid-wrapper {
+            overflow: hidden;
+            max-height: 500px;
+            transition: max-height 0.3s ease;
+        }
+
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            /* kolom lebih rapat */
+            gap: 8px;
+            padding-top: 10px;
+            font-size: 12px;
+            /* ukuran teks lebih kecil */
+        }
+
+        .toggle-grid label {
+            display: flex;
+            align-items: center;
+            padding: 4px 6px;
+            background-color: #2a2d33;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .toggle-grid label:hover {
+            background-color: #33373f;
+        }
+
+        .toggle-grid input[type="checkbox"] {
+            accent-color: #ffcc00;
+            margin-right: 8px;
+            transform: scale(1);
+            /* normal size, tidak dibesarkan */
+        }
+
+        /* Saat minimize */
+        .column-toggle-panel.minimized .toggle-grid-wrapper {
+            max-height: 0;
+            padding-top: 0;
+        }
+
+        .column-toggle-panel.minimized .toggle-icon {
+            transform: rotate(-90deg);
+        }
     </style>
 </head>
 
 <body>
     <div class="container py-4">
-        <div class="mb-3">
+        {{-- <div class="mb-3">
             <a href="javascript:history.back()" class="btn btn-secondary">
                 <i class="fas fa-arrow-left me-2"></i> Back
             </a>
-        </div>
+        </div> --}}
 
         <div class="card mb-4 border-dark bg-light">
             <div class="card-header bg-dark text-white py-2">
@@ -238,7 +359,6 @@
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="text-uppercase fw-bold" style="letter-spacing: 1px;">
-                <i class="bi bi-clipboard2-data me-2"></i>
                 PRODUCTION PULLING PLAN - {{ Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y') }}
             </h2>
             <div>
@@ -265,414 +385,503 @@
 
         <div class="tab-content" id="lineTabsContent">
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
-                <!-- AS003 Tab -->
-                @php
-                    $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
-                    $as003NightQty = $grouped['AS003']['night_shift_qty'] ?? 0;
-                    $as003TotalQty = $grouped['AS003']['total_qty'] ?? 0;
+                <div data-toggle-table="AS003">
+                    <!-- AS003 Tab -->
+                    @php
+                        $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
+                        $as003NightQty = $grouped['AS003']['night_shift_qty'] ?? 0;
+                        $as003TotalQty = $grouped['AS003']['total_qty'] ?? 0;
 
-                    // Morning shift status
-                    $as003MorningStatus = 'Normal Shift';
-                    if ($as003MorningQty > 900) {
-                        $as003MorningStatus = 'Advance to LS1';
-                    } elseif ($as003MorningQty > 750) {
-                        $as003MorningStatus = 'Advance to NS';
-                    }
+                        // Morning shift status
+                        $as003MorningStatus = 'Normal Shift';
+                        if ($as003MorningQty > 900) {
+                            $as003MorningStatus = 'Advance to LS1';
+                        } elseif ($as003MorningQty > 750) {
+                            $as003MorningStatus = 'Advance to NS';
+                        }
 
-                    // Night shift status
-                    $as003NightStatus = 'Normal Shift';
-                    if ($as003NightQty > 630) {
-                        $as003NightStatus = 'Advance to LS3';
-                    }
-                @endphp
-                <div class="alert alert-dark p-2 mb-4"
-                    style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <!-- Shift Data - Industrial Style -->
-                        <div class="d-flex gap-3 align-items-end">
-                            <!-- Morning Shift -->
-                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
+                        // Night shift status
+                        $as003NightStatus = 'Normal Shift';
+                        if ($as003NightQty > 630) {
+                            $as003NightStatus = 'Advance to LS3';
+                        }
+                    @endphp
+                    <div class="alert alert-dark p-2 mb-4"
+                        style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <!-- Shift Data - Industrial Style -->
+                            <div class="d-flex gap-3 align-items-end">
+                                <!-- Morning Shift -->
+                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
+                                    </div>
+                                    <div class="d-flex align-items-baseline gap-2">
+                                        <span class="fs-4 fw-bold"
+                                            style="color: #ff6b00;">{{ $as003MorningQty }}</span>
+                                        @if ($as003MorningStatus != 'Normal Shift')
+                                            <span class="badge rounded-0"
+                                                style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                                {{ $as003MorningStatus }}
+                                            </span>
+                                        @endif
+                                    </div>
                                 </div>
-                                <div class="d-flex align-items-baseline gap-2">
-                                    <span class="fs-4 fw-bold" style="color: #ff6b00;">{{ $as003MorningQty }}</span>
+
+                                <!-- Night Shift -->
+                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
+                                    </div>
+                                    <div class="d-flex align-items-baseline gap-2">
+                                        <span class="fs-4 fw-bold"
+                                            style="color: #00b4ff;">{{ $as003NightQty }}</span>
+                                        @if ($as003NightStatus != 'Normal Shift')
+                                            <span class="badge rounded-0"
+                                                style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                                {{ $as003NightStatus }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- Total -->
+                                <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
+                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">TOTAL
+                                    </div>
+                                    <div class="fs-4 fw-bold" style="color: #fff;">{{ $as003TotalQty }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Status Indicator (if any) -->
+                            @if ($as003MorningStatus != 'Normal Shift' || $as003NightStatus != 'Normal Shift')
+                                <div class="d-flex gap-2">
                                     @if ($as003MorningStatus != 'Normal Shift')
-                                        <span class="badge rounded-0"
-                                            style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                            {{ $as003MorningStatus }}
-                                        </span>
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">
+                                                MORNING
+                                            </div>
+                                            <span class="badge rounded-0 mt-1"
+                                                style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                                {{ $as003MorningStatus }}
+                                            </span>
+                                        </div>
                                     @endif
-                                </div>
-                            </div>
-
-                            <!-- Night Shift -->
-                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
-                                </div>
-                                <div class="d-flex align-items-baseline gap-2">
-                                    <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as003NightQty }}</span>
                                     @if ($as003NightStatus != 'Normal Shift')
-                                        <span class="badge rounded-0"
-                                            style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                            {{ $as003NightStatus }}
-                                        </span>
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">NIGHT
+                                            </div>
+                                            <span class="badge rounded-0 mt-1"
+                                                style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                                {{ $as003NightStatus }}
+                                            </span>
+                                        </div>
                                     @endif
                                 </div>
-                            </div>
-
-                            <!-- Total -->
-                            <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">TOTAL
-                                </div>
-                                <div class="fs-4 fw-bold" style="color: #fff;">{{ $as003TotalQty }}</div>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="column-toggle-panel p-3 mb-4 minimized">
+                        <div class="panel-header" onclick="togglePanel(this)">
+                            <span>SHOW / HIDE COLUMNS</span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="toggle-grid-wrapper">
+                            <div class="toggle-grid">
+                                <label><input type="checkbox" class="toggle-col" data-col="0" checked>
+                                    Customer</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="1" checked> Dock</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="2" checked>
+                                    Cycle</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="3" checked> Back
+                                    No</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="4" checked>
+                                    Order</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="5" checked> Direct
+                                    Pulling</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="6" checked> Stock
+                                    Chute</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="7" checked> Cycle
+                                    Time</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="8" checked>
+                                    Start</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="9" checked>
+                                    Duration</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="10" checked>
+                                    Target</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="11" checked> Delivery
+                                    Time</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="12" checked> Delivery
+                                    Date</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Balance
+                                    Time</label>
                             </div>
                         </div>
-
-                        <!-- Status Indicator (if any) -->
-                        @if ($as003MorningStatus != 'Normal Shift' || $as003NightStatus != 'Normal Shift')
-                            <div class="d-flex gap-2">
-                                @if ($as003MorningStatus != 'Normal Shift')
-                                    <div class="d-flex flex-column align-items-center">
-                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">MORNING
-                                        </div>
-                                        <span class="badge rounded-0 mt-1"
-                                            style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                            {{ $as003MorningStatus }}
-                                        </span>
-                                    </div>
-                                @endif
-                                @if ($as003NightStatus != 'Normal Shift')
-                                    <div class="d-flex flex-column align-items-center">
-                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">NIGHT
-                                        </div>
-                                        <span class="badge rounded-0 mt-1"
-                                            style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                            {{ $as003NightStatus }}
-                                        </span>
-                                    </div>
-                                @endif
-                            </div>
-                        @endif
                     </div>
-                </div>
-                <div style="max-height: 800px; overflow-y: auto;">
-                    <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead
-                            style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
-                            <tr>
-                                <th rowspan="2">Customer</th>
-                                <th rowspan="2">Dock</th>
-                                <th rowspan="2">Cycle</th>
-                                <th rowspan="2">Back No</th>
-                                <th rowspan="2">Order</th>
-                                <th colspan="2">Running Qty</th>
-                                <th rowspan="2">Cycle Time</th>
-                                <th colspan="3">Working Time</th>
-                                <th rowspan="2">Delivery Time</th>
-                                <th rowspan="2">Delivery Date</th>
-                                <th rowspan="2">Balance Time</th>
-                            </tr>
-                            <tr>
-                                <th>Direct Pulling</th>
-                                <th>Stock Chute</th>
-                                <th>Start</th>
-                                <th>Duration</th>
-                                <th>Target</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($grouped['AS003']['data'] ?? [] as $key => $rows)
-                                @php
-                                    [$customer, $delivery] = explode('|', $key);
-                                    $rowspan = $rows->count();
-                                    $dock = $rows->first()->dock ?? '--';
-                                @endphp
-                                @foreach ($rows as $index => $item)
+                    <div style="max-height: 800px; overflow-y: auto;">
+                        <table class="table table-bordered table-hover text-center align-middle table-dark">
+                            <thead
+                                style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
+                                <tr>
+                                    <th rowspan="2">Customer</th>
+                                    <th rowspan="2">Dock</th>
+                                    <th rowspan="2">Cycle</th>
+                                    <th rowspan="2">Back No</th>
+                                    <th rowspan="2">Order</th>
+                                    <th colspan="2">Running Qty</th>
+                                    <th rowspan="2">Cycle Time</th>
+                                    <th colspan="3">Working Time</th>
+                                    <th rowspan="2">Delivery Time</th>
+                                    <th rowspan="2">Delivery Date</th>
+                                    <th rowspan="2">Balance Time</th>
+                                </tr>
+                                <tr>
+                                    <th>Direct Pulling</th>
+                                    <th>Stock Chute</th>
+                                    <th>Start</th>
+                                    <th>Duration</th>
+                                    <th>Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($grouped['AS003']['data'] ?? [] as $key => $rows)
                                     @php
-                                        $timeParts = explode(':', $item->balance_time ?? '00:00');
-                                        $hours = (int) $timeParts[0];
+                                        [$customer, $delivery] = explode('|', $key);
+                                        $rowspan = $rows->count();
+                                        $dock = $rows->first()->dock ?? '--';
+                                    @endphp
+                                    @foreach ($rows as $index => $item)
+                                        @php
+                                            $timeParts = explode(':', $item->balance_time ?? '00:00');
+                                            $hours = (int) $timeParts[0];
 
-                                        if (!function_exists('getQtyClass')) {
-                                            function getQtyClass($qty, $orderQty)
-                                            {
-                                                if ($qty >= $orderQty) {
-                                                    return 'bg-success bg-opacity-75 fw-bold text-white';
-                                                } elseif ($qty > 0) {
-                                                    return 'bg-warning bg-opacity-75 fw-bold text-dark';
-                                                } else {
-                                                    return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                                            if (!function_exists('getQtyClass')) {
+                                                function getQtyClass($qty, $orderQty)
+                                                {
+                                                    if ($qty >= $orderQty) {
+                                                        return 'bg-success bg-opacity-75 fw-bold text-white';
+                                                    } elseif ($qty > 0) {
+                                                        return 'bg-warning bg-opacity-75 fw-bold text-dark';
+                                                    } else {
+                                                        return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                                                    }
                                                 }
                                             }
-                                        }
-                                    @endphp
+                                        @endphp
+                                        <tr>
+                                            @if ($index === 0)
+                                                <td rowspan="{{ $rowspan }}"><span
+                                                        class="flip">{{ $customer }}</span></td>
+                                                <td rowspan="{{ $rowspan }}"><span
+                                                        class="flip">{{ $dock }}</span></td>
+                                            @endif
+                                            <td><span class="flip">{{ $item->cycle }}</span></td>
+                                            <td><span class="flip">{{ $item->back_no }}</span></td>
+                                            <td><span class="flip">{{ $item->order_qty }}</span></td>
+                                            <td
+                                                class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
+                                                <span class="flip" data-type="direct-pulling"
+                                                    data-item-id="{{ $item->id }}">
+                                                    {{ $item->direct_pulling_qty ?: '0' }}
+                                                </span>
+                                            </td>
+                                            <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
+                                                <span class="flip" data-type="stock-chute"
+                                                    data-item-id="{{ $item->id }}">
+                                                    {{ $item->stock_chute_qty ?: '0' }}
+                                                </span>
+                                            </td>
+                                            <td><span class="flip">{{ $item->prod_time }}</span></td>
+                                            <td>
+                                                <span data-type="start"
+                                                    data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="flip text-warning  ">
+                                                    {{ $item->working_duration ?? '--' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span data-type="end"
+                                                    data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
+                                                </span>
+                                            </td>
+                                            @if ($index === 0)
+                                                <td rowspan="{{ $rowspan }}"><span
+                                                        class="flip">{{ $delivery }}</span></td>
+                                                <td rowspan="{{ $rowspan }}">
+                                                    <span class="flip">
+                                                        {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
+                                                    </span>
+                                                </td>
+                                                <td rowspan="{{ $rowspan }}"
+                                                    class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
+                                                    <span data-type="balance" data-item-id="{{ $item->id }}">
+                                                        {{ $item->balance_time ?? '--' }}
+                                                    </span>
+                                                </td>
+                                            @endif
+                                        </tr>
+                                    @endforeach
+                                @empty
                                     <tr>
-                                        @if ($index === 0)
-                                            <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $customer }}</span></td>
-                                            <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $dock }}</span></td>
-                                        @endif
-                                        <td><span class="flip">{{ $item->cycle }}</span></td>
-                                        <td><span class="flip">{{ $item->back_no }}</span></td>
-                                        <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
-                                            <span class="flip" data-type="direct-pulling"
-                                                data-item-id="{{ $item->id }}">
-                                                {{ $item->direct_pulling_qty ?: '0' }}
-                                            </span>
-                                        </td>
-                                        <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
-                                            <span class="flip" data-type="stock-chute"
-                                                data-item-id="{{ $item->id }}">
-                                                {{ $item->stock_chute_qty ?: '0' }}
-                                            </span>
-                                        </td>
-                                        <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td>
-                                            <span data-type="start"
-                                                data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="flip text-warning  ">
-                                                {{ $item->working_duration ?? '--' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span data-type="end"
-                                                data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
-                                            </span>
-                                        </td>
-                                        @if ($index === 0)
-                                            <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $delivery }}</span></td>
-                                            <td rowspan="{{ $rowspan }}">
-                                                <span class="flip">
-                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
-                                                </span>
-                                            </td>
-                                            <td rowspan="{{ $rowspan }}"
-                                                class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
-                                                <span data-type="balance" data-item-id="{{ $item->id }}">
-                                                    {{ $item->balance_time ?? '--' }}
-                                                </span>
-                                            </td>
-                                        @endif
+                                        <td colspan="14" class="text-center">No data for AS003.</td>
                                     </tr>
-                                @endforeach
-                            @empty
-                                <tr>
-                                    <td colspan="14" class="text-center">No data for AS003.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-
-            <!-- AS004 Tab -->
+            </div> <!-- AS004 Tab -->
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
-                @php
-                    $as004MorningQty = $grouped['AS004']['morning_shift_qty'] ?? 0;
-                    $as004NightQty = $grouped['AS004']['night_shift_qty'] ?? 0;
-                    $as004TotalQty = $grouped['AS004']['total_qty'] ?? 0;
+                <div data-toggle-table="AS004">
+                    @php
+                        $as004MorningQty = $grouped['AS004']['morning_shift_qty'] ?? 0;
+                        $as004NightQty = $grouped['AS004']['night_shift_qty'] ?? 0;
+                        $as004TotalQty = $grouped['AS004']['total_qty'] ?? 0;
 
-                    // Morning shift status
-                    $as004MorningStatus = 'Normal Shift';
-                    if ($as004MorningQty > 900) {
-                        $as004MorningStatus = 'Advance to LS1';
-                    } elseif ($as004MorningQty > 750) {
-                        $as004MorningStatus = 'Advance to NS';
-                    }
+                        // Morning shift status
+                        $as004MorningStatus = 'Normal Shift';
+                        if ($as004MorningQty > 900) {
+                            $as004MorningStatus = 'Advance to LS1';
+                        } elseif ($as004MorningQty > 750) {
+                            $as004MorningStatus = 'Advance to NS';
+                        }
 
-                    // Night shift status
-                    $as004NightStatus = 'Normal Shift';
-                    if ($as004NightQty > 630) {
-                        $as004NightStatus = 'Advance to LS3';
-                    }
-                @endphp
-                <div class="alert alert-dark p-2 mb-4"
-                    style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <!-- Shift Data - Industrial Style -->
-                        <div class="d-flex gap-3 align-items-end">
-                            <!-- Morning Shift -->
-                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
+                        // Night shift status
+                        $as004NightStatus = 'Normal Shift';
+                        if ($as004NightQty > 630) {
+                            $as004NightStatus = 'Advance to LS3';
+                        }
+                    @endphp
+                    <div class="alert alert-dark p-2 mb-4"
+                        style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <!-- Shift Data - Industrial Style -->
+                            <div class="d-flex gap-3 align-items-end">
+                                <!-- Morning Shift -->
+                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
+                                        MORNING
+                                    </div>
+                                    <div class="d-flex align-items-baseline gap-2">
+                                        <span class="fs-4 fw-bold"
+                                            style="color: #ff6b00;">{{ $as004MorningQty }}</span>
+                                        @if ($as004MorningStatus != 'Normal Shift')
+                                            <span class="badge rounded-0"
+                                                style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                                {{ $as004MorningStatus }}
+                                            </span>
+                                        @endif
+                                    </div>
                                 </div>
-                                <div class="d-flex align-items-baseline gap-2">
-                                    <span class="fs-4 fw-bold" style="color: #ff6b00;">{{ $as004MorningQty }}</span>
+
+                                <!-- Night Shift -->
+                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
+                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
+                                        NIGHT
+                                    </div>
+                                    <div class="d-flex align-items-baseline gap-2">
+                                        <span class="fs-4 fw-bold"
+                                            style="color: #00b4ff;">{{ $as004NightQty }}</span>
+                                        @if ($as004NightStatus != 'Normal Shift')
+                                            <span class="badge rounded-0"
+                                                style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                                {{ $as004NightStatus }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- Total -->
+                                <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
+                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
+                                        TOTAL
+                                    </div>
+                                    <div class="fs-4 fw-bold" style="color: #fff;">{{ $as004TotalQty }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Status Indicator (if any) -->
+                            @if ($as004MorningStatus != 'Normal Shift' || $as004NightStatus != 'Normal Shift')
+                                <div class="d-flex gap-2">
                                     @if ($as004MorningStatus != 'Normal Shift')
-                                        <span class="badge rounded-0"
-                                            style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                            {{ $as004MorningStatus }}
-                                        </span>
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">
+                                                MORNING
+                                            </div>
+                                            <span class="badge rounded-0 mt-1"
+                                                style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                                {{ $as004MorningStatus }}
+                                            </span>
+                                        </div>
                                     @endif
-                                </div>
-                            </div>
-
-                            <!-- Night Shift -->
-                            <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
-                                </div>
-                                <div class="d-flex align-items-baseline gap-2">
-                                    <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as004NightQty }}</span>
                                     @if ($as004NightStatus != 'Normal Shift')
-                                        <span class="badge rounded-0"
-                                            style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                            {{ $as004NightStatus }}
-                                        </span>
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">
+                                                NIGHT
+                                            </div>
+                                            <span class="badge rounded-0 mt-1"
+                                                style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
+                                                {{ $as004NightStatus }}
+                                            </span>
+                                        </div>
                                     @endif
                                 </div>
-                            </div>
-
-                            <!-- Total -->
-                            <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
-                                <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">TOTAL
-                                </div>
-                                <div class="fs-4 fw-bold" style="color: #fff;">{{ $as004TotalQty }}</div>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="column-toggle-panel p-3 mb-4 minimized">
+                        <div class="panel-header" onclick="togglePanel(this)">
+                            <span>SHOW / HIDE COLUMNS</span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="toggle-grid-wrapper">
+                            <div class="toggle-grid">
+                                <label><input type="checkbox" class="toggle-col" data-col="0" checked>
+                                    Customer</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="1" checked>
+                                    Dock</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="2" checked>
+                                    Cycle</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="3" checked> Back
+                                    No</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="4" checked>
+                                    Order</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="5" checked> Direct
+                                    Pulling</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="6" checked> Stock
+                                    Chute</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="7" checked> Cycle
+                                    Time</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="8" checked>
+                                    Start</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="9" checked>
+                                    Duration</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="10" checked>
+                                    Target</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="11" checked> Delivery
+                                    Time</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="12" checked> Delivery
+                                    Date</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Balance
+                                    Time</label>
                             </div>
                         </div>
-
-                        <!-- Status Indicator (if any) -->
-                        @if ($as004MorningStatus != 'Normal Shift' || $as004NightStatus != 'Normal Shift')
-                            <div class="d-flex gap-2">
-                                @if ($as004MorningStatus != 'Normal Shift')
-                                    <div class="d-flex flex-column align-items-center">
-                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">MORNING
-                                        </div>
-                                        <span class="badge rounded-0 mt-1"
-                                            style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                            {{ $as004MorningStatus }}
-                                        </span>
-                                    </div>
-                                @endif
-                                @if ($as004NightStatus != 'Normal Shift')
-                                    <div class="d-flex flex-column align-items-center">
-                                        <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">NIGHT
-                                        </div>
-                                        <span class="badge rounded-0 mt-1"
-                                            style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                            {{ $as004NightStatus }}
-                                        </span>
-                                    </div>
-                                @endif
-                            </div>
-                        @endif
                     </div>
-                </div>
-                <div style="max-height: 800px; overflow-y: auto;">
-                    <table class="table table-bordered table-hover text-center align-middle table-dark">
-                        <thead
-                            style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
-                            <tr>
-                                <th rowspan="2">Customer</th>
-                                <th rowspan="2">Dock</th>
-                                <th rowspan="2">Cycle</th>
-                                <th rowspan="2">Back No</th>
-                                <th rowspan="2">Order</th>
-                                <th colspan="2">Running Qty</th>
-                                <th rowspan="2">Cycle Time</th>
-                                <th colspan="3">Working Time</th>
-                                <th rowspan="2">Delivery Time</th>
-                                <th rowspan="2">Delivery Date</th>
-                                <th rowspan="2">Balance Time</th>
-                            </tr>
-                            <tr>
-                                <th>Direct Pulling</th>
-                                <th>Stock Chute</th>
-                                <th>Start</th>
-                                <th>Duration</th>
-                                <th>Target</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($grouped['AS004']['data'] ?? [] as $key => $rows)
-                                @php
-                                    [$customer, $delivery] = explode('|', $key);
-                                    $rowspan = $rows->count();
-                                    $dock = $rows->first()->dock ?? '--';
-                                @endphp
-                                @foreach ($rows as $index => $item)
+                    <div style="max-height: 800px; overflow-y: auto;">
+                        <table class="table table-bordered table-hover text-center align-middle table-dark">
+                            <thead
+                                style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
+                                <tr>
+                                    <th rowspan="2">Customer</th>
+                                    <th rowspan="2">Dock</th>
+                                    <th rowspan="2">Cycle</th>
+                                    <th rowspan="2">Back No</th>
+                                    <th rowspan="2">Order</th>
+                                    <th colspan="2">Running Qty</th>
+                                    <th rowspan="2">Cycle Time</th>
+                                    <th colspan="3">Working Time</th>
+                                    <th rowspan="2">Delivery Time</th>
+                                    <th rowspan="2">Delivery Date</th>
+                                    <th rowspan="2">Balance Time</th>
+                                </tr>
+                                <tr>
+                                    <th>Direct Pulling</th>
+                                    <th>Stock Chute</th>
+                                    <th>Start</th>
+                                    <th>Duration</th>
+                                    <th>Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($grouped['AS004']['data'] ?? [] as $key => $rows)
                                     @php
-                                        $timeParts = explode(':', $item->balance_time ?? '00:00');
-                                        $hours = (int) $timeParts[0];
+                                        [$customer, $delivery] = explode('|', $key);
+                                        $rowspan = $rows->count();
+                                        $dock = $rows->first()->dock ?? '--';
+                                    @endphp
+                                    @foreach ($rows as $index => $item)
+                                        @php
+                                            $timeParts = explode(':', $item->balance_time ?? '00:00');
+                                            $hours = (int) $timeParts[0];
 
-                                        if (!function_exists('getQtyClass')) {
-                                            function getQtyClass($qty, $orderQty)
-                                            {
-                                                if ($qty >= $orderQty) {
-                                                    return 'bg-success bg-opacity-75 fw-bold text-white';
-                                                } elseif ($qty > 0) {
-                                                    return 'bg-warning bg-opacity-75 fw-bold text-dark';
-                                                } else {
-                                                    return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                                            if (!function_exists('getQtyClass')) {
+                                                function getQtyClass($qty, $orderQty)
+                                                {
+                                                    if ($qty >= $orderQty) {
+                                                        return 'bg-success bg-opacity-75 fw-bold text-white';
+                                                    } elseif ($qty > 0) {
+                                                        return 'bg-warning bg-opacity-75 fw-bold text-dark';
+                                                    } else {
+                                                        return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                                                    }
                                                 }
                                             }
-                                        }
-                                    @endphp
+                                        @endphp
+                                        <tr>
+                                            @if ($index === 0)
+                                                <td rowspan="{{ $rowspan }}"><span
+                                                        class="flip">{{ $customer }}</span></td>
+                                                <td rowspan="{{ $rowspan }}"><span
+                                                        class="flip">{{ $dock }}</span></td>
+                                            @endif
+                                            <td><span class="flip">{{ $item->cycle }}</span></td>
+                                            <td><span class="flip">{{ $item->back_no }}</span></td>
+                                            <td><span class="flip">{{ $item->order_qty }}</span></td>
+                                            <td
+                                                class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
+                                                <span class="flip" data-type="direct-pulling"
+                                                    data-item-id="{{ $item->id }}">
+                                                    {{ $item->direct_pulling_qty ?: '0' }}
+                                                </span>
+                                            </td>
+                                            <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
+                                                <span class="flip" data-type="stock-chute"
+                                                    data-item-id="{{ $item->id }}">
+                                                    {{ $item->stock_chute_qty ?: '0' }}
+                                                </span>
+                                            </td>
+                                            <td><span class="flip">{{ $item->prod_time }}</span></td>
+                                            <td>
+                                                <span data-type="start"
+                                                    data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="flip text-warning">
+                                                    {{ $item->working_duration ?? '--' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span data-type="end"
+                                                    data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
+                                                </span>
+                                            </td>
+                                            @if ($index === 0)
+                                                <td rowspan="{{ $rowspan }}"><span
+                                                        class="flip">{{ $delivery }}</span></td>
+                                                <td rowspan="{{ $rowspan }}">
+                                                    <span class="flip">
+                                                        {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
+                                                    </span>
+                                                </td>
+                                                <td rowspan="{{ $rowspan }}"
+                                                    class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
+                                                    <span data-type="balance" data-item-id="{{ $item->id }}">
+                                                        {{ $item->balance_time ?? '--' }}
+                                                    </span>
+                                                </td>
+                                            @endif
+                                        </tr>
+                                    @endforeach
+                                @empty
                                     <tr>
-                                        @if ($index === 0)
-                                            <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $customer }}</span></td>
-                                            <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $dock }}</span></td>
-                                        @endif
-                                        <td><span class="flip">{{ $item->cycle }}</span></td>
-                                        <td><span class="flip">{{ $item->back_no }}</span></td>
-                                        <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                        <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
-                                            <span class="flip" data-type="direct-pulling"
-                                                data-item-id="{{ $item->id }}">
-                                                {{ $item->direct_pulling_qty ?: '0' }}
-                                            </span>
-                                        </td>
-                                        <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
-                                            <span class="flip" data-type="stock-chute"
-                                                data-item-id="{{ $item->id }}">
-                                                {{ $item->stock_chute_qty ?: '0' }}
-                                            </span>
-                                        </td>
-                                        <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                        <td>
-                                            <span data-type="start"
-                                                data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="flip text-warning">
-                                                {{ $item->working_duration ?? '--' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span data-type="end"
-                                                data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
-                                            </span>
-                                        </td>
-                                        @if ($index === 0)
-                                            <td rowspan="{{ $rowspan }}"><span
-                                                    class="flip">{{ $delivery }}</span></td>
-                                            <td rowspan="{{ $rowspan }}">
-                                                <span class="flip">
-                                                    {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
-                                                </span>
-                                            </td>
-                                            <td rowspan="{{ $rowspan }}"
-                                                class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
-                                                <span data-type="balance" data-item-id="{{ $item->id }}">
-                                                    {{ $item->balance_time ?? '--' }}
-                                                </span>
-                                            </td>
-                                        @endif
+                                        <td colspan="14" class="text-center">No data for AS004.</td>
                                     </tr>
-                                @endforeach
-                            @empty
-                                <tr>
-                                    <td colspan="14" class="text-center">No data for AS004.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1160,6 +1369,120 @@
             const newDate = currentDate.toISOString().split('T')[0];
             document.querySelector('input[name="date"]').value = newDate;
             document.querySelector('form').submit();
+        }
+
+        (function() {
+            // cari semua container yang punya tabel & toggle
+            document.querySelectorAll('[data-toggle-table]').forEach(container => {
+                const containerId = container.getAttribute('data-toggle-table');
+                const table = container.querySelector('table');
+                if (!table) return console.warn('Tidak menemukan tabel di ' + containerId);
+
+                const manager = {
+                    table,
+                    meta: null,
+                    hiddenCols: new Set(JSON.parse(localStorage.getItem('hiddenCols_' + containerId) ||
+                        '[]'))
+                };
+
+                function initMeta() {
+                    const rows = Array.from(table.rows);
+                    const matrix = [];
+                    let maxCols = 0;
+
+                    for (let r = 0; r < rows.length; r++) {
+                        if (!matrix[r]) matrix[r] = [];
+                        let col = 0;
+                        for (const cell of Array.from(rows[r].cells)) {
+                            while (matrix[r][col]) col++;
+                            if (!cell.dataset.origColspan) cell.dataset.origColspan = cell.colSpan;
+                            if (!cell.dataset.origRowspan) cell.dataset.origRowspan = cell.rowSpan;
+
+                            cell._origColspan = parseInt(cell.dataset.origColspan, 10) || 1;
+                            cell._origRowspan = parseInt(cell.dataset.origRowspan, 10) || 1;
+                            cell._startCol = col;
+
+                            for (let rr = 0; rr < cell._origRowspan; rr++) {
+                                if (!matrix[r + rr]) matrix[r + rr] = [];
+                                for (let cc = 0; cc < cell._origColspan; cc++) {
+                                    matrix[r + rr][col + cc] = cell;
+                                }
+                            }
+
+                            col += cell._origColspan;
+                        }
+                        if (col > maxCols) maxCols = col;
+                    }
+
+                    manager.meta = {
+                        matrix,
+                        maxCols,
+                        rows
+                    };
+                }
+
+                function updateVisibility() {
+                    const {
+                        matrix,
+                        maxCols
+                    } = manager.meta;
+                    const unique = new Set();
+                    for (let r = 0; r < matrix.length; r++) {
+                        for (let c = 0; c < maxCols; c++) {
+                            const cell = matrix[r][c];
+                            if (cell) unique.add(cell);
+                        }
+                    }
+
+                    unique.forEach(cell => {
+                        const start = cell._startCol;
+                        const ospan = cell._origColspan;
+                        let visibleCount = 0;
+
+                        for (let k = 0; k < ospan; k++) {
+                            if (!manager.hiddenCols.has(start + k)) visibleCount++;
+                        }
+
+                        if (visibleCount === 0) {
+                            cell.style.display = 'none';
+                        } else {
+                            cell.style.display = '';
+                            cell.colSpan = ospan > 1 ? visibleCount : 1;
+                        }
+                        cell.rowSpan = cell._origRowspan;
+                    });
+
+                    localStorage.setItem('hiddenCols_' + containerId, JSON.stringify([...manager.hiddenCols]));
+                }
+
+                function toggleColumn(index, show) {
+                    if (show) manager.hiddenCols.delete(index);
+                    else manager.hiddenCols.add(index);
+                    updateVisibility();
+                }
+
+                initMeta();
+                updateVisibility();
+
+                container.querySelectorAll('.toggle-col').forEach(cb => {
+                    const idx = parseInt(cb.dataset.col, 10);
+                    if (isNaN(idx)) return;
+                    cb.checked = !manager.hiddenCols.has(idx);
+                    cb.addEventListener('change', () => toggleColumn(idx, cb.checked));
+                });
+
+                window[`__colToggleReset_${containerId}`] = function() {
+                    manager.hiddenCols.clear();
+                    updateVisibility();
+                    container.querySelectorAll('.toggle-col').forEach(cb => cb.checked = true);
+                };
+            });
+        })();
+
+
+        function togglePanel(header) {
+            const panel = header.closest(".column-toggle-panel");
+            panel.classList.toggle("minimized");
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
