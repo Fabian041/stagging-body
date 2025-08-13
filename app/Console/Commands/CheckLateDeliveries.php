@@ -36,7 +36,7 @@ class CheckLateDeliveries extends Command
             ->get();
         foreach ($deliveries as $delivery) {
 
-            $expectedTime = \Carbon\Carbon::parse($delivery->delivery_date . ' ' . substr($delivery->delivery_time, 3)); // hh:mm
+            $expectedTime = \Carbon\Carbon::parse($delivery->delivery_date . ' ' . substr($delivery->delivery_time, 3))->addHour(); // hh:mm
             if ($expectedTime < $now) {
                 $existingLog = DB::table('receiving_logs')
                     ->where('pick_list', $delivery->pick_list)
