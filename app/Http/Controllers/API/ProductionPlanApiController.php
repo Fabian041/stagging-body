@@ -94,14 +94,14 @@ class ProductionPlanApiController extends Controller
         // If this is the first update, set working_start to current time
         if ($shouldUpdateTimestamps) {
             $currentTime = now();
-            $updateData['working_start'] = $currentTime->format('H:i');
+            $updateData['actual_working_start'] = $currentTime->format('H:i');
         
             foreach ($plans as $plan) {
                 // Hitung total waktu produksi (detik)
                 [$prodMin, $prodSec] = explode(':', $plan->prod_time);
                 $totalProdSeconds = (($prodMin * 60) + $prodSec) * $plan->order_qty;
         
-                // Hitung working_end
+                // Hitung working_end berdasarkan actual_working_start
                 $workingEnd = (clone $currentTime)->addSeconds($totalProdSeconds);
                 $updateData['working_end'] = $workingEnd->format('H:i');
         
@@ -124,7 +124,7 @@ class ProductionPlanApiController extends Controller
                 // Hanya hitung sekali
                 break;
             }
-        }        
+        }    
 
         // Update all matching records with increment and timestamps if needed
         $updated = ProductionPlan::whereIn('id', $plans->pluck('id'))

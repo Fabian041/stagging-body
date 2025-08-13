@@ -75,6 +75,7 @@ class DirectPullingSSEController extends Controller
                                 'line' => $item->line,
                                 'balance' => $item->balance_time,
                                 'start' => $item->working_start,
+                                'actual_start' => $item->actual_working_start,
                                 'end' => $item->working_end,
                                 'updated_at' => $item->updated_at->toISOString()
                             ];

@@ -493,16 +493,18 @@
                                 <label><input type="checkbox" class="toggle-col" data-col="7" checked> Cycle
                                     Time</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="8" checked>
-                                    Start</label>
+                                    Planning Start</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="9" checked>
-                                    Duration</label>
+                                    Actual Start</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="10" checked>
+                                    Duration</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="11" checked>
                                     Target</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="11" checked> Delivery
-                                    Time</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="12" checked> Delivery
+                                    Time</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Delivery
                                     Date</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Balance
+                                <label><input type="checkbox" class="toggle-col" data-col="14" checked> Balance
                                     Time</label>
                             </div>
                         </div>
@@ -519,7 +521,7 @@
                                     <th rowspan="2">Order</th>
                                     <th colspan="2">Running Qty</th>
                                     <th rowspan="2">Cycle Time</th>
-                                    <th colspan="3">Working Time</th>
+                                    <th colspan="4">Working Time</th>
                                     <th rowspan="2">Delivery Time</th>
                                     <th rowspan="2">Delivery Date</th>
                                     <th rowspan="2">Balance Time</th>
@@ -527,7 +529,8 @@
                                 <tr>
                                     <th>Direct Pulling</th>
                                     <th>Stock Chute</th>
-                                    <th>Start</th>
+                                    <th>Planning Start</th>
+                                    <th>Actual Start</th>
                                     <th>Duration</th>
                                     <th>Target</th>
                                 </tr>
@@ -584,6 +587,11 @@
                                             <td>
                                                 <span data-type="start"
                                                     data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span data-type="actual_start"
+                                                    data-item-id="{{ $item->id }}">{{ $item->actual_working_start ?? '--' }}
                                                 </span>
                                             </td>
                                             <td>
@@ -732,8 +740,7 @@
                             <div class="toggle-grid">
                                 <label><input type="checkbox" class="toggle-col" data-col="0" checked>
                                     Customer</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="1" checked>
-                                    Dock</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="1" checked> Dock</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="2" checked>
                                     Cycle</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="3" checked> Back
@@ -747,16 +754,18 @@
                                 <label><input type="checkbox" class="toggle-col" data-col="7" checked> Cycle
                                     Time</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="8" checked>
-                                    Start</label>
+                                    Planning Start</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="9" checked>
-                                    Duration</label>
+                                    Actual Start</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="10" checked>
+                                    Duration</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="11" checked>
                                     Target</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="11" checked> Delivery
-                                    Time</label>
                                 <label><input type="checkbox" class="toggle-col" data-col="12" checked> Delivery
+                                    Time</label>
+                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Delivery
                                     Date</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Balance
+                                <label><input type="checkbox" class="toggle-col" data-col="14" checked> Balance
                                     Time</label>
                             </div>
                         </div>
@@ -773,7 +782,7 @@
                                     <th rowspan="2">Order</th>
                                     <th colspan="2">Running Qty</th>
                                     <th rowspan="2">Cycle Time</th>
-                                    <th colspan="3">Working Time</th>
+                                    <th colspan="4">Working Time</th>
                                     <th rowspan="2">Delivery Time</th>
                                     <th rowspan="2">Delivery Date</th>
                                     <th rowspan="2">Balance Time</th>
@@ -781,7 +790,8 @@
                                 <tr>
                                     <th>Direct Pulling</th>
                                     <th>Stock Chute</th>
-                                    <th>Start</th>
+                                    <th>Planning Start</th>
+                                    <th>Actual Start</th>
                                     <th>Duration</th>
                                     <th>Target</th>
                                 </tr>
@@ -838,6 +848,11 @@
                                             <td>
                                                 <span data-type="start"
                                                     data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span data-type="actual_start"
+                                                    data-item-id="{{ $item->id }}">{{ $item->actual_working_start ?? '--' }}
                                                 </span>
                                             </td>
                                             <td>
@@ -1050,7 +1065,7 @@
                         `[data-item-id="${item.id}"][data-type="stock-chute"]`
                     );
                     const startElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="start"]`
+                        `[data-item-id="${item.id}"][data-type="actual_start"]`
                     );
                     const endElements = document.querySelectorAll(
                         `[data-item-id="${item.id}"][data-type="end"]`
@@ -1074,8 +1089,8 @@
                             item.order_qty // <-- tambahkan target order
                         );
                         this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="start"]`,
-                            item.start,
+                            `[data-item-id="${item.id}"][data-type="actual_start"]`,
+                            item.actual_start,
                             'time'
                         );
                         this.updateQuantity(
