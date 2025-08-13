@@ -159,15 +159,6 @@
             border-bottom-color: #333;
         }
 
-        .column-toggle-panel {
-            background-color: #1c1f24;
-            border: 2px solid #444;
-            border-radius: 8px;
-            color: #f1f1f1;
-            font-family: 'Consolas', 'Courier New', monospace;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
-        }
-
         .column-toggle-panel .panel-title {
             font-size: 14px;
             font-weight: bold;
@@ -207,9 +198,9 @@
         }
 
         .column-toggle-panel {
-            background-color: #1c1f24;
-            border: 2px solid #444;
-            border-radius: 8px;
+            background-color: #212529;
+            border: 1px solid #444;
+            border-radius: 2px;
             color: #f1f1f1;
             font-family: 'Consolas', 'Courier New', monospace;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
@@ -290,7 +281,7 @@
             </a>
         </div> --}}
 
-        <div class="card mb-4 border-dark bg-light">
+        {{-- <div class="card mb-4 border-dark bg-light">
             <div class="card-header bg-dark text-white py-2">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
@@ -340,14 +331,14 @@
                                 <i class="fas fa-arrow-right"></i>
                             </button>
                             <!-- Add the Re-fetch Data button -->
-                            {{-- <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
+                            <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
                                 <i class="fas fa-sync-alt me-1"></i> RE-FETCH
-                            </button> --}}
+                            </button>
                         </div>
                     </div>
                 </form>
             </div>
-        </div>
+        </div> --}}
 
         <!-- Add message display area -->
         @if (isset($message))
@@ -384,9 +375,9 @@
         </ul>
 
         <div class="tab-content" id="lineTabsContent">
+            <!-- AS003 Tab -->
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
                 <div data-toggle-table="AS003">
-                    <!-- AS003 Tab -->
                     @php
                         $as003MorningQty = $grouped['AS003']['morning_shift_qty'] ?? 0;
                         $as003NightQty = $grouped['AS003']['night_shift_qty'] ?? 0;
@@ -414,10 +405,10 @@
                                 <!-- Morning Shift -->
                                 <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
                                     <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
+                                        SHIFT ORDER
                                     </div>
                                     <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold"
-                                            style="color: #ff6b00;">{{ $as003MorningQty }}</span>
+                                        <span class="fs-4 fw-bold" style="color: #ff6b00;">{{ $as003MorningQty }}</span>
                                         @if ($as003MorningStatus != 'Normal Shift')
                                             <span class="badge rounded-0"
                                                 style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
@@ -430,10 +421,10 @@
                                 <!-- Night Shift -->
                                 <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
                                     <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
+                                        SHIFT ORDER
                                     </div>
                                     <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold"
-                                            style="color: #00b4ff;">{{ $as003NightQty }}</span>
+                                        <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as003NightQty }}</span>
                                         @if ($as003NightStatus != 'Normal Shift')
                                             <span class="badge rounded-0"
                                                 style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
@@ -479,10 +470,10 @@
                             @endif
                         </div>
                     </div>
-                    <div class="column-toggle-panel p-3 mb-4 minimized">
-                        <div class="panel-header" onclick="togglePanel(this)">
-                            <span>SHOW / HIDE COLUMNS</span>
-                            <span class="toggle-icon">▼</span>
+                    <div class="column-toggle-panel p-3 minimized">
+                        <div class="panel-header pb-3" onclick="togglePanel(this)">
+                            <i class="fas fa-table-columns"></i>
+                            <i class="toggle-icon fas fa-chevron-down" style="margin-left: auto;"></i>
                         </div>
                         <div class="toggle-grid-wrapper">
                             <div class="toggle-grid">
@@ -631,7 +622,9 @@
                         </table>
                     </div>
                 </div>
-            </div> <!-- AS004 Tab -->
+            </div>
+
+            <!-- AS004 Tab -->
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
                 <div data-toggle-table="AS004">
                     @php
@@ -661,7 +654,7 @@
                                 <!-- Morning Shift -->
                                 <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
                                     <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
-                                        MORNING
+                                        MORNING SHIFT ORDER
                                     </div>
                                     <div class="d-flex align-items-baseline gap-2">
                                         <span class="fs-4 fw-bold"
@@ -678,7 +671,7 @@
                                 <!-- Night Shift -->
                                 <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
                                     <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
-                                        NIGHT
+                                        NIGHT SHIFT ORDER
                                     </div>
                                     <div class="d-flex align-items-baseline gap-2">
                                         <span class="fs-4 fw-bold"
@@ -730,10 +723,10 @@
                             @endif
                         </div>
                     </div>
-                    <div class="column-toggle-panel p-3 mb-4 minimized">
-                        <div class="panel-header" onclick="togglePanel(this)">
-                            <span>SHOW / HIDE COLUMNS</span>
-                            <span class="toggle-icon">▼</span>
+                    <div class="column-toggle-panel p-3 minimized">
+                        <div class="panel-header pb-3" onclick="togglePanel(this)">
+                            <i class="fas fa-table-columns"></i>
+                            <i class="toggle-icon fas fa-chevron-down" style="margin-left: auto;"></i>
                         </div>
                         <div class="toggle-grid-wrapper">
                             <div class="toggle-grid">
