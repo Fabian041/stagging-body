@@ -48,55 +48,87 @@ class LoadingListController extends Controller
         ]);
     }
 
-    public function checkLoadingListUpdates()
+
+    // Modified getLoadingList method that groups by pds_number
+    public function getLoadingList()
     {
         try {
-            // Get the latest update timestamp from LoadingList and related tables
-            $loadingListUpdate = LoadingList::max('updated_at');
-            $loadingListDetailUpdate = DB::table('loading_list_details')->max('updated_at');
-            
-            // Create a hash from the latest timestamps
-            $combinedTimestamp = $loadingListUpdate . '|' . $loadingListDetailUpdate;
-            $dataHash = md5($combinedTimestamp);
-            
-            // Also include count for additional validation
-            $totalRecords = LoadingList::count();
-            
-            return response()->json([
-                'dataHash' => $dataHash,
-                'lastUpdate' => $loadingListUpdate,
-                'totalRecords' => $totalRecords,
-                'timestamp' => now()->toISOString()
-            ]);
-            
-        } catch (\Exception $e) {
-            // Return error response so frontend can fallback to regular refresh
-            return response()->json([
-                'error' => true,
-                'message' => 'Unable to check updates'
-            ], 500);
-        }
-    }
-
-    // New method for efficient row-level updates
-    public function getLoadingListUpdates(Request $request)
-    {
-        try {
-            $ids = $request->input('ids', []);
-            
-            if (empty($ids)) {
-                return response()->json(['updatedRows' => []]);
-            }
-
-            // Get only the requested rows with fresh data
-            $updatedRows = LoadingList::whereIn('id', $ids)
-                ->with(['customer'])
+            // Group loading lists by pds_number and aggregate the data
+            $groupedData = LoadingList::with(['customer'])
                 ->withSum('detail as total_kanban', 'kanban_qty')
                 ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->latest()
+                ->take(500)
                 ->get()
-                ->map(function($loadingList) {
-                    $totalKanban = $loadingList->total_kanban ?? 0;
-                    $actualKanban = $loadingList->actual_kanban ?? 0;
+                ->groupBy('pds_number')
+                ->map(function ($loadingLists, $pdsNumber) {
+                    $firstLoadingList = $loadingLists->first();
+                    
+                    // Aggregate totals
+                    $totalKanban = $loadingLists->sum('total_kanban');
+                    $actualKanban = $loadingLists->sum('actual_kanban');
+                    
+                    // Get all loading list numbers
+                    $loadingListNumbers = $loadingLists->pluck('number')->toArray();
+                    
+                    // Earliest delivery date
+                    $earliestDeliveryDate = $loadingLists->min('delivery_date');
+                    
+                    // Most common cycle
+                    $cycle = $loadingLists->groupBy('cycle')->sortByDesc(function($items) {
+                        return $items->count();
+                    })->keys()->first();
+
+                    return (object) [
+                        'id' => 'pds-' . $pdsNumber,
+                        'pds_number' => $pdsNumber,
+                        'loading_list_numbers' => $loadingListNumbers,
+                        'loading_list_count' => $loadingLists->count(),
+                        'customer' => $firstLoadingList->customer,
+                        'cycle' => $cycle,
+                        'delivery_date' => $earliestDeliveryDate,
+                        'total_kanban' => $totalKanban,
+                        'actual_kanban' => $actualKanban,
+                        'loading_lists' => $loadingLists
+                    ];
+                })
+                ->values(); // Reset array keys
+
+            return DataTables::of($groupedData)
+                ->addColumn('customer', function ($group) {
+                    return $group->customer->name ?? '-';
+                })
+                ->addColumn('loading_and_status', function ($group) {
+                    // Tombol Loading Lists
+                    $loadingBtn = '<button class="btn btn-info text-white mr-2 show-loading-lists" data-pds="' . $group->pds_number . '">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Detail
+                                </button>';
+
+                    // Tombol Status
+                    $totalKanban = $group->total_kanban ?? 0;
+                    $actualKanban = $group->actual_kanban ?? 0;
+
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $statusButton = '<button class="btn btn-success">
+                                            <i class="fas fa-check" style="padding-right: 1px"></i>
+                                            COMPLETE
+                                        </button>';
+                    } elseif ($actualKanban > 0) {
+                        $statusButton = '<button class="btn btn-outline-warning">
+                                            INPROGRESS
+                                        </button>';
+                    } else {
+                        $statusButton = '<button class="btn btn-outline-danger">
+                                            INCOMPLETE
+                                        </button>';
+                    }
+
+                    return $loadingBtn . $statusButton;
+                })
+                ->addColumn('progress', function ($group) {
+                    $totalKanban = $group->total_kanban ?? 0;
+                    $actualKanban = $group->actual_kanban ?? 0;
                     $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
 
                     // Progress bar colors
@@ -109,47 +141,190 @@ class LoadingListController extends Controller
                     }
 
                     $progress = '
-                        <div class="text-small float-right font-weight-bold text-muted ml-3">'
+                        <div class="text-small font-weight-bold text-muted mb-1 text-center">'
                             . $actualKanban . ' / ' . $totalKanban .
                         '</div>
-                        <div class="font-weight-bold mb-1" style="color: white">-</div>
-                        <div class="progress" data-height="20" style="height: 15px;">
+                        <div class="progress" data-height="20" style="height: 18px;">
                             <div class="progress-bar" role="progressbar"
                                 style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
                                 aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
+                                <small class="text-white font-weight-bold">' . $progressPercentage . '%</small>
                             </div>
                         </div>';
 
-                    $detailButton = '<a href="/loading-list/' . $loadingList->id . '" class="btn btn-info text-white mr-2">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        DETAIL
-                                    </a>';
+                    return $progress;
+                })
+                ->setRowId(function ($group) {
+                    return 'row-' . $group->id; // $group->id is already 'pds-123'
+                })
+                ->rawColumns(['loading_and_status', 'progress', 'customer'])
+                ->make(true);
+                
+        } catch (\Exception $e) {
+            return response()->json([
+                'draw' => request()->get('draw', 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unable to load data: ' . $e->getMessage()
+            ]);
+        }
+    }
 
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $detail = $detailButton . '<button class="btn btn-success">
-                                                    <i class="fas fa-check" style="padding-right: 1px"></i>
-                                                    COMPLETE
-                                                </button>';
-                    } elseif ($actualKanban > 0) {
-                        $detail = $detailButton . '<button class="btn btn-outline-warning">
-                                                    INPROGRESS
-                                                </button>';
-                    } else {
-                        $detail = $detailButton . '<button class="btn btn-outline-danger">
-                                                    INCOMPLETE
-                                                </button>';
-                    }
+    // New method to get loading lists by PDS number for accordion
+    public function getLoadingListsByPds(Request $request)
+    {
+        try {
+            $pdsNumber = $request->get('pds_number');
+            
+            if (!$pdsNumber) {
+                return response()->json(['error' => 'PDS number is required'], 400);
+            }
 
+            $loadingLists = LoadingList::where('pds_number', $pdsNumber)
+                ->with(['customer'])
+                ->withSum('detail as total_kanban', 'kanban_qty')
+                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->orderBy('number', 'asc')
+                ->get()
+                ->map(function ($loadingList) {
                     return [
                         'id' => $loadingList->id,
-                        'progress' => $progress,
-                        'detail' => $detail,
-                        'updated_at' => $loadingList->updated_at->toISOString()
+                        'number' => $loadingList->number,
+                        'pds_number' => $loadingList->pds_number,
+                        'customer_name' => $loadingList->customer->name ?? null,
+                        'cycle' => $loadingList->cycle,
+                        'delivery_date' => $loadingList->delivery_date,
+                        'total_kanban' => $loadingList->total_kanban ?? 0,
+                        'actual_kanban' => $loadingList->actual_kanban ?? 0,
+                        'created_at' => $loadingList->created_at,
+                        'updated_at' => $loadingList->updated_at
                     ];
                 });
 
             return response()->json([
-                'updatedRows' => $updatedRows
+                'loading_lists' => $loadingLists,
+                'pds_number' => $pdsNumber,
+                'total_count' => $loadingLists->count()
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Unable to load loading lists: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Updated checkLoadingListUpdates for grouped data
+    public function checkLoadingListUpdates(Request $request)
+    {
+        try {
+            // Get the current state from client
+            $currentState = $request->input('state', []);
+            $currentPdsCount = $currentState['pdsCount'] ?? 0;
+            $latestPdsNumbers = $currentState['latestPdsNumbers'] ?? [];
+            
+            // Get server state
+            $serverPdsCount = LoadingList::distinct('pds_number')->count();
+            $serverLatestPds = LoadingList::select('pds_number')
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->pluck('pds_number')
+                ->toArray();
+                
+            // Check if counts differ or if any new PDS numbers exist
+            $hasNewData = ($serverPdsCount != $currentPdsCount) || 
+                        count(array_diff($serverLatestPds, $latestPdsNumbers)) > 0;
+                        
+            return response()->json([
+                'hasNewData' => $hasNewData,
+                'serverPdsCount' => $serverPdsCount,
+                'serverLatestPds' => $serverLatestPds,
+                'timestamp' => now()->toISOString()
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json(['error' => true], 500);
+        }
+    }
+
+    // Updated getLoadingListUpdates for grouped data
+    public function getLoadingListUpdates(Request $request)
+    {
+        try {
+            $pdsNumbers = $request->input('ids', []);
+            
+            if (empty($pdsNumbers)) {
+                return response()->json(['updatedRows' => []]);
+            }
+
+            // Get updated data for specific PDS numbers
+            $updatedGroups = collect();
+            
+            foreach ($pdsNumbers as $pdsId) {
+                // Extract PDS number from ID (remove 'pds-' prefix)
+                $pdsNumber = str_replace('pds-', '', $pdsId);
+                
+                $loadingLists = LoadingList::where('pds_number', $pdsNumber)
+                    ->with(['customer'])
+                    ->withSum('detail as total_kanban', 'kanban_qty')
+                    ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                    ->get();
+
+                if ($loadingLists->isNotEmpty()) {
+                    $totalKanban = $loadingLists->sum('total_kanban');
+                    $actualKanban = $loadingLists->sum('actual_kanban');
+                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
+                    $loadingListCount = $loadingLists->count();
+
+                    // Generate updated progress HTML
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $statusClass = 'lightgreen';
+                    } elseif ($actualKanban > 0) {
+                        $statusClass = 'orange';
+                    } else {
+                        $statusClass = 'red';
+                    }
+
+                    $progress = '
+                        <div class="text-small font-weight-bold text-muted mb-1 text-center">'
+                            . $actualKanban . ' / ' . $totalKanban .
+                        '</div>
+                        <div class="progress" data-height="20" style="height: 18px;">
+                            <div class="progress-bar" role="progressbar"
+                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
+                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
+                                <small class="text-white font-weight-bold">' . $progressPercentage . '%</small>
+                            </div>
+                        </div>';
+
+                    // Generate updated detail HTML (status button)
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $detail = '<button class="btn btn-success">
+                                    <i class="fas fa-check" style="padding-right: 1px"></i>
+                                        COMPLETE
+                                    </button>';
+                    } elseif ($actualKanban > 0) {
+                        $detail = '<button class="btn btn-outline-warning">
+                                        INPROGRESS
+                                    </button>';
+                    } else {
+                        $detail = '<button class="btn btn-outline-danger">
+                                        INCOMPLETE
+                                    </button>';
+                    }
+
+                    $updatedGroups->push([
+                        'id' => 'row-pds-' . $pdsNumber,
+                        'progress' => $progress,
+                        'detail' => $detail,
+                        'updated_at' => $loadingLists->max('updated_at')
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'updatedRows' => $updatedGroups
             ]);
 
         } catch (\Exception $e) {
@@ -157,96 +332,6 @@ class LoadingListController extends Controller
                 'error' => true,
                 'message' => 'Unable to get row updates'
             ], 500);
-        }
-    }
-
-    // Your existing getLoadingList method (with ID added for row tracking)
-    public function getLoadingList()
-    {
-        try {
-            // Eager load 'customer' and use withSum for database aggregation
-            $input = LoadingList::with(['customer'])
-                ->withSum('detail as total_kanban', 'kanban_qty')
-                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-                ->latest()
-                ->take(500)
-                ->get();
-
-            return DataTables::of($input)
-                ->addColumn('customer', function ($loadingList) {
-                    return $loadingList->customer->name ?? '-';
-                })
-                ->addColumn('detail', function($loadingList) {
-                    $totalKanban = $loadingList->total_kanban ?? 0;
-                    $actualKanban = $loadingList->actual_kanban ?? 0;
-
-                    $detailButton = '<a href="/loading-list/' . $loadingList->id . '" class="btn btn-info text-white mr-2">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        DETAIL
-                                    </a>';
-
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $buttons = $detailButton . '<button class="btn btn-success">
-                                                        <i class="fas fa-check" style="padding-right: 1px"></i>
-                                                        COMPLETE
-                                                    </button>';
-                    } elseif ($actualKanban > 0) {
-                        $buttons = $detailButton . '<button class="btn btn-outline-warning">
-                                                        INPROGRESS
-                                                    </button>';
-                    } else {
-                        $buttons = $detailButton . '<button class="btn btn-outline-danger">
-                                                        INCOMPLETE
-                                                    </button>';
-                    }
-
-                    return $buttons;
-                })
-                ->addColumn('progress', function ($loadingList) {
-                    $totalKanban = $loadingList->total_kanban ?? 0;
-                    $actualKanban = $loadingList->actual_kanban ?? 0;
-                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
-
-                    // Progress bar colors
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $statusClass = 'lightgreen';
-                        $statusText = 'COMPLETE';
-                    } elseif ($actualKanban > 0) {
-                        $statusClass = 'orange';
-                        $statusText = 'INPROGRESS';
-                    } else {
-                        $statusClass = 'red';
-                        $statusText = 'INCOMPLETE';
-                    }
-
-                    $progress = '
-                        <div class="text-small float-right font-weight-bold text-muted ml-3">'
-                            . $actualKanban . ' / ' . $totalKanban .
-                        '</div>
-                        <div class="font-weight-bold mb-1" style="color: white">-</div>
-                        <div class="progress" data-height="20" style="height: 15px;">
-                            <div class="progress-bar" role="progressbar"
-                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
-                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
-                            </div>
-                        </div>';
-
-                    return $progress;
-                })
-                // Add row ID for tracking
-                ->setRowId('row-{{$id}}')
-                ->rawColumns(['detail', 'progress', 'customer'])
-                ->make(true);
-                
-        } catch (\Exception $e) {
-            // Return empty DataTable response on error
-            return response()->json([
-                'draw' => request()->get('draw', 0),
-                'recordsTotal' => 0,
-                'recordsFiltered' => 0,
-                'data' => [],
-                'error' => 'Unable to load data'
-            ]);
         }
     }
 

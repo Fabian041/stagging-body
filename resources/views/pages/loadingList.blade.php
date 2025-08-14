@@ -1,6 +1,132 @@
 @extends('layouts.root.main')
 
 @section('main')
+    <style>
+        .loading-lists-group {
+            text-align: left;
+        }
+
+        .loading-lists-group strong {
+            color: #2c3e50;
+            font-size: 12px;
+        }
+
+        .loading-lists-group span {
+            font-size: 11px;
+            line-height: 1.3;
+            display: block;
+            max-width: 200px;
+        }
+
+        .btn-toolbar {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-toolbar .btn-group {
+            margin-bottom: 5px;
+        }
+
+        .progress-bar small {
+            font-size: 10px;
+            line-height: 1;
+        }
+
+        .dropdown-menu .dropdown-item {
+            padding: 5px 15px;
+            font-size: 12px;
+        }
+
+        .dropdown-menu .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* Accordion styles */
+        .accordion-card {
+            border: none;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 5px;
+            border-radius: 6px;
+        }
+
+        .accordion-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .accordion-header:hover {
+            background-color: #e9ecef;
+        }
+
+        .accordion-body {
+            padding: 10px 15px;
+            background-color: white;
+        }
+
+        .loading-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .loading-list-number {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .loading-list-progress {
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        .expand-btn {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .expand-btn:hover {
+            background: linear-gradient(45deg, #0056b3, #004085);
+            transform: translateY(-1px);
+        }
+
+        .expand-btn.collapsed::after {
+            content: ' ▼';
+        }
+
+        .expand-btn:not(.collapsed)::after {
+            content: ' ▲';
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .btn-toolbar {
+                flex-direction: column;
+            }
+
+            .btn-group {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .loading-lists-group span {
+                max-width: 150px;
+            }
+        }
+    </style>
     <div class="row mt-3">
         <div class="col-md-12">
             <div class="card card-info shadow" style="padding: 40px;padding-top:60px; border-radius:16px">
@@ -52,13 +178,12 @@
                 <table class="table" id="loadingList" style="width: 100%">
                     <thead>
                         <tr>
-                            <th class="text-center">Loading List Number</th>
                             <th class="text-center">PDS Number</th>
                             <th class="text-center">Customer</th>
                             <th class="text-center">Cycle</th>
                             <th class="text-center">Delivery Date</th>
                             <th class="text-center">Progress</th>
-                            <th class="text-center"></th>
+                            <th class="text-center">Status</th>
                         </tr>
                     </thead>
                     <tbody class="text-center">
@@ -68,7 +193,28 @@
             </div>
         </div>
     </div>
+
 @endsection
+<!-- Loading Lists Accordion Modal -->
+<div class="modal fade" id="loadingListModal" tabindex="-1" role="dialog" aria-labelledby="loadingListModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="loadingListModalLabel">Loading Lists for PDS: <span
+                        id="modalPdsNumber"></span></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="loadingListAccordion">
+                <!-- Accordion content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- mqtt --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
@@ -87,9 +233,6 @@
                 dataType: 'json',
             },
             columns: [{
-                    data: 'number'
-                },
-                {
                     data: 'pds_number'
                 },
                 {
@@ -105,13 +248,13 @@
                     data: 'progress'
                 },
                 {
-                    data: 'detail',
+                    data: 'loading_and_status',
                     orderable: false,
                     searchable: false
-                },
+                }
             ],
             order: [
-                [4, 'dsc']
+                [3, 'dsc']
             ],
             lengthMenu: [
                 [10, 25, 100],
@@ -194,10 +337,24 @@
         function smartRefresh() {
             if (isUserInteracting) return;
 
+            // Get current visible PDS numbers (if any)
+            const visiblePdsNumbers = table.rows({
+                    page: 'current'
+                }).data().toArray()
+                .map(row => row.pds_number)
+                .filter((v, i, a) => a.indexOf(v) === i); // Unique values
+
             $.ajax({
                 url: `{{ url('dashboard/checkLoadingListUpdates') }}`,
                 type: 'GET',
                 dataType: 'json',
+                data: {
+                    state: {
+                        pdsCount: lastRecordCount,
+                        latestPdsNumbers: lastPdsNumbers,
+                        visiblePdsNumbers: visiblePdsNumbers
+                    }
+                },
                 timeout: 5000,
                 success: function(response) {
                     if (response.error) {
@@ -205,13 +362,39 @@
                         return;
                     }
 
-                    // Check if data has changed
+                    // More aggressive refresh if we suspect deletions
+                    const countMismatch = response.totalRecords !== lastRecordCount;
+                    const forceRefresh = countMismatch ||
+                        (response.deletedCount && response.deletedCount > 0);
+
+                    if (forceRefresh) {
+                        lastRecordCount = response.totalRecords;
+                        refreshTableData();
+                        return;
+                    }
+
+                    // Check if data has changed (existing records or count)
                     const dataChanged = (response.dataHash && response.dataHash !== lastDataHash) ||
                         (response.totalRecords !== lastRecordCount);
 
-                    if (dataChanged) {
+                    // Additional check for new PDS numbers
+                    const hasNewPds = response.latestPdsNumbers &&
+                        (!lastPdsNumbers ||
+                            response.latestPdsNumbers.some(pds => !lastPdsNumbers.includes(pds)));
+
+                    if (response.hasNewData) {
+                        lastRecordCount = response.serverPdsCount;
+                        lastPdsNumbers = response.serverLatestPds;
+                        refreshTableData();
+                    } else {
+                        // Still check for updates to existing rows
+                        updateSpecificRows();
+                    }
+
+                    if (dataChanged || hasNewPds) {
                         lastDataHash = response.dataHash || '';
                         lastRecordCount = response.totalRecords || 0;
+                        lastPdsNumbers = response.latestPdsNumbers || [];
                         refreshTableData();
                     }
                 },
@@ -229,7 +412,6 @@
         function updateSpecificRows() {
             if (isUserInteracting) return;
 
-            // Get visible row IDs on current page
             const visibleData = table.rows({
                 page: 'current'
             }).data();
@@ -237,7 +419,8 @@
 
             for (let i = 0; i < visibleData.length; i++) {
                 if (visibleData[i] && visibleData[i].id) {
-                    visibleIds.push(visibleData[i].id);
+                    const cleanId = visibleData[i].id.replace('row-', '');
+                    visibleIds.push(cleanId);
                 }
             }
 
@@ -246,7 +429,6 @@
                 return;
             }
 
-            // Check only visible rows for updates
             $.ajax({
                 url: `{{ url('dashboard/getLoadingListUpdates') }}`,
                 type: 'POST',
@@ -256,21 +438,38 @@
                 },
                 dataType: 'json',
                 success: function(response) {
-                    if (response.updatedRows && response.updatedRows.length > 0) {
-                        // Update only changed rows without full refresh
-                        response.updatedRows.forEach(function(updatedRow) {
-                            const rowNode = table.row('#row-' + updatedRow.id).node();
-                            if (rowNode) {
-                                // Update specific cells that changed
-                                table.cell(rowNode, 5).data(updatedRow
-                                    .progress); // progress column
-                                table.cell(rowNode, 6).data(updatedRow
-                                    .detail); // detail column
+                    // Handle deleted rows first
+                    if (response.deletedRows && response.deletedRows.length > 0) {
+                        response.deletedRows.forEach(function(deletedRowId) {
+                            const row = table.row('#row-' + deletedRowId);
+                            if (row.any()) {
+                                row.remove().draw(false);
                             }
                         });
-                    } else {
-                        // No specific updates, do smart refresh
-                        smartRefresh();
+                    }
+
+                    // Then handle updated rows
+                    if (response.updatedRows && response.updatedRows.length > 0) {
+                        response.updatedRows.forEach(function(updatedRow) {
+                            const row = table.row('#row-' + updatedRow.id);
+
+                            if (row.any()) {
+                                const rowData = row.data();
+
+                                if (updatedRow.progress) rowData.progress = updatedRow
+                                    .progress;
+                                if (updatedRow.detail) rowData.loading_and_status =
+                                    updatedRow.detail;
+
+                                row.data(rowData).draw(false);
+                            }
+                        });
+                    }
+
+                    // If we had any deletions or updates, the table might need reordering
+                    if ((response.deletedRows && response.deletedRows.length > 0) ||
+                        (response.updatedRows && response.updatedRows.length > 0)) {
+                        table.order([3, 'desc']).draw(false);
                     }
                 },
                 error: function() {
@@ -285,15 +484,25 @@
                 clearInterval(autoRefreshInterval);
             }
 
-            // Use the most appropriate refresh method
+            let refreshCount = 0;
+
             autoRefreshInterval = setInterval(function() {
+                refreshCount++;
+
+                // Every 10 refreshes (30 seconds), do a full refresh regardless
+                if (refreshCount >= 10) {
+                    refreshCount = 0;
+                    refreshTableData();
+                    return;
+                }
+
                 // Try specific row updates first (fastest)
                 if (typeof updateSpecificRows === 'function') {
                     updateSpecificRows();
                 } else {
                     smartRefresh();
                 }
-            }, 3000);
+            }, 3000); // 3 seconds
         }
 
         // Enhanced event detection
@@ -311,6 +520,133 @@
         $('#loadingList').closest('.table-responsive-lg').on('scroll', onUserInteraction);
         $('#manifest, #customer, #cycle, #date').on('change', onUserInteraction);
 
+        // Loading List Accordion Modal Handler
+        $(document).on('click', '.show-loading-lists', function() {
+            const pdsNumber = $(this).data('pds');
+            $('#modalPdsNumber').text(pdsNumber);
+
+            // Show loading spinner
+            $('#loadingListAccordion').html(
+                '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+
+            // Load loading lists for this PDS
+            $.ajax({
+                url: `{{ url('dashboard/getLoadingListsByPds') }}`,
+                type: 'GET',
+                data: {
+                    pds_number: pdsNumber
+                },
+                success: function(response) {
+                    let accordionHtml =
+                        '<div class="accordion" id="accordionLoadingLists">';
+
+                    if (response.loading_lists && response.loading_lists.length > 0) {
+                        response.loading_lists.forEach(function(loadingList, index) {
+                            const collapseId = 'collapse' + index;
+                            const headingId = 'heading' + index;
+
+                            // Calculate progress for individual loading list
+                            const progressPercentage = loadingList.total_kanban >
+                                0 ?
+                                Math.round((loadingList.actual_kanban / loadingList
+                                    .total_kanban) * 100) : 0;
+
+                            let statusBadge = '';
+                            let progressColor = '';
+
+                            if (loadingList.actual_kanban >= loadingList
+                                .total_kanban && loadingList.total_kanban > 0) {
+                                statusBadge =
+                                    '<span class="badge badge-success ml-2">Complete</span>';
+                                progressColor = 'bg-success';
+                            } else if (loadingList.actual_kanban > 0) {
+                                statusBadge =
+                                    '<span class="badge badge-warning ml-2">In Progress</span>';
+                                progressColor = 'bg-warning';
+                            } else {
+                                statusBadge =
+                                    '<span class="badge badge-danger ml-2">Incomplete</span>';
+                                progressColor = 'bg-danger';
+                            }
+
+                            accordionHtml += `
+                                <div class="card accordion-card">
+                                    <div class="card-header accordion-header" id="${headingId}">
+                                        <button class="btn text-left w-100 d-flex justify-content-between align-items-center" 
+                                                type="button" data-toggle="collapse" data-target="#${collapseId}" 
+                                                aria-expanded="${index === 0 ? 'true' : 'false'}" aria-controls="${collapseId}">
+                                            <div>
+                                                <strong>${loadingList.number}</strong>
+                                                ${statusBadge}
+                                            </div>
+                                            <div class="text-right">
+                                                <small class="text-muted">${loadingList.actual_kanban} / ${loadingList.total_kanban}</small>
+                                                <div class="progress ml-2" style="width: 60px; height: 6px;">
+                                                    <div class="progress-bar ${progressColor}" style="width: ${progressPercentage}%"></div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                    <div id="${collapseId}" class="collapse ${index === 0 ? 'show' : ''}" 
+                                         aria-labelledby="${headingId}" data-parent="#accordionLoadingLists">
+                                        <div class="accordion-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p><strong>Loading List:</strong> ${loadingList.number}</p>
+                                                    <p><strong>Customer:</strong> ${loadingList.customer_name || 'N/A'}</p>
+                                                    <p><strong>Cycle:</strong> ${loadingList.cycle || 'N/A'}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <p><strong>Delivery Date:</strong> ${loadingList.delivery_date || 'N/A'}</p>
+                                                    <p><strong>Progress:</strong> ${progressPercentage}%</p>
+                                                    <p><strong>Kanban:</strong> ${loadingList.actual_kanban} / ${loadingList.total_kanban}</p>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <div class="progress" style="height: 20px;">
+                                                        <div class="progress-bar ${progressColor}" 
+                                                             style="width: ${progressPercentage}%" 
+                                                             role="progressbar" 
+                                                             aria-valuenow="${progressPercentage}" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="100">
+                                                            ${progressPercentage}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-2">
+                                                <div class="col-12 text-right">
+                                                    <a href="/loading-list/${loadingList.id}" class="btn btn-info btn-sm">
+                                                        <i class="fas fa-eye"></i> View Details
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        accordionHtml +=
+                            '<div class="alert alert-info">No loading lists found for this PDS number.</div>';
+                    }
+
+                    accordionHtml += '</div>';
+
+                    $('#loadingListAccordion').html(accordionHtml);
+                },
+                error: function() {
+                    $('#loadingListAccordion').html(
+                        '<div class="alert alert-danger">Error loading loading lists. Please try again.</div>'
+                    );
+                }
+            });
+
+            $('#loadingListModal').modal('show');
+        });
+
         // Initial load
         startAutoRefresh();
 
@@ -318,9 +654,9 @@
         $('#manifest').on('change', function() {
             let manifest = $('#manifest').val();
             if (manifest) {
-                table.column(1).search(manifest);
+                table.column(0).search(manifest);
             } else {
-                table.column(1).search('');
+                table.column(0).search('');
             }
             table.draw();
         });
@@ -328,9 +664,9 @@
         $('#customer').on('change', function() {
             let customer = $('#customer').val();
             if (customer) {
-                table.column(2).search(customer);
+                table.column(1).search(customer);
             } else {
-                table.column(2).search('');
+                table.column(1).search('');
             }
             table.draw();
         });
@@ -338,9 +674,9 @@
         $('#cycle').on('change', function() {
             let cycle = $('#cycle').val();
             if (cycle) {
-                table.column(3).search(cycle);
+                table.column(2).search(cycle);
             } else {
-                table.column(3).search('');
+                table.column(2).search('');
             }
             table.draw();
         });
@@ -348,9 +684,9 @@
         $('#date').on('change', function() {
             let date = $('#date').val();
             if (date) {
-                table.column(4).search(date);
+                table.column(3).search(date);
             } else {
-                table.column(4).search('');
+                table.column(3).search('');
             }
             table.draw();
         });
