@@ -112,6 +112,11 @@
     var timerActive = false;
     var endTime; // Time when the timer is supposed to end
 
+    let pairing = null; // info dari API
+    let scannedPaintings = [];
+    let scannedAssembly = null;
+
+
     function notMatchSound() {
         var sound = document.getElementById("not-match-sound");
         sound.play();
@@ -242,24 +247,14 @@
     function notif(color, text) {
         let modal = $('#notifModal');
         let textNotif = $('#notif');
-        if (color == "error") {
-            textNotif.text(text);
-            $('#divNotif').css("background-color", "#FF2A00");
-            $('#notifModal').modal('show');
-            setTimeout(() => {
-                $('#notifModal').modal('hide');
-                $('#code').focus();
-            }, 3000);
-        } else {
-            textNotif.text(text);
-            $('#divNotif').css("background-color", "#32a852");
-            $('#notifModal').modal('show');
-            setTimeout(() => {
-                $('#notifModal').modal('hide');
-                $('#code').focus();
-            }, 3000);
-        }
+        textNotif.text(text);
+        $('#divNotif').css("background-color", color === 'error' ? "#FF2A00" : "#32a852");
+        modal.modal('show');
+        setTimeout(() => modal.modal('hide'), 2000);
+        setTimeout(() => $('#code').focus() , 3000);
+
     }
+
 
     // extract the master sample from counter
     function extractMasterSample(key) {
@@ -353,62 +348,81 @@
         let scanTimeout;
 
         $('#code').on('input', function () {
-            clearTimeout(scanTimeout);
-            barcode = $(this).val();
-
-            // Jika panjang kode cukup, proses setelah delay (tunggu scanner selesai)
-            if (barcode.length == 230) {
-                scanTimeout = setTimeout(() => {
-                    handleScan(barcode.trim()); // proses seperti Enter
-                    $(this).val(''); // kosongkan input
-                }, 200); // delay bisa disesuaikan jika scanner lambat/kilat
+            const val = $(this).val();
+            if (val.length == 230) {
+                handleScan(val.trim());
+                $(this).val('');
             }
         });
     });
 
-    function handleScan(scan) {
-        let kanbanParts = scan.split(/\s+/);
-        let partIdentifier = kanbanParts[4];   // misal: "0423117-10870-BAR"
-        let modelCode = kanbanParts[9];       // misal: "KN3J" / "KPJH"
-        let keyword = partIdentifier.split('-').pop(); // ambil kata terakhir → "BAR"
-
-        if (!localStorage.getItem('part_painting')) {
-            localStorage.setItem('part_painting', keyword);
-            localStorage.setItem('model_painting', modelCode);
-
-            $('#model').text(modelCode);
-            $('.model-card-header').removeClass('card-secondary').addClass('card-info');
-            $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-
-            notif('success', 'Scan Kanban Painting berhasil');
-            matchSound();
+    async function handleScan(barcode) {
+        // Saat scan assy
+        if (!localStorage.getItem('assy_part_number')) {
+            const assyPart = extractPartNumber(barcode);
+            const assyModel = extractModel(barcode);
+            
+            fetch(`/validation/kanban/pairing?part=${assyPart}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        localStorage.setItem('assy_part_number', assyPart);
+                        localStorage.setItem('expected_painting', data.painting);
+                        localStorage.setItem('qty_assy', data.qty_assy);
+                        localStorage.setItem('qty_painting', data.qty_painting);
+                        localStorage.setItem('painting_count', '0');
+                        $('#model').text(assyModel);
+                        notif('success', 'Scan assy berhasil');
+                    } else {
+                        notif('error', 'Tidak ditemukan pasangan painting');
+                    }
+                });
         } else {
-            let savedKeyword = localStorage.getItem('part_painting');
-
-            if (savedKeyword === keyword) {
-                $('#total-scan').text(modelCode);
-                $('.total-scan-card-header').removeClass('card-secondary').addClass('card-success');
-                $('.total-scan-card').removeClass('bg-secondary').addClass('bg-success');
-
-                notif('success', 'Kanban Assembly cocok dengan Painting');
-                matchSound();
-            } else {
-                notif('error', 'Kanban Assembly tidak cocok dengan Painting!');
-                wrongKanbanSound();
+            // Scan painting
+            const scannedPainting = extractPartNumber(barcode);
+            const expectedPainting = localStorage.getItem('expected_painting');
+            console.log("Scanned Painting:", scannedPainting);
+            console.log("Expected Painting:", expectedPainting);
+            
+            if (scannedPainting !== expectedPainting) {
+                notif('error', 'Part painting tidak cocok');
+                return;
             }
 
-            // Reset proses setelah 5 detik
-            setTimeout(() => {
-                localStorage.removeItem('part_painting');
-                localStorage.removeItem('model_painting');
+            let count = parseInt(localStorage.getItem('painting_count'));
+            let maxCount = Math.floor(
+                parseInt(localStorage.getItem('qty_painting')) / 
+                parseInt(localStorage.getItem('qty_assy'))
+            );
+
+            if (count + 1 < maxCount) {
+                count++;
+                localStorage.setItem('painting_count', count);
+                notif('success', `Painting ke-${count} berhasil`);
+            } else if (count + 1 === maxCount) {
+                notif('success', 'Pairing lengkap!');
+                localStorage.clear();
                 $('#model').text('-');
-                $('#total-scan').text('0');
-                $('.model-card-header').removeClass('card-info').addClass('card-secondary');
-                $('.model-card').removeClass('bg-info').addClass('bg-secondary');
-                $('.total-scan-card-header').removeClass('card-success').addClass('card-secondary');
-                $('.total-scan-card').removeClass('bg-success').addClass('bg-secondary');
-            }, 5000);
+            } else {
+                notif('error', 'Jumlah painting melebihi kebutuhan');
+            }
         }
+
     }
+
+    function extractPartNumber(barcode) {
+        const regex = /\b\d{7}-\d{5}-[A-Z0-9]{3}\b/;
+        const match = barcode.match(regex);
+        console.log("Extracted part number:", match[0].slice(1));
+        return match ? match[0].slice(1) : null;
+    }
+
+    function extractModel(barcode) {
+        const parts = barcode.trim().replace(/\s+/g, ' ').split(' ');
+        return parts.find(p => /^[A-Z]{3,4}\d$/.test(p)) || null;
+    }
+
+
+
 
 </script>
