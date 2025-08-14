@@ -46,7 +46,9 @@ class ValidationController extends Controller
             'assembly' => $pair->assembly_part,
             'painting' => $pair->painting_part,
             'qty_painting' => $pair->qty_painting,
-            'qty_assy' => $pair->qty_assy
+            'qty_assy' => $pair->qty_assy,
+            'model_painting' => $pair->painting_back_number,
+            'model_assy' => $pair->assembly_back_number
         ]);
     }
 }

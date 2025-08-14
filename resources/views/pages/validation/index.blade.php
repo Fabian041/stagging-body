@@ -4,26 +4,31 @@
     <div class="main-section">
         <div class="mx-5 my-2">
             <div class="row">
+
                 <div class="col-lg-12 col-sm-12">
+
+
+                    <button class="btn btn-danger" onclick="resetScanState()">Reset Scan</button>
+
                         <input id="code" type="text" class="form-control" name="code" tabindex="1"
                             placeholder="scan part..." required autofocus autocomplete="off" style="opacity: 0; width: 1px; height: 1px;">
                     <div class="shadow pt-4 card card-secondary model-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Kanban Painting</h5>
+                            <h5 class="text-center text-dark">Kanban Assembly</h5>
                             <div class="bg-secondary m-auto shadow model-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">-</h1>
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model_assy">-</h1>
                             </div>
                         </div>
                     </div>
                     <div class="shadow pt-4 card card-secondary total-scan-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Kanban Assembly</h5>
+                            <h5 class="text-center text-dark">Kanban Painting</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">-</h1>
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model_painting">-</h1>
                             </div>
                         </div>
                     </div>
@@ -248,90 +253,12 @@
         let modal = $('#notifModal');
         let textNotif = $('#notif');
         textNotif.text(text);
-        $('#divNotif').css("background-color", color === 'error' ? "#FF2A00" : "#32a852");
+        $('#divNotif').css("background-color", color === "error" ? "#FF2A00" : "#32a852");
         modal.modal('show');
-        setTimeout(() => modal.modal('hide'), 2000);
-        setTimeout(() => $('#code').focus() , 3000);
-
-    }
-
-
-    // extract the master sample from counter
-    function extractMasterSample(key) {
-        const prefix = "counter_";
-        return key.substring(prefix.length);
-    }
-
-    // retrieve the loading list number from localStorage
-    function getMasterSample() {
-        let masterSample = false;
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith("counter_")) {
-                masterSample = extractMasterSample(key);
-            }
-        }
-        // Return a default value if no loading list number is found
-        return masterSample;
-    }
-
-    function deleteMasterSampleCounter() {
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith("counter_")) {
-                localStorage.removeItem(key);
-            }
-        }
-    }
-
-    function startTimer() {
-        if (timerActive) {
-            return; // Exit if the timer is already running
-        }
-
-        var currentTime = new Date().getTime();
-        var storedEndTime = localStorage.getItem('timerEndTime');
-
-        if (storedEndTime) {
-            endTime = parseInt(storedEndTime, 10);
-        } else {
-            // Set new end time (60 seconds from now)
-            endTime = currentTime + 70000;
-            localStorage.setItem('timerEndTime', endTime);
-        }
-
-        timerActive = true;
-
-        timerId = setInterval(function() {
-            var timeLeft = endTime - new Date().getTime();
-
-            if (timeLeft <= 0) {
-                clearInterval(timerId);
-                timerActive = false;
-                localStorage.removeItem('timerEndTime'); // Clear the stored end time
-                localStorage.setItem('error', 'true');
-                notif('error', 'Jangan lupa scan kanban!');
-
-                // notification sound
-                forgetSound();
-
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }
-        }, 1000);
-    }
-
-    function pauseTimer() {
-        clearInterval(timerId);
-        timerActive = false;
-        localStorage.removeItem('timerEndTime');
-    }
-
-    function resetAndStartTimer() {
-        pauseTimer();
-        localStorage.removeItem('timerEndTime'); // Clear any existing end time
-        startTimer(); // Start a new timer
+        setTimeout(() => {
+            modal.modal('hide');
+            $('#code').focus();
+        }, 2000);
     }
 
 
@@ -357,58 +284,116 @@
     });
 
     async function handleScan(barcode) {
-        // Saat scan assy
+        const scannedPart = extractPartNumber(barcode);
+        const scannedModel = extractModel(barcode);
+
+        // Cek apakah scan pertama (assy)
         if (!localStorage.getItem('assy_part_number')) {
-            const assyPart = extractPartNumber(barcode);
-            const assyModel = extractModel(barcode);
-            
-            fetch(`/validation/kanban/pairing?part=${assyPart}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        localStorage.setItem('assy_part_number', assyPart);
-                        localStorage.setItem('expected_painting', data.painting);
-                        localStorage.setItem('qty_assy', data.qty_assy);
-                        localStorage.setItem('qty_painting', data.qty_painting);
-                        localStorage.setItem('painting_count', '0');
-                        $('#model').text(assyModel);
-                        notif('success', 'Scan assy berhasil');
-                    } else {
-                        notif('error', 'Tidak ditemukan pasangan painting');
+            const assyPart = scannedPart;
+            const assyModel = scannedModel;
+
+            try {
+                const res = await fetch(`/validation/kanban/pairing?part=${assyPart}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    // Hitung rasio berdasarkan KPK
+                    const qtyAssy = parseInt(data.qty_assy);
+                    const qtyPainting = parseInt(data.qty_painting);
+
+                    function gcd(a, b) {
+                        return b === 0 ? a : gcd(b, a % b);
                     }
-                });
-        } else {
-            // Scan painting
-            const scannedPainting = extractPartNumber(barcode);
-            const expectedPainting = localStorage.getItem('expected_painting');
-            console.log("Scanned Painting:", scannedPainting);
-            console.log("Expected Painting:", expectedPainting);
-            
-            if (scannedPainting !== expectedPainting) {
-                notif('error', 'Part painting tidak cocok');
+                    function lcm(a, b) {
+                        return (a * b) / gcd(a, b);
+                    }
+
+                    let ratioAssy = 1;
+                    let ratioPainting = 1;
+
+                    if (qtyAssy > qtyPainting) {
+                        ratioAssy = qtyAssy / qtyPainting;
+                        ratioPainting = 1;
+                    } else {
+                        ratioPainting = qtyPainting / qtyAssy;
+                        ratioAssy = 1;
+                    }
+
+                    // Simpan ke localStorage
+                    localStorage.setItem('assy_part_number', assyPart);
+                    localStorage.setItem('expected_painting', data.painting);
+                    localStorage.setItem('model_painting', data.model_painting);
+                    localStorage.setItem('model_assy', data.model_assy);
+                    localStorage.setItem('qty_assy', qtyAssy);
+                    localStorage.setItem('qty_painting', qtyPainting);
+                    localStorage.setItem('ratio_assy', ratioAssy);
+                    localStorage.setItem('ratio_painting', ratioPainting);
+                    localStorage.setItem('scan_count_assy', 1); // ini scan pertama
+                    localStorage.setItem('scan_count_painting', 0);
+
+                    $('#total-scan').text(0);
+                    updateScanProgress();
+                    notif('success', 'Scan assy pertama berhasil');
+                } else {
+                    notif('error', 'Tidak ditemukan pasangan painting');
+                }
+            } catch (error) {
+                notif('error', 'Gagal mengambil data pasangan');
+            }
+
+            return; // keluar dari fungsi karena scan pertama
+        }
+
+        // Scan berikutnya
+        const expectedPainting = localStorage.getItem('expected_painting');
+        const expectedAssy = localStorage.getItem('assy_part_number');
+
+        let countAssy = parseInt(localStorage.getItem('scan_count_assy') || 0);
+        let countPainting = parseInt(localStorage.getItem('scan_count_painting') || 0);
+        const ratioAssy = parseInt(localStorage.getItem('ratio_assy'));
+        const ratioPainting = parseInt(localStorage.getItem('ratio_painting'));
+
+        // Logika scan assy/painting
+        if (scannedPart === expectedAssy) {
+            if (countAssy >= ratioAssy) {
+                notif('error', 'Jumlah assy sudah cukup');
                 return;
             }
 
-            let count = parseInt(localStorage.getItem('painting_count'));
-            let maxCount = Math.floor(
-                parseInt(localStorage.getItem('qty_painting')) / 
-                parseInt(localStorage.getItem('qty_assy'))
-            );
-
-            if (count + 1 < maxCount) {
-                count++;
-                localStorage.setItem('painting_count', count);
-                notif('success', `Painting ke-${count} berhasil`);
-            } else if (count + 1 === maxCount) {
-                notif('success', 'Pairing lengkap!');
-                localStorage.clear();
-                $('#model').text('-');
-            } else {
-                notif('error', 'Jumlah painting melebihi kebutuhan');
+            countAssy++;
+            localStorage.setItem('scan_count_assy', countAssy);
+            updateScanProgress();
+            notif('success', `Assy ke-${countAssy} berhasil`);
+        } else if (scannedPart === expectedPainting) {
+            if (countAssy < ratioAssy) {
+                notif('error', 'Scan assy dulu sampai cukup');
+                return;
             }
+            if (countPainting >= ratioPainting) {
+                notif('error', 'Jumlah painting sudah cukup');
+                return;
+            }
+
+            countPainting++;
+            localStorage.setItem('scan_count_painting', countPainting);
+            $('#total-scan').text(countPainting);
+            notif('success', `Painting ke-${countPainting} berhasil`);
+            updateScanProgress();
+        } else {
+            notif('error', 'Part tidak sesuai pasangan');
+            return;
         }
 
+        // ✅ Cek pairing selesai
+        if (countAssy === ratioAssy && countPainting === ratioPainting) {
+            notif('success', '✅ Pairing selesai!');
+            localStorage.clear();
+            $('#model_assy').text('-');
+            $('#model_painting').text('-');
+            resetScanState();
+        }
     }
+
 
     function extractPartNumber(barcode) {
         const regex = /\b\d{7}-\d{5}-[A-Z0-9]{3}\b/;
@@ -422,7 +407,58 @@
         return parts.find(p => /^[A-Z]{3,4}\d$/.test(p)) || null;
     }
 
+    function getPairingRatio(qtyAssy, qtyPainting) {
+        // Fungsi KPK
+        function lcm(a, b) {
+            return (a * b) / gcd(a, b);
+        }
 
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
 
+        const kpk = lcm(qtyAssy, qtyPainting);
+        const ratioAssy = kpk / qtyAssy;
+        const ratioPainting = kpk / qtyPainting;
+
+        return {
+            assy: ratioAssy,
+            painting: ratioPainting
+        };
+    }
+
+    function resetScanState() {
+        localStorage.clear();
+        $('#model_assy').text('-');
+        $('#model_painting').text('-');
+        $('.model-card-header').removeClass('card-success').addClass('card-secondary');
+        $('.model-card').removeClass('bg-success').addClass('bg-secondary');
+        $('.total-scan-card-header').removeClass('card-success').addClass('card-secondary');
+        $('.total-scan-card').removeClass('bg-success').addClass('bg-secondary');
+    }
+
+    function updateScanProgress() {
+        const countAssy = parseInt(localStorage.getItem('scan_count_assy') || 0);
+        const countPainting = parseInt(localStorage.getItem('scan_count_painting') || 0);
+        const ratioAssy = parseInt(localStorage.getItem('ratio_assy') || 0);
+        const ratioPainting = parseInt(localStorage.getItem('ratio_painting') || 0);
+        const modelAssy = localStorage.getItem('model_assy') || '-';
+        const modelPainting = localStorage.getItem('model_painting') || '-';
+
+        const progressTextAssy = `${modelAssy} (${countAssy}/${ratioAssy})`;
+        const progressTextPainting = `${modelPainting} (${countPainting}/${ratioPainting})`;
+        $('#model_assy').text(progressTextAssy);
+        $('#model_painting').text(progressTextPainting);
+
+        if (countAssy >= ratioAssy) {
+            $('.model-card-header').removeClass('card-secondary').addClass('card-success');
+            $('.model-card').removeClass('bg-secondary').addClass('bg-success');
+        }
+
+        if (countPainting >= ratioPainting) {
+            $('.total-scan-card-header').removeClass('card-secondary').addClass('card-success');
+            $('.total-scan-card').removeClass('bg-secondary').addClass('bg-success');
+        }
+    }
 
 </script>
