@@ -17,8 +17,8 @@
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Kanban Assembly</h5>
                             <div class="bg-secondary m-auto shadow model-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model_assy">-</h1>
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 30px 0">
+                                <h3 class="text-center" style="color:#ffffff; font-size:3rem" id="model_assy">-</h3>
                             </div>
                         </div>
                     </div>
@@ -27,8 +27,8 @@
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Kanban Painting</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model_painting">-</h1>
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 30px 0">
+                                <h3 class="text-center" style="color:#ffffff; font-size:3rem" id="model_painting">-</h3>
                             </div>
                         </div>
                     </div>
@@ -209,6 +209,7 @@
         let totalScan = localStorage.getItem('scan_counter');
         let totalPart = localStorage.getItem('part_counter');
         let photo = localStorage.getItem('photo');
+        updateScanProgress();
         if (model || photo) {
             // display model  running
             $('.model-card-header').removeClass('card-secondary');
