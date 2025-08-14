@@ -117,91 +117,258 @@
                 [10, 25, 100],
                 [10, 25, 100]
             ],
+            // Enable state saving to remember pagination
+            stateSave: true,
+            stateDuration: 60 * 60, // 1 hour
+            // Add these options for better state management
+            pageResize: true,
+            stateSaveParams: function(settings, data) {
+                // Save additional state info
+                data.scrollTop = $(window).scrollTop();
+            },
+            stateLoadParams: function(settings, data) {
+                // Restore scroll position
+                if (data.scrollTop) {
+                    setTimeout(function() {
+                        $(window).scrollTop(data.scrollTop);
+                    }, 100);
+                }
+            }
         });
 
-        // var pusher = new Pusher('78dc86268a49904a688d', {
-        //     cluster: 'ap1',
-        //     forceTLS: true
-        // });
+        let autoRefreshInterval;
+        let isUserInteracting = false;
+        let lastInteractionTime = Date.now();
 
-        // websocket
-        // pusher.subscribe('loading-list').bind('loadingListUpdated', function(data) {
-        //     table.ajax.reload(null, false);
-        // });
+        // Enhanced user interaction detection
+        function onUserInteraction() {
+            isUserInteracting = true;
+            lastInteractionTime = Date.now();
 
-        // Function to fetch and update data
-        function fetchAndUpdateData() {
-            // Get the current scroll position
-            table.ajax.reload(null, false); // Reload the DataTable data without resetting the current page
+            // Stop auto-refresh temporarily when user is interacting
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            // Resume auto-refresh after user stops interacting for 5 seconds
+            setTimeout(function() {
+                if (Date.now() - lastInteractionTime >= 5000) {
+                    isUserInteracting = false;
+                    startAutoRefresh();
+                }
+            }, 5000);
         }
 
-        // Initial data fetch when the page loads
-        fetchAndUpdateData();
+        // Modified refresh function that preserves pagination state
+        function refreshTableData() {
+            if (isUserInteracting) return;
 
-        // Fetch data every second
-        setInterval(fetchAndUpdateData, 1000);
+            // Store current state before refresh
+            const pageInfo = table.page.info();
+            const currentPage = pageInfo.page;
+            const scrollTop = $(window).scrollTop();
 
+            // Store in sessionStorage as backup
+            sessionStorage.setItem('tableState', JSON.stringify({
+                page: currentPage,
+                scrollTop: scrollTop,
+                timestamp: Date.now()
+            }));
+
+            // Use draw() instead of ajax.reload() to maintain server-side state
+            table.draw(false); // false = don't reset paging
+
+            // Restore scroll position after draw
+            setTimeout(function() {
+                const savedState = JSON.parse(sessionStorage.getItem('tableState') || '{}');
+                if (savedState.scrollTop && Date.now() - savedState.timestamp < 1000) {
+                    $(window).scrollTop(savedState.scrollTop);
+                }
+            }, 200);
+        }
+
+        // Smart refresh function - only refresh if data has changed
+        let lastDataHash = '';
+        let lastRecordCount = 0;
+
+        function smartRefresh() {
+            if (isUserInteracting) return;
+
+            $.ajax({
+                url: `{{ url('dashboard/checkLoadingListUpdates') }}`,
+                type: 'GET',
+                dataType: 'json',
+                timeout: 5000,
+                success: function(response) {
+                    if (response.error) {
+                        refreshTableData();
+                        return;
+                    }
+
+                    // Check if data has changed
+                    const dataChanged = (response.dataHash && response.dataHash !== lastDataHash) ||
+                        (response.totalRecords !== lastRecordCount);
+
+                    if (dataChanged) {
+                        lastDataHash = response.dataHash || '';
+                        lastRecordCount = response.totalRecords || 0;
+                        refreshTableData();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // Fallback to regular refresh occasionally
+                    if (Math.random() < 0.1) {
+                        refreshTableData();
+                    }
+                    console.warn('Smart refresh check failed:', status, error);
+                }
+            });
+        }
+
+        // Alternative approach: Manual row updates (most effective for real-time data)
+        function updateSpecificRows() {
+            if (isUserInteracting) return;
+
+            // Get visible row IDs on current page
+            const visibleData = table.rows({
+                page: 'current'
+            }).data();
+            const visibleIds = [];
+
+            for (let i = 0; i < visibleData.length; i++) {
+                if (visibleData[i] && visibleData[i].id) {
+                    visibleIds.push(visibleData[i].id);
+                }
+            }
+
+            if (visibleIds.length === 0) {
+                smartRefresh();
+                return;
+            }
+
+            // Check only visible rows for updates
+            $.ajax({
+                url: `{{ url('dashboard/getLoadingListUpdates') }}`,
+                type: 'POST',
+                data: {
+                    ids: visibleIds,
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.updatedRows && response.updatedRows.length > 0) {
+                        // Update only changed rows without full refresh
+                        response.updatedRows.forEach(function(updatedRow) {
+                            const rowNode = table.row('#row-' + updatedRow.id).node();
+                            if (rowNode) {
+                                // Update specific cells that changed
+                                table.cell(rowNode, 5).data(updatedRow
+                                    .progress); // progress column
+                                table.cell(rowNode, 6).data(updatedRow
+                                    .detail); // detail column
+                            }
+                        });
+                    } else {
+                        // No specific updates, do smart refresh
+                        smartRefresh();
+                    }
+                },
+                error: function() {
+                    smartRefresh();
+                }
+            });
+        }
+
+        // Start auto-refresh function
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            // Use the most appropriate refresh method
+            autoRefreshInterval = setInterval(function() {
+                // Try specific row updates first (fastest)
+                if (typeof updateSpecificRows === 'function') {
+                    updateSpecificRows();
+                } else {
+                    smartRefresh();
+                }
+            }, 3000);
+        }
+
+        // Enhanced event detection
+        $('#loadingList').on('page.dt', onUserInteraction);
+        $('#loadingList').on('length.dt', onUserInteraction);
+        $('#loadingList').on('order.dt', onUserInteraction);
+        $('#loadingList').on('search.dt', onUserInteraction);
+        $('#loadingList').on('click', 'th', onUserInteraction);
+
+        $(document).on('click', '.dataTables_paginate .paginate_button', function() {
+            onUserInteraction();
+        });
+
+        $(document).on('change', '.dataTables_length select', onUserInteraction);
+        $('#loadingList').closest('.table-responsive-lg').on('scroll', onUserInteraction);
+        $('#manifest, #customer, #cycle, #date').on('change', onUserInteraction);
+
+        // Initial load
+        startAutoRefresh();
+
+        // Filter handlers
         $('#manifest').on('change', function() {
-            // get all filter values
             let manifest = $('#manifest').val();
-
             if (manifest) {
                 table.column(1).search(manifest);
             } else {
                 table.column(1).search('');
             }
-
             table.draw();
-        })
+        });
 
         $('#customer').on('change', function() {
-            // get all filter values
             let customer = $('#customer').val();
-
             if (customer) {
                 table.column(2).search(customer);
             } else {
                 table.column(2).search('');
             }
-
             table.draw();
-        })
+        });
 
         $('#cycle').on('change', function() {
-            // get all filter values
             let cycle = $('#cycle').val();
-
             if (cycle) {
                 table.column(3).search(cycle);
             } else {
                 table.column(3).search('');
             }
-
             table.draw();
-        })
+        });
 
         $('#date').on('change', function() {
-            // get all filter values
             let date = $('#date').val();
-
             if (date) {
                 table.column(4).search(date);
             } else {
                 table.column(4).search('');
             }
-
             table.draw();
-        })
+        });
 
         $('#reset').on('click', function() {
-            $('#cycle').val('-- Select cycle --').trigger(
-                'change'); // Reset the filter and trigger change event
-            $('#customer').val('-- Select customer --').trigger(
-                'change'); // Reset the filter and trigger change event
-            $('#manifest').val('-- Select manifest --').trigger(
-                'change'); // Reset the filter and trigger change event
-            $('#date').val('').trigger(
-                'change'); // Reset the filter and trigger change event
+            $('#cycle').val('-- Select cycle --').trigger('change');
+            $('#customer').val('-- Select customer --').trigger('change');
+            $('#manifest').val('-- Select manifest --').trigger('change');
+            $('#date').val('').trigger('change');
+            onUserInteraction();
+        });
+
+        // Cleanup
+        $(window).on('beforeunload', function() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            sessionStorage.removeItem('tableState');
         });
     });
 </script>

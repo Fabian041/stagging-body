@@ -97,6 +97,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');
         Route::get('/getLoadingListDetail/{loadingList}', [LoadingListController::class, 'getLoadingListDetail'])->name('dashboard.getLoadingListDetail');
 
+        // Add this route to your existing routes
+        Route::get('/checkLoadingListUpdates', [LoadingListController::class, 'checkLoadingListUpdates'])->name('dashboard.checkLoadingListUpdates');  
+        Route::post('/getLoadingListUpdates', [LoadingListController::class, 'getLoadingListUpdates'])->name('dashboard.getLoadingListUpdates');                                       
+
         Route::get('/progressPulling', [DashboardController::class, 'progressPulling'])->name('progressPulling.index');
         Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');

@@ -48,79 +48,206 @@ class LoadingListController extends Controller
         ]);
     }
 
-    public function getLoadingList()
+    public function checkLoadingListUpdates()
     {
-        // Eager load 'customer' dan gunakan withSum untuk hitung agregat di database
-        $input = LoadingList::with(['customer'])
-            ->withSum('detail as total_kanban', 'kanban_qty')
-            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-            ->latest()
-            ->take(500)
-            ->get();
+        try {
+            // Get the latest update timestamp from LoadingList and related tables
+            $loadingListUpdate = LoadingList::max('updated_at');
+            $loadingListDetailUpdate = DB::table('loading_list_details')->max('updated_at');
+            
+            // Create a hash from the latest timestamps
+            $combinedTimestamp = $loadingListUpdate . '|' . $loadingListDetailUpdate;
+            $dataHash = md5($combinedTimestamp);
+            
+            // Also include count for additional validation
+            $totalRecords = LoadingList::count();
+            
+            return response()->json([
+                'dataHash' => $dataHash,
+                'lastUpdate' => $loadingListUpdate,
+                'totalRecords' => $totalRecords,
+                'timestamp' => now()->toISOString()
+            ]);
+            
+        } catch (\Exception $e) {
+            // Return error response so frontend can fallback to regular refresh
+            return response()->json([
+                'error' => true,
+                'message' => 'Unable to check updates'
+            ], 500);
+        }
+    }
 
-        return DataTables::of($input)
-            ->addColumn('customer', function ($loadingList) {
-                return $loadingList->customer->name ?? '-';
-            })
-            ->addColumn('detail', function($loadingList) {
-                $totalKanban = $loadingList->total_kanban ?? 0;
-                $actualKanban = $loadingList->actual_kanban ?? 0;
+    // New method for efficient row-level updates
+    public function getLoadingListUpdates(Request $request)
+    {
+        try {
+            $ids = $request->input('ids', []);
+            
+            if (empty($ids)) {
+                return response()->json(['updatedRows' => []]);
+            }
 
-                $detailButton = '<a href="/loading-list/' . $loadingList->id . '" class="btn btn-info text-white mr-2">
-                                    <i class="fas fa-info-circle mr-2"></i>
-                                    DETAIL
-                                </a>';
+            // Get only the requested rows with fresh data
+            $updatedRows = LoadingList::whereIn('id', $ids)
+                ->with(['customer'])
+                ->withSum('detail as total_kanban', 'kanban_qty')
+                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->get()
+                ->map(function($loadingList) {
+                    $totalKanban = $loadingList->total_kanban ?? 0;
+                    $actualKanban = $loadingList->actual_kanban ?? 0;
+                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
 
-                if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                    $buttons = $detailButton . '<button class="btn btn-success">
+                    // Progress bar colors
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $statusClass = 'lightgreen';
+                    } elseif ($actualKanban > 0) {
+                        $statusClass = 'orange';
+                    } else {
+                        $statusClass = 'red';
+                    }
+
+                    $progress = '
+                        <div class="text-small float-right font-weight-bold text-muted ml-3">'
+                            . $actualKanban . ' / ' . $totalKanban .
+                        '</div>
+                        <div class="font-weight-bold mb-1" style="color: white">-</div>
+                        <div class="progress" data-height="20" style="height: 15px;">
+                            <div class="progress-bar" role="progressbar"
+                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
+                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                        </div>';
+
+                    $detailButton = '<a href="/loading-list/' . $loadingList->id . '" class="btn btn-info text-white mr-2">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        DETAIL
+                                    </a>';
+
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $detail = $detailButton . '<button class="btn btn-success">
                                                     <i class="fas fa-check" style="padding-right: 1px"></i>
                                                     COMPLETE
                                                 </button>';
-                } elseif ($actualKanban > 0) {
-                    $buttons = $detailButton . '<button class="btn btn-outline-warning">
+                    } elseif ($actualKanban > 0) {
+                        $detail = $detailButton . '<button class="btn btn-outline-warning">
                                                     INPROGRESS
                                                 </button>';
-                } else {
-                    $buttons = $detailButton . '<button class="btn btn-outline-danger">
+                    } else {
+                        $detail = $detailButton . '<button class="btn btn-outline-danger">
                                                     INCOMPLETE
                                                 </button>';
-                }
+                    }
 
-                return $buttons;
-            })
-            ->addColumn('progress', function ($loadingList) {
-                $totalKanban = $loadingList->total_kanban ?? 0;
-                $actualKanban = $loadingList->actual_kanban ?? 0;
-                $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
+                    return [
+                        'id' => $loadingList->id,
+                        'progress' => $progress,
+                        'detail' => $detail,
+                        'updated_at' => $loadingList->updated_at->toISOString()
+                    ];
+                });
 
-                // Warna progress bar
-                if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                    $statusClass = 'lightgreen';
-                    $statusText = 'COMPLETE';
-                } elseif ($actualKanban > 0) {
-                    $statusClass = 'orange';
-                    $statusText = 'INPROGRESS';
-                } else {
-                    $statusClass = 'red';
-                    $statusText = 'INCOMPLETE';
-                }
+            return response()->json([
+                'updatedRows' => $updatedRows
+            ]);
 
-                $progress = '
-                    <div class="text-small float-right font-weight-bold text-muted ml-3">'
-                        . $actualKanban . ' / ' . $totalKanban .
-                    '</div>
-                    <div class="font-weight-bold mb-1" style="color: white">-</div>
-                    <div class="progress" data-height="20" style="height: 15px;">
-                        <div class="progress-bar" role="progressbar"
-                            style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
-                            aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
-                        </div>
-                    </div>';
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Unable to get row updates'
+            ], 500);
+        }
+    }
 
-                return $progress;
-            })
-            ->rawColumns(['detail', 'progress', 'customer'])
-            ->make(true);
+    // Your existing getLoadingList method (with ID added for row tracking)
+    public function getLoadingList()
+    {
+        try {
+            // Eager load 'customer' and use withSum for database aggregation
+            $input = LoadingList::with(['customer'])
+                ->withSum('detail as total_kanban', 'kanban_qty')
+                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->latest()
+                ->take(500)
+                ->get();
+
+            return DataTables::of($input)
+                ->addColumn('customer', function ($loadingList) {
+                    return $loadingList->customer->name ?? '-';
+                })
+                ->addColumn('detail', function($loadingList) {
+                    $totalKanban = $loadingList->total_kanban ?? 0;
+                    $actualKanban = $loadingList->actual_kanban ?? 0;
+
+                    $detailButton = '<a href="/loading-list/' . $loadingList->id . '" class="btn btn-info text-white mr-2">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        DETAIL
+                                    </a>';
+
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $buttons = $detailButton . '<button class="btn btn-success">
+                                                        <i class="fas fa-check" style="padding-right: 1px"></i>
+                                                        COMPLETE
+                                                    </button>';
+                    } elseif ($actualKanban > 0) {
+                        $buttons = $detailButton . '<button class="btn btn-outline-warning">
+                                                        INPROGRESS
+                                                    </button>';
+                    } else {
+                        $buttons = $detailButton . '<button class="btn btn-outline-danger">
+                                                        INCOMPLETE
+                                                    </button>';
+                    }
+
+                    return $buttons;
+                })
+                ->addColumn('progress', function ($loadingList) {
+                    $totalKanban = $loadingList->total_kanban ?? 0;
+                    $actualKanban = $loadingList->actual_kanban ?? 0;
+                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
+
+                    // Progress bar colors
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $statusClass = 'lightgreen';
+                        $statusText = 'COMPLETE';
+                    } elseif ($actualKanban > 0) {
+                        $statusClass = 'orange';
+                        $statusText = 'INPROGRESS';
+                    } else {
+                        $statusClass = 'red';
+                        $statusText = 'INCOMPLETE';
+                    }
+
+                    $progress = '
+                        <div class="text-small float-right font-weight-bold text-muted ml-3">'
+                            . $actualKanban . ' / ' . $totalKanban .
+                        '</div>
+                        <div class="font-weight-bold mb-1" style="color: white">-</div>
+                        <div class="progress" data-height="20" style="height: 15px;">
+                            <div class="progress-bar" role="progressbar"
+                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
+                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                        </div>';
+
+                    return $progress;
+                })
+                // Add row ID for tracking
+                ->setRowId('row-{{$id}}')
+                ->rawColumns(['detail', 'progress', 'customer'])
+                ->make(true);
+                
+        } catch (\Exception $e) {
+            // Return empty DataTable response on error
+            return response()->json([
+                'draw' => request()->get('draw', 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unable to load data'
+            ]);
+        }
     }
 
     public function detail(LoadingList $loadingList)
