@@ -592,7 +592,7 @@
                                 statusColor = '#ffc107';
                                 progressColor = '#ffc107';
                             } else {
-                                statusText = 'Pending';
+                                statusText = 'Uncomplete';
                                 statusColor = '#6c757d';
                                 progressColor = '#6c757d';
                             }
