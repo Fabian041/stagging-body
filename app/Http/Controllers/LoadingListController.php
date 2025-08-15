@@ -611,6 +611,13 @@ class LoadingListController extends Controller
             }else{
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
             }
+        }else if($codeLength == 15){
+            // SUZUKI
+            if($lastDigit != '000'){
+                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
+            }else{
+                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
+            }
         }else{
             // MMKI fujitrans
             $convertedPartNumber = $customerPart;
