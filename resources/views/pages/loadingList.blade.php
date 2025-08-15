@@ -582,7 +582,7 @@
                             let statusText = '';
                             let progressColor = '';
 
-                            if (loadingList.actual_kanban >= loadingList
+                            if (loadingList.actual_kanban == loadingList
                                 .total_kanban) {
                                 statusText = 'Complete';
                                 statusColor = '#28a745';
