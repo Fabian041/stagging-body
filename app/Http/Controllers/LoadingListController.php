@@ -594,7 +594,8 @@ class LoadingListController extends Controller
         }else if($codeLength == 10){
             if($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22){
                 // SUZUKI
-                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+                // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
             }else{
                 if($loadingListId->customer_id == 6){
                     // MMKI
