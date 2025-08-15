@@ -99,32 +99,35 @@ class LoadingListController extends Controller
                     return $group->customer->name ?? '-';
                 })
                 ->addColumn('loading_and_status', function ($group) {
+                    // Common button styles for consistent sizing
+                    $buttonStyle = 'style="min-width: 120px; padding: 8px 12px; font-size: 13px; font-weight: 500; text-align: center; white-space: nowrap;"';
+                    
                     // Tombol Loading Lists
-                    $loadingBtn = '<button class="btn btn-info text-white mr-2 show-loading-lists" data-pds="' . $group->pds_number . '">
-                                        <i class="fas fa-info-circle mr-2"></i>
+                    $loadingBtn = '<button class="btn btn-info text-white mr-2 show-loading-lists" ' . $buttonStyle . ' data-pds="' . $group->pds_number . '">
+                                        <i class="fas fa-info-circle mr-1"></i>
                                         Detail
                                 </button>';
-
+                
                     // Tombol Status
                     $totalKanban = $group->total_kanban ?? 0;
                     $actualKanban = $group->actual_kanban ?? 0;
-
+                
                     if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $statusButton = '<button class="btn btn-success">
-                                            <i class="fas fa-check" style="padding-right: 1px"></i>
+                        $statusButton = '<button class="btn btn-success" ' . $buttonStyle . '>
+                                            <i class="fas fa-check mr-1"></i>
                                             COMPLETE
                                         </button>';
                     } elseif ($actualKanban > 0) {
-                        $statusButton = '<button class="btn btn-outline-warning">
-                                            INPROGRESS
+                        $statusButton = '<button class="btn btn-outline-warning" ' . $buttonStyle . '>
+                                            IN PROGRESS
                                         </button>';
                     } else {
-                        $statusButton = '<button class="btn btn-outline-danger">
+                        $statusButton = '<button class="btn btn-outline-danger" ' . $buttonStyle . '>
                                             INCOMPLETE
                                         </button>';
                     }
-
-                    return $loadingBtn . $statusButton;
+                
+                    return '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;">' . $loadingBtn . $statusButton . '</div>';
                 })
                 ->addColumn('progress', function ($group) {
                     $totalKanban = $group->total_kanban ?? 0;
