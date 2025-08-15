@@ -399,6 +399,7 @@
         } else {
             notif('error', 'Part tidak sesuai pasangan');
             notMatchSound();
+            // showModalConfirmation();
             return;
         }
 
@@ -411,6 +412,37 @@
             resetScanState();
         }
     }
+
+    $('#input-confirmation').on('input',function(e) {
+        var barcodecomplete = $(this).val();
+        if (barcodecomplete.length === 6) {
+            if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
+                '000040' || barcodecomplete == '000504') {
+                localStorage.removeItem('error');
+                localStorage.removeItem('dandori_error');
+                localStorage.removeItem('kanban_exist_error');
+                localStorage.removeItem('master_dandori_error');
+                $('#modalConfirmation').modal('hide');
+                notif('success', 'Selamat melanjutkan!');
+
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
+            } else {
+                $('#modalConfirmation').modal('hide');
+                notif('error', `NPK ${barcodecomplete} tidak memiliki hak akses`);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        } else {
+            $('#modalConfirmation').modal('hide');
+            notif('error', 'Scan barcode NPK');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        }
+    });
 
 
     function extractPartNumber(barcode) {

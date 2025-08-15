@@ -2081,6 +2081,15 @@
                             }
                         }
 
+                        // for Suzuki RKK
+                        if (localStorage.getItem('char_length') == 15) {
+                            if (barcodecomplete.slice(-3) === '000') {
+                                // delete 3 last characters
+                                barcodecomplete = barcodecomplete.slice(0, -3);
+                                barcodecomplete = barcodecomplete.toUpperCase();
+                            }
+                        }
+
                     } else {
                         barcodecomplete = barcodecomplete.toUpperCase();
                     }

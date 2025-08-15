@@ -182,7 +182,7 @@
                             <th class="text-center">Customer</th>
                             <th class="text-center">Cycle</th>
                             <th class="text-center">Delivery Date</th>
-                            <th class="text-center">Progress</th>
+                            <th class="text-center">Pulling Progress</th>
                             <th class="text-center">Status</th>
                         </tr>
                     </thead>
@@ -250,7 +250,9 @@
                 {
                     data: 'loading_and_status',
                     orderable: false,
-                    searchable: false
+                    searchable: false,
+                    className: 'button-cell', // Custom class name
+                    width: '280px' // Set fixed width for button column
                 }
             ],
             order: [
@@ -278,6 +280,22 @@
                 }
             }
         });
+
+        // Add custom CSS to remove cell padding and center buttons
+        $('<style>')
+            .prop('type', 'text/css')
+            .html(`
+        .button-cell {
+            padding: 4px !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+        .button-cell > div {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+    `)
+            .appendTo('head');
 
         let autoRefreshInterval;
         let isUserInteracting = false;
@@ -525,9 +543,19 @@
             const pdsNumber = $(this).data('pds');
             $('#modalPdsNumber').text(pdsNumber);
 
-            // Show loading spinner
-            $('#loadingListAccordion').html(
-                '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+            // Show clean loading spinner
+            $('#loadingListAccordion').html(`
+        <div style="text-align: center; padding: 40px 20px; color: #6c757d;">
+            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin-top: 15px; font-size: 14px; font-weight: 500;">Loading data...</p>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </div>
+    `);
 
             // Load loading lists for this PDS
             $.ajax({
@@ -537,8 +565,7 @@
                     pds_number: pdsNumber
                 },
                 success: function(response) {
-                    let accordionHtml =
-                        '<div class="accordion" id="accordionLoadingLists">';
+                    let accordionHtml = '<div style="background: #ffffff;">';
 
                     if (response.loading_lists && response.loading_lists.length > 0) {
                         response.loading_lists.forEach(function(loadingList, index) {
@@ -551,96 +578,158 @@
                                 Math.round((loadingList.actual_kanban / loadingList
                                     .total_kanban) * 100) : 0;
 
-                            let statusBadge = '';
+                            let statusColor = '';
+                            let statusText = '';
                             let progressColor = '';
 
-                            if (loadingList.actual_kanban >= loadingList
+                            if (loadingList.actual_kanban == loadingList
                                 .total_kanban && loadingList.total_kanban > 0) {
-                                statusBadge =
-                                    '<span class="badge badge-success ml-2">Complete</span>';
-                                progressColor = 'bg-success';
+                                statusText = 'Complete';
+                                statusColor = '#28a745';
+                                progressColor = '#28a745';
                             } else if (loadingList.actual_kanban > 0) {
-                                statusBadge =
-                                    '<span class="badge badge-warning ml-2">In Progress</span>';
-                                progressColor = 'bg-warning';
+                                statusText = 'In Progress';
+                                statusColor = '#ffc107';
+                                progressColor = '#ffc107';
                             } else {
-                                statusBadge =
-                                    '<span class="badge badge-danger ml-2">Incomplete</span>';
-                                progressColor = 'bg-danger';
+                                statusText = 'Pending';
+                                statusColor = '#6c757d';
+                                progressColor = '#6c757d';
                             }
 
                             accordionHtml += `
-                                <div class="card accordion-card">
-                                    <div class="card-header accordion-header" id="${headingId}">
-                                        <button class="btn text-left w-100 d-flex justify-content-between align-items-center" 
-                                                type="button" data-toggle="collapse" data-target="#${collapseId}" 
-                                                aria-expanded="${index === 0 ? 'true' : 'false'}" aria-controls="${collapseId}">
-                                            <div>
-                                                <strong>${loadingList.number}</strong>
-                                                ${statusBadge}
-                                            </div>
-                                            <div class="text-right">
-                                                <small class="text-muted">${loadingList.actual_kanban} / ${loadingList.total_kanban}</small>
-                                                <div class="progress ml-2" style="width: 60px; height: 6px;">
-                                                    <div class="progress-bar ${progressColor}" style="width: ${progressPercentage}%"></div>
-                                                </div>
-                                            </div>
-                                        </button>
+                        <div style="border: 1px solid #e9ecef; margin-bottom: 8px; background: #ffffff;">
+                            <!-- Header -->
+                            <div style="padding: 16px 20px; background: ${index === 0 ? '#f8f9fa' : '#ffffff'}; border-bottom: 1px solid #e9ecef; cursor: pointer;" 
+                                 class="accordion-header" data-target="${collapseId}">
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <span style="font-weight: 600; font-size: 16px; color: #343a40;">${loadingList.number}</span>
+                                        <span style="background: ${statusColor}; color: white; padding: 4px 8px; font-size: 12px; font-weight: 500;">${statusText}</span>
                                     </div>
-                                    <div id="${collapseId}" class="collapse ${index === 0 ? 'show' : ''}" 
-                                         aria-labelledby="${headingId}" data-parent="#accordionLoadingLists">
-                                        <div class="accordion-body">
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <p><strong>Loading List:</strong> ${loadingList.number}</p>
-                                                    <p><strong>Customer:</strong> ${loadingList.customer_name || 'N/A'}</p>
-                                                    <p><strong>Cycle:</strong> ${loadingList.cycle || 'N/A'}</p>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <p><strong>Delivery Date:</strong> ${loadingList.delivery_date || 'N/A'}</p>
-                                                    <p><strong>Progress:</strong> ${progressPercentage}%</p>
-                                                    <p><strong>Kanban:</strong> ${loadingList.actual_kanban} / ${loadingList.total_kanban}</p>
-                                                </div>
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <span style="font-size: 13px; color: #6c757d; font-weight: 500; white-space: nowrap;">${loadingList.actual_kanban} / ${loadingList.total_kanban}</span>
+                                        <div style="width: 60px; height: 8px; background: #e9ecef; position: relative; min-width: 40px;">
+                                            <div style="height: 100%; background: ${progressColor}; width: ${progressPercentage}%; transition: width 0.3s ease;"></div>
+                                        </div>
+                                        <span style="font-size: 18px; color: #6c757d; transform: rotate(0deg); transition: transform 0.3s ease;" class="toggle-icon">▼</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Content -->
+                            <div id="${collapseId}" style="display: ${index === 0 ? 'block' : 'none'}; padding: 0; background: #fafafa;">
+                                <div style="padding: 24px 20px;">
+                                    <!-- Info Grid -->
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                                        <div>
+                                            <div style="margin-bottom: 12px;">
+                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Loading List</span>
+                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; font-weight: 500; word-break: break-word;">${loadingList.number}</p>
                                             </div>
-                                            <div class="row mt-3">
-                                                <div class="col-12">
-                                                    <div class="progress" style="height: 20px;">
-                                                        <div class="progress-bar ${progressColor}" 
-                                                             style="width: ${progressPercentage}%" 
-                                                             role="progressbar" 
-                                                             aria-valuenow="${progressPercentage}" 
-                                                             aria-valuemin="0" 
-                                                             aria-valuemax="100">
-                                                            ${progressPercentage}%
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <div style="margin-bottom: 12px;">
+                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Customer</span>
+                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.customer_name || 'Not specified'}</p>
                                             </div>
-                                            <div class="row mt-2">
-                                                <div class="col-12 text-right">
-                                                    <a href="/loading-list/${loadingList.id}" class="btn btn-info btn-sm">
-                                                        <i class="fas fa-eye"></i> View Details
-                                                    </a>
-                                                </div>
+                                            <div>
+                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Cycle</span>
+                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.cycle || 'Not specified'}</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style="margin-bottom: 12px;">
+                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Delivery Date</span>
+                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.delivery_date || 'Not specified'}</p>
+                                            </div>
+                                            <div style="margin-bottom: 12px;">
+                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Progress</span>
+                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; font-weight: 600;">${progressPercentage}%</p>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Kanban Status</span>
+                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.actual_kanban} of ${loadingList.total_kanban} completed</p>
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    <!-- Progress Bar -->
+                                    <div style="margin-bottom: 20px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                                            <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Overall Progress</span>
+                                            <span style="font-size: 14px; color: #343a40; font-weight: 600;">${progressPercentage}%</span>
+                                        </div>
+                                        <div style="width: 100%; height: 12px; background: #e9ecef; position: relative;">
+                                            <div style="height: 100%; background: ${progressColor}; width: ${progressPercentage}%; transition: width 0.5s ease; position: relative;">
+                                                <div style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: white; font-size: 10px; font-weight: 600;">${progressPercentage > 15 ? progressPercentage + '%' : ''}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action Button -->
+                                    <div style="text-align: right;">
+                                        <a href="/loading-list/${loadingList.id}" 
+                                           style="display: inline-flex; align-items: center; gap: 8px; background: #007bff; color: white; padding: 10px 16px; text-decoration: none; font-size: 14px; font-weight: 500; transition: background 0.2s ease; border-radius: 4px; width: auto; min-width: fit-content;"
+                                           onmouseover="this.style.background='#0056b3'" 
+                                           onmouseout="this.style.background='#007bff'">
+                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink: 0;">
+                                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                                            </svg>
+                                            <span style="white-space: nowrap;">View Details</span>
+                                        </a>
+                                    </div>
                                 </div>
-                            `;
+                            </div>
+                        </div>
+                    `;
                         });
                     } else {
-                        accordionHtml +=
-                            '<div class="alert alert-info">No loading lists found for this PDS number.</div>';
+                        accordionHtml += `
+                    <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border: 1px solid #e9ecef;">
+                        <svg width="48" height="48" fill="#6c757d" viewBox="0 0 16 16" style="margin-bottom: 16px;">
+                            <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                            <path d="M5 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                        </svg>
+                        <h5 style="color: #6c757d; font-weight: 500; margin-bottom: 8px;">No Loading Lists Found</h5>
+                        <p style="color: #6c757d; margin: 0; font-size: 14px;">There are no loading lists available for PDS number ${pdsNumber}.</p>
+                    </div>
+                `;
                     }
 
                     accordionHtml += '</div>';
 
                     $('#loadingListAccordion').html(accordionHtml);
+
+                    // Add click event handlers for accordion after content is loaded
+                    $(document).off('click', '.accordion-header').on('click',
+                        '.accordion-header',
+                        function() {
+                            const targetId = $(this).data('target');
+                            const content = $('#' + targetId);
+                            const icon = $(this).find('.toggle-icon');
+                            const header = $(this);
+
+                            if (content.is(':visible')) {
+                                content.hide();
+                                icon.css('transform', 'rotate(0deg)');
+                                header.css('background', '#ffffff');
+                            } else {
+                                content.show();
+                                icon.css('transform', 'rotate(180deg)');
+                                header.css('background', '#f8f9fa');
+                            }
+                        });
                 },
                 error: function() {
-                    $('#loadingListAccordion').html(
-                        '<div class="alert alert-danger">Error loading loading lists. Please try again.</div>'
-                    );
+                    $('#loadingListAccordion').html(`
+                <div style="text-align: center; padding: 40px 20px; background: #fff5f5; border: 1px solid #fed7d7; color: #e53e3e;">
+                    <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16" style="margin-bottom: 16px;">
+                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                    </svg>
+                    <h5 style="font-weight: 500; margin-bottom: 8px;">Unable to Load Data</h5>
+                    <p style="margin: 0; font-size: 14px;">There was an error loading the loading lists. Please try again.</p>
+                </div>
+            `);
                 }
             });
 
