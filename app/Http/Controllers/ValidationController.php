@@ -30,13 +30,12 @@ class ValidationController extends Controller
         }
 
         $pair = KanbanPairing::where('assembly_part', $part)
-            ->orWhere('painting_part', $part)
             ->first();
 
         if (!$pair) {
             return response()->json([
                 'status' => 'not_found',
-                'message' => 'Part not found in pairings'
+                'message' => 'Part not found in assembly kanbans'
             ], 404);
         }
 

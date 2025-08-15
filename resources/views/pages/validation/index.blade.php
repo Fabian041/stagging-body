@@ -74,6 +74,11 @@
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
+    <audio id="full-filled">
+        <source src={{ asset('assets/sounds/fullfilled.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
+
     <audio id="already-scan-sound">
         <source src={{ asset('assets/sounds/already-scan.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
@@ -159,6 +164,11 @@
     }
 
     function masterDandoriSound() {
+        var sound = document.getElementById("master-dandori-ng-sound");
+        sound.play();
+    }
+
+    function fullfilled() {
         var sound = document.getElementById("master-dandori-ng-sound");
         sound.play();
     }
@@ -335,11 +345,14 @@
                     $('#total-scan').text(0);
                     updateScanProgress();
                     notif('success', 'Scan assy pertama berhasil');
+                    okSound();
                 } else {
                     notif('error', 'Tidak ditemukan pasangan painting');
+                    wrongKanbanSound();
                 }
             } catch (error) {
                 notif('error', 'Gagal mengambil data pasangan');
+                errConnection();
             }
 
             return; // keluar dari fungsi karena scan pertama
@@ -358,6 +371,7 @@
         if (scannedPart === expectedAssy) {
             if (countAssy >= ratioAssy) {
                 notif('error', 'Jumlah assy sudah cukup');
+                fullfilled();
                 return;
             }
 
@@ -372,6 +386,7 @@
             }
             if (countPainting >= ratioPainting) {
                 notif('error', 'Jumlah painting sudah cukup');
+                fullfilled();
                 return;
             }
 
@@ -379,9 +394,11 @@
             localStorage.setItem('scan_count_painting', countPainting);
             $('#total-scan').text(countPainting);
             notif('success', `Painting ke-${countPainting} berhasil`);
+            okSound();
             updateScanProgress();
         } else {
             notif('error', 'Part tidak sesuai pasangan');
+            notMatchSound();
             return;
         }
 
