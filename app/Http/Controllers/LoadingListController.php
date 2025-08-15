@@ -592,7 +592,7 @@ class LoadingListController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
         }else if($codeLength == 10){
-            if($loadingListId->customer_id == 14){
+            if($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22){
                 // SUZUKI
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
             }else{
@@ -605,13 +605,6 @@ class LoadingListController extends Controller
                 }
             }
         }else if($codeLength == 13){
-            // SUZUKI
-            if($lastDigit != '000'){
-                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
-            }else{
-                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
-            }
-        }else if($codeLength == 15){
             // SUZUKI
             if($lastDigit != '000'){
                 $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
