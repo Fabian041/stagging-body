@@ -1537,6 +1537,7 @@
                                             // bring eDCL data to backend
                                             if (localStorage.getItem(
                                                     'char_total') == 39) {
+                                                console.log('tmmin')
                                                 $.ajax({
                                                     type: 'GET',
                                                     url: "{{ url('/edcl/store') }}" +
@@ -1577,6 +1578,10 @@
                                                             notif('error',
                                                                 response
                                                                 .message
+                                                            );
+                                                            console.log(
+                                                                response
+                                                                .customer_part
                                                             );
                                                             tmminErrorIndicator
                                                                 ();
@@ -1696,6 +1701,7 @@
                                 $('#indicator').addClass('bg-danger');
                                 notif('error', data.message);
                                 errorStore(data.message);
+                                console.log(data.data);
 
                                 notExist();
 

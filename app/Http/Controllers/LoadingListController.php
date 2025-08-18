@@ -695,9 +695,10 @@ class LoadingListController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
         }else if($codeLength == 10){
-            if($loadingListId->customer_id == 14){
+            if($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22){
                 // SUZUKI
-                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+                // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
             }else{
                 if($loadingListId->customer_id == 6){
                     // MMKI
@@ -725,10 +726,15 @@ class LoadingListController extends Controller
                         ->where('internal_parts.part_number', $internalPart)
                         ->where('customer_parts.part_number', $convertedPartNumber)
                         ->first();
+                        
         if(!$customerPartId){
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer tidak terdaftar!'
+                'message' => 'Part number customer tidak terdaftar!',
+                'data' => [
+                    'int' => $internalPart,
+                    'cust' => $convertedPartNumber
+                ]
             ];
         }
 

@@ -604,9 +604,10 @@ class PullingController extends Controller
                             $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -2);
                         }
                     } else if (strlen($kanban_cust) == 10) {
-                        if ($loadingListId->customer_id == 14) {
+                        if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
                             // SUZUKI
-                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
+                            // $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
+                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
                         } else {
                             if ($loadingListId->customer_id == 6) {
                                 // MMKI
@@ -815,12 +816,11 @@ class PullingController extends Controller
             })
             ->first();
 
-        // dd($customer);
-
         if (!$customerPartId) {
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer tidak terdaftar!'
+                'message' => 'ftar!',
+                'customer_part' => $this->convertPartNumber($loadingList, $customerPart)
             ];
         }
 
