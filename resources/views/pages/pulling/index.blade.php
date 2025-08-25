@@ -1422,7 +1422,7 @@
         var code = $('#code');
         let total = 0;
 
-        function checkInternalAndCustomer(objectStore, cursor, internal, primaryKey, seri) {
+        function checkInternalAndCustomer(database, cursor, internal, primaryKey, seri) {
             let loadingList = cursor['loading_list_number'];
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];
@@ -1432,6 +1432,7 @@
             let skid = localStorage.getItem('skid');
             let originalBarcode = localStorage.getItem('originalCustomerPart');
             let barcodecomplete = localStorage.getItem('customerPart');
+            let manifest, itemNo, seqNo;
 
             if (localStorage.getItem('char_total') == 39) {
                 manifest = originalBarcode.substr(3, 10);
@@ -1439,9 +1440,24 @@
                 seqNo = originalBarcode.substr(35, 4);
             }
 
+            // Helper function to handle errors consistently
+            const handleError = (message, playSound = true) => {
+                $('#indicator').removeClass('bg-success bg-warning').addClass('bg-danger');
+                notif('error', message);
+                errorStore(message);
+
+                if (playSound) {
+                    notMatchSound();
+                }
+
+                setInterval(() => {
+                    $('#code').focus();
+                }, 1000);
+            };
+
+            // Check if kanban internal and customer are in the same object
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
-                    // Value1 found, check if Value2 is also in the object
                     if (Object.values(cursor).includes(internal.trimEnd())) {
                         isSameObject = true;
                         break;
@@ -1449,318 +1465,155 @@
                 }
             }
 
-            // check if kanban internal and customer in the same object
             if (!isSameObject) {
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
-                notif('error', 'Kanban tidak sesuai!');
-
-                // error log
-                errorStore('Kanban tidak sesuai!');
-
-                // notification sound   
-                notMatchSound();
-
-                // set local storage
+                handleError('Kanban tidak sesuai!');
                 localStorage.setItem('status', 'true');
-
-                // show modal for leader or JP confirmation
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);
                 return;
             }
 
-            // check if serial number kanban exist in spesific part number
+            // Check if serial number already exists
             if (arraySeri.includes(seri)) {
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
+                handleError('Seri kanban sudah discan!', false);
                 alreadyScanSound();
-                notif('error', 'Seri kanban sudah discan!');
-                errorStore('Seri kanban sudah discan!');
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
                 return;
             }
 
-            // check actual qty of spesific part number by compare the current length seri and total_qty
+            // Check if quantity is exceeded
             if (arraySeri.length >= totalQty) {
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
-                notif('error', 'Part number sudah complete!');
-                errorStore('Part number sudah complete!');
+                handleError('Part number sudah complete!', false);
                 fullfilledSound();
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
                 return;
             }
 
-            // push kanban serial number to array seri
-            arraySeri.push(seri);
+            // Function to update IndexedDB after successful backend validation
+            const updateIndexedDB = () => {
+                // Add the serial number to the array
+                arraySeri.push(seri);
 
-            // update the object
-            objectStore.put(cursor, primaryKey).onsuccess = function(event) {
-                //hit API to create checkout transaction after pulling
-                try {
-                    $.ajax({
-                        type: 'GET',
-                        url: "{{ route('kanban.scanned') }}",
-                        _token: "{{ csrf_token() }}",
-                        data: {
-                            loadingList: loadingList,
-                            internalPart: internal.trimEnd(),
-                            customerPart: localStorage.getItem('customerPart')
-                        },
-                        contentType: 'application/json',
-                        success: function(data) {
-                            if (data.status == 'success') {
+                // Debug: Check what's available in the database
+                console.log('Database object stores:', Array.from(database.objectStoreNames));
+
+                // Check if the database contains the expected store
+                if (!database.objectStoreNames.contains('loadingList')) {
+                    console.error('Store "loadingList" not found. Available stores:', Array.from(database
+                        .objectStoreNames));
+
+                    // Try using the first available store name
+                    const availableStores = Array.from(database.objectStoreNames);
+                    if (availableStores.length > 0) {
+                        console.log('Using first available store:', availableStores[0]);
+                        const storeName = availableStores[0];
+
+                        const transaction = database.transaction([storeName], 'readwrite');
+                        const objectStore = transaction.objectStore(storeName);
+
+                        // Continue with the update using the available store
+                        performUpdate(transaction, objectStore);
+                    } else {
+                        handleError('No object stores found in database!');
+                        arraySeri.pop();
+                        return;
+                    }
+                } else {
+                    // Store exists, proceed normally
+                    const transaction = database.transaction(['loadingList'], 'readwrite');
+                    const objectStore = transaction.objectStore('loadingList');
+                    performUpdate(transaction, objectStore);
+                }
+
+                // Helper function to perform the actual update
+                function performUpdate(transaction, objectStore) {
+                    const putRequest = objectStore.put(cursor, primaryKey);
+
+                    putRequest.onsuccess = function(event) {
+                        // Update UI on successful IndexedDB save
+                        $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
+                        $('#int-display').text(internal);
+                        $('#cust-display').text('-');
+                        $('#indicator').removeClass('bg-danger bg-warning').addClass('bg-success');
+                        resetIndicator();
+                        pullingQuantity();
+                        localStorage.removeItem('customerPart');
+                    };
+
+                    putRequest.onerror = function(event) {
+                        console.error('Put request failed:', event.target.error);
+                        handleError('Gagal menyimpan data ke database lokal!');
+                        arraySeri.pop();
+                    };
+
+                    transaction.onerror = function(event) {
+                        console.error('Transaction failed:', event.target.error);
+                        handleError('Transaction failed!');
+                        arraySeri.pop();
+                    };
+                }
+            };
+
+            // Make the backend request FIRST
+            try {
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ route('pulling.mutation') }}",
+                    _token: "{{ csrf_token() }}",
+                    data: {
+                        loadingList: loadingList,
+                        internalPart: internal.trimEnd(),
+                        customerPart: localStorage.getItem('customerPart'),
+                        serialNumber: seri,
+                        qty_per_kbn: qty_per_kbn
+                    },
+                    contentType: 'application/json',
+                    success: function(data) {
+                        if (data.status == 'success') {
+                            // Handle eDCL if needed
+                            if (localStorage.getItem('char_total') == 39) {
                                 $.ajax({
                                     type: 'GET',
-                                    url: "{{ route('pulling.mutation') }}",
+                                    url: "{{ url('/edcl/store') }}/" +
+                                        skid + '/' + manifest + '/' + itemNo + '/' +
+                                        seqNo + '/' + barcodecomplete + '/' +
+                                        originalBarcode + '/' + loadingList + '/' +
+                                        localStorage.getItem('customer'),
                                     _token: "{{ csrf_token() }}",
-                                    data: {
-                                        internalPart: internal.trimEnd(),
-                                        serialNumber: seri,
-                                        qty_per_kbn: qty_per_kbn,
-                                    },
                                     dataType: 'json',
-                                    success: function(data) {
-                                        if (data.status == 'success') {
-                                            // bring eDCL data to backend
-                                            if (localStorage.getItem(
-                                                    'char_total') == 39) {
-                                                console.log('tmmin')
-                                                $.ajax({
-                                                    type: 'GET',
-                                                    url: "{{ url('/edcl/store') }}" +
-                                                        '/' +
-                                                        skid + '/' +
-                                                        manifest + '/' +
-                                                        itemNo +
-                                                        '/' +
-                                                        seqNo + '/' +
-                                                        barcodecomplete +
-                                                        '/' +
-                                                        originalBarcode +
-                                                        '/' +
-                                                        loadingList +
-                                                        '/' +
-                                                        localStorage
-                                                        .getItem(
-                                                            'customer'),
-                                                    _token: "{{ csrf_token() }}",
-                                                    dataType: 'json',
-                                                    success: function(
-                                                        response) {
-                                                        if (response
-                                                            .status ==
-                                                            'success') {
-                                                            tmminSuccessIndicator
-                                                                ();
-                                                            console.log(
-                                                                'success'
-                                                            );
-                                                        } else if (
-                                                            response
-                                                            .status ==
-                                                            'error') {
-                                                            arraySeri
-                                                                .pop();
-
-                                                            notif('error',
-                                                                response
-                                                                .message
-                                                            );
-                                                            console.log(
-                                                                response
-                                                                .customer_part
-                                                            );
-                                                            tmminErrorIndicator
-                                                                ();
-                                                            return;
-                                                        }
-                                                    },
-                                                    error: function(xhr) {
-                                                        arraySeri.pop();
-                                                        console.log(xhr)
-                                                        if (xhr
-                                                            .status == 0
-                                                        ) {
-                                                            notif("error",
-                                                                'Connection Error'
-                                                            );
-                                                            return;
-                                                        }
-                                                        notif("error",
-                                                            xhr
-                                                            .responseJSON
-                                                            .errors);
-                                                    }
-                                                })
-                                            }
-                                            // udpate the qty display
-                                            $('#qty-display').text(
-                                                `${arraySeri.length}/${totalQty}`
-                                            );
-
-                                            // display internal
-                                            $('#int-display').text(internal);
-                                            $('#cust-display').text('-');
-
-                                            // success indicator
-                                            $('#indicator').removeClass(
-                                                'bg-danger');
-                                            $('#indicator').removeClass(
-                                                'bg-warning');
-                                            $('#indicator').addClass('bg-success');
-
-                                            resetIndicator();
-
-                                            // display total quantity
-                                            pullingQuantity();
-
-                                            // reset customer local storage
-                                            localStorage.removeItem('customerPart');
-                                        } else if (data.status == 'notExists') {
-
-                                            arraySeri.pop();
-
-                                            // error indicator
-                                            $('#indicator').removeClass(
-                                                'bg-success');
-                                            $('#indicator').removeClass(
-                                                'bg-warning');
-                                            $('#indicator').addClass('bg-danger');
-                                            notif('error', data.message);
-                                            errorStore(data.message);
-
-                                            notExist();
-
-                                            setInterval(() => {
-                                                $('#code').focus();
-                                            }, 1000);
+                                    success: function(response) {
+                                        if (response.status == 'success') {
+                                            // Both backend calls successful, now update IndexedDB
+                                            updateIndexedDB();
+                                            tmminSuccessIndicator();
                                         } else {
-
-                                            arraySeri.pop();
-
-                                            // error indicator
-                                            $('#indicator').removeClass(
-                                                'bg-success');
-                                            $('#indicator').removeClass(
-                                                'bg-warning');
-                                            $('#indicator').addClass('bg-danger');
-                                            notif('error', data.message);
-                                            errorStore(data.message);
-
-                                            setInterval(() => {
-                                                $('#code').focus();
-                                            }, 1000);
+                                            handleError(response.message, false);
+                                            tmminErrorIndicator();
                                         }
                                     },
                                     error: function(xhr) {
-                                        arraySeri.pop();
-
-                                        // error indicator
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        notif('error', xhr.getResponseText)
-
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
+                                        handleError(xhr.status == 0 ?
+                                            'Connection Error' :
+                                            xhr.responseJSON.errors);
                                     }
                                 });
-                            } else if (data.status == 'error') {
-                                arraySeri.pop();
-
-                                // error indicator
-                                $('#indicator').removeClass('bg-success');
-                                $('#indicator').removeClass('bg-warning');
-                                $('#indicator').addClass('bg-danger');
-                                notif('error', data.message);
-                                errorStore(data.message);
-
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
-                            } else if (data.status == 'notExists') {
-                                arraySeri.pop();
-
-                                // error indicator
-                                $('#indicator').removeClass('bg-success');
-                                $('#indicator').removeClass('bg-warning');
-                                $('#indicator').addClass('bg-danger');
-                                notif('error', data.message);
-                                errorStore(data.message);
-                                console.log(data.data);
-
-                                notExist();
-
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
+                            } else {
+                                // No eDCL needed, update IndexedDB directly
+                                updateIndexedDB();
                             }
-                        },
-                        error: function(xhr) {
-                            arraySeri.pop();
-
-                            // error indicator
-                            $('#indicator').removeClass('bg-success');
-                            $('#indicator').removeClass('bg-warning');
-                            $('#indicator').addClass('bg-danger');
-                            notif('error', xhr.getResponseHeader());
-
-                            setInterval(() => {
-                                $('#code').focus();
-                            }, 1000);
+                        } else {
+                            handleError(data.message, data.status == 'notExists');
+                            if (data.status == 'notExists') {
+                                notExist();
+                            }
                         }
-                    })
-                } catch (error) {
-                    // If an error occurs, remove the last 'seri' from the array
-                    arraySeri.pop();
-
-                    // error indicator
-                    $('#indicator').removeClass('bg-success');
-                    $('#indicator').removeClass('bg-warning');
-                    $('#indicator').addClass('bg-danger');
-
-                    // You can also show an error message or perform other actions here
-                    notif('error', 'An error occurred. Please try again.');
-
-                    // Set focus to the code input field
-                    setInterval(() => {
-                        $('#code').focus();
-                    }, 1000);
-                }
+                    },
+                    error: function(xhr) {
+                        handleError(xhr.getResponseText());
+                    }
+                });
+            } catch (error) {
+                handleError('An error occurred. Please try again.');
             }
-
-            // error handling
-            objectStore.put(cursor, primaryKey).onerror = function(event) {
-
-                arraySeri.pop();
-
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
-                notif('error', 'Kanban tidak sesuai!');
-
-                // notification sound
-                notMatchSound();
-
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
-            };
         }
 
         function checkKanban(seri, internal) {
@@ -2258,7 +2111,8 @@
                                     objectStore.get(primaryKey).onsuccess = function(event) {
                                         const cursor = event.target.result;
                                         if (cursor) {
-                                            checkInternalAndCustomer(objectStore, cursor,
+                                            checkInternalAndCustomer(database,
+                                                cursor,
                                                 internal, primaryKey, seri);
                                             return;
                                         } else {

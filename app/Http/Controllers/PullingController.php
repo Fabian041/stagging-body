@@ -432,118 +432,129 @@ class PullingController extends Controller
 
     public function mutation(Request $request)
     {
-        $internal = $request->internalPart;
-        $seri = $request->serialNumber;
-        $qty = $request->qty_per_kbn;
+        $data = $request->validate([
+            'loadingList'  => 'required|string',
+            'customerPart' => 'required|string',
+            'internalPart' => 'required|string',
+            'serialNumber' => 'required|string',
+            'qty_per_kbn'  => 'required|numeric|min:1',
+        ]);
 
-        // get internal part id
-        $internalPart = InternalPart::where('part_number', $internal)->first();
+        $data['qty_per_kbn'] = (int) round($data['qty_per_kbn']);
 
-        $kanban = Kanban::where('internal_part_id', $internalPart->id)
-            ->where('serial_number', $seri)
-            ->first();
+        return DB::transaction(function () use ($data) {
+            // 1) Ambil Loading List
+            $loadingList = LoadingList::select('id','number','customer_id')
+                ->where('number', $data['loadingList'])
+                ->first();
 
-        if(!$kanban){
-            return [
-                'status' => 'error',
-                'message' => 'Kanban tidak terdaftar!'
-            ]; 
-        }
+            if (!$loadingList) {
+                return response()->json([
+                    'status'  => 'notExists',
+                    'message' => 'Loading list tidak terdaftar!',
+                ]);
+            }
 
-            // if($kanban->status == 0){
-            //     return [
-            //         'status' => 'error',
-            //         'message' => 'Kanban belum di scan produksi!'
-            //     ]; 
-            // }else if($kanban->status == 2){
-            //     return [
-            //         'status' => 'error',
-            //         'message' => 'Kanban sudah di scan!'
-            //     ];
-            // }
+            // 2) Konversi part number customer (pakai fungsi yang sudah ada)
+            $converted = $this->convertPartNumber($loadingList->number, $data['customerPart']);
+            if (is_array($converted) && ($converted['status'] ?? null) === 'notExists') {
+                // Mengikuti kontrak fungsi Anda yang kadang return array error
+                return response()->json($converted, 404);
+            }
+            $convertedPartNumber = is_string($converted) ? $converted : $data['customerPart'];
 
-        if (!$internalPart) {
-            return [
-                'status' => 'notExists',
-                'message' => 'Part atau Kanban tidak ditemukan!'
-            ];
-        }
+            // 3) Ambil internal_part & customer_part (minim query)
+            $internalPart = InternalPart::select('id','part_number')
+                ->where('part_number', $data['internalPart'])
+                ->first();
 
-        try {
-            DB::beginTransaction();
-            // insert into mutation table
+            if (!$internalPart) {
+                return response()->json([
+                    'status'  => 'notExists',
+                    'message' => 'Part atau Kanban tidak ditemukan!',
+                ]);
+            }
+
+            $customerPart = DB::table('customer_parts')
+                ->where('internal_part_id', $internalPart->id)
+                ->where('part_number', $convertedPartNumber)
+                ->select('id')
+                ->first();
+
+            if (!$customerPart) {
+                return response()->json([
+                    'status'  => 'notExists',
+                    'message' => 'Part number customer tidak terdaftar!',
+                    'data'    => [
+                        'int'  => $data['internalPart'],
+                        'cust' => $convertedPartNumber,
+                    ],
+                ]);
+            }
+
+            // 4) Validasi kanban-nya
+            $kanban = Kanban::where('internal_part_id', $internalPart->id)
+                ->where('serial_number', $data['serialNumber'])
+                ->first();
+
+            if (!$kanban) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban tidak terdaftar!',
+                ]);
+            }
+
+            // 5) Ambil row LoadingListDetail sekali saja (untuk return info)
+            $lldQuery = LoadingListDetail::query()
+                ->where('loading_list_id', $loadingList->id)
+                ->where('customer_part_id', $customerPart->id);
+
+            $lld = $lldQuery->select('id','kanban_qty','actual_kanban_qty')->lockForUpdate()->first();
+            if (!$lld) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Detail loading list tidak ditemukan untuk part ini.',
+                ]);
+            }
+
+            // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
+            $updated = LoadingListDetail::where('id', $lld->id)
+                ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
+                ->increment('actual_kanban_qty');
+
+            if ($updated === 0) {
+                // Tidak bertambah -> sudah penuh
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban sudah penuh',
+                ]);
+            }
+
+            // 7) Catat mutasi
             Mutation::create([
                 'internal_part_id' => $internalPart->id,
-                'serial_number' => $seri,
-                'type' => 'checkout',
-                'qty' => $qty,
-                'npk' => auth()->user()->npk,
-                'date' => Carbon::now()->format('Y-m-d H:i:s')
+                'serial_number'    => $data['serialNumber'],
+                'type'             => 'checkout',
+                'qty'              => (int) $data['qty_per_kbn'],
+                'npk'              => auth()->user()->npk ?? null,
+                'date'             => now()->format('Y-m-d H:i:s'),
             ]);
 
-            // update status kanbans table
-            $kanban->update([
-                'status' => 2
-            ]);
+            // 8) Update status kanban (hindari write jika sudah 2)
+            if ((int) $kanban->status !== 2) {
+                $kanban->update(['status' => 2]);
+            }
 
-            // commented for temporary
-            // $result = [];
-
-            // // get all current qty of all internal parts 
-            // $data = DB::table('internal_parts')
-            //         ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
-            //         ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            //         ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
-            //         ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
-            //         ->get();
-
-            //         foreach ($data as $value) {
-            //             $lineFound = false;
-            //             // Check if line already exists in $lines array
-            //             foreach ($result as $line) {
-            //                 if ($line->line === $value->name) {
-            //                     $lineFound = true;
-            //                     $line->items[] = [
-            //                         'id' => $value->id,
-            //                         'part_number' => $value->part_number,
-            //                         'back_number' => $value->back_number,
-            //                         'qty' => $value->current_stock,
-            //                     ];
-            //                     break;
-            //                 }
-            //             }
-            //             // If line doesn't exist, create a new object and add it to $result array
-            //             if (!$lineFound) {
-            //                 $lineObject = (object) [
-            //                     'line' => $value->name,
-            //                     'items' => [
-            //                         [
-            //                             'id' => $value->id,
-            //                             'part_number' => $value->part_number,
-            //                             'back_number' => $value->back_number,
-            //                             'qty' => $value->current_stock,
-            //                         ],
-            //                     ],
-            //                 ];
-            //                 $result[] = $lineObject;
-            //             }
-            //         }
-
-            //     $this->mqttConnect('prod/quantity' , $result);
-
-            DB::commit();
+            // 9) Ambil nilai actual terbaru (opsional: pakai +1 dari sebelumnya)
+            $newActual = $lld->actual_kanban_qty + 1;
 
             return response()->json([
-                'status' => 'success'
+                'status' => 'success',
+                'data'   => $newActual,
             ]);
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return [
-                'status' => 'error',
-                'message' => $th->getMessage(),
-            ];
-        }
+        });
     }
+
 
     public function post(Request $request)
     {
