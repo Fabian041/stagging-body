@@ -94,7 +94,7 @@ class PullingController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
         } else if ($codeLength == 10) {
-            if($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22){
+            if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
                 // SUZUKI
                 // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
@@ -170,7 +170,7 @@ class PullingController extends Controller
             // Update line assignments in your configuration or database
             // This would depend on how you're storing these settings
             // For now, we'll just return the updated values
-            
+
             // Example if storing in database:
             // foreach ($request->line_assignments as $line => $backNos) {
             //     Setting::updateOrCreate(
@@ -204,43 +204,43 @@ class PullingController extends Controller
             'new_order' => 'required|array',
             'new_order.*.id' => 'required|exists:production_plans,id'
         ]);
-    
+
         try {
             DB::beginTransaction();
-            
+
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
             $line = $validated['line'];
             $startWorkingTime = Carbon::parse($date)->setTime(6, 0, 0); // Start at 6:00 AM
-            
+
             foreach ($validated['new_order'] as $orderItem) {
                 $item = ProductionPlan::findOrFail($orderItem['id']);
-                
+
                 // Verify this item belongs to the selected date and line
                 if ($item->plan_date != $date || $item->line != $line) {
                     throw new \Exception("Item {$item->id} doesn't belong to selected date/line");
                 }
-                
+
                 // Calculate production duration in seconds
                 [$mm, $ss] = explode(':', $item->prod_time);
                 $prodSeconds = ((int)$mm * 60) + (int)$ss;
                 $totalSeconds = $prodSeconds * (int)$item->order_qty;
-                
+
                 // Set working times
                 $workingStart = $startWorkingTime->format('H:i');
                 $workingEnd = $startWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
                 $workingDuration = gmdate('H:i:s', $totalSeconds);
-                
+
                 // Calculate balance time (time until delivery)
                 $deliveryTime = Carbon::parse($item->delivery_time);
                 $endTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
-                
+
                 if ($deliveryTime->lt($endTime)) {
                     $deliveryTime->addDay();
                 }
-                
+
                 $balanceSeconds = $deliveryTime->diffInSeconds($endTime);
                 $balanceTime = ($balanceSeconds < 0 ? '-' : '') . gmdate('H:i', abs($balanceSeconds));
-                
+
                 // Update the item (without sequence)
                 $item->update([
                     'working_start' => $workingStart,
@@ -248,21 +248,20 @@ class PullingController extends Controller
                     'working_duration' => $workingDuration,
                     'balance_time' => $balanceTime
                 ]);
-                
+
                 $startWorkingTime->addSeconds($totalSeconds);
             }
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Production sequence updated successfully',
                 'data' => ProductionPlan::where('plan_date', $date)
-                                    ->where('line', $line)
-                                    ->orderBy('working_start') // Order by working time instead
-                                    ->get()
+                    ->where('line', $line)
+                    ->orderBy('working_start') // Order by working time instead
+                    ->get()
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -372,8 +371,8 @@ class PullingController extends Controller
     {
         if ($customer == '7A00022' && $pds && str_contains($pds, 'KK11')) {
             $check = Customer::where('code', $customer)
-                            ->where('name', 'like', '%SUZUKI RKK11%')
-                            ->first();
+                ->where('name', 'like', '%SUZUKI RKK11%')
+                ->first();
         } else {
             $check = Customer::where('code', $customer)->first();
         }
@@ -444,7 +443,7 @@ class PullingController extends Controller
 
         return DB::transaction(function () use ($data) {
             // 1) Ambil Loading List
-            $loadingList = LoadingList::select('id','number','customer_id')
+            $loadingList = LoadingList::select('id', 'number', 'customer_id')
                 ->where('number', $data['loadingList'])
                 ->first();
 
@@ -464,7 +463,7 @@ class PullingController extends Controller
             $convertedPartNumber = is_string($converted) ? $converted : $data['customerPart'];
 
             // 3) Ambil internal_part & customer_part (minim query)
-            $internalPart = InternalPart::select('id','part_number')
+            $internalPart = InternalPart::select('id', 'part_number')
                 ->where('part_number', $data['internalPart'])
                 ->first();
 
@@ -509,7 +508,7 @@ class PullingController extends Controller
                 ->where('loading_list_id', $loadingList->id)
                 ->where('customer_part_id', $customerPart->id);
 
-            $lld = $lldQuery->select('id','kanban_qty','actual_kanban_qty')->lockForUpdate()->first();
+            $lld = $lldQuery->select('id', 'kanban_qty', 'actual_kanban_qty')->lockForUpdate()->first();
             if (!$lld) {
                 return response()->json([
                     'status'  => 'error',
@@ -518,17 +517,17 @@ class PullingController extends Controller
             }
 
             // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
-            $updated = LoadingListDetail::where('id', $lld->id)
-                ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
-                ->increment('actual_kanban_qty');
+            // $updated = LoadingListDetail::where('id', $lld->id)
+            //     ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
+            //     ->increment('actual_kanban_qty');
 
-            if ($updated === 0) {
-                // Tidak bertambah -> sudah penuh
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Kanban sudah penuh',
-                ]);
-            }
+            // if ($updated === 0) {
+            //     // Tidak bertambah -> sudah penuh
+            //     return response()->json([
+            //         'status'  => 'error',
+            //         'message' => 'Kanban sudah penuh',
+            //     ]);
+            // }
 
             // 7) Catat mutasi
             Mutation::create([
@@ -1072,5 +1071,4 @@ class PullingController extends Controller
             'message' => 'Kanban berhasil di-reset.'
         ]);
     }
-
 }
