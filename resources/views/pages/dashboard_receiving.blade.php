@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     while (current <= endDate) {
         dailyAnnotations.push({
-            x: current.getTime(),
+            x: current.getTime() + (7 * 60 * 60 * 1000);,
             borderColor: '#dddddd',
             strokeDashArray: 4,
             label: {
