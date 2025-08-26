@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     while (current <= endDate) {
 
-        const adjustedTime = current.getTime() + (7 * 60 * 60 * 1000);
+        const adjustedTime = current.getTime() - (6 * 60 * 60 * 1000);
 
         dailyAnnotations.push({
             x: adjustedTime,
