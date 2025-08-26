@@ -517,9 +517,9 @@ class PullingController extends Controller
             }
 
             // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
-            // $updated = LoadingListDetail::where('id', $lld->id)
-            //     ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
-            //     ->increment('actual_kanban_qty');
+            $updated = LoadingListDetail::where('id', $lld->id)
+                ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
+                ->increment('actual_kanban_qty');
 
             // if ($updated === 0) {
             //     // Tidak bertambah -> sudah penuh
