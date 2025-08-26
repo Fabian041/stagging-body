@@ -1570,7 +1570,7 @@
                     success: function(data) {
                         if (data.status == 'success') {
                             // Handle eDCL if needed
-                            if (localStorage.getItem('char_total') == 39) {
+                            if (localStorage.getItem('char_total') == 10000) {
                                 $.ajax({
                                     type: 'GET',
                                     url: "{{ url('/edcl/store') }}/" +
