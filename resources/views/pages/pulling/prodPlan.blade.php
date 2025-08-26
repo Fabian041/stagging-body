@@ -281,7 +281,7 @@
             </a>
         </div> --}}
 
-        {{-- <div class="card mb-4 border-dark bg-light">
+        <div class="card mb-4 border-dark bg-light">
             <div class="card-header bg-dark text-white py-2">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
@@ -338,7 +338,7 @@
                     </div>
                 </form>
             </div>
-        </div> --}}
+        </div>
 
         <!-- Add message display area -->
         @if (isset($message))
@@ -408,7 +408,8 @@
                                         SHIFT ORDER
                                     </div>
                                     <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold" style="color: #ff6b00;">{{ $as003MorningQty }}</span>
+                                        <span class="fs-4 fw-bold"
+                                            style="color: #ff6b00;">{{ $as003MorningQty }}</span>
                                         @if ($as003MorningStatus != 'Normal Shift')
                                             <span class="badge rounded-0"
                                                 style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
@@ -424,7 +425,8 @@
                                         SHIFT ORDER
                                     </div>
                                     <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold" style="color: #00b4ff;">{{ $as003NightQty }}</span>
+                                        <span class="fs-4 fw-bold"
+                                            style="color: #00b4ff;">{{ $as003NightQty }}</span>
                                         @if ($as003NightStatus != 'Normal Shift')
                                             <span class="badge rounded-0"
                                                 style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
