@@ -255,6 +255,7 @@ class DashboardController extends Controller
                     'CHR_COD_UKEIRE as dock',
                     'INT_NUB_NOUBIN as cycle',
                     DB::raw('RTRIM(CHR_COD_SEBANGOU) as back_no'),
+                    DB::raw('RTRIM(CHR_COD_SEBANGOU_TOK) as back_no_tok'),
                     'INT_SUR_SYUUYOU as qty_per_pallet',
                     'INT_SUR_JYUCYUU as order_qty',
                     'CHR_TIM_SYUKKA',
@@ -264,23 +265,39 @@ class DashboardController extends Controller
                 ->whereNotNull('CHR_TIM_SYUKKA')
                 ->where(function ($query) use ($deliveryDate, $nextDay) {
                     $query->where(function ($q) use ($deliveryDate) {
-                        $q->where('CHR_NGP_NOUNYU', $deliveryDate)
+                            $q->where('CHR_NGP_NOUNYU', $deliveryDate)
                             ->where('CHR_TIM_SYUKKA', '>=', '100000');
-                    })
+                        })
                         ->orWhere(function ($q) use ($nextDay) {
                             $q->where('CHR_NGP_NOUNYU', $nextDay)
-                                ->where('CHR_TIM_SYUKKA', '<', '104000');
+                            ->where('CHR_TIM_SYUKKA', '<', '104000');
                         });
                 })
                 ->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)
-                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
+                // Penting: WHERE IN menyesuaikan kolom berdasarkan dock
+                ->where(function ($q) use ($allBackNos) {
+                    $q->where(function ($qq) use ($allBackNos) {
+                            // non-6I → pakai CHR_COD_SEBANGOU
+                            $qq->where('CHR_COD_UKEIRE', '<>', '6I')
+                            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
+                        })
+                    ->orWhere(function ($qq) use ($allBackNos) {
+                            // 6I → pakai CHR_COD_SEBANGOU_TOK
+                            $qq->where('CHR_COD_UKEIRE', '6I')
+                            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU_TOK)"), $allBackNos);
+                        });
+                });
 
-            return $query->get()->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
-                $item->back_no = trim($item->back_no);
+            return $query->get()->map(function ($item) use ($prodTimeByBackNo) {
+                // Tentukan sumber back_no sesuai dock
+                $rawBackNo = (trim($item->dock) === '6I')
+                    ? ($item->back_no_tok ?? '')
+                    : ($item->back_no ?? '');
 
+                $backNo = trim($rawBackNo);
+
+                // Time handling
                 $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-
-                // Use the delivery date to determine which date to use as base
                 $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
                 $time = $deliveryDate->copy()->setTime(
                     substr($timeStr, 0, 2),
@@ -289,17 +306,17 @@ class DashboardController extends Controller
                 );
 
                 return (object)[
-                    'customer' => $item->customer,
-                    'dock' => $item->dock,
-                    'cycle' => $item->cycle,
-                    'back_no' => $item->back_no,
-                    'qty_per_pallet' => $item->qty_per_pallet,
-                    'order_qty' => $item->order_qty,
-                    'dn_number' => $item->dn_number,
-                    'formatted_time' => $time->format('H:i'),
-                    'time_sort' => $time->timestamp,
-                    'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00',
-                    'delivery_date' => $item->delivery_date
+                    'customer'        => $item->customer,
+                    'dock'            => $item->dock,
+                    'cycle'           => $item->cycle,
+                    'back_no'         => $backNo,
+                    'qty_per_pallet'  => $item->qty_per_pallet,
+                    'order_qty'       => $item->order_qty,
+                    'dn_number'       => $item->dn_number,
+                    'formatted_time'  => $time->format('H:i'),
+                    'time_sort'       => $time->timestamp,
+                    'prod_time'       => $prodTimeByBackNo[$backNo] ?? '00:00',
+                    'delivery_date'   => $item->delivery_date,
                 ];
             });
         } catch (\Exception $e) {
@@ -316,29 +333,35 @@ class DashboardController extends Controller
                     'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
                 ]);
 
+                // Penting: SELECT back_no_tok & WHERE IN kondisional sesuai dock
                 $sql = "SELECT 
-                        CHR_MEI_NOUNYU as customer,
-                        CHR_COD_UKEIRE as dock,
-                        INT_NUB_NOUBIN as cycle,
-                        RTRIM(CHR_COD_SEBANGOU) as back_no,
-                        INT_SUR_SYUUYOU as qty_per_pallet,
-                        INT_SUR_JYUCYUU as order_qty,
-                        CHR_TIM_SYUKKA,
-                        CHR_COD_TKS_NOUBAN as dn_number,
-                        CHR_NGP_NOUNYU as delivery_date
-                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
-                    WHERE CHR_TIM_SYUKKA IS NOT NULL
+                            CHR_MEI_NOUNYU as customer,
+                            CHR_COD_UKEIRE as dock,
+                            INT_NUB_NOUBIN as cycle,
+                            RTRIM(CHR_COD_SEBANGOU) as back_no,
+                            RTRIM(CHR_COD_SEBANGOU_TOK) as back_no_tok,
+                            INT_SUR_SYUUYOU as qty_per_pallet,
+                            INT_SUR_JYUCYUU as order_qty,
+                            CHR_TIM_SYUKKA,
+                            CHR_COD_TKS_NOUBAN as dn_number,
+                            CHR_NGP_NOUNYU as delivery_date
+                        FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
+                        WHERE CHR_TIM_SYUKKA IS NOT NULL
                         AND (
-                            (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '100000')
-                            OR 
-                            (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
+                                (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '100000')
+                            OR (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
                         )
                         AND CHR_MEI_NOUNYU NOT IN ('{$excludedCustomersString}')
-                        AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
-                    ORDER BY CHR_COD_SEBANGOU";
+                        AND (
+                                (CHR_COD_UKEIRE = '6I'  AND RTRIM(CHR_COD_SEBANGOU_TOK) IN ('{$backNosString}'))
+                            OR (CHR_COD_UKEIRE <> '6I' AND RTRIM(CHR_COD_SEBANGOU)     IN ('{$backNosString}'))
+                        )
+                        ORDER BY CHR_COD_SEBANGOU";
 
-                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
-                    $item->back_no = trim($item->back_no);
+                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($prodTimeByBackNo) {
+                    $dock = trim($item->dock ?? '');
+                    $rawBackNo = ($dock === '6I') ? ($item->back_no_tok ?? '') : ($item->back_no ?? '');
+                    $backNo = trim($rawBackNo);
 
                     $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
                     $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
@@ -349,17 +372,17 @@ class DashboardController extends Controller
                     );
 
                     return (object)[
-                        'customer' => $item->customer,
-                        'dock' => $item->dock,
-                        'cycle' => $item->cycle,
-                        'back_no' => $item->back_no,
-                        'qty_per_pallet' => $item->qty_per_pallet,
-                        'order_qty' => $item->order_qty,
-                        'dn_number' => $item->dn_number,
-                        'formatted_time' => $time->format('H:i'),
-                        'time_sort' => $time->timestamp,
-                        'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00',
-                        'delivery_date' => $item->delivery_date
+                        'customer'        => $item->customer,
+                        'dock'            => $item->dock,
+                        'cycle'           => $item->cycle,
+                        'back_no'         => $backNo,
+                        'qty_per_pallet'  => $item->qty_per_pallet,
+                        'order_qty'       => $item->order_qty,
+                        'dn_number'       => $item->dn_number,
+                        'formatted_time'  => $time->format('H:i'),
+                        'time_sort'       => $time->timestamp,
+                        'prod_time'       => $prodTimeByBackNo[$backNo] ?? '00:00',
+                        'delivery_date'   => $item->delivery_date
                     ];
                 });
             } catch (\Exception $e) {
