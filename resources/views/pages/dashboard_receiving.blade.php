@@ -1,17 +1,8 @@
-@extends('layouts.root.main')
+@extends('layouts.root.blank')
 
 @section('main')
 
     <div class="row">
-        <div class="col mt-3 text-right">
-            <div class="col-md-12">
-            </div>
-            {{-- <div class="col-md-12">
-                <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#stockModal">Import Stock</button>
-            </div> --}}
-        </div>
-    </div>
-    <div class="row mt-4">
         <div class="col-12 col-sm-12 col-lg-12">
 
             <div class="card card-primary">
@@ -104,6 +95,29 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const chartEl = document.querySelector("#timelineChart");
+    // Ambil dari PHP blade
+    const startDate = new Date("{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}");
+    const endDate = new Date("{{ request('end_date') ?? now()->addDays(14)->toDateString() }}");
+
+    const dailyAnnotations = [];
+    let current = new Date(startDate);
+
+    while (current <= endDate) {
+        dailyAnnotations.push({
+            x: current.getTime(),
+            borderColor: '#dddddd',
+            strokeDashArray: 4,
+            label: {
+                text: current.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' }),
+                style: {
+                    color: '#555',
+                    background: '#f8f9fa',
+                    fontSize: '10px'
+                }
+            }
+        });
+        current.setDate(current.getDate() + 1); // next day
+    }
 
     const options = {
         chart: {
@@ -160,18 +174,24 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         },
         annotations: {
-            xaxis: [{
-                x: Date.now(),
-                borderColor: '#FF0000',
-                label: {
-                    text: new Date().toLocaleTimeString(),
-                    style: {
-                        color: '#fff',
-                        background: '#FF0000'
+            xaxis: [
+                // Garis waktu saat ini
+                {
+                    x: Date.now(),
+                    borderColor: '#FF0000',
+                    label: {
+                        text: new Date().toLocaleTimeString(),
+                        style: {
+                            color: '#fff',
+                            background: '#FF0000'
+                        }
                     }
-                }
-            }]
+                },
+                // Tambahan garis pembatas per tanggal
+                ...dailyAnnotations
+            ]
         },
+
         series: {!! json_encode($series) !!}
     };
 
@@ -195,10 +215,16 @@ document.addEventListener('DOMContentLoaded', function () {
                             background: '#FF0000'
                         }
                     }
-                }]
+                },
+                ...dailyAnnotations
+                ]
             }
         });
     }, 1000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik
+
+    setInterval(function() {
+    window.location.reload();
+}, 120000); // 120000 ms = 2 menit
 });
 
 function showDetailModal(pickList) {

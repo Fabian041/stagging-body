@@ -47,6 +47,24 @@ class LoginController extends Controller
                 return redirect()->route('pulling.index');
             } else if (auth()->user()->role == 'mh') {
                 return redirect()->route('validation.index');
+            } else if (auth()->user()->role == 'direct') {
+
+                // Perform login and obtain the Bearer token (API Dea)
+                $response = Http::withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
+                    'npk' => Auth::user()->npk,
+                    'password' => '123456'
+                ]);
+
+                if ($response->successful()) {
+                    $token = json_decode($response->body(), true)['data']['access_token'];
+
+                    // store  token to session
+                    session()->put('token', $token);
+                } else {
+                    return redirect()->back()->with('error', 'Failed to generate token');
+                }
+
+                return redirect()->route('production.direct.index');
             } else {
                 // redirect to dashboard
                 return redirect()->route('dashboard.index');

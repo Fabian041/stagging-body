@@ -37,6 +37,11 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
+
+
+    Route::get('dashboard/receiving', [DashboardController::class, 'receivingDashboard'])->name('dashboard.receiving');
+    Route::get('dashboard/receiving/getData', [DashboardController::class, 'getReceivingData'])->name('dashboard.receiving.getData');
+    Route::get('dashboard/receiving/detail', [DashboardController::class, 'showModal'])->name('dashboard.receiving.detail');
 });
 
 // stream SSE
@@ -98,17 +103,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/getLoadingListDetail/{loadingList}', [LoadingListController::class, 'getLoadingListDetail'])->name('dashboard.getLoadingListDetail');
 
         // Add this route to your existing routes
-        Route::get('/checkLoadingListUpdates', [LoadingListController::class, 'checkLoadingListUpdates'])->name('dashboard.checkLoadingListUpdates');  
-        Route::post('/getLoadingListUpdates', [LoadingListController::class, 'getLoadingListUpdates'])->name('dashboard.getLoadingListUpdates');              
+        Route::get('/checkLoadingListUpdates', [LoadingListController::class, 'checkLoadingListUpdates'])->name('dashboard.checkLoadingListUpdates');
+        Route::post('/getLoadingListUpdates', [LoadingListController::class, 'getLoadingListUpdates'])->name('dashboard.getLoadingListUpdates');
         Route::get('/getLoadingListsByPds', [LoadingListController::class, 'getLoadingListsByPds'])->name('dashboard.getLoadingListsByPds');
 
         Route::get('/progressPulling', [DashboardController::class, 'progressPulling'])->name('progressPulling.index');
         Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
-        Route::get('/receiving', [DashboardController::class, 'receivingDashboard'])->name('dashboard.receiving');
-        Route::get('/receiving/getData', [DashboardController::class, 'getReceivingData'])->name('dashboard.receiving.getData');
-        Route::get('/receiving/detail', [DashboardController::class, 'showModal'])->name('dashboard.receiving.detail');
 
         // check kanban
         Route::get('/kanban/check', [DashboardController::class, 'kbnCheck'])->name('dashboard.kbnCheck');
@@ -135,6 +137,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/adjust', [ProductionController::class, 'adjust'])->name('production.adjust');
         Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
+
+        Route::get('/direct', [ProductionController::class, 'direct'])->name('production.direct.index');
     });
 
     //Validation

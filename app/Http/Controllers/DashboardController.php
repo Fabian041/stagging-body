@@ -644,7 +644,8 @@ class DashboardController extends Controller
     public function receivingDashboard()
     {
         $startOfWeek = request('start_date') ? Carbon::parse(request('start_date')) : now()->startOfWeek();
-        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->addWeek()->endOfWeek();
+        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->startOfWeek()->addWeeks(2)->endOfWeek();
+        // dd($startOfWeek->toDateString(), $endOfWeek->toDateString());
 
         $area = request('area') ? request('area') : 'unit';
         $statusColorss = [
