@@ -821,9 +821,10 @@ class PullingController extends Controller
         // get customer part id
         $customerPartId = CustomerPart::with('customer')
             ->where('part_number', $this->convertPartNumber($loadingList, $customerPart))
-            ->whereHas('customer', function ($query) use ($customer) {
-                $query->where('name', $customer);
-            })
+            // disable karena part common
+            // ->whereHas('customer', function ($query) use ($customer) {
+            //     $query->where('name', $customer);
+            // })
             ->first();
 
         if (!$customerPartId) {
