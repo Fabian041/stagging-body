@@ -881,7 +881,11 @@ class PullingController extends Controller
         if (!$loadingListDetailId) {
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer / loading list tidak sesuai!'
+                'message' => 'Part number customer / loading list tidak sesuai!',
+                'data' => [
+                    'loading_list_id' => $loadingListId->id,
+                    'customer_part_id' => $customerPartId->id
+                ]
             ];
         }
 
