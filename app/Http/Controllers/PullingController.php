@@ -504,11 +504,11 @@ class PullingController extends Controller
             }
 
             // 5) Ambil row LoadingListDetail sekali saja (untuk return info)
-            $lldQuery = LoadingListDetail::query()
-                ->where('loading_list_id', $loadingList->id)
-                ->where('customer_part_id', $customerPart->id);
+            $lld = LoadingListDetail::where('loading_list_id', $loadingList->id)
+                ->where('customer_part_id', $customerPart->id)
+                ->lockForUpdate()
+                ->first(['id', 'kanban_qty', 'actual_kanban_qty']);
 
-            $lld = $lldQuery->select('id', 'kanban_qty', 'actual_kanban_qty')->lockForUpdate()->first();
             if (!$lld) {
                 return response()->json([
                     'status'  => 'error',
@@ -517,17 +517,18 @@ class PullingController extends Controller
             }
 
             // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
-            $updated = LoadingListDetail::where('id', $lld->id)
-                ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
-                ->increment('actual_kanban_qty');
+            if ((int)$lld->actual_kanban_qty >= (int)$lld->kanban_qty) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban sudah penuh',
+                ]);
+            }
 
-            // if ($updated === 0) {
-            //     // Tidak bertambah -> sudah penuh
-            //     return response()->json([
-            //         'status'  => 'error',
-            //         'message' => 'Kanban sudah penuh',
-            //     ]);
-            // }
+            // update loading list detail
+            LoadingListDetail::whereKey($lld->id)
+                ->update([
+                    'actual_kanban_qty' => DB::raw('LEAST(kanban_qty, actual_kanban_qty + 1)')
+                ]);
 
             // 7) Catat mutasi
             Mutation::create([
@@ -553,7 +554,6 @@ class PullingController extends Controller
             ]);
         });
     }
-
 
     public function post(Request $request)
     {
@@ -829,7 +829,8 @@ class PullingController extends Controller
         if (!$customerPartId) {
             return [
                 'status' => 'notExists',
-                'message' => 'ftar!',
+                'message' => 'Part number customer tidak terdaftar!',
+                'customer' => $customer,
                 'customer_part' => $this->convertPartNumber($loadingList, $customerPart)
             ];
         }
