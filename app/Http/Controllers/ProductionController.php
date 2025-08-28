@@ -124,14 +124,14 @@ class ProductionController extends Controller
 
         // get kanban_id based on internal part id
         $kanban = Kanban::where('internal_part_id', $internalPart->id)
-                    ->where('serial_number', $seri)
-                    ->first();
-        
-        if(!$kanban){
+            ->where('serial_number', $seri)
+            ->first();
+
+        if (!$kanban) {
             return [
                 'status' => 'error',
                 'message' => 'Kanban tidak terdaftar!'
-            ]; 
+            ];
         }
 
         // Cek jika mengandung kata SUB ASSY dalam variasi yang dimaksud
@@ -144,7 +144,7 @@ class ProductionController extends Controller
                     'message' => 'Kanban Sudah di scan!'
                 ];
             }
-        }        
+        }
 
         try {
             DB::beginTransaction();
@@ -504,8 +504,8 @@ class ProductionController extends Controller
             'total_scan' => $record->qty ?? 0,
         ]);
     }
-    
-    public function updateScanTarget($line,$target)
+
+    public function updateScanTarget($line, $target)
     {
         $exists = DB::table('line_qty_temp')->where('line', $line)->exists();
 
@@ -517,7 +517,7 @@ class ProductionController extends Controller
                     'target' => $target,
                     'updated_at' => now(),
                 ]);
-        } 
+        }
 
         return response()->json([
             'status' => 'success',
@@ -538,5 +538,10 @@ class ProductionController extends Controller
             'status'  => 'success',
             'message' => "Counter for line {$line} has been reset.",
         ]);
+    }
+
+    public function direct()
+    {
+        return view('pages.production.direct');
     }
 }
