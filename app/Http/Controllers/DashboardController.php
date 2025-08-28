@@ -161,7 +161,7 @@ class DashboardController extends Controller
         $end = $start->copy()->addDay();      // 12:00 next day
 
         $backNosByLine = [
-            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D404', 'D403', 'D500', 'D111', 'D112', 'D113'],
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D500', 'D111', 'D112'],
             'AS004' => ['CI15', 'CI16', 'CI19'],
         ];
 

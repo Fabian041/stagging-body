@@ -185,6 +185,10 @@
     </div>
     {{-- end of modal --}}
 
+    <audio id="ok-sound">
+        <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
     <audio id="not-match-sound">
         <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
@@ -255,6 +259,10 @@
     let loadingListItem = [];
     let loadinglistDetail = [];
 
+    function okSound() {
+        var sound = document.getElementById("ok-sound");
+        sound.play();
+    }
 
     function kanbanNotExistSound() {
         var sound = document.getElementById("kanban-not-exist-sound");
@@ -1440,22 +1448,37 @@
                 seqNo = originalBarcode.substr(35, 4);
             }
 
-            // Helper function to handle errors consistently
-            const handleError = (message, playSound = true) => {
+            // Helper: ambil pesan error dari xhr
+            const xhrMessage = (xhr) => {
+                if (xhr.status === 0) return 'Connection Error';
+                return (xhr.responseJSON?.message) ||
+                    (xhr.responseJSON?.errors ? JSON.stringify(xhr.responseJSON.errors) : null) ||
+                    xhr.responseText ||
+                    `HTTP ${xhr.status}`;
+            };
+
+            // Helper: uniform error handling + pencatatan
+            // opsi: { expected, scanned, playSound }
+            const handleError = (message, opts = {}) => {
+                const {
+                    expected = null, scanned = null, playSound = true
+                } = opts;
+
                 $('#indicator').removeClass('bg-success bg-warning').addClass('bg-danger');
                 notif('error', message);
-                errorStore(message);
 
-                if (playSound) {
-                    notMatchSound();
-                }
+                // catat detail error via API
+                errorStore(message, expected, scanned);
 
-                setInterval(() => {
+                if (playSound) notMatchSound();
+
+                // fokus input kembali (sekali, bukan interval)
+                setTimeout(() => {
                     $('#code').focus();
                 }, 1000);
             };
 
-            // Check if kanban internal and customer are in the same object
+            // === Validasi: internal & customer harus dalam objek yang sama
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
                     if (Object.values(cursor).includes(internal.trimEnd())) {
@@ -1466,7 +1489,10 @@
             }
 
             if (!isSameObject) {
-                handleError('Kanban tidak sesuai!');
+                handleError('Kanban tidak sesuai!', {
+                    expected: `Internal & Customer satu objek (internal: ${internal.trimEnd()}, customer: ${localStorage.getItem('customerPart')})`,
+                    scanned: `Cursor keys match? ${Object.keys(cursor).length} keys`
+                });
                 localStorage.setItem('status', 'true');
                 setTimeout(() => {
                     window.location.reload();
@@ -1474,86 +1500,90 @@
                 return;
             }
 
-            // Check if serial number already exists
+            // === Validasi: seri duplikat
             if (arraySeri.includes(seri)) {
-                handleError('Seri kanban sudah discan!', false);
+                handleError('Seri kanban sudah discan!', {
+                    expected: 'Seri unik (belum pernah discan)',
+                    scanned: `Seri=${seri}`,
+                    playSound: false
+                });
                 alreadyScanSound();
                 return;
             }
 
-            // Check if quantity is exceeded
+            // === Validasi: quantity sudah penuh
             if (arraySeri.length >= totalQty) {
-                handleError('Part number sudah complete!', false);
+                handleError('Part number sudah complete!', {
+                    expected: `Qty <= ${totalQty}`,
+                    scanned: `Attempt push, current=${arraySeri.length}`,
+                    playSound: false
+                });
                 fullfilledSound();
                 return;
             }
 
-            // Function to update IndexedDB after successful backend validation
+            // === Update IndexedDB setelah validasi backend OK
             const updateIndexedDB = () => {
-                // Add the serial number to the array
+                // tambah seri sementara
                 arraySeri.push(seri);
 
-                // Debug: Check what's available in the database
-                console.log('Database object stores:', Array.from(database.objectStoreNames));
-
-                // Check if the database contains the expected store
                 if (!database.objectStoreNames.contains('loadingList')) {
-                    console.error('Store "loadingList" not found. Available stores:', Array.from(database
-                        .objectStoreNames));
-
-                    // Try using the first available store name
                     const availableStores = Array.from(database.objectStoreNames);
-                    if (availableStores.length > 0) {
-                        console.log('Using first available store:', availableStores[0]);
-                        const storeName = availableStores[0];
 
+                    if (availableStores.length > 0) {
+                        const storeName = availableStores[0];
                         const transaction = database.transaction([storeName], 'readwrite');
                         const objectStore = transaction.objectStore(storeName);
-
-                        // Continue with the update using the available store
-                        performUpdate(transaction, objectStore);
+                        performUpdate(transaction, objectStore, storeName);
                     } else {
-                        handleError('No object stores found in database!');
+                        handleError('No object stores found in database!', {
+                            expected: 'Tersedia store "loadingList"',
+                            scanned: 'Tidak ada store sama sekali'
+                        });
                         arraySeri.pop();
                         return;
                     }
                 } else {
-                    // Store exists, proceed normally
                     const transaction = database.transaction(['loadingList'], 'readwrite');
                     const objectStore = transaction.objectStore('loadingList');
-                    performUpdate(transaction, objectStore);
+                    performUpdate(transaction, objectStore, 'loadingList');
                 }
 
-                // Helper function to perform the actual update
-                function performUpdate(transaction, objectStore) {
+                function performUpdate(transaction, objectStore, storeName) {
                     const putRequest = objectStore.put(cursor, primaryKey);
 
-                    putRequest.onsuccess = function(event) {
-                        // Update UI on successful IndexedDB save
+                    putRequest.onsuccess = function() {
                         $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
                         $('#int-display').text(internal);
                         $('#cust-display').text('-');
                         $('#indicator').removeClass('bg-danger bg-warning').addClass('bg-success');
                         resetIndicator();
                         pullingQuantity();
+                        okSound();
                         localStorage.removeItem('customerPart');
                     };
 
                     putRequest.onerror = function(event) {
-                        console.error('Put request failed:', event.target.error);
-                        handleError('Gagal menyimpan data ke database lokal!');
+                        const err = event?.target?.error?.message || 'Put request failed';
+                        handleError('Gagal menyimpan data ke database lokal!', {
+                            expected: `IDB put ke store "${storeName}" key=${primaryKey}`,
+                            scanned: err
+                        });
                         arraySeri.pop();
                     };
 
                     transaction.onerror = function(event) {
-                        console.error('Transaction failed:', event.target.error);
-                        handleError('Transaction failed!');
+                        const err = event?.target?.error?.message || 'Transaction failed';
+                        handleError('Transaction failed!', {
+                            expected: `IDB transaksi write ke store "${storeName}"`,
+                            scanned: err
+                        });
                         arraySeri.pop();
                     };
                 }
             };
 
-            // Make the backend request FIRST
+            // === Request ke backend terlebih dahulu
             try {
                 $.ajax({
                     type: 'GET',
@@ -1569,7 +1599,7 @@
                     contentType: 'application/json',
                     success: function(data) {
                         if (data.status == 'success') {
-                            // Handle eDCL if needed
+                            // eDCL opsional
                             if (localStorage.getItem('char_total') == 10000) {
                                 $.ajax({
                                     type: 'GET',
@@ -1582,37 +1612,53 @@
                                     dataType: 'json',
                                     success: function(response) {
                                         if (response.status == 'success') {
-                                            // Both backend calls successful, now update IndexedDB
                                             updateIndexedDB();
                                             tmminSuccessIndicator();
                                         } else {
-                                            handleError(response.message, false);
+                                            handleError(response.message ||
+                                                'eDCL gagal', {
+                                                    expected: 'eDCL success',
+                                                    scanned: JSON.stringify(
+                                                        response),
+                                                    playSound: false
+                                                });
                                             tmminErrorIndicator();
                                         }
                                     },
                                     error: function(xhr) {
-                                        handleError(xhr.status == 0 ?
-                                            'Connection Error' :
-                                            xhr.responseJSON.errors);
+                                        const msg = xhrMessage(xhr);
+                                        handleError(msg, {
+                                            expected: 'HTTP 200 OK dari eDCL',
+                                            scanned: `HTTP ${xhr.status}`
+                                        });
                                     }
                                 });
                             } else {
-                                // No eDCL needed, update IndexedDB directly
+                                // tanpa eDCL
                                 updateIndexedDB();
                             }
                         } else {
-                            handleError(data.message, data.status == 'notExists');
-                            if (data.status == 'notExists') {
-                                notExist();
-                            }
+                            handleError(data.message || 'Validasi backend gagal', {
+                                expected: 'Response success dari mutation',
+                                scanned: JSON.stringify(data),
+                                playSound: (data.status == 'notExists')
+                            });
+                            if (data.status == 'notExists') notExist();
                         }
                     },
                     error: function(xhr) {
-                        handleError(xhr.getResponseText());
+                        const msg = xhrMessage(xhr);
+                        handleError(msg, {
+                            expected: 'HTTP 200 OK dari mutation',
+                            scanned: `HTTP ${xhr.status}`
+                        });
                     }
                 });
             } catch (error) {
-                handleError('An error occurred. Please try again.');
+                handleError('An error occurred. Please try again.', {
+                    expected: 'AJAX berjalan sukses',
+                    scanned: error?.message || String(error)
+                });
             }
         }
 
