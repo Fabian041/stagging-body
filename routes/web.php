@@ -156,8 +156,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/settings/update', [PullingController::class, 'settingUpdate'])
             ->name('pulling.settings.update');
 
-        Route::post('/settings/reorder', [PullingController::class, 'reorderProduction'])
-            ->name('pulling.settings.reorder');
+        Route::post('/settings/reorder', [PullingController::class, 'reorderByDeliveryTime'])
+            ->name('pulling.reorder');
 
         Route::get('/customer-check/{customer}/{pds?}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
         // Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');

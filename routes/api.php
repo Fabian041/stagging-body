@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
+use App\Http\Controllers\PullingController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\API\LoginController as APILoginController;
 use App\Http\Controllers\API\ProductionPlanApiController as ProductionPlan;
@@ -22,21 +23,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::get('/production-items', function(Request $request) {
-    $date = $request->input('date');
-    $line = $request->input('line');
-    
-    if (!$date || !$line) {
-        return response()->json(['message' => 'Date and line are required'], 400);
-    }
-
-    $items = \App\Models\ProductionPlan::where('plan_date', $date)
-        ->where('line', $line)
-        // ->orderBy('delivery_time')
-        ->get(['id', 'customer', 'back_no', 'order_qty', 'delivery_time', 'working_start']);
-
-    return response()->json($items);
-});
+Route::get('/production-items', [PullingController::class, 'apiProductionItems'])->name('api.production-items');
 
 Route::group(['prefix' => 'v1'], function () {
     Route::get('/scan/{line}', [ProductionController::class, 'scan']);

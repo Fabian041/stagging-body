@@ -196,79 +196,271 @@ class PullingController extends Controller
         }
     }
 
-    public function reorderProduction(Request $request)
+    public function apiProductionItems(Request $request)
     {
         $validated = $request->validate([
             'date' => 'required|date',
             'line' => 'required|string|in:AS003,AS004',
-            'new_order' => 'required|array',
-            'new_order.*.id' => 'required|exists:production_plans,id'
+        ]);
+    
+        $date = Carbon::parse($validated['date'])->toDateString();
+        $line = $validated['line'];
+    
+        $rows = ProductionPlan::query()
+            ->where('plan_date', $date)
+            ->where('line', $line)
+            ->orderBy('delivery_date')
+            ->orderBy('delivery_time')
+            ->orderBy('id')            // tidak dipakai
+            ->get(['id','back_no','customer','order_qty','delivery_time','prod_time']);
+    
+        // Normalisasi & kembalikan sebagai array rapi (tanpa mutasi objek)
+        $items = $rows->map(function ($r) {
+            $raw = data_get($r, 'delivery_time');
+    
+            // Normalisasi ke 'HH:MM'
+            if ($raw instanceof \DateTimeInterface) {
+                $t = $raw->format('H:i');
+            } else {
+                $t = trim((string) $raw);
+                if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $t)) {
+                    $t = substr($t, 0, 5);
+                }
+                if ($t === '' || !preg_match('/^\d{2}:\d{2}$/', $t)) {
+                    $t = '00:00';
+                }
+            }
+    
+            return [
+                'id'             => (int) data_get($r, 'id'),
+                'back_no'        => (string) data_get($r, 'back_no', ''),
+                'customer'       => (string) data_get($r, 'customer', ''),
+                'order_qty'      => (int) data_get($r, 'order_qty', 0),
+                'delivery_time'  => $t,
+                'prod_time'      => (string) data_get($r, 'prod_time', '00:00'),
+            ];
+        })->values();
+    
+        return response()->json($items);
+    }
+    
+
+    /**
+     * POST /pulling/settings/reorder
+     * Body:
+     * {
+     *   "date": "2025-08-28",
+     *   "line": "AS003",
+     *   "new_order": [{ "id": 123, "delivery_time": "09:30" }, ...] // kirim semua item
+     * }
+     *
+     * Langkah BE:
+     * 1) Update delivery_time sesuai payload.
+     * 2) Recompute working_* & balance_time utk SEMUA item (tanggal+line) mengikuti delivery_time ASC.
+     */
+    public function reorderByDeliveryTime(Request $request)
+    {
+        $validated = $request->validate([
+            'date'                      => 'required|date',
+            'line'                      => 'required|string|in:AS003,AS004',
+            'new_order'                 => 'required|array|min:1',
+            'new_order.*.id'            => 'required|exists:production_plans,id',
+            'new_order.*.delivery_time' => ['required','regex:/^\d{2}:\d{2}(:\d{2})?$/'],
         ]);
 
+        DB::beginTransaction();
         try {
-            DB::beginTransaction();
+            $date  = Carbon::parse($validated['date'])->toDateString();
+            $line  = $validated['line'];
+            $pairs = collect($validated['new_order'])->keyBy('id');
 
-            $date = Carbon::parse($validated['date'])->format('Y-m-d');
-            $line = $validated['line'];
-            $startWorkingTime = Carbon::parse($date)->setTime(6, 0, 0); // Start at 6:00 AM
+            // Lock semua item pada date+line supaya konsisten
+            $all = ProductionPlan::query()
+                ->where('plan_date', $date)
+                ->where('line', $line)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
 
-            foreach ($validated['new_order'] as $orderItem) {
-                $item = ProductionPlan::findOrFail($orderItem['id']);
-
-                // Verify this item belongs to the selected date and line
-                if ($item->plan_date != $date || $item->line != $line) {
-                    throw new \Exception("Item {$item->id} doesn't belong to selected date/line");
+            // Pastikan semua id pada payload memang belong to date+line
+            foreach ($pairs as $id => $payload) {
+                if (!isset($all[$id])) {
+                    throw new \Exception("Item {$id} doesn't belong to selected date/line");
                 }
+            }
 
-                // Calculate production duration in seconds
-                [$mm, $ss] = explode(':', $item->prod_time);
-                $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                $totalSeconds = $prodSeconds * (int)$item->order_qty;
-
-                // Set working times
-                $workingStart = $startWorkingTime->format('H:i');
-                $workingEnd = $startWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
-                $workingDuration = gmdate('H:i:s', $totalSeconds);
-
-                // Calculate balance time (time until delivery)
-                $deliveryTime = Carbon::parse($item->delivery_time);
-                $endTime = $startWorkingTime->copy()->addSeconds($totalSeconds);
-
-                if ($deliveryTime->lt($endTime)) {
-                    $deliveryTime->addDay();
+            // 1) Update delivery_time sesuai payload (gunakan HH:MM)
+            foreach ($pairs as $id => $payload) {
+                $t = trim($payload['delivery_time']);
+                if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $t)) {
+                    $t = substr($t, 0, 5);
                 }
+                $item = $all[$id];
+                $item->delivery_time = $t;
+                $item->save();
+            }
 
-                $balanceSeconds = $deliveryTime->diffInSeconds($endTime);
-                $balanceTime = ($balanceSeconds < 0 ? '-' : '') . gmdate('H:i', abs($balanceSeconds));
+            // 2) Recompute untuk semua item, urut delivery_time ASC
+            $allItems = ProductionPlan::query()
+            ->where('plan_date', $date)
+            ->where('line', $line)
+            ->orderBy('delivery_date')
+            ->orderBy('delivery_time')
+            ->lockForUpdate()
+            ->get();
 
-                // Update the item (without sequence)
-                $item->update([
-                    'working_start' => $workingStart,
-                    'working_end' => $workingEnd,
-                    'working_duration' => $workingDuration,
-                    'balance_time' => $balanceTime
-                ]);
+            // Start kerja 06:00 di tanggal plan
+            $startWorkingTime = Carbon::parse("$date 06:00:00");
 
-                $startWorkingTime->addSeconds($totalSeconds);
+            // Kelompokkan per dn_number (jika null/kosong, treat unik per id)
+            $grouped = $allItems->groupBy(function ($it) {
+            return $it->dn_number ?: "ID-{$it->id}";
+            });
+
+            // Helper parsing detik produksi (utama mm:ss, juga dukung hh:mm(:ss) / menit tunggal)
+            $parseProdSeconds = function (string $time): int {
+            $time = trim($time);
+            if ($time === '') return 0;
+            $parts = explode(':', $time);
+            if (count($parts) === 3) { // hh:mm:ss
+                return ((int)$parts[0]) * 3600 + ((int)$parts[1]) * 60 + ((int)$parts[2]);
+            }
+            if (count($parts) === 2) {
+                // Asumsikan mm:ss (sesuai controller referensi)
+                return ((int)$parts[0]) * 60 + ((int)$parts[1]);
+            }
+            // Angka tunggal = menit
+            if (ctype_digit($time)) return ((int)$time) * 60;
+            return 0;
+            };
+
+            // Iterasi per grup dn_number
+            $currentStartGlobal = $startWorkingTime->copy();
+
+            foreach ($grouped as $dnNumber => $group) {
+            // Urutkan dalam grup (ikuti referensi: by back_no)
+            $group = $group->sortBy('back_no')->values();
+
+            // Delivery time untuk grup = delivery_time item pertama (fallback "00:00")
+            $deliveryTimeStr = (string)($group->first()->delivery_time ?? '00:00');
+            $delivery = Carbon::parse("$date " . substr($deliveryTimeStr, 0, 5));
+
+            // 1) Hitung working_start/working_end/item-duration berantai
+            $cursor = $currentStartGlobal->copy();
+            $lastEnd = $cursor->copy(); // akan jadi end item terakhir
+
+            foreach ($group as $item) {
+                $perUnitSeconds = $parseProdSeconds((string)$item->prod_time);
+                $qty            = max(0, (int)$item->order_qty);
+                $totalSeconds   = $perUnitSeconds * $qty;
+
+                $workingStart = $cursor->copy();
+                $workingEnd   = $cursor->copy()->addSeconds($totalSeconds);
+
+                // Simpan ke model
+                $item->working_start    = $workingStart->format('H:i');
+                $item->working_end      = $workingEnd->format('H:i');
+                $item->working_duration = sprintf('%02d:%02d:%02d',
+                                        intdiv($totalSeconds,3600),
+                                        intdiv($totalSeconds%3600,60),
+                                        $totalSeconds%60);
+
+                $cursor = $workingEnd->copy();
+                $lastEnd = $workingEnd->copy();
+            }
+
+            // 2) Anchor delivery minimal >= lastEnd (kalau lewat tengah malam)
+            while ($delivery->lt($lastEnd)) {
+                $delivery->addDay();
+            }
+
+            // 3) Balance = delivery - lastEnd (positif = masih ada slack)
+            $balanceSeconds = $lastEnd->diffInSeconds($delivery, false); // << urutan dibalik
+            $sign  = $balanceSeconds < 0 ? '-' : '';
+            $abs   = abs($balanceSeconds);
+            $bh    = intdiv($abs, 3600);
+            $bm    = intdiv($abs % 3600, 60);
+            $balanceFormatted = sprintf('%s%02d:%02d', $sign, $bh, $bm);
+
+            // 4) Commit ke DB untuk semua item di grup (pakai balance grup yang sama)
+            foreach ($group as $item) {
+                $item->balance_time = $balanceFormatted;
+                // delivery_time sudah diupdate sebelumnya sesuai payload
+                // tapi kalau ingin “rapikan” ke HH:MM:
+                $item->delivery_time = substr((string)$item->delivery_time, 0, 5);
+                $item->save();
+            }
+
+            // 5) Lanjutkan start berikutnya = selesai grup ini
+            $currentStartGlobal = $cursor->copy();
             }
 
             DB::commit();
 
+            $data = ProductionPlan::query()
+                ->where('plan_date', $date)
+                ->where('line', $line)
+                ->orderBy('delivery_date')
+                ->orderBy('delivery_time')
+                ->get();
+
+            $updated = $pairs->count();
             return response()->json([
                 'success' => true,
-                'message' => 'Production sequence updated successfully',
-                'data' => ProductionPlan::where('plan_date', $date)
-                    ->where('line', $line)
-                    ->orderBy('working_start') // Order by working time instead
-                    ->get()
+                'message' => "Delivery times updated & schedule recomputed ($updated items).",
+                'data'    => $data,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update production sequence: ' . $e->getMessage()
+                'message' => 'Failed to update by delivery time: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /** Parse "mm", "mm:ss", atau "hh:mm(:ss)" → detik */
+    private function secondsFromProdTime(string $time): int
+    {
+        $time = trim($time);
+        if ($time === '') return 0;
+
+        $parts = array_map('intval', explode(':', $time));
+
+        if (count($parts) === 3) {        // "HH:MM:SS"
+            return $parts[0]*3600 + $parts[1]*60 + $parts[2];
+        }
+
+        if (count($parts) === 2) {        // "HH:MM"  (umum di DB)
+            return $parts[0]*3600 + $parts[1]*60;
+        }
+
+        // Fallback: angka tunggal dianggap menit
+        if (ctype_digit($time)) {
+            return intval($time) * 60;
+        }
+
+        return 0;
+    }
+
+
+    /** Format detik → H:i:s */
+    private function formatHms(int $seconds): string
+    {
+        $h = intdiv($seconds, 3600);
+        $m = intdiv($seconds % 3600, 60);
+        $s = $seconds % 60;
+        return sprintf('%02d:%02d:%02d', $h, $m, $s);
+    }
+
+    /** Format detik bertanda → "-HH:MM" / "HH:MM" */
+    private function formatHmSigned(int $seconds): string
+    {
+        $sign  = $seconds < 0 ? '-' : '';
+        $abs   = abs($seconds);
+        $hours = intdiv($abs, 3600);
+        $mins  = intdiv($abs % 3600, 60);
+        return sprintf('%s%02d:%02d', $sign, $hours, $mins);
     }
 
     /**
@@ -446,6 +638,8 @@ class PullingController extends Controller
             $loadingList = LoadingList::select('id', 'number', 'customer_id')
                 ->where('number', $data['loadingList'])
                 ->first();
+                
+            // dd( $data['loadingList']);
 
             if (!$loadingList) {
                 return response()->json([

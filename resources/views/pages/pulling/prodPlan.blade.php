@@ -1,52 +1,275 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Pulling Day Shift - 05-Jul-25</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ asset('assets/modules/fontawesome/css/all.min.css') }}">
+
     <style>
+        /* ======================
+           THEME TOKENS (LIGHT)
+           ====================== */
+        :root {
+            --brand-primary: #0d6efd;
+            --brand-accent: #20c997;
+            --brand-warning: #ffc107;
+
+            --ink: #2b2f33;
+            /* teks utama */
+            --muted: #6c757d;
+            /* teks sekunder */
+            --surface: #ffffff;
+            /* kartu */
+            --surface-subtle: #f8f9fa;
+            /* page bg */
+            --border: #e9ecef;
+            /* garis */
+
+            --success-25: rgba(25, 135, 84, .15);
+            --success-75: rgba(25, 135, 84, .75);
+            --warning-25: rgba(255, 193, 7, .2);
+            --warning-75: rgba(255, 193, 7, .75);
+            --danger-10: rgba(220, 53, 69, .08);
+
+            --shadow: 0 2px 8px rgba(16, 24, 40, .08);
+            --radius: 12px;
+
+            --highlight-direct: #e7f7ef;
+            /* blinking highlight */
+            --highlight-stock: #fff6e0;
+            --highlight-base: #ffffff;
+
+            --table-hover: #fafcff;
+            --bar-bg: #eef2f7;
+            --bar-grad-from: #3ddc97;
+            --bar-grad-to: #0d6efd;
+
+            --chip-bg: #eef2ff;
+            --chip-border: #e1e6ff;
+            --chip-ink: #344767;
+        }
+
+        /* ======================
+           THEME TOKENS (DARK)
+           ====================== */
+        html[data-theme="dark"] {
+            --ink: #edf1f5;
+            --muted: #b7c0cc;
+            --surface: #1b1f26;
+            --surface-subtle: #12161b;
+            --border: #2f3742;
+
+            --success-25: rgba(52, 199, 89, .25);
+            --success-75: rgba(52, 199, 89, .70);
+            --warning-25: rgba(255, 189, 46, .25);
+            --warning-75: rgba(255, 189, 46, .80);
+            --danger-10: rgba(240, 68, 56, .22);
+
+            --shadow: 0 2px 10px rgba(0, 0, 0, .45);
+
+            --highlight-direct: #163c2a;
+            --highlight-stock: #3a2f10;
+            --highlight-base: #1b1f26;
+
+            --table-hover: #202733;
+            --bar-bg: #2a3340;
+            --bar-grad-from: #2bb383;
+            --bar-grad-to: #5691ff;
+
+            --chip-bg: #243041;
+            --chip-border: #324055;
+            --chip-ink: #e8edf4;
+        }
+
+        /* ======================
+           BASE
+           ====================== */
+        html,
         body {
-            background-color: #111;
-            color: #fff;
-            font-family: monospace;
+            background: var(--surface-subtle);
+            color: var(--ink);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
         }
 
         h2 {
-            color: #00ff99;
-            text-shadow: 1px 1px 2px black;
+            color: var(--ink);
+            letter-spacing: .2px;
+            line-height: 1.35;
         }
 
-        .table th,
-        .table td {
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .page-head {
+            background: linear-gradient(180deg, var(--surface), var(--surface-subtle));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        /* Tabs */
+        .nav-tabs .nav-link {
+            color: var(--muted);
+            border: 1px solid transparent;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--ink);
+            background: var(--surface);
+            border-color: var(--border) var(--border) var(--surface);
+            box-shadow: var(--shadow);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
+        html[data-theme="dark"] .nav-tabs .nav-link.active {
+            background: #1f2530;
+            border-color: #2d3746 #2d3746 #1f2530;
+            color: #eaf2ff;
+        }
+
+        /* ======================
+           TABLE (base)
+           ====================== */
+        .table {
+            color: var(--ink);
+            border-color: var(--border);
+        }
+
+        .table td,
+        .table th {
             vertical-align: middle;
+            border-color: var(--border);
         }
 
-        .bg-orange {
-            background-color: orange !important;
-            color: black;
+        .table-hover tbody tr:hover {
+            background: var(--table-hover);
         }
 
-        .highlight-rfid {
-            background-color: #ffeeba !important;
-            color: black;
+        html[data-theme="dark"] .table thead th {
+            color: #f5f9ff;
+            background: #1f2530;
         }
 
-        .highlight-889t {
-            background-color: #c3e6cb !important;
-            color: #155724 !important;
+        /* Subtle risk row di dark */
+        html[data-theme="dark"] .table-danger-subtle {
+            background-color: var(--danger-10) !important;
+            color: var(--ink) !important;
         }
 
+        /* ======================
+           STATUS COLORS (DP/SC cells)
+           ====================== */
+        .bg-success.bg-opacity-75 {
+            background: var(--success-75) !important;
+            color: #fff !important;
+        }
+
+        .bg-success.bg-opacity-25 {
+            background: var(--success-25) !important;
+        }
+
+        .bg-warning.bg-opacity-75 {
+            background: var(--warning-75) !important;
+            color: #1a1d21 !important;
+        }
+
+        .bg-warning.bg-opacity-25 {
+            background: var(--warning-25) !important;
+        }
+
+        html[data-theme="dark"] .bg-success.bg-opacity-75 {
+            color: #0f141a !important;
+            background: var(--success-75) !important;
+        }
+
+        html[data-theme="dark"] .bg-warning.bg-opacity-75 {
+            color: #111 !important;
+            background: var(--warning-75) !important;
+        }
+
+        html[data-theme="dark"] .bg-success.bg-opacity-25 {
+            color: var(--ink) !important;
+            background: var(--success-25) !important;
+        }
+
+        html[data-theme="dark"] .bg-warning.bg-opacity-25 {
+            color: var(--ink) !important;
+            background: var(--warning-25) !important;
+        }
+
+        /* ======================
+           MINI PROGRESS
+           ====================== */
+        .qty-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .qty-progress .bar {
+            position: relative;
+            flex: 1 1 auto;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--bar-bg);
+            overflow: hidden;
+        }
+
+        .qty-progress .bar>i {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bar-grad-from), var(--bar-grad-to));
+            transition: width .3s ease;
+        }
+
+        .qty-progress .val {
+            font-weight: 700;
+            font-size: .9rem;
+            min-width: 56px;
+            text-align: right;
+        }
+
+        html[data-theme="dark"] .qty-progress .bar {
+            background: var(--bar-bg);
+        }
+
+        html[data-theme="dark"] .qty-progress .bar>i {
+            filter: saturate(115%);
+        }
+
+        html[data-theme="dark"] .total-progress .val {
+            color: #eaf2ff;
+        }
+
+        /* ======================
+           HIGHLIGHT + ANIMATIONS
+           ====================== */
         .flip {
             display: inline-block;
-            transition: all 0.3s ease;
+            transition: all .3s ease;
             transform-style: preserve-3d;
             transform-origin: bottom center;
         }
 
         .animate-flip {
-            animation: flipAnimation 0.6s ease;
+            animation: flipAnimation .6s ease;
         }
 
         @keyframes flipAnimation {
@@ -70,7 +293,6 @@
             }
         }
 
-        /* Continuous blinking highlight styles */
         @keyframes continuousBlink {
 
             0%,
@@ -80,267 +302,543 @@
 
             50% {
                 background-color: var(--base-bg);
-                /* bukan transparent */
             }
         }
 
         .highlight-beep-direct {
-            --highlight-color: #12341E;
-            /* hijau tua */
-            --base-bg: #1E2024;
-            /* abu gelap dari background kamu */
+            --highlight-color: var(--highlight-direct);
+            --base-bg: var(--highlight-base);
             animation: continuousBlink 1s ease-in-out infinite;
         }
 
         .highlight-beep-stock {
-            --highlight-color: #4D3A0A;
-            /* coklat tua */
-            --base-bg: #1E2024;
+            --highlight-color: var(--highlight-stock);
+            --base-bg: var(--highlight-base);
             animation: continuousBlink 1s ease-in-out infinite;
         }
 
-
-        /* Make sure table cells inherit the highlight */
         .highlight-beep-direct td,
         .highlight-beep-stock td {
             background-color: inherit !important;
         }
 
-        /* Status indicator styles */
+        /* ======================
+           MISC
+           ====================== */
         #sse-connection-status {
             position: fixed;
             bottom: 20px;
             left: 20px;
             padding: 8px 12px;
-            border-radius: 4px;
+            border-radius: 999px;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--ink);
             z-index: 9999;
-            transition: all 0.3s ease;
         }
 
-        /* Table cell styles for quantities */
-        .bg-success.bg-opacity-75 {
-            background-color: rgba(40, 167, 69, 0.75) !important;
+        html[data-theme="dark"] #sse-connection-status {
+            background: #1f2530;
+            border-color: #2e3a49;
+            color: #dfe8f5;
         }
 
-        .bg-success.bg-opacity-25 {
-            background-color: rgba(40, 167, 69, 0.25) !important;
+        .badge-soft {
+            background: var(--chip-bg);
+            color: var(--chip-ink);
+            border: 1px solid var(--chip-border);
+            font-weight: 600;
         }
 
-        .bg-warning.bg-opacity-75 {
-            background-color: rgba(255, 193, 7, 0.75) !important;
+        .strip-stat .title {
+            font-size: .75rem;
+            letter-spacing: .5px;
+            color: var(--muted);
+            text-transform: uppercase;
         }
 
-        .bg-warning.bg-opacity-25 {
-            background-color: rgba(255, 193, 7, 0.25) !important;
+        .strip-stat .value {
+            font-size: 1.4rem;
+            font-weight: 800;
         }
 
-        /* Tab styles */
-        .nav-tabs .nav-link {
-            color: #ccc;
-            background-color: #333;
-            border-color: #444;
-        }
-
-        .nav-tabs .nav-link.active {
-            color: #222;
-            background-color: white;
-            border-color: #222;
-        }
-
-        /* Card styles */
-        .card {
-            background-color: #222;
-            border-color: #333;
-        }
-
-        .card-header {
-            border-bottom-color: #333;
-        }
-
-        .column-toggle-panel .panel-title {
-            font-size: 14px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid #555;
-            color: #ffcc00;
-        }
-
-        .toggle-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 8px;
-        }
-
-        .toggle-grid label {
-            display: flex;
-            align-items: center;
-            padding: 6px 10px;
-            background-color: #2a2d33;
-            border: 1px solid #555;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-
-        .toggle-grid label:hover {
-            background-color: #33373f;
-        }
-
-        .toggle-grid input[type="checkbox"] {
-            accent-color: #ffcc00;
-            /* warna toggle */
-            margin-right: 8px;
-            transform: scale(1.2);
-        }
-
-        .column-toggle-panel {
-            background-color: #212529;
-            border: 1px solid #444;
+        .strip-stat .chip {
+            font-size: .7rem;
             border-radius: 2px;
-            color: #f1f1f1;
-            font-family: 'Consolas', 'Courier New', monospace;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+            padding: .2rem .5rem;
         }
 
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            padding-bottom: 5px;
-            border-bottom: 2px solid #555;
-            color: #ffcc00;
-            font-weight: bold;
-            letter-spacing: 2px;
+        html[data-theme="dark"] .btn-outline-secondary {
+            color: #dbe6f2;
+            border-color: #3b4656;
         }
 
-        .toggle-icon {
-            font-size: 14px;
-            transition: transform 0.3s ease;
+        html[data-theme="dark"] .btn-outline-secondary:hover {
+            background: #2a3340;
+            border-color: #4b586c;
         }
 
-        .toggle-grid-wrapper {
-            overflow: hidden;
-            max-height: 500px;
-            transition: max-height 0.3s ease;
+        html[data-theme="dark"] .btn-outline-primary {
+            color: #a3c4ff;
+            border-color: #3a68d8;
         }
 
-        .toggle-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-            /* kolom lebih rapat */
-            gap: 8px;
-            padding-top: 10px;
-            font-size: 12px;
-            /* ukuran teks lebih kecil */
+        html[data-theme="dark"] .btn-outline-primary:hover {
+            background: #20335a;
+            border-color: #4c7bf0;
         }
 
-        .toggle-grid label {
-            display: flex;
-            align-items: center;
-            padding: 4px 6px;
-            background-color: #2a2d33;
-            border: 1px solid #555;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
+        html[data-theme="dark"] .input-group-text {
+            background: #242b36;
+            color: var(--muted);
+            border-color: var(--border);
         }
 
-        .toggle-grid label:hover {
-            background-color: #33373f;
+        html[data-theme="dark"] .form-control {
+            color: var(--ink);
+            background: #1b2230;
+            border-color: var(--border);
         }
 
-        .toggle-grid input[type="checkbox"] {
-            accent-color: #ffcc00;
-            margin-right: 8px;
-            transform: scale(1);
-            /* normal size, tidak dibesarkan */
+        html[data-theme="dark"] .form-control::placeholder {
+            color: #8b96a6;
         }
 
-        /* Saat minimize */
-        .column-toggle-panel.minimized .toggle-grid-wrapper {
-            max-height: 0;
-            padding-top: 0;
+        html[data-theme="dark"] .dropdown-menu {
+            background: #1b2330;
+            border-color: #2d3847;
+            color: var(--ink);
         }
 
-        .column-toggle-panel.minimized .toggle-icon {
-            transform: rotate(-90deg);
+        html[data-theme="dark"] .dropdown-item {
+            color: var(--ink);
+        }
+
+        html[data-theme="dark"] .dropdown-item:hover {
+            background: #242e3f;
+        }
+
+        html[data-theme="dark"] .tooltip .tooltip-inner {
+            background: #0f1722;
+            color: #e9f0f8;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, .5);
+        }
+
+        html[data-theme="dark"] .tooltip .tooltip-arrow::before {
+            border-top-color: #0f1722 !important;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border) !important;
+        }
+
+        /* ======================
+           RESPONSIVE (stacked table)
+           ====================== */
+        @media (max-width: 992px) {
+            .table thead {
+                display: none;
+            }
+
+            .table tbody tr {
+                display: block;
+                margin-bottom: 12px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .table tbody td {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 10px 12px;
+                border-bottom: 1px dashed var(--border);
+            }
+
+            .table tbody td:last-child {
+                border-bottom: none;
+            }
+
+            .table tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--muted);
+            }
+
+            html[data-theme="dark"] .table tbody td::before {
+                color: #aeb9c8;
+            }
+        }
+
+        /* ======================
+           STICKY THEAD 2-BARIS – SEAMLESS (letakkan terakhir)
+           ====================== */
+        /* hilangkan bayangan/garis ganda */
+        .table thead th {
+            box-shadow: none !important;
+        }
+
+        /* semua th sticky */
+        .table>thead>tr>th {
+            position: sticky;
+            background: var(--surface);
+            z-index: 2;
+        }
+
+        html[data-theme="dark"] .table>thead>tr>th {
+            background: #1f2530;
+        }
+
+        /* Baris 1: tanpa border-bottom, garis dibuat via ::after untuk nutup subpixel gap */
+        .table>thead>tr:first-child>th {
+            top: 0;
+            z-index: 5;
+            border-bottom: 0 !important;
+        }
+
+        .table>thead>tr:first-child>th::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 1px;
+            background: var(--border);
+            pointer-events: none;
+        }
+
+        /* Baris 2: menempel tepat di bawah baris 1 (offset dari JS: --thead-row1) */
+        .table>thead>tr:nth-child(2)>th {
+            top: var(--thead-row1, 40px) !important;
+            z-index: 4;
+            border-top: 0 !important;
+            box-shadow: none !important;
+        }
+
+        /* rapatkan sel */
+        .table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        /* ==== Fix: Total value visibility ==== */
+        .card .strip-stat .value {
+            color: var(--ink) !important;
+            /* terang di light mode */
+            opacity: 1;
+            /* pastikan tidak ikut opacity parent */
+        }
+
+        /* di dark mode, paksa warna terang */
+        html[data-theme="dark"] .card .strip-stat .value {
+            color: #eaf2ff !important;
+            /* atau pakai var(--ink), tapi ini ekstra terang */
+        }
+
+        /* kalau mau angka Total sedikit lebih menonjol */
+        html[data-theme="dark"] .card .strip-stat .value,
+        .card .strip-stat .value {
+            text-shadow: 0 0 0 rgba(0, 0, 0, 0);
+            /* matikan efek blend/anti-alias hairline */
+        }
+
+        .card {
+            border-radius: var(--radius);
+        }
+
+        /* already used by your theme */
+        .radius-4 {
+            --radius: 4px;
+        }
+
+        .radius-6 {
+            --radius: 6px;
+        }
+
+        .radius-8 {
+            --radius: 8px;
+        }
+
+        html[data-theme="dark"] .bg-light {
+            background-color: #262d38 !important;
+            /* gelap lembut */
+            color: #d7dee9 !important;
+        }
+
+        html[data-theme="dark"] .text-secondary {
+            color: #b7c0cc !important;
+        }
+
+        /* 2) Progress number selalu terlihat */
+        .total-progress .val {
+            color: inherit;
+            opacity: 1;
+        }
+
+        html[data-theme="dark"] .total-progress .val {
+            color: #eaf2ff !important;
+            /* kontras di latar gelap */
+            font-weight: 800;
+        }
+
+        /* 3) (opsional, tapi bikin konsisten) latar sel tabel di dark mode */
+        html[data-theme="dark"] .table> :not(caption)>*>* {
+            background-color: #1f2530 !important;
+            color: #e9f0f8 !important;
+            border-color: var(--border) !important;
+        }
+
+        html[data-theme="dark"] .table-hover tbody tr:hover>* {
+            background-color: #202a3a !important;
+        }
+
+        /* ==== Restore borders for .table-bordered (keep sticky header seam) ==== */
+
+        /* Warna garis default (light & dark) */
+        .table.table-bordered {
+            border-color: var(--border) !important;
+        }
+
+        /* Semua sel: ada right & bottom border (left/top diatur terpisah) */
+        .table.table-bordered> :not(caption)>*>* {
+            border-style: solid !important;
+            border-color: var(--border) !important;
+            border-width: 0 1px 1px 0 !important;
+            /* top 0, right 1, bottom 1, left 0 */
+        }
+
+        /* Sel pertama di setiap baris: tampilkan left border */
+        .table.table-bordered>thead>tr>th:first-child,
+        .table.table-bordered>tbody>tr>td:first-child,
+        .table.table-bordered>tfoot>tr>*:first-child {
+            border-left-width: 1px !important;
+        }
+
+        /* Header: pastikan ada border-bottom (sekaligus anti-gap dari sticky) */
+        .table>thead>tr>th {
+            border-bottom: 1px solid var(--border) !important;
+        }
+
+        .table>thead>tr:first-child>th {
+            top: 0;
+            z-index: 5;
+        }
+
+        .table>thead>tr:nth-child(2)>th {
+            top: calc(var(--thead-row1, 40px) - 1px) !important;
+            /* overlap 1px */
+            z-index: 4;
+            border-top: 0 !important;
+            /* hindari double line dengan baris-1 */
+        }
+
+        /* (opsional) garis sedikit lebih tegas di dark */
+        html[data-theme="dark"] .table.table-bordered> :not(caption)>*>* {
+            border-color: #3a4452 !important;
+        }
+
+        html[data-theme="dark"] .table>thead>tr>th {
+            border-bottom-color: #3a4452 !important;
+        }
+
+        /* =========================
+   Responsive scale: Laptop → TV
+   ========================= */
+
+        /* lebar container & padding sisi mengikuti layar */
+        :root {
+            --page-side-pad: clamp(16px, 2vw, 32px);
+            --table-top-offset: 260px;
+            /* sesuaikan jika header kamu lebih tinggi/rendah */
+        }
+
+        /* paksa container lebih lebar tapi tetap ada margin aman */
+        .container {
+            max-width: min(96vw, 1920px);
+            /* 96% layar, cap di ~1920px */
+            padding-left: var(--page-side-pad);
+            padding-right: var(--page-side-pad);
+        }
+
+        /* skala font global: 16px di laptop → ±28px di TV lebar */
+        html {
+            font-size: clamp(16px, 1.2vw, 28px);
+        }
+
+        /* judul halaman mengikuti lebar layar */
+        h2 {
+            font-size: clamp(1.75rem, 2.4vw, 3rem);
+        }
+
+        /* tabs & tombol lebih besar tapi proporsional */
+        .nav-tabs .nav-link {
+            font-size: clamp(0.95rem, 1.2vw, 1.3rem);
+            padding: clamp(.6rem, .9vw, 1rem) clamp(.8rem, 1.2vw, 1.25rem);
+        }
+
+        .btn {
+            font-size: clamp(.55rem, 1vw, 1.2rem);
+            padding: clamp(.55rem, .8vw, .8rem) clamp(.9rem, 1.3vw, 1.2rem);
+        }
+
+        /* tabel: header & sel membesar responsif */
+        .table thead th {
+            font-size: clamp(1rem, 1.2vw, 1.35rem);
+            padding: clamp(.7rem, .9vw, 1.05rem) clamp(.6rem, .9vw, .9rem);
+        }
+
+        .table tbody td {
+            font-size: clamp(.95rem, 1.1vw, 1.25rem);
+            padding: clamp(.65rem, .9vw, 1rem) clamp(.6rem, .9vw, .9rem);
+        }
+
+        /* progress bar & angka */
+        .qty-progress .val {
+            font-size: clamp(.95rem, 1.1vw, 1.25rem);
+        }
+
+        .qty-progress .bar {
+            height: clamp(8px, .8vw, 16px);
+        }
+
+        /* angka ringkasan di kartu */
+        .strip-stat .title {
+            font-size: clamp(.75rem, .9vw, 1.1rem);
+        }
+
+        .strip-stat .value {
+            font-size: clamp(1.1rem, 2.1vw, 3.2rem);
+        }
+
+        /* area scroll tabel menyesuaikan tinggi layar (biar pas di TV) */
+        .table-responsive {
+            max-height: calc(100vh - var(--table-top-offset)) !important;
+        }
+
+        /* kalau layarnya lebih tinggi, kurangi offset supaya tabel makin tinggi */
+        @media (min-height: 900px) {
+            :root {
+                --table-top-offset: 240px;
+            }
+        }
+
+        @media (min-height: 1080px) {
+            :root {
+                --table-top-offset: 220px;
+            }
+        }
+
+        /* ultra-wide: sedikit lebih melebar lagi */
+        @media (min-width: 2200px) {
+            .container {
+                max-width: 95vw;
+            }
+        }
+
+        /* =======================================
+   Light Mode Table Header — Soft Slate
+   ======================================= */
+        html[data-theme="light"] {
+            --thead-bg: #EEF2F7;
+            /* latar header */
+            --thead-ink: #273446;
+            /* teks header (slate gelap) */
+            --thead-border: #D6DEE9;
+            /* garis header */
+        }
+
+        html[data-theme="light"] .table>thead>tr>th {
+            background: var(--thead-bg) !important;
+            color: var(--thead-ink) !important;
+            border-bottom: 1px solid var(--thead-border) !important;
+            box-shadow: none !important;
+        }
+
+        /* Sticky 2-baris tetap rapat (overlap 1px) */
+        html[data-theme="light"] .table>thead>tr:first-child>th {
+            top: 0;
+            z-index: 5;
+        }
+
+        html[data-theme="light"] .table>thead>tr:nth-child(2)>th {
+            top: calc(var(--thead-row1, 40px) - 1px) !important;
+            z-index: 4;
+            border-top: 0 !important;
+        }
+
+        /* Biar .table-bordered pakai warna garis header yang sama */
+        html[data-theme="light"] .table.table-bordered>thead>tr>th {
+            border-color: var(--thead-border) !important;
         }
     </style>
+
 </head>
 
 <body>
     <div class="container py-4">
-        {{-- <div class="mb-3">
-            <a href="javascript:history.back()" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-2"></i> Back
-            </a>
-        </div> --}}
 
-        <div class="card mb-4 border-dark bg-light">
-            <div class="card-header bg-dark text-white py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-calendar-date me-2"></i>
-                        <strong>PRODUCTION DATE SELECTOR</strong>
-                    </div>
-                    <div class="badge bg-warning text-dark">
+        <!-- Header / Filters -->
+        {{-- <div class="page-head p-3 mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fas fa-industry text-primary"></i>
+                    <strong class="h5 m-0">Production Date</strong>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge text-bg-light border">
                         {{ Carbon\Carbon::parse($selectedDate ?? now())->format('D, M j Y') }}
-                    </div>
+                    </span>
+
+                    <!-- Theme toggle -->
+                   
                 </div>
             </div>
-            <div class="card-body p-2 bg-secondary bg-opacity-10">
-                <form method="GET" action="{{ route('dashboard.prodPlan') }}" class="row g-2 align-items-center">
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <span class="input-group-text bg-dark text-white">
-                                <i class="bi bi-calendar3"></i>
-                            </span>
-                            <input type="date" class="form-control border-dark bg-light" name="date"
-                                value="{{ $selectedDate ?? now()->format('Y-m-d') }}" style="font-weight: bold;"
-                                max="{{ now()->format('Y-m-d') }}">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="btn-group" role="group">
-                            <button type="submit" class="btn btn-dark">
-                                <i class="bi bi-funnel-fill me-1"></i> FILTER
-                            </button>
-                            @if (request()->has('date'))
-                                <button type="submit" class="btn btn-outline-dark">
-                                    <a href="{{ route('dashboard.prodPlan') }}"
-                                        style="color: black; text-decoration:none">
-                                        <i class="bi bi-arrow-counterclockwise me-1"></i> RESET
-                                    </a>
-                                </button>
-                            @endif
-                            <button type="button" class="btn btn-outline-dark" onclick="navigateDate(-1)">
-                                <i class="fas fa-arrow-left"></i>
-                            </button>
-                            @php
-                                $selected = $selectedDate ?? now()->format('Y-m-d');
-                                $isToday = $selected === now()->format('Y-m-d');
-                            @endphp
 
-                            <button type="button" class="btn btn-outline-dark {{ $isToday ? 'disabled' : '' }}"
-                                onclick="navigateDate(1)" {{ $isToday ? 'disabled' : '' }}>
-                                <i class="fas fa-arrow-right"></i>
-                            </button>
-                            <!-- Add the Re-fetch Data button -->
-                            <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
-                                <i class="fas fa-sync-alt me-1"></i> RE-FETCH
-                            </button>
-                        </div>
+            <form method="GET" action="{{ route('dashboard.prodPlan') }}" class="row g-2 align-items-center mt-2">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border">
+                            <i class="far fa-calendar"></i>
+                        </span>
+                        <input type="date" class="form-control border" name="date"
+                            value="{{ $selectedDate ?? now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}"
+                            style="font-weight:600">
                     </div>
-                </form>
-            </div>
-        </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="btn-group" role="group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-funnel-fill me-1"></i> Filter
+                        </button>
+                        @if (request()->has('date'))
+                            <a href="{{ route('dashboard.prodPlan') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                            </a>
+                        @endif
+                        <button type="button" class="btn btn-outline-secondary" onclick="navigateDate(-1)">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        @php
+                            $selected = $selectedDate ?? now()->format('Y-m-d');
+                            $isToday = $selected === now()->format('Y-m-d');
+                        @endphp
+                        <button type="button" class="btn btn-outline-secondary {{ $isToday ? 'disabled' : '' }}"
+                            onclick="navigateDate(1)" {{ $isToday ? 'disabled' : '' }}>
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="gotoToday()">Today</button>
+                        <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
+                            <i class="fas fa-sync-alt me-1"></i> Re-fetch
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div> --}}
 
-        <!-- Add message display area -->
         @if (isset($message))
             <div class="alert alert-{{ $messageType ?? 'info' }} alert-dismissible fade show mb-3" role="alert">
                 {{ $message }}
@@ -349,33 +847,41 @@
         @endif
 
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="text-uppercase fw-bold" style="letter-spacing: 1px;">
-                PRODUCTION PULLING PLAN - {{ Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y') }}
+            <h2 class="fw-bold m-0">Production Pulling Plan –
+                {{ Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y') }}
             </h2>
-            <div>
-                <span class="badge bg-secondary me-2">
-                    Last Update: {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-soft">
+                    <i class="far fa-clock me-1"></i> Last Update:
+                    {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
                 </span>
-                <a class="btn btn-outline-warning" href="/pulling/settings">
-                    <i class="fas fa-cog me-1"></i> SETTINGS
+                <a class="btn btn-outline-primary" href="/pulling/settings">
+                    <i class="fas fa-cog me-1"></i> Settings
+                </a>
+                <a type="button" id="themeToggle" class="btn btn-outline-secondary theme-toggle">
+                    <i class="far fa-moon me-1"></i><span>Dark</span>
                 </a>
             </div>
         </div>
 
-        <!-- Tab Navigation -->
-        <ul class="nav nav-tabs mb-4" id="lineTabs" role="tablist">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" id="lineTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="line3-tab" data-bs-toggle="tab" data-bs-target="#line3"
-                    type="button" role="tab">AS003</button>
+                    type="button" role="tab">
+                    AS003
+                </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="line4-tab" data-bs-toggle="tab" data-bs-target="#line4" type="button"
-                    role="tab">AS004</button>
+                    role="tab">
+                    AS004
+                </button>
             </li>
         </ul>
 
         <div class="tab-content" id="lineTabsContent">
-            <!-- AS003 Tab -->
+            <!-- ================== AS003 ================== -->
             <div class="tab-pane fade show active" id="line3" role="tabpanel" aria-labelledby="line3-tab">
                 <div data-toggle-table="AS003">
                     @php
@@ -383,7 +889,6 @@
                         $as003NightQty = $grouped['AS003']['night_shift_qty'] ?? 0;
                         $as003TotalQty = $grouped['AS003']['total_qty'] ?? 0;
 
-                        // Morning shift status
                         $as003MorningStatus = 'Normal Shift';
                         if ($as003MorningQty > 900) {
                             $as003MorningStatus = 'Advance to LS1';
@@ -391,250 +896,235 @@
                             $as003MorningStatus = 'Advance to NS';
                         }
 
-                        // Night shift status
                         $as003NightStatus = 'Normal Shift';
                         if ($as003NightQty > 630) {
                             $as003NightStatus = 'Advance to LS3';
                         }
                     @endphp
-                    <div class="alert alert-dark p-2 mb-4"
-                        style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <!-- Shift Data - Industrial Style -->
-                            <div class="d-flex gap-3 align-items-end">
-                                <!-- Morning Shift -->
-                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">MORNING
-                                        SHIFT ORDER
-                                    </div>
-                                    <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold"
-                                            style="color: #ff6b00;">{{ $as003MorningQty }}</span>
-                                        @if ($as003MorningStatus != 'Normal Shift')
-                                            <span class="badge rounded-0"
-                                                style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                                {{ $as003MorningStatus }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </div>
 
-                                <!-- Night Shift -->
-                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">NIGHT
-                                        SHIFT ORDER
-                                    </div>
-                                    <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold"
-                                            style="color: #00b4ff;">{{ $as003NightQty }}</span>
-                                        @if ($as003NightStatus != 'Normal Shift')
-                                            <span class="badge rounded-0"
-                                                style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                                {{ $as003NightStatus }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </div>
-
-                                <!-- Total -->
-                                <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
-                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">TOTAL
-                                    </div>
-                                    <div class="fs-4 fw-bold" style="color: #fff;">{{ $as003TotalQty }}</div>
-                                </div>
-                            </div>
-
-                            <!-- Status Indicator (if any) -->
-                            @if ($as003MorningStatus != 'Normal Shift' || $as003NightStatus != 'Normal Shift')
-                                <div class="d-flex gap-2">
+                    <div class="card mb-3 radius-4">
+                        <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                            <div class="strip-stat">
+                                <div class="title">Morning Shift Order</div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <div class="value text-primary">{{ $as003MorningQty }}</div>
                                     @if ($as003MorningStatus != 'Normal Shift')
-                                        <div class="d-flex flex-column align-items-center">
-                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">
-                                                MORNING
-                                            </div>
-                                            <span class="badge rounded-0 mt-1"
-                                                style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                                {{ $as003MorningStatus }}
-                                            </span>
-                                        </div>
-                                    @endif
-                                    @if ($as003NightStatus != 'Normal Shift')
-                                        <div class="d-flex flex-column align-items-center">
-                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">NIGHT
-                                            </div>
-                                            <span class="badge rounded-0 mt-1"
-                                                style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                                {{ $as003NightStatus }}
-                                            </span>
-                                        </div>
+                                        <span
+                                            class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as003MorningStatus }}</span>
                                     @endif
                                 </div>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="column-toggle-panel p-3 minimized">
-                        <div class="panel-header pb-3" onclick="togglePanel(this)">
-                            <i class="fas fa-table-columns"></i>
-                            <i class="toggle-icon fas fa-chevron-down" style="margin-left: auto;"></i>
-                        </div>
-                        <div class="toggle-grid-wrapper">
-                            <div class="toggle-grid">
-                                <label><input type="checkbox" class="toggle-col" data-col="0" checked>
-                                    Customer</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="1" checked> Dock</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="2" checked>
-                                    Cycle</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="3" checked> Back
-                                    No</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="4" checked>
-                                    Order</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="5" checked> Direct
-                                    Pulling</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="6" checked> Stock
-                                    Chute</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="7" checked> Cycle
-                                    Time</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="8" checked>
-                                    Planning Start</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="9" checked>
-                                    Actual Start</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="10" checked>
-                                    Duration</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="11" checked>
-                                    Target</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="12" checked> Delivery
-                                    Time</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Delivery
-                                    Date</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="14" checked> Balance
-                                    Time</label>
+                            </div>
+                            <div class="strip-stat">
+                                <div class="title">Night Shift Order</div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <div class="value text-success">{{ $as003NightQty }}</div>
+                                    @if ($as003NightStatus != 'Normal Shift')
+                                        <span
+                                            class="chip bg-danger-subtle border text-dark fw-bolder">{{ $as003NightStatus }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="ms-auto strip-stat">
+                                <div class="title">Total</div>
+                                <div class="value">{{ $as003TotalQty }}</div>
                             </div>
                         </div>
                     </div>
-                    <div style="max-height: 800px; overflow-y: auto;">
-                        <table class="table table-bordered table-hover text-center align-middle table-dark">
-                            <thead
-                                style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
-                                <tr>
-                                    <th rowspan="2">Customer</th>
-                                    <th rowspan="2">Dock</th>
-                                    <th rowspan="2">Cycle</th>
-                                    <th rowspan="2">Back No</th>
-                                    <th rowspan="2">Order</th>
-                                    <th colspan="2">Running Qty</th>
-                                    <th rowspan="2">Cycle Time</th>
-                                    <th colspan="4">Working Time</th>
-                                    <th rowspan="2">Delivery Time</th>
-                                    <th rowspan="2">Delivery Date</th>
-                                    <th rowspan="2">Balance Time</th>
-                                </tr>
-                                <tr>
-                                    <th>Direct Pulling</th>
-                                    <th>Stock Chute</th>
-                                    <th>Planning Start</th>
-                                    <th>Actual Start</th>
-                                    <th>Duration</th>
-                                    <th>Target</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($grouped['AS003']['data'] ?? [] as $key => $rows)
-                                    @php
-                                        [$customer, $delivery] = explode('|', $key);
-                                        $rowspan = $rows->count();
-                                        $dock = $rows->first()->dock ?? '--';
-                                    @endphp
-                                    @foreach ($rows as $index => $item)
-                                        @php
-                                            $timeParts = explode(':', $item->balance_time ?? '00:00');
-                                            $hours = (int) $timeParts[0];
 
-                                            if (!function_exists('getQtyClass')) {
-                                                function getQtyClass($qty, $orderQty)
-                                                {
-                                                    if ($qty >= $orderQty) {
-                                                        return 'bg-success bg-opacity-75 fw-bold text-white';
-                                                    } elseif ($qty > 0) {
-                                                        return 'bg-warning bg-opacity-75 fw-bold text-dark';
-                                                    } else {
-                                                        return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                    <!-- Toolbar: Presets & Columns -->
+                    <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+                        <!-- Presets -->
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                data-bs-toggle="dropdown">
+                                Presets
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#"
+                                        onclick="applyPreset('AS003','default');return false;">Default</a></li>
+                                <li><a class="dropdown-item" href="#"
+                                        onclick="applyPreset('AS003','risk');return false;">Risk first</a></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a class="dropdown-item" href="#"
+                                        onclick="saveCurrentView('AS003');return false;">Save current view</a></li>
+                            </ul>
+                        </div>
+                        <!-- Columns -->
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                Columns
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width: 160px"
+                                data-colpicker="AS003">
+                                @foreach (['Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute', 'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date', 'Balance Time'] as $i => $label)
+                                    <li class="form-check form-check-sm d-flex align-items-center gap-2 mb-1">
+                                        <input class="form-check-input column-check" type="checkbox"
+                                            data-col="{{ $i }}" id="col_AS003_{{ $i }}">
+                                        <label class="form-check-label small"
+                                            for="col_AS003_{{ $i }}">{{ $label }}</label>
+                                    </li>
+                                @endforeach
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a class="dropdown-item small" href="#"
+                                        onclick="resetColumns('AS003');return false;">Reset columns</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="card">
+                        <div class="table-responsive" style="max-height:800px;">
+                            <table class="table table-hover table-bordered align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">Customer</th>
+                                        <th rowspan="2">Dock</th>
+                                        <th rowspan="2">Cycle</th>
+                                        <th rowspan="2">Back No</th>
+                                        <th rowspan="2">Order</th>
+                                        <th colspan="2">Running Qty</th>
+                                        <th rowspan="2">Cycle Time</th>
+                                        <th colspan="4">Working Time</th>
+                                        <th rowspan="2">Delivery Time</th>
+                                        <th rowspan="2">Delivery Date</th>
+                                        <th rowspan="2">Balance Time</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Direct Pulling</th>
+                                        <th>Stock Chute</th>
+                                        <th>Planning Start</th>
+                                        <th>Actual Start</th>
+                                        <th>Duration</th>
+                                        <th>Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($grouped['AS003']['data'] ?? [] as $key => $rows)
+                                        @php
+                                            [$customer, $delivery] = explode('|', $key);
+                                            $rowspan = $rows->count();
+                                            $dock = $rows->first()->dock ?? '--';
+                                        @endphp
+                                        @foreach ($rows as $index => $item)
+                                            @php
+                                                $timeParts = explode(':', $item->balance_time ?? '00:00');
+                                                $hours = (int) $timeParts[0];
+
+                                                if (!function_exists('getQtyClass')) {
+                                                    function getQtyClass($qty, $orderQty)
+                                                    {
+                                                        if ($qty >= $orderQty) {
+                                                            return 'bg-success bg-opacity-75 fw-bold text-white';
+                                                        } elseif ($qty > 0) {
+                                                            return 'bg-warning bg-opacity-75 fw-bold';
+                                                        }
+                                                        return 'bg-light fw-semibold text-secondary';
                                                     }
                                                 }
-                                            }
-                                        @endphp
+
+                                                $dp = (int) ($item->direct_pulling_qty ?: 0);
+                                                $sc = (int) ($item->stock_chute_qty ?: 0);
+                                                $ord = max(1, (int) $item->order_qty);
+                                                $pct = min(100, round((($dp + $sc) / $ord) * 100));
+                                            @endphp
+                                            <tr>
+                                                @if ($index === 0)
+                                                    <td rowspan="{{ $rowspan }}" data-label="Customer"><span
+                                                            class="flip">{{ $customer }}</span></td>
+                                                    <td rowspan="{{ $rowspan }}" data-label="Dock"><span
+                                                            class="flip">{{ $dock }}</span></td>
+                                                @endif
+                                                <td data-label="Cycle"><span
+                                                        class="flip">{{ $item->cycle }}</span></td>
+                                                <td data-label="Back No"><span
+                                                        class="flip">{{ $item->back_no }}</span></td>
+                                                <td data-label="Order"><span
+                                                        class="flip">{{ $item->order_qty }}</span></td>
+
+                                                <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}"
+                                                    data-label="Direct Pulling">
+                                                    <div class="qty-progress"
+                                                        title="DP {{ $dp }} / {{ $ord }}">
+                                                        <div class="bar"><i
+                                                                style="width: {{ min(100, round(($dp / $ord) * 100)) }}%"></i>
+                                                        </div>
+                                                        <span class="val">
+                                                            <span class="flip" data-type="direct-pulling"
+                                                                data-item-id="{{ $item->id }}">{{ $dp }}</span>
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}"
+                                                    data-label="Stock Chute">
+                                                    <div class="qty-progress"
+                                                        title="SC {{ $sc }} / {{ $ord }}">
+                                                        <div class="bar"><i
+                                                                style="width: {{ min(100, round(($sc / $ord) * 100)) }}%"></i>
+                                                        </div>
+                                                        <span class="val">
+                                                            <span class="flip" data-type="stock-chute"
+                                                                data-item-id="{{ $item->id }}">{{ $sc }}</span>
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                <td data-label="Cycle Time"><span
+                                                        class="flip">{{ $item->prod_time }}</span></td>
+                                                <td data-label="Planning Start"><span data-type="start"
+                                                        data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}</span>
+                                                </td>
+                                                <td data-label="Actual Start"><span data-type="actual_start"
+                                                        data-item-id="{{ $item->id }}">{{ $item->actual_working_start ?? '--' }}</span>
+                                                </td>
+                                                <td data-label="Duration"><span
+                                                        class="flip text-warning">{{ $item->working_duration ?? '--' }}</span>
+                                                </td>
+
+                                                <!-- Progress total -->
+                                                <td data-label="Progress" class="total-progress">
+                                                    <div class="qty-progress"
+                                                        title="DP+SC {{ $dp + $sc }} / {{ $ord }} ({{ $pct }}%)">
+                                                        <div class="bar"><i
+                                                                style="width: {{ $pct }}%"></i></div>
+                                                        <span class="val">{{ $pct }}%</span>
+                                                    </div>
+                                                </td>
+
+                                                @if ($index === 0)
+                                                    <td rowspan="{{ $rowspan }}" data-label="Delivery Time">
+                                                        <span class="flip">{{ $delivery }}</span>
+                                                    </td>
+                                                    <td rowspan="{{ $rowspan }}" data-label="Delivery Date">
+                                                        <span
+                                                            class="flip">{{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}</span>
+                                                    </td>
+                                                    <td rowspan="{{ $rowspan }}" data-label="Balance Time"
+                                                        class="{{ $item->balance_time && $hours < 3 ? 'table-danger-subtle' : '' }}">
+                                                        <span data-type="balance"
+                                                            data-item-id="{{ $item->id }}">{{ $item->balance_time ?? '--' }}</span>
+                                                    </td>
+                                                @endif
+                                            </tr>
+                                        @endforeach
+                                    @empty
                                         <tr>
-                                            @if ($index === 0)
-                                                <td rowspan="{{ $rowspan }}"><span
-                                                        class="flip">{{ $customer }}</span></td>
-                                                <td rowspan="{{ $rowspan }}"><span
-                                                        class="flip">{{ $dock }}</span></td>
-                                            @endif
-                                            <td><span class="flip">{{ $item->cycle }}</span></td>
-                                            <td><span class="flip">{{ $item->back_no }}</span></td>
-                                            <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                            <td
-                                                class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
-                                                <span class="flip" data-type="direct-pulling"
-                                                    data-item-id="{{ $item->id }}">
-                                                    {{ $item->direct_pulling_qty ?: '0' }}
-                                                </span>
-                                            </td>
-                                            <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
-                                                <span class="flip" data-type="stock-chute"
-                                                    data-item-id="{{ $item->id }}">
-                                                    {{ $item->stock_chute_qty ?: '0' }}
-                                                </span>
-                                            </td>
-                                            <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                            <td>
-                                                <span data-type="start"
-                                                    data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span data-type="actual_start"
-                                                    data-item-id="{{ $item->id }}">{{ $item->actual_working_start ?? '--' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="flip text-warning  ">
-                                                    {{ $item->working_duration ?? '--' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span data-type="end"
-                                                    data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
-                                                </span>
-                                            </td>
-                                            @if ($index === 0)
-                                                <td rowspan="{{ $rowspan }}"><span
-                                                        class="flip">{{ $delivery }}</span></td>
-                                                <td rowspan="{{ $rowspan }}">
-                                                    <span class="flip">
-                                                        {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
-                                                    </span>
-                                                </td>
-                                                <td rowspan="{{ $rowspan }}"
-                                                    class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
-                                                    <span data-type="balance" data-item-id="{{ $item->id }}">
-                                                        {{ $item->balance_time ?? '--' }}
-                                                    </span>
-                                                </td>
-                                            @endif
+                                            <td colspan="14" class="text-center py-4 text-muted">Belum ada plan
+                                                untuk tanggal ini.</td>
                                         </tr>
-                                    @endforeach
-                                @empty
-                                    <tr>
-                                        <td colspan="14" class="text-center">No data for AS003.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- AS004 Tab -->
+            <!-- ================== AS004 ================== -->
             <div class="tab-pane fade" id="line4" role="tabpanel" aria-labelledby="line4-tab">
                 <div data-toggle-table="AS004">
                     @php
@@ -642,7 +1132,6 @@
                         $as004NightQty = $grouped['AS004']['night_shift_qty'] ?? 0;
                         $as004TotalQty = $grouped['AS004']['total_qty'] ?? 0;
 
-                        // Morning shift status
                         $as004MorningStatus = 'Normal Shift';
                         if ($as004MorningQty > 900) {
                             $as004MorningStatus = 'Advance to LS1';
@@ -650,263 +1139,283 @@
                             $as004MorningStatus = 'Advance to NS';
                         }
 
-                        // Night shift status
                         $as004NightStatus = 'Normal Shift';
                         if ($as004NightQty > 630) {
                             $as004NightStatus = 'Advance to LS3';
                         }
                     @endphp
-                    <div class="alert alert-dark p-2 mb-4"
-                        style="background-color: #2a2a2a; border-left: 4px solid #ff6b00;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <!-- Shift Data - Industrial Style -->
-                            <div class="d-flex gap-3 align-items-end">
-                                <!-- Morning Shift -->
-                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
-                                        MORNING SHIFT ORDER
-                                    </div>
-                                    <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold"
-                                            style="color: #ff6b00;">{{ $as004MorningQty }}</span>
-                                        @if ($as004MorningStatus != 'Normal Shift')
-                                            <span class="badge rounded-0"
-                                                style="background-color: #ff9e00; color: #000; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                                {{ $as004MorningStatus }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </div>
 
-                                <!-- Night Shift -->
-                                <div class="industrial-shift-box bg-dark p-2" style="border: 1px solid #555;">
-                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
-                                        NIGHT SHIFT ORDER
-                                    </div>
-                                    <div class="d-flex align-items-baseline gap-2">
-                                        <span class="fs-4 fw-bold"
-                                            style="color: #00b4ff;">{{ $as004NightQty }}</span>
-                                        @if ($as004NightStatus != 'Normal Shift')
-                                            <span class="badge rounded-0"
-                                                style="background-color: #ff3d3d; color: #fff; font-size: 0.7rem; padding: 0.25rem 0.5rem;">
-                                                {{ $as004NightStatus }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </div>
-
-                                <!-- Total -->
-                                <div class="industrial-total-box bg-dark p-2 ms-2" style="border: 1px solid #666;">
-                                    <div class="text-uppercase small" style="color: #aaa; letter-spacing: 1px;">
-                                        TOTAL
-                                    </div>
-                                    <div class="fs-4 fw-bold" style="color: #fff;">{{ $as004TotalQty }}</div>
-                                </div>
-                            </div>
-
-                            <!-- Status Indicator (if any) -->
-                            @if ($as004MorningStatus != 'Normal Shift' || $as004NightStatus != 'Normal Shift')
-                                <div class="d-flex gap-2">
+                    <div class="card mb-3 radius-4">
+                        <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                            <div class="strip-stat">
+                                <div class="title">Morning Shift Order</div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <div class="value text-primary">{{ $as004MorningQty }}</div>
                                     @if ($as004MorningStatus != 'Normal Shift')
-                                        <div class="d-flex flex-column align-items-center">
-                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">
-                                                MORNING
-                                            </div>
-                                            <span class="badge rounded-0 mt-1"
-                                                style="background-color: #ff9e00; color: #000; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                                {{ $as004MorningStatus }}
-                                            </span>
-                                        </div>
-                                    @endif
-                                    @if ($as004NightStatus != 'Normal Shift')
-                                        <div class="d-flex flex-column align-items-center">
-                                            <div class="text-uppercase" style="font-size: 0.6rem; color: #aaa;">
-                                                NIGHT
-                                            </div>
-                                            <span class="badge rounded-0 mt-1"
-                                                style="background-color: #ff3d3d; color: #fff; padding: 0.35rem 0.75rem; font-weight: 600;">
-                                                {{ $as004NightStatus }}
-                                            </span>
-                                        </div>
+                                        <span
+                                            class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as004MorningStatus }}</span>
                                     @endif
                                 </div>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="column-toggle-panel p-3 minimized">
-                        <div class="panel-header pb-3" onclick="togglePanel(this)">
-                            <i class="fas fa-table-columns"></i>
-                            <i class="toggle-icon fas fa-chevron-down" style="margin-left: auto;"></i>
-                        </div>
-                        <div class="toggle-grid-wrapper">
-                            <div class="toggle-grid">
-                                <label><input type="checkbox" class="toggle-col" data-col="0" checked>
-                                    Customer</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="1" checked> Dock</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="2" checked>
-                                    Cycle</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="3" checked> Back
-                                    No</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="4" checked>
-                                    Order</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="5" checked> Direct
-                                    Pulling</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="6" checked> Stock
-                                    Chute</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="7" checked> Cycle
-                                    Time</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="8" checked>
-                                    Planning Start</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="9" checked>
-                                    Actual Start</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="10" checked>
-                                    Duration</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="11" checked>
-                                    Target</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="12" checked> Delivery
-                                    Time</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="13" checked> Delivery
-                                    Date</label>
-                                <label><input type="checkbox" class="toggle-col" data-col="14" checked> Balance
-                                    Time</label>
+                            </div>
+                            <div class="strip-stat">
+                                <div class="title">Night Shift Order</div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <div class="value text-success">{{ $as004NightQty }}</div>
+                                    @if ($as004NightStatus != 'Normal Shift')
+                                        <span
+                                            class="chip bg-danger-subtle border text-dark fw-bolder">{{ $as004NightStatus }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="ms-auto strip-stat">
+                                <div class="title">Total</div>
+                                <div class="value">{{ $as004TotalQty }}</div>
                             </div>
                         </div>
                     </div>
-                    <div style="max-height: 800px; overflow-y: auto;">
-                        <table class="table table-bordered table-hover text-center align-middle table-dark">
-                            <thead
-                                style="position: sticky; top: 0; z-index: 100; background-color: #343a40; color: white;">
-                                <tr>
-                                    <th rowspan="2">Customer</th>
-                                    <th rowspan="2">Dock</th>
-                                    <th rowspan="2">Cycle</th>
-                                    <th rowspan="2">Back No</th>
-                                    <th rowspan="2">Order</th>
-                                    <th colspan="2">Running Qty</th>
-                                    <th rowspan="2">Cycle Time</th>
-                                    <th colspan="4">Working Time</th>
-                                    <th rowspan="2">Delivery Time</th>
-                                    <th rowspan="2">Delivery Date</th>
-                                    <th rowspan="2">Balance Time</th>
-                                </tr>
-                                <tr>
-                                    <th>Direct Pulling</th>
-                                    <th>Stock Chute</th>
-                                    <th>Planning Start</th>
-                                    <th>Actual Start</th>
-                                    <th>Duration</th>
-                                    <th>Target</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($grouped['AS004']['data'] ?? [] as $key => $rows)
-                                    @php
-                                        [$customer, $delivery] = explode('|', $key);
-                                        $rowspan = $rows->count();
-                                        $dock = $rows->first()->dock ?? '--';
-                                    @endphp
-                                    @foreach ($rows as $index => $item)
-                                        @php
-                                            $timeParts = explode(':', $item->balance_time ?? '00:00');
-                                            $hours = (int) $timeParts[0];
 
-                                            if (!function_exists('getQtyClass')) {
-                                                function getQtyClass($qty, $orderQty)
-                                                {
-                                                    if ($qty >= $orderQty) {
-                                                        return 'bg-success bg-opacity-75 fw-bold text-white';
-                                                    } elseif ($qty > 0) {
-                                                        return 'bg-warning bg-opacity-75 fw-bold text-dark';
-                                                    } else {
-                                                        return 'bg-secondary bg-opacity-25 fw-bold text-secondary';
+                    <!-- Toolbar: Presets & Columns -->
+                    <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                data-bs-toggle="dropdown">
+                                Presets
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#"
+                                        onclick="applyPreset('AS004','default');return false;">Default</a></li>
+                                <li><a class="dropdown-item" href="#"
+                                        onclick="applyPreset('AS004','risk');return false;">Risk first</a></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a class="dropdown-item" href="#"
+                                        onclick="saveCurrentView('AS004');return false;">Save current view</a></li>
+                            </ul>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                Columns
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width: 160px"
+                                data-colpicker="AS004">
+                                @foreach (['Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute', 'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date', 'Balance Time'] as $i => $label)
+                                    <li class="form-check form-check-sm d-flex align-items-center gap-2 mb-1">
+                                        <input class="form-check-input column-check" type="checkbox"
+                                            data-col="{{ $i }}" id="col_AS004_{{ $i }}">
+                                        <label class="form-check-label small"
+                                            for="col_AS004_{{ $i }}">{{ $label }}</label>
+                                    </li>
+                                @endforeach
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a class="dropdown-item small" href="#"
+                                        onclick="resetColumns('AS004');return false;">Reset columns</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-responsive" style="max-height:800px;">
+                            <table class="table table-hover table-bordered align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">Customer</th>
+                                        <th rowspan="2">Dock</th>
+                                        <th rowspan="2">Cycle</th>
+                                        <th rowspan="2">Back No</th>
+                                        <th rowspan="2">Order</th>
+                                        <th colspan="2">Running Qty</th>
+                                        <th rowspan="2">Cycle Time</th>
+                                        <th colspan="4">Working Time</th>
+                                        <th rowspan="2">Delivery Time</th>
+                                        <th rowspan="2">Delivery Date</th>
+                                        <th rowspan="2">Balance Time</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Direct Pulling</th>
+                                        <th>Stock Chute</th>
+                                        <th>Planning Start</th>
+                                        <th>Actual Start</th>
+                                        <th>Duration</th>
+                                        <th>Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($grouped['AS004']['data'] ?? [] as $key => $rows)
+                                        @php
+                                            [$customer, $delivery] = explode('|', $key);
+                                            $rowspan = $rows->count();
+                                            $dock = $rows->first()->dock ?? '--';
+                                        @endphp
+                                        @foreach ($rows as $index => $item)
+                                            @php
+                                                $timeParts = explode(':', $item->balance_time ?? '00:00');
+                                                $hours = (int) $timeParts[0];
+
+                                                if (!function_exists('getQtyClass')) {
+                                                    function getQtyClass($qty, $orderQty)
+                                                    {
+                                                        if ($qty >= $orderQty) {
+                                                            return 'bg-success bg-opacity-75 fw-bold text-white';
+                                                        } elseif ($qty > 0) {
+                                                            return 'bg-warning bg-opacity-75 fw-bold';
+                                                        }
+                                                        return 'bg-light fw-semibold text-secondary';
                                                     }
                                                 }
-                                            }
-                                        @endphp
+
+                                                $dp = (int) ($item->direct_pulling_qty ?: 0);
+                                                $sc = (int) ($item->stock_chute_qty ?: 0);
+                                                $ord = max(1, (int) $item->order_qty);
+                                                $pct = min(100, round((($dp + $sc) / $ord) * 100));
+                                            @endphp
+                                            <tr>
+                                                @if ($index === 0)
+                                                    <td rowspan="{{ $rowspan }}" data-label="Customer"><span
+                                                            class="flip">{{ $customer }}</span></td>
+                                                    <td rowspan="{{ $rowspan }}" data-label="Dock"><span
+                                                            class="flip">{{ $dock }}</span></td>
+                                                @endif
+                                                <td data-label="Cycle"><span
+                                                        class="flip">{{ $item->cycle }}</span></td>
+                                                <td data-label="Back No"><span
+                                                        class="flip">{{ $item->back_no }}</span></td>
+                                                <td data-label="Order"><span
+                                                        class="flip">{{ $item->order_qty }}</span></td>
+
+                                                <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}"
+                                                    data-label="Direct Pulling">
+                                                    <div class="qty-progress"
+                                                        title="DP {{ $dp }} / {{ $ord }}">
+                                                        <div class="bar"><i
+                                                                style="width: {{ min(100, round(($dp / $ord) * 100)) }}%"></i>
+                                                        </div>
+                                                        <span class="val">
+                                                            <span class="flip" data-type="direct-pulling"
+                                                                data-item-id="{{ $item->id }}">{{ $dp }}</span>
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}"
+                                                    data-label="Stock Chute">
+                                                    <div class="qty-progress"
+                                                        title="SC {{ $sc }} / {{ $ord }}">
+                                                        <div class="bar"><i
+                                                                style="width: {{ min(100, round(($sc / $ord) * 100)) }}%"></i>
+                                                        </div>
+                                                        <span class="val">
+                                                            <span class="flip" data-type="stock-chute"
+                                                                data-item-id="{{ $item->id }}">{{ $sc }}</span>
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                <td data-label="Cycle Time"><span
+                                                        class="flip">{{ $item->prod_time }}</span></td>
+                                                <td data-label="Planning Start"><span data-type="start"
+                                                        data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}</span>
+                                                </td>
+                                                <td data-label="Actual Start"><span data-type="actual_start"
+                                                        data-item-id="{{ $item->id }}">{{ $item->actual_working_start ?? '--' }}</span>
+                                                </td>
+                                                <td data-label="Duration"><span
+                                                        class="flip text-warning">{{ $item->working_duration ?? '--' }}</span>
+                                                </td>
+
+                                                <td data-label="Progress" class="total-progress">
+                                                    <div class="qty-progress"
+                                                        title="DP+SC {{ $dp + $sc }} / {{ $ord }} ({{ $pct }}%)">
+                                                        <div class="bar"><i
+                                                                style="width: {{ $pct }}%"></i></div>
+                                                        <span class="val">{{ $pct }}%</span>
+                                                    </div>
+                                                </td>
+
+                                                @if ($index === 0)
+                                                    <td rowspan="{{ $rowspan }}" data-label="Delivery Time">
+                                                        <span class="flip">{{ $delivery }}</span>
+                                                    </td>
+                                                    <td rowspan="{{ $rowspan }}" data-label="Delivery Date">
+                                                        <span
+                                                            class="flip">{{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}</span>
+                                                    </td>
+                                                    <td rowspan="{{ $rowspan }}" data-label="Balance Time"
+                                                        class="{{ $item->balance_time && $hours < 3 ? 'table-danger-subtle' : '' }}">
+                                                        <span data-type="balance"
+                                                            data-item-id="{{ $item->id }}">{{ $item->balance_time ?? '--' }}</span>
+                                                    </td>
+                                                @endif
+                                            </tr>
+                                        @endforeach
+                                    @empty
                                         <tr>
-                                            @if ($index === 0)
-                                                <td rowspan="{{ $rowspan }}"><span
-                                                        class="flip">{{ $customer }}</span></td>
-                                                <td rowspan="{{ $rowspan }}"><span
-                                                        class="flip">{{ $dock }}</span></td>
-                                            @endif
-                                            <td><span class="flip">{{ $item->cycle }}</span></td>
-                                            <td><span class="flip">{{ $item->back_no }}</span></td>
-                                            <td><span class="flip">{{ $item->order_qty }}</span></td>
-                                            <td
-                                                class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}">
-                                                <span class="flip" data-type="direct-pulling"
-                                                    data-item-id="{{ $item->id }}">
-                                                    {{ $item->direct_pulling_qty ?: '0' }}
-                                                </span>
-                                            </td>
-                                            <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}">
-                                                <span class="flip" data-type="stock-chute"
-                                                    data-item-id="{{ $item->id }}">
-                                                    {{ $item->stock_chute_qty ?: '0' }}
-                                                </span>
-                                            </td>
-                                            <td><span class="flip">{{ $item->prod_time }}</span></td>
-                                            <td>
-                                                <span data-type="start"
-                                                    data-item-id="{{ $item->id }}">{{ $item->working_start ?? '--' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span data-type="actual_start"
-                                                    data-item-id="{{ $item->id }}">{{ $item->actual_working_start ?? '--' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="flip text-warning">
-                                                    {{ $item->working_duration ?? '--' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span data-type="end"
-                                                    data-item-id="{{ $item->id }}">{{ $item->working_end ?? '--' }}
-                                                </span>
-                                            </td>
-                                            @if ($index === 0)
-                                                <td rowspan="{{ $rowspan }}"><span
-                                                        class="flip">{{ $delivery }}</span></td>
-                                                <td rowspan="{{ $rowspan }}">
-                                                    <span class="flip">
-                                                        {{ $item->delivery_date ? Carbon\Carbon::parse($item->delivery_date)->format('m/d') : '--' }}
-                                                    </span>
-                                                </td>
-                                                <td rowspan="{{ $rowspan }}"
-                                                    class="{{ $item->balance_time && $hours < 3 ? 'table-danger' : '' }}">
-                                                    <span data-type="balance" data-item-id="{{ $item->id }}">
-                                                        {{ $item->balance_time ?? '--' }}
-                                                    </span>
-                                                </td>
-                                            @endif
+                                            <td colspan="14" class="text-center py-4 text-muted">Belum ada plan
+                                                untuk tanggal ini.</td>
                                         </tr>
-                                    @endforeach
-                                @empty
-                                    <tr>
-                                        <td colspan="14" class="text-center">No data for AS004.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+
+        </div><!-- /tab-content -->
+    </div><!-- /container -->
 
     <script>
+        /* ======================                                                                                                                                                                                                                                                   THEME TOGGLE
+                                                                                                                                                                                                                                                           ====================== */
+        (function themeInit() {
+            const key = 'pulling_theme';
+            const saved = localStorage.getItem(key);
+            const el = document.documentElement;
+
+            function apply(mode) {
+                el.setAttribute('data-theme', mode);
+                const btn = document.getElementById('themeToggle');
+                if (!btn) return;
+                const icon = btn.querySelector('i');
+                const label = btn.querySelector('span');
+                if (mode === 'dark') {
+                    icon.className = 'far fa-sun me-1';
+                    label.textContent = 'Light';
+                } else {
+                    icon.className = 'far fa-moon me-1';
+                    label.textContent = 'Dark';
+                }
+            }
+
+            if (saved) {
+                apply(saved);
+            } else {
+                // follow system as default
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                apply(prefersDark ? 'dark' : 'light');
+            }
+
+            document.getElementById('themeToggle')?.addEventListener('click', () => {
+                const current = el.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                const next = current === 'dark' ? 'light' : 'dark';
+                localStorage.setItem(key, next);
+                apply(next);
+            });
+        })();
+
+        /* ======================
+           SSE CLIENT (kept, plus progress updates)
+           ====================== */
         class ProductionPlanSSEClient {
             constructor() {
                 this.eventSource = null;
                 this.statusElement = null;
                 this.currentDate = this.getCurrentDate();
                 this.highlightTimeouts = new Set();
-                this.lastHighlightTime = 0;
-                this.originalOrder = new Map(); // Stores original order of rows for each table
-                this.orderRestoreTimeouts = new Map(); // Timeouts for restoring original order
+                this.originalOrder = new Map();
+                this.orderRestoreTimeouts = new Map();
                 this.init();
             }
 
@@ -916,11 +1425,10 @@
                 this.connect();
                 this.setupDateChangeListener();
                 this.setupErrorHandling();
-                this.storeOriginalOrder(); // Store original order on initialization
+                this.storeOriginalOrder();
             }
 
             storeOriginalOrder() {
-                // Store original order of all rows in each table
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     this.originalOrder.set(tbody, rows);
@@ -935,73 +1443,37 @@
             createStatusIndicator() {
                 this.statusElement = document.createElement('div');
                 this.statusElement.id = 'sse-connection-status';
-                this.statusElement.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            z-index: 9999;
-            transition: all 0.3s ease;
-        `;
+                this.statusElement.textContent = '● Connecting to updates...';
                 document.body.appendChild(this.statusElement);
             }
 
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
-            .flip {
-                display: inline-block;
-                transition: all 0.3s ease;
-                transform-style: preserve-3d;
-                transform-origin: bottom center;
-            }
-            .animate-flip {
-                animation: flipAnimation 0.6s ease;
-            }
-            @keyframes flipAnimation {
-                0% { transform: rotateX(0deg); opacity: 1; }
-                50% { transform: rotateX(90deg); opacity: 0; }
-                51% { transform: rotateX(-90deg); }
-                100% { transform: rotateX(0deg); opacity: 1; }
-            }
-            
-            /* Continuous blinking highlight styles */
-            @keyframes continuousBlink {
-                0%, 100% { background-color: var(--highlight-color); }
-                50% { background-color: var(--base-bg); }
-            }
-            .highlight-beep-direct {
-                --highlight-color: #12341E;
-                --base-bg: #1E2024;
-                animation: continuousBlink 1s ease-in-out infinite;
-            }
-            .highlight-beep-stock {
-                --highlight-color: #4D3A0A;
-                --base-bg: #1E2024;
-                animation: continuousBlink 1s ease-in-out infinite;
-            }
-            .highlight-beep-direct td,
-            .highlight-beep-stock td {
-                background-color: inherit !important;
-            }
+          .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
+          .animate-flip{animation:flipAnimation .6s ease;}
+          @keyframes flipAnimation{
+            0%{transform:rotateX(0deg);opacity:1;}
+            50%{transform:rotateX(90deg);opacity:0;}
+            51%{transform:rotateX(-90deg);}
+            100%{transform:rotateX(0deg);opacity:1;}
+          }
+          @keyframes continuousBlink{
+            0%,100%{background-color: var(--highlight-color);}
+            50%{background-color: var(--base-bg);}
+          }
+          .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+          .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+          .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
         `;
                 document.head.appendChild(style);
             }
 
             connect() {
-                if (this.eventSource) {
-                    this.eventSource.close();
-                }
-
+                if (this.eventSource) this.eventSource.close();
                 this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
                 this.updateConnectionStatus('connecting');
-
-                this.eventSource.onopen = () => {
-                    this.updateConnectionStatus('connected');
-                };
+                this.eventSource.onopen = () => this.updateConnectionStatus('connected');
 
                 this.eventSource.addEventListener('directPullingUpdate', (e) => {
                     const data = JSON.parse(e.data);
@@ -1011,8 +1483,7 @@
                     }
                 });
 
-                this.eventSource.onerror = (e) => {
-                    console.error('SSE Error:', e);
+                this.eventSource.onerror = () => {
                     this.updateConnectionStatus('disconnected');
                     this.reconnect();
                 };
@@ -1029,200 +1500,117 @@
             }
 
             updateConnectionStatus(status, message = '') {
-                const statusConfig = {
+                const statusMap = {
                     connecting: {
                         text: '● Connecting to updates...',
-                        style: 'background: #17a2b8; color: white;'
+                        class: 'text-primary border bg-white'
                     },
                     connected: {
                         text: '● Live Updates Active',
-                        style: 'background: #28a745; color: white;'
+                        class: 'text-success border bg-white'
                     },
                     disconnected: {
                         text: '● Connection Lost',
-                        style: 'background: #dc3545; color: white;'
+                        class: 'text-danger border bg-white'
                     },
                     error: {
-                        text: '● Update Error' + (message ? `: ${message}` : ''),
-                        style: 'background: #ffc107; color: black;'
-                    }
+                        text: '● Update Error ' + message,
+                        class: 'text-warning border bg-white'
+                    },
                 };
-
-                const config = statusConfig[status] || statusConfig.error;
-                this.statusElement.textContent = config.text;
-                this.statusElement.style.cssText += config.style;
+                const s = statusMap[status] || statusMap.error;
+                this.statusElement.className = s.class;
+                this.statusElement.textContent = s.text;
             }
 
             handleUpdates(updates) {
-                console.log('Processing updates:', updates);
-
-                // Track all rows that need processing
                 const rowsToProcess = new Set();
-
                 updates.forEach(item => {
-                    const directPullingElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="direct-pulling"]`
-                    );
-                    const stockChuteElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="stock-chute"]`
-                    );
-                    const startElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="actual_start"]`
-                    );
-                    const endElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="end"]`
-                    );
-                    const balanceElements = document.querySelectorAll(
-                        `[data-item-id="${item.id}"][data-type="balance"]`
-                    );
+                    const hasAny =
+                        document.querySelector(`[data-item-id="${item.id}"][data-type="direct-pulling"]`) ||
+                        document.querySelector(`[data-item-id="${item.id}"][data-type="stock-chute"]`);
+                    if (!hasAny) return;
 
-                    // Update quantities if elements found
-                    if (directPullingElements.length > 0 || stockChuteElements.length > 0) {
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="direct-pulling"]`,
-                            item.direct_pulling_qty,
-                            'direct-pulling',
-                            item.order_qty // <-- tambahkan target order
-                        );
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="stock-chute"]`,
-                            item.stock_chute_qty,
-                            'stock-chute',
-                            item.order_qty // <-- tambahkan target order
-                        );
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="actual_start"]`,
-                            item.actual_start,
-                            'time'
-                        );
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="end"]`,
-                            item.end,
-                            'time'
-                        );
-                        this.updateQuantity(
-                            `[data-item-id="${item.id}"][data-type="balance"]`,
-                            item.balance,
-                            'time'
-                        );
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="direct-pulling"]`, item
+                        .direct_pulling_qty, 'direct-pulling', item.order_qty);
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="stock-chute"]`, item
+                        .stock_chute_qty, 'stock-chute', item.order_qty);
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="actual_start"]`, item
+                        .actual_start, 'time');
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="end"]`, item.end, 'time');
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="balance"]`, item.balance,
+                        'time');
 
-                        // Find all rows containing this item
-                        const rows = document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`);
-                        rows.forEach(row => rowsToProcess.add(row));
-                    }
+                    document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`).forEach(r => rowsToProcess
+                        .add(r));
                 });
 
-                // Process all affected rows
-                if (rowsToProcess.size > 0) {
-                    this.processUpdatedRows(Array.from(rowsToProcess));
-                }
+                if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
             }
 
             processUpdatedRows(rows) {
-                // First, group rows by their rowspan groups (customer+dock groups)
+                // Group by rowspan
                 const rowGroups = new Map();
                 rows.forEach(row => {
-                    // Find the first row of this rowspan group (the one with rowspan attributes)
-                    let groupStartRow = row;
-                    while (groupStartRow.previousElementSibling &&
-                        groupStartRow.previousElementSibling.querySelector('[rowspan]')) {
-                        groupStartRow = groupStartRow.previousElementSibling;
+                    let groupStart = row;
+                    while (groupStart.previousElementSibling && groupStart.previousElementSibling.querySelector(
+                            '[rowspan]')) {
+                        groupStart = groupStart.previousElementSibling;
                     }
-
-                    // Get all rows in this group
-                    const rowspan = parseInt(groupStartRow.querySelector('[rowspan]')?.getAttribute(
-                        'rowspan')) || 1;
-                    const groupRows = [groupStartRow];
-                    for (let i = 1; i < rowspan; i++) {
-                        if (groupStartRow.nextElementSibling) {
-                            groupRows.push(groupStartRow.nextElementSibling);
-                            groupStartRow = groupStartRow.nextElementSibling;
+                    const rs = parseInt(groupStart.querySelector('[rowspan]')?.getAttribute('rowspan')) || 1;
+                    const group = [groupStart];
+                    let walker = groupStart;
+                    for (let i = 1; i < rs; i++) {
+                        if (walker.nextElementSibling) {
+                            group.push(walker.nextElementSibling);
+                            walker = walker.nextElementSibling;
                         }
                     }
-
-                    // Add to our groups map
-                    if (!rowGroups.has(groupStartRow)) {
-                        rowGroups.set(groupStartRow, new Set(groupRows));
-                    } else {
-                        groupRows.forEach(r => rowGroups.get(groupStartRow).add(r));
-                    }
+                    if (!rowGroups.has(groupStart)) rowGroups.set(groupStart, new Set(group));
+                    else group.forEach(r => rowGroups.get(groupStart).add(r));
                 });
 
-                // Now process each table's groups
                 const tablesProcessed = new Set();
-                for (const [groupStart, groupRows] of rowGroups) {
+                for (const [groupStart] of rowGroups) {
                     const tbody = groupStart.closest('tbody');
                     if (!tbody || tablesProcessed.has(tbody)) continue;
-
                     tablesProcessed.add(tbody);
 
-                    // Cancel any pending restore for this table
                     if (this.orderRestoreTimeouts.has(tbody)) {
                         clearTimeout(this.orderRestoreTimeouts.get(tbody));
                         this.orderRestoreTimeouts.delete(tbody);
                     }
 
-                    // Get all rows in the table
                     const allRows = Array.from(tbody.querySelectorAll('tr'));
-
-                    // Find all groups in this table
                     const allGroups = [];
-                    let currentRow = allRows[0];
-
-                    while (currentRow) {
-                        const rowspan = parseInt(currentRow.querySelector('[rowspan]')?.getAttribute(
-                            'rowspan') || '1');
-                        const group = [currentRow];
-
-                        for (let i = 1; i < rowspan && currentRow.nextElementSibling; i++) {
-                            group.push(currentRow.nextElementSibling);
-                            currentRow = currentRow.nextElementSibling;
+                    let cur = allRows[0];
+                    while (cur) {
+                        const rs = parseInt(cur.querySelector('[rowspan]')?.getAttribute('rowspan') || '1');
+                        const g = [cur];
+                        let w = cur;
+                        for (let i = 1; i < rs && w.nextElementSibling; i++) {
+                            g.push(w.nextElementSibling);
+                            w = w.nextElementSibling;
                         }
-
-                        allGroups.push(group);
-                        currentRow = currentRow?.nextElementSibling;
+                        allGroups.push(g);
+                        cur = w?.nextElementSibling;
                     }
 
-                    // Find which groups contain updated rows
-                    const updatedGroups = allGroups.filter(group =>
-                        group.some(row => rows.includes(row))
-                    );
+                    const updatedGroups = allGroups.filter(g => g.some(r => rows.includes(r)));
 
-                    // Move updated groups to the top while maintaining their order
                     if (updatedGroups.length > 0) {
-                        // Remove all rows from the table
-                        while (tbody.firstChild) {
-                            tbody.removeChild(tbody.firstChild);
-                        }
-
-                        // Rebuild the table with updated groups first, then others
-                        const remainingGroups = allGroups.filter(group =>
-                            !updatedGroups.includes(group)
-                        );
-
-                        // Add updated groups first
-                        updatedGroups.forEach(group => {
-                            group.forEach(row => tbody.appendChild(row));
+                        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+                        const remaining = allGroups.filter(g => !updatedGroups.includes(g));
+                        updatedGroups.forEach(g => g.forEach(r => tbody.appendChild(r)));
+                        remaining.forEach(g => g.forEach(r => tbody.appendChild(r)));
+                        rows.forEach(r => {
+                            if (tbody.contains(r)) this.highlightRow(r, 'mixed');
                         });
 
-                        // Then add remaining groups
-                        remainingGroups.forEach(group => {
-                            group.forEach(row => tbody.appendChild(row));
-                        });
-
-                        // Highlight all updated rows
-                        rows.forEach(row => {
-                            if (tbody.contains(row)) {
-                                this.highlightRow(row, 'mixed');
-                            }
-                        });
-
-                        // Schedule restoration of original order after 1 minute
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
                         }, 60000);
-
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
                 }
@@ -1230,271 +1618,341 @@
 
             restoreOriginalOrder(tbody) {
                 if (!this.originalOrder.has(tbody)) return;
-
                 const originalRows = this.originalOrder.get(tbody);
                 const currentRows = Array.from(tbody.querySelectorAll('tr'));
-
-                // Only restore if the number of rows matches
-                if (originalRows.length !== currentRows.length) {
-                    console.warn('Row count mismatch, skipping restore');
-                    return;
-                }
-
-                // Remove all current rows
-                while (tbody.firstChild) {
-                    tbody.removeChild(tbody.firstChild);
-                }
-
-                // Add back rows in original order
-                originalRows.forEach(row => {
-                    tbody.appendChild(row);
-                });
+                if (originalRows.length !== currentRows.length) return;
+                while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+                originalRows.forEach(r => tbody.appendChild(r));
             }
 
-            highlightRow(row, updateType) {
-                // Remove all highlight classes first
-                row.classList.remove(
-                    'highlight-beep-direct',
-                    'highlight-beep-stock'
-                );
-
-                // Force reflow to reset animation
+            highlightRow(row, type) {
+                row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth;
-
-                // Add appropriate highlight class
-                const highlightClass = updateType === 'success' ?
-                    'highlight-beep-direct' :
-                    updateType === 'warning' ?
-                    'highlight-beep-stock' :
-                    'highlight-beep-direct';
-
-                row.classList.add(highlightClass);
-
-                // Set timeout to remove highlight after 5 seconds
-                const timeoutId = setTimeout(() => {
-                    row.classList.remove(highlightClass);
-                    this.highlightTimeouts.delete(timeoutId);
+                const cls = (type === 'success') ? 'highlight-beep-direct' : (type === 'warning' ?
+                    'highlight-beep-stock' : 'highlight-beep-direct');
+                row.classList.add(cls);
+                const t = setTimeout(() => {
+                    row.classList.remove(cls);
+                    this.highlightTimeouts.delete(t);
                 }, 60000);
-
-                this.highlightTimeouts.add(timeoutId);
+                this.highlightTimeouts.add(t);
             }
 
             updateQuantity(selector, newValue, type, targetQty = null) {
-                const elements = document.querySelectorAll(selector);
-                elements.forEach(el => {
-                    const currentValue = el.textContent.trim();
-
-                    if (currentValue !== String(newValue)) {
+                document.querySelectorAll(selector).forEach(el => {
+                    const cur = el.textContent.trim();
+                    if (cur !== String(newValue)) {
                         el.textContent = newValue;
+                        const td = el.closest('td');
 
-                        if (!isNaN(parseFloat(newValue))) {
-                            this.updateCellStyle(el.closest('td'), parseFloat(newValue), type, targetQty);
-                        } else {
-                            this.updateCellStyle(el.closest('td'), null, type);
+                        // recolor cell
+                        if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
+                            targetQty);
+                        else this.updateCellStyle(td, null, type);
+
+                        // update per-cell bar (DP/SC)
+                        const bar = td?.querySelector('.qty-progress .bar > i');
+                        if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
+                            const orderText = td.parentElement.querySelector('[data-label="Order"] .flip')
+                                ?.textContent?.trim() || '0';
+                            const order = parseInt(orderText, 10) || 0;
+
+                            const dpEl = td.parentElement.querySelector('[data-type="direct-pulling"]');
+                            const scEl = td.parentElement.querySelector('[data-type="stock-chute"]');
+                            const dp = parseInt((dpEl?.textContent || '0'), 10) || 0;
+                            const sc = parseInt((scEl?.textContent || '0'), 10) || 0;
+
+                            const val = (type === 'direct-pulling') ? dp : sc;
+                            const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
+                            bar.style.width = pct + '%';
+
+                            // update total progress (DP+SC) within same row
+                            const totalCell = td.parentElement.querySelector('.total-progress');
+                            if (totalCell) {
+                                const totalBar = totalCell.querySelector('.bar > i');
+                                const totalPctEl = totalCell.querySelector('.val');
+                                const totalVal = dp + sc;
+                                const totalPct = Math.min(100, Math.round((totalVal / Math.max(1, order)) *
+                                    100));
+                                if (totalBar) totalBar.style.width = totalPct + '%';
+                                if (totalPctEl) totalPctEl.textContent = totalPct + '%';
+                            }
                         }
 
-                        this.animateChange(el.closest('td'));
+                        this.animateChange(td);
                     }
                 });
             }
 
             updateCellStyle(cell, value, type, targetQty = null) {
-                // Jangan ubah style untuk waktu
+                if (!cell) return;
                 if (type === 'time') return;
-
-                // Reset style kalau value null
                 if (value === null) {
                     cell.className = '';
                     return;
                 }
 
-                // Default warna
-                let bgClass = 'bg-secondary';
-                let textClass = 'text-dark';
-
+                let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
                     if (targetQty !== null && !isNaN(targetQty)) {
-                        if (value >= targetQty) {
-                            bgClass = 'bg-success'; // Hijau jika sudah complete
-                            textClass = 'text-white';
-                        } else {
-                            bgClass = 'bg-warning'; // Kuning jika belum complete
-                            textClass = 'text-dark';
-                        }
+                        if (value >= targetQty) classes += 'bg-success bg-opacity-75 text-white';
+                        else classes += 'bg-warning bg-opacity-75';
                     } else {
-                        bgClass = value > 0 ? 'bg-success' : 'bg-warning';
-                        textClass = 'text-white';
+                        classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
                     }
                 }
-
-                cell.className = `${bgClass} bg-opacity-75 fw-bold ${textClass}`;
+                cell.className = classes.trim();
             }
 
-
-            animateChange(element) {
-                const flipElement = element.querySelector('.flip');
-                if (flipElement) {
-                    flipElement.classList.add('animate-flip');
-                    setTimeout(() => flipElement.classList.remove('animate-flip'), 600);
+            animateChange(td) {
+                const f = td?.querySelector('.flip');
+                if (f) {
+                    f.classList.add('animate-flip');
+                    setTimeout(() => f.classList.remove('animate-flip'), 600);
                 }
-            }
-
-            clearAllHighlights() {
-                this.highlightTimeouts.forEach(timeoutId => {
-                    clearTimeout(timeoutId);
-                });
-                this.highlightTimeouts.clear();
-
-                document.querySelectorAll('.highlight-beep-direct, .highlight-beep-stock').forEach(el => {
-                    el.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
-                });
             }
 
             reconnect() {
-                this.updateConnectionStatus('connecting', 'Reconnecting...');
-                if (this.eventSource) {
-                    this.eventSource.close();
-                }
-                setTimeout(() => this.connect(), 3000);
+                if (this.eventSource) this.eventSource.close();
+                setTimeout(() => this.connect(), 1500);
             }
 
             setupErrorHandling() {
                 window.addEventListener('beforeunload', () => {
-                    if (this.eventSource) {
-                        this.eventSource.close();
-                    }
+                    if (this.eventSource) this.eventSource.close();
                 });
             }
         }
 
-        // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
+
+            // Enable tooltips (Bootstrap)
+            const triggers = [].slice.call(document.querySelectorAll('[title]'));
+            triggers.forEach(el => {
+                el.setAttribute('data-bs-toggle', 'tooltip');
+                new bootstrap.Tooltip(el);
+            });
         });
 
-        // Date navigation function
         function navigateDate(days) {
-            const currentDate = new Date(document.querySelector('input[name="date"]').value);
+            const inp = document.querySelector('input[name="date"]');
+            const currentDate = new Date(inp.value);
             currentDate.setDate(currentDate.getDate() + days);
-            const newDate = currentDate.toISOString().split('T')[0];
-            document.querySelector('input[name="date"]').value = newDate;
+            inp.value = currentDate.toISOString().split('T')[0];
             document.querySelector('form').submit();
         }
 
-        (function() {
-            // cari semua container yang punya tabel & toggle
-            document.querySelectorAll('[data-toggle-table]').forEach(container => {
-                const containerId = container.getAttribute('data-toggle-table');
-                const table = container.querySelector('table');
-                if (!table) return console.warn('Tidak menemukan tabel di ' + containerId);
+        function gotoToday() {
+            const inp = document.querySelector('input[name="date"]');
+            const today = new Date();
+            const iso = today.toISOString().split('T')[0];
+            inp.value = iso;
+            document.querySelector('form').submit();
+        }
 
-                const manager = {
-                    table,
-                    meta: null,
-                    hiddenCols: new Set(JSON.parse(localStorage.getItem('hiddenCols_' + containerId) ||
-                        '[]'))
-                };
+        /* ======================
+           Column Dropdown (rowspan-aware)
+           ====================== */
+        (function ColumnDropdown() {
+            const STORAGE_PREFIX = 'hiddenCols_';
+            document.querySelectorAll('[data-colpicker]').forEach(menu => {
+                const tableKey = menu.getAttribute('data-colpicker'); // AS003 / AS004
+                const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
+                const table = container?.querySelector('table');
+                if (!table) return;
 
-                function initMeta() {
-                    const rows = Array.from(table.rows);
-                    const matrix = [];
-                    let maxCols = 0;
+                const meta = buildMatrix(table);
+                const hidden = new Set(JSON.parse(localStorage.getItem(STORAGE_PREFIX + tableKey) || '[]'));
+                applyHidden(meta, hidden);
 
-                    for (let r = 0; r < rows.length; r++) {
-                        if (!matrix[r]) matrix[r] = [];
-                        let col = 0;
-                        for (const cell of Array.from(rows[r].cells)) {
-                            while (matrix[r][col]) col++;
-                            if (!cell.dataset.origColspan) cell.dataset.origColspan = cell.colSpan;
-                            if (!cell.dataset.origRowspan) cell.dataset.origRowspan = cell.rowSpan;
-
-                            cell._origColspan = parseInt(cell.dataset.origColspan, 10) || 1;
-                            cell._origRowspan = parseInt(cell.dataset.origRowspan, 10) || 1;
-                            cell._startCol = col;
-
-                            for (let rr = 0; rr < cell._origRowspan; rr++) {
-                                if (!matrix[r + rr]) matrix[r + rr] = [];
-                                for (let cc = 0; cc < cell._origColspan; cc++) {
-                                    matrix[r + rr][col + cc] = cell;
-                                }
-                            }
-
-                            col += cell._origColspan;
-                        }
-                        if (col > maxCols) maxCols = col;
-                    }
-
-                    manager.meta = {
-                        matrix,
-                        maxCols,
-                        rows
-                    };
-                }
-
-                function updateVisibility() {
-                    const {
-                        matrix,
-                        maxCols
-                    } = manager.meta;
-                    const unique = new Set();
-                    for (let r = 0; r < matrix.length; r++) {
-                        for (let c = 0; c < maxCols; c++) {
-                            const cell = matrix[r][c];
-                            if (cell) unique.add(cell);
-                        }
-                    }
-
-                    unique.forEach(cell => {
-                        const start = cell._startCol;
-                        const ospan = cell._origColspan;
-                        let visibleCount = 0;
-
-                        for (let k = 0; k < ospan; k++) {
-                            if (!manager.hiddenCols.has(start + k)) visibleCount++;
-                        }
-
-                        if (visibleCount === 0) {
-                            cell.style.display = 'none';
-                        } else {
-                            cell.style.display = '';
-                            cell.colSpan = ospan > 1 ? visibleCount : 1;
-                        }
-                        cell.rowSpan = cell._origRowspan;
-                    });
-
-                    localStorage.setItem('hiddenCols_' + containerId, JSON.stringify([...manager.hiddenCols]));
-                }
-
-                function toggleColumn(index, show) {
-                    if (show) manager.hiddenCols.delete(index);
-                    else manager.hiddenCols.add(index);
-                    updateVisibility();
-                }
-
-                initMeta();
-                updateVisibility();
-
-                container.querySelectorAll('.toggle-col').forEach(cb => {
+                menu.querySelectorAll('.column-check').forEach(cb => {
                     const idx = parseInt(cb.dataset.col, 10);
-                    if (isNaN(idx)) return;
-                    cb.checked = !manager.hiddenCols.has(idx);
-                    cb.addEventListener('change', () => toggleColumn(idx, cb.checked));
+                    cb.checked = !hidden.has(idx);
+                    cb.addEventListener('change', () => {
+                        if (cb.checked) hidden.delete(idx);
+                        else hidden.add(idx);
+                        localStorage.setItem(STORAGE_PREFIX + tableKey, JSON.stringify([...
+                            hidden
+                        ]));
+                        applyHidden(meta, hidden);
+                    });
                 });
 
-                window[`__colToggleReset_${containerId}`] = function() {
-                    manager.hiddenCols.clear();
-                    updateVisibility();
-                    container.querySelectorAll('.toggle-col').forEach(cb => cb.checked = true);
-                };
+                window.resetColumns = function(key) {
+                    if (key !== tableKey) return;
+                    hidden.clear();
+                    localStorage.setItem(STORAGE_PREFIX + tableKey, JSON.stringify([]));
+                    menu.querySelectorAll('.column-check').forEach(c => c.checked = true);
+                    applyHidden(meta, hidden);
+                }
             });
+
+            function buildMatrix(table) {
+                const rows = Array.from(table.rows);
+                const matrix = [];
+                let maxCols = 0;
+                for (let r = 0; r < rows.length; r++) {
+                    if (!matrix[r]) matrix[r] = [];
+                    let col = 0;
+                    for (const cell of Array.from(rows[r].cells)) {
+                        while (matrix[r][col]) col++;
+                        cell._origColspan = cell._origColspan || cell.colSpan || 1;
+                        cell._origRowspan = cell._origRowspan || cell.rowSpan || 1;
+                        cell._startCol = (cell._startCol === undefined) ? col : cell._startCol;
+                        for (let rr = 0; rr < cell._origRowspan; rr++) {
+                            if (!matrix[r + rr]) matrix[r + rr] = [];
+                            for (let cc = 0; cc < cell._origColspan; cc++) {
+                                matrix[r + rr][col + cc] = cell;
+                            }
+                        }
+                        col += cell._origColspan;
+                    }
+                    if (col > maxCols) maxCols = col;
+                }
+                return {
+                    matrix,
+                    maxCols,
+                    rows
+                };
+            }
+
+            function applyHidden(meta, hidden) {
+                const {
+                    matrix,
+                    maxCols
+                } = meta;
+                const unique = new Set();
+
+                for (let r = 0; r < matrix.length; r++) {
+                    for (let c = 0; c < maxCols; c++) {
+                        const cell = matrix[r][c];
+                        if (cell) unique.add(cell);
+                    }
+                }
+
+                unique.forEach(cell => {
+                    const start = cell._startCol,
+                        span = cell._origColspan;
+                    let visible = 0;
+                    for (let k = 0; k < span; k++) {
+                        if (!hidden.has(start + k)) visible++;
+                    }
+                    if (visible === 0) cell.style.display = 'none';
+                    else {
+                        cell.style.display = '';
+                        cell.colSpan = span > 1 ? visible : 1;
+                    }
+                    cell.rowSpan = cell._origRowspan;
+                });
+
+                // ⬇️ panggil ulang kalkulasi sticky header di sini
+                if (window.__recalcStickyHeaders) window.__recalcStickyHeaders();
+            }
         })();
 
+        /* ======================
+           Preset: Risk first + Save view
+           ====================== */
+        const VIEW_KEY_PREFIX = 'view_';
 
-        function togglePanel(header) {
-            const panel = header.closest(".column-toggle-panel");
-            panel.classList.toggle("minimized");
+        function parseBalanceHour(text) {
+            if (!text || text === '--') return Infinity;
+            const [h, m] = String(text).split(':').map(x => parseInt(x || '0', 10));
+            return isNaN(h) ? Infinity : h + (m / 60);
         }
+
+        function groupRowsByRowspan(tbody) {
+            const allRows = Array.from(tbody.querySelectorAll('tr'));
+            const groups = [];
+            let i = 0;
+            while (i < allRows.length) {
+                const start = allRows[i];
+                const rsCell = start.querySelector('[rowspan]');
+                const rs = parseInt(rsCell?.getAttribute('rowspan') || '1', 10);
+                const bundle = [start];
+                for (let k = 1; k < rs && (i + k) < allRows.length; k++) {
+                    bundle.push(allRows[i + k]);
+                }
+                groups.push(bundle);
+                i += rs;
+            }
+            return groups;
+        }
+
+        function applyPreset(tableKey, preset) {
+            const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
+            const tbody = container?.querySelector('tbody');
+            if (!tbody) return;
+
+            if (preset === 'default') {
+                if (window.prodPlanSSE?.originalOrder?.has(tbody)) {
+                    window.prodPlanSSE.restoreOriginalOrder(tbody);
+                }
+                localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
+                return;
+            }
+            if (preset === 'risk') {
+                const groups = groupRowsByRowspan(tbody);
+                groups.sort((a, b) => {
+                    const aBal = a[0].querySelector('[data-type="balance"]')?.textContent?.trim();
+                    const bBal = b[0].querySelector('[data-type="balance"]')?.textContent?.trim();
+                    const ah = parseBalanceHour(aBal),
+                        bh = parseBalanceHour(bBal);
+                    return ah - bh;
+                });
+                const frag = document.createDocumentFragment();
+                groups.forEach(g => g.forEach(r => frag.appendChild(r)));
+                tbody.innerHTML = '';
+                tbody.appendChild(frag);
+                localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
+                    preset: 'risk'
+                }));
+            }
+        }
+
+        function saveCurrentView(tableKey) {
+            localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
+                preset: 'custom'
+            }));
+            alert('Current view saved for ' + tableKey);
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            ['AS003', 'AS004'].forEach(k => {
+                const saved = localStorage.getItem(VIEW_KEY_PREFIX + k);
+                if (!saved) return;
+                const view = JSON.parse(saved);
+                if (view.preset === 'risk') applyPreset(k, 'risk');
+            });
+        });
     </script>
+    <script>
+        (function stickyHeaderOffsets() {
+            function updateStickyOffsets(table) {
+                if (!table || !table.tHead || table.tHead.rows.length < 2) return;
+                const r1 = table.tHead.rows[0].getBoundingClientRect().height || 40;
+                // simpan presisi (hindari pembulatan yang bikin celah)
+                table.style.setProperty('--thead-row1', `${r1.toFixed(2)}px`);
+            }
+
+            function updateAll() {
+                document.querySelectorAll('[data-toggle-table] table').forEach(updateStickyOffsets);
+            }
+            document.addEventListener('DOMContentLoaded', updateAll);
+            window.addEventListener('resize', updateAll);
+            const ro = new ResizeObserver(entries => {
+                for (const e of entries) {
+                    const table = e.target.closest('table');
+                    if (table) updateStickyOffsets(table);
+                }
+            });
+            document.querySelectorAll('[data-toggle-table] table thead').forEach(th => ro.observe(th));
+            window.__recalcStickyHeaders = updateAll; // panggil setelah toggle kolom
+        })();
+    </script>
+
+
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
