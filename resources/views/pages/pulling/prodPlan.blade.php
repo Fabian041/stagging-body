@@ -1432,11 +1432,10 @@
                 this.updateAllInlineSums();
             }
 
-            /* ===== Group helpers (rowspan-aware) ===== */
+            /* ===== Utilities: group & rowspan ===== */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
-
             getGroupRowsFrom(startRow) {
                 const rows = [startRow];
                 let p = startRow;
@@ -1446,13 +1445,11 @@
                 }
                 return rows;
             }
-
             findGroupStart(row) {
                 let p = row;
                 while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
                 return p || row;
             }
-
             recalcRowspans(container) {
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return;
@@ -1464,6 +1461,7 @@
                 });
             }
 
+            /* Stable: CLONE sel-rowspan ke baris berikutnya (bukan dipindah), lalu hide baris start */
             hideGroupStartRow(row) {
                 const next = row.nextElementSibling;
                 if (!next || this.isGroupStart(next)) {
@@ -1471,137 +1469,126 @@
                     return;
                 }
 
-                const startCells = Array.from(row.children)
-                    .filter(td => td.hasAttribute('rowspan'))
+                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'))
                     .sort((a, b) => a.cellIndex - b.cellIndex);
 
                 startCells.forEach(td => {
                     const clone = td.cloneNode(true);
-                    clone.dataset.cloned = '1';
                     const span = parseInt(td.getAttribute('rowspan') || '1', 10);
                     clone.setAttribute('rowspan', Math.max(1, span - 1));
 
                     const targetIdx = td.cellIndex;
                     const nextCells = Array.from(next.children);
                     let ref = null;
-                    for (let i = 0; i < nextCells.length; i++) {
+                    for (let i = 0; i < nextCells.length; i++)
                         if (nextCells[i].cellIndex > targetIdx) {
                             ref = nextCells[i];
                             break;
                         }
-                    }
                     next.insertBefore(clone, ref);
                 });
 
                 row.style.display = 'none';
             }
 
-            /* ===== SUM renderer (idempotent & aman rowspan) ===== */
-            _renderSumUnified({
+            /* ===== Scanner & renderer ===== */
+            _scanTableBackno(container, targetBackNo) {
+                const tgt = String(targetBackNo).toUpperCase();
+                const tbody = container?.querySelector('tbody');
+                const rows = [];
+                let sum = 0;
+                let firstRow = null;
+                if (!tbody) return {
+                    rows,
+                    firstRow,
+                    sum
+                };
+
+                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+                    const flip = row.querySelector('[data-label="Back No"] .flip');
+                    if (!flip) return;
+                    const text = (flip.dataset.backnoRaw || flip.textContent || '').trim().toUpperCase();
+                    if (text === tgt) {
+                        rows.push(row);
+                        const ordFlip = row.querySelector('[data-label="Order"] .flip');
+                        const ordText = ordFlip?.textContent?.trim() || '0';
+                        const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
+                        sum += ord;
+                        if (!firstRow) firstRow = row;
+                    }
+                });
+                return {
+                    rows,
+                    firstRow,
+                    sum
+                };
+            }
+
+            _renderSingleSum({
                 container,
-                targetBackNos,
+                targetBackNo,
                 displayBackNo = null
             }) {
-                if (!container) return;
-                const tbody = container.querySelector('tbody');
-                if (!tbody) return;
+                const {
+                    rows: bnRows,
+                    firstRow,
+                    sum
+                } = this._scanTableBackno(container, targetBackNo);
 
-                const targets = (Array.isArray(targetBackNos) ? targetBackNos : [targetBackNos])
-                    .map(s => String(s).trim().toUpperCase());
+                if (firstRow) {
+                    firstRow.style.display = '';
 
-                /* 0) RESET: unhide semua, hapus clone lama, balikin teks asli */
-                Array.from(tbody.querySelectorAll('td[data-cloned="1"]')).forEach(td => td.remove());
-                Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-                    tr.style.display = '';
-                    const bnFlip = tr.querySelector('[data-label="Back No"] .flip');
-                    if (bnFlip && bnFlip.dataset.bnOrig && bnFlip.dataset.renamed === '1') {
-                        bnFlip.textContent = bnFlip.dataset.bnOrig;
-                        bnFlip.dataset.renamed = '0';
+                    // Order → total (simpan angka asli utk progress via data-order-raw)
+                    const orderFlip = firstRow.querySelector('[data-label="Order"] .flip');
+                    if (orderFlip) {
+                        const originalOrd = parseInt(String(orderFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) ||
+                            0;
+                        orderFlip.dataset.orderRaw = String(originalOrd);
+                        orderFlip.textContent = (sum || 0).toLocaleString('id-ID');
                     }
-                    const ordFlip = tr.querySelector('[data-label="Order"] .flip');
-                    if (ordFlip && ordFlip.dataset.orderOrig) {
-                        ordFlip.textContent = (+ordFlip.dataset.orderOrig || 0).toLocaleString('id-ID');
-                        delete ordFlip.dataset.orderBase;
-                    }
-                });
-                this.recalcRowspans(container);
 
-                /* 1) cari baris yang Back No-nya match */
-                const matchedRows = [];
-                Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-                    const bn = tr.querySelector('[data-label="Back No"] .flip');
-                    if (!bn) return;
-                    const raw = (bn.dataset.backnoRaw || bn.textContent || '').trim().toUpperCase();
-                    if (targets.includes(raw)) matchedRows.push(tr);
-                });
-                if (matchedRows.length === 0) return;
-
-                /* 2) total order */
-                const totalOrder = matchedRows.reduce((acc, tr) => {
-                    const f = tr.querySelector('[data-label="Order"] .flip');
-                    const n = parseInt(String(f?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
-                    return acc + n;
-                }, 0);
-
-                /* 3) pilih satu baris target sebagai representatif */
-                const keepRow = matchedRows[0];
-
-                /* 4) isi agregat pada baris keepRow */
-                const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
-                if (ordFlip) {
-                    if (!ordFlip.dataset.orderOrig) {
-                        const cur = parseInt(String(ordFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
-                        ordFlip.dataset.orderOrig = String(cur);
-                    }
-                    ordFlip.dataset.orderBase = String(totalOrder);
-                    ordFlip.textContent = (totalOrder || 0).toLocaleString('id-ID');
-                }
-                if (displayBackNo) {
-                    const bnFlip = keepRow.querySelector('[data-label="Back No"] .flip');
-                    if (bnFlip) {
-                        if (!bnFlip.dataset.bnOrig) bnFlip.dataset.bnOrig = bnFlip.textContent.trim();
-                        bnFlip.dataset.backnoRaw = targets[0];
-                        bnFlip.textContent = displayBackNo;
-                        bnFlip.dataset.renamed = '1';
+                    // Back No → rename display bila diminta
+                    if (displayBackNo) {
+                        const bnFlip = firstRow.querySelector('[data-label="Back No"] .flip');
+                        if (bnFlip) {
+                            bnFlip.dataset.backnoRaw = targetBackNo;
+                            bnFlip.textContent = displayBackNo;
+                        }
                     }
                 }
-                keepRow.style.display = '';
 
-                /* 5) sembunyikan baris target lain, jaga rowspan */
-                matchedRows.forEach(r => {
-                    if (r === keepRow) return;
-                    if (this.isGroupStart(r)) {
-                        this.hideGroupStartRow(r);
-                    } else {
-                        r.style.display = 'none';
-                        const start = this.findGroupStart(r);
-                        start.querySelectorAll('[rowspan]').forEach(td => {
-                            td.rowSpan = Math.max(1, (td.rowSpan || 1) - 1);
-                        });
+                // Sembunyikan duplikat lain (start/non-start aman)
+                bnRows.forEach((row, idx) => {
+                    if (idx === 0) return;
+                    if (this.isGroupStart(row)) this.hideGroupStartRow(row);
+                    else {
+                        row.style.display = 'none';
+                        const start = this.findGroupStart(row);
+                        start.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = Math.max(1, td.rowSpan -
+                            1));
                     }
                 });
 
-                /* 6) akhir: rapikan rowspans */
                 this.recalcRowspans(container);
             }
 
             updateAllInlineSums() {
-                // AS004 → D500 tampil sebagai CI19 (1 baris, Order = total)
-                this._renderSumUnified({
+                // AS004 → CI19
+                if (this.AS004) this._renderSingleSum({
                     container: this.AS004,
-                    targetBackNos: ['D500'],
+                    targetBackNo: 'D500',
                     displayBackNo: 'CI19'
                 });
 
-                // AS003 → D111 tampil sebagai CI12 (1 baris, Order = total)
-                this._renderSumUnified({
+                // AS003 → D112 (rename jadi CI12)
+                if (this.AS003) this._renderSingleSum({
                     container: this.AS003,
-                    targetBackNos: ['D111'],
+                    targetBackNo: 'D111',
                     displayBackNo: 'CI12'
                 });
             }
 
-            /* ===== SSE & misc (tetap) ===== */
+            /* ===== SSE & UI ===== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1624,14 +1611,14 @@
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
-      .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
-      .animate-flip{animation:flipAnimation .6s ease;}
-      @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
-      @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
-      .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-      .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-      .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
-    `;
+              .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
+              .animate-flip{animation:flipAnimation .6s ease;}
+              @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
+              @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
+              .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+              .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+              .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
+            `;
                 document.head.appendChild(style);
             }
 
@@ -1640,6 +1627,7 @@
                 this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
                 this.updateConnectionStatus('connecting');
                 this.eventSource.onopen = () => this.updateConnectionStatus('connected');
+
                 this.eventSource.addEventListener('directPullingUpdate', (e) => {
                     const data = JSON.parse(e.data);
                     if (data.date === this.currentDate) {
@@ -1647,6 +1635,7 @@
                         this.updateConnectionStatus('connected');
                     }
                 });
+
                 this.eventSource.onerror = () => {
                     this.updateConnectionStatus('disconnected');
                     this.reconnect();
@@ -1687,23 +1676,12 @@
                 this.statusElement.textContent = s.text;
             }
 
-            reconnect() {
-                if (this.eventSource) this.eventSource.close();
-                setTimeout(() => this.connect(), 1500);
-            }
-            setupErrorHandling() {
-                window.addEventListener('beforeunload', () => {
-                    if (this.eventSource) this.eventSource.close();
-                });
-            }
-
             _getOrderForCalc(row) {
                 const flip = row.querySelector('[data-label="Order"] .flip');
                 if (!flip) return 0;
-                const base = parseInt(flip.dataset.orderBase || '', 10);
-                if (!isNaN(base)) return base;
-                const n = parseInt(String(flip.textContent || '0').replace(/[^\d-]/g, ''), 10);
-                return isNaN(n) ? 0 : n;
+                const raw = parseInt(flip.dataset.orderRaw || '', 10);
+                if (!isNaN(raw)) return raw;
+                return parseInt(String(flip.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
             }
 
             handleUpdates(updates) {
@@ -1730,7 +1708,8 @@
                 });
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
-                this.updateAllInlineSums(); // re-apply rules
+
+                this.updateAllInlineSums();
             }
 
             processUpdatedRows(rows) {
@@ -1781,6 +1760,7 @@
                     }
 
                     const updatedGroups = allGroups.filter(g => g.some(r => rows.includes(r)));
+
                     if (updatedGroups.length > 0) {
                         while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
                         const remaining = allGroups.filter(g => !updatedGroups.includes(g));
@@ -1813,8 +1793,7 @@
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth;
                 const cls = (type === 'success') ? 'highlight-beep-direct' :
-                    (type === 'warning') ? 'highlight-beep-stock' :
-                    'highlight-beep-direct';
+                    (type === 'warning') ? 'highlight-beep-stock' : 'highlight-beep-direct';
                 row.classList.add(cls);
                 const t = setTimeout(() => {
                     row.classList.remove(cls);
@@ -1874,12 +1853,9 @@
                 }
                 let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
-                    if (targetQty !== null && !isNaN(targetQty)) {
-                        classes += (value >= targetQty) ? 'bg-success bg-opacity-75 text-white' :
-                            'bg-warning bg-opacity-75';
-                    } else {
-                        classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
-                    }
+                    if (targetQty !== null && !isNaN(targetQty)) classes += (value >= targetQty) ?
+                        'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
+                    else classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
                 }
                 cell.className = classes.trim();
             }
@@ -1890,6 +1866,17 @@
                     f.classList.add('animate-flip');
                     setTimeout(() => f.classList.remove('animate-flip'), 600);
                 }
+            }
+
+            reconnect() {
+                if (this.eventSource) this.eventSource.close();
+                setTimeout(() => this.connect(), 1500);
+            }
+
+            setupErrorHandling() {
+                window.addEventListener('beforeunload', () => {
+                    if (this.eventSource) this.eventSource.close();
+                });
             }
         }
 
