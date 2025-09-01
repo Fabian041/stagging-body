@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                           THEME TOGGLE
-                           ====================== */
+                   THEME TOGGLE
+                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1403,7 +1403,7 @@
         })();
 
         /* ======================
-           SSE CLIENT + CI19 SINGLE INLINE SUM (AS004 only)
+           SSE CLIENT + CI19 INLINE SUM (AS004 only, show sum only)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1466,20 +1466,19 @@
                 const next = row.nextElementSibling;
                 const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
 
-                // Kalau group cuma 1 baris (tak ada next atau next sudah start group), aman langsung hide
+                // Group satu baris → langsung hide aman
                 if (!next || this.isGroupStart(next)) {
                     row.style.display = 'none';
                     return;
                 }
 
-                // Kelompokkan berdasar data-label supaya posisi kolom tetap benar
+                // Pindahkan sel sesuai posisi kolom
                 const headLabels = new Set(['Customer', 'Dock']);
                 const tailLabels = new Set(['Delivery Time', 'Delivery Date', 'Balance Time']);
 
-                const cellsHead = [];
-                const cellsTail = [];
-                const cellsOther = []; // bila ada kasus lain
-
+                const cellsHead = [],
+                    cellsTail = [],
+                    cellsOther = [];
                 startCells.forEach(td => {
                     const label = td.getAttribute('data-label') || '';
                     if (headLabels.has(label)) cellsHead.push(td);
@@ -1487,38 +1486,26 @@
                     else cellsOther.push(td);
                 });
 
-                // Kurangi rowspan & pindahkan
                 const dec = td => td.setAttribute('rowspan', Math.max(1, (parseInt(td.getAttribute('rowspan')) || 1) -
                     1));
 
-                // 1) Customer/Dock ke depan urut
                 cellsHead.forEach(td => {
                     dec(td);
                     next.insertBefore(td, next.firstElementChild);
                 });
-                // 2) Jika ada "other", taruh setelah head (jarang ada)
                 cellsOther.forEach(td => {
                     dec(td);
-                    // tempatkan setelah head terakhir (atau di depan bila head kosong)
-                    const after = cellsHead.length ? cellsHead[cellsHead.length - 1] : null;
-                    if (after && next.firstElementChild) {
-                        // sisip tepat setelah semua head yang sudah dipindah
-                        next.insertBefore(td, next.children[cellsHead.length] || null);
-                    } else {
-                        next.insertBefore(td, next.firstElementChild);
-                    }
+                    next.insertBefore(td, next.children[cellsHead.length] || null);
                 });
-                // 3) Delivery Time/Date/Balance ke belakang urut
                 cellsTail.forEach(td => {
                     dec(td);
                     next.appendChild(td);
                 });
 
-                // Terakhir, sembunyikan row start lamanya
                 row.style.display = 'none';
             }
 
-            /* ===== CI19: sum & tampil sekali di AS004 ===== */
+            /* ===== CI19: sum & tampil sekali di AS004 (Order = total saja) ===== */
             _scanAS004CI19() {
                 const tbody = this.AS004?.querySelector('tbody');
                 const ciRows = [];
@@ -1551,29 +1538,22 @@
             }
 
             _renderCI19SingleAS004() {
-                const PILL_CLASS = 'ci19-inline-sum';
-                // bersihkan label lama di AS004
-                this.AS004?.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
-
                 const {
                     ciRows,
                     firstRow,
                     sum
                 } = this._scanAS004CI19();
 
-                // tampilkan TOTAL di baris CI19 pertama (AS004)
-                if (firstRow && sum > 0) {
+                // tampilkan TOTAL di baris CI19 pertama (AS004) — ganti isi jadi sum
+                if (firstRow) {
                     firstRow.style.display = '';
-                    const orderCell = firstRow.querySelector('[data-label="Order"]');
-                    const target = orderCell?.querySelector('.flip') || orderCell;
-                    if (target) {
-                        const small = document.createElement('small');
-                        small.className = PILL_CLASS;
-                        small.style.marginLeft = '6px';
-                        small.style.fontWeight = '700';
-                        small.style.opacity = '0.85';
-                        small.textContent = `${sum.toLocaleString('id-ID')}`;
-                        target.after(small);
+                    const orderFlip = firstRow.querySelector('[data-label="Order"] .flip');
+                    if (orderFlip) {
+                        // simpan angka asli untuk perhitungan progress/bar
+                        const originalOrd = parseInt(String(orderFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) ||
+                            0;
+                        orderFlip.dataset.orderRaw = String(originalOrd);
+                        orderFlip.textContent = (sum || 0).toLocaleString('id-ID'); // tampil sum Saja
                     }
                 }
 
@@ -1686,6 +1666,15 @@
                 this.statusElement.textContent = s.text;
             }
 
+            /* ambil order untuk perhitungan progress dari data-order-raw kalau ada */
+            _getOrderForCalc(row) {
+                const flip = row.querySelector('[data-label="Order"] .flip');
+                if (!flip) return 0;
+                const raw = parseInt(flip.dataset.orderRaw || '', 10);
+                if (!isNaN(raw)) return raw;
+                return parseInt(String(flip.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+            }
+
             handleUpdates(updates) {
                 const rowsToProcess = new Set();
                 updates.forEach(item => {
@@ -1716,7 +1705,7 @@
             }
 
             processUpdatedRows(rows) {
-                // Group by rowspan – tetap seperti sebelumnya
+                // Group by rowspan
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
@@ -1777,7 +1766,6 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
-                            // re-sync CI19 di AS004 setelah restore
                             this.updateCI19InlineSingle();
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
@@ -1818,14 +1806,14 @@
                             targetQty);
                         else this.updateCellStyle(td, null, type);
 
+                        // progress bars (gunakan order asli jika tersedia)
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
-                            const orderText = td.parentElement.querySelector('[data-label="Order"] .flip')
-                                ?.textContent?.trim() || '0';
-                            const order = parseInt(orderText, 10) || 0;
+                            const row = td.parentElement;
+                            const order = this._getOrderForCalc(row);
 
-                            const dpEl = td.parentElement.querySelector('[data-type="direct-pulling"]');
-                            const scEl = td.parentElement.querySelector('[data-type="stock-chute"]');
+                            const dpEl = row.querySelector('[data-type="direct-pulling"]');
+                            const scEl = row.querySelector('[data-type="stock-chute"]');
                             const dp = parseInt((dpEl?.textContent || '0'), 10) || 0;
                             const sc = parseInt((scEl?.textContent || '0'), 10) || 0;
 
@@ -1833,7 +1821,7 @@
                             const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
                             bar.style.width = pct + '%';
 
-                            const totalCell = td.parentElement.querySelector('.total-progress');
+                            const totalCell = row.querySelector('.total-progress');
                             if (totalCell) {
                                 const totalBar = totalCell.querySelector('.bar > i');
                                 const totalPctEl = totalCell.querySelector('.val');
