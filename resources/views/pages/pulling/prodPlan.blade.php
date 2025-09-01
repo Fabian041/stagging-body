@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                                   THEME TOGGLE
-                                   ====================== */
+                                               THEME TOGGLE
+                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1535,13 +1535,14 @@
                 // AS004 → sum CI19 (1 baris saja, Order = total)
                 this._renderSumUnified({
                     container: this.AS004,
-                    targetBackNos: ['CI19']
+                    targetBackNos: ['D500'],
+                    displayBackNo: 'CI19'
                 });
 
                 // AS003 → sum D111 (dan juga D112 kalau ada), tampil sebagai CI12
                 this._renderSumUnified({
                     container: this.AS003,
-                    targetBackNos: ['D111', 'D112'],
+                    targetBackNos: ['D111'],
                     displayBackNo: 'CI12'
                 });
             }
