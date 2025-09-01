@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                                   THEME TOGGLE
-                                   ====================== */
+                           THEME TOGGLE (tetap)
+                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1403,18 +1403,56 @@
         })();
 
         /* ======================
-           SSE CLIENT + INLINE SUMS
-           - AS004: sum Back No = CI19 → tampil 1 baris, Order = total
-           - AS003: sum Back No = D112 → tampil 1 baris, Back No ditulis CI12, Order = total
+           KONST & UTIL KOLOM
+           ====================== */
+        const COL_ORDER = [
+            'Customer', 'Dock', 'Cycle', 'Back No', 'Order',
+            'Direct Pulling', 'Stock Chute', 'Cycle Time',
+            'Planning Start', 'Actual Start', 'Duration', 'Progress',
+            'Delivery Time', 'Delivery Date', 'Balance Time'
+        ];
+
+        function normLabel(s) {
+            return (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        }
+
+        function colIndexByLabel(td) {
+            const lbl = normLabel(td?.getAttribute('data-label'));
+            const idx = COL_ORDER.map(normLabel).indexOf(lbl);
+            return idx >= 0 ? idx : (td?.cellIndex ?? 9999);
+        }
+
+        function getCellByLabel(row, wanted) {
+            const wl = normLabel(wanted);
+            let td = row.querySelector(`[data-label]`);
+            // cepat: kalau ada yang tepat
+            const tds = Array.from(row.children);
+            for (const c of tds) {
+                if (normLabel(c.getAttribute('data-label')) === wl) return c;
+            }
+            // fallback: hampir sama (mis. spasi/kapitalisasi beda)
+            for (const c of tds) {
+                const l = normLabel(c.getAttribute('data-label'));
+                if (l && (l.includes(wl) || wl.includes(l))) return c;
+            }
+            return null;
+        }
+
+        /* ======================
+           SSE CLIENT + SUMMARY PINNED
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
                 this.eventSource = null;
                 this.statusElement = null;
                 this.currentDate = this.getCurrentDate();
+
                 this.highlightTimeouts = new Set();
                 this.originalOrder = new Map();
                 this.orderRestoreTimeouts = new Map();
+
+                this.summaries = {}; // {AS003:{row,totals,ids}, AS004:{...}}
+
                 this.init();
             }
 
@@ -1429,26 +1467,54 @@
                 this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
 
-                this.updateAllInlineSums();
+                this.prefillRawAttrs(this.AS003);
+                this.prefillRawAttrs(this.AS004);
+
+                this.buildSummaries();
+
+                if (window.bootstrap?.Tooltip) {
+                    const triggers = [].slice.call(document.querySelectorAll('[title]'));
+                    triggers.forEach(el => {
+                        el.setAttribute('data-bs-toggle', 'tooltip');
+                        try {
+                            new bootstrap.Tooltip(el);
+                        } catch {}
+                    });
+                }
             }
 
-            /* ===== Utilities: group & rowspan ===== */
+            /* ===== Prefill ===== */
+            prefillRawAttrs(container) {
+                if (!container) return;
+                container.querySelectorAll('tbody tr').forEach(row => {
+                    // Back No: simpan mentah
+                    const bnTd = getCellByLabel(row, 'Back No');
+                    const bnEl = bnTd?.querySelector('.flip') || bnTd;
+                    if (bnEl && !bnEl.dataset.backnoRaw) {
+                        bnEl.dataset.backnoRaw = (bnEl.textContent || '').trim();
+                    }
+                    // Order: simpan mentah
+                    const odTd = getCellByLabel(row, 'Order');
+                    const odEl = odTd?.querySelector('.flip') || odTd;
+                    if (odEl && !odEl.dataset.orderRaw) {
+                        const num = parseInt(String(odEl.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+                        odEl.dataset.orderRaw = String(num);
+                    }
+                });
+            }
+
+            /* ===== Group helpers ===== */
             isGroupStart(row) {
-                return !!row.querySelector('[rowspan]');
+                return row && row.style.display !== 'none' && !!row.querySelector('[rowspan]');
             }
             getGroupRowsFrom(startRow) {
                 const rows = [startRow];
                 let p = startRow;
-                while (p.nextElementSibling && !this.isGroupStart(p.nextElementSibling)) {
+                while (p?.nextElementSibling && !this.isGroupStart(p.nextElementSibling)) {
                     p = p.nextElementSibling;
                     rows.push(p);
                 }
                 return rows;
-            }
-            findGroupStart(row) {
-                let p = row;
-                while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
-                return p || row;
             }
             recalcRowspans(container) {
                 const tbody = container?.querySelector('tbody');
@@ -1456,204 +1522,377 @@
                 Array.from(tbody.querySelectorAll('tr')).forEach(row => {
                     if (!this.isGroupStart(row)) return;
                     const groupRows = this.getGroupRowsFrom(row);
-                    const visibleCount = Math.max(1, groupRows.filter(r => r.style.display !== 'none').length);
-                    row.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = visibleCount);
+                    const visible = Math.max(1, groupRows.filter(r => r.style.display !== 'none').length);
+                    row.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = visible);
                 });
             }
 
-            /* Stable: CLONE sel-rowspan ke baris berikutnya (bukan dipindah), lalu hide baris start */
-            hideGroupStartRow(row) {
-                const next = row.nextElementSibling;
-                if (!next || this.isGroupStart(next)) {
-                    row.style.display = 'none';
-                    return;
-                }
+            /* ===== Pindahkan sel header ke hostRow (posisi kolom akurat) ===== */
+            _moveRowspanCellsTo(startRow, hostRow) {
+                if (!startRow || !hostRow || hostRow === startRow) return;
 
-                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'))
-                    .sort((a, b) => a.cellIndex - b.cellIndex);
+                hostRow.querySelectorAll('[data-cloned-header]').forEach(n => n.remove());
+
+                const startCells = Array.from(startRow.children)
+                    .filter(td => td.hasAttribute('rowspan'))
+                    .sort((a, b) => colIndexByLabel(a) - colIndexByLabel(b));
 
                 startCells.forEach(td => {
                     const clone = td.cloneNode(true);
-                    const span = parseInt(td.getAttribute('rowspan') || '1', 10);
-                    clone.setAttribute('rowspan', Math.max(1, span - 1));
+                    clone.setAttribute('rowspan', 1);
+                    clone.setAttribute('data-cloned-header', '1');
 
-                    const targetIdx = td.cellIndex;
-                    const nextCells = Array.from(next.children);
+                    const wantIdx = colIndexByLabel(td);
                     let ref = null;
-                    for (let i = 0; i < nextCells.length; i++)
-                        if (nextCells[i].cellIndex > targetIdx) {
-                            ref = nextCells[i];
+                    for (const ex of Array.from(hostRow.children)) {
+                        if (colIndexByLabel(ex) > wantIdx) {
+                            ref = ex;
                             break;
                         }
-                    next.insertBefore(clone, ref);
-                });
-
-                row.style.display = 'none';
-            }
-
-            /* ===== Scanner & renderer ===== */
-            _scanTableBackno(container, targetBackNo) {
-                const tgt = String(targetBackNo).toUpperCase();
-                const tbody = container?.querySelector('tbody');
-                const rows = [];
-                let sum = 0;
-                let firstRow = null;
-                if (!tbody) return {
-                    rows,
-                    firstRow,
-                    sum
-                };
-
-                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
-                    const flip = row.querySelector('[data-label="Back No"] .flip');
-                    if (!flip) return;
-                    const text = (flip.dataset.backnoRaw || flip.textContent || '').trim().toUpperCase();
-                    if (text === tgt) {
-                        rows.push(row);
-                        const ordFlip = row.querySelector('[data-label="Order"] .flip');
-                        const ordText = ordFlip?.textContent?.trim() || '0';
-                        const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
-                        sum += ord;
-                        if (!firstRow) firstRow = row;
                     }
+                    hostRow.insertBefore(clone, ref);
                 });
-                return {
-                    rows,
-                    firstRow,
-                    sum
-                };
+
+                const tbody = startRow.parentElement;
+                if (tbody && hostRow.previousElementSibling !== startRow) tbody.insertBefore(hostRow, startRow);
+
+                Array.from(startRow.querySelectorAll('[rowspan]')).forEach(td => td.removeAttribute('rowspan'));
+                startRow.style.display = 'none';
             }
 
-            _renderSingleSum({
+            /* ===== Row utils (lebih robust) ===== */
+            _getBackNo(row) {
+                // 1) pakai data-label="Back No"
+                const td = getCellByLabel(row, 'Back No');
+                const el = td?.querySelector('.flip') || td;
+                let val = (el?.dataset?.backnoRaw || el?.textContent || '').trim();
+                if (val) return val.toUpperCase();
+
+                // 2) fallback regex: cari token Dxxx / CIxx dalam satu row
+                const text = (row.textContent || '').toUpperCase();
+                const m = text.match(/\b(?:D\d{2,4}|CI\d{2,4})\b/);
+                return m ? m[0] : '';
+            }
+            _getOrder(row) {
+                const td = getCellByLabel(row, 'Order');
+                const el = td?.querySelector('.flip') || td;
+                if (!el) return 0;
+                const raw = parseInt(el.dataset?.orderRaw || '', 10);
+                if (!isNaN(raw)) return raw;
+                return parseInt(String(el.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+            }
+            _getDP(row) {
+                const el = row?.querySelector('[data-type="direct-pulling"]');
+                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
+            }
+            _getSC(row) {
+                const el = row?.querySelector('[data-type="stock-chute"]');
+                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
+            }
+            _getId(row) {
+                const el = row?.querySelector('[data-type="direct-pulling"]') || row?.querySelector(
+                    '[data-type="stock-chute"]');
+                return el ? el.getAttribute('data-item-id') : null;
+            }
+
+            /* ===== Build summaries (pinned top) ===== */
+            buildSummaries() {
+                Object.values(this.summaries).forEach(s => s.row?.remove());
+                this.summaries = {};
+
+                if (this.AS003) {
+                    this.summaries.AS003 = this._extractAndPinSummary({
+                        key: 'AS003',
+                        container: this.AS003,
+                        targets: ['D111', 'CI12'],
+                        label: 'CI12'
+                    });
+                }
+                if (this.AS004) {
+                    this.summaries.AS004 = this._extractAndPinSummary({
+                        key: 'AS004',
+                        container: this.AS004,
+                        targets: ['D500', 'CI19'],
+                        label: 'CI19'
+                    });
+                }
+            }
+
+            _extractAndPinSummary({
+                key,
                 container,
-                targetBackNo,
-                displayBackNo = null
+                targets,
+                label
             }) {
-                const {
-                    rows: bnRows,
-                    firstRow,
-                    sum
-                } = this._scanTableBackno(container, targetBackNo);
+                const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
+                const tbody = container?.querySelector('tbody');
+                const summary = {
+                    row: null,
+                    totals: {
+                        order: 0,
+                        dp: 0,
+                        sc: 0
+                    },
+                    ids: new Map()
+                };
+                if (!tbody) return summary;
 
-                if (firstRow) {
-                    firstRow.style.display = '';
-
-                    // Order → total (simpan angka asli utk progress via data-order-raw)
-                    const orderFlip = firstRow.querySelector('[data-label="Order"] .flip');
-                    if (orderFlip) {
-                        const originalOrd = parseInt(String(orderFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) ||
-                            0;
-                        orderFlip.dataset.orderRaw = String(originalOrd);
-                        orderFlip.textContent = (sum || 0).toLocaleString('id-ID');
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                let i = 0;
+                const groups = [];
+                while (i < allRows.length) {
+                    const start = allRows[i];
+                    const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute(
+                        'rowspan') || '1', 10) : 1;
+                    const g = [start];
+                    let w = start;
+                    for (let k = 1; k < rs && (i + k) < allRows.length; k++) {
+                        w = allRows[i + k];
+                        g.push(w);
                     }
-
-                    // Back No → rename display bila diminta
-                    if (displayBackNo) {
-                        const bnFlip = firstRow.querySelector('[data-label="Back No"] .flip');
-                        if (bnFlip) {
-                            bnFlip.dataset.backnoRaw = targetBackNo;
-                            bnFlip.textContent = displayBackNo;
-                        }
-                    }
+                    groups.push(g);
+                    i += Math.max(1, rs);
                 }
 
-                // Sembunyikan duplikat lain (start/non-start aman)
-                bnRows.forEach((row, idx) => {
-                    if (idx === 0) return;
-                    if (this.isGroupStart(row)) this.hideGroupStartRow(row);
-                    else {
-                        row.style.display = 'none';
-                        const start = this.findGroupStart(row);
-                        start.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = Math.max(1, td.rowSpan -
-                            1));
+                const customerBag = [];
+
+                groups.forEach(groupRows => {
+                    const startRow = groupRows[0];
+                    const matches = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
+                    if (matches.length === 0) return;
+
+                    // catat nama customer dari baris start grup
+                    const custTd = getCellByLabel(startRow, 'Customer');
+                    const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
+                        .trim();
+                    if (custText) customerBag.push(custText);
+
+                    // akumulasi total + id
+                    matches.forEach(r => {
+                        const id = this._getId(r);
+                        const dp = this._getDP(r);
+                        const sc = this._getSC(r);
+                        const od = this._getOrder(r);
+                        summary.totals.dp += dp;
+                        summary.totals.sc += sc;
+                        summary.totals.order += od;
+                        if (id) summary.ids.set(id, {
+                            dp,
+                            sc,
+                            order: od
+                        });
+                    });
+
+                    const keepRows = groupRows.filter(r => !matches.includes(r));
+                    if (keepRows.length === 0) {
+                        groupRows.forEach(r => r.remove());
+                        return;
                     }
+
+                    if (matches.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
+                    matches.forEach(r => {
+                        if (r !== startRow) r.remove();
+                    });
                 });
+
+                // pilih customer yang paling sering (mode)
+                let customerText = '—';
+                if (customerBag.length) {
+                    const freq = customerBag.reduce((m, s) => (m[s] = (m[s] || 0) + 1, m), {});
+                    customerText = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+                }
+
+                if (summary.totals.order + summary.totals.dp + summary.totals.sc > 0) {
+                    summary.row = this._createSummaryRow({
+                        label,
+                        totals: summary.totals,
+                        customerText
+                    });
+                    tbody.insertBefore(summary.row, tbody.firstChild || null);
+                }
 
                 this.recalcRowspans(container);
+                return summary;
             }
 
-            updateAllInlineSums() {
-                // AS004 → CI19
-                if (this.AS004) this._renderSingleSum({
-                    container: this.AS004,
-                    targetBackNo: 'D500',
-                    displayBackNo: 'CI19'
-                });
+            _createSummaryRow({
+                label,
+                totals,
+                customerText = '—'
+            }) {
+                const tr = document.createElement('tr');
+                tr.className = 'fw-bold'; // <-- tidak pakai table-info, jadi warnanya sama
 
-                // AS003 → D112 (rename jadi CI12)
-                if (this.AS003) this._renderSingleSum({
-                    container: this.AS003,
-                    targetBackNo: 'D111',
-                    displayBackNo: 'CI12'
-                });
+                const pct = Math.min(100, Math.round(((totals.dp + totals.sc) / Math.max(1, totals.order)) * 100));
+                const td = (text, attrs = {}) => {
+                    const el = document.createElement('td');
+                    if (text != null) el.innerHTML = `<span class="flip">${text}</span>`;
+                    for (const k in attrs) el.setAttribute(k, attrs[k]);
+                    return el;
+                };
+
+                // kolom-kolom
+                tr.appendChild(td(customerText, {
+                    'data-label': 'Customer'
+                })); // <-- pakai nama customer asli
+                tr.appendChild(td('—', {
+                    'data-label': 'Dock'
+                }));
+                tr.appendChild(td('—', {
+                    'data-label': 'Cycle'
+                }));
+                tr.appendChild(td(label, {
+                    'data-label': 'Back No'
+                }));
+                tr.appendChild(td(totals.order.toLocaleString('id-ID'), {
+                    'data-label': 'Order'
+                }));
+
+                const tdDP = document.createElement('td');
+                tdDP.setAttribute('data-label', 'Direct Pulling');
+                tdDP.innerHTML =
+                    `<div class="qty-progress" title="DP ${totals.dp} / ${totals.order}">
+       <div class="bar"><i style="width:${Math.min(100, Math.round((totals.dp/Math.max(1,totals.order))*100))}%;"></i></div>
+       <span class="val"><span class="flip" data-summary-dp>${totals.dp}</span></span>
+     </div>`;
+                tr.appendChild(tdDP);
+
+                const tdSC = document.createElement('td');
+                tdSC.setAttribute('data-label', 'Stock Chute');
+                tdSC.innerHTML =
+                    `<div class="qty-progress" title="SC ${totals.sc} / ${totals.order}">
+       <div class="bar"><i style="width:${Math.min(100, Math.round((totals.sc/Math.max(1,totals.order))*100))}%;"></i></div>
+       <span class="val"><span class="flip" data-summary-sc>${totals.sc}</span></span>
+     </div>`;
+                tr.appendChild(tdSC);
+
+                tr.appendChild(td('—', {
+                    'data-label': 'Cycle Time'
+                }));
+                tr.appendChild(td('—', {
+                    'data-label': 'Planning Start'
+                }));
+                tr.appendChild(td('—', {
+                    'data-label': 'Actual Start'
+                }));
+                tr.appendChild(td('<span class="text-warning">—</span>', {
+                    'data-label': 'Duration'
+                }));
+
+                const tdProg = document.createElement('td');
+                tdProg.className = 'total-progress';
+                tdProg.setAttribute('data-label', 'Progress');
+                tdProg.innerHTML =
+                    `<div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
+       <div class="bar"><i data-summary-totalbar style="width:${pct}%;"></i></div>
+       <span class="val" data-summary-totalpct>${pct}%</span>
+     </div>`;
+                tr.appendChild(tdProg);
+
+                tr.appendChild(td('—', {
+                    'data-label': 'Delivery Time'
+                }));
+                tr.appendChild(td('—', {
+                    'data-label': 'Delivery Date'
+                }));
+                tr.appendChild(td('—', {
+                    'data-label': 'Balance Time'
+                }));
+
+                return tr;
             }
 
-            /* ===== SSE & UI ===== */
+
+            _refreshSummaryRow(summary) {
+                if (!summary?.row) return;
+                const {
+                    order,
+                    dp,
+                    sc
+                } = summary.totals;
+                const pct = Math.min(100, Math.round(((dp + sc) / Math.max(1, order)) * 100));
+                const dpSpan = summary.row.querySelector('[data-summary-dp]');
+                const scSpan = summary.row.querySelector('[data-summary-sc]');
+                const totalBar = summary.row.querySelector('[data-summary-totalbar]');
+                const totalPct = summary.row.querySelector('[data-summary-totalpct]');
+                const orderFlip = summary.row.querySelector('[data-label="Order"] .flip');
+                if (dpSpan) dpSpan.textContent = dp;
+                if (scSpan) scSpan.textContent = sc;
+                if (orderFlip) orderFlip.textContent = order.toLocaleString('id-ID');
+                if (totalBar) totalBar.style.width = pct + '%';
+                if (totalPct) totalPct.textContent = pct + '%';
+            }
+            refreshSummaries() {
+                Object.values(this.summaries).forEach(s => this._refreshSummaryRow(s));
+            }
+
+            /* ===== SSE ===== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
-                    const rows = Array.from(tbody.querySelectorAll('tr'));
-                    this.originalOrder.set(tbody, rows);
+                    this.originalOrder.set(tbody, Array.from(tbody.querySelectorAll('tr')));
                 });
             }
-
             getCurrentDate() {
-                const dateInput = document.querySelector('input[name="date"]');
-                return dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+                const inp = document.querySelector('input[name="date"]');
+                return inp ? inp.value : new Date().toISOString().split('T')[0];
             }
-
             createStatusIndicator() {
-                this.statusElement = document.createElement('div');
-                this.statusElement.id = 'sse-connection-status';
-                this.statusElement.textContent = '● Connecting to updates...';
-                document.body.appendChild(this.statusElement);
+                const el = document.createElement('div');
+                el.id = 'sse-connection-status';
+                el.textContent = '● Connecting to updates...';
+                document.body.appendChild(el);
+                this.statusElement = el;
             }
-
             addFlipStyles() {
-                const style = document.createElement('style');
-                style.textContent = `
-              .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
-              .animate-flip{animation:flipAnimation .6s ease;}
-              @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
-              @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
-              .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-              .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-              .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
-            `;
-                document.head.appendChild(style);
+                const st = document.createElement('style');
+                st.textContent = `
+            .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
+            .animate-flip{animation:flipAnimation .6s ease;}
+            @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
+            @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
+            .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+            .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+            .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
+          `;
+                document.head.appendChild(st);
             }
 
             connect() {
-                if (this.eventSource) this.eventSource.close();
-                this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
-                this.updateConnectionStatus('connecting');
-                this.eventSource.onopen = () => this.updateConnectionStatus('connected');
-
-                this.eventSource.addEventListener('directPullingUpdate', (e) => {
-                    const data = JSON.parse(e.data);
-                    if (data.date === this.currentDate) {
-                        this.handleUpdates(data.updates || []);
-                        this.updateConnectionStatus('connected');
-                    }
-                });
-
-                this.eventSource.onerror = () => {
-                    this.updateConnectionStatus('disconnected');
-                    this.reconnect();
-                };
+                try {
+                    if (this.eventSource) this.eventSource.close();
+                    this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
+                    this.updateConnectionStatus('connecting');
+                    this.eventSource.onopen = () => this.updateConnectionStatus('connected');
+                    this.eventSource.addEventListener('directPullingUpdate', e => {
+                        try {
+                            const data = JSON.parse(e.data);
+                            if (data.date === this.currentDate) {
+                                this.handleUpdates(data.updates || []);
+                                this.updateConnectionStatus('connected');
+                            }
+                        } catch {
+                            this.updateConnectionStatus('error', 'parse');
+                        }
+                    });
+                    this.eventSource.onerror = () => {
+                        this.updateConnectionStatus('disconnected');
+                        this.reconnect();
+                    };
+                } catch {
+                    this.updateConnectionStatus('error', 'EventSource');
+                }
             }
-
             setupDateChangeListener() {
-                const dateInput = document.querySelector('input[name="date"]');
-                if (dateInput) {
-                    dateInput.addEventListener('change', () => {
+                const inp = document.querySelector('input[name="date"]');
+                if (inp) {
+                    inp.addEventListener('change', () => {
                         this.currentDate = this.getCurrentDate();
                         this.reconnect();
                     });
                 }
             }
-
-            updateConnectionStatus(status, message = '') {
-                const statusMap = {
+            updateConnectionStatus(status, msg = '') {
+                const m = {
                     connecting: {
                         text: '● Connecting to updates...',
                         class: 'text-primary border bg-white'
@@ -1667,146 +1906,74 @@
                         class: 'text-danger border bg-white'
                     },
                     error: {
-                        text: '● Update Error ' + message,
+                        text: '● Update Error ' + msg,
                         class: 'text-warning border bg-white'
-                    },
+                    }
+                } [status] || {
+                    text: '● Update Error',
+                    class: 'text-warning border bg-white'
                 };
-                const s = statusMap[status] || statusMap.error;
-                this.statusElement.className = s.class;
-                this.statusElement.textContent = s.text;
+                this.statusElement.className = m.class;
+                this.statusElement.textContent = m.text;
             }
-
-            _getOrderForCalc(row) {
-                const flip = row.querySelector('[data-label="Order"] .flip');
-                if (!flip) return 0;
-                const raw = parseInt(flip.dataset.orderRaw || '', 10);
-                if (!isNaN(raw)) return raw;
-                return parseInt(String(flip.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+            reconnect() {
+                if (this.eventSource) this.eventSource.close();
+                setTimeout(() => this.connect(), 1500);
+            }
+            setupErrorHandling() {
+                window.addEventListener('beforeunload', () => {
+                    if (this.eventSource) this.eventSource.close();
+                });
             }
 
             handleUpdates(updates) {
-                const rowsToProcess = new Set();
                 updates.forEach(item => {
-                    const hasAny =
-                        document.querySelector(`[data-item-id="${item.id}"][data-type="direct-pulling"]`) ||
-                        document.querySelector(`[data-item-id="${item.id}"][data-type="stock-chute"]`);
-                    if (!hasAny) return;
+                    // kalau item termasuk ke ringkasan → adjust total
+                    Object.values(this.summaries).forEach(s => {
+                        if (!s?.ids) return;
+                        if (s.ids.has(String(item.id))) {
+                            const prev = s.ids.get(String(item.id)) || {
+                                dp: 0,
+                                sc: 0,
+                                order: 0
+                            };
+                            const newDP = (item.direct_pulling_qty ?? prev.dp) | 0;
+                            const newSC = (item.stock_chute_qty ?? prev.sc) | 0;
+                            const newOD = (item.order_qty ?? prev.order) | 0;
+                            s.totals.dp += (newDP - prev.dp);
+                            s.totals.sc += (newSC - prev.sc);
+                            s.totals.order += (newOD - prev.order);
+                            s.ids.set(String(item.id), {
+                                dp: newDP,
+                                sc: newSC,
+                                order: newOD
+                            });
+                            this._refreshSummaryRow(s);
+                        }
+                    });
 
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="direct-pulling"]`,
-                        item.direct_pulling_qty, 'direct-pulling', item.order_qty);
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="stock-chute"]`,
-                        item.stock_chute_qty, 'stock-chute', item.order_qty);
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="actual_start"]`,
-                        item.actual_start, 'time');
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="end"]`,
-                        item.end, 'time');
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="balance"]`,
-                        item.balance, 'time');
-
-                    document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`).forEach(r => rowsToProcess
-                        .add(r));
+                    // update baris normal yang masih di tabel
+                    const selDP = `[data-item-id="${item.id}"][data-type="direct-pulling"]`;
+                    const selSC = `[data-item-id="${item.id}"][data-type="stock-chute"]`;
+                    if (document.querySelector(selDP) || document.querySelector(selSC)) {
+                        this.updateQuantity(selDP, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
+                        this.updateQuantity(selSC, item.stock_chute_qty, 'stock-chute', item.order_qty);
+                        this.updateQuantity(`[data-item-id="${item.id}"][data-type="actual_start"]`, item
+                            .actual_start, 'time');
+                        this.updateQuantity(`[data-item-id="${item.id}"][data-type="end"]`, item.end, 'time');
+                        this.updateQuantity(`[data-item-id="${item.id}"][data-type="balance"]`, item.balance,
+                            'time');
+                    }
                 });
 
-                if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
-
-                this.updateAllInlineSums();
-            }
-
-            processUpdatedRows(rows) {
-                const rowGroups = new Map();
-                rows.forEach(row => {
-                    let groupStart = row;
-                    while (groupStart.previousElementSibling && groupStart.previousElementSibling.querySelector(
-                            '[rowspan]')) {
-                        groupStart = groupStart.previousElementSibling;
-                    }
-                    const rs = parseInt(groupStart.querySelector('[rowspan]')?.getAttribute('rowspan')) || 1;
-                    const group = [groupStart];
-                    let walker = groupStart;
-                    for (let i = 1; i < rs; i++) {
-                        if (walker.nextElementSibling) {
-                            group.push(walker.nextElementSibling);
-                            walker = walker.nextElementSibling;
-                        }
-                    }
-                    if (!rowGroups.has(groupStart)) rowGroups.set(groupStart, new Set(group));
-                    else group.forEach(r => rowGroups.get(groupStart).add(r));
-                });
-
-                const tablesProcessed = new Set();
-                for (const [groupStart] of rowGroups) {
-                    const tbody = groupStart.closest('tbody');
-                    if (!tbody || tablesProcessed.has(tbody)) continue;
-                    tablesProcessed.add(tbody);
-
-                    if (this.orderRestoreTimeouts.has(tbody)) {
-                        clearTimeout(this.orderRestoreTimeouts.get(tbody));
-                        this.orderRestoreTimeouts.delete(tbody);
-                    }
-
-                    const allRows = Array.from(tbody.querySelectorAll('tr'));
-                    const allGroups = [];
-                    let cur = allRows[0];
-                    while (cur) {
-                        const rs = parseInt(cur.querySelector('[rowspan]')?.getAttribute('rowspan') || '1');
-                        const g = [cur];
-                        let w = cur;
-                        for (let i = 1; i < rs && w.nextElementSibling; i++) {
-                            g.push(w.nextElementSibling);
-                            w = w.nextElementSibling;
-                        }
-                        allGroups.push(g);
-                        cur = w?.nextElementSibling;
-                    }
-
-                    const updatedGroups = allGroups.filter(g => g.some(r => rows.includes(r)));
-
-                    if (updatedGroups.length > 0) {
-                        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-                        const remaining = allGroups.filter(g => !updatedGroups.includes(g));
-                        updatedGroups.forEach(g => g.forEach(r => tbody.appendChild(r)));
-                        remaining.forEach(g => g.forEach(r => tbody.appendChild(r)));
-                        rows.forEach(r => {
-                            if (tbody.contains(r)) this.highlightRow(r, 'mixed');
-                        });
-
-                        const restoreTimeout = setTimeout(() => {
-                            this.restoreOriginalOrder(tbody);
-                            this.orderRestoreTimeouts.delete(tbody);
-                            this.updateAllInlineSums();
-                        }, 60000);
-                        this.orderRestoreTimeouts.set(tbody, restoreTimeout);
-                    }
-                }
-            }
-
-            restoreOriginalOrder(tbody) {
-                if (!this.originalOrder.has(tbody)) return;
-                const originalRows = this.originalOrder.get(tbody);
-                const currentRows = Array.from(tbody.querySelectorAll('tr'));
-                if (originalRows.length !== currentRows.length) return;
-                while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-                originalRows.forEach(r => tbody.appendChild(r));
-            }
-
-            highlightRow(row, type) {
-                row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
-                void row.offsetWidth;
-                const cls = (type === 'success') ? 'highlight-beep-direct' :
-                    (type === 'warning') ? 'highlight-beep-stock' : 'highlight-beep-direct';
-                row.classList.add(cls);
-                const t = setTimeout(() => {
-                    row.classList.remove(cls);
-                    this.highlightTimeouts.delete(t);
-                }, 60000);
-                this.highlightTimeouts.add(t);
+                this.refreshSummaries();
             }
 
             updateQuantity(selector, newValue, type, targetQty = null) {
                 document.querySelectorAll(selector).forEach(el => {
-                    const cur = el.textContent.trim();
+                    const cur = (el.textContent || '').trim();
                     if (cur !== String(newValue)) {
-                        el.textContent = newValue;
+                        el.textContent = newValue ?? '';
                         const td = el.closest('td');
 
                         if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
@@ -1816,261 +1983,86 @@
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
                             const row = td.parentElement;
-                            const order = this._getOrderForCalc(row);
-
-                            const dpEl = row.querySelector('[data-type="direct-pulling"]');
-                            const scEl = row.querySelector('[data-type="stock-chute"]');
-                            const dp = parseInt((dpEl?.textContent || '0'), 10) || 0;
-                            const sc = parseInt((scEl?.textContent || '0'), 10) || 0;
-
+                            const order = this._getOrder(row);
+                            const dp = parseInt((row.querySelector('[data-type="direct-pulling"]')
+                                ?.textContent || '0'), 10) || 0;
+                            const sc = parseInt((row.querySelector('[data-type="stock-chute"]')?.textContent ||
+                                '0'), 10) || 0;
                             const val = (type === 'direct-pulling') ? dp : sc;
                             const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
                             bar.style.width = pct + '%';
 
-                            const totalCell = row.querySelector('.total-progress');
-                            if (totalCell) {
-                                const totalBar = totalCell.querySelector('.bar > i');
-                                const totalPctEl = totalCell.querySelector('.val');
+                            const totCell = row.querySelector('.total-progress');
+                            if (totCell) {
+                                const tBar = totCell.querySelector('.bar > i');
+                                const tPct = totCell.querySelector('.val');
                                 const totalVal = dp + sc;
                                 const totalPct = Math.min(100, Math.round((totalVal / Math.max(1, order)) *
                                     100));
-                                if (totalBar) totalBar.style.width = totalPct + '%';
-                                if (totalPctEl) totalPctEl.textContent = totalPct + '%';
+                                if (tBar) tBar.style.width = totalPct + '%';
+                                if (tPct) tPct.textContent = totalPct + '%';
                             }
                         }
 
-                        this.animateChange(td);
+                        const f = td?.querySelector('.flip');
+                        if (f) {
+                            f.classList.add('animate-flip');
+                            setTimeout(() => f.classList.remove('animate-flip'), 600);
+                        }
                     }
                 });
             }
-
-            updateCellStyle(cell, value, type, targetQty = null) {
+            updateCellStyle(cell, val, type, targetQty = null) {
                 if (!cell) return;
                 if (type === 'time') return;
-                if (value === null) {
+                if (val === null) {
                     cell.className = '';
                     return;
                 }
-                let classes = 'fw-bold ';
+                let cls = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
-                    if (targetQty !== null && !isNaN(targetQty)) classes += (value >= targetQty) ?
-                        'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
-                    else classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
+                    if (targetQty !== null && !isNaN(targetQty)) {
+                        cls += (val >= targetQty) ? 'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
+                    } else {
+                        cls += (val > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
+                    }
                 }
-                cell.className = classes.trim();
+                cell.className = cls.trim();
             }
 
-            animateChange(td) {
-                const f = td?.querySelector('.flip');
-                if (f) {
-                    f.classList.add('animate-flip');
-                    setTimeout(() => f.classList.remove('animate-flip'), 600);
-                }
-            }
-
-            reconnect() {
-                if (this.eventSource) this.eventSource.close();
-                setTimeout(() => this.connect(), 1500);
-            }
-
-            setupErrorHandling() {
-                window.addEventListener('beforeunload', () => {
-                    if (this.eventSource) this.eventSource.close();
-                });
+            /* Kompat untuk pemanggilan eksternal */
+            updateAllInlineSums() {
+                this.refreshSummaries();
             }
         }
 
+        /* Boot */
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
-
-            const triggers = [].slice.call(document.querySelectorAll('[title]'));
-            triggers.forEach(el => {
-                el.setAttribute('data-bs-toggle', 'tooltip');
-                new bootstrap.Tooltip(el);
-            });
         });
 
+        /* Navigasi tanggal (tetap) */
         function navigateDate(days) {
             const inp = document.querySelector('input[name="date"]');
-            const currentDate = new Date(inp.value);
-            currentDate.setDate(currentDate.getDate() + days);
-            inp.value = currentDate.toISOString().split('T')[0];
-            document.querySelector('form').submit();
+            if (!inp) return;
+            const d = new Date(inp.value);
+            d.setDate(d.getDate() + days);
+            inp.value = d.toISOString().split('T')[0];
+            document.querySelector('form')?.submit();
         }
 
         function gotoToday() {
             const inp = document.querySelector('input[name="date"]');
+            if (!inp) return;
             const iso = new Date().toISOString().split('T')[0];
             inp.value = iso;
-            document.querySelector('form').submit();
+            document.querySelector('form')?.submit();
         }
 
-        /* ======================
-           Column Dropdown (rowspan-aware)
-           ====================== */
-        (function ColumnDropdown() {
-            const STORAGE_PREFIX = 'hiddenCols_';
-            document.querySelectorAll('[data-colpicker]').forEach(menu => {
-                const tableKey = menu.getAttribute('data-colpicker');
-                const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
-                const table = container?.querySelector('table');
-                if (!table) return;
-
-                const meta = buildMatrix(table);
-                const hidden = new Set(JSON.parse(localStorage.getItem(STORAGE_PREFIX + tableKey) || '[]'));
-                applyHidden(meta, hidden);
-
-                menu.querySelectorAll('.column-check').forEach(cb => {
-                    const idx = parseInt(cb.dataset.col, 10);
-                    cb.checked = !hidden.has(idx);
-                    cb.addEventListener('change', () => {
-                        if (cb.checked) hidden.delete(idx);
-                        else hidden.add(idx);
-                        localStorage.setItem(STORAGE_PREFIX + tableKey, JSON.stringify([...
-                            hidden
-                        ]));
-                        applyHidden(meta, hidden);
-                    });
-                });
-
-                window.resetColumns = function(key) {
-                    if (key !== tableKey) return;
-                    hidden.clear();
-                    localStorage.setItem(STORAGE_PREFIX + tableKey, JSON.stringify([]));
-                    menu.querySelectorAll('.column-check').forEach(c => c.checked = true);
-                    applyHidden(meta, hidden);
-                }
-            });
-
-            function buildMatrix(table) {
-                const rows = Array.from(table.rows);
-                const matrix = [];
-                let maxCols = 0;
-                for (let r = 0; r < rows.length; r++) {
-                    if (!matrix[r]) matrix[r] = [];
-                    let col = 0;
-                    for (const cell of Array.from(rows[r].cells)) {
-                        while (matrix[r][col]) col++;
-                        cell._origColspan = cell._origColspan || cell.colSpan || 1;
-                        cell._origRowspan = cell._origRowspan || cell.rowSpan || 1;
-                        cell._startCol = (cell._startCol === undefined) ? col : cell._startCol;
-                        for (let rr = 0; rr < cell._origRowspan; rr++) {
-                            if (!matrix[r + rr]) matrix[r + rr] = [];
-                            for (let cc = 0; cc < cell._origColspan; cc++) matrix[r + rr][col + cc] = cell;
-                        }
-                        col += cell._origColspan;
-                    }
-                    if (col > maxCols) maxCols = col;
-                }
-                return {
-                    matrix,
-                    maxCols,
-                    rows
-                };
-            }
-
-            function applyHidden(meta, hidden) {
-                const {
-                    matrix,
-                    maxCols
-                } = meta;
-                const unique = new Set();
-                for (let r = 0; r < matrix.length; r++)
-                    for (let c = 0; c < maxCols; c++) {
-                        const cell = matrix[r][c];
-                        if (cell) unique.add(cell);
-                    }
-
-                unique.forEach(cell => {
-                    const start = cell._startCol,
-                        span = cell._origColspan;
-                    let visible = 0;
-                    for (let k = 0; k < span; k++)
-                        if (!hidden.has(start + k)) visible++;
-                    cell.style.display = (visible === 0) ? 'none' : '';
-                    cell.colSpan = span > 1 ? Math.max(1, visible) : 1;
-                    cell.rowSpan = cell._origRowspan;
-                });
-
-                if (window.__recalcStickyHeaders) window.__recalcStickyHeaders();
-            }
+        /* Bridge untuk dropdown/presets eksternal bila ada */
+        (function Bridge() {
+            /* no-op; updateAllInlineSums() sudah kompat */
         })();
-
-        /* ======================
-           Preset: Risk first + Save view
-           ====================== */
-        const VIEW_KEY_PREFIX = 'view_';
-
-        function parseBalanceHour(text) {
-            if (!text || text === '--') return Infinity;
-            const [h, m] = String(text).split(':').map(x => parseInt(x || '0', 10));
-            return isNaN(h) ? Infinity : h + (m / 60);
-        }
-
-        function groupRowsByRowspan(tbody) {
-            const allRows = Array.from(tbody.querySelectorAll('tr'));
-            const groups = [];
-            let i = 0;
-            while (i < allRows.length) {
-                const start = allRows[i];
-                const rsCell = start.querySelector('[rowspan]');
-                const rs = parseInt(rsCell?.getAttribute('rowspan') || '1', 10);
-                const bundle = [start];
-                for (let k = 1; k < rs && (i + k) < allRows.length; k++) bundle.push(allRows[i + k]);
-                groups.push(bundle);
-                i += rs;
-            }
-            return groups;
-        }
-
-        function applyPreset(tableKey, preset) {
-            const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
-            const tbody = container?.querySelector('tbody');
-            if (!tbody) return;
-
-            if (preset === 'default') {
-                if (window.prodPlanSSE?.originalOrder?.has(tbody)) window.prodPlanSSE.restoreOriginalOrder(tbody);
-                localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-                if ((tableKey === 'AS004' || tableKey === 'AS003') && window.prodPlanSSE?.updateAllInlineSums) window
-                    .prodPlanSSE.updateAllInlineSums();
-                return;
-            }
-
-            if (preset === 'risk') {
-                const groups = groupRowsByRowspan(tbody);
-                groups.sort((a, b) => {
-                    const aBal = a[0].querySelector('[data-type="balance"]')?.textContent?.trim();
-                    const bBal = b[0].querySelector('[data-type="balance"]')?.textContent?.trim();
-                    const ah = parseBalanceHour(aBal),
-                        bh = parseBalanceHour(bBal);
-                    return ah - bh;
-                });
-                const frag = document.createDocumentFragment();
-                groups.forEach(g => g.forEach(r => frag.appendChild(r)));
-                tbody.innerHTML = '';
-                tbody.appendChild(frag);
-                localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
-                    preset: 'risk'
-                }));
-                if ((tableKey === 'AS004' || tableKey === 'AS003') && window.prodPlanSSE?.updateAllInlineSums) window
-                    .prodPlanSSE.updateAllInlineSums();
-            }
-        }
-
-        function saveCurrentView(tableKey) {
-            localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
-                preset: 'custom'
-            }));
-            alert('Current view saved for ' + tableKey);
-        }
-        document.addEventListener('DOMContentLoaded', () => {
-            ['AS003', 'AS004'].forEach(k => {
-                const saved = localStorage.getItem(VIEW_KEY_PREFIX + k);
-                if (!saved) return;
-                const view = JSON.parse(saved);
-                if (view.preset === 'risk') applyPreset(k, 'risk');
-            });
-        });
     </script>
 
     <script>
