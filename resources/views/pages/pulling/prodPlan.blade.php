@@ -1389,6 +1389,7 @@
                     label.textContent = 'Dark';
                 }
             }
+
             if (saved) apply(saved);
             else apply(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' :
                 'light');
@@ -1402,7 +1403,7 @@
         })();
 
         /* ======================
-           SSE CLIENT + CI19 SINGLE INLINE SUM (hide duplicates)
+           SSE CLIENT + CI19 SINGLE INLINE SUM (AS004 only)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1423,11 +1424,14 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
+                // Target Back No
                 this.CI_TARGET = 'CI19';
-                this.updateCI19InlineSingle(); // render awal + collapse duplikat
+                // Container AS004
+                this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
+                this.updateCI19InlineSingle(); // render awal hanya di AS004
             }
 
-            /* ===== Helpers (grouping/rowspan) ===== */
+            /* ===== Utilities: group & rowspan (AS004 scope) ===== */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
@@ -1442,34 +1446,64 @@
                 return rows;
             }
 
-            recalcAllGroupRowspans() {
-                document.querySelectorAll('tbody tr').forEach(row => {
+            findGroupStart(row) {
+                let p = row;
+                while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
+                return p || row;
+            }
+
+            recalcAS004Rowspans() {
+                const tbody = this.AS004?.querySelector('tbody');
+                if (!tbody) return;
+                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
                     if (!this.isGroupStart(row)) return;
                     const groupRows = this.getGroupRowsFrom(row);
                     const visibleCount = Math.max(1, groupRows.filter(r => r.style.display !== 'none').length);
-                    row.querySelectorAll('[rowspan]').forEach(cell => {
-                        cell.rowSpan = visibleCount;
-                    });
+                    row.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = visibleCount);
                 });
             }
 
-            /* ===== CI19: total dari semua tabel & tampil sekali; hide yang lain ===== */
-            _scanAllCI19() {
-                const rows = Array.from(document.querySelectorAll('tbody tr'));
+            hideGroupStartRow(row) {
+                // Pindahkan sel-sel rowspan ke baris berikutnya (kalau ada), kecilkan rowspan, lalu hide row
+                const next = row.nextElementSibling;
+                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
+                if (next) {
+                    // prepend agar layout kolom tetap benar
+                    for (let i = startCells.length - 1; i >= 0; i--) {
+                        const td = startCells[i];
+                        const newSpan = Math.max(1, (parseInt(td.getAttribute('rowspan')) || 1) - 1);
+                        td.setAttribute('rowspan', newSpan);
+                        next.insertBefore(td, next.firstChild);
+                    }
+                }
+                row.style.display = 'none';
+            }
+
+            /* ===== CI19: sum & tampil sekali di AS004 ===== */
+            _scanAS004CI19() {
+                const tbody = this.AS004?.querySelector('tbody');
                 const ciRows = [];
                 let sum = 0,
                     firstRow = null;
 
-                for (const row of rows) {
+                if (!tbody) return {
+                    ciRows,
+                    firstRow,
+                    sum
+                };
+
+                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
                     const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent?.trim();
                     if (bn === this.CI_TARGET) {
                         ciRows.push(row);
-                        const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent?.trim() || '0';
+                        const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent?.trim() ||
+                            '0';
                         const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
                         sum += ord;
                         if (!firstRow) firstRow = row;
                     }
-                }
+                });
+
                 return {
                     ciRows,
                     firstRow,
@@ -1477,20 +1511,20 @@
                 };
             }
 
-            _renderCI19Single() {
+            _renderCI19SingleAS004() {
                 const PILL_CLASS = 'ci19-inline-sum';
-                // hapus label lama
-                document.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
+                // bersihkan label lama di AS004
+                this.AS004?.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
 
                 const {
                     ciRows,
                     firstRow,
                     sum
-                } = this._scanAllCI19();
+                } = this._scanAS004CI19();
 
-                // tampilkan TOTAL di baris CI19 pertama
+                // tampilkan TOTAL di baris CI19 pertama (AS004)
                 if (firstRow && sum > 0) {
-                    firstRow.style.display = ''; // pastikan tampil
+                    firstRow.style.display = '';
                     const orderCell = firstRow.querySelector('[data-label="Order"]');
                     const target = orderCell?.querySelector('.flip') || orderCell;
                     if (target) {
@@ -1504,20 +1538,31 @@
                     }
                 }
 
-                // sembunyikan CI19 lain (selain yang pertama)
+                // Sembunyikan CI19 lain di AS004
                 ciRows.forEach((row, idx) => {
-                    row.style.display = (idx === 0) ? '' : 'none';
+                    if (idx === 0) return; // keeper
+                    if (this.isGroupStart(row)) {
+                        // jika duplikat adalah row start → pindahkan sel rowspan ke baris berikutnya dulu
+                        this.hideGroupStartRow(row);
+                    } else {
+                        // non-start aman untuk di-hide; kecilkan rowspan di start group
+                        row.style.display = 'none';
+                        const start = this.findGroupStart(row);
+                        start.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = Math.max(1, td.rowSpan -
+                            1));
+                    }
                 });
 
-                // sesuaikan rowspan tiap group agar rapi
-                this.recalcAllGroupRowspans();
+                // Recalc keseluruhan rowspan di AS004 agar rapi
+                this.recalcAS004Rowspans();
             }
 
             updateCI19InlineSingle() {
-                this._renderCI19Single();
+                this._renderCI19SingleAS004();
             }
-            /* =================== END CI19 =================== */
+            /* =================== END CI19 (AS004) =================== */
 
+            /* ====== bawaan SSE & UI ====== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1630,17 +1675,17 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                // Update single inline sum & collapse duplicates setelah SSE
+                // Re-render sum CI19 khusus AS004 setelah SSE
                 this.updateCI19InlineSingle();
             }
 
             processUpdatedRows(rows) {
-                // Group by rowspan
+                // Group by rowspan – tetap seperti sebelumnya
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
-                    while (groupStart.previousElementSibling && this.isGroupStart(groupStart
-                            .previousElementSibling)) {
+                    while (groupStart.previousElementSibling && groupStart.previousElementSibling.querySelector(
+                            '[rowspan]')) {
                         groupStart = groupStart.previousElementSibling;
                     }
                     const rs = parseInt(groupStart.querySelector('[rowspan]')?.getAttribute('rowspan')) || 1;
@@ -1696,7 +1741,8 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
-                            this.updateCI19InlineSingle(); // collapse ulang setelah restore
+                            // re-sync CI19 di AS004 setelah restore
+                            this.updateCI19InlineSingle();
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
@@ -1834,12 +1880,12 @@
         }
 
         /* ======================
-           Column Dropdown (rowspan-aware) — tidak diubah
+           Column Dropdown (rowspan-aware)
            ====================== */
         (function ColumnDropdown() {
             const STORAGE_PREFIX = 'hiddenCols_';
             document.querySelectorAll('[data-colpicker]').forEach(menu => {
-                const tableKey = menu.getAttribute('data-colpicker');
+                const tableKey = menu.getAttribute('data-colpicker'); // AS003 / AS004
                 const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
                 const table = container?.querySelector('table');
                 if (!table) return;
@@ -1903,11 +1949,12 @@
                     maxCols
                 } = meta;
                 const unique = new Set();
-                for (let r = 0; r < matrix.length; r++)
+                for (let r = 0; r < matrix.length; r++) {
                     for (let c = 0; c < maxCols; c++) {
                         const cell = matrix[r][c];
                         if (cell) unique.add(cell);
                     }
+                }
                 unique.forEach(cell => {
                     const start = cell._startCol,
                         span = cell._origColspan;
@@ -1918,12 +1965,13 @@
                     cell.colSpan = span > 1 ? Math.max(1, visible) : 1;
                     cell.rowSpan = cell._origRowspan;
                 });
+
                 if (window.__recalcStickyHeaders) window.__recalcStickyHeaders();
             }
         })();
 
         /* ======================
-           Preset: Risk first + Save view — tambahkan sinkronisasi collapse
+           Preset: Risk first + Save view
            ====================== */
         const VIEW_KEY_PREFIX = 'view_';
 
@@ -1957,7 +2005,9 @@
             if (preset === 'default') {
                 if (window.prodPlanSSE?.originalOrder?.has(tbody)) window.prodPlanSSE.restoreOriginalOrder(tbody);
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-                if (window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE.updateCI19InlineSingle();
+                // Recalc sum CI19 hanya saat AS004
+                if (tableKey === 'AS004' && window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE
+                    .updateCI19InlineSingle();
                 return;
             }
 
@@ -1977,7 +2027,8 @@
                 localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
                     preset: 'risk'
                 }));
-                if (window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE.updateCI19InlineSingle();
+                if (tableKey === 'AS004' && window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE
+                    .updateCI19InlineSingle();
             }
         }
 
