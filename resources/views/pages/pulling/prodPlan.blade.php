@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                           THEME TOGGLE
-                           ====================== */
+                                   THEME TOGGLE
+                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1418,6 +1418,9 @@
                 this.init();
             }
 
+            /* ======================
+               INIT
+               ====================== */
             init() {
                 this.createStatusIndicator();
                 this.addFlipStyles();
@@ -1426,169 +1429,129 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
+                // cache container per tab
                 this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
 
                 this.updateAllInlineSums();
             }
 
-            /* ===== Utilities: group & rowspan ===== */
+            /* ======================
+               GROUP HELPERS (rowspan-aware, read-only)
+               ====================== */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
-            getGroupRowsFrom(startRow) {
-                const rows = [startRow];
-                let p = startRow;
-                while (p.nextElementSibling && !this.isGroupStart(p.nextElementSibling)) {
-                    p = p.nextElementSibling;
-                    rows.push(p);
-                }
-                return rows;
-            }
-            findGroupStart(row) {
-                let p = row;
-                while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
-                return p || row;
-            }
-            recalcRowspans(container) {
-                const tbody = container?.querySelector('tbody');
-                if (!tbody) return;
-                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
-                    if (!this.isGroupStart(row)) return;
-                    const groupRows = this.getGroupRowsFrom(row);
-                    const visibleCount = Math.max(1, groupRows.filter(r => r.style.display !== 'none').length);
-                    row.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = visibleCount);
-                });
-            }
 
-            /* Stable: CLONE sel-rowspan ke baris berikutnya (bukan dipindah), lalu hide baris start */
-            hideGroupStartRow(row) {
-                const next = row.nextElementSibling;
-                if (!next || this.isGroupStart(next)) {
-                    row.style.display = 'none';
-                    return;
-                }
+            buildGroups(tbody) {
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const groups = [];
+                const rowToGroup = new Map();
+                let current = null;
 
-                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'))
-                    .sort((a, b) => a.cellIndex - b.cellIndex);
-
-                startCells.forEach(td => {
-                    const clone = td.cloneNode(true);
-                    const span = parseInt(td.getAttribute('rowspan') || '1', 10);
-                    clone.setAttribute('rowspan', Math.max(1, span - 1));
-
-                    const targetIdx = td.cellIndex;
-                    const nextCells = Array.from(next.children);
-                    let ref = null;
-                    for (let i = 0; i < nextCells.length; i++)
-                        if (nextCells[i].cellIndex > targetIdx) {
-                            ref = nextCells[i];
-                            break;
-                        }
-                    next.insertBefore(clone, ref);
-                });
-
-                row.style.display = 'none';
-            }
-
-            /* ===== Scanner & renderer ===== */
-            _scanTableBackno(container, targetBackNo) {
-                const tgt = String(targetBackNo).toUpperCase();
-                const tbody = container?.querySelector('tbody');
-                const rows = [];
-                let sum = 0;
-                let firstRow = null;
-                if (!tbody) return {
-                    rows,
-                    firstRow,
-                    sum
-                };
-
-                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
-                    const flip = row.querySelector('[data-label="Back No"] .flip');
-                    if (!flip) return;
-                    const text = (flip.dataset.backnoRaw || flip.textContent || '').trim().toUpperCase();
-                    if (text === tgt) {
-                        rows.push(row);
-                        const ordFlip = row.querySelector('[data-label="Order"] .flip');
-                        const ordText = ordFlip?.textContent?.trim() || '0';
-                        const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
-                        sum += ord;
-                        if (!firstRow) firstRow = row;
+                for (const r of rows) {
+                    if (this.isGroupStart(r) || !current) {
+                        current = {
+                            start: r,
+                            rows: [r]
+                        };
+                        groups.push(current);
+                    } else {
+                        current.rows.push(r);
                     }
-                });
+                    rowToGroup.set(r, current);
+                }
                 return {
-                    rows,
-                    firstRow,
-                    sum
+                    groups,
+                    rowToGroup
                 };
             }
 
-            _renderSingleSum({
+            /* ======================
+               SCAN + RENDER SUM (tanpa utak-atik rowspan)
+               ====================== */
+            _renderSumUnified({
                 container,
                 targetBackNo,
                 displayBackNo = null
             }) {
+                if (!container) return;
+                const tbody = container.querySelector('tbody');
+                if (!tbody) return;
+
+                const target = String(targetBackNo).trim().toUpperCase();
                 const {
-                    rows: bnRows,
-                    firstRow,
-                    sum
-                } = this._scanTableBackno(container, targetBackNo);
+                    groups,
+                    rowToGroup
+                } = this.buildGroups(tbody);
 
-                if (firstRow) {
-                    firstRow.style.display = '';
+                // 1) kumpulkan semua row yang match
+                const matchedRows = [];
+                Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                    const bn = tr.querySelector('[data-label="Back No"] .flip');
+                    if (!bn) return;
+                    const val = (bn.dataset.backnoRaw || bn.textContent || '').trim().toUpperCase();
+                    if (val === target) matchedRows.push(tr);
+                });
+                if (matchedRows.length === 0) return;
 
-                    // Order → total (simpan angka asli utk progress via data-order-raw)
-                    const orderFlip = firstRow.querySelector('[data-label="Order"] .flip');
-                    if (orderFlip) {
-                        const originalOrd = parseInt(String(orderFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) ||
-                            0;
-                        orderFlip.dataset.orderRaw = String(originalOrd);
-                        orderFlip.textContent = (sum || 0).toLocaleString('id-ID');
-                    }
+                // 2) hitung total order dari semua match
+                const totalOrder = matchedRows.reduce((acc, tr) => {
+                    const of = tr.querySelector('[data-label="Order"] .flip');
+                    const n = parseInt(String(of?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+                    return acc + n;
+                }, 0);
 
-                    // Back No → rename display bila diminta
-                    if (displayBackNo) {
-                        const bnFlip = firstRow.querySelector('[data-label="Back No"] .flip');
-                        if (bnFlip) {
-                            bnFlip.dataset.backnoRaw = targetBackNo;
-                            bnFlip.textContent = displayBackNo;
-                        }
+                // 3) pilih baris yang dipakai tampil
+                const keepRow = matchedRows[0];
+                const keepGroup = rowToGroup.get(keepRow);
+
+                // 3a) tampilkan total ke kolom Order + (opsional) rename Back No
+                const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
+                if (ordFlip) {
+                    ordFlip.dataset.orderBase = String(totalOrder); // baseline utk progress
+                    ordFlip.textContent = (totalOrder || 0).toLocaleString('id-ID');
+                }
+                if (displayBackNo) {
+                    const bnFlip = keepRow.querySelector('[data-label="Back No"] .flip');
+                    if (bnFlip) {
+                        bnFlip.dataset.backnoRaw = targetBackNo;
+                        bnFlip.textContent = displayBackNo;
                     }
                 }
+                keepRow.style.display = ''; // pastikan terlihat
 
-                // Sembunyikan duplikat lain (start/non-start aman)
-                bnRows.forEach((row, idx) => {
-                    if (idx === 0) return;
-                    if (this.isGroupStart(row)) this.hideGroupStartRow(row);
-                    else {
-                        row.style.display = 'none';
-                        const start = this.findGroupStart(row);
-                        start.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = Math.max(1, td.rowSpan -
-                            1));
-                    }
+                // 4) sembunyikan semua group lain yang punya match
+                const matchedGroups = new Set(matchedRows.map(r => rowToGroup.get(r)));
+                matchedGroups.forEach(g => {
+                    if (g === keepGroup) return; // biarkan group yang dipakai tampil
+                    g.rows.forEach(r => r.style.display = 'none'); // hide full group → aman ke layout
                 });
 
-                this.recalcRowspans(container);
+                // 5) di dalam group yang dipakai, sembunyikan baris match selain keepRow
+                matchedRows.forEach(r => {
+                    if (r !== keepRow && rowToGroup.get(r) === keepGroup) r.style.display = 'none';
+                });
             }
 
             updateAllInlineSums() {
-                // AS004 → CI19
-                if (this.AS004) this._renderSingleSum({
+                // AS004 → CI19 (tampil 1 baris, Order = total)
+                this._renderSumUnified({
                     container: this.AS004,
-                    targetBackNo: 'D500',
-                    displayBackNo: 'CI19'
+                    targetBackNo: 'CI19'
                 });
 
-                // AS003 → D112 (rename jadi CI12)
-                if (this.AS003) this._renderSingleSum({
+                // AS003 → D112 (tampil 1 baris, Order = total, Back No ditulis CI12)
+                this._renderSumUnified({
                     container: this.AS003,
                     targetBackNo: 'D112',
                     displayBackNo: 'CI12'
                 });
             }
 
-            /* ===== SSE & UI ===== */
+            /* ======================
+               SSE LIFECYCLE
+               ====================== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1611,14 +1574,14 @@
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
-              .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
-              .animate-flip{animation:flipAnimation .6s ease;}
-              @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
-              @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
-              .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-              .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-              .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
-            `;
+      .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
+      .animate-flip{animation:flipAnimation .6s ease;}
+      @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
+      @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
+      .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+      .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+      .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
+    `;
                 document.head.appendChild(style);
             }
 
@@ -1676,12 +1639,27 @@
                 this.statusElement.textContent = s.text;
             }
 
+            reconnect() {
+                if (this.eventSource) this.eventSource.close();
+                setTimeout(() => this.connect(), 1500);
+            }
+
+            setupErrorHandling() {
+                window.addEventListener('beforeunload', () => {
+                    if (this.eventSource) this.eventSource.close();
+                });
+            }
+
+            /* ======================
+               SSE UPDATE HANDLERS
+               ====================== */
             _getOrderForCalc(row) {
                 const flip = row.querySelector('[data-label="Order"] .flip');
                 if (!flip) return 0;
-                const raw = parseInt(flip.dataset.orderRaw || '', 10);
-                if (!isNaN(raw)) return raw;
-                return parseInt(String(flip.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+                const base = parseInt(flip.dataset.orderBase || '', 10);
+                if (!isNaN(base)) return base;
+                const n = parseInt(String(flip.textContent || '0').replace(/[^\d-]/g, ''), 10);
+                return isNaN(n) ? 0 : n;
             }
 
             handleUpdates(updates) {
@@ -1709,10 +1687,12 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
+                // pastikan hasil sum tetap konsisten setelah update
                 this.updateAllInlineSums();
             }
 
             processUpdatedRows(rows) {
+                // (tetap seperti sebelumnya: geser group yg ada update ke atas, lalu restore 60s)
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
@@ -1851,11 +1831,15 @@
                     cell.className = '';
                     return;
                 }
+
                 let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
-                    if (targetQty !== null && !isNaN(targetQty)) classes += (value >= targetQty) ?
-                        'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
-                    else classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
+                    if (targetQty !== null && !isNaN(targetQty)) {
+                        classes += (value >= targetQty) ? 'bg-success bg-opacity-75 text-white' :
+                            'bg-warning bg-opacity-75';
+                    } else {
+                        classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
+                    }
                 }
                 cell.className = classes.trim();
             }
@@ -1866,17 +1850,6 @@
                     f.classList.add('animate-flip');
                     setTimeout(() => f.classList.remove('animate-flip'), 600);
                 }
-            }
-
-            reconnect() {
-                if (this.eventSource) this.eventSource.close();
-                setTimeout(() => this.connect(), 1500);
-            }
-
-            setupErrorHandling() {
-                window.addEventListener('beforeunload', () => {
-                    if (this.eventSource) this.eventSource.close();
-                });
             }
         }
 
