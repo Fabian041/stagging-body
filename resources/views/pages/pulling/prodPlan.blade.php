@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                   THEME TOGGLE
-                   ====================== */
+                           THEME TOGGLE
+                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1572,7 +1572,7 @@
                         small.style.marginLeft = '6px';
                         small.style.fontWeight = '700';
                         small.style.opacity = '0.85';
-                        small.textContent = `(Σ ${this.CI_TARGET}: ${sum.toLocaleString('id-ID')})`;
+                        small.textContent = `${sum.toLocaleString('id-ID')}`;
                         target.after(small);
                     }
                 }
