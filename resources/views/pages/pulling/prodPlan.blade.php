@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                   THEME TOGGLE
-                   ====================== */
+               THEME TOGGLE
+               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1406,7 +1406,7 @@
         })();
 
         /* ======================
-           SSE CLIENT + CI19 INLINE SUM (di tabel)
+           SSE CLIENT + CI19 SINGLE INLINE SUM (di tabel, satu saja)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1429,47 +1429,42 @@
 
                 // Target Back No yang di-sum
                 this.CI_TARGET = 'CI19';
-                this.updateCI19Inline(); // render awal dari DOM
+                // render awal dari DOM
+                this.updateCI19InlineSingle();
             }
 
-            /* ============ CI19: hitung & sisipkan ke baris CI19 pertama (kolom Order) ============ */
-            _scanCI19For(lineKey) {
-                const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
-                const tbody = container?.querySelector('tbody');
+            /* ===== CI19: hitung total dari semua tabel & sisipkan sekali di baris CI19 pertama ===== */
+            _scanAllCI19() {
+                // cari semua baris yang back no = CI19 (urutan DOM)
+                const rows = Array.from(document.querySelectorAll('tbody tr'));
                 let sum = 0;
                 let firstRow = null;
 
-                if (tbody) {
-                    tbody.querySelectorAll('tr').forEach(row => {
-                        const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent?.trim();
-                        if (bn === this.CI_TARGET) {
-                            const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent
-                                ?.trim() || '0';
-                            const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
-                            sum += ord;
-                            if (!firstRow) firstRow = row;
-                        }
-                    });
+                for (const row of rows) {
+                    const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent?.trim();
+                    if (bn === this.CI_TARGET) {
+                        const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent?.trim() || '0';
+                        const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
+                        sum += ord;
+                        if (!firstRow) firstRow = row; // baris CI19 pertama yang ketemu di seluruh halaman
+                    }
                 }
                 return {
-                    container,
                     firstRow,
                     sum
                 };
             }
 
-            _renderCI19For(lineKey) {
+            _renderCI19Single() {
                 const PILL_CLASS = 'ci19-inline-sum';
+                // bersihkan semua sisipan lama (pastikan hanya 1 yang tampil)
+                document.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
+
                 const {
-                    container,
                     firstRow,
                     sum
-                } = this._scanCI19For(lineKey);
-
-                // bersihkan sisipan lama dalam container ini
-                container?.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
-
-                if (container && firstRow && sum > 0) {
+                } = this._scanAllCI19();
+                if (firstRow && sum > 0) {
                     const orderCell = firstRow.querySelector('[data-label="Order"]');
                     const target = orderCell?.querySelector('.flip') || orderCell;
                     if (target) {
@@ -1484,10 +1479,8 @@
                 }
             }
 
-            updateCI19Inline() {
-                // render untuk kedua line
-                this._renderCI19For('AS003');
-                this._renderCI19For('AS004');
+            updateCI19InlineSingle() {
+                this._renderCI19Single();
             }
             /* =================== END CI19 =================== */
 
@@ -1611,8 +1604,8 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                // Re-render sum CI19 setelah update SSE
-                this.updateCI19Inline();
+                // Update single inline sum setelah SSE
+                this.updateCI19InlineSingle();
             }
 
             processUpdatedRows(rows) {
@@ -1677,7 +1670,8 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
-                            this.updateCI19Inline(); // jaga CI19 setelah restore
+                            // jaga single inline sum setelah restore
+                            this.updateCI19InlineSingle();
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
@@ -1954,8 +1948,8 @@
                     window.prodPlanSSE.restoreOriginalOrder(tbody);
                 }
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-                // sinkronkan sum CI19
-                if (window.prodPlanSSE?.updateCI19Inline) window.prodPlanSSE.updateCI19Inline();
+                // sinkronkan single inline sum
+                if (window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE.updateCI19InlineSingle();
                 return;
             }
 
@@ -1975,8 +1969,8 @@
                 localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
                     preset: 'risk'
                 }));
-                // sinkronkan sum CI19
-                if (window.prodPlanSSE?.updateCI19Inline) window.prodPlanSSE.updateCI19Inline();
+                // sinkronkan single inline sum
+                if (window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE.updateCI19InlineSingle();
             }
         }
 
@@ -2021,6 +2015,7 @@
             window.__recalcStickyHeaders = updateAll;
         })();
     </script>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
