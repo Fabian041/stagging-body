@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                                       THEME TOGGLE
-                                       ====================== */
+                               THEME TOGGLE
+                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1497,7 +1497,7 @@
 
                 // 3) pilih grup yang akan dipakai sebagai “representatif”
                 const keepGroup = rowToGroup.get(matchedRows[0]);
-                const keepRow = keepGroup.start; // <-- gunakan baris START agar kolom Customer/Dock/Delivery* ada
+                const keepRow = keepGroup.start; // gunakan baris START agar kolom Customer/Dock/Delivery* ada
 
                 // 4) isi hasil agregat di baris START
                 const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
@@ -1535,7 +1535,7 @@
                     displayBackNo: 'CI19'
                 });
 
-                // AS003 → D111 (+D112 kalau ada) → tampil sebagai CI12 (tampil 1 baris, Order = total)
+                // AS003 → D111 → tampil sebagai CI12 (tampil 1 baris, Order = total)
                 this._renderSumUnified({
                     container: this.AS003,
                     targetBackNos: ['D111'],
