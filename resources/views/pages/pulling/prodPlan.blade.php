@@ -1466,38 +1466,39 @@
                 });
             }
 
-            /* ✨ Robust: pindahkan sel rowspan sesuai posisi kolom (cellIndex) lalu hide row start */
+            /* ✅ Stabil: CLONE sel-rowspan ke baris berikutnya (bukan dipindah), lalu hide row start */
             hideGroupStartRow(row) {
                 const next = row.nextElementSibling;
-                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
-
-                // Kalau group cuma 1 baris / next juga start → cukup hide
+                // kalau group cuma 1 baris atau next juga start → cukup hide
                 if (!next || this.isGroupStart(next)) {
                     row.style.display = 'none';
                     return;
                 }
 
-                // Urut kiri→kanan supaya posisi konsisten
+                // Ambil hanya sel yang memang memiliki rowspan
+                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
+                // Urut kiri→kanan biar penempatan akurat
                 startCells.sort((a, b) => a.cellIndex - b.cellIndex);
 
                 startCells.forEach(td => {
-                    const newSpan = Math.max(1, (parseInt(td.getAttribute('rowspan')) || 1) - 1);
-                    td.setAttribute('rowspan', newSpan);
+                    const clone = td.cloneNode(true);
+                    const span = parseInt(td.getAttribute('rowspan') || '1', 10);
+                    clone.setAttribute('rowspan', Math.max(1, span - 1)); // turunkan 1 baris
 
-                    // sisipkan td ke next pada indeks kolom asli
-                    const targetIndex = td.cellIndex;
+                    // Sisipkan clone ke NEXT pada posisi kolom asli
+                    const targetIdx = td.cellIndex;
                     const nextCells = Array.from(next.children);
-                    // cari cell pertama di next yang berada di kolom setelah targetIndex
                     let ref = null;
                     for (let i = 0; i < nextCells.length; i++) {
-                        if (nextCells[i].cellIndex > targetIndex) {
+                        if (nextCells[i].cellIndex > targetIdx) {
                             ref = nextCells[i];
                             break;
                         }
                     }
-                    next.insertBefore(td, ref); // kalau ref null → append
+                    next.insertBefore(clone, ref); // kalau ref null → append di akhir
                 });
 
+                // Sembunyikan baris start (aslinya)
                 row.style.display = 'none';
             }
 
@@ -1586,7 +1587,7 @@
                 if (this.AS004) this._renderSingleSum({
                     container: this.AS004,
                     targetBackNo: 'D500',
-                    displayBackNo: null
+                    displayBackNo: 'CI19'
                 });
 
                 // AS003 → D111 (rename jadi CI12)
