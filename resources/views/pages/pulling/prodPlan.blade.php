@@ -1367,8 +1367,9 @@
     </div><!-- /container -->
 
     <script>
-        /* ======================                                                                                                                                                                                                                                                   THEME TOGGLE
-                                                                                                                                                                                                                                                           ====================== */
+        /* ======================
+                               THEME TOGGLE
+                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1392,7 +1393,6 @@
             if (saved) {
                 apply(saved);
             } else {
-                // follow system as default
                 const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 apply(prefersDark ? 'dark' : 'light');
             }
@@ -1406,7 +1406,7 @@
         })();
 
         /* ======================
-           SSE CLIENT (kept, plus progress updates)
+           SSE CLIENT + CI19 AGGREGATOR
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1426,7 +1426,88 @@
                 this.setupDateChangeListener();
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
+
+                /* === ADDED: target Back No & aggregator bootstrap === */
+                this.CI_TARGET = 'CI19';
+                this.initCI19Aggregator();
             }
+
+            /* === ADDED: CI19 aggregator methods === */
+            initCI19Aggregator() {
+                this.injectCI19UI();
+                this.scanDOMCI19();
+                this.renderCI19Sums();
+            }
+
+            injectCI19UI() {
+                // Badge per line (AS003 / AS004)
+                document.querySelectorAll('[data-toggle-table]').forEach(container => {
+                    const key = container.getAttribute('data-toggle-table');
+                    const toolbar = container.querySelector(
+                        '.d-flex.justify-content-end.align-items-center.gap-2.mb-2');
+                    const wrap = document.createElement('div');
+                    wrap.className = 'd-flex justify-content-end align-items-center mb-2';
+                    if (toolbar && toolbar.parentNode) {
+                        toolbar.parentNode.insertBefore(wrap, toolbar.nextElementSibling);
+                    } else {
+                        container.insertBefore(wrap, container.firstChild);
+                    }
+                });
+            }
+
+            scanDOMCI19() {
+                const computeFor = (lineKey) => {
+                    const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
+                    const tbody = container?.querySelector('tbody');
+                    const byId = new Map();
+                    let sum = 0;
+
+                    if (tbody) {
+                        tbody.querySelectorAll('tr').forEach(row => {
+                            const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent
+                                ?.trim();
+                            if (bn === this.CI_TARGET) {
+                                const id = row.querySelector(
+                                        '[data-type="direct-pulling"], [data-type="stock-chute"]')?.dataset
+                                    .itemId;
+                                const ordText = row.querySelector('[data-label="Order"] .flip')
+                                    ?.textContent || '0';
+                                const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
+                                if (id) {
+                                    byId.set(id, ord);
+                                    sum += ord;
+                                }
+                            }
+                        });
+                    }
+                    return {
+                        byId,
+                        sum
+                    };
+                };
+
+                this._ci19 = {
+                    AS003: computeFor('AS003'),
+                    AS004: computeFor('AS004')
+                };
+                this._ci19.total = (this._ci19.AS003.sum || 0) + (this._ci19.AS004.sum || 0);
+            }
+
+            renderCI19Sums() {
+                ['AS003', 'AS004'].forEach(k => {
+                    const el = document.querySelector(`[data-ci19-sum="${k}"]`);
+                    if (el && this._ci19?.[k]) el.textContent = (this._ci19[k].sum || 0).toLocaleString(
+                        'id-ID');
+                });
+                const t = document.querySelector('[data-ci19-total]');
+                if (t && this._ci19) t.textContent = (this._ci19.total || 0).toLocaleString('id-ID');
+            }
+
+            updateCI19Sums() {
+                this.scanDOMCI19();
+                this.renderCI19Sums();
+            }
+            /* === END ADDED === */
 
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
@@ -1450,22 +1531,22 @@
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
-          .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
-          .animate-flip{animation:flipAnimation .6s ease;}
-          @keyframes flipAnimation{
-            0%{transform:rotateX(0deg);opacity:1;}
-            50%{transform:rotateX(90deg);opacity:0;}
-            51%{transform:rotateX(-90deg);}
-            100%{transform:rotateX(0deg);opacity:1;}
-          }
-          @keyframes continuousBlink{
-            0%,100%{background-color: var(--highlight-color);}
-            50%{background-color: var(--base-bg);}
-          }
-          .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-          .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-          .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
-        `;
+              .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
+              .animate-flip{animation:flipAnimation .6s ease;}
+              @keyframes flipAnimation{
+                0%{transform:rotateX(0deg);opacity:1;}
+                50%{transform:rotateX(90deg);opacity:0;}
+                51%{transform:rotateX(-90deg);}
+                100%{transform:rotateX(0deg);opacity:1;}
+              }
+              @keyframes continuousBlink{
+                0%,100%{background-color: var(--highlight-color);}
+                50%{background-color: var(--base-bg);}
+              }
+              .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+              .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+              .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
+            `;
                 document.head.appendChild(style);
             }
 
@@ -1546,6 +1627,9 @@
                 });
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
+
+                /* === ADDED: re-hitungan sum CI19 setelah update === */
+                this.updateCI19Sums();
             }
 
             processUpdatedRows(rows) {
@@ -1610,6 +1694,8 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
+                            /* === ADDED: jaga aggregator saat order dipulihkan === */
+                            this.updateCI19Sums();
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
@@ -1645,12 +1731,10 @@
                         el.textContent = newValue;
                         const td = el.closest('td');
 
-                        // recolor cell
                         if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
                             targetQty);
                         else this.updateCellStyle(td, null, type);
 
-                        // update per-cell bar (DP/SC)
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
                             const orderText = td.parentElement.querySelector('[data-label="Order"] .flip')
@@ -1666,7 +1750,6 @@
                             const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
                             bar.style.width = pct + '%';
 
-                            // update total progress (DP+SC) within same row
                             const totalCell = td.parentElement.querySelector('.total-progress');
                             if (totalCell) {
                                 const totalBar = totalCell.querySelector('.bar > i');
@@ -1691,7 +1774,6 @@
                     cell.className = '';
                     return;
                 }
-
                 let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
                     if (targetQty !== null && !isNaN(targetQty)) {
@@ -1727,7 +1809,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
 
-            // Enable tooltips (Bootstrap)
+            // Enable Bootstrap tooltips
             const triggers = [].slice.call(document.querySelectorAll('[title]'));
             triggers.forEach(el => {
                 el.setAttribute('data-bs-toggle', 'tooltip');
@@ -1846,7 +1928,6 @@
                     cell.rowSpan = cell._origRowspan;
                 });
 
-                // ⬇️ panggil ulang kalkulasi sticky header di sini
                 if (window.__recalcStickyHeaders) window.__recalcStickyHeaders();
             }
         })();
@@ -1890,8 +1971,12 @@
                     window.prodPlanSSE.restoreOriginalOrder(tbody);
                 }
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
+
+                /* === ADDED: sinkronkan aggregator === */
+                if (window.prodPlanSSE?.updateCI19Sums) window.prodPlanSSE.updateCI19Sums();
                 return;
             }
+
             if (preset === 'risk') {
                 const groups = groupRowsByRowspan(tbody);
                 groups.sort((a, b) => {
@@ -1908,6 +1993,9 @@
                 localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
                     preset: 'risk'
                 }));
+
+                /* === ADDED: sinkronkan aggregator === */
+                if (window.prodPlanSSE?.updateCI19Sums) window.prodPlanSSE.updateCI19Sums();
             }
         }
 
@@ -1917,6 +2005,7 @@
             }));
             alert('Current view saved for ' + tableKey);
         }
+
         document.addEventListener('DOMContentLoaded', () => {
             ['AS003', 'AS004'].forEach(k => {
                 const saved = localStorage.getItem(VIEW_KEY_PREFIX + k);
@@ -1926,12 +2015,12 @@
             });
         });
     </script>
+
     <script>
         (function stickyHeaderOffsets() {
             function updateStickyOffsets(table) {
                 if (!table || !table.tHead || table.tHead.rows.length < 2) return;
                 const r1 = table.tHead.rows[0].getBoundingClientRect().height || 40;
-                // simpan presisi (hindari pembulatan yang bikin celah)
                 table.style.setProperty('--thead-row1', `${r1.toFixed(2)}px`);
             }
 
@@ -1940,6 +2029,7 @@
             }
             document.addEventListener('DOMContentLoaded', updateAll);
             window.addEventListener('resize', updateAll);
+
             const ro = new ResizeObserver(entries => {
                 for (const e of entries) {
                     const table = e.target.closest('table');
@@ -1947,12 +2037,9 @@
                 }
             });
             document.querySelectorAll('[data-toggle-table] table thead').forEach(th => ro.observe(th));
-            window.__recalcStickyHeaders = updateAll; // panggil setelah toggle kolom
+            window.__recalcStickyHeaders = updateAll;
         })();
     </script>
-
-
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
