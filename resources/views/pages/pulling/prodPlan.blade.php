@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                               THEME TOGGLE
-                               ====================== */
+                                   THEME TOGGLE
+                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1432,36 +1432,71 @@
                 this.updateAllInlineSums();
             }
 
-            /* ---------- helpers grouping ---------- */
+            /* ===== Group helpers (rowspan-aware) ===== */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
 
-            buildGroups(tbody) {
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const groups = [];
-                const rowToGroup = new Map();
-                let current = null;
-
-                for (const r of rows) {
-                    if (this.isGroupStart(r) || !current) {
-                        current = {
-                            start: r,
-                            rows: [r]
-                        };
-                        groups.push(current);
-                    } else {
-                        current.rows.push(r);
-                    }
-                    rowToGroup.set(r, current);
+            getGroupRowsFrom(startRow) {
+                const rows = [startRow];
+                let p = startRow;
+                while (p.nextElementSibling && !this.isGroupStart(p.nextElementSibling)) {
+                    p = p.nextElementSibling;
+                    rows.push(p);
                 }
-                return {
-                    groups,
-                    rowToGroup
-                };
+                return rows;
             }
 
-            /* ---------- SUM renderer (idempotent + aman rowspan) ---------- */
+            findGroupStart(row) {
+                let p = row;
+                while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
+                return p || row;
+            }
+
+            recalcRowspans(container) {
+                const tbody = container?.querySelector('tbody');
+                if (!tbody) return;
+                Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+                    if (!this.isGroupStart(row)) return;
+                    const groupRows = this.getGroupRowsFrom(row);
+                    const visibleCount = Math.max(1, groupRows.filter(r => r.style.display !== 'none').length);
+                    row.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = visibleCount);
+                });
+            }
+
+            hideGroupStartRow(row) {
+                const next = row.nextElementSibling;
+                if (!next || this.isGroupStart(next)) {
+                    row.style.display = 'none';
+                    return;
+                }
+
+                const startCells = Array.from(row.children)
+                    .filter(td => td.hasAttribute('rowspan'))
+                    .sort((a, b) => a.cellIndex - b.cellIndex);
+
+                startCells.forEach(td => {
+                    const clone = td.cloneNode(true);
+                    clone.dataset.cloned = '1';
+                    const span = parseInt(td.getAttribute('rowspan') || '1', 10);
+                    clone.setAttribute('rowspan', Math.max(1, span - 1));
+
+                    const targetIdx = td.cellIndex;
+                    const nextCells = Array.from(next.children);
+                    let ref = null;
+                    for (let i = 0; i < nextCells.length; i++) {
+                        if (nextCells[i].cellIndex > targetIdx) {
+                            ref = nextCells[i];
+                            break;
+                        }
+                    }
+                    next.insertBefore(clone, ref);
+                });
+
+                row.style.display = 'none';
+            }
+
+            /* ===== SUM renderer (idempotent & aman rowspan) ===== */
             _renderSumUnified({
                 container,
                 targetBackNos,
@@ -1474,12 +1509,13 @@
                 const targets = (Array.isArray(targetBackNos) ? targetBackNos : [targetBackNos])
                     .map(s => String(s).trim().toUpperCase());
 
-                /* 0) RESET — pastikan tidak ada sisa hide/rename dari pemanggilan sebelumnya */
+                /* 0) RESET: unhide semua, hapus clone lama, balikin teks asli */
+                Array.from(tbody.querySelectorAll('td[data-cloned="1"]')).forEach(td => td.remove());
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-                    tr.style.display = ''; // unhide semua row
+                    tr.style.display = '';
                     const bnFlip = tr.querySelector('[data-label="Back No"] .flip');
                     if (bnFlip && bnFlip.dataset.bnOrig && bnFlip.dataset.renamed === '1') {
-                        bnFlip.textContent = bnFlip.dataset.bnOrig; // kembalikan nama back no
+                        bnFlip.textContent = bnFlip.dataset.bnOrig;
                         bnFlip.dataset.renamed = '0';
                     }
                     const ordFlip = tr.querySelector('[data-label="Order"] .flip');
@@ -1488,12 +1524,9 @@
                         delete ordFlip.dataset.orderBase;
                     }
                 });
+                this.recalcRowspans(container);
 
-                const {
-                    rowToGroup
-                } = this.buildGroups(tbody);
-
-                /* 1) kumpulkan semua baris yang back no-nya match target */
+                /* 1) cari baris yang Back No-nya match */
                 const matchedRows = [];
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
                     const bn = tr.querySelector('[data-label="Back No"] .flip');
@@ -1503,18 +1536,17 @@
                 });
                 if (matchedRows.length === 0) return;
 
-                /* 2) total Order dari semua row match */
+                /* 2) total order */
                 const totalOrder = matchedRows.reduce((acc, tr) => {
                     const f = tr.querySelector('[data-label="Order"] .flip');
                     const n = parseInt(String(f?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
                     return acc + n;
                 }, 0);
 
-                /* 3) pilih satu grup untuk ditampilkan (pakai start row agar kolom Customer/Dock/Delivery* ada) */
-                const keepGroup = rowToGroup.get(matchedRows[0]);
-                const keepRow = keepGroup.start;
+                /* 3) pilih satu baris target sebagai representatif */
+                const keepRow = matchedRows[0];
 
-                /* 4) set hasil agregat di baris START */
+                /* 4) isi agregat pada baris keepRow */
                 const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
                 if (ordFlip) {
                     if (!ordFlip.dataset.orderOrig) {
@@ -1535,28 +1567,33 @@
                 }
                 keepRow.style.display = '';
 
-                /* 5) hide semua row match di grup yang sama (kecuali start row yang jadi wakil) */
+                /* 5) sembunyikan baris target lain, jaga rowspan */
                 matchedRows.forEach(r => {
-                    if (rowToGroup.get(r) === keepGroup && r !== keepRow) r.style.display = 'none';
+                    if (r === keepRow) return;
+                    if (this.isGroupStart(r)) {
+                        this.hideGroupStartRow(r);
+                    } else {
+                        r.style.display = 'none';
+                        const start = this.findGroupStart(r);
+                        start.querySelectorAll('[rowspan]').forEach(td => {
+                            td.rowSpan = Math.max(1, (td.rowSpan || 1) - 1);
+                        });
+                    }
                 });
 
-                /* 6) grup lain yang punya target → sembunyikan keseluruhan grupnya (biar “cukup 1 aja”) */
-                const matchedGroups = new Set(matchedRows.map(r => rowToGroup.get(r)));
-                matchedGroups.forEach(g => {
-                    if (g === keepGroup) return;
-                    g.rows.forEach(r => r.style.display = 'none');
-                });
+                /* 6) akhir: rapikan rowspans */
+                this.recalcRowspans(container);
             }
 
             updateAllInlineSums() {
-                // AS004 → D500 tampil sebagai CI19
+                // AS004 → D500 tampil sebagai CI19 (1 baris, Order = total)
                 this._renderSumUnified({
                     container: this.AS004,
                     targetBackNos: ['D500'],
                     displayBackNo: 'CI19'
                 });
 
-                // AS003 → D111 tampil sebagai CI12
+                // AS003 → D111 tampil sebagai CI12 (1 baris, Order = total)
                 this._renderSumUnified({
                     container: this.AS003,
                     targetBackNos: ['D111'],
@@ -1564,23 +1601,26 @@
                 });
             }
 
-            /* ---------- SSE & misc (tidak diubah) ---------- */
+            /* ===== SSE & misc (tetap) ===== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     this.originalOrder.set(tbody, rows);
                 });
             }
+
             getCurrentDate() {
                 const dateInput = document.querySelector('input[name="date"]');
                 return dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
             }
+
             createStatusIndicator() {
                 this.statusElement = document.createElement('div');
                 this.statusElement.id = 'sse-connection-status';
                 this.statusElement.textContent = '● Connecting to updates...';
                 document.body.appendChild(this.statusElement);
             }
+
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
@@ -1594,6 +1634,7 @@
     `;
                 document.head.appendChild(style);
             }
+
             connect() {
                 if (this.eventSource) this.eventSource.close();
                 this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
@@ -1611,6 +1652,7 @@
                     this.reconnect();
                 };
             }
+
             setupDateChangeListener() {
                 const dateInput = document.querySelector('input[name="date"]');
                 if (dateInput) {
@@ -1620,6 +1662,7 @@
                     });
                 }
             }
+
             updateConnectionStatus(status, message = '') {
                 const statusMap = {
                     connecting: {
@@ -1643,6 +1686,7 @@
                 this.statusElement.className = s.class;
                 this.statusElement.textContent = s.text;
             }
+
             reconnect() {
                 if (this.eventSource) this.eventSource.close();
                 setTimeout(() => this.connect(), 1500);
@@ -1686,7 +1730,7 @@
                 });
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
-                this.updateAllInlineSums(); // re-apply rules setelah update
+                this.updateAllInlineSums(); // re-apply rules
             }
 
             processUpdatedRows(rows) {
