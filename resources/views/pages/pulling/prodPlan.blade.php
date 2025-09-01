@@ -1418,9 +1418,6 @@
                 this.init();
             }
 
-            /* ======================
-               INIT
-               ====================== */
             init() {
                 this.createStatusIndicator();
                 this.addFlipStyles();
@@ -1429,7 +1426,6 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
-                // cache container per tab
                 this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
 
@@ -1437,7 +1433,7 @@
             }
 
             /* ======================
-               GROUP HELPERS (rowspan-aware, read-only)
+               Group helpers (read-only)
                ====================== */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
@@ -1468,45 +1464,46 @@
             }
 
             /* ======================
-               SCAN + RENDER SUM (tanpa utak-atik rowspan)
+               SUM renderer (no rowspan surgery)
                ====================== */
             _renderSumUnified({
                 container,
-                targetBackNo,
+                targetBackNos,
                 displayBackNo = null
             }) {
                 if (!container) return;
                 const tbody = container.querySelector('tbody');
                 if (!tbody) return;
 
-                const target = String(targetBackNo).trim().toUpperCase();
+                const targets = (Array.isArray(targetBackNos) ? targetBackNos : [targetBackNos])
+                    .map(s => String(s).trim().toUpperCase());
+
                 const {
-                    groups,
                     rowToGroup
                 } = this.buildGroups(tbody);
 
-                // 1) kumpulkan semua row yang match
+                // kumpulkan rows match
                 const matchedRows = [];
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
                     const bn = tr.querySelector('[data-label="Back No"] .flip');
                     if (!bn) return;
                     const val = (bn.dataset.backnoRaw || bn.textContent || '').trim().toUpperCase();
-                    if (val === target) matchedRows.push(tr);
+                    if (targets.includes(val)) matchedRows.push(tr);
                 });
                 if (matchedRows.length === 0) return;
 
-                // 2) hitung total order dari semua match
+                // total order
                 const totalOrder = matchedRows.reduce((acc, tr) => {
                     const of = tr.querySelector('[data-label="Order"] .flip');
                     const n = parseInt(String(of?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
                     return acc + n;
                 }, 0);
 
-                // 3) pilih baris yang dipakai tampil
+                // baris yang ditampilkan
                 const keepRow = matchedRows[0];
                 const keepGroup = rowToGroup.get(keepRow);
 
-                // 3a) tampilkan total ke kolom Order + (opsional) rename Back No
+                // tampilkan total di kolom Order + (opsional) rename back no
                 const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
                 if (ordFlip) {
                     ordFlip.dataset.orderBase = String(totalOrder); // baseline utk progress
@@ -1515,42 +1512,42 @@
                 if (displayBackNo) {
                     const bnFlip = keepRow.querySelector('[data-label="Back No"] .flip');
                     if (bnFlip) {
-                        bnFlip.dataset.backnoRaw = targetBackNo;
+                        bnFlip.dataset.backnoRaw = targets[0];
                         bnFlip.textContent = displayBackNo;
                     }
                 }
-                keepRow.style.display = ''; // pastikan terlihat
+                keepRow.style.display = '';
 
-                // 4) sembunyikan semua group lain yang punya match
+                // sembunyikan semua group lain yang punya match
                 const matchedGroups = new Set(matchedRows.map(r => rowToGroup.get(r)));
                 matchedGroups.forEach(g => {
-                    if (g === keepGroup) return; // biarkan group yang dipakai tampil
-                    g.rows.forEach(r => r.style.display = 'none'); // hide full group → aman ke layout
+                    if (g === keepGroup) return;
+                    g.rows.forEach(r => r.style.display = 'none');
                 });
 
-                // 5) di dalam group yang dipakai, sembunyikan baris match selain keepRow
+                // dalam group yang dipakai, sembunyikan baris match selain keepRow
                 matchedRows.forEach(r => {
                     if (r !== keepRow && rowToGroup.get(r) === keepGroup) r.style.display = 'none';
                 });
             }
 
             updateAllInlineSums() {
-                // AS004 → CI19 (tampil 1 baris, Order = total)
+                // AS004 → sum CI19 (1 baris saja, Order = total)
                 this._renderSumUnified({
                     container: this.AS004,
-                    targetBackNo: 'CI19'
+                    targetBackNos: ['CI19']
                 });
 
-                // AS003 → D112 (tampil 1 baris, Order = total, Back No ditulis CI12)
+                // AS003 → sum D111 (dan juga D112 kalau ada), tampil sebagai CI12
                 this._renderSumUnified({
                     container: this.AS003,
-                    targetBackNo: 'D112',
+                    targetBackNos: ['D111', 'D112'],
                     displayBackNo: 'CI12'
                 });
             }
 
             /* ======================
-               SSE LIFECYCLE
+               SSE + misc
                ====================== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
@@ -1650,9 +1647,6 @@
                 });
             }
 
-            /* ======================
-               SSE UPDATE HANDLERS
-               ====================== */
             _getOrderForCalc(row) {
                 const flip = row.querySelector('[data-label="Order"] .flip');
                 if (!flip) return 0;
@@ -1687,12 +1681,12 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                // pastikan hasil sum tetap konsisten setelah update
+                // re-apply sums so tampilan tetap konsisten setelah update
                 this.updateAllInlineSums();
             }
 
             processUpdatedRows(rows) {
-                // (tetap seperti sebelumnya: geser group yg ada update ke atas, lalu restore 60s)
+                // keep: geser group updated ke atas, lalu restore dalam 60s
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
