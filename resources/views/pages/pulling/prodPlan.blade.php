@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                   THEME TOGGLE
-                   ====================== */
+                           THEME TOGGLE
+                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1404,8 +1404,8 @@
 
         /* ======================
            SSE CLIENT + INLINE SUMS
-           - AS004: sum Back No = CI19 → show Order = total only
-           - AS003: sum Back No = D111 → show Order = total only & rename Back No display → CI12
+           - AS004: sum Back No = CI19 → tampil 1 baris, Order = total
+           - AS003: sum Back No = D112 → tampil 1 baris, Back No ditulis CI12, Order = total
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1426,11 +1426,9 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
-                // Containers
                 this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
 
-                // Render awal
                 this.updateAllInlineSums();
             }
 
@@ -1438,7 +1436,6 @@
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
-
             getGroupRowsFrom(startRow) {
                 const rows = [startRow];
                 let p = startRow;
@@ -1448,13 +1445,11 @@
                 }
                 return rows;
             }
-
             findGroupStart(row) {
                 let p = row;
                 while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
                 return p || row;
             }
-
             recalcRowspans(container) {
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return;
@@ -1466,48 +1461,43 @@
                 });
             }
 
-            /* ✅ Stabil: CLONE sel-rowspan ke baris berikutnya (bukan dipindah), lalu hide row start */
+            /* Stable: CLONE sel-rowspan ke baris berikutnya (bukan dipindah), lalu hide baris start */
             hideGroupStartRow(row) {
                 const next = row.nextElementSibling;
-                // kalau group cuma 1 baris atau next juga start → cukup hide
                 if (!next || this.isGroupStart(next)) {
                     row.style.display = 'none';
                     return;
                 }
 
-                // Ambil hanya sel yang memang memiliki rowspan
-                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
-                // Urut kiri→kanan biar penempatan akurat
-                startCells.sort((a, b) => a.cellIndex - b.cellIndex);
+                const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'))
+                    .sort((a, b) => a.cellIndex - b.cellIndex);
 
                 startCells.forEach(td => {
                     const clone = td.cloneNode(true);
                     const span = parseInt(td.getAttribute('rowspan') || '1', 10);
-                    clone.setAttribute('rowspan', Math.max(1, span - 1)); // turunkan 1 baris
+                    clone.setAttribute('rowspan', Math.max(1, span - 1));
 
-                    // Sisipkan clone ke NEXT pada posisi kolom asli
                     const targetIdx = td.cellIndex;
                     const nextCells = Array.from(next.children);
                     let ref = null;
-                    for (let i = 0; i < nextCells.length; i++) {
+                    for (let i = 0; i < nextCells.length; i++)
                         if (nextCells[i].cellIndex > targetIdx) {
                             ref = nextCells[i];
                             break;
                         }
-                    }
-                    next.insertBefore(clone, ref); // kalau ref null → append di akhir
+                    next.insertBefore(clone, ref);
                 });
 
-                // Sembunyikan baris start (aslinya)
                 row.style.display = 'none';
             }
 
-            /* ===== Generic scanner & renderer ===== */
+            /* ===== Scanner & renderer ===== */
             _scanTableBackno(container, targetBackNo) {
+                const tgt = String(targetBackNo).toUpperCase();
                 const tbody = container?.querySelector('tbody');
                 const rows = [];
-                let sum = 0,
-                    firstRow = null;
+                let sum = 0;
+                let firstRow = null;
                 if (!tbody) return {
                     rows,
                     firstRow,
@@ -1517,8 +1507,8 @@
                 Array.from(tbody.querySelectorAll('tr')).forEach(row => {
                     const flip = row.querySelector('[data-label="Back No"] .flip');
                     if (!flip) return;
-                    const text = (flip.dataset.backnoRaw || flip.textContent || '').trim();
-                    if (text === targetBackNo) {
+                    const text = (flip.dataset.backnoRaw || flip.textContent || '').trim().toUpperCase();
+                    if (text === tgt) {
                         rows.push(row);
                         const ordFlip = row.querySelector('[data-label="Order"] .flip');
                         const ordText = ordFlip?.textContent?.trim() || '0';
@@ -1548,7 +1538,7 @@
                 if (firstRow) {
                     firstRow.style.display = '';
 
-                    // Order → tampilkan total saja (simpan original utk bar progress)
+                    // Order → total (simpan angka asli utk progress via data-order-raw)
                     const orderFlip = firstRow.querySelector('[data-label="Order"] .flip');
                     if (orderFlip) {
                         const originalOrd = parseInt(String(orderFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) ||
@@ -1557,7 +1547,7 @@
                         orderFlip.textContent = (sum || 0).toLocaleString('id-ID');
                     }
 
-                    // Back No → rename display bila perlu
+                    // Back No → rename display bila diminta
                     if (displayBackNo) {
                         const bnFlip = firstRow.querySelector('[data-label="Back No"] .flip');
                         if (bnFlip) {
@@ -1567,7 +1557,7 @@
                     }
                 }
 
-                // Sembunyikan duplikat lain (aman utk start/non-start)
+                // Sembunyikan duplikat lain (start/non-start aman)
                 bnRows.forEach((row, idx) => {
                     if (idx === 0) return;
                     if (this.isGroupStart(row)) this.hideGroupStartRow(row);
@@ -1590,10 +1580,10 @@
                     displayBackNo: 'CI19'
                 });
 
-                // AS003 → D111 (rename jadi CI12)
+                // AS003 → D112 (rename jadi CI12)
                 if (this.AS003) this._renderSingleSum({
                     container: this.AS003,
-                    targetBackNo: 'D111',
+                    targetBackNo: 'D112',
                     displayBackNo: 'CI12'
                 });
             }
@@ -1686,7 +1676,6 @@
                 this.statusElement.textContent = s.text;
             }
 
-            // gunakan order asli utk bar progress jika ada
             _getOrderForCalc(row) {
                 const flip = row.querySelector('[data-label="Order"] .flip');
                 if (!flip) return 0;
@@ -1724,7 +1713,6 @@
             }
 
             processUpdatedRows(rows) {
-                // Group by rowspan
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
@@ -1825,7 +1813,6 @@
                             targetQty);
                         else this.updateCellStyle(td, null, type);
 
-                        // progress bars (pakai order asli bila ada)
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
                             const row = td.parentElement;
@@ -1866,12 +1853,9 @@
                 }
                 let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
-                    if (targetQty !== null && !isNaN(targetQty)) {
-                        classes += (value >= targetQty) ? 'bg-success bg-opacity-75 text-white' :
-                            'bg-warning bg-opacity-75';
-                    } else {
-                        classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
-                    }
+                    if (targetQty !== null && !isNaN(targetQty)) classes += (value >= targetQty) ?
+                        'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
+                    else classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
                 }
                 cell.className = classes.trim();
             }
@@ -1899,7 +1883,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
 
-            // Bootstrap tooltips
             const triggers = [].slice.call(document.querySelectorAll('[title]'));
             triggers.forEach(el => {
                 el.setAttribute('data-bs-toggle', 'tooltip');
@@ -1928,7 +1911,7 @@
         (function ColumnDropdown() {
             const STORAGE_PREFIX = 'hiddenCols_';
             document.querySelectorAll('[data-colpicker]').forEach(menu => {
-                const tableKey = menu.getAttribute('data-colpicker'); // AS003 / AS004
+                const tableKey = menu.getAttribute('data-colpicker');
                 const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
                 const table = container?.querySelector('table');
                 if (!table) return;
@@ -1992,12 +1975,12 @@
                     maxCols
                 } = meta;
                 const unique = new Set();
-                for (let r = 0; r < matrix.length; r++) {
+                for (let r = 0; r < matrix.length; r++)
                     for (let c = 0; c < maxCols; c++) {
                         const cell = matrix[r][c];
                         if (cell) unique.add(cell);
                     }
-                }
+
                 unique.forEach(cell => {
                     const start = cell._startCol,
                         span = cell._origColspan;
@@ -2080,7 +2063,6 @@
             }));
             alert('Current view saved for ' + tableKey);
         }
-
         document.addEventListener('DOMContentLoaded', () => {
             ['AS003', 'AS004'].forEach(k => {
                 const saved = localStorage.getItem(VIEW_KEY_PREFIX + k);
@@ -2104,7 +2086,6 @@
             }
             document.addEventListener('DOMContentLoaded', updateAll);
             window.addEventListener('resize', updateAll);
-
             const ro = new ResizeObserver(entries => {
                 for (const e of entries) {
                     const table = e.target.closest('table');
@@ -2115,7 +2096,6 @@
             window.__recalcStickyHeaders = updateAll;
         })();
     </script>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
