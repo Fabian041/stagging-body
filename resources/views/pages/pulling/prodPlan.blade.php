@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                                               THEME TOGGLE
-                                               ====================== */
+                                       THEME TOGGLE
+                                       ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1432,9 +1432,7 @@
                 this.updateAllInlineSums();
             }
 
-            /* ======================
-               Group helpers (read-only)
-               ====================== */
+            /* ---------- Group helpers (read-only) ---------- */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
@@ -1463,9 +1461,7 @@
                 };
             }
 
-            /* ======================
-               SUM renderer (no rowspan surgery)
-               ====================== */
+            /* ---------- SUM renderer (tanpa operasi rowspan) ---------- */
             _renderSumUnified({
                 container,
                 targetBackNos,
@@ -1482,7 +1478,7 @@
                     rowToGroup
                 } = this.buildGroups(tbody);
 
-                // kumpulkan rows match
+                // 1) kumpulkan rows yang match target back no
                 const matchedRows = [];
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
                     const bn = tr.querySelector('[data-label="Back No"] .flip');
@@ -1492,18 +1488,18 @@
                 });
                 if (matchedRows.length === 0) return;
 
-                // total order
+                // 2) total order dari semua match
                 const totalOrder = matchedRows.reduce((acc, tr) => {
                     const of = tr.querySelector('[data-label="Order"] .flip');
                     const n = parseInt(String(of?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
                     return acc + n;
                 }, 0);
 
-                // baris yang ditampilkan
-                const keepRow = matchedRows[0];
-                const keepGroup = rowToGroup.get(keepRow);
+                // 3) pilih grup yang akan dipakai sebagai “representatif”
+                const keepGroup = rowToGroup.get(matchedRows[0]);
+                const keepRow = keepGroup.start; // <-- gunakan baris START agar kolom Customer/Dock/Delivery* ada
 
-                // tampilkan total di kolom Order + (opsional) rename back no
+                // 4) isi hasil agregat di baris START
                 const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
                 if (ordFlip) {
                     ordFlip.dataset.orderBase = String(totalOrder); // baseline utk progress
@@ -1518,28 +1514,28 @@
                 }
                 keepRow.style.display = '';
 
-                // sembunyikan semua group lain yang punya match
+                // 5) sembunyikan SEMUA baris match di grup yang sama, kecuali baris START
+                matchedRows.forEach(r => {
+                    if (r !== keepRow && rowToGroup.get(r) === keepGroup) r.style.display = 'none';
+                });
+
+                // 6) sembunyikan SELURUH grup lain yang punya match (cukup 1 representatif saja)
                 const matchedGroups = new Set(matchedRows.map(r => rowToGroup.get(r)));
                 matchedGroups.forEach(g => {
                     if (g === keepGroup) return;
                     g.rows.forEach(r => r.style.display = 'none');
                 });
-
-                // dalam group yang dipakai, sembunyikan baris match selain keepRow
-                matchedRows.forEach(r => {
-                    if (r !== keepRow && rowToGroup.get(r) === keepGroup) r.style.display = 'none';
-                });
             }
 
             updateAllInlineSums() {
-                // AS004 → sum CI19 (1 baris saja, Order = total)
+                // AS004 → CI19 (tampil 1 baris, Order = total)
                 this._renderSumUnified({
                     container: this.AS004,
                     targetBackNos: ['D500'],
                     displayBackNo: 'CI19'
                 });
 
-                // AS003 → sum D111 (dan juga D112 kalau ada), tampil sebagai CI12
+                // AS003 → D111 (+D112 kalau ada) → tampil sebagai CI12 (tampil 1 baris, Order = total)
                 this._renderSumUnified({
                     container: this.AS003,
                     targetBackNos: ['D111'],
@@ -1547,9 +1543,7 @@
                 });
             }
 
-            /* ======================
-               SSE + misc
-               ====================== */
+            /* ---------- SSE + misc ---------- */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1682,12 +1676,12 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                // re-apply sums so tampilan tetap konsisten setelah update
+                // re-apply sums supaya konsisten setelah SSE update
                 this.updateAllInlineSums();
             }
 
             processUpdatedRows(rows) {
-                // keep: geser group updated ke atas, lalu restore dalam 60s
+                // geser group yang update ke atas (behavior lama), auto-restore 60s
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
