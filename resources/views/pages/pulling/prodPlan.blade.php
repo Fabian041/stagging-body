@@ -1424,11 +1424,10 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
-                // Target Back No
                 this.CI_TARGET = 'CI19';
-                // Container AS004
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
-                this.updateCI19InlineSingle(); // render awal hanya di AS004
+
+                this.updateCI19InlineSingle(); // render awal (AS004 only)
             }
 
             /* ===== Utilities: group & rowspan (AS004 scope) ===== */
@@ -1464,18 +1463,58 @@
             }
 
             hideGroupStartRow(row) {
-                // Pindahkan sel-sel rowspan ke baris berikutnya (kalau ada), kecilkan rowspan, lalu hide row
                 const next = row.nextElementSibling;
                 const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
-                if (next) {
-                    // prepend agar layout kolom tetap benar
-                    for (let i = startCells.length - 1; i >= 0; i--) {
-                        const td = startCells[i];
-                        const newSpan = Math.max(1, (parseInt(td.getAttribute('rowspan')) || 1) - 1);
-                        td.setAttribute('rowspan', newSpan);
-                        next.insertBefore(td, next.firstChild);
-                    }
+
+                // Kalau group cuma 1 baris (tak ada next atau next sudah start group), aman langsung hide
+                if (!next || this.isGroupStart(next)) {
+                    row.style.display = 'none';
+                    return;
                 }
+
+                // Kelompokkan berdasar data-label supaya posisi kolom tetap benar
+                const headLabels = new Set(['Customer', 'Dock']);
+                const tailLabels = new Set(['Delivery Time', 'Delivery Date', 'Balance Time']);
+
+                const cellsHead = [];
+                const cellsTail = [];
+                const cellsOther = []; // bila ada kasus lain
+
+                startCells.forEach(td => {
+                    const label = td.getAttribute('data-label') || '';
+                    if (headLabels.has(label)) cellsHead.push(td);
+                    else if (tailLabels.has(label)) cellsTail.push(td);
+                    else cellsOther.push(td);
+                });
+
+                // Kurangi rowspan & pindahkan
+                const dec = td => td.setAttribute('rowspan', Math.max(1, (parseInt(td.getAttribute('rowspan')) || 1) -
+                    1));
+
+                // 1) Customer/Dock ke depan urut
+                cellsHead.forEach(td => {
+                    dec(td);
+                    next.insertBefore(td, next.firstElementChild);
+                });
+                // 2) Jika ada "other", taruh setelah head (jarang ada)
+                cellsOther.forEach(td => {
+                    dec(td);
+                    // tempatkan setelah head terakhir (atau di depan bila head kosong)
+                    const after = cellsHead.length ? cellsHead[cellsHead.length - 1] : null;
+                    if (after && next.firstElementChild) {
+                        // sisip tepat setelah semua head yang sudah dipindah
+                        next.insertBefore(td, next.children[cellsHead.length] || null);
+                    } else {
+                        next.insertBefore(td, next.firstElementChild);
+                    }
+                });
+                // 3) Delivery Time/Date/Balance ke belakang urut
+                cellsTail.forEach(td => {
+                    dec(td);
+                    next.appendChild(td);
+                });
+
+                // Terakhir, sembunyikan row start lamanya
                 row.style.display = 'none';
             }
 
@@ -1538,14 +1577,11 @@
                     }
                 }
 
-                // Sembunyikan CI19 lain di AS004
+                // Sembunyikan CI19 lain di AS004 (dengan aman)
                 ciRows.forEach((row, idx) => {
                     if (idx === 0) return; // keeper
-                    if (this.isGroupStart(row)) {
-                        // jika duplikat adalah row start → pindahkan sel rowspan ke baris berikutnya dulu
-                        this.hideGroupStartRow(row);
-                    } else {
-                        // non-start aman untuk di-hide; kecilkan rowspan di start group
+                    if (this.isGroupStart(row)) this.hideGroupStartRow(row);
+                    else {
                         row.style.display = 'none';
                         const start = this.findGroupStart(row);
                         start.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = Math.max(1, td.rowSpan -
@@ -1562,7 +1598,7 @@
             }
             /* =================== END CI19 (AS004) =================== */
 
-            /* ====== bawaan SSE & UI ====== */
+            /* ====== SSE & UI ====== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -2005,7 +2041,6 @@
             if (preset === 'default') {
                 if (window.prodPlanSSE?.originalOrder?.has(tbody)) window.prodPlanSSE.restoreOriginalOrder(tbody);
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-                // Recalc sum CI19 hanya saat AS004
                 if (tableKey === 'AS004' && window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE
                     .updateCI19InlineSingle();
                 return;
