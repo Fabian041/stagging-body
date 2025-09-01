@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-               THEME TOGGLE
-               ====================== */
+                   THEME TOGGLE
+                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1389,13 +1389,9 @@
                     label.textContent = 'Dark';
                 }
             }
-
-            if (saved) {
-                apply(saved);
-            } else {
-                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                apply(prefersDark ? 'dark' : 'light');
-            }
+            if (saved) apply(saved);
+            else apply(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' :
+                'light');
 
             document.getElementById('themeToggle')?.addEventListener('click', () => {
                 const current = el.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
@@ -1406,7 +1402,7 @@
         })();
 
         /* ======================
-           SSE CLIENT + CI19 SINGLE INLINE SUM (di tabel, satu saja)
+           SSE CLIENT + CI19 SINGLE INLINE SUM (hide duplicates)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1427,29 +1423,55 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
-                // Target Back No yang di-sum
                 this.CI_TARGET = 'CI19';
-                // render awal dari DOM
-                this.updateCI19InlineSingle();
+                this.updateCI19InlineSingle(); // render awal + collapse duplikat
             }
 
-            /* ===== CI19: hitung total dari semua tabel & sisipkan sekali di baris CI19 pertama ===== */
+            /* ===== Helpers (grouping/rowspan) ===== */
+            isGroupStart(row) {
+                return !!row.querySelector('[rowspan]');
+            }
+
+            getGroupRowsFrom(startRow) {
+                const rows = [startRow];
+                let p = startRow;
+                while (p.nextElementSibling && !this.isGroupStart(p.nextElementSibling)) {
+                    p = p.nextElementSibling;
+                    rows.push(p);
+                }
+                return rows;
+            }
+
+            recalcAllGroupRowspans() {
+                document.querySelectorAll('tbody tr').forEach(row => {
+                    if (!this.isGroupStart(row)) return;
+                    const groupRows = this.getGroupRowsFrom(row);
+                    const visibleCount = Math.max(1, groupRows.filter(r => r.style.display !== 'none').length);
+                    row.querySelectorAll('[rowspan]').forEach(cell => {
+                        cell.rowSpan = visibleCount;
+                    });
+                });
+            }
+
+            /* ===== CI19: total dari semua tabel & tampil sekali; hide yang lain ===== */
             _scanAllCI19() {
-                // cari semua baris yang back no = CI19 (urutan DOM)
                 const rows = Array.from(document.querySelectorAll('tbody tr'));
-                let sum = 0;
-                let firstRow = null;
+                const ciRows = [];
+                let sum = 0,
+                    firstRow = null;
 
                 for (const row of rows) {
                     const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent?.trim();
                     if (bn === this.CI_TARGET) {
+                        ciRows.push(row);
                         const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent?.trim() || '0';
                         const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
                         sum += ord;
-                        if (!firstRow) firstRow = row; // baris CI19 pertama yang ketemu di seluruh halaman
+                        if (!firstRow) firstRow = row;
                     }
                 }
                 return {
+                    ciRows,
                     firstRow,
                     sum
                 };
@@ -1457,14 +1479,18 @@
 
             _renderCI19Single() {
                 const PILL_CLASS = 'ci19-inline-sum';
-                // bersihkan semua sisipan lama (pastikan hanya 1 yang tampil)
+                // hapus label lama
                 document.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
 
                 const {
+                    ciRows,
                     firstRow,
                     sum
                 } = this._scanAllCI19();
+
+                // tampilkan TOTAL di baris CI19 pertama
                 if (firstRow && sum > 0) {
+                    firstRow.style.display = ''; // pastikan tampil
                     const orderCell = firstRow.querySelector('[data-label="Order"]');
                     const target = orderCell?.querySelector('.flip') || orderCell;
                     if (target) {
@@ -1477,6 +1503,14 @@
                         target.after(small);
                     }
                 }
+
+                // sembunyikan CI19 lain (selain yang pertama)
+                ciRows.forEach((row, idx) => {
+                    row.style.display = (idx === 0) ? '' : 'none';
+                });
+
+                // sesuaikan rowspan tiap group agar rapi
+                this.recalcAllGroupRowspans();
             }
 
             updateCI19InlineSingle() {
@@ -1508,16 +1542,8 @@
                 style.textContent = `
               .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
               .animate-flip{animation:flipAnimation .6s ease;}
-              @keyframes flipAnimation{
-                0%{transform:rotateX(0deg);opacity:1;}
-                50%{transform:rotateX(90deg);opacity:0;}
-                51%{transform:rotateX(-90deg);}
-                100%{transform:rotateX(0deg);opacity:1;}
-              }
-              @keyframes continuousBlink{
-                0%,100%{background-color: var(--highlight-color);}
-                50%{background-color: var(--base-bg);}
-              }
+              @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
+              @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
               .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
               .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
               .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
@@ -1604,7 +1630,7 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                // Update single inline sum setelah SSE
+                // Update single inline sum & collapse duplicates setelah SSE
                 this.updateCI19InlineSingle();
             }
 
@@ -1613,8 +1639,8 @@
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
-                    while (groupStart.previousElementSibling && groupStart.previousElementSibling.querySelector(
-                            '[rowspan]')) {
+                    while (groupStart.previousElementSibling && this.isGroupStart(groupStart
+                            .previousElementSibling)) {
                         groupStart = groupStart.previousElementSibling;
                     }
                     const rs = parseInt(groupStart.querySelector('[rowspan]')?.getAttribute('rowspan')) || 1;
@@ -1670,8 +1696,7 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
-                            // jaga single inline sum setelah restore
-                            this.updateCI19InlineSingle();
+                            this.updateCI19InlineSingle(); // collapse ulang setelah restore
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
@@ -1690,8 +1715,7 @@
             highlightRow(row, type) {
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth;
-                const cls =
-                    (type === 'success') ? 'highlight-beep-direct' :
+                const cls = (type === 'success') ? 'highlight-beep-direct' :
                     (type === 'warning') ? 'highlight-beep-stock' : 'highlight-beep-direct';
                 row.classList.add(cls);
                 const t = setTimeout(() => {
@@ -1754,8 +1778,8 @@
                 let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
                     if (targetQty !== null && !isNaN(targetQty)) {
-                        if (value >= targetQty) classes += 'bg-success bg-opacity-75 text-white';
-                        else classes += 'bg-warning bg-opacity-75';
+                        classes += (value >= targetQty) ? 'bg-success bg-opacity-75 text-white' :
+                            'bg-warning bg-opacity-75';
                     } else {
                         classes += (value > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
                     }
@@ -1804,19 +1828,18 @@
 
         function gotoToday() {
             const inp = document.querySelector('input[name="date"]');
-            const today = new Date();
-            const iso = today.toISOString().split('T')[0];
+            const iso = new Date().toISOString().split('T')[0];
             inp.value = iso;
             document.querySelector('form').submit();
         }
 
         /* ======================
-           Column Dropdown (rowspan-aware)
+           Column Dropdown (rowspan-aware) — tidak diubah
            ====================== */
         (function ColumnDropdown() {
             const STORAGE_PREFIX = 'hiddenCols_';
             document.querySelectorAll('[data-colpicker]').forEach(menu => {
-                const tableKey = menu.getAttribute('data-colpicker'); // AS003 / AS004
+                const tableKey = menu.getAttribute('data-colpicker');
                 const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
                 const table = container?.querySelector('table');
                 if (!table) return;
@@ -1861,9 +1884,7 @@
                         cell._startCol = (cell._startCol === undefined) ? col : cell._startCol;
                         for (let rr = 0; rr < cell._origRowspan; rr++) {
                             if (!matrix[r + rr]) matrix[r + rr] = [];
-                            for (let cc = 0; cc < cell._origColspan; cc++) {
-                                matrix[r + rr][col + cc] = cell;
-                            }
+                            for (let cc = 0; cc < cell._origColspan; cc++) matrix[r + rr][col + cc] = cell;
                         }
                         col += cell._origColspan;
                     }
@@ -1882,35 +1903,27 @@
                     maxCols
                 } = meta;
                 const unique = new Set();
-
-                for (let r = 0; r < matrix.length; r++) {
+                for (let r = 0; r < matrix.length; r++)
                     for (let c = 0; c < maxCols; c++) {
                         const cell = matrix[r][c];
                         if (cell) unique.add(cell);
                     }
-                }
-
                 unique.forEach(cell => {
                     const start = cell._startCol,
                         span = cell._origColspan;
                     let visible = 0;
-                    for (let k = 0; k < span; k++) {
+                    for (let k = 0; k < span; k++)
                         if (!hidden.has(start + k)) visible++;
-                    }
-                    if (visible === 0) cell.style.display = 'none';
-                    else {
-                        cell.style.display = '';
-                        cell.colSpan = span > 1 ? visible : 1;
-                    }
+                    cell.style.display = (visible === 0) ? 'none' : '';
+                    cell.colSpan = span > 1 ? Math.max(1, visible) : 1;
                     cell.rowSpan = cell._origRowspan;
                 });
-
                 if (window.__recalcStickyHeaders) window.__recalcStickyHeaders();
             }
         })();
 
         /* ======================
-           Preset: Risk first + Save view
+           Preset: Risk first + Save view — tambahkan sinkronisasi collapse
            ====================== */
         const VIEW_KEY_PREFIX = 'view_';
 
@@ -1929,9 +1942,7 @@
                 const rsCell = start.querySelector('[rowspan]');
                 const rs = parseInt(rsCell?.getAttribute('rowspan') || '1', 10);
                 const bundle = [start];
-                for (let k = 1; k < rs && (i + k) < allRows.length; k++) {
-                    bundle.push(allRows[i + k]);
-                }
+                for (let k = 1; k < rs && (i + k) < allRows.length; k++) bundle.push(allRows[i + k]);
                 groups.push(bundle);
                 i += rs;
             }
@@ -1944,11 +1955,8 @@
             if (!tbody) return;
 
             if (preset === 'default') {
-                if (window.prodPlanSSE?.originalOrder?.has(tbody)) {
-                    window.prodPlanSSE.restoreOriginalOrder(tbody);
-                }
+                if (window.prodPlanSSE?.originalOrder?.has(tbody)) window.prodPlanSSE.restoreOriginalOrder(tbody);
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-                // sinkronkan single inline sum
                 if (window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE.updateCI19InlineSingle();
                 return;
             }
@@ -1969,7 +1977,6 @@
                 localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
                     preset: 'risk'
                 }));
-                // sinkronkan single inline sum
                 if (window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE.updateCI19InlineSingle();
             }
         }
@@ -2015,7 +2022,6 @@
             window.__recalcStickyHeaders = updateAll;
         })();
     </script>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
