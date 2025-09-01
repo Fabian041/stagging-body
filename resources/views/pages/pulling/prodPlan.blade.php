@@ -1432,7 +1432,7 @@
                 this.updateAllInlineSums();
             }
 
-            /* ---------- Group helpers (read-only) ---------- */
+            /* ---------- helpers grouping ---------- */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
@@ -1461,7 +1461,7 @@
                 };
             }
 
-            /* ---------- SUM renderer (tanpa operasi rowspan) ---------- */
+            /* ---------- SUM renderer (idempotent + aman rowspan) ---------- */
             _renderSumUnified({
                 container,
                 targetBackNos,
@@ -1474,52 +1474,73 @@
                 const targets = (Array.isArray(targetBackNos) ? targetBackNos : [targetBackNos])
                     .map(s => String(s).trim().toUpperCase());
 
+                /* 0) RESET — pastikan tidak ada sisa hide/rename dari pemanggilan sebelumnya */
+                Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                    tr.style.display = ''; // unhide semua row
+                    const bnFlip = tr.querySelector('[data-label="Back No"] .flip');
+                    if (bnFlip && bnFlip.dataset.bnOrig && bnFlip.dataset.renamed === '1') {
+                        bnFlip.textContent = bnFlip.dataset.bnOrig; // kembalikan nama back no
+                        bnFlip.dataset.renamed = '0';
+                    }
+                    const ordFlip = tr.querySelector('[data-label="Order"] .flip');
+                    if (ordFlip && ordFlip.dataset.orderOrig) {
+                        ordFlip.textContent = (+ordFlip.dataset.orderOrig || 0).toLocaleString('id-ID');
+                        delete ordFlip.dataset.orderBase;
+                    }
+                });
+
                 const {
                     rowToGroup
                 } = this.buildGroups(tbody);
 
-                // 1) kumpulkan rows yang match target back no
+                /* 1) kumpulkan semua baris yang back no-nya match target */
                 const matchedRows = [];
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
                     const bn = tr.querySelector('[data-label="Back No"] .flip');
                     if (!bn) return;
-                    const val = (bn.dataset.backnoRaw || bn.textContent || '').trim().toUpperCase();
-                    if (targets.includes(val)) matchedRows.push(tr);
+                    const raw = (bn.dataset.backnoRaw || bn.textContent || '').trim().toUpperCase();
+                    if (targets.includes(raw)) matchedRows.push(tr);
                 });
                 if (matchedRows.length === 0) return;
 
-                // 2) total order dari semua match
+                /* 2) total Order dari semua row match */
                 const totalOrder = matchedRows.reduce((acc, tr) => {
-                    const of = tr.querySelector('[data-label="Order"] .flip');
-                    const n = parseInt(String(of?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+                    const f = tr.querySelector('[data-label="Order"] .flip');
+                    const n = parseInt(String(f?.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
                     return acc + n;
                 }, 0);
 
-                // 3) pilih grup yang akan dipakai sebagai “representatif”
+                /* 3) pilih satu grup untuk ditampilkan (pakai start row agar kolom Customer/Dock/Delivery* ada) */
                 const keepGroup = rowToGroup.get(matchedRows[0]);
-                const keepRow = keepGroup.start; // gunakan baris START agar kolom Customer/Dock/Delivery* ada
+                const keepRow = keepGroup.start;
 
-                // 4) isi hasil agregat di baris START
+                /* 4) set hasil agregat di baris START */
                 const ordFlip = keepRow.querySelector('[data-label="Order"] .flip');
                 if (ordFlip) {
-                    ordFlip.dataset.orderBase = String(totalOrder); // baseline utk progress
+                    if (!ordFlip.dataset.orderOrig) {
+                        const cur = parseInt(String(ordFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+                        ordFlip.dataset.orderOrig = String(cur);
+                    }
+                    ordFlip.dataset.orderBase = String(totalOrder);
                     ordFlip.textContent = (totalOrder || 0).toLocaleString('id-ID');
                 }
                 if (displayBackNo) {
                     const bnFlip = keepRow.querySelector('[data-label="Back No"] .flip');
                     if (bnFlip) {
+                        if (!bnFlip.dataset.bnOrig) bnFlip.dataset.bnOrig = bnFlip.textContent.trim();
                         bnFlip.dataset.backnoRaw = targets[0];
                         bnFlip.textContent = displayBackNo;
+                        bnFlip.dataset.renamed = '1';
                     }
                 }
                 keepRow.style.display = '';
 
-                // 5) sembunyikan SEMUA baris match di grup yang sama, kecuali baris START
+                /* 5) hide semua row match di grup yang sama (kecuali start row yang jadi wakil) */
                 matchedRows.forEach(r => {
-                    if (r !== keepRow && rowToGroup.get(r) === keepGroup) r.style.display = 'none';
+                    if (rowToGroup.get(r) === keepGroup && r !== keepRow) r.style.display = 'none';
                 });
 
-                // 6) sembunyikan SELURUH grup lain yang punya match (cukup 1 representatif saja)
+                /* 6) grup lain yang punya target → sembunyikan keseluruhan grupnya (biar “cukup 1 aja”) */
                 const matchedGroups = new Set(matchedRows.map(r => rowToGroup.get(r)));
                 matchedGroups.forEach(g => {
                     if (g === keepGroup) return;
@@ -1528,14 +1549,14 @@
             }
 
             updateAllInlineSums() {
-                // AS004 → CI19 (tampil 1 baris, Order = total)
+                // AS004 → D500 tampil sebagai CI19
                 this._renderSumUnified({
                     container: this.AS004,
                     targetBackNos: ['D500'],
                     displayBackNo: 'CI19'
                 });
 
-                // AS003 → D111 → tampil sebagai CI12 (tampil 1 baris, Order = total)
+                // AS003 → D111 tampil sebagai CI12
                 this._renderSumUnified({
                     container: this.AS003,
                     targetBackNos: ['D111'],
@@ -1543,26 +1564,23 @@
                 });
             }
 
-            /* ---------- SSE + misc ---------- */
+            /* ---------- SSE & misc (tidak diubah) ---------- */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     this.originalOrder.set(tbody, rows);
                 });
             }
-
             getCurrentDate() {
                 const dateInput = document.querySelector('input[name="date"]');
                 return dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
             }
-
             createStatusIndicator() {
                 this.statusElement = document.createElement('div');
                 this.statusElement.id = 'sse-connection-status';
                 this.statusElement.textContent = '● Connecting to updates...';
                 document.body.appendChild(this.statusElement);
             }
-
             addFlipStyles() {
                 const style = document.createElement('style');
                 style.textContent = `
@@ -1576,13 +1594,11 @@
     `;
                 document.head.appendChild(style);
             }
-
             connect() {
                 if (this.eventSource) this.eventSource.close();
                 this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
                 this.updateConnectionStatus('connecting');
                 this.eventSource.onopen = () => this.updateConnectionStatus('connected');
-
                 this.eventSource.addEventListener('directPullingUpdate', (e) => {
                     const data = JSON.parse(e.data);
                     if (data.date === this.currentDate) {
@@ -1590,13 +1606,11 @@
                         this.updateConnectionStatus('connected');
                     }
                 });
-
                 this.eventSource.onerror = () => {
                     this.updateConnectionStatus('disconnected');
                     this.reconnect();
                 };
             }
-
             setupDateChangeListener() {
                 const dateInput = document.querySelector('input[name="date"]');
                 if (dateInput) {
@@ -1606,7 +1620,6 @@
                     });
                 }
             }
-
             updateConnectionStatus(status, message = '') {
                 const statusMap = {
                     connecting: {
@@ -1630,12 +1643,10 @@
                 this.statusElement.className = s.class;
                 this.statusElement.textContent = s.text;
             }
-
             reconnect() {
                 if (this.eventSource) this.eventSource.close();
                 setTimeout(() => this.connect(), 1500);
             }
-
             setupErrorHandling() {
                 window.addEventListener('beforeunload', () => {
                     if (this.eventSource) this.eventSource.close();
@@ -1675,13 +1686,10 @@
                 });
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
-
-                // re-apply sums supaya konsisten setelah SSE update
-                this.updateAllInlineSums();
+                this.updateAllInlineSums(); // re-apply rules setelah update
             }
 
             processUpdatedRows(rows) {
-                // geser group yang update ke atas (behavior lama), auto-restore 60s
                 const rowGroups = new Map();
                 rows.forEach(row => {
                     let groupStart = row;
@@ -1729,7 +1737,6 @@
                     }
 
                     const updatedGroups = allGroups.filter(g => g.some(r => rows.includes(r)));
-
                     if (updatedGroups.length > 0) {
                         while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
                         const remaining = allGroups.filter(g => !updatedGroups.includes(g));
@@ -1762,7 +1769,8 @@
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth;
                 const cls = (type === 'success') ? 'highlight-beep-direct' :
-                    (type === 'warning') ? 'highlight-beep-stock' : 'highlight-beep-direct';
+                    (type === 'warning') ? 'highlight-beep-stock' :
+                    'highlight-beep-direct';
                 row.classList.add(cls);
                 const t = setTimeout(() => {
                     row.classList.remove(cls);
@@ -1820,7 +1828,6 @@
                     cell.className = '';
                     return;
                 }
-
                 let classes = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
                     if (targetQty !== null && !isNaN(targetQty)) {
