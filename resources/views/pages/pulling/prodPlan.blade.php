@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                               THEME TOGGLE
-                               ====================== */
+                   THEME TOGGLE
+                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1406,7 +1406,7 @@
         })();
 
         /* ======================
-           SSE CLIENT + CI19 AGGREGATOR
+           SSE CLIENT + CI19 INLINE SUM (di tabel)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1427,87 +1427,69 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
-                /* === ADDED: target Back No & aggregator bootstrap === */
+                // Target Back No yang di-sum
                 this.CI_TARGET = 'CI19';
-                this.initCI19Aggregator();
+                this.updateCI19Inline(); // render awal dari DOM
             }
 
-            /* === ADDED: CI19 aggregator methods === */
-            initCI19Aggregator() {
-                this.injectCI19UI();
-                this.scanDOMCI19();
-                this.renderCI19Sums();
-            }
+            /* ============ CI19: hitung & sisipkan ke baris CI19 pertama (kolom Order) ============ */
+            _scanCI19For(lineKey) {
+                const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
+                const tbody = container?.querySelector('tbody');
+                let sum = 0;
+                let firstRow = null;
 
-            injectCI19UI() {
-                // Badge per line (AS003 / AS004)
-                document.querySelectorAll('[data-toggle-table]').forEach(container => {
-                    const key = container.getAttribute('data-toggle-table');
-                    const toolbar = container.querySelector(
-                        '.d-flex.justify-content-end.align-items-center.gap-2.mb-2');
-                    const wrap = document.createElement('div');
-                    wrap.className = 'd-flex justify-content-end align-items-center mb-2';
-                    if (toolbar && toolbar.parentNode) {
-                        toolbar.parentNode.insertBefore(wrap, toolbar.nextElementSibling);
-                    } else {
-                        container.insertBefore(wrap, container.firstChild);
-                    }
-                });
-            }
-
-            scanDOMCI19() {
-                const computeFor = (lineKey) => {
-                    const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
-                    const tbody = container?.querySelector('tbody');
-                    const byId = new Map();
-                    let sum = 0;
-
-                    if (tbody) {
-                        tbody.querySelectorAll('tr').forEach(row => {
-                            const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent
-                                ?.trim();
-                            if (bn === this.CI_TARGET) {
-                                const id = row.querySelector(
-                                        '[data-type="direct-pulling"], [data-type="stock-chute"]')?.dataset
-                                    .itemId;
-                                const ordText = row.querySelector('[data-label="Order"] .flip')
-                                    ?.textContent || '0';
-                                const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
-                                if (id) {
-                                    byId.set(id, ord);
-                                    sum += ord;
-                                }
-                            }
-                        });
-                    }
-                    return {
-                        byId,
-                        sum
-                    };
+                if (tbody) {
+                    tbody.querySelectorAll('tr').forEach(row => {
+                        const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent?.trim();
+                        if (bn === this.CI_TARGET) {
+                            const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent
+                                ?.trim() || '0';
+                            const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
+                            sum += ord;
+                            if (!firstRow) firstRow = row;
+                        }
+                    });
+                }
+                return {
+                    container,
+                    firstRow,
+                    sum
                 };
-
-                this._ci19 = {
-                    AS003: computeFor('AS003'),
-                    AS004: computeFor('AS004')
-                };
-                this._ci19.total = (this._ci19.AS003.sum || 0) + (this._ci19.AS004.sum || 0);
             }
 
-            renderCI19Sums() {
-                ['AS003', 'AS004'].forEach(k => {
-                    const el = document.querySelector(`[data-ci19-sum="${k}"]`);
-                    if (el && this._ci19?.[k]) el.textContent = (this._ci19[k].sum || 0).toLocaleString(
-                        'id-ID');
-                });
-                const t = document.querySelector('[data-ci19-total]');
-                if (t && this._ci19) t.textContent = (this._ci19.total || 0).toLocaleString('id-ID');
+            _renderCI19For(lineKey) {
+                const PILL_CLASS = 'ci19-inline-sum';
+                const {
+                    container,
+                    firstRow,
+                    sum
+                } = this._scanCI19For(lineKey);
+
+                // bersihkan sisipan lama dalam container ini
+                container?.querySelectorAll(`.${PILL_CLASS}`).forEach(el => el.remove());
+
+                if (container && firstRow && sum > 0) {
+                    const orderCell = firstRow.querySelector('[data-label="Order"]');
+                    const target = orderCell?.querySelector('.flip') || orderCell;
+                    if (target) {
+                        const small = document.createElement('small');
+                        small.className = PILL_CLASS;
+                        small.style.marginLeft = '6px';
+                        small.style.fontWeight = '700';
+                        small.style.opacity = '0.85';
+                        small.textContent = `(Σ ${this.CI_TARGET}: ${sum.toLocaleString('id-ID')})`;
+                        target.after(small);
+                    }
+                }
             }
 
-            updateCI19Sums() {
-                this.scanDOMCI19();
-                this.renderCI19Sums();
+            updateCI19Inline() {
+                // render untuk kedua line
+                this._renderCI19For('AS003');
+                this._renderCI19For('AS004');
             }
-            /* === END ADDED === */
+            /* =================== END CI19 =================== */
 
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
@@ -1612,15 +1594,16 @@
                         document.querySelector(`[data-item-id="${item.id}"][data-type="stock-chute"]`);
                     if (!hasAny) return;
 
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="direct-pulling"]`, item
-                        .direct_pulling_qty, 'direct-pulling', item.order_qty);
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="stock-chute"]`, item
-                        .stock_chute_qty, 'stock-chute', item.order_qty);
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="actual_start"]`, item
-                        .actual_start, 'time');
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="end"]`, item.end, 'time');
-                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="balance"]`, item.balance,
-                        'time');
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="direct-pulling"]`,
+                        item.direct_pulling_qty, 'direct-pulling', item.order_qty);
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="stock-chute"]`,
+                        item.stock_chute_qty, 'stock-chute', item.order_qty);
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="actual_start"]`,
+                        item.actual_start, 'time');
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="end"]`,
+                        item.end, 'time');
+                    this.updateQuantity(`[data-item-id="${item.id}"][data-type="balance"]`,
+                        item.balance, 'time');
 
                     document.querySelectorAll(`tr:has([data-item-id="${item.id}"])`).forEach(r => rowsToProcess
                         .add(r));
@@ -1628,8 +1611,8 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                /* === ADDED: re-hitungan sum CI19 setelah update === */
-                this.updateCI19Sums();
+                // Re-render sum CI19 setelah update SSE
+                this.updateCI19Inline();
             }
 
             processUpdatedRows(rows) {
@@ -1694,8 +1677,7 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
-                            /* === ADDED: jaga aggregator saat order dipulihkan === */
-                            this.updateCI19Sums();
+                            this.updateCI19Inline(); // jaga CI19 setelah restore
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
@@ -1714,8 +1696,9 @@
             highlightRow(row, type) {
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth;
-                const cls = (type === 'success') ? 'highlight-beep-direct' : (type === 'warning' ?
-                    'highlight-beep-stock' : 'highlight-beep-direct');
+                const cls =
+                    (type === 'success') ? 'highlight-beep-direct' :
+                    (type === 'warning') ? 'highlight-beep-stock' : 'highlight-beep-direct';
                 row.classList.add(cls);
                 const t = setTimeout(() => {
                     row.classList.remove(cls);
@@ -1809,7 +1792,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             window.prodPlanSSE = new ProductionPlanSSEClient();
 
-            // Enable Bootstrap tooltips
+            // Bootstrap tooltips
             const triggers = [].slice.call(document.querySelectorAll('[title]'));
             triggers.forEach(el => {
                 el.setAttribute('data-bs-toggle', 'tooltip');
@@ -1971,9 +1954,8 @@
                     window.prodPlanSSE.restoreOriginalOrder(tbody);
                 }
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-
-                /* === ADDED: sinkronkan aggregator === */
-                if (window.prodPlanSSE?.updateCI19Sums) window.prodPlanSSE.updateCI19Sums();
+                // sinkronkan sum CI19
+                if (window.prodPlanSSE?.updateCI19Inline) window.prodPlanSSE.updateCI19Inline();
                 return;
             }
 
@@ -1993,9 +1975,8 @@
                 localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
                     preset: 'risk'
                 }));
-
-                /* === ADDED: sinkronkan aggregator === */
-                if (window.prodPlanSSE?.updateCI19Sums) window.prodPlanSSE.updateCI19Sums();
+                // sinkronkan sum CI19
+                if (window.prodPlanSSE?.updateCI19Inline) window.prodPlanSSE.updateCI19Inline();
             }
         }
 
