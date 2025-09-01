@@ -1403,7 +1403,9 @@
         })();
 
         /* ======================
-           SSE CLIENT + CI19 INLINE SUM (AS004 only, show sum only)
+           SSE CLIENT + INLINE SUMS
+           - AS004: sum Back No = CI19 → show Order = total only
+           - AS003: sum Back No = D111 → show Order = total only & rename Back No display → CI12
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1424,13 +1426,15 @@
                 this.setupErrorHandling();
                 this.storeOriginalOrder();
 
-                this.CI_TARGET = 'CI19';
+                // Containers
+                this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
 
-                this.updateCI19InlineSingle(); // render awal (AS004 only)
+                // Render awal
+                this.updateAllInlineSums();
             }
 
-            /* ===== Utilities: group & rowspan (AS004 scope) ===== */
+            /* ===== Utilities: group & rowspan (table scoped) ===== */
             isGroupStart(row) {
                 return !!row.querySelector('[rowspan]');
             }
@@ -1451,8 +1455,8 @@
                 return p || row;
             }
 
-            recalcAS004Rowspans() {
-                const tbody = this.AS004?.querySelector('tbody');
+            recalcRowspans(container) {
+                const tbody = container?.querySelector('tbody');
                 if (!tbody) return;
                 Array.from(tbody.querySelectorAll('tr')).forEach(row => {
                     if (!this.isGroupStart(row)) return;
@@ -1466,13 +1470,13 @@
                 const next = row.nextElementSibling;
                 const startCells = Array.from(row.children).filter(td => td.hasAttribute('rowspan'));
 
-                // Group satu baris → langsung hide aman
+                // Group cuma 1 baris → langsung hide
                 if (!next || this.isGroupStart(next)) {
                     row.style.display = 'none';
                     return;
                 }
 
-                // Pindahkan sel sesuai posisi kolom
+                // Pindahkan sel sesuai posisi kolom agar grid tidak bergeser
                 const headLabels = new Set(['Customer', 'Dock']);
                 const tailLabels = new Set(['Delivery Time', 'Delivery Date', 'Balance Time']);
 
@@ -1505,61 +1509,75 @@
                 row.style.display = 'none';
             }
 
-            /* ===== CI19: sum & tampil sekali di AS004 (Order = total saja) ===== */
-            _scanAS004CI19() {
-                const tbody = this.AS004?.querySelector('tbody');
-                const ciRows = [];
+            /* ===== Generic scanner & renderer for a table/backNo ===== */
+            _scanTableBackno(container, targetBackNo) {
+                const tbody = container?.querySelector('tbody');
+                const rows = [];
                 let sum = 0,
                     firstRow = null;
-
                 if (!tbody) return {
-                    ciRows,
+                    rows,
                     firstRow,
                     sum
                 };
 
                 Array.from(tbody.querySelectorAll('tr')).forEach(row => {
-                    const bn = row.querySelector('[data-label="Back No"] .flip')?.textContent?.trim();
-                    if (bn === this.CI_TARGET) {
-                        ciRows.push(row);
-                        const ordText = row.querySelector('[data-label="Order"] .flip')?.textContent?.trim() ||
-                            '0';
+                    const flip = row.querySelector('[data-label="Back No"] .flip');
+                    if (!flip) return;
+                    const text = (flip.dataset.backnoRaw || flip.textContent || '').trim();
+                    if (text === targetBackNo) {
+                        rows.push(row);
+                        const ordFlip = row.querySelector('[data-label="Order"] .flip');
+                        const ordText = ordFlip?.textContent?.trim() || '0';
                         const ord = parseInt(String(ordText).replace(/[^\d-]/g, ''), 10) || 0;
                         sum += ord;
                         if (!firstRow) firstRow = row;
                     }
                 });
-
                 return {
-                    ciRows,
+                    rows,
                     firstRow,
                     sum
                 };
             }
 
-            _renderCI19SingleAS004() {
+            _renderSingleSum({
+                container,
+                targetBackNo,
+                displayBackNo = null
+            }) {
                 const {
-                    ciRows,
+                    rows: bnRows,
                     firstRow,
                     sum
-                } = this._scanAS004CI19();
+                } = this._scanTableBackno(container, targetBackNo);
 
-                // tampilkan TOTAL di baris CI19 pertama (AS004) — ganti isi jadi sum
                 if (firstRow) {
+                    // Tampilkan baris keeper
                     firstRow.style.display = '';
+
+                    // 1) Order: tampilkan total saja, simpan original di data-order-raw
                     const orderFlip = firstRow.querySelector('[data-label="Order"] .flip');
                     if (orderFlip) {
-                        // simpan angka asli untuk perhitungan progress/bar
                         const originalOrd = parseInt(String(orderFlip.textContent || '0').replace(/[^\d-]/g, ''), 10) ||
                             0;
                         orderFlip.dataset.orderRaw = String(originalOrd);
-                        orderFlip.textContent = (sum || 0).toLocaleString('id-ID'); // tampil sum Saja
+                        orderFlip.textContent = (sum || 0).toLocaleString('id-ID');
+                    }
+
+                    // 2) Back No: rename tampilan bila diminta, simpan asli di data attr
+                    if (displayBackNo) {
+                        const bnFlip = firstRow.querySelector('[data-label="Back No"] .flip');
+                        if (bnFlip) {
+                            bnFlip.dataset.backnoRaw = targetBackNo;
+                            bnFlip.textContent = displayBackNo;
+                        }
                     }
                 }
 
-                // Sembunyikan CI19 lain di AS004 (dengan aman)
-                ciRows.forEach((row, idx) => {
-                    if (idx === 0) return; // keeper
+                // 3) Sembunyikan duplikat secara aman
+                bnRows.forEach((row, idx) => {
+                    if (idx === 0) return;
                     if (this.isGroupStart(row)) this.hideGroupStartRow(row);
                     else {
                         row.style.display = 'none';
@@ -1569,16 +1587,27 @@
                     }
                 });
 
-                // Recalc keseluruhan rowspan di AS004 agar rapi
-                this.recalcAS004Rowspans();
+                // 4) Recalc rowspan agar rapi
+                this.recalcRowspans(container);
             }
 
-            updateCI19InlineSingle() {
-                this._renderCI19SingleAS004();
-            }
-            /* =================== END CI19 (AS004) =================== */
+            updateAllInlineSums() {
+                // AS004 → CI19 (tampil sum only)
+                if (this.AS004) this._renderSingleSum({
+                    container: this.AS004,
+                    targetBackNo: 'CI19',
+                    displayBackNo: null
+                });
 
-            /* ====== SSE & UI ====== */
+                // AS003 → D111 disum, lalu tampil Back No = CI12
+                if (this.AS003) this._renderSingleSum({
+                    container: this.AS003,
+                    targetBackNo: 'D111',
+                    displayBackNo: 'CI12'
+                });
+            }
+
+            /* ====== SSE & UI (bawaan) ====== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1666,7 +1695,6 @@
                 this.statusElement.textContent = s.text;
             }
 
-            /* ambil order untuk perhitungan progress dari data-order-raw kalau ada */
             _getOrderForCalc(row) {
                 const flip = row.querySelector('[data-label="Order"] .flip');
                 if (!flip) return 0;
@@ -1700,8 +1728,8 @@
 
                 if (rowsToProcess.size > 0) this.processUpdatedRows(Array.from(rowsToProcess));
 
-                // Re-render sum CI19 khusus AS004 setelah SSE
-                this.updateCI19InlineSingle();
+                // Re-render sums setelah SSE
+                this.updateAllInlineSums();
             }
 
             processUpdatedRows(rows) {
@@ -1766,7 +1794,7 @@
                         const restoreTimeout = setTimeout(() => {
                             this.restoreOriginalOrder(tbody);
                             this.orderRestoreTimeouts.delete(tbody);
-                            this.updateCI19InlineSingle();
+                            this.updateAllInlineSums();
                         }, 60000);
                         this.orderRestoreTimeouts.set(tbody, restoreTimeout);
                     }
@@ -1806,7 +1834,7 @@
                             targetQty);
                         else this.updateCellStyle(td, null, type);
 
-                        // progress bars (gunakan order asli jika tersedia)
+                        // progress bars (pakai order asli bila ada)
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
                             const row = td.parentElement;
@@ -2029,8 +2057,8 @@
             if (preset === 'default') {
                 if (window.prodPlanSSE?.originalOrder?.has(tbody)) window.prodPlanSSE.restoreOriginalOrder(tbody);
                 localStorage.removeItem(VIEW_KEY_PREFIX + tableKey);
-                if (tableKey === 'AS004' && window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE
-                    .updateCI19InlineSingle();
+                if ((tableKey === 'AS004' || tableKey === 'AS003') && window.prodPlanSSE?.updateAllInlineSums) window
+                    .prodPlanSSE.updateAllInlineSums();
                 return;
             }
 
@@ -2050,8 +2078,8 @@
                 localStorage.setItem(VIEW_KEY_PREFIX + tableKey, JSON.stringify({
                     preset: 'risk'
                 }));
-                if (tableKey === 'AS004' && window.prodPlanSSE?.updateCI19InlineSingle) window.prodPlanSSE
-                    .updateCI19InlineSingle();
+                if ((tableKey === 'AS004' || tableKey === 'AS003') && window.prodPlanSSE?.updateAllInlineSums) window
+                    .prodPlanSSE.updateAllInlineSums();
             }
         }
 
