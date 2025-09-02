@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                                           THEME TOGGLE (tetap)
-                                           ====================== */
+                                                   THEME TOGGLE (tetap)
+                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2066,12 +2066,12 @@
     </script>
     <script>
         /* ======================
-                                           IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
-                                           - Hides TD via [data-label]
-                                           - Hides TH leaf via [data-col-key]
-                                           - Fixes group TH (Running Qty, Working Time) colspan
-                                           - Persists by label (stable, tahan rowspan/colspan)
-                                        ====================== */
+                                                   IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
+                                                   - Hides TD via [data-label]
+                                                   - Hides TH leaf via [data-col-key]
+                                                   - Fixes group TH (Running Qty, Working Time) colspan
+                                                   - Persists by label (stable, tahan rowspan/colspan)
+                                                ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2295,7 +2295,7 @@
 
                         // sinkron checkbox
                         state.menu.querySelectorAll('.column-check').forEach(cb => {
-                            let key = cb.dataset.key ? canonicalize(cb.dataset.key) : nul;
+                            let key = cb.dataset.key ? canonicalize(cb.dataset.key) : null;
                             if (!key && cb.dataset.col != null) {
                                 const idx = parseInt(cb.dataset.col, 10);
                                 const k2 = state.headerInfo.leafKeys[idx];
@@ -2331,11 +2331,6 @@
         })();
     </script>
     <script>
-        /* ===== Back No Renamer (tanpa summary) =====
-                       - Pakai label kolom "Back No" di tbody
-                       - Simpan mapping di localStorage (opsional)
-                       - Aman untuk .flip & dataset backnoRaw yang sudah kamu isi
-                    ================================================ */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const norm = s => (s || '').trim().toUpperCase();
