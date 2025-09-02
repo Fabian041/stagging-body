@@ -740,7 +740,7 @@
         }
 
         /* =======================================
-   Light Mode Table Header — Soft Slate
+   Light Mode Table Header -- Soft Slate
    ======================================= */
         html[data-theme="light"] {
             --thead-bg: #EEF2F7;
@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                           THEME TOGGLE (tetap)
-                           ====================== */
+                                           THEME TOGGLE (tetap)
+                                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1439,7 +1439,7 @@
         }
 
         /* ======================
-           SSE CLIENT + SUMMARY PINNED
+           SSE CLIENT + SUMMARY PINNED (ORIGINAL LOGIC)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
@@ -1562,13 +1562,10 @@
 
             /* ===== Row utils (lebih robust) ===== */
             _getBackNo(row) {
-                // 1) pakai data-label="Back No"
                 const td = getCellByLabel(row, 'Back No');
                 const el = td?.querySelector('.flip') || td;
-                let val = (el?.dataset?.backnoRaw || el?.textContent || '').trim();
+                let val = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
                 if (val) return val.toUpperCase();
-
-                // 2) fallback regex: cari token Dxxx / CIxx dalam satu row
                 const text = (row.textContent || '').toUpperCase();
                 const m = text.match(/\b(?:D\d{2,4}|CI\d{2,4})\b/);
                 return m ? m[0] : '';
@@ -1696,7 +1693,7 @@
                 });
 
                 // pilih customer yang paling sering (mode)
-                let customerText = '—';
+                let customerText = '--';
                 if (customerBag.length) {
                     const freq = customerBag.reduce((m, s) => (m[s] = (m[s] || 0) + 1, m), {});
                     customerText = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
@@ -1718,10 +1715,10 @@
             _createSummaryRow({
                 label,
                 totals,
-                customerText = '—'
+                customerText = '--'
             }) {
                 const tr = document.createElement('tr');
-                tr.className = 'fw-bold'; // <-- tidak pakai table-info, jadi warnanya sama
+                tr.className = 'fw-bold';
 
                 const pct = Math.min(100, Math.round(((totals.dp + totals.sc) / Math.max(1, totals.order)) * 100));
                 const td = (text, attrs = {}) => {
@@ -1734,11 +1731,11 @@
                 // kolom-kolom
                 tr.appendChild(td(customerText, {
                     'data-label': 'Customer'
-                })); // <-- pakai nama customer asli
-                tr.appendChild(td('—', {
+                }));
+                tr.appendChild(td('--', {
                     'data-label': 'Dock'
                 }));
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Cycle'
                 }));
                 tr.appendChild(td(label, {
@@ -1766,16 +1763,16 @@
      </div>`;
                 tr.appendChild(tdSC);
 
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Cycle Time'
                 }));
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Planning Start'
                 }));
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Actual Start'
                 }));
-                tr.appendChild(td('<span class="text-warning">—</span>', {
+                tr.appendChild(td('<span class="text-warning">--</span>', {
                     'data-label': 'Duration'
                 }));
 
@@ -1789,19 +1786,18 @@
      </div>`;
                 tr.appendChild(tdProg);
 
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Delivery Time'
                 }));
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Delivery Date'
                 }));
-                tr.appendChild(td('—', {
+                tr.appendChild(td('--', {
                     'data-label': 'Balance Time'
                 }));
 
                 return tr;
             }
-
 
             _refreshSummaryRow(summary) {
                 if (!summary?.row) return;
@@ -2061,33 +2057,394 @@
 
         /* Bridge untuk dropdown/presets eksternal bila ada */
         (function Bridge() {
-            /* no-op; updateAllInlineSums() sudah kompat */
-        })();
-    </script>
-
-    <script>
-        (function stickyHeaderOffsets() {
-            function updateStickyOffsets(table) {
-                if (!table || !table.tHead || table.tHead.rows.length < 2) return;
-                const r1 = table.tHead.rows[0].getBoundingClientRect().height || 40;
-                table.style.setProperty('--thead-row1', `${r1.toFixed(2)}px`);
-            }
-
-            function updateAll() {
-                document.querySelectorAll('[data-toggle-table] table').forEach(updateStickyOffsets);
-            }
-            document.addEventListener('DOMContentLoaded', updateAll);
-            window.addEventListener('resize', updateAll);
-            const ro = new ResizeObserver(entries => {
-                for (const e of entries) {
-                    const table = e.target.closest('table');
-                    if (table) updateStickyOffsets(table);
+            window.updateAllInlineSums = function() {
+                if (window.prodPlanSSE && typeof window.prodPlanSSE.updateAllInlineSums === 'function') {
+                    window.prodPlanSSE.updateAllInlineSums();
                 }
-            });
-            document.querySelectorAll('[data-toggle-table] table thead').forEach(th => ro.observe(th));
-            window.__recalcStickyHeaders = updateAll;
+            };
         })();
     </script>
+    <script>
+        /* ======================
+                                           IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
+                                           - Hides TD via [data-label]
+                                           - Hides TH leaf via [data-col-key]
+                                           - Fixes group TH (Running Qty, Working Time) colspan
+                                           - Persists by label (stable, tahan rowspan/colspan)
+                                        ====================== */
+        (function SafeColumnHideV5() {
+            const STORAGE_PREFIX = 'hiddenCols_';
+            const tableStates = new Map();
+            let isProcessing = false;
+
+            // 1) Canonical order (untuk normalisasi nama)
+            const CANON = [
+                'Customer', 'Dock', 'Cycle', 'Back No', 'Order',
+                'Direct Pulling', 'Stock Chute', 'Cycle Time',
+                'Planning Start', 'Actual Start', 'Duration', 'Progress',
+                'Delivery Time', 'Delivery Date', 'Balance Time'
+            ].map(s => s.toLowerCase());
+
+            const GROUP_MAP = {
+                'running qty': ['Direct Pulling', 'Stock Chute'],
+                'working time': ['Planning Start', 'Actual Start', 'Duration', 'Progress']
+            };
+
+            const onceStyleId = 'colhide_label_style';
+            if (!document.getElementById(onceStyleId)) {
+                const st = document.createElement('style');
+                st.id = onceStyleId;
+                st.textContent = `.col-hidden{display:none!important}`;
+                document.head.appendChild(st);
+            }
+
+            const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+            // Kembalikan bentuk judul kanonik (case yang rapi), jika ada
+            function canonicalize(label) {
+                const n = norm(label);
+                const idx = CANON.indexOf(n);
+                if (idx >= 0) return CANON[idx].replace(/\b\w/g, c => c.toUpperCase());
+                // fallback: pakai yang ada
+                return (label || '').trim();
+            }
+
+            // 2) Baca/simpan hidden set by KEY (label)
+            function readHiddenKeys(tableKey) {
+                try {
+                    const arr = JSON.parse(localStorage.getItem(STORAGE_PREFIX + tableKey) || '[]');
+                    return new Set(arr.map(canonicalize));
+                } catch {
+                    return new Set();
+                }
+            }
+
+            function saveHiddenKeys(tableKey, set) {
+                try {
+                    localStorage.setItem(STORAGE_PREFIX + tableKey, JSON.stringify([...set]));
+                } catch {}
+            }
+
+            // 3) Analisa thead → tentukan LEAF order kiri→kanan + tandai th
+            function annotateHeader(container) {
+                const thead = container.querySelector('thead');
+                if (!thead) return {
+                    leafKeys: [],
+                    groupHeads: []
+                };
+
+                const rows = Array.from(thead.rows);
+                // Dengan struktur yang kamu kirim, ada 2 baris
+                const r0 = rows[0] || null;
+                const r1 = rows[1] || null;
+
+                const leafKeys = [];
+                const groupHeads = []; // {el, children:[keys...]}
+
+                if (!r0) return {
+                    leafKeys,
+                    groupHeads
+                };
+
+                // Siapkan pointer ke baris kedua untuk children group
+                let childIdx = 0;
+                const r1cells = r1 ? Array.from(r1.cells) : [];
+
+                Array.from(r0.cells).forEach(th => {
+                    const text = canonicalize(th.textContent);
+                    const ntext = norm(text);
+
+                    if ((th.rowSpan || 1) > 1 && (th.colSpan || 1) === 1) {
+                        // Leaf di baris 1 (rowspan=2)
+                        const key = text;
+                        th.setAttribute('data-col-key', key);
+                        leafKeys.push(key);
+                    } else if ((th.colSpan || 1) > 1) {
+                        // Group head: ambil anak di baris 2 sebanyak colspan
+                        const span = th.colSpan;
+                        const kids = [];
+                        for (let i = 0; i < span; i++) {
+                            const c = r1cells[childIdx++];
+                            if (!c) continue;
+                            const k = canonicalize(c.textContent);
+                            c.setAttribute('data-col-key', k); // tandai leaf child
+                            leafKeys.push(k);
+                            kids.push(k);
+                        }
+                        // tandai group
+                        const gChildren = (GROUP_MAP[ntext] || kids);
+                        th.setAttribute('data-col-group', gChildren.join('||'));
+                        groupHeads.push({
+                            el: th,
+                            children: gChildren
+                        });
+                    } else {
+                        // edge case lain (jarang)
+                        const key = text;
+                        th.setAttribute('data-col-key', key);
+                        leafKeys.push(key);
+                    }
+                });
+
+                // Kalau ada baris kedua tanpa group (cadangan)
+                if (r1 && groupHeads.length === 0) {
+                    r1cells.forEach(c => {
+                        const k = canonicalize(c.textContent);
+                        c.setAttribute('data-col-key', k);
+                        leafKeys.push(k);
+                    });
+                }
+
+                return {
+                    leafKeys,
+                    groupHeads
+                };
+            }
+
+            // 4) Terapkan hide/show ke BODY td dan HEADER th
+            function applyHiding(container, hiddenKeys, headerInfo) {
+                const {
+                    leafKeys,
+                    groupHeads
+                } = headerInfo;
+
+                // BODY: hide berdasarkan data-label (normalize dulu)
+                container.querySelectorAll('tbody td[data-label]').forEach(td => {
+                    const raw = td.getAttribute('data-label');
+                    const key = canonicalize(raw);
+                    if (hiddenKeys.has(key)) td.classList.add('col-hidden');
+                    else td.classList.remove('col-hidden');
+                });
+
+                // THEAD leaf th
+                container.querySelectorAll('thead th[data-col-key]').forEach(th => {
+                    const key = th.getAttribute('data-col-key');
+                    if (hiddenKeys.has(key)) th.classList.add('col-hidden');
+                    else th.classList.remove('col-hidden');
+                });
+
+                // THEAD group th → hitung anak visible, update colspan / hide jika 0
+                groupHeads.forEach(g => {
+                    const visibleCount = g.children.reduce((n, k) => n + (hiddenKeys.has(canonicalize(k)) ? 0 :
+                        1), 0);
+                    if (visibleCount === 0) {
+                        g.el.classList.add('col-hidden');
+                        g.el.colSpan = 1; // aman
+                    } else {
+                        g.el.classList.remove('col-hidden');
+                        g.el.colSpan = visibleCount;
+                    }
+                });
+            }
+
+            // 5) Setup per tabel
+            document.querySelectorAll('[data-colpicker]').forEach(menu => {
+                const tableKey = menu.getAttribute('data-colpicker');
+                const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
+                const table = container?.querySelector('table');
+                if (!table) return;
+
+                const headerInfo = annotateHeader(container);
+                const hiddenKeys = readHiddenKeys(tableKey);
+
+                tableStates.set(tableKey, {
+                    container,
+                    menu,
+                    headerInfo,
+                    hiddenKeys
+                });
+
+                // Sinkron checkbox:
+                // - Preferred: <input class="column-check" data-key="Direct Pulling">
+                // - Fallback:  <input class="column-check" data-col="index"> (pakai leaf order)
+                menu.querySelectorAll('.column-check').forEach(cb => {
+                    let key = cb.dataset.key ? canonicalize(cb.dataset.key) : null;
+                    if (!key && cb.dataset.col != null) {
+                        const idx = parseInt(cb.dataset.col, 10);
+                        const k2 = headerInfo.leafKeys[idx];
+                        if (k2) key = canonicalize(k2);
+                    }
+                    if (!key) return;
+
+                    cb.checked = !hiddenKeys.has(key);
+                    cb.addEventListener('change', e => {
+                        e.stopPropagation();
+                        if (cb.checked) hiddenKeys.delete(key);
+                        else hiddenKeys.add(key);
+                        saveHiddenKeys(tableKey, hiddenKeys);
+                        applyHiding(container, hiddenKeys, headerInfo);
+                        // optional: panggil recalcRowspans milik kamu jika perlu
+                        if (window.prodPlanSSE?.recalcRowspans) {
+                            window.prodPlanSSE.recalcRowspans(container);
+                        }
+                    });
+                });
+
+                // Apply awal
+                applyHiding(container, hiddenKeys, headerInfo);
+            });
+
+            // 6) Global re-apply (mis. setelah DOM berubah oleh SSE)
+            window.__colHideApplyAll = function() {
+                if (isProcessing) return;
+                isProcessing = true;
+                try {
+                    tableStates.forEach((state, tableKey) => {
+                        const hiddenKeys = readHiddenKeys(tableKey);
+                        state.hiddenKeys = hiddenKeys;
+
+                        // sinkron checkbox
+                        state.menu.querySelectorAll('.column-check').forEach(cb => {
+                            let key = cb.dataset.key ? canonicalize(cb.dataset.key) : nul;
+                            if (!key && cb.dataset.col != null) {
+                                const idx = parseInt(cb.dataset.col, 10);
+                                const k2 = state.headerInfo.leafKeys[idx];
+                                if (k2) key = canonicalize(k2);
+                            }
+                            if (!key) return;
+                            cb.checked = !hiddenKeys.has(key);
+                        });
+
+                        applyHiding(state.container, hiddenKeys, state.headerInfo);
+                        if (window.prodPlanSSE?.recalcRowspans) {
+                            window.prodPlanSSE.recalcRowspans(state.container);
+                        }
+                    });
+                } finally {
+                    isProcessing = false;
+                }
+            };
+
+            // 7) Observer ringan: jika tbody berubah, cukup re-apply
+            try {
+                const observer = new MutationObserver(() => {
+                    if (!isProcessing) window.__colHideApplyAll();
+                });
+                document.querySelectorAll('[data-toggle-table]').forEach(container => {
+                    const tbody = container.querySelector('table tbody');
+                    if (tbody) observer.observe(tbody, {
+                        childList: true,
+                        subtree: false
+                    });
+                });
+            } catch {}
+        })();
+    </script>
+    <script>
+        /* ===== Back No Renamer (tanpa summary) =====
+                       - Pakai label kolom "Back No" di tbody
+                       - Simpan mapping di localStorage (opsional)
+                       - Aman untuk .flip & dataset backnoRaw yang sudah kamu isi
+                    ================================================ */
+        (function BackNoRenamer() {
+            const LS_KEY = 'backnoRenameMap';
+            const norm = s => (s || '').trim().toUpperCase();
+
+            function loadMap() {
+                try {
+                    return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+                } catch {
+                    return {};
+                }
+            }
+
+            function saveMap(map) {
+                try {
+                    localStorage.setItem(LS_KEY, JSON.stringify(map));
+                } catch {}
+            }
+
+            function applyMapToContainer(container, map) {
+                if (!container) return;
+                container.querySelectorAll('tbody tr').forEach(row => {
+                    const td = (function() {
+                        const wl = 'Back No'.toLowerCase();
+                        const cells = Array.from(row.children);
+                        for (const c of cells) {
+                            const lbl = (c.getAttribute('data-label') || '').replace(/\s+/g, ' ').trim()
+                                .toLowerCase();
+                            if (lbl === wl) return c;
+                        }
+                        return null;
+                    })();
+                    if (!td) return;
+
+                    const el = td.querySelector('.flip') || td;
+                    const original = norm(el.dataset.backnoRaw || el.textContent);
+                    const alias = map[original];
+                    if (alias) {
+                        el.dataset.backnoAlias = norm(alias);
+                        (td.querySelector('.flip') || el).textContent = alias;
+                    } else {
+                        // jika sebelumnya pernah di-alias, kembalikan ke raw
+                        if (el.dataset.backnoAlias) {
+                            (td.querySelector('.flip') || el).textContent = el.dataset.backnoRaw || el
+                                .textContent;
+                            delete el.dataset.backnoAlias;
+                        }
+                    }
+                });
+            }
+
+            function applyAll(map) {
+                document.querySelectorAll('[data-toggle-table]').forEach(container => {
+                    applyMapToContainer(container, map);
+                });
+                // kalau perlu hitung ulang rowspan milikmu:
+                if (window.prodPlanSSE?.recalcRowspans) {
+                    document.querySelectorAll('[data-toggle-table]').forEach(c => window.prodPlanSSE.recalcRowspans(c));
+                }
+            }
+
+            // ==== Public API ====
+            window.setBackNoRenameMap = function(map, {
+                persist = true,
+                applyNow = true
+            } = {}) {
+                // normalisasi ke UPPERCASE key/value
+                const clean = {};
+                Object.entries(map || {}).forEach(([k, v]) => {
+                    if (k && v) clean[norm(k)] = norm(v);
+                });
+                if (persist) saveMap(clean);
+                if (applyNow) applyAll(clean);
+                return clean;
+            };
+
+            window.renameBackNo = function(from, to, {
+                persist = true,
+                applyNow = true
+            } = {}) {
+                const map = loadMap();
+                if (from && to) {
+                    map[norm(from)] = norm(to);
+                    if (persist) saveMap(map);
+                }
+                if (applyNow) applyAll(map);
+                return map;
+            };
+
+            window.clearBackNoRenameMap = function({
+                applyNow = true
+            } = {}) {
+                saveMap({});
+                if (applyNow) applyAll({});
+            };
+
+            // Auto-apply saat halaman buka (jika ada mapping tersimpan)
+            document.addEventListener('DOMContentLoaded', () => {
+                const map = loadMap();
+                if (Object.keys(map).length) applyAll(map);
+            });
+        })();
+
+        setBackNoRenameMap({
+            'D403': 'CI18',
+            'D111': 'CI12',
+            'D500': 'CI19'
+        });
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

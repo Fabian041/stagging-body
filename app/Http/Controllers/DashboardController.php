@@ -161,7 +161,7 @@ class DashboardController extends Controller
         $end = $start->copy()->addDay();      // 12:00 next day
 
         $backNosByLine = [
-            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D111', 'D112'],
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D111'],
             'AS004' => ['CI15', 'CI16', 'CI19', 'D500'],
         ];
 
@@ -242,6 +242,7 @@ class DashboardController extends Controller
             $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
 
             $excludedCustomers = [
+                'TMMIN ASSY PLANT',
                 'ADM SERVICE PART DIVISION',
                 'TMMIN SERVICE PARTS DIVISION',
                 'TAM SPARE PART DIVISION (DAIHATSU)',
@@ -327,6 +328,7 @@ class DashboardController extends Controller
                 $date = $selectedDate->format('Ymd');
                 $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
                 $excludedCustomersString = implode("','", [
+                    'TMMIN ASSY PLANT',
                     'ADM SERVICE PART DIVISION',
                     'TMMIN SERVICE PARTS DIVISION',
                     'TAM SPARE PART DIVISION (DAIHATSU)',
