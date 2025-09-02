@@ -986,9 +986,9 @@
                                         <th rowspan="2">Cycle</th>
                                         <th rowspan="2">Back No</th>
                                         <th rowspan="2">Order</th>
-                                        <th colspan="2">Running Qty</th>
+                                        <th colspan="2" class="text-center">Running Qty</th>
                                         <th rowspan="2">Cycle Time</th>
-                                        <th colspan="4">Working Time</th>
+                                        <th colspan="4" class="text-center">Working Time</th>
                                         <th rowspan="2">Delivery Time</th>
                                         <th rowspan="2">Delivery Date</th>
                                         <th rowspan="2">Balance Time</th>
@@ -1226,9 +1226,9 @@
                                         <th rowspan="2">Cycle</th>
                                         <th rowspan="2">Back No</th>
                                         <th rowspan="2">Order</th>
-                                        <th colspan="2">Running Qty</th>
+                                        <th colspan="2" class="text-center">Running Qty</th>
                                         <th rowspan="2">Cycle Time</th>
-                                        <th colspan="4">Working Time</th>
+                                        <th colspan="4" class="text-center">Working Time</th>
                                         <th rowspan="2">Delivery Time</th>
                                         <th rowspan="2">Delivery Date</th>
                                         <th rowspan="2">Balance Time</th>
@@ -1368,8 +1368,8 @@
 
     <script>
         /* ======================
-                                                   THEME TOGGLE (tetap)
-                                                   ====================== */
+                                                               THEME TOGGLE (tetap)
+                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2066,12 +2066,12 @@
     </script>
     <script>
         /* ======================
-                                                   IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
-                                                   - Hides TD via [data-label]
-                                                   - Hides TH leaf via [data-col-key]
-                                                   - Fixes group TH (Running Qty, Working Time) colspan
-                                                   - Persists by label (stable, tahan rowspan/colspan)
-                                                ====================== */
+                                                               IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
+                                                               - Hides TD via [data-label]
+                                                               - Hides TH leaf via [data-col-key]
+                                                               - Fixes group TH (Running Qty, Working Time) colspan
+                                                               - Persists by label (stable, tahan rowspan/colspan)
+                                                            ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
