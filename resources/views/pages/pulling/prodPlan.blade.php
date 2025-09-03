@@ -956,7 +956,8 @@
                                         <div class="bar"><i style="width: {{ $as003MorningPct }}%"></i></div>
                                         <span class="val">{{ $as003MorningPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: {{ $as003MorningActual }}</div>
+                                    <div class="meta">Actual: <span
+                                            class="fw-bold">{{ $as003MorningActual }}</span></div>
                                 </div>
                             </div>
 
@@ -976,7 +977,8 @@
                                         <div class="bar"><i style="width: {{ $as003NightPct }}%"></i></div>
                                         <span class="val">{{ $as003NightPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: {{ $as003NightActual }}</div>
+                                    <div class="meta">Actual: <span class="fw-bold">{{ $as003NightActual }}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -990,7 +992,8 @@
                                         <div class="bar"><i style="width: {{ $as003TotalPct }}%"></i></div>
                                         <span class="val">{{ $as003TotalPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: {{ $as003TotalActual }}</div>
+                                    <div class="meta">Actual: <span class="fw-bold">{{ $as003TotalActual }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1242,7 +1245,8 @@
                                         <div class="bar"><i style="width: {{ $as004MorningPct }}%"></i></div>
                                         <span class="val">{{ $as004MorningPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: {{ $as004MorningActual }}</div>
+                                    <div class="meta">Actual: <span
+                                            class="fw-bold">{{ $as004MorningActual }}</span></div>
                                 </div>
                             </div>
 
@@ -1261,7 +1265,8 @@
                                         <div class="bar"><i style="width: {{ $as004NightPct }}%"></i></div>
                                         <span class="val">{{ $as004NightPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: {{ $as004NightActual }}</div>
+                                    <div class="meta">Actual: <span class="fw-bold">{{ $as004NightActual }}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1274,7 +1279,8 @@
                                         <div class="bar"><i style="width: {{ $as004TotalPct }}%"></i></div>
                                         <span class="val">{{ $as004TotalPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: {{ $as004TotalActual }}</div>
+                                    <div class="meta">Actual: <span class="fw-bold">{{ $as004TotalActual }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1475,8 +1481,8 @@
 
     <script>
         /* ======================
-                                                                                                                   THEME TOGGLE (tetap)
-                                                                                                                   ====================== */
+                                                                                                                           THEME TOGGLE (tetap)
+                                                                                                                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2173,12 +2179,12 @@
     </script>
     <script>
         /* ======================
-                                                                                                                   IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
-                                                                                                                   - Hides TD via [data-label]
-                                                                                                                   - Hides TH leaf via [data-col-key]
-                                                                                                                   - Fixes group TH (Running Qty, Working Time) colspan
-                                                                                                                   - Persists by label (stable, tahan rowspan/colspan)
-                                                                                                                ====================== */
+                                                                                                                           IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
+                                                                                                                           - Hides TD via [data-label]
+                                                                                                                           - Hides TH leaf via [data-col-key]
+                                                                                                                           - Fixes group TH (Running Qty, Working Time) colspan
+                                                                                                                           - Persists by label (stable, tahan rowspan/colspan)
+                                                                                                                        ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
