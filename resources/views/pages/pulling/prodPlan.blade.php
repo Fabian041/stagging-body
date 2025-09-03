@@ -938,13 +938,16 @@
                         }
                     @endphp
 
-                    <div class="card mb-3 radius-4">
+                    <!-- AS003 CARD -->
+                    <div class="card mb-3 radius-4" data-shift-card="AS003">
                         <div class="card-body d-flex flex-wrap align-items-end gap-3">
-                            <!-- Morning -->
-                            <div class="strip-stat">
+                            <!-- MORNING -->
+                            <div class="strip-stat" data-line="AS003" data-shift="morning">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary">{{ $as003MorningQty }}</div>
+                                    <div class="value text-primary">
+                                        <span data-role="shift-order">{{ $as003MorningQty }}</span>
+                                    </div>
                                     @if ($as003MorningStatus != 'Normal Shift')
                                         <span
                                             class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as003MorningStatus }}</span>
@@ -953,19 +956,22 @@
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as003MorningActual }} / {{ $as003MorningQty }}">
-                                        <div class="bar"><i style="width: {{ $as003MorningPct }}%"></i></div>
-                                        <span class="val">{{ $as003MorningPct }}%</span>
+                                        <div class="bar"><i data-role="shift-bar"
+                                                style="width: {{ $as003MorningPct }}%"></i></div>
+                                        <span class="val" data-role="shift-pct">{{ $as003MorningPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: <span
-                                            class="fw-bold">{{ $as003MorningActual }}</span></div>
+                                    <div class="meta">Actual: <span class="fw-bold"
+                                            data-role="shift-actual">{{ $as003MorningActual }}</span></div>
                                 </div>
                             </div>
 
-                            <!-- Night -->
-                            <div class="strip-stat">
+                            <!-- NIGHT -->
+                            <div class="strip-stat" data-line="AS003" data-shift="night">
                                 <div class="title">Night Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-success">{{ $as003NightQty }}</div>
+                                    <div class="value text-success">
+                                        <span data-role="shift-order">{{ $as003NightQty }}</span>
+                                    </div>
                                     @if ($as003NightStatus != 'Normal Shift')
                                         <span
                                             class="chip bg-danger-subtle border text-dark fw-bolder">{{ $as003NightStatus }}</span>
@@ -974,31 +980,32 @@
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as003NightActual }} / {{ $as003NightQty }}">
-                                        <div class="bar"><i style="width: {{ $as003NightPct }}%"></i></div>
-                                        <span class="val">{{ $as003NightPct }}%</span>
+                                        <div class="bar"><i data-role="shift-bar"
+                                                style="width: {{ $as003NightPct }}%"></i></div>
+                                        <span class="val" data-role="shift-pct">{{ $as003NightPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: <span class="fw-bold">{{ $as003NightActual }}</span>
-                                    </div>
+                                    <div class="meta">Actual: <span class="fw-bold"
+                                            data-role="shift-actual">{{ $as003NightActual }}</span></div>
                                 </div>
                             </div>
 
-                            <!-- Total -->
-                            <div class="ms-auto strip-stat">
+                            <!-- TOTAL -->
+                            <div class="ms-auto strip-stat" data-line="AS003" data-shift="total">
                                 <div class="title">Total</div>
-                                <div class="value">{{ $as003TotalQty }}</div>
+                                <div class="value"><span data-role="shift-order">{{ $as003TotalQty }}</span></div>
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as003TotalActual }} / {{ $as003TotalQty }}">
-                                        <div class="bar"><i style="width: {{ $as003TotalPct }}%"></i></div>
-                                        <span class="val">{{ $as003TotalPct }}%</span>
+                                        <div class="bar"><i data-role="shift-bar"
+                                                style="width: {{ $as003TotalPct }}%"></i></div>
+                                        <span class="val" data-role="shift-pct">{{ $as003TotalPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: <span class="fw-bold">{{ $as003TotalActual }}</span>
-                                    </div>
+                                    <div class="meta">Actual: <span class="fw-bold"
+                                            data-role="shift-actual">{{ $as003TotalActual }}</span></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
 
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
@@ -1099,8 +1106,36 @@
                                                 $sc = (int) ($item->stock_chute_qty ?: 0);
                                                 $ord = max(1, (int) $item->order_qty);
                                                 $pct = min(100, round((($dp + $sc) / $ord) * 100));
+
+                                                $startHour = null;
+                                                $endHour = null;
+                                                try {
+                                                    $startHour = $item->working_start
+                                                        ? (int) \Carbon\Carbon::createFromFormat(
+                                                            'H:i',
+                                                            $item->working_start,
+                                                        )->format('H')
+                                                        : null;
+                                                } catch (\Exception $e) {
+                                                }
+                                                try {
+                                                    $endHour = $item->working_end
+                                                        ? (int) \Carbon\Carbon::createFromFormat(
+                                                            'H:i',
+                                                            $item->working_end,
+                                                        )->format('H')
+                                                        : null;
+                                                } catch (\Exception $e) {
+                                                }
+                                                $isMorning =
+                                                    ($startHour !== null && $startHour >= 6 && $startHour < 14) ||
+                                                    ($endHour !== null && $endHour >= 6 && $endHour < 14);
+                                                $isNight =
+                                                    ($startHour !== null && ($startHour >= 22 || $startHour < 6)) ||
+                                                    ($endHour !== null && ($endHour >= 22 || $endHour < 6));
+                                                $rowShift = $isMorning ? 'morning' : ($isNight ? 'night' : 'other');
                                             @endphp
-                                            <tr>
+                                            <tr data-shift="{{ $rowShift }}">
                                                 @if ($index === 0)
                                                     <td rowspan="{{ $rowspan }}" data-label="Customer"><span
                                                             class="flip">{{ $customer }}</span></td>
@@ -1228,12 +1263,15 @@
                         }
                     @endphp
 
-                    <div class="card mb-3 radius-4">
+                    <div class="card mb-3 radius-4" data-shift-card="AS004">
                         <div class="card-body d-flex flex-wrap align-items-end gap-3">
-                            <div class="strip-stat">
+                            <!-- MORNING -->
+                            <div class="strip-stat" data-line="AS004" data-shift="morning">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary">{{ $as004MorningQty }}</div>
+                                    <div class="value text-primary">
+                                        <span data-role="shift-order">{{ $as004MorningQty }}</span>
+                                    </div>
                                     @if ($as004MorningStatus != 'Normal Shift')
                                         <span
                                             class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as004MorningStatus }}</span>
@@ -1242,18 +1280,22 @@
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as004MorningActual }} / {{ $as004MorningQty }}">
-                                        <div class="bar"><i style="width: {{ $as004MorningPct }}%"></i></div>
-                                        <span class="val">{{ $as004MorningPct }}%</span>
+                                        <div class="bar"><i data-role="shift-bar"
+                                                style="width: {{ $as004MorningPct }}%"></i></div>
+                                        <span class="val" data-role="shift-pct">{{ $as004MorningPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: <span
-                                            class="fw-bold">{{ $as004MorningActual }}</span></div>
+                                    <div class="meta">Actual: <span class="fw-bold"
+                                            data-role="shift-actual">{{ $as004MorningActual }}</span></div>
                                 </div>
                             </div>
 
-                            <div class="strip-stat">
+                            <!-- NIGHT -->
+                            <div class="strip-stat" data-line="AS004" data-shift="night">
                                 <div class="title">Night Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-success">{{ $as004NightQty }}</div>
+                                    <div class="value text-success">
+                                        <span data-role="shift-order">{{ $as004NightQty }}</span>
+                                    </div>
                                     @if ($as004NightStatus != 'Normal Shift')
                                         <span
                                             class="chip bg-danger-subtle border text-dark fw-bolder">{{ $as004NightStatus }}</span>
@@ -1262,31 +1304,32 @@
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as004NightActual }} / {{ $as004NightQty }}">
-                                        <div class="bar"><i style="width: {{ $as004NightPct }}%"></i></div>
-                                        <span class="val">{{ $as004NightPct }}%</span>
+                                        <div class="bar"><i data-role="shift-bar"
+                                                style="width: {{ $as004NightPct }}%"></i></div>
+                                        <span class="val" data-role="shift-pct">{{ $as004NightPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: <span class="fw-bold">{{ $as004NightActual }}</span>
-                                    </div>
+                                    <div class="meta">Actual: <span class="fw-bold"
+                                            data-role="shift-actual">{{ $as004NightActual }}</span></div>
                                 </div>
                             </div>
 
-                            <div class="ms-auto strip-stat">
+                            <!-- TOTAL -->
+                            <div class="ms-auto strip-stat" data-line="AS004" data-shift="total">
                                 <div class="title">Total</div>
-                                <div class="value">{{ $as004TotalQty }}</div>
+                                <div class="value"><span data-role="shift-order">{{ $as004TotalQty }}</span></div>
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as004TotalActual }} / {{ $as004TotalQty }}">
-                                        <div class="bar"><i style="width: {{ $as004TotalPct }}%"></i></div>
-                                        <span class="val">{{ $as004TotalPct }}%</span>
+                                        <div class="bar"><i data-role="shift-bar"
+                                                style="width: {{ $as004TotalPct }}%"></i></div>
+                                        <span class="val" data-role="shift-pct">{{ $as004TotalPct }}%</span>
                                     </div>
-                                    <div class="meta">Actual: <span class="fw-bold">{{ $as004TotalActual }}</span>
-                                    </div>
+                                    <div class="meta">Actual: <span class="fw-bold"
+                                            data-role="shift-actual">{{ $as004TotalActual }}</span></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
                         <div class="btn-group">
@@ -1481,8 +1524,8 @@
 
     <script>
         /* ======================
-                                                                                                                           THEME TOGGLE (tetap)
-                                                                                                                           ====================== */
+                                                                                                                                                               THEME TOGGLE (tetap)
+                                                                                                                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2179,12 +2222,12 @@
     </script>
     <script>
         /* ======================
-                                                                                                                           IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
-                                                                                                                           - Hides TD via [data-label]
-                                                                                                                           - Hides TH leaf via [data-col-key]
-                                                                                                                           - Fixes group TH (Running Qty, Working Time) colspan
-                                                                                                                           - Persists by label (stable, tahan rowspan/colspan)
-                                                                                                                        ====================== */
+                                                                                                                                                               IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
+                                                                                                                                                               - Hides TD via [data-label]
+                                                                                                                                                               - Hides TH leaf via [data-col-key]
+                                                                                                                                                               - Fixes group TH (Running Qty, Working Time) colspan
+                                                                                                                                                               - Persists by label (stable, tahan rowspan/colspan)
+                                                                                                                                                            ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2551,6 +2594,224 @@
             'D111': 'CI12',
             'D500': 'CI19'
         });
+    </script>
+
+    <script>
+        (function RealtimeShiftCards() {
+            const parseIntSafe = (v) => parseInt(String(v || '').replace(/[^\d-]/g, ''), 10) || 0;
+
+            // ----- ambil referensi elemen kartu per (line, shift) -----
+            function getCardEl(line, shift, role) {
+                return document.querySelector(
+                    `[data-shift-card="${line}"] .strip-stat[data-line="${line}"][data-shift="${shift}"] [data-role="${role}"]`
+                );
+            }
+
+            function getBarEl(line, shift) {
+                return document.querySelector(
+                    `[data-shift-card="${line}"] .strip-stat[data-line="${line}"][data-shift="${shift}"] [data-role="shift-bar"]`
+                );
+            }
+
+            // ----- state awal: baca angka dari kartu (biar persis dgn server) -----
+            const totals = {
+                AS003: {
+                    morning: {
+                        order: parseIntSafe(getCardEl('AS003', 'morning', 'shift-order')?.textContent),
+                        actual: parseIntSafe(getCardEl('AS003', 'morning', 'shift-actual')?.textContent),
+                    },
+                    night: {
+                        order: parseIntSafe(getCardEl('AS003', 'night', 'shift-order')?.textContent),
+                        actual: parseIntSafe(getCardEl('AS003', 'night', 'shift-actual')?.textContent),
+                    },
+                    total: {
+                        order: parseIntSafe(getCardEl('AS003', 'total', 'shift-order')?.textContent),
+                        actual: parseIntSafe(getCardEl('AS003', 'total', 'shift-actual')?.textContent),
+                    }
+                },
+                AS004: {
+                    morning: {
+                        order: parseIntSafe(getCardEl('AS004', 'morning', 'shift-order')?.textContent),
+                        actual: parseIntSafe(getCardEl('AS004', 'morning', 'shift-actual')?.textContent),
+                    },
+                    night: {
+                        order: parseIntSafe(getCardEl('AS004', 'night', 'shift-order')?.textContent),
+                        actual: parseIntSafe(getCardEl('AS004', 'night', 'shift-actual')?.textContent),
+                    },
+                    total: {
+                        order: parseIntSafe(getCardEl('AS004', 'total', 'shift-order')?.textContent),
+                        actual: parseIntSafe(getCardEl('AS004', 'total', 'shift-actual')?.textContent),
+                    }
+                }
+            };
+
+            // ----- indeks item: id -> {line, shift, dp, order} -----
+            const items = new Map();
+            document.querySelectorAll('[data-type="direct-pulling"]').forEach(el => {
+                const id = el.getAttribute('data-item-id');
+                const row = el.closest('tr');
+                const wrap = el.closest('[data-toggle-table]');
+                const line = wrap?.getAttribute('data-toggle-table'); // AS003/AS004
+                const shift = row?.getAttribute('data-shift') || 'other';
+                const dp = parseIntSafe(el.textContent);
+                const ord = parseIntSafe(row?.querySelector('[data-label="Order"] .flip')?.textContent);
+                if (id && line) items.set(String(id), {
+                    line,
+                    shift,
+                    dp,
+                    order: ord
+                });
+            });
+
+            // ----- render helper -----
+            function render(line, shift) {
+                const O = totals[line][shift].order;
+                const A = totals[line][shift].actual;
+                const pct = O > 0 ? Math.min(100, Math.round((A / O) * 100)) : 0;
+
+                const elOrder = getCardEl(line, shift, 'shift-order');
+                const elActual = getCardEl(line, shift, 'shift-actual');
+                const elPct = getCardEl(line, shift, 'shift-pct');
+                const elBar = getBarEl(line, shift);
+
+                if (elOrder) elOrder.textContent = O.toLocaleString('id-ID');
+                if (elActual) elActual.textContent = A.toLocaleString('id-ID');
+                if (elPct) elPct.textContent = pct + '%';
+                if (elBar) elBar.style.width = pct + '%';
+            }
+
+            function moveBetweenShifts(meta, newShift) {
+                if (!meta || !newShift || meta.shift === newShift) return;
+                const {
+                    line,
+                    shift: oldShift,
+                    dp,
+                    order
+                } = meta;
+                // kurangi dari shift lama (kalau terdaftar), tambah ke shift baru
+                if (oldShift === 'morning' || oldShift === 'night') {
+                    totals[line][oldShift].actual -= dp;
+                    totals[line][oldShift].order -= order;
+                    render(line, oldShift);
+                }
+                if (newShift === 'morning' || newShift === 'night') {
+                    totals[line][newShift].actual += dp;
+                    totals[line][newShift].order += order;
+                    render(line, newShift);
+                }
+                // total selalu diupdate berdasarkan delta (actual & order tidak berubah total di sini karena kita memindahkan)
+                meta.shift = newShift;
+            }
+
+            function classifyShiftFromEvent(it, fallbackRow) {
+                const H = s => {
+                    if (!s || typeof s !== 'string') return null;
+                    const m = s.match(/^(\d{1,2})/);
+                    return m ? parseInt(m[1], 10) : null;
+                };
+                const sh = H(it.actual_start);
+                const eh = H(it.end);
+                const morning = (sh != null && sh >= 6 && sh < 14) || (eh != null && eh >= 6 && eh < 14);
+                const night = (sh != null && (sh >= 22 || sh < 6)) || (eh != null && (eh >= 22 || eh < 6));
+                if (morning) return 'morning';
+                if (night) return 'night';
+                // fallback ke data row
+                const rs = fallbackRow?.getAttribute('data-shift');
+                return rs || 'other';
+            }
+
+            function applyUpdateForItem(it) {
+                const id = String(it.id);
+                let meta = items.get(id);
+
+                // cari DOM kalau belum terindeks
+                if (!meta) {
+                    const el = document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`) ||
+                        document.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`);
+                    const row = el?.closest('tr');
+                    const wrap = el?.closest('[data-toggle-table]');
+                    const line = wrap?.getAttribute('data-toggle-table');
+                    if (!line) return;
+                    const shift = classifyShiftFromEvent(it, row);
+                    const dp = parseIntSafe(el?.textContent);
+                    const ord = parseIntSafe(row?.querySelector('[data-label="Order"] .flip')?.textContent);
+                    meta = {
+                        line,
+                        shift,
+                        dp,
+                        order: ord
+                    };
+                    items.set(id, meta);
+                }
+
+                // mungkin shift berubah karena actual_start/end baru
+                const elRow = document.querySelector(`[data-item-id="${id}"]`)?.closest('tr');
+                const newShift = classifyShiftFromEvent(it, elRow);
+                if (newShift && newShift !== meta.shift) {
+                    moveBetweenShifts(meta, newShift);
+                }
+
+                // DP (actual)
+                if (typeof it.direct_pulling_qty === 'number') {
+                    const newDP = it.direct_pulling_qty | 0;
+                    const delta = newDP - (meta.dp | 0);
+                    if (delta !== 0) {
+                        if (meta.shift === 'morning' || meta.shift === 'night') {
+                            totals[meta.line][meta.shift].actual += delta;
+                            totals[meta.line].total.actual += delta;
+                            render(meta.line, meta.shift);
+                            render(meta.line, 'total');
+                        }
+                        meta.dp = newDP;
+                    }
+                }
+
+                // ORDER (kalau ikut berubah)
+                if (typeof it.order_qty === 'number') {
+                    const newOrd = it.order_qty | 0;
+                    const deltaO = newOrd - (meta.order | 0);
+                    if (deltaO !== 0) {
+                        if (meta.shift === 'morning' || meta.shift === 'night') {
+                            totals[meta.line][meta.shift].order += deltaO;
+                            totals[meta.line].total.order += deltaO;
+                            render(meta.line, meta.shift);
+                            render(meta.line, 'total');
+                        }
+                        meta.order = newOrd;
+                    }
+                }
+            }
+
+            // handler paket updates
+            function onUpdates(updates) {
+                (updates || []).forEach(applyUpdateForItem);
+            }
+
+            // ----- hook ke SSE yang sudah ada, atau buka sendiri -----
+            const currentDate = (document.querySelector('input[name="date"]')?.value) || new Date().toISOString().slice(
+                0, 10);
+
+            if (window.prodPlanSSE?.eventSource && !window.__shiftCardsHooked) {
+                window.__shiftCardsHooked = true;
+                window.prodPlanSSE.eventSource.addEventListener('directPullingUpdate', (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        if (data?.date === currentDate) onUpdates(data.updates);
+                    } catch {}
+                });
+            } else {
+                try {
+                    const es = new EventSource(`/stream/direct-pulling-updates?date=${currentDate}`);
+                    es.addEventListener('directPullingUpdate', (e) => {
+                        try {
+                            const data = JSON.parse(e.data);
+                            if (data?.date === currentDate) onUpdates(data.updates);
+                        } catch {}
+                    });
+                    window.addEventListener('beforeunload', () => es.close());
+                } catch {}
+            }
+        })();
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
