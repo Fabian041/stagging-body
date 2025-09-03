@@ -38,15 +38,34 @@ class sendNotification extends Command
             echo "Notifikasi untuk supplier: $existingLog->supplier_code\n";
             $name = $supplier ? $supplier->name : $existingLog->supplier_code;
             // $groupWa = env('GROUP_WHATSAPP_RECEIVING');
-            $groupWa = '6282111707754,6281220936456,6281234583065,628124885590,628111932178,6282260050066';
+            // $groupWa = '6282111707754,6281220936456,6281234583065,628124885590,628111932178,6282260050066';
+            $groupWa = '120363422623636452@g.us';
+            if ($supplier && $supplier->area == 'unit') {
+                // $groupWa = '081280613890';
+                $area = 'UNIT';
+            } else if ($supplier && $supplier->area == 'body') {
+                // $groupWa = '081280613890';
+                $area = 'BODY';
+            } else {
+                // $groupWa = '081280613890';
+                $area = 'UNIT & BODY';
+            }
 
             // Atau implementasikan logic email/telegram di sini
 
-            $token = "v2n49drKeWNoRDN4jgqcdsR8a6bcochcmk6YphL6vLcCpRZdV1";
-            $message = sprintf("```---- ``` *Supplier Receiving Alert* ``` ----%cSupplier Code  : $existingLog->supplier_code %cSupplier Name  : $name %cKedatangan     : $existingLog->expected_time %cStatus         : ``` *Delay Kedatangan* ``` %c------------------------------``` ", 10, 10, 10, 10, 10, 10);
+            $token = env('FASTWA_KEY');
+
+            $message = "```---- ``` *Supplier Receiving Alert* ``` ----\n"
+                . "Supplier Code  : $existingLog->supplier_code\n"
+                . "Supplier Name  : $name\n"
+                . "Kedatangan     : $existingLog->expected_time\n"
+                . "Area           : $area\n"
+                . "Status         : ``` *Delay Kedatangan* ```\n"
+                . "------------------------------```";
+
             $curl = curl_init();
             curl_setopt_array($curl, array(
-                CURLOPT_URL => 'https://app.ruangwa.id/api/send_message',
+                CURLOPT_URL => 'https://app.fastwa.com/api/v1/4D9AF7CE224B91C9CE14FFDDB55D248D/send_text',
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => '',
                 CURLOPT_MAXREDIRS => 10,
@@ -54,8 +73,9 @@ class sendNotification extends Command
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => 'token=' . $token . '&number=' . $groupWa . '&message=' . $message,
+                CURLOPT_POSTFIELDS => 'api_key=793D30579A77D4A0E12648872BFBB085&phone=' . $groupWa . '&message=' . $message,
             ));
+            // dd($curl);
             $response = curl_exec($curl);
             curl_close($curl);
             sleep(10);
