@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ======================
-                                                                                                                                                                         THEME TOKENS (fallback)
-                                                                                                                                                                         ====================== */
+                                                                                                                                                                                                                                                                                                         THEME TOKENS (fallback)
+                                                                                                                                                                                                                                                                                                         ====================== */
         :root {
             --brand-primary: #0d6efd;
             --brand-accent: #20c997;
@@ -30,6 +30,14 @@
             --chip-ink: #344767;
             --chip-bd: #dfe6ff;
             --radius: 10px;
+
+            --col-seq: 100px;
+            --col-back: 220px;
+            --col-cust: 1fr;
+            --col-qty: 160px;
+            --col-time: 160px;
+            --col-gap: 1rem;
+            /* sama dengan gap-3 */
         }
 
         html[data-theme="dark"] {
@@ -53,8 +61,8 @@
         }
 
         /* ==============
-                                                                                                                                                                         BASE / WRAPPER
-                                                                                                                                                                         ============== */
+                                                                                                                                                                                                                                                                                                         BASE / WRAPPER
+                                                                                                                                                                                                                                                                                                         ============== */
         .seq-board {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -98,8 +106,8 @@
         }
 
         /* =================
-                                                                                                                                                                         INFO / SUB HEADER
-                                                                                                                                                                         ================= */
+                                                                                                                                                                                                                                                                                                         INFO / SUB HEADER
+                                                                                                                                                                                                                                                                                                         ================= */
         .info-panel {
             display: flex;
             align-items: center;
@@ -131,8 +139,8 @@
         }
 
         /* =========
-                                                                                                                                                                         ITEM ROWS
-                                                                                                                                                                         ========= */
+                                                                                                                                                                                                                                                                                                         ITEM ROWS
+                                                                                                                                                                                                                                                                                                         ========= */
         .item-row {
             display: flex;
             align-items: center;
@@ -410,6 +418,54 @@
             min-width: 160px;
             text-align: center;
         }
+
+        /* Header & rows pakai grid yang identik */
+        .list-head,
+        #itemsContainer .item-row {
+            display: grid !important;
+            grid-template-columns: var(--col-seq) var(--col-back) var(--col-cust) var(--col-qty) var(--col-time);
+            align-items: center;
+            column-gap: var(--col-gap);
+            box-sizing: border-box;
+        }
+
+        /* Padding seragam (summary & non-summary) */
+        .list-head .hcell,
+        #itemsContainer .item-row>div {
+            padding: 12px 16px;
+        }
+
+        #itemsContainer .summary-list-row {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+        }
+
+        /* Perataan kolom agar konsisten */
+        .list-head .hcell:nth-child(4),
+        #itemsContainer .item-row>div:nth-child(4) {
+            /* Quantity */
+            text-align: center;
+            justify-self: center;
+        }
+
+        .list-head .hcell:nth-child(5),
+        #itemsContainer .item-row>div:nth-child(5) {
+            /* Delivery time */
+            text-align: right;
+            justify-self: end;
+        }
+
+        /* Netralisir warisan flex/min-width inline pada template lama */
+        #itemsContainer .sequence-input-container {
+            width: auto !important;
+            flex: 0 0 auto !important;
+        }
+
+        #itemsContainer .item-row>.flex-grow-1,
+        #itemsContainer .item-row>.text-center,
+        #itemsContainer .item-row>.text-end {
+            min-width: 0 !important;
+        }
     </style>
 
     <div class="row mt-3">
@@ -455,7 +511,7 @@
                         <div class="hcell h-back">BACK NUMBER</div>
                         <div class="hcell h-cust">CUSTOMER</div>
                         <div class="hcell h-qty">QUANTITY</div>
-                        <div class="hcell h-dead">DEADLINE</div>
+                        <div class="hcell h-dead">DELIVERY TIME</div>
                     </div>
 
                     <div id="itemsContainer" class="mb-3"></div>
@@ -476,443 +532,594 @@
 
 @push('scripts')
     <script>
-        /**
-         * Reorder by rotating delivery_time (NO sequence field).
-         * - UI shows items sorted by delivery_time (ascending).
-         * - Changing the position input (1..N) will rotate delivery_time values
-         *   in the affected range (insert/shift).
-         * - Save posts ALL {id, delivery_time} pairs to the server.
-         */
+        /* =========================================
+                                               BACK NO CANONICAL CONVERTER (global-safe)
+                                               - toCanon() & expandTargets()
+                                               - Disimpan di window.BackNoCanon untuk dipakai modul lain
+                                            ========================================= */
+        (function BackNoConverter() {
+            const BACKNO_PAIRS = [
+                ['D111', 'CI12'],
+                ['D500', 'CI19'],
+                ['D403', 'CI18'], // contoh tambahan
+            ];
+            const up = s => String(s || '').trim().toUpperCase();
+            const BACKNO_CANON = new Map(); // any -> canonical
+            const CANON_VARIANTS = new Map(); // canonical -> Set(variants)
 
-        let changedRows = new Map(); // id -> note
-        let originalSnapshot = []; // [{id, delivery_time}] captured on load
+            function rebuildMaps(pairs) {
+                BACKNO_CANON.clear();
+                CANON_VARIANTS.clear();
+                pairs.forEach(([raw, canon]) => {
+                    const R = up(raw),
+                        C = up(canon);
+                    BACKNO_CANON.set(R, C);
+                    BACKNO_CANON.set(C, C);
+                    if (!CANON_VARIANTS.has(C)) CANON_VARIANTS.set(C, new Set([C]));
+                    CANON_VARIANTS.get(C).add(R);
+                });
+            }
+            rebuildMaps(BACKNO_PAIRS);
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Wire buttons if they exist
-            document.getElementById('loadItemsBtn')?.addEventListener('click', loadProductionItems);
-            document.getElementById('saveOrderBtn')?.addEventListener('click', saveProductionSequence);
-
-            // Add reset buttons if not present yet (optional convenience)
-            const saveBtn = document.getElementById('saveOrderBtn');
-            if (saveBtn && !document.getElementById('resetHighlightsBtn')) {
-                const container = saveBtn.parentNode;
-                const btns = document.createElement('span');
-                btns.innerHTML = `
-          <button id="resetChangesBtn" class="btn btn-outline-danger ms-2" style="display:none;">Reset All Changes</button>
-        `;
-                container.appendChild(btns);
+            function toCanon(code) {
+                const k = up(code);
+                return BACKNO_CANON.get(k) || k; // default ke dirinya sendiri
             }
 
-            document.getElementById('resetHighlightsBtn')?.addEventListener('click', () => {
+            function expandTargets(targets) {
+                const set = new Set();
+                (targets || []).forEach(t => {
+                    const C = toCanon(t);
+                    set.add(C);
+                    const vars = CANON_VARIANTS.get(C);
+                    if (vars) vars.forEach(v => set.add(v));
+                });
+                return set;
+            }
+
+            function addPairs(pairs) {
+                const merged = [...BACKNO_PAIRS, ...pairs];
+                rebuildMaps(merged);
+            }
+
+            window.BackNoCanon = {
+                toCanon,
+                expandTargets,
+                addPairs
+            };
+        })();
+
+        /* =========================================
+           REORDER MODULE (IIFE) — rotate delivery_time
+           - UI ikut urutan backend (FE tidak sort)
+           - Input posisi = insert/shift (ROTATE jam, termasuk summary rows)
+           - Save: POST {id, delivery_time}; waktu SUMMARY dipakai untuk override
+                   SEMUA item dengan alias tsb pada hari & line terpilih
+           - Summary CI12 hanya AS003, CI19 hanya AS004
+           - Detail untuk alias yg disummary DISEMBUNYIKAN di list
+        ========================================= */
+        (function ReorderModule() {
+            let changedRows = new Map(); // id -> note
+            let originalSnapshot = []; // [{id, delivery_time}]
+            let loadedItems = []; // cache semua item dari backend (agar hidden items tetap ikut Save & Sum)
+
+            document.addEventListener('DOMContentLoaded', function() {
+                document.getElementById('loadItemsBtn')?.addEventListener('click', loadProductionItems);
+                document.getElementById('saveOrderBtn')?.addEventListener('click', saveProductionSequence);
+
+                const saveBtn = document.getElementById('saveOrderBtn');
+                if (saveBtn && !document.getElementById('resetHighlightsBtn')) {
+                    const container = saveBtn.parentNode;
+                    const btns = document.createElement('span');
+                    btns.innerHTML = `
+            <button id="resetChangesBtn" class="btn btn-outline-danger ms-2" style="display:none;">Reset All Changes</button>
+          `;
+                    container.appendChild(btns);
+                }
+
+                document.getElementById('resetHighlightsBtn')?.addEventListener('click', () => {
+                    document.querySelectorAll('.sequence-changed').forEach(el => {
+                        el.classList.remove('sequence-changed');
+                        el.removeAttribute('data-swap-info');
+                    });
+                    changedRows.clear();
+                });
+
+                document.getElementById('resetChangesBtn')?.addEventListener('click', resetAllChanges);
+            });
+
+            /* ============ Utilities ============ */
+            const t2m = t => {
+                const [H, M] = String(t || '00:00').split(':').map(v => parseInt(v, 10) || 0);
+                return H * 60 + M;
+            };
+
+            function renumberPositions() {
+                const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
+                rows.forEach((r, i) => {
+                    r.setAttribute('data-pos', i + 1);
+                    r.setAttribute('data-sequence', i + 1);
+                    const input = r.querySelector('.industrial-sequence-input');
+                    if (input) {
+                        input.value = i + 1;
+                        input.max = rows.length;
+                        input.min = 1;
+                    }
+                });
+            }
+
+            function repaintDelivery(row, hhmm) {
+                const v = (hhmm || '00:00').slice(0, 5);
+                row.setAttribute('data-delivery', v);
+                const cell = row.querySelector('[data-col="delivery"]');
+                if (cell) cell.textContent = v;
+            }
+
+            function markChanged(row, text) {
+                row.classList.add('sequence-changed');
+                row.setAttribute('data-swap-info', text);
+                const id = row.getAttribute('data-id');
+                if (id) changedRows.set(id, text);
+            }
+
+            /* ============ Target summary dinamis per line ============ */
+            function getActiveSumTargets() {
+                const line = (document.getElementById('reorderLine')?.value || '').toUpperCase();
+                if (line === 'AS003') return ['CI12'];
+                if (line === 'AS004') return ['CI19'];
+                return [];
+            }
+
+            /* ============ SUM & SUMMARY ROWS (REORDERABLE) ============ */
+            function ensureSumBadgesBar() {
+                let bar = document.getElementById('backnoSums');
+                if (!bar) {
+                    bar = document.createElement('div');
+                    bar.id = 'backnoSums';
+                    bar.className = 'd-flex flex-wrap gap-2 mb-3';
+                    const items = document.getElementById('itemsContainer');
+                    if (items && items.parentNode) {
+                        items.parentNode.insertBefore(bar, items);
+                    } else {
+                        document.body.insertBefore(bar, document.body.firstChild);
+                    }
+                }
+                return bar;
+            }
+
+            function renderSummaryListRows(sums, earliestTimes, targets) {
+                const wrap = document.getElementById('itemsContainer');
+                if (!wrap) return;
+                // Hapus summary row sebelumnya
+                wrap.querySelectorAll('.summary-list-row').forEach(n => n.remove());
+
+                // Sisipkan baris summary (dengan input) di PALING ATAS list
+                // hanya kalau ada total > 0 (alias memang ada di hari/line tsb)
+                for (let i = targets.length - 1; i >= 0; i--) {
+                    const key = targets[i];
+                    if (!sums[key]) continue; // skip jika 0
+                    const time = (earliestTimes[key] || '00:00');
+                    const row = document.createElement('div');
+                    row.className =
+                        'item-row summary-list-row d-flex align-items-center gap-3 rounded-3 py-2 mb-2';
+                    row.setAttribute('data-summary', '1');
+                    row.setAttribute('data-group-alias', key);
+                    row.setAttribute('data-delivery', time);
+
+                    row.innerHTML = `
+            <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
+              <input type="number" class="industrial-sequence-input"
+                     value="1" min="1" max="1"
+                     onchange="handleSequenceChange(this)">
+            </div>
+            <div class="flex-grow-1 fw-semibold" style="min-width:220px">${key}</div>
+            <div class="flex-grow-1" style="min-width:300px">--</div>
+            <div class="text-center" style="min-width:160px">
+              <span class="item-badge">${(sums[key] || 0).toLocaleString('id-ID')} UNITS</span>
+            </div>
+            <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${time}</div>
+          `;
+                    wrap.insertBefore(row, wrap.firstChild);
+                }
+
+                // Nomori ulang semua rows + set min/max input
+                renumberPositions();
+            }
+
+            function updateBacknoSums() {
+                const TARGETS = getActiveSumTargets();
+                const bar = ensureSumBadgesBar();
+
+                // Hitung sum & earliest delivery_time dari CACHE (bukan DOM),
+                // supaya item yang DISSEMBUNYIKAN juga ikut dihitung.
+                const sums = Object.fromEntries(TARGETS.map(k => [k, 0]));
+                const earliest = Object.fromEntries(TARGETS.map(k => [k, null]));
+
+                loadedItems.forEach(it => {
+                    const alias = (window.BackNoCanon?.toCanon(String(it.back_no || '')) || '').toUpperCase();
+                    if (!alias || !(alias in sums)) return;
+                    const qty = parseInt(it.order_qty || '0', 10) || 0;
+                    const time = (String(it.delivery_time || '00:00').slice(0, 5));
+                    sums[alias] += qty;
+                    if (!earliest[alias] || time < earliest[alias]) earliest[alias] = time;
+                });
+
+                // Tambahkan baris ringkasan (ikut di-reorder) sesuai targets aktif
+                renderSummaryListRows(sums, earliest, TARGETS);
+            }
+
+            /* ============ Load (pakai urutan backend) ============ */
+            function loadProductionItems() {
                 document.querySelectorAll('.sequence-changed').forEach(el => {
                     el.classList.remove('sequence-changed');
                     el.removeAttribute('data-swap-info');
                 });
                 changedRows.clear();
-            });
+                originalSnapshot = [];
+                loadedItems = [];
 
-            document.getElementById('resetChangesBtn')?.addEventListener('click', resetAllChanges);
-        });
+                const date = document.getElementById('reorderDate')?.value;
+                const line = document.getElementById('reorderLine')?.value;
+                if (!date) {
+                    alert('Please select a production date');
+                    return;
+                }
 
-        /* ======================
-           Utilities
-           ====================== */
-        const t2m = t => { // "HH:MM" -> minutes since 00:00
-            const [H, M] = String(t || '00:00').split(':').map(v => parseInt(v, 10) || 0);
-            return H * 60 + M;
-        };
+                const btn = document.getElementById('loadItemsBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Loading...';
+                }
 
-        function readRows() {
-            const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
-            return rows.map((row, idx) => ({
-                row,
-                id: row.getAttribute('data-id'),
-                pos: parseInt(row.getAttribute('data-pos') || (idx + 1), 10),
-                delivery: (row.getAttribute('data-delivery') || '00:00').slice(0, 5),
-            }));
-        }
+                fetch('/api/production-items?date=' + encodeURIComponent(date) + '&line=' + encodeURIComponent(line))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-search me-2"></i> Load Production';
+                        }
+                        if (!Array.isArray(data) || !data.length) {
+                            alert('No production items found for selected criteria');
+                            return;
+                        }
 
-        function renumberPositions() {
-            const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
-            rows.forEach((r, i) => {
-                r.setAttribute('data-pos', i + 1);
-                const input = r.querySelector('.industrial-sequence-input');
-                if (input) input.value = i + 1;
-            });
-        }
+                        // normalisasi jam & simpan CACHE
+                        data.forEach(d => {
+                            d.delivery_time = (d.delivery_time || '00:00').slice(0, 5);
+                        });
+                        loadedItems = data.slice();
 
-        function repaintDelivery(row, hhmm) {
-            const v = (hhmm || '00:00').slice(0, 5);
-            row.setAttribute('data-delivery', v);
-            const cell = row.querySelector('[data-col="delivery"]');
-            if (cell) cell.textContent = v;
-        }
+                        originalSnapshot = data.map(d => ({
+                            id: String(d.id),
+                            delivery_time: d.delivery_time
+                        }));
 
-        function sortDOMByDelivery() {
-            const container = document.getElementById('itemsContainer');
-            const list = readRows().sort((a, b) => t2m(a.delivery) - t2m(b.delivery) || a.pos - b.pos);
-            list.forEach(item => container.appendChild(item.row));
-            renumberPositions();
-        }
+                        const wrap = document.getElementById('itemsContainer');
+                        if (!wrap) return;
+                        wrap.innerHTML = '';
 
-        function markChanged(row, text) {
-            row.classList.add('sequence-changed');
-            row.setAttribute('data-swap-info', text);
-            const id = row.getAttribute('data-id');
-            if (id) changedRows.set(id, text);
-        }
+                        // Render HANYA item yg BUKAN alias summary aktif
+                        const activeAliases = new Set(getActiveSumTargets()); // canonical
+                        let visibleIdx = 0;
 
-        /* ======================
-           Load list (sorted by delivery_time)
-           ====================== */
-        function loadProductionItems() {
-            // clear highlights
-            document.querySelectorAll('.sequence-changed').forEach(el => {
-                el.classList.remove('sequence-changed');
-                el.removeAttribute('data-swap-info');
-            });
-            changedRows.clear();
-            originalSnapshot = [];
+                        data.forEach(item => {
+                            const aliasBN = (window.BackNoCanon?.toCanon(String(item.back_no || '')
+                                .trim()) || (item.back_no || '')).toUpperCase();
+                            if (activeAliases.has(aliasBN))
+                                return; // sembunyikan detail dari alias yg disummary
 
-            const date = document.getElementById('reorderDate')?.value;
-            const line = document.getElementById('reorderLine')?.value;
-            if (!date) {
-                alert('Please select a production date');
-                return;
+                            visibleIdx++;
+                            const row = document.createElement('div');
+                            row.className = 'item-row d-flex align-items-center gap-3';
+                            row.setAttribute('data-id', item.id);
+                            row.setAttribute('data-pos', visibleIdx);
+                            row.setAttribute('data-delivery', (item.delivery_time || '00:00').slice(0, 5));
+
+                            // simpan untuk referensi
+                            row.dataset.backnoAlias = aliasBN;
+                            row.dataset.orderQty = String(item.order_qty ?? 0);
+
+                            const isChanged = changedRows.has(String(item.id));
+                            row.innerHTML = `
+                <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
+                  <input type="number" class="industrial-sequence-input"
+                         value="${visibleIdx}" min="1" max="${data.length}"
+                         onchange="handleSequenceChange(this)">
+                </div>
+                <div class="flex-grow-1 fw-semibold" style="min-width:220px">
+                  ${aliasBN || '-'}
+                  ${isChanged ? '<span class="swap-info-badge">Modified</span>' : ''}
+                </div>
+                <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
+                <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
+                <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${(item.delivery_time || '00:00').slice(0,5)}</div>
+              `;
+                            wrap.appendChild(row);
+                        });
+
+                        document.getElementById('reorderContainer')?.classList.remove('d-none');
+                        const resetBtn = document.getElementById('resetChangesBtn');
+                        if (resetBtn) resetBtn.style.display = 'none';
+
+                        // pastikan numbering benar, lalu render SUMMARY (badge + row)
+                        renumberPositions();
+                        updateBacknoSums();
+                    })
+                    .catch(err => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-search me-2"></i> Load Production';
+                        }
+                        alert('Error loading production data: ' + (err.message || 'Unknown error'));
+                    });
             }
 
-            const btn = document.getElementById('loadItemsBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Loading...';
-            }
+            /* ============ Insert/Shift by rotating delivery_time (rows + summary) ============ */
+            function handleSequenceChange(input) {
+                const container = document.getElementById('itemsContainer');
+                if (!container) return;
 
-            fetch('/api/production-items?date=' + encodeURIComponent(date) + '&line=' + encodeURIComponent(line))
-                .then(r => r.json())
-                .then(data => {
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-search me-2"></i> Load Production';
+                // Ambil SEMUA row termasuk summary
+                const rows = Array.from(container.querySelectorAll('.item-row'));
+
+                // Init sequence & delivery if missing
+                rows.forEach((r, i) => {
+                    if (!r.hasAttribute('data-sequence')) {
+                        r.setAttribute('data-sequence', i + 1);
+                        const inp = r.querySelector('.industrial-sequence-input');
+                        if (inp) inp.value = i + 1;
                     }
-
-                    if (!Array.isArray(data) || !data.length) {
-                        alert('No production items found for selected criteria');
-                        return;
+                    if (!r.hasAttribute('data-delivery')) {
+                        const txt = r.querySelector('[data-col="delivery"]')?.textContent?.trim() || '00:00';
+                        r.setAttribute('data-delivery', txt.slice(0, 5));
                     }
-
-                    // ensure normalized time & sort asc
-                    data.forEach(d => {
-                        d.delivery_time = (d.delivery_time || '00:00').slice(0, 5);
-                    });
-
-                    originalSnapshot = data.map(d => ({
-                        id: String(d.id),
-                        delivery_time: d.delivery_time
-                    }));
-
-                    const wrap = document.getElementById('itemsContainer');
-                    if (!wrap) return;
-                    wrap.innerHTML = '';
-
-                    data.forEach((item, idx) => {
-                        const row = document.createElement('div');
-                        row.className = 'item-row d-flex align-items-center gap-3';
-                        row.setAttribute('data-id', item.id);
-                        row.setAttribute('data-pos', idx + 1);
-                        row.setAttribute('data-delivery', item.delivery_time);
-
-                        const isChanged = changedRows.has(String(item.id));
-
-                        row.innerHTML = `
-              <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
-                <input type="number"
-                       class="industrial-sequence-input"
-                       value="${idx + 1}"
-                       min="1"
-                       max="${data.length}"
-                       onchange="handleSequenceChange(this)">
-              </div>
-    
-              <div class="flex-grow-1 fw-semibold" style="min-width:220px">
-                ${item.back_no || '-'}
-                ${isChanged ? '<span class="swap-info-badge">Modified</span>' : ''}
-              </div>
-    
-              <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
-    
-              <div class="text-center" style="min-width:160px">
-                <span class="item-badge">${item.order_qty ?? 0} UNITS</span>
-              </div>
-    
-              <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">
-                ${item.delivery_time}
-              </div>
-            `;
-
-                        wrap.appendChild(row);
-                    });
-
-                    document.getElementById('reorderContainer')?.classList.remove('d-none');
-                    const resetBtn = document.getElementById('resetChangesBtn');
-                    if (resetBtn) resetBtn.style.display = 'none';
-                })
-                .catch(err => {
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-search me-2"></i> Load Production';
-                    }
-                    alert('Error loading production data: ' + (err.message || 'Unknown error'));
                 });
-        }
 
-        /* ======================
-           Insert/Shift by rotating delivery_time
-           ====================== */
-        function handleSequenceChange(input) {
-            const container = document.getElementById('itemsContainer');
-            if (!container) return;
+                const movedRow = input.closest('.item-row');
+                const total = rows.length;
 
-            // Kumpulan baris saat ini
-            const rows = Array.from(container.querySelectorAll('.item-row'));
+                let newPos = parseInt(input.value, 10);
+                const oldPos = parseInt(movedRow.getAttribute('data-sequence'), 10);
 
-            // Inisialisasi sequence jika belum ada
-            rows.forEach((r, i) => {
-                if (!r.hasAttribute('data-sequence')) {
-                    r.setAttribute('data-sequence', i + 1);
+                if (isNaN(newPos)) {
+                    input.value = oldPos;
+                    return;
+                }
+                newPos = Math.max(1, Math.min(total, newPos));
+                if (newPos === oldPos) {
+                    input.value = oldPos;
+                    return;
+                }
+
+                const resetBtn = document.getElementById('resetChangesBtn');
+                if (resetBtn) resetBtn.style.display = 'inline-block';
+
+                const seq = r => parseInt(r.getAttribute('data-sequence'), 10);
+                const setSeq = (r, s) => {
+                    r.setAttribute('data-sequence', s);
                     const inp = r.querySelector('.industrial-sequence-input');
-                    if (inp) inp.value = i + 1;
-                }
-                // Pastikan data-delivery sinkron dari tampilan kalau belum ada
-                if (!r.hasAttribute('data-delivery')) {
-                    const txt = r.querySelector('[data-col="delivery"]')?.textContent?.trim() || '00:00';
-                    r.setAttribute('data-delivery', txt.slice(0, 5));
-                }
-            });
-
-            const movedRow = input.closest('.item-row');
-            const total = rows.length;
-
-            let newPos = parseInt(input.value, 10);
-            const oldPos = parseInt(movedRow.getAttribute('data-sequence'), 10);
-
-            // Validasi & clamp
-            if (isNaN(newPos)) {
-                input.value = oldPos;
-                return;
-            }
-            newPos = Math.max(1, Math.min(total, newPos));
-            if (newPos === oldPos) {
-                input.value = oldPos;
-                return;
-            }
-
-            // Tampilkan tombol reset perubahan (kalau ada)
-            const resetBtn = document.getElementById('resetChangesBtn');
-            if (resetBtn) resetBtn.style.display = 'inline-block';
-
-            // Helpers
-            const seq = r => parseInt(r.getAttribute('data-sequence'), 10);
-            const setSeq = (r, s) => {
-                r.setAttribute('data-sequence', s);
-                const inp = r.querySelector('.industrial-sequence-input');
-                if (inp) inp.value = s;
-            };
-            const getTime = r => (r.getAttribute('data-delivery') ||
-                r.querySelector('[data-col="delivery"]')?.textContent ||
-                '00:00').slice(0, 5);
-            const setTime = (r, t) => {
-                const v = (t || '00:00').slice(0, 5);
-                r.setAttribute('data-delivery', v);
-                const cell = r.querySelector('[data-col="delivery"]');
-                if (cell) cell.textContent = v;
-            };
-            const mark = (r, text) => {
-                r.classList.add('sequence-changed');
-                r.setAttribute('data-swap-info', text);
-                if (window.changedRows) {
+                    if (inp) {
+                        inp.value = s;
+                        inp.max = rows.length;
+                    }
+                };
+                const getTime = r => (r.getAttribute('data-delivery') || r.querySelector('[data-col="delivery"]')
+                    ?.textContent || '00:00').slice(0, 5);
+                const setTime = (r, t) => {
+                    const v = (t || '00:00').slice(0, 5);
+                    r.setAttribute('data-delivery', v);
+                    const cell = r.querySelector('[data-col="delivery"]');
+                    if (cell) cell.textContent = v;
+                };
+                const mark = (r, text) => {
+                    r.classList.add('sequence-changed');
+                    r.setAttribute('data-swap-info', text);
                     const id = r.getAttribute('data-id');
                     if (id) changedRows.set(id, text);
-                }
-            };
+                };
 
-            // Urutkan array kerja berdasarkan sequence saat ini (1..N)
-            const ordered = rows.slice().sort((a, b) => seq(a) - seq(b));
-            const timesOld = ordered.map(getTime);
+                const ordered = rows.slice().sort((a, b) => seq(a) - seq(b));
+                const timesOld = ordered.map(getTime);
+                const oldIdx = oldPos - 1,
+                    newIdx = newPos - 1;
 
-            const oldIdx = oldPos - 1;
-            const newIdx = newPos - 1;
+                const newOrder = ordered.slice();
+                const [moved] = newOrder.splice(oldIdx, 1);
+                newOrder.splice(newIdx, 0, moved);
 
-            // Bangun urutan BARU: pindahkan elemen (insert/shift), bukan tukar
-            const newOrder = ordered.slice();
-            const [moved] = newOrder.splice(oldIdx, 1);
-            newOrder.splice(newIdx, 0, moved);
+                const indexOfNew = new Map(newOrder.map((r, i) => [r, i]));
+                ordered.forEach((r, iOld) => {
+                    const iNew = indexOfNew.get(r);
+                    const delta = iNew - iOld;
+                    if (r === movedRow) mark(r, `Moved ${oldPos} → ${newPos}`);
+                    else if (delta === 1) mark(r, '↓1');
+                    else if (delta === -1) mark(r, '↑1');
+                });
 
-            // Pemetaan movement untuk penandaan ↑1 / ↓1
-            // (delta = newIndex - oldIndex)
-            const indexOfNew = new Map(newOrder.map((r, i) => [r, i]));
-            ordered.forEach((r, iOld) => {
-                const iNew = indexOfNew.get(r);
-                const delta = iNew - iOld;
-                if (r === movedRow) {
-                    // Baris yang dipindah
-                    mark(r, `Moved ${oldPos} → ${newPos}`);
-                } else if (delta === 1) {
-                    // Turun satu tingkat
-                    mark(r, '↓1');
-                } else if (delta === -1) {
-                    // Naik satu tingkat
-                    mark(r, '↑1');
-                } else {
-                    // Di luar rentang terpengaruh: biarkan tanpa label
-                }
-            });
+                // ROTATE delivery_time per slot baru (summary rows ikut)
+                newOrder.forEach((r, iNew) => setTime(r, timesOld[iNew]));
 
-            // ROTASI delivery_time mengikuti SLOT:
-            // waktu pada posisi i lama diberikan ke item yang menempati posisi i baru.
-            newOrder.forEach((r, iNew) => setTime(r, timesOld[iNew]));
-
-            // Update sequence numbers sesuai posisi baru dan re-append DOM
-            newOrder.forEach((r, i) => setSeq(r, i + 1));
-            newOrder.forEach(r => container.appendChild(r));
-        }
-
-        /* ======================
-           Reset all changes to initial snapshot
-           ====================== */
-        function resetAllChanges() {
-            if (!originalSnapshot.length) return;
-
-            const map = new Map(originalSnapshot.map(x => [String(x.id), (x.delivery_time || '00:00').slice(0, 5)]));
-
-            const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
-            rows.forEach(row => {
-                const id = String(row.getAttribute('data-id'));
-                if (map.has(id)) {
-                    repaintDelivery(row, map.get(id));
-                }
-                row.classList.remove('sequence-changed');
-                row.removeAttribute('data-swap-info');
-            });
-
-            changedRows.clear();
-
-            const resetBtn = document.getElementById('resetChangesBtn');
-            if (resetBtn) resetBtn.style.display = 'none';
-        }
-
-        /* ======================
-           Save (post all {id, delivery_time})
-           ====================== */
-        function saveProductionSequence() {
-            const date = document.getElementById('reorderDate')?.value;
-            const line = document.getElementById('reorderLine')?.value;
-            const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
-
-            if (!date || !line) {
-                alert('Please select both date and production line');
-                return;
-            }
-            if (!rows.length) {
-                alert('No production items to sequence');
-                return;
+                newOrder.forEach((r, i) => setSeq(r, i + 1));
+                newOrder.forEach(r => container.appendChild(r));
             }
 
-            const newOrder = rows.map(r => ({
-                id: r.getAttribute('data-id'),
-                delivery_time: (r.getAttribute('data-delivery') || '00:00').slice(0, 5),
-            }));
+            /* ============ Reset ============ */
+            function resetAllChanges() {
+                if (!originalSnapshot.length) return;
+                // Kembalikan jam item nyata ke snapshot
+                const map = new Map(originalSnapshot.map(x => [String(x.id), (x.delivery_time || '00:00').slice(0,
+                    5)]));
+                const itemRows = Array.from(document.querySelectorAll('#itemsContainer .item-row[data-id]'));
+                itemRows.forEach(row => {
+                    const id = String(row.getAttribute('data-id'));
+                    if (map.has(id)) repaintDelivery(row, map.get(id));
+                    row.classList.remove('sequence-changed');
+                    row.removeAttribute('data-swap-info');
+                });
+                changedRows.clear();
+                // Rebuild summary rows dari CACHE (line-aware)
+                updateBacknoSums();
 
-            const btn = document.getElementById('saveOrderBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
+                const resetBtn = document.getElementById('resetChangesBtn');
+                if (resetBtn) resetBtn.style.display = 'none';
             }
 
-            fetch('/pulling/settings/reorder', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-                    },
-                    body: JSON.stringify({
-                        date,
-                        line,
-                        new_order: newOrder
-                    })
-                })
-                .then(async r => {
-                    const ct = r.headers.get('content-type') || '';
-                    if (!ct.includes('application/json')) {
-                        throw new Error(await r.text() || 'Non-JSON response');
-                    }
-                    return r.json();
-                })
-                .then(data => {
-                    if (!data.success) throw new Error(data.message || 'Server error');
+            /* ============ Save ============ */
+            function saveProductionSequence() {
+                const date = document.getElementById('reorderDate')?.value;
+                const line = document.getElementById('reorderLine')?.value;
 
-                    // gunakan data dari server untuk refresh tampilan
-                    if (Array.isArray(data.data)) {
-                        renderItemsFromServer(data.data); // << tambahkan fungsi ini (contoh di bawah)
-                    }
+                if (!date || !line) {
+                    alert('Please select both date and production line');
+                    return;
+                }
 
-                    // snapshot baru
-                    const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
-                    originalSnapshot = rows.map(r => ({
-                        id: String(r.getAttribute('data-id')),
-                        delivery_time: (r.getAttribute('data-delivery') || '00:00').slice(0, 5)
-                    }));
+                // Ambil waktu summary rows → aliasTimeMap (akan override semua item dgn alias tsb)
+                const aliasTimeMap = {};
+                document.querySelectorAll('#itemsContainer .summary-list-row').forEach(sr => {
+                    const alias = (sr.getAttribute('data-group-alias') || '').toUpperCase();
+                    const time = (sr.getAttribute('data-delivery') || sr.querySelector('[data-col="delivery"]')
+                        ?.textContent || '00:00').slice(0, 5);
+                    if (alias && time) aliasTimeMap[alias] = time;
+                });
 
-                    document.getElementById('resetChangesBtn')?.style && (document.getElementById('resetChangesBtn')
-                        .style.display = 'none');
-                    alert('Delivery times updated & schedule recomputed.');
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error updating: ' + (err.message || 'Check console'));
-                })
-                .finally(() => {
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-save me-2"></i> Save Production Sequence';
+                // Build payload:
+                // A) Semua item yang nampak di list (bukan alias summary) -> ambil time dari DOM
+                // B) Semua item tersembunyi (alias summary aktif) -> ambil dari loadedItems & set time = aliasTimeMap[alias]
+                const payloadMap = new Map();
+
+                // A) visible
+                document.querySelectorAll('#itemsContainer .item-row[data-id]').forEach(r => {
+                    const id = r.getAttribute('data-id');
+                    const time = (r.getAttribute('data-delivery') || '00:00').slice(0, 5);
+                    payloadMap.set(id, time);
+                });
+
+                // B) hidden (alias summary)
+                const activeAliases = new Set(getActiveSumTargets());
+                loadedItems.forEach(it => {
+                    const alias = (window.BackNoCanon?.toCanon(String(it.back_no || '')) || '').toUpperCase();
+                    if (activeAliases.has(alias) && aliasTimeMap[alias]) {
+                        payloadMap.set(String(it.id), aliasTimeMap[alias]);
                     }
                 });
-        }
 
-        function renderItemsFromServer(items) {
-            // Normalisasi & (opsional) urutkan by delivery_time agar terlihat efek re-order
-            items.forEach(d => d.delivery_time = (d.delivery_time || '00:00').slice(0, 5));
-            items.sort((a, b) => t2m(a.delivery_time) - t2m(b.delivery_time) || (a.id - b.id));
+                if (!payloadMap.size) {
+                    alert('No production items to sequence');
+                    return;
+                }
 
-            const wrap = document.getElementById('itemsContainer');
-            if (!wrap) return;
-            wrap.innerHTML = '';
+                const newOrder = Array.from(payloadMap.entries()).map(([id, delivery_time]) => ({
+                    id,
+                    delivery_time
+                }));
 
-            items.forEach((item, idx) => {
-                const row = document.createElement('div');
-                row.className = 'item-row d-flex align-items-center gap-3';
-                row.setAttribute('data-id', item.id);
-                row.setAttribute('data-pos', idx + 1);
-                row.setAttribute('data-sequence', idx + 1);
-                row.setAttribute('data-delivery', item.delivery_time);
+                const btn = document.getElementById('saveOrderBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
+                }
 
-                row.innerHTML = `
-      <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
-        <input type="number" class="industrial-sequence-input"
-               value="${idx + 1}" min="1" max="${items.length}"
-               onchange="handleSequenceChange(this)">
-      </div>
-      <div class="flex-grow-1 fw-semibold" style="min-width:220px">${item.back_no || '-'}</div>
-      <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
-      <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
-      <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${item.delivery_time}</div>
-    `;
-                wrap.appendChild(row);
-            });
-        }
+                fetch('/pulling/settings/reorder', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                        },
+                        body: JSON.stringify({
+                            date,
+                            line,
+                            new_order: newOrder
+                        })
+                    })
+                    .then(async r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!ct.includes('application/json')) {
+                            throw new Error(await r.text() || 'Non-JSON response');
+                        }
+                        return r.json();
+                    })
+                    .then(data => {
+                        if (!data.success) throw new Error(data.message || 'Server error');
+                        if (Array.isArray(data.data)) {
+                            renderItemsFromServer(data.data);
+                        }
+                        // snapshot baru (dari DOM hasil render terbaru)
+                        const rowsNow = Array.from(document.querySelectorAll('#itemsContainer .item-row[data-id]'));
+                        originalSnapshot = rowsNow.map(r => ({
+                            id: String(r.getAttribute('data-id')),
+                            delivery_time: (r.getAttribute('data-delivery') || '00:00').slice(0, 5)
+                        }));
+                        document.getElementById('resetChangesBtn')?.style && (document.getElementById(
+                            'resetChangesBtn').style.display = 'none');
+                        alert('Delivery times updated & schedule recomputed.');
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Error updating: ' + (err.message || 'Check console'));
+                    })
+                    .finally(() => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-save me-2"></i> Save Production Sequence';
+                        }
+                    });
+            }
 
+            function renderItemsFromServer(items) {
+                // normalisasi jam (TANPA sort—biarkan urutan backend)
+                items.forEach(d => d.delivery_time = (d.delivery_time || '00:00').slice(0, 5));
+                loadedItems = items.slice(); // refresh cache
 
-        // expose for inline onchange
-        window.handleSequenceChange = handleSequenceChange;
+                const wrap = document.getElementById('itemsContainer');
+                if (!wrap) return;
+                wrap.innerHTML = '';
+
+                // Render HANYA item yg BUKAN alias summary aktif
+                const activeAliases = new Set(getActiveSumTargets());
+                let visibleIdx = 0;
+
+                items.forEach(item => {
+                    const aliasBN = window.BackNoCanon?.toCanon(String(item.back_no || '').trim()) || (item
+                        .back_no || '');
+                    const aliasUp = aliasBN.toUpperCase();
+                    if (activeAliases.has(aliasUp)) return; // sembunyikan pecahan alias summary
+
+                    visibleIdx++;
+                    const row = document.createElement('div');
+                    row.className = 'item-row d-flex align-items-center gap-3';
+                    row.setAttribute('data-id', item.id);
+                    row.setAttribute('data-pos', visibleIdx);
+                    row.setAttribute('data-sequence', visibleIdx);
+                    row.setAttribute('data-delivery', item.delivery_time);
+
+                    row.dataset.backnoAlias = aliasUp;
+                    row.dataset.orderQty = String(item.order_qty ?? 0);
+
+                    row.innerHTML = `
+            <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
+              <input type="number" class="industrial-sequence-input"
+                     value="${visibleIdx}" min="1" max="${items.length}"
+                     onchange="handleSequenceChange(this)">
+            </div>
+            <div class="flex-grow-1 fw-semibold" style="min-width:220px">${aliasUp || '-'}</div>
+            <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
+            <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
+            <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${item.delivery_time}</div>
+          `;
+                    wrap.appendChild(row);
+                });
+
+                // Rebuild SUMMARY (badge + row) & renumber
+                renumberPositions();
+                updateBacknoSums();
+            }
+
+            // Expose minimal APIs yang dibutuhkan inline/luar
+            window.handleSequenceChange = handleSequenceChange;
+            window.loadProductionItems = loadProductionItems;
+            window.saveProductionSequence = saveProductionSequence;
+        })();
     </script>
 @endpush

@@ -134,11 +134,10 @@ class PullingController extends Controller
     {
         // Get current line assignments
         $lineAssignments = [
-            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
-            'AS004' => ['CI15', 'CI16', 'CI19'],
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D111'],
+            'AS004' => ['CI15', 'CI16', 'CI19', 'D500'],
         ];
 
-        // Get current cycle times
         $cycleTimes = [
             'CI11' => '00:34',
             'CI12' => '00:34',
@@ -719,9 +718,10 @@ class PullingController extends Controller
             }
 
             // update loading list detail
-            LoadingListDetail::whereKey($lld->id)
+            LoadingListDetail::where('id', $lld->id)
+                ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
                 ->update([
-                    'actual_kanban_qty' => DB::raw('LEAST(kanban_qty, actual_kanban_qty + 1)')
+                    'actual_kanban_qty' => DB::raw('actual_kanban_qty + 1')
                 ]);
 
             // 7) Catat mutasi
