@@ -774,6 +774,28 @@
         html[data-theme="light"] .table.table-bordered>thead>tr>th {
             border-color: var(--thead-border) !important;
         }
+
+        .strip-stat .kpi-mini {
+            margin-top: .2rem;
+            min-width: 240px
+        }
+
+        .strip-stat .kpi-mini .qty-progress .bar {
+            height: 6px
+        }
+
+        /* lebih tipis */
+        .strip-stat .kpi-mini .qty-progress .val {
+            min-width: 48px;
+            font-size: .8rem
+        }
+
+        .strip-stat .kpi-mini .meta {
+            font-size: .8rem;
+            color: var(--muted)
+        }
+
+        /* teks kecil */
     </style>
 
 </head>
@@ -889,6 +911,20 @@
                         $as003NightQty = $grouped['AS003']['night_shift_qty'] ?? 0;
                         $as003TotalQty = $grouped['AS003']['total_qty'] ?? 0;
 
+                        $as003MorningActual = $grouped['AS003']['morning_shift_actual'] ?? 0;
+                        $as003NightActual = $grouped['AS003']['night_shift_actual'] ?? 0;
+                        $as003TotalActual = $grouped['AS003']['total_actual'] ?? 0;
+
+                        $as003MorningPct = $as003MorningQty
+                            ? min(100, round(($as003MorningActual / $as003MorningQty) * 100))
+                            : 0;
+                        $as003NightPct = $as003NightQty
+                            ? min(100, round(($as003NightActual / $as003NightQty) * 100))
+                            : 0;
+                        $as003TotalPct = $as003TotalQty
+                            ? min(100, round(($as003TotalActual / $as003TotalQty) * 100))
+                            : 0;
+
                         $as003MorningStatus = 'Normal Shift';
                         if ($as003MorningQty > 900) {
                             $as003MorningStatus = 'Advance to LS1';
@@ -904,6 +940,7 @@
 
                     <div class="card mb-3 radius-4">
                         <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                            <!-- Morning -->
                             <div class="strip-stat">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
@@ -913,7 +950,17 @@
                                             class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as003MorningStatus }}</span>
                                     @endif
                                 </div>
+                                <div class="kpi-mini">
+                                    <div class="qty-progress"
+                                        title="Actual {{ $as003MorningActual }} / {{ $as003MorningQty }}">
+                                        <div class="bar"><i style="width: {{ $as003MorningPct }}%"></i></div>
+                                        <span class="val">{{ $as003MorningPct }}%</span>
+                                    </div>
+                                    <div class="meta">Actual: {{ $as003MorningActual }}</div>
+                                </div>
                             </div>
+
+                            <!-- Night -->
                             <div class="strip-stat">
                                 <div class="title">Night Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
@@ -923,13 +970,32 @@
                                             class="chip bg-danger-subtle border text-dark fw-bolder">{{ $as003NightStatus }}</span>
                                     @endif
                                 </div>
+                                <div class="kpi-mini">
+                                    <div class="qty-progress"
+                                        title="Actual {{ $as003NightActual }} / {{ $as003NightQty }}">
+                                        <div class="bar"><i style="width: {{ $as003NightPct }}%"></i></div>
+                                        <span class="val">{{ $as003NightPct }}%</span>
+                                    </div>
+                                    <div class="meta">Actual: {{ $as003NightActual }}</div>
+                                </div>
                             </div>
+
+                            <!-- Total -->
                             <div class="ms-auto strip-stat">
                                 <div class="title">Total</div>
                                 <div class="value">{{ $as003TotalQty }}</div>
+                                <div class="kpi-mini">
+                                    <div class="qty-progress"
+                                        title="Actual {{ $as003TotalActual }} / {{ $as003TotalQty }}">
+                                        <div class="bar"><i style="width: {{ $as003TotalPct }}%"></i></div>
+                                        <span class="val">{{ $as003TotalPct }}%</span>
+                                    </div>
+                                    <div class="meta">Actual: {{ $as003TotalActual }}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
 
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
@@ -1132,6 +1198,20 @@
                         $as004NightQty = $grouped['AS004']['night_shift_qty'] ?? 0;
                         $as004TotalQty = $grouped['AS004']['total_qty'] ?? 0;
 
+                        $as004MorningActual = $grouped['AS004']['morning_shift_actual'] ?? 0;
+                        $as004NightActual = $grouped['AS004']['night_shift_actual'] ?? 0;
+                        $as004TotalActual = $grouped['AS004']['total_actual'] ?? 0;
+
+                        $as004MorningPct = $as004MorningQty
+                            ? min(100, round(($as004MorningActual / $as004MorningQty) * 100))
+                            : 0;
+                        $as004NightPct = $as004NightQty
+                            ? min(100, round(($as004NightActual / $as004NightQty) * 100))
+                            : 0;
+                        $as004TotalPct = $as004TotalQty
+                            ? min(100, round(($as004TotalActual / $as004TotalQty) * 100))
+                            : 0;
+
                         $as004MorningStatus = 'Normal Shift';
                         if ($as004MorningQty > 900) {
                             $as004MorningStatus = 'Advance to LS1';
@@ -1156,7 +1236,16 @@
                                             class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as004MorningStatus }}</span>
                                     @endif
                                 </div>
+                                <div class="kpi-mini">
+                                    <div class="qty-progress"
+                                        title="Actual {{ $as004MorningActual }} / {{ $as004MorningQty }}">
+                                        <div class="bar"><i style="width: {{ $as004MorningPct }}%"></i></div>
+                                        <span class="val">{{ $as004MorningPct }}%</span>
+                                    </div>
+                                    <div class="meta">Actual: {{ $as004MorningActual }}</div>
+                                </div>
                             </div>
+
                             <div class="strip-stat">
                                 <div class="title">Night Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
@@ -1166,13 +1255,31 @@
                                             class="chip bg-danger-subtle border text-dark fw-bolder">{{ $as004NightStatus }}</span>
                                     @endif
                                 </div>
+                                <div class="kpi-mini">
+                                    <div class="qty-progress"
+                                        title="Actual {{ $as004NightActual }} / {{ $as004NightQty }}">
+                                        <div class="bar"><i style="width: {{ $as004NightPct }}%"></i></div>
+                                        <span class="val">{{ $as004NightPct }}%</span>
+                                    </div>
+                                    <div class="meta">Actual: {{ $as004NightActual }}</div>
+                                </div>
                             </div>
+
                             <div class="ms-auto strip-stat">
                                 <div class="title">Total</div>
                                 <div class="value">{{ $as004TotalQty }}</div>
+                                <div class="kpi-mini">
+                                    <div class="qty-progress"
+                                        title="Actual {{ $as004TotalActual }} / {{ $as004TotalQty }}">
+                                        <div class="bar"><i style="width: {{ $as004TotalPct }}%"></i></div>
+                                        <span class="val">{{ $as004TotalPct }}%</span>
+                                    </div>
+                                    <div class="meta">Actual: {{ $as004TotalActual }}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
 
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
@@ -1368,8 +1475,8 @@
 
     <script>
         /* ======================
-                                                               THEME TOGGLE (tetap)
-                                                               ====================== */
+                                                                                                                   THEME TOGGLE (tetap)
+                                                                                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2066,12 +2173,12 @@
     </script>
     <script>
         /* ======================
-                                                               IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
-                                                               - Hides TD via [data-label]
-                                                               - Hides TH leaf via [data-col-key]
-                                                               - Fixes group TH (Running Qty, Working Time) colspan
-                                                               - Persists by label (stable, tahan rowspan/colspan)
-                                                            ====================== */
+                                                                                                                   IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
+                                                                                                                   - Hides TD via [data-label]
+                                                                                                                   - Hides TH leaf via [data-col-key]
+                                                                                                                   - Fixes group TH (Running Qty, Working Time) colspan
+                                                                                                                   - Persists by label (stable, tahan rowspan/colspan)
+                                                                                                                ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();

@@ -541,67 +541,70 @@ class DashboardController extends Controller
         $grouped = [];
 
         foreach ($backNosByLine as $line => $backNos) {
-            $lineData = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
+            $lineData = ProductionPlan::whereDate('plan_date', $today->format('Y-m-d'))
                 ->where('line', $line)
                 ->orderBy('delivery_date')
                 ->orderBy('delivery_time')
                 ->get();
 
-            // Morning shift (06:00 - 21:59)
-            $morningShiftQty = $lineData->filter(function ($item) {
+            // Morning shift (06:00 - 13:59)
+            $morningFilter = function ($item) {
                 try {
-                    if (!$item->working_start || !$item->working_end) {
-                        return false;
-                    }
-
+                    if (!$item->working_start || !$item->working_end) return false;
                     $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
                     $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
-
                     $isStartMorning = ($startHour >= 6 && $startHour < 14);
                     $isEndMorning   = ($endHour >= 6 && $endHour < 14);
-
                     return $isStartMorning || $isEndMorning;
                 } catch (\Exception $e) {
-                    \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
+                    \Log::warning("Failed to parse working times (morning): ".$e->getMessage(), [
                         'item_id' => $item->id ?? null,
                         'working_start' => $item->working_start,
                         'working_end' => $item->working_end
                     ]);
                     return false;
                 }
-            })->sum('order_qty');
+            };
 
             // Night shift (22:00 - 05:59)
-            $nightShiftQty = $lineData->filter(function ($item) {
+            $nightFilter = function ($item) {
                 try {
-                    if (!$item->working_start || !$item->working_end) {
-                        return false;
-                    }
-
+                    if (!$item->working_start || !$item->working_end) return false;
                     $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
                     $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
-
                     $isStartNight = ($startHour >= 22 || $startHour < 6);
                     $isEndNight   = ($endHour >= 22 || $endHour < 6);
-
                     return $isStartNight || $isEndNight;
                 } catch (\Exception $e) {
-                    \Log::warning("Failed to parse working times for item: " . $e->getMessage(), [
+                    \Log::warning("Failed to parse working times (night): ".$e->getMessage(), [
                         'item_id' => $item->id ?? null,
                         'working_start' => $item->working_start,
                         'working_end' => $item->working_end
                     ]);
                     return false;
                 }
-            })->sum('order_qty');
+            };
+
+            // Order qty per shift
+            $morningShiftQty = (int) $lineData->filter($morningFilter)->sum('order_qty');
+            $nightShiftQty   = (int) $lineData->filter($nightFilter)->sum('order_qty');
+
+            // Actual (direct_pulling_qty) per shift
+            $morningShiftActual = (int) $lineData->filter($morningFilter)
+                ->sum(fn($i) => (int) ($i->direct_pulling_qty ?? 0));
+            $nightShiftActual = (int) $lineData->filter($nightFilter)
+                ->sum(fn($i) => (int) ($i->direct_pulling_qty ?? 0));
 
             $grouped[$line] = [
-                'data' => $lineData->groupBy(function ($item) {
-                    return $item->customer . '|' . $item->delivery_time;
-                }),
+                'data' => $lineData->groupBy(fn ($item) => $item->customer.'|'.$item->delivery_time),
                 'morning_shift_qty' => $morningShiftQty,
-                'night_shift_qty' => $nightShiftQty,
-                'total_qty' => $morningShiftQty + $nightShiftQty
+                'night_shift_qty'   => $nightShiftQty,
+                'total_qty'         => $morningShiftQty + $nightShiftQty,
+
+                // NEW: actuals
+                'morning_shift_actual' => $morningShiftActual,
+                'night_shift_actual'   => $nightShiftActual,
+                'total_actual'         => $morningShiftActual + $nightShiftActual,
             ];
         }
 
