@@ -796,6 +796,108 @@
         }
 
         /* teks kecil */
+
+        /* ======================
+   MODAL STYLES
+   ====================== */
+        html[data-theme="dark"] .modal-content {
+            background: var(--surface);
+            border-color: var(--border);
+            color: var(--ink);
+        }
+
+        html[data-theme="dark"] .modal-header {
+            border-bottom-color: var(--border);
+        }
+
+        html[data-theme="dark"] .modal-footer {
+            border-top-color: var(--border);
+        }
+
+        .summary-stat {
+            text-align: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--surface) 0%, var(--surface-subtle) 100%);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .summary-stat .number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--brand-primary);
+            display: block;
+        }
+
+        .summary-stat .label {
+            font-size: .85rem;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .back-number-item {
+            padding: .75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: .5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            transition: all .2s ease;
+        }
+
+        .back-number-item:hover {
+            background: var(--table-hover);
+            border-color: var(--brand-primary);
+        }
+
+        .back-number-item .back-no {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--ink);
+        }
+
+        .back-number-item .order-qty {
+            font-weight: 600;
+            font-size: .95rem;
+            padding: .25rem .5rem;
+            background: var(--chip-bg);
+            color: var(--chip-ink);
+            border: 1px solid var(--chip-border);
+            border-radius: 4px;
+        }
+
+        /* Responsive modal width */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                max-width: 95% !important;
+                /* hampir full screen di mobile */
+                margin: 0.5rem auto;
+            }
+
+            .summary-stat {
+                padding: 0.75rem;
+            }
+
+            .summary-stat .number {
+                font-size: 1.5rem;
+            }
+
+            .summary-stat .label {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Biar kolom statistik rapi jadi 2 kolom di tablet & 1 kolom di hp */
+        @media (max-width: 992px) {
+            .summary-stat {
+                margin-bottom: 1rem;
+            }
+        }
     </style>
 
 </head>
@@ -1027,6 +1129,11 @@
                                         onclick="saveCurrentView('AS003');return false;">Save current view</a></li>
                             </ul>
                         </div>
+
+                        <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS003')">
+                            <i class="fas fa-list-ol me-1"></i> Summary
+                        </button>
+
                         <!-- Columns -->
                         <div class="btn-group">
                             <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
@@ -1349,6 +1456,11 @@
                                         onclick="saveCurrentView('AS004');return false;">Save current view</a></li>
                             </ul>
                         </div>
+
+                        <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS004')">
+                            <i class="fas fa-list-ol me-1"></i> Summary
+                        </button>
+
                         <div class="btn-group">
                             <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
                                 Columns
@@ -1426,7 +1538,36 @@
                                                 $sc = (int) ($item->stock_chute_qty ?: 0);
                                                 $ord = max(1, (int) $item->order_qty);
                                                 $pct = min(100, round((($dp + $sc) / $ord) * 100));
+
+                                                $startHour = null;
+                                                $endHour = null;
+                                                try {
+                                                    $startHour = $item->working_start
+                                                        ? (int) \Carbon\Carbon::createFromFormat(
+                                                            'H:i',
+                                                            $item->working_start,
+                                                        )->format('H')
+                                                        : null;
+                                                } catch (\Exception $e) {
+                                                }
+                                                try {
+                                                    $endHour = $item->working_end
+                                                        ? (int) \Carbon\Carbon::createFromFormat(
+                                                            'H:i',
+                                                            $item->working_end,
+                                                        )->format('H')
+                                                        : null;
+                                                } catch (\Exception $e) {
+                                                }
+                                                $isMorning =
+                                                    ($startHour !== null && $startHour >= 6 && $startHour < 14) ||
+                                                    ($endHour !== null && $endHour >= 6 && $endHour < 14);
+                                                $isNight =
+                                                    ($startHour !== null && ($startHour >= 22 || $startHour < 6)) ||
+                                                    ($endHour !== null && ($endHour >= 22 || $endHour < 6));
+                                                $rowShift = $isMorning ? 'morning' : ($isNight ? 'night' : 'other');
                                             @endphp
+                                            <tr data-shift="{{ $rowShift }}">
                                             <tr>
                                                 @if ($index === 0)
                                                     <td rowspan="{{ $rowspan }}" data-label="Customer"><span
@@ -1522,10 +1663,71 @@
         </div><!-- /tab-content -->
     </div><!-- /container -->
 
+    <!-- Order Summary Modal -->
+    <!-- Summary Modal -->
+    <div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="summaryModalLabel">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Order Summary by Back Number - <span id="modalLineTitle">AS003</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Summary Statistics -->
+                    <div class="row mb-4">
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <div class="summary-stat">
+                                <span class="number" id="totalBackNumbers">0</span>
+                                <div class="label">Total Model</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <div class="summary-stat">
+                                <span class="number" id="totalOrders">0</span>
+                                <div class="label">Total Orders</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <div class="summary-stat">
+                                <span class="number" id="avgOrderPerBack">0</span>
+                                <div class="label">Avg per Back No</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <div class="summary-stat">
+                                <span class="number" id="completedOrders">0</span>
+                                <div class="label">Complete Order</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Back Number List -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-secondary text-uppercase mb-3" style="letter-spacing:.5px;">
+                            Order Details by Back Number
+                        </h6>
+                        <div id="backNumberList"><!-- populated by JS --></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="exportSummary()">
+                        <i class="fas fa-download me-1"></i> Export CSV
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         /* ======================
-                                                                                                                                                               THEME TOGGLE (tetap)
-                                                                                                                                                               ====================== */
+                                                                                                                                                                                                                                                                           THEME TOGGLE (tetap)
+                                                                                                                                                                                                                                                                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1595,20 +1797,17 @@
         }
 
         /* ======================
-           SSE CLIENT + SUMMARY PINNED (ORIGINAL LOGIC)
+        SSE CLIENT + SUMMARY PINNED (V2 – CI12 split C4–7 dan C8–3)
            ====================== */
         class ProductionPlanSSEClient {
             constructor() {
                 this.eventSource = null;
                 this.statusElement = null;
                 this.currentDate = this.getCurrentDate();
-
                 this.highlightTimeouts = new Set();
                 this.originalOrder = new Map();
                 this.orderRestoreTimeouts = new Map();
-
-                this.summaries = {}; // {AS003:{row,totals,ids}, AS004:{...}}
-
+                this.summaries = {};
                 this.init();
             }
 
@@ -1639,18 +1838,16 @@
                 }
             }
 
-            /* ===== Prefill ===== */
             prefillRawAttrs(container) {
                 if (!container) return;
                 container.querySelectorAll('tbody tr').forEach(row => {
-                    // Back No: simpan mentah
-                    const bnTd = getCellByLabel(row, 'Back No');
+                    const bnTd = this._cell(row, 'Back No');
                     const bnEl = bnTd?.querySelector('.flip') || bnTd;
                     if (bnEl && !bnEl.dataset.backnoRaw) {
                         bnEl.dataset.backnoRaw = (bnEl.textContent || '').trim();
                     }
-                    // Order: simpan mentah
-                    const odTd = getCellByLabel(row, 'Order');
+
+                    const odTd = this._cell(row, 'Order');
                     const odEl = odTd?.querySelector('.flip') || odTd;
                     if (odEl && !odEl.dataset.orderRaw) {
                         const num = parseInt(String(odEl.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
@@ -1659,10 +1856,71 @@
                 });
             }
 
-            /* ===== Group helpers ===== */
+            static normLabel(s) {
+                return (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            }
+
+            _cell(row, wanted) {
+                const wl = ProductionPlanSSEClient.normLabel(wanted);
+                const tds = Array.from(row?.children || []);
+                for (const c of tds) {
+                    if (ProductionPlanSSEClient.normLabel(c.getAttribute('data-label')) === wl) return c;
+                }
+                for (const c of tds) {
+                    const l = ProductionPlanSSEClient.normLabel(c.getAttribute('data-label'));
+                    if (l && (l.includes(wl) || wl.includes(l))) return c;
+                }
+                return null;
+            }
+
+            _getBackNo(row) {
+                const td = this._cell(row, 'Back No');
+                const el = td?.querySelector('.flip') || td;
+                let val = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
+                if (val) return val.toUpperCase();
+                const text = (row.textContent || '').toUpperCase();
+                const m = text.match(/\b(?:D\d{2,4}|CI\d{2,4})\b/);
+                return m ? m[0] : '';
+            }
+
+            _getOrder(row) {
+                const td = this._cell(row, 'Order');
+                const el = td?.querySelector('.flip') || td;
+                if (!el) return 0;
+                const raw = parseInt(el.dataset?.orderRaw || '', 10);
+                if (!isNaN(raw)) return raw;
+                return parseInt(String(el.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+            }
+
+            _getDP(row) {
+                const el = row?.querySelector('[data-type="direct-pulling"]');
+                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
+            }
+
+            _getSC(row) {
+                const el = row?.querySelector('[data-type="stock-chute"]');
+                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
+            }
+
+            _getId(row) {
+                const el = row?.querySelector('[data-type="direct-pulling"]') || row?.querySelector(
+                    '[data-type="stock-chute"]');
+                return el ? el.getAttribute('data-item-id') : null;
+            }
+
+            _getCycle(row) {
+                const td = this._cell(row, 'Cycle');
+                const txt = (td?.textContent || '').trim();
+                const m = txt.match(/\d+/);
+                const n = m ? parseInt(m[0], 10) : NaN;
+                if (!isNaN(n)) return ((n - 1) % 8) + 1;
+                return null;
+            }
+
             isGroupStart(row) {
                 return row && row.style.display !== 'none' && !!row.querySelector('[rowspan]');
             }
+
             getGroupRowsFrom(startRow) {
                 const rows = [startRow];
                 let p = startRow;
@@ -1672,6 +1930,20 @@
                 }
                 return rows;
             }
+
+            _purgePinnedSummaries(container) {
+                const tbody = container?.querySelector('tbody');
+                if (!tbody) return;
+                // HANYA buang summary yang kita sisipkan
+                tbody.querySelectorAll('tr[data-summary-row="1"]').forEach(n => n.remove());
+            }
+
+            _removeSummaryRowIfExists(tbody, label) {
+                tbody
+                    .querySelectorAll(`tr[data-summary-row="1"][data-summary-label="${label}"]`)
+                    .forEach(n => n.remove());
+            }
+
             recalcRowspans(container) {
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return;
@@ -1683,25 +1955,35 @@
                 });
             }
 
-            /* ===== Pindahkan sel header ke hostRow (posisi kolom akurat) ===== */
+            static colOrder = [
+                'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
+                'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress',
+                'Delivery Time', 'Delivery Date', 'Balance Time'
+            ].map(ProductionPlanSSEClient.normLabel);
+
+            _indexByLabel(td) {
+                const lbl = ProductionPlanSSEClient.normLabel(td?.getAttribute('data-label'));
+                const idx = ProductionPlanSSEClient.colOrder.indexOf(lbl);
+                return idx >= 0 ? idx : (td?.cellIndex ?? 9999);
+            }
+
             _moveRowspanCellsTo(startRow, hostRow) {
                 if (!startRow || !hostRow || hostRow === startRow) return;
-
                 hostRow.querySelectorAll('[data-cloned-header]').forEach(n => n.remove());
 
                 const startCells = Array.from(startRow.children)
                     .filter(td => td.hasAttribute('rowspan'))
-                    .sort((a, b) => colIndexByLabel(a) - colIndexByLabel(b));
+                    .sort((a, b) => this._indexByLabel(a) - this._indexByLabel(b));
 
                 startCells.forEach(td => {
                     const clone = td.cloneNode(true);
                     clone.setAttribute('rowspan', 1);
                     clone.setAttribute('data-cloned-header', '1');
 
-                    const wantIdx = colIndexByLabel(td);
+                    const wantIdx = this._indexByLabel(td);
                     let ref = null;
                     for (const ex of Array.from(hostRow.children)) {
-                        if (colIndexByLabel(ex) > wantIdx) {
+                        if (this._indexByLabel(ex) > wantIdx) {
                             ref = ex;
                             break;
                         }
@@ -1711,74 +1993,43 @@
 
                 const tbody = startRow.parentElement;
                 if (tbody && hostRow.previousElementSibling !== startRow) tbody.insertBefore(hostRow, startRow);
-
                 Array.from(startRow.querySelectorAll('[rowspan]')).forEach(td => td.removeAttribute('rowspan'));
                 startRow.style.display = 'none';
             }
 
-            /* ===== Row utils (lebih robust) ===== */
-            _getBackNo(row) {
-                const td = getCellByLabel(row, 'Back No');
-                const el = td?.querySelector('.flip') || td;
-                let val = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
-                if (val) return val.toUpperCase();
-                const text = (row.textContent || '').toUpperCase();
-                const m = text.match(/\b(?:D\d{2,4}|CI\d{2,4})\b/);
-                return m ? m[0] : '';
-            }
-            _getOrder(row) {
-                const td = getCellByLabel(row, 'Order');
-                const el = td?.querySelector('.flip') || td;
-                if (!el) return 0;
-                const raw = parseInt(el.dataset?.orderRaw || '', 10);
-                if (!isNaN(raw)) return raw;
-                return parseInt(String(el.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
-            }
-            _getDP(row) {
-                const el = row?.querySelector('[data-type="direct-pulling"]');
-                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
-            }
-            _getSC(row) {
-                const el = row?.querySelector('[data-type="stock-chute"]');
-                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
-            }
-            _getId(row) {
-                const el = row?.querySelector('[data-type="direct-pulling"]') || row?.querySelector(
-                    '[data-type="stock-chute"]');
-                return el ? el.getAttribute('data-item-id') : null;
-            }
-
-            /* ===== Build summaries (pinned top) ===== */
             buildSummaries() {
-                Object.values(this.summaries).forEach(s => s.row?.remove());
+                Object.values(this.summaries).flat().forEach(s => s?.row?.remove?.());
                 this.summaries = {};
 
                 if (this.AS003) {
-                    this.summaries.AS003 = this._extractAndPinSummary({
-                        key: 'AS003',
+                    this._purgePinnedSummaries(this.AS003);
+                    this.summaries.AS003 = this._extractAndPinSummaryCI12Split({
                         container: this.AS003,
                         targets: ['D111', 'CI12'],
-                        label: 'CI12'
+                        baseLabel: 'CI12'
                     });
                 }
+
                 if (this.AS004) {
-                    this.summaries.AS004 = this._extractAndPinSummary({
-                        key: 'AS004',
+                    this._purgePinnedSummaries(this.AS004);
+                    const one = this._extractAndPinSummaryGeneral({
                         container: this.AS004,
                         targets: ['D500', 'CI19'],
                         label: 'CI19'
                     });
+                    this.summaries.AS004 = one ? [one] : [];
                 }
             }
 
-            _extractAndPinSummary({
-                key,
+            _extractAndPinSummaryGeneral({
                 container,
                 targets,
                 label
             }) {
                 const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
                 const tbody = container?.querySelector('tbody');
+                if (!tbody) return null;
+
                 const summary = {
                     row: null,
                     totals: {
@@ -1788,21 +2039,17 @@
                     },
                     ids: new Map()
                 };
-                if (!tbody) return summary;
-
                 const allRows = Array.from(tbody.querySelectorAll('tr'));
+
                 let i = 0;
                 const groups = [];
                 while (i < allRows.length) {
                     const start = allRows[i];
-                    const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute(
-                        'rowspan') || '1', 10) : 1;
+                    const rs = this.isGroupStart(start) ?
+                        parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) :
+                        1;
                     const g = [start];
-                    let w = start;
-                    for (let k = 1; k < rs && (i + k) < allRows.length; k++) {
-                        w = allRows[i + k];
-                        g.push(w);
-                    }
+                    for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
                     groups.push(g);
                     i += Math.max(1, rs);
                 }
@@ -1814,13 +2061,11 @@
                     const matches = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
                     if (matches.length === 0) return;
 
-                    // catat nama customer dari baris start grup
-                    const custTd = getCellByLabel(startRow, 'Customer');
+                    const custTd = this._cell(startRow, 'Customer');
                     const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
                         .trim();
                     if (custText) customerBag.push(custText);
 
-                    // akumulasi total + id
                     matches.forEach(r => {
                         const id = this._getId(r);
                         const dp = this._getDP(r);
@@ -1839,16 +2084,14 @@
                     const keepRows = groupRows.filter(r => !matches.includes(r));
                     if (keepRows.length === 0) {
                         groupRows.forEach(r => r.remove());
-                        return;
+                    } else {
+                        if (matches.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
+                        matches.forEach(r => {
+                            if (r !== startRow) r.remove();
+                        });
                     }
-
-                    if (matches.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
-                    matches.forEach(r => {
-                        if (r !== startRow) r.remove();
-                    });
                 });
 
-                // pilih customer yang paling sering (mode)
                 let customerText = '--';
                 if (customerBag.length) {
                     const freq = customerBag.reduce((m, s) => (m[s] = (m[s] || 0) + 1, m), {});
@@ -1856,6 +2099,7 @@
                 }
 
                 if (summary.totals.order + summary.totals.dp + summary.totals.sc > 0) {
+                    this._removeSummaryRowIfExists(tbody, label);
                     summary.row = this._createSummaryRow({
                         label,
                         totals: summary.totals,
@@ -1868,6 +2112,195 @@
                 return summary;
             }
 
+            /* ========= Anchor helpers for placement ========= */
+            _normalize(s) {
+                return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
+            }
+            _cellText(row, label) {
+                const td = this._cell(row, label);
+                const el = td?.querySelector('.flip') || td;
+                return (el?.textContent || '').trim();
+            }
+            _findAnchorRow(container, {
+                customer,
+                dock,
+                cycle
+            }) {
+                const tbody = container?.querySelector('tbody');
+                if (!tbody) return null;
+                const wantCust = this._normalize(customer);
+                const wantDock = this._normalize(dock);
+                const wantCycle = Number(cycle);
+
+                for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
+                    if (!this.isGroupStart(tr)) continue;
+                    const custTxt = this._normalize(this._cellText(tr, 'Customer'));
+                    const dockTxt = this._normalize(this._cellText(tr, 'Dock'));
+                    const cyc = this._getCycle(tr);
+
+                    const custOk = custTxt.includes(wantCust); // tolerate extra wording
+                    const dockOk = dockTxt.includes(wantDock); // tolerate extra wording
+                    const cycOk = (cyc === wantCycle);
+
+                    if (custOk && dockOk && cycOk) return tr;
+                }
+                return null;
+            }
+            /* ================================================ */
+
+            _extractAndPinSummaryCI12Split({
+                container,
+                targets,
+                baseLabel
+            }) {
+                const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
+                const tbody = container?.querySelector('tbody');
+                const result = [];
+                if (!tbody) return result;
+
+                const S47 = {
+                    row: null,
+                    totals: {
+                        order: 0,
+                        dp: 0,
+                        sc: 0
+                    },
+                    ids: new Map(),
+                    label: `${baseLabel} (C4–7)`,
+                    customers: []
+                };
+                const S83 = {
+                    row: null,
+                    totals: {
+                        order: 0,
+                        dp: 0,
+                        sc: 0
+                    },
+                    ids: new Map(),
+                    label: `${baseLabel} (C8–3)`,
+                    customers: []
+                };
+
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                let i = 0;
+                const groups = [];
+                while (i < allRows.length) {
+                    const start = allRows[i];
+                    const rs = this.isGroupStart(start) ?
+                        parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) :
+                        1;
+                    const g = [start];
+                    for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
+                    groups.push(g);
+                    i += Math.max(1, rs);
+                }
+
+                groups.forEach(groupRows => {
+                    const startRow = groupRows[0];
+                    const matchesAll = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
+                    if (matchesAll.length === 0) return;
+
+                    const custTd = this._cell(startRow, 'Customer');
+                    const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
+                        .trim();
+                    if (custText) {
+                        S47.customers.push(custText);
+                        S83.customers.push(custText);
+                    }
+
+                    const in47 = [],
+                        in83 = [];
+                    matchesAll.forEach(r => {
+                        const cyc = this._getCycle(r);
+                        if (cyc == null) in83.push(r);
+                        else if (cyc >= 4 && cyc <= 7) in47.push(r);
+                        else in83.push(r);
+                    });
+
+                    const collect = (bucket, rows) => {
+                        rows.forEach(r => {
+                            const id = this._getId(r);
+                            const dp = this._getDP(r);
+                            const sc = this._getSC(r);
+                            const od = this._getOrder(r);
+                            bucket.totals.dp += dp;
+                            bucket.totals.sc += sc;
+                            bucket.totals.order += od;
+                            if (id) bucket.ids.set(id, {
+                                dp,
+                                sc,
+                                order: od
+                            });
+                        });
+                    };
+                    collect(S47, in47);
+                    collect(S83, in83);
+
+                    const keepRows = groupRows.filter(r => !matchesAll.includes(r));
+                    if (keepRows.length === 0) {
+                        groupRows.forEach(r => r.remove());
+                    } else {
+                        if (matchesAll.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
+                        matchesAll.forEach(r => {
+                            if (r !== startRow) r.remove();
+                        });
+                    }
+                });
+
+                const modeOf = (arr) => {
+                    if (!arr.length) return '--';
+                    const freq = arr.reduce((m, s) => (m[s] = (m[s] || 0) + 1, m), {});
+                    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+                };
+                const cust47 = modeOf(S47.customers);
+                const cust83 = modeOf(S83.customers);
+
+                // === cari anchor terlebih dahulu (sebelum insert) ===
+                const anchor47 = this._findAnchorRow(container, {
+                    customer: 'TMMIN KARAWANG PLANT 3',
+                    dock: '6I',
+                    cycle: 7
+                });
+                const anchor83 = this._findAnchorRow(container, {
+                    customer: 'ADM ENGINE PLANT',
+                    dock: 'EXP',
+                    cycle: 1
+                });
+
+                if (S47.totals.order + S47.totals.dp + S47.totals.sc > 0) {
+                    this._removeSummaryRowIfExists(tbody, S47.label);
+                    S47.row = this._createSummaryRow({
+                        label: S47.label,
+                        totals: S47.totals,
+                        customerText: cust47
+                    });
+                    if (anchor47) {
+                        tbody.insertBefore(S47.row, anchor47);
+                    } else {
+                        tbody.insertBefore(S47.row, tbody.firstChild || null); // fallback: paling atas
+                    }
+                    result.push(S47);
+                }
+
+                if (S83.totals.order + S83.totals.dp + S83.totals.sc > 0) {
+                    this._removeSummaryRowIfExists(tbody, S83.label);
+                    S83.row = this._createSummaryRow({
+                        label: S83.label,
+                        totals: S83.totals,
+                        customerText: cust83
+                    });
+                    if (anchor83) {
+                        tbody.insertBefore(S83.row, anchor83);
+                    } else {
+                        tbody.appendChild(S83.row); // fallback: paling akhir
+                    }
+                    result.push(S83);
+                }
+
+                this.recalcRowspans(container);
+                return result;
+            }
+
             _createSummaryRow({
                 label,
                 totals,
@@ -1875,6 +2308,8 @@
             }) {
                 const tr = document.createElement('tr');
                 tr.className = 'fw-bold';
+                tr.setAttribute('data-summary-row', '1');
+                tr.setAttribute('data-summary-label', label);
 
                 const pct = Math.min(100, Math.round(((totals.dp + totals.sc) / Math.max(1, totals.order)) * 100));
                 const td = (text, attrs = {}) => {
@@ -1884,16 +2319,20 @@
                     return el;
                 };
 
-                // kolom-kolom
+                // 👉 beri rowspan="1" supaya baris ini diperlakukan sebagai start grup baru
                 tr.appendChild(td(customerText, {
-                    'data-label': 'Customer'
+                    'data-label': 'Customer',
+                    rowspan: '1'
                 }));
                 tr.appendChild(td('--', {
-                    'data-label': 'Dock'
+                    'data-label': 'Dock',
+                    rowspan: '1'
                 }));
                 tr.appendChild(td('--', {
-                    'data-label': 'Cycle'
+                    'data-label': 'Cycle',
+                    rowspan: '1'
                 }));
+
                 tr.appendChild(td(label, {
                     'data-label': 'Back No'
                 }));
@@ -1903,20 +2342,20 @@
 
                 const tdDP = document.createElement('td');
                 tdDP.setAttribute('data-label', 'Direct Pulling');
-                tdDP.innerHTML =
-                    `<div class="qty-progress" title="DP ${totals.dp} / ${totals.order}">
-       <div class="bar"><i style="width:${Math.min(100, Math.round((totals.dp/Math.max(1,totals.order))*100))}%;"></i></div>
-       <span class="val"><span class="flip" data-summary-dp>${totals.dp}</span></span>
-     </div>`;
+                tdDP.innerHTML = `
+    <div class="qty-progress" title="DP ${totals.dp} / ${totals.order}">
+      <div class="bar"><i style="width:${Math.min(100, Math.round((totals.dp/Math.max(1,totals.order))*100))}%;"></i></div>
+      <span class="val"><span class="flip" data-summary-dp>${totals.dp}</span></span>
+    </div>`;
                 tr.appendChild(tdDP);
 
                 const tdSC = document.createElement('td');
                 tdSC.setAttribute('data-label', 'Stock Chute');
-                tdSC.innerHTML =
-                    `<div class="qty-progress" title="SC ${totals.sc} / ${totals.order}">
-       <div class="bar"><i style="width:${Math.min(100, Math.round((totals.sc/Math.max(1,totals.order))*100))}%;"></i></div>
-       <span class="val"><span class="flip" data-summary-sc>${totals.sc}</span></span>
-     </div>`;
+                tdSC.innerHTML = `
+    <div class="qty-progress" title="SC ${totals.sc} / ${totals.order}">
+      <div class="bar"><i style="width:${Math.min(100, Math.round((totals.sc/Math.max(1,totals.order))*100))}%;"></i></div>
+      <span class="val"><span class="flip" data-summary-sc>${totals.sc}</span></span>
+    </div>`;
                 tr.appendChild(tdSC);
 
                 tr.appendChild(td('--', {
@@ -1935,11 +2374,11 @@
                 const tdProg = document.createElement('td');
                 tdProg.className = 'total-progress';
                 tdProg.setAttribute('data-label', 'Progress');
-                tdProg.innerHTML =
-                    `<div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
-       <div class="bar"><i data-summary-totalbar style="width:${pct}%;"></i></div>
-       <span class="val" data-summary-totalpct>${pct}%</span>
-     </div>`;
+                tdProg.innerHTML = `
+    <div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
+      <div class="bar"><i data-summary-totalbar style="width:${pct}%;"></i></div>
+      <span class="val" data-summary-totalpct>${pct}%</span>
+    </div>`;
                 tr.appendChild(tdProg);
 
                 tr.appendChild(td('--', {
@@ -1967,27 +2406,30 @@
                 const scSpan = summary.row.querySelector('[data-summary-sc]');
                 const totalBar = summary.row.querySelector('[data-summary-totalbar]');
                 const totalPct = summary.row.querySelector('[data-summary-totalpct]');
-                const orderFlip = summary.row.querySelector('[data-label="Order"] .flip');
+                const orderFlip = summary.row.querySelector('[data-label="Order"] .flip'); // <-- fixed
+
                 if (dpSpan) dpSpan.textContent = dp;
                 if (scSpan) scSpan.textContent = sc;
                 if (orderFlip) orderFlip.textContent = order.toLocaleString('id-ID');
                 if (totalBar) totalBar.style.width = pct + '%';
                 if (totalPct) totalPct.textContent = pct + '%';
             }
+
             refreshSummaries() {
-                Object.values(this.summaries).forEach(s => this._refreshSummaryRow(s));
+                Object.values(this.summaries).flat().forEach(s => this._refreshSummaryRow(s));
             }
 
-            /* ===== SSE ===== */
             storeOriginalOrder() {
                 document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
                     this.originalOrder.set(tbody, Array.from(tbody.querySelectorAll('tr')));
                 });
             }
+
             getCurrentDate() {
                 const inp = document.querySelector('input[name="date"]');
                 return inp ? inp.value : new Date().toISOString().split('T')[0];
             }
+
             createStatusIndicator() {
                 const el = document.createElement('div');
                 el.id = 'sse-connection-status';
@@ -1995,17 +2437,18 @@
                 document.body.appendChild(el);
                 this.statusElement = el;
             }
+
             addFlipStyles() {
                 const st = document.createElement('style');
                 st.textContent = `
-            .flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
-            .animate-flip{animation:flipAnimation .6s ease;}
-            @keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
-            @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
-            .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-            .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-            .highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
-          `;
+.flip{display:inline-block;transition:all .3s ease;transform-style:preserve-3d;transform-origin:bottom center;}
+.animate-flip{animation:flipAnimation .6s ease;}
+@keyframes flipAnimation{0%{transform:rotateX(0);opacity:1;}50%{transform:rotateX(90deg);opacity:0;}51%{transform:rotateX(-90deg);}100%{transform:rotateX(0);opacity:1;}}
+@keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
+.highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+.highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
+.highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
+`;
                 document.head.appendChild(st);
             }
 
@@ -2014,7 +2457,9 @@
                     if (this.eventSource) this.eventSource.close();
                     this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
                     this.updateConnectionStatus('connecting');
+
                     this.eventSource.onopen = () => this.updateConnectionStatus('connected');
+
                     this.eventSource.addEventListener('directPullingUpdate', e => {
                         try {
                             const data = JSON.parse(e.data);
@@ -2026,6 +2471,7 @@
                             this.updateConnectionStatus('error', 'parse');
                         }
                     });
+
                     this.eventSource.onerror = () => {
                         this.updateConnectionStatus('disconnected');
                         this.reconnect();
@@ -2034,6 +2480,7 @@
                     this.updateConnectionStatus('error', 'EventSource');
                 }
             }
+
             setupDateChangeListener() {
                 const inp = document.querySelector('input[name="date"]');
                 if (inp) {
@@ -2043,8 +2490,9 @@
                     });
                 }
             }
+
             updateConnectionStatus(status, msg = '') {
-                const m = {
+                const m = ({
                     connecting: {
                         text: '● Connecting to updates...',
                         class: 'text-primary border bg-white'
@@ -2061,17 +2509,20 @@
                         text: '● Update Error ' + msg,
                         class: 'text-warning border bg-white'
                     }
-                } [status] || {
+                } [status]) || {
                     text: '● Update Error',
                     class: 'text-warning border bg-white'
                 };
+
                 this.statusElement.className = m.class;
                 this.statusElement.textContent = m.text;
             }
+
             reconnect() {
                 if (this.eventSource) this.eventSource.close();
                 setTimeout(() => this.connect(), 1500);
             }
+
             setupErrorHandling() {
                 window.addEventListener('beforeunload', () => {
                     if (this.eventSource) this.eventSource.close();
@@ -2080,8 +2531,7 @@
 
             handleUpdates(updates) {
                 updates.forEach(item => {
-                    // kalau item termasuk ke ringkasan → adjust total
-                    Object.values(this.summaries).forEach(s => {
+                    Object.values(this.summaries).flat().forEach(s => {
                         if (!s?.ids) return;
                         if (s.ids.has(String(item.id))) {
                             const prev = s.ids.get(String(item.id)) || {
@@ -2104,9 +2554,9 @@
                         }
                     });
 
-                    // update baris normal yang masih di tabel
                     const selDP = `[data-item-id="${item.id}"][data-type="direct-pulling"]`;
                     const selSC = `[data-item-id="${item.id}"][data-type="stock-chute"]`;
+
                     if (document.querySelector(selDP) || document.querySelector(selSC)) {
                         this.updateQuantity(selDP, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
                         this.updateQuantity(selSC, item.stock_chute_qty, 'stock-chute', item.order_qty);
@@ -2127,7 +2577,6 @@
                     if (cur !== String(newValue)) {
                         el.textContent = newValue ?? '';
                         const td = el.closest('td');
-
                         if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
                             targetQty);
                         else this.updateCellStyle(td, null, type);
@@ -2164,6 +2613,7 @@
                     }
                 });
             }
+
             updateCellStyle(cell, val, type, targetQty = null) {
                 if (!cell) return;
                 if (type === 'time') return;
@@ -2182,7 +2632,6 @@
                 cell.className = cls.trim();
             }
 
-            /* Kompat untuk pemanggilan eksternal */
             updateAllInlineSums() {
                 this.refreshSummaries();
             }
@@ -2221,13 +2670,7 @@
         })();
     </script>
     <script>
-        /* ======================
-                                                                                                                                                               IMPROVED COLUMN HIDE - SAFE MODE (V5, label-based)
-                                                                                                                                                               - Hides TD via [data-label]
-                                                                                                                                                               - Hides TH leaf via [data-col-key]
-                                                                                                                                                               - Fixes group TH (Running Qty, Working Time) colspan
-                                                                                                                                                               - Persists by label (stable, tahan rowspan/colspan)
-                                                                                                                                                            ====================== */
+        === === === === === === === = * /
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2595,225 +3038,668 @@
             'D500': 'CI19'
         });
     </script>
-
     <script>
-        (function RealtimeShiftCards() {
-            const parseIntSafe = (v) => parseInt(String(v || '').replace(/[^\d-]/g, ''), 10) || 0;
+        (function FixShiftCardsV3() {
+            if (window.__fixShiftCardsV3Installed) return;
+            window.__fixShiftCardsV3Installed = true;
 
-            // ----- ambil referensi elemen kartu per (line, shift) -----
-            function getCardEl(line, shift, role) {
-                return document.querySelector(
-                    `[data-shift-card="${line}"] .strip-stat[data-line="${line}"][data-shift="${shift}"] [data-role="${role}"]`
-                );
-            }
-
-            function getBarEl(line, shift) {
-                return document.querySelector(
-                    `[data-shift-card="${line}"] .strip-stat[data-line="${line}"][data-shift="${shift}"] [data-role="shift-bar"]`
-                );
-            }
-
-            // ----- state awal: baca angka dari kartu (biar persis dgn server) -----
-            const totals = {
-                AS003: {
-                    morning: {
-                        order: parseIntSafe(getCardEl('AS003', 'morning', 'shift-order')?.textContent),
-                        actual: parseIntSafe(getCardEl('AS003', 'morning', 'shift-actual')?.textContent),
-                    },
-                    night: {
-                        order: parseIntSafe(getCardEl('AS003', 'night', 'shift-order')?.textContent),
-                        actual: parseIntSafe(getCardEl('AS003', 'night', 'shift-actual')?.textContent),
-                    },
-                    total: {
-                        order: parseIntSafe(getCardEl('AS003', 'total', 'shift-order')?.textContent),
-                        actual: parseIntSafe(getCardEl('AS003', 'total', 'shift-actual')?.textContent),
-                    }
-                },
-                AS004: {
-                    morning: {
-                        order: parseIntSafe(getCardEl('AS004', 'morning', 'shift-order')?.textContent),
-                        actual: parseIntSafe(getCardEl('AS004', 'morning', 'shift-actual')?.textContent),
-                    },
-                    night: {
-                        order: parseIntSafe(getCardEl('AS004', 'night', 'shift-order')?.textContent),
-                        actual: parseIntSafe(getCardEl('AS004', 'night', 'shift-actual')?.textContent),
-                    },
-                    total: {
-                        order: parseIntSafe(getCardEl('AS004', 'total', 'shift-order')?.textContent),
-                        actual: parseIntSafe(getCardEl('AS004', 'total', 'shift-actual')?.textContent),
-                    }
-                }
+            const LINES = ['AS003', 'AS004'];
+            const IDLOCALE = 'id-ID';
+            const parseIntSafe = v => {
+                const n = parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10);
+                return isNaN(n) ? 0 : n;
             };
 
-            // ----- indeks item: id -> {line, shift, dp, order} -----
-            const items = new Map();
-            document.querySelectorAll('[data-type="direct-pulling"]').forEach(el => {
-                const id = el.getAttribute('data-item-id');
+            /* ========= util sel/parse ========= */
+            const norm = s => String(s || '').trim().toUpperCase();
+            const isSummaryRow = tr => tr?.getAttribute('data-summary-row') === '1';
+            const getLineKeyOfRow = tr => tr?.closest('[data-toggle-table]')?.getAttribute('data-toggle-table') || '';
+
+            function cellByLabel(row, wanted) {
+                const wl = String(wanted || '').toLowerCase().trim();
+                const tds = Array.from(row?.children || []);
+                for (const td of tds) {
+                    const lbl = String(td.getAttribute('data-label') || '').toLowerCase().trim();
+                    if (lbl === wl) return td;
+                }
+                for (const td of tds) {
+                    const lbl = String(td.getAttribute('data-label') || '').toLowerCase().trim();
+                    if (lbl && (lbl.includes(wl) || wl.includes(lbl))) return td;
+                }
+                return null;
+            }
+
+            function readSummaryLabel(tr) {
+                return norm(tr?.getAttribute('data-summary-label') || tr?.getAttribute('data-summary-key') || tr
+                    ?.textContent || '');
+            }
+
+            function readOrder(tr) {
+                // Summary row: prioritas dataset khusus / kolom Order
+                if (isSummaryRow(tr)) {
+                    const ds = tr.querySelector('[data-summary-order]');
+                    if (ds) return parseIntSafe(ds.textContent);
+                    const td = cellByLabel(tr, 'Order');
+                    const el = td?.querySelector('.flip') || td;
+                    return parseIntSafe(el?.textContent);
+                }
+                // Baris normal: pakai dataset prefill kalau ada
+                const td = cellByLabel(tr, 'Order');
+                const el = td?.querySelector('.flip') || td;
+                const raw = el?.dataset?.orderRaw;
+                return raw != null && raw !== '' ? parseIntSafe(raw) : parseIntSafe(el?.textContent);
+            }
+
+            function readDP(tr) {
+                // Summary row: dukung marker khusus / fallback ke sel DP biasa
+                if (isSummaryRow(tr)) {
+                    const s = tr.querySelector('[data-summary-dp]');
+                    if (s) return parseIntSafe(s.textContent);
+                }
+                const el = tr.querySelector('[data-type="direct-pulling"]') ||
+                    cellByLabel(tr, 'Direct Pulling')?.querySelector('.flip');
+                return el ? parseIntSafe(el.textContent) : 0;
+            }
+
+            function readSC(tr) {
+                // Summary row: dukung marker khusus / fallback ke sel SC biasa
+                if (isSummaryRow(tr)) {
+                    const s = tr.querySelector('[data-summary-sc]');
+                    if (s) return parseIntSafe(s.textContent);
+                }
+                const el = tr.querySelector('[data-type="stock-chute"]') ||
+                    cellByLabel(tr, 'Stock Chute')?.querySelector('.flip');
+                return el ? parseIntSafe(el.textContent) : 0;
+            }
+
+            function hourFromText(txt) {
+                if (!txt) return null;
+                const m = String(txt).trim().match(/^(\d{1,2})/);
+                if (!m) return null;
+                const h = parseInt(m[1], 10);
+                return isNaN(h) ? null : h;
+            }
+
+            function readHour(row, dataTypeAttr, fallbackLabel) {
+                const el = row.querySelector(`[data-type="${dataTypeAttr}"]`);
+                let txt = (el?.textContent || '').trim();
+                let h = hourFromText(txt);
+                if (h != null) return h;
+                const td = cellByLabel(row, fallbackLabel);
+                txt = (td?.textContent || '').trim();
+                return hourFromText(txt);
+            }
+
+            // Klasifikasi khusus untuk summary row sesuai rule user
+            function specialSummaryShift(lineKey, row) {
+                if (!isSummaryRow(row)) return null;
+                const label = readSummaryLabel(row);
+
+                if (lineKey === 'AS003') {
+                    // CI12 (C4–7) => morning, CI12 (C8–3) => night
+                    if (/^CI12\b/i.test(label)) {
+                        if (/\bC\s*4\s*[–-]\s*7\b/i.test(label)) return 'morning';
+                        if (/\bC\s*8\s*[–-]\s*3\b/i.test(label)) return 'night';
+                    }
+                }
+                if (lineKey === 'AS004') {
+                    // CI19 => morning
+                    if (/\bCI19\b/i.test(label)) return 'morning';
+                }
+                return null; // biar fallback ke jam
+            }
+
+            function classifyShift(row, lineKey) {
+                // Hormati tag kalau sudah diset eksplisit
+                const tag = row.getAttribute('data-shift');
+                if (tag === 'morning' || tag === 'night') return tag;
+
+                // Override khusus summary
+                const over = specialSummaryShift(lineKey, row);
+                if (over) return over;
+
+                // Fallback: pakai jam (Actual Start -> Planning Start)
+                const sh = readHour(row, 'actual_start', 'Actual Start');
+                const ph = sh == null ? readHour(row, 'start', 'Planning Start') : null;
+                const H = (sh != null ? sh : ph);
+                if (H == null) return 'other';
+                const isMorning = H >= 6 && H < 14;
+                const isNight = (H >= 22 || H < 6);
+                if (isMorning) return 'morning';
+                if (isNight) return 'night';
+                return 'other';
+            }
+
+            function rowCountable(tr) {
+                if (!tr) return false;
+                if (tr.style.display === 'none') return false;
+                // ⛔️ JANGAN exclude summary row — sekarang ikut dihitung
+                return true;
+            }
+
+            /* ========= hitung kartu dari DOM ========= */
+            function computeLine(lineKey) {
+                const wrap = document.querySelector(`[data-toggle-table="${lineKey}"]`);
+                const sums = {
+                    morning: {
+                        order: 0,
+                        actual: 0
+                    },
+                    night: {
+                        order: 0,
+                        actual: 0
+                    },
+                    total: {
+                        order: 0,
+                        actual: 0
+                    }
+                };
+                if (!wrap) return sums;
+
+                wrap.querySelectorAll('tbody tr').forEach(tr => {
+                    if (!rowCountable(tr)) return;
+
+                    const order = readOrder(tr);
+                    const dp = readDP(tr);
+                    const sh = classifyShift(tr, lineKey);
+
+                    // set back ke DOM untuk konsistensi
+                    if (tr.getAttribute('data-shift') !== sh) tr.setAttribute('data-shift', sh);
+
+                    // total
+                    sums.total.order += order;
+                    sums.total.actual += dp;
+
+                    // per shift
+                    if (sh === 'morning' || sh === 'night') {
+                        sums[sh].order += order;
+                        sums[sh].actual += dp;
+                    }
+                });
+                return sums;
+            }
+
+            function pct(a, o) {
+                return o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
+            }
+
+            function renderBlock(lineKey, shift, data) {
+                const root = document.querySelector(
+                    `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
+                );
+                if (!root) return;
+                const O = data.order,
+                    A = data.actual,
+                    P = pct(A, O);
+                const q = sel => root.querySelector(sel);
+                const elO = q('[data-role="shift-order"]');
+                const elA = q('[data-role="shift-actual"]');
+                const elP = q('[data-role="shift-pct"]');
+                const elB = q('[data-role="shift-bar"]');
+                if (elO) elO.textContent = O.toLocaleString(IDLOCALE);
+                if (elA) elA.textContent = A.toLocaleString(IDLOCALE);
+                if (elP) elP.textContent = P + '%';
+                if (elB) elB.style.width = P + '%';
+            }
+
+            function recompute(lineKey) {
+                const sums = computeLine(lineKey);
+                renderBlock(lineKey, 'morning', sums.morning);
+                renderBlock(lineKey, 'night', sums.night);
+                renderBlock(lineKey, 'total', sums.total);
+            }
+
+            function recomputeAll() {
+                LINES.forEach(recompute);
+            }
+            window.recomputeAllShiftCards = recomputeAll;
+
+            /* ========= per-row DOM updater (dipakai oleh SSE) ========= */
+            function updateBarsForRow(row) {
+                const order = readOrder(row);
+                const dp = readDP(row);
+                const sc = readSC(row);
+
+                // DP bar
+                const dpCell = row.querySelector('[data-label][data-label*="Direct Pulling" i]');
+                const dpBar = dpCell?.querySelector('.qty-progress .bar > i');
+                if (dpBar) dpBar.style.width = (order > 0 ? Math.min(100, Math.round((dp / order) * 100)) : 0) + '%';
+
+                // SC bar
+                const scCell = row.querySelector('[data-label][data-label*="Stock Chute" i]');
+                const scBar = scCell?.querySelector('.qty-progress .bar > i');
+                if (scBar) scBar.style.width = (order > 0 ? Math.min(100, Math.round((sc / order) * 100)) : 0) + '%';
+
+                // Total progress bar
+                const totCell = row.querySelector('.total-progress');
+                const tBar = totCell?.querySelector('.bar > i');
+                const tPct = totCell?.querySelector('.val');
+                const totalPct = (order > 0 ? Math.min(100, Math.round(((dp + sc) / order) * 100)) : 0);
+                if (tBar) tBar.style.width = totalPct + '%';
+                if (tPct) tPct.textContent = totalPct + '%';
+            }
+
+            function applyUpdateItem(it) {
+                const id = String(it.id);
+                const el =
+                    document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`) ||
+                    document.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`) ||
+                    document.querySelector(`[data-item-id="${id}"][data-type="actual_start"]`) ||
+                    document.querySelector(`[data-item-id="${id}"][data-type="start"]`) ||
+                    document.querySelector(`[data-item-id="${id}"][data-type="balance"]`);
+                if (!el) return;
                 const row = el.closest('tr');
-                const wrap = el.closest('[data-toggle-table]');
-                const line = wrap?.getAttribute('data-toggle-table'); // AS003/AS004
-                const shift = row?.getAttribute('data-shift') || 'other';
-                const dp = parseIntSafe(el.textContent);
-                const ord = parseIntSafe(row?.querySelector('[data-label="Order"] .flip')?.textContent);
-                if (id && line) items.set(String(id), {
-                    line,
-                    shift,
-                    dp,
-                    order: ord
+                if (!row) return;
+
+                // DP / SC
+                if (typeof it.direct_pulling_qty === 'number') {
+                    const dpEl = row.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`);
+                    if (dpEl && dpEl.textContent.trim() !== String(it.direct_pulling_qty)) {
+                        dpEl.textContent = it.direct_pulling_qty;
+                    }
+                }
+                if (typeof it.stock_chute_qty === 'number') {
+                    const scEl = row.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`);
+                    if (scEl && scEl.textContent.trim() !== String(it.stock_chute_qty)) {
+                        scEl.textContent = it.stock_chute_qty;
+                    }
+                }
+
+                // ORDER
+                if (typeof it.order_qty === 'number') {
+                    const tdOrder = cellByLabel(row, 'Order');
+                    const flip = tdOrder?.querySelector('.flip') || tdOrder;
+                    if (flip) {
+                        flip.dataset.orderRaw = String(it.order_qty);
+                        flip.textContent = Number(it.order_qty).toLocaleString(IDLOCALE);
+                    }
+                }
+
+                // TIMES (actual_start / end / balance)
+                if (typeof it.actual_start === 'string') {
+                    const asEl = row.querySelector(`[data-item-id="${id}"][data-type="actual_start"]`);
+                    if (asEl) asEl.textContent = it.actual_start || '--';
+                }
+                if (typeof it.end === 'string') {
+                    const endEl = row.querySelector(`[data-item-id="${id}"][data-type="end"]`);
+                    if (endEl) endEl.textContent = it.end || '--';
+                }
+                if (typeof it.balance === 'string') {
+                    const balEl = row.querySelector(`[data-item-id="${id}"][data-type="balance"]`);
+                    if (balEl) balEl.textContent = it.balance || '--';
+                }
+
+                // reclassify shift (pakai line key terdekat)
+                const lineKey = getLineKeyOfRow(row);
+                const newShift = classifyShift(row, lineKey);
+                if (newShift !== (row.getAttribute('data-shift') || 'other')) {
+                    row.setAttribute('data-shift', newShift);
+                }
+
+                // update bars in-row
+                updateBarsForRow(row);
+            }
+
+            /* ========= boot: initial compute ========= */
+            document.addEventListener('DOMContentLoaded', recomputeAll);
+
+            /* ========= hook SSE: pakai yang sudah ada atau buat sendiri ========= */
+            document.addEventListener('DOMContentLoaded', () => {
+                const currentDate = (document.querySelector('input[name="date"]')?.value) ||
+                    new Date().toISOString().slice(0, 10);
+
+                function onDirectUpdates(updates) {
+                    (updates || []).forEach(applyUpdateItem);
+                    // sesudah DOM baris ter-update → hitung ulang kartu
+                    recomputeAll();
+                }
+
+                if (window.prodPlanSSE?.eventSource && !window.__shiftCardsHookedV3) {
+                    window.__shiftCardsHookedV3 = true;
+                    window.prodPlanSSE.eventSource.addEventListener('directPullingUpdate', (e) => {
+                        try {
+                            const data = JSON.parse(e.data);
+                            if (data?.date === currentDate) onDirectUpdates(data.updates);
+                        } catch {}
+                    });
+                } else {
+                    // fallback: bikin EventSource sendiri
+                    try {
+                        const es = new EventSource(`/stream/direct-pulling-updates?date=${currentDate}`);
+                        es.addEventListener('directPullingUpdate', (e) => {
+                            try {
+                                const data = JSON.parse(e.data);
+                                if (data?.date === currentDate) onDirectUpdates(data.updates);
+                            } catch {}
+                        });
+                        window.addEventListener('beforeunload', () => es.close());
+                    } catch {}
+                }
+            });
+
+            /* ========= observe perubahan tbody (add/remove rows) ========= */
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('[data-toggle-table] tbody').forEach(tbody => {
+                    try {
+                        const mo = new MutationObserver(() => recomputeAll());
+                        mo.observe(tbody, {
+                            childList: true,
+                            subtree: false
+                        });
+                    } catch {}
                 });
             });
 
-            // ----- render helper -----
-            function render(line, shift) {
-                const O = totals[line][shift].order;
-                const A = totals[line][shift].actual;
-                const pct = O > 0 ? Math.min(100, Math.round((A / O) * 100)) : 0;
+        })();
+    </script>
+    <script>
+        /* ===== Order Summary (UI + Data dari tabel) ===== */
+        (function() {
+            const intSafe = v => parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10) || 0;
 
-                const elOrder = getCardEl(line, shift, 'shift-order');
-                const elActual = getCardEl(line, shift, 'shift-actual');
-                const elPct = getCardEl(line, shift, 'shift-pct');
-                const elBar = getBarEl(line, shift);
+            // Samakan "CI12 (C4–7)" / "CI12 (C8–3)" -> "CI12"
+            const canonicalBackNo = s => String(s || '').toUpperCase().replace(/\s*\(C\d(?:[–-])?\d\)\s*$/, '').trim();
 
-                if (elOrder) elOrder.textContent = O.toLocaleString('id-ID');
-                if (elActual) elActual.textContent = A.toLocaleString('id-ID');
+            function getCellByLabel(row, wanted) {
+                const wl = (wanted || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                const tds = Array.from(row?.children || []);
+                for (const c of tds) {
+                    if ((c.getAttribute('data-label') || '').replace(/\s+/g, ' ').trim().toLowerCase() === wl) return c;
+                }
+                for (const c of tds) {
+                    const l = (c.getAttribute('data-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                    if (l && (l.includes(wl) || wl.includes(l))) return c;
+                }
+                return null;
+            }
+
+            // Baca Back No pada baris (termasuk alias dari BackNoRenamer)
+            function readBackNo(tr) {
+                const td = getCellByLabel(tr, 'Back No');
+                const el = td?.querySelector('.flip') || td;
+                const raw = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
+                if (!raw || raw === '--') return '';
+                return canonicalBackNo(raw);
+            }
+
+            function readOrder(tr, isSummary) {
+                if (isSummary) {
+                    const el = getCellByLabel(tr, 'Order')?.querySelector('.flip');
+                    return intSafe(el?.textContent);
+                }
+                const el = getCellByLabel(tr, 'Order')?.querySelector('.flip') || getCellByLabel(tr, 'Order');
+                const ds = el?.dataset?.orderRaw;
+                return ds != null && ds !== '' ? intSafe(ds) : intSafe(el?.textContent);
+            }
+
+            function readDP(tr, isSummary) {
+                if (isSummary) {
+                    return intSafe(tr.querySelector('[data-summary-dp]')?.textContent);
+                }
+                const el = tr.querySelector('[data-type="direct-pulling"]');
+                return intSafe(el?.textContent);
+            }
+
+            function readSC(tr, isSummary) {
+                if (isSummary) {
+                    return intSafe(tr.querySelector('[data-summary-sc]')?.textContent);
+                }
+                const el = tr.querySelector('[data-type="stock-chute"]');
+                return intSafe(el?.textContent);
+            }
+
+            function readCustomer(tr) {
+                const td = getCellByLabel(tr, 'Customer');
+                const el = td?.querySelector('.flip') || td;
+                return (el?.textContent || '').trim() || '--';
+            }
+
+            function collect(lineCode) {
+                const wrap = document.querySelector(`[data-toggle-table="${lineCode}"]`);
+                const tbody = wrap?.querySelector('tbody');
+                const map = new Map(); // backNo -> {backNo, customer, orderQty, dp, sc}
+
+                if (!tbody) return [];
+
+                Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                    const isSummary = tr.hasAttribute('data-summary-row');
+                    const bn = readBackNo(tr);
+                    if (!bn) return;
+
+                    const ord = readOrder(tr, isSummary);
+                    const dp = readDP(tr, isSummary);
+                    const sc = readSC(tr, isSummary);
+                    const cust = readCustomer(tr);
+
+                    const rec = map.get(bn) || {
+                        backNo: bn,
+                        customer: cust,
+                        orderQty: 0,
+                        dp: 0,
+                        sc: 0
+                    };
+                    rec.orderQty += ord;
+                    rec.dp += dp;
+                    rec.sc += sc;
+                    if (!rec.customer || rec.customer === '--') rec.customer = cust;
+                    map.set(bn, rec);
+                });
+
+                return Array.from(map.values())
+                    .sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b.backNo));
+            }
+
+            let __lastSummary = {
+                line: '',
+                rows: []
+            };
+
+            function renderModal(lineCode) {
+                const rows = collect(lineCode);
+                __lastSummary = {
+                    line: lineCode,
+                    rows
+                };
+
+                // Stats
+                const totalBack = rows.length;
+                const totalOrders = rows.reduce((s, r) => s + r.orderQty, 0);
+                const completed = rows.reduce((s, r) => s + r.dp + r.sc, 0);
+                const avg = totalBack > 0 ? Math.round(totalOrders / totalBack) : 0;
+
+                document.getElementById('modalLineTitle').textContent = lineCode;
+                document.getElementById('totalBackNumbers').textContent = totalBack.toLocaleString('id-ID');
+                document.getElementById('totalOrders').textContent = totalOrders.toLocaleString('id-ID');
+                document.getElementById('avgOrderPerBack').textContent = avg.toLocaleString('id-ID');
+                document.getElementById('completedOrders').textContent = completed.toLocaleString('id-ID');
+
+                // List
+                const list = document.getElementById('backNumberList');
+                list.innerHTML = '';
+                if (rows.length === 0) {
+                    list.innerHTML = '<div class="text-center text-muted py-4">No data available</div>';
+                } else {
+                    rows.forEach(r => {
+                        const done = r.dp + r.sc;
+                        const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
+                        const status = done >= r.orderQty ? 'Complete' : 'In Progress';
+                        const color = status === 'Complete' ? 'success' : 'warning';
+
+                        const div = document.createElement('div');
+                        div.className = 'back-number-item';
+                        div.innerHTML = `
+          <div class="d-flex flex-column">
+            <div class="back-no">${r.backNo}</div>
+            <div class="small text-muted">${r.customer || '--'}</div>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <div class="text-end">
+              <div class="order-qty">${r.orderQty.toLocaleString('id-ID')}</div>
+              <div class="small text-muted">Order Qty</div>
+            </div>
+            <div class="text-end">
+              <div class="fw-bold text-${color}">${done.toLocaleString('id-ID')}</div>
+              <div class="small text-muted">Completed</div>
+            </div>
+            <div class="text-end">
+              <div class="fw-bold">${pct}%</div>
+              <div class="small text-muted">Progress</div>
+            </div>
+          </div>`;
+                        list.appendChild(div);
+                    });
+                }
+
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('summaryModal')).show();
+            }
+
+            // Expose ke global
+            window.showSummary = renderModal;
+
+            window.exportSummary = function() {
+                const {
+                    line,
+                    rows
+                } = __lastSummary;
+                if (!rows.length) return;
+
+                const header = ['Back Number', 'Customer', 'Order Qty', 'Direct Pulling', 'Stock Chute',
+                    'Completed', 'Progress %', 'Status'
+                ];
+                const csv = [
+                    header.join(','),
+                    ...rows.map(r => {
+                        const done = r.dp + r.sc;
+                        const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
+                        const status = done >= r.orderQty ? 'Complete' : 'In Progress';
+                        return [
+                            `"${r.backNo.replace(/"/g,'""')}"`,
+                            `"${(r.customer||'--').replace(/"/g,'""')}"`,
+                            r.orderQty, r.dp, r.sc, done, pct + '%', status
+                        ].join(',');
+                    })
+                ].join('\n');
+
+                const blob = new Blob([csv], {
+                    type: 'text/csv;charset=utf-8;'
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `summary_${line}_${new Date().toISOString().slice(0,10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            };
+        })();
+    </script>
+    <script>
+        (function CardTotalsFromDOM() {
+            const parseIntSafe = (v) => parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10) || 0;
+
+            function normLabel(s) {
+                return (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            }
+
+            function getCellByLabel(row, wanted) {
+                const wl = normLabel(wanted);
+                const tds = Array.from(row?.children || []);
+                for (const c of tds)
+                    if (normLabel(c.getAttribute('data-label')) === wl) return c;
+                for (const c of tds) {
+                    const l = normLabel(c.getAttribute('data-label'));
+                    if (l && (l.includes(wl) || wl.includes(l))) return c;
+                }
+                return null;
+            }
+
+            function readOrderFromRow(tr) {
+                const td = getCellByLabel(tr, 'Order');
+                const el = td?.querySelector('.flip') || td;
+                const raw = el?.dataset?.orderRaw;
+                return raw != null && raw !== '' ? parseIntSafe(raw) : parseIntSafe(el?.textContent);
+            }
+
+            // hitung total order & actual (pakai DP) per line dari DOM
+            function computeLineTotals(lineKey) {
+                const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
+                if (!container) return {
+                    order: 0,
+                    actual: 0,
+                    pct: 0
+                };
+
+                let order = 0,
+                    actual = 0;
+                container.querySelectorAll('tbody tr').forEach(tr => {
+                    const od = readOrderFromRow(tr);
+                    if (od) order += od;
+                    const dpEl = tr.querySelector('[data-type="direct-pulling"]');
+                    if (dpEl) actual += parseIntSafe(dpEl.textContent);
+                });
+                const pct = order > 0 ? Math.min(100, Math.round((actual / order) * 100)) : 0;
+                return {
+                    order,
+                    actual,
+                    pct
+                };
+            }
+
+            function renderLineCard(lineKey) {
+                const {
+                    order,
+                    actual,
+                    pct
+                } = computeLineTotals(lineKey);
+                const root = document.querySelector(`[data-shift-card="${lineKey}"]`);
+                if (!root) return;
+                const elOrder = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-order"]`);
+                const elActual = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-actual"]`);
+                const elPct = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-pct"]`);
+                const elBar = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-bar"]`);
+                if (elOrder) elOrder.textContent = order.toLocaleString('id-ID');
+                if (elActual) elActual.textContent = actual.toLocaleString('id-ID');
                 if (elPct) elPct.textContent = pct + '%';
                 if (elBar) elBar.style.width = pct + '%';
             }
 
-            function moveBetweenShifts(meta, newShift) {
-                if (!meta || !newShift || meta.shift === newShift) return;
-                const {
-                    line,
-                    shift: oldShift,
-                    dp,
-                    order
-                } = meta;
-                // kurangi dari shift lama (kalau terdaftar), tambah ke shift baru
-                if (oldShift === 'morning' || oldShift === 'night') {
-                    totals[line][oldShift].actual -= dp;
-                    totals[line][oldShift].order -= order;
-                    render(line, oldShift);
-                }
-                if (newShift === 'morning' || newShift === 'night') {
-                    totals[line][newShift].actual += dp;
-                    totals[line][newShift].order += order;
-                    render(line, newShift);
-                }
-                // total selalu diupdate berdasarkan delta (actual & order tidak berubah total di sini karena kita memindahkan)
-                meta.shift = newShift;
-            }
+            // expose buat dipanggil dari tempat lain juga
+            window.recomputeAllLineCards = function() {
+                ['AS003', 'AS004'].forEach(renderLineCard);
+            };
 
-            function classifyShiftFromEvent(it, fallbackRow) {
-                const H = s => {
-                    if (!s || typeof s !== 'string') return null;
-                    const m = s.match(/^(\d{1,2})/);
-                    return m ? parseInt(m[1], 10) : null;
-                };
-                const sh = H(it.actual_start);
-                const eh = H(it.end);
-                const morning = (sh != null && sh >= 6 && sh < 14) || (eh != null && eh >= 6 && eh < 14);
-                const night = (sh != null && (sh >= 22 || sh < 6)) || (eh != null && (eh >= 22 || eh < 6));
-                if (morning) return 'morning';
-                if (night) return 'night';
-                // fallback ke data row
-                const rs = fallbackRow?.getAttribute('data-shift');
-                return rs || 'other';
-            }
+            // ① jalan sekali saat DOM siap
+            document.addEventListener('DOMContentLoaded', () => window.recomputeAllLineCards());
 
-            function applyUpdateForItem(it) {
-                const id = String(it.id);
-                let meta = items.get(id);
-
-                // cari DOM kalau belum terindeks
-                if (!meta) {
-                    const el = document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`) ||
-                        document.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`);
-                    const row = el?.closest('tr');
-                    const wrap = el?.closest('[data-toggle-table]');
-                    const line = wrap?.getAttribute('data-toggle-table');
-                    if (!line) return;
-                    const shift = classifyShiftFromEvent(it, row);
-                    const dp = parseIntSafe(el?.textContent);
-                    const ord = parseIntSafe(row?.querySelector('[data-label="Order"] .flip')?.textContent);
-                    meta = {
-                        line,
-                        shift,
-                        dp,
-                        order: ord
-                    };
-                    items.set(id, meta);
-                }
-
-                // mungkin shift berubah karena actual_start/end baru
-                const elRow = document.querySelector(`[data-item-id="${id}"]`)?.closest('tr');
-                const newShift = classifyShiftFromEvent(it, elRow);
-                if (newShift && newShift !== meta.shift) {
-                    moveBetweenShifts(meta, newShift);
-                }
-
-                // DP (actual)
-                if (typeof it.direct_pulling_qty === 'number') {
-                    const newDP = it.direct_pulling_qty | 0;
-                    const delta = newDP - (meta.dp | 0);
-                    if (delta !== 0) {
-                        if (meta.shift === 'morning' || meta.shift === 'night') {
-                            totals[meta.line][meta.shift].actual += delta;
-                            totals[meta.line].total.actual += delta;
-                            render(meta.line, meta.shift);
-                            render(meta.line, 'total');
-                        }
-                        meta.dp = newDP;
-                    }
-                }
-
-                // ORDER (kalau ikut berubah)
-                if (typeof it.order_qty === 'number') {
-                    const newOrd = it.order_qty | 0;
-                    const deltaO = newOrd - (meta.order | 0);
-                    if (deltaO !== 0) {
-                        if (meta.shift === 'morning' || meta.shift === 'night') {
-                            totals[meta.line][meta.shift].order += deltaO;
-                            totals[meta.line].total.order += deltaO;
-                            render(meta.line, meta.shift);
-                            render(meta.line, 'total');
-                        }
-                        meta.order = newOrd;
-                    }
-                }
-            }
-
-            // handler paket updates
-            function onUpdates(updates) {
-                (updates || []).forEach(applyUpdateForItem);
-            }
-
-            // ----- hook ke SSE yang sudah ada, atau buka sendiri -----
-            const currentDate = (document.querySelector('input[name="date"]')?.value) || new Date().toISOString().slice(
-                0, 10);
-
-            if (window.prodPlanSSE?.eventSource && !window.__shiftCardsHooked) {
-                window.__shiftCardsHooked = true;
-                window.prodPlanSSE.eventSource.addEventListener('directPullingUpdate', (e) => {
+            // ② setiap kamu rebuild summary / rename back no, panggil lagi:
+            //    – kalau kamu punya prodPlanSSE.buildSummaries(), selipkan after-hook ini:
+            const _origBuild = window.prodPlanSSE?.buildSummaries;
+            if (_origBuild && !_origBuild.__wrappedForCardTotal__) {
+                window.prodPlanSSE.buildSummaries = function(...args) {
+                    const ret = _origBuild.apply(this, args);
                     try {
-                        const data = JSON.parse(e.data);
-                        if (data?.date === currentDate) onUpdates(data.updates);
+                        window.recomputeAllLineCards();
                     } catch {}
-                });
-            } else {
-                try {
-                    const es = new EventSource(`/stream/direct-pulling-updates?date=${currentDate}`);
-                    es.addEventListener('directPullingUpdate', (e) => {
-                        try {
-                            const data = JSON.parse(e.data);
-                            if (data?.date === currentDate) onUpdates(data.updates);
-                        } catch {}
-                    });
-                    window.addEventListener('beforeunload', () => es.close());
-                } catch {}
+                    return ret;
+                };
+                window.prodPlanSSE.buildSummaries.__wrappedForCardTotal__ = true;
+            }
+
+            // ③ setelah rename back no diterapkan
+            const _setMap = window.setBackNoRenameMap;
+            if (_setMap && !_setMap.__wrappedForCardTotal__) {
+                window.setBackNoRenameMap = function(map, opts) {
+                    const r = _setMap(map, opts);
+                    try {
+                        window.recomputeAllLineCards();
+                    } catch {}
+                    return r;
+                };
+                window.setBackNoRenameMap.__wrappedForCardTotal__ = true;
             }
         })();
     </script>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
