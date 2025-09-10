@@ -246,7 +246,7 @@ class DashboardController extends Controller
                 'ADM SERVICE PART DIVISION',
                 'TMMIN SERVICE PARTS DIVISION',
                 'TAM SPARE PART DIVISION (DAIHATSU)',
-                'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
+                'PT MITSUBISHI MOTORS KRAMAYUDHA SALES ID'
             ];
 
             $query = DB::connection('mssql_external')
@@ -332,7 +332,7 @@ class DashboardController extends Controller
                     'ADM SERVICE PART DIVISION',
                     'TMMIN SERVICE PARTS DIVISION',
                     'TAM SPARE PART DIVISION (DAIHATSU)',
-                    'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
+                    'PT MITSUBISHI MOTORS KRAMAYUDHA SALES ID',
                 ]);
 
                 // Penting: SELECT back_no_tok & WHERE IN kondisional sesuai dock

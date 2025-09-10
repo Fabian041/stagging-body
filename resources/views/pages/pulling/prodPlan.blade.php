@@ -803,7 +803,7 @@
         html[data-theme="dark"] .modal-content {
             background: var(--surface);
             border-color: var(--border);
-            color: var(--ink);
+            color: white;
         }
 
         html[data-theme="dark"] .modal-header {
@@ -1568,7 +1568,6 @@
                                                 $rowShift = $isMorning ? 'morning' : ($isNight ? 'night' : 'other');
                                             @endphp
                                             <tr data-shift="{{ $rowShift }}">
-                                            <tr>
                                                 @if ($index === 0)
                                                     <td rowspan="{{ $rowspan }}" data-label="Customer"><span
                                                             class="flip">{{ $customer }}</span></td>
@@ -1726,8 +1725,8 @@
 
     <script>
         /* ======================
-                                                                                                                                                                                                                                                                           THEME TOGGLE (tetap)
-                                                                                                                                                                                                                                                                           ====================== */
+                                                                                                                                                                                                                                                                                                       THEME TOGGLE (tetap)
+                                                                                                                                                                                                                                                                                                       ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2670,7 +2669,6 @@
         })();
     </script>
     <script>
-        === === === === === === === = * /
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3530,20 +3528,20 @@
                         div.innerHTML = `
           <div class="d-flex flex-column">
             <div class="back-no">${r.backNo}</div>
-            <div class="small text-muted">${r.customer || '--'}</div>
+            <div class="small number">${r.customer || '--'}</div>
           </div>
           <div class="d-flex align-items-center gap-3">
             <div class="text-end">
               <div class="order-qty">${r.orderQty.toLocaleString('id-ID')}</div>
-              <div class="small text-muted">Order Qty</div>
+              <div class="small number">Order Qty</div>
             </div>
             <div class="text-end">
               <div class="fw-bold text-${color}">${done.toLocaleString('id-ID')}</div>
-              <div class="small text-muted">Completed</div>
+              <div class="small number">Completed</div>
             </div>
             <div class="text-end">
               <div class="fw-bold">${pct}%</div>
-              <div class="small text-muted">Progress</div>
+              <div class="small number">Progress</div>
             </div>
           </div>`;
                         list.appendChild(div);

@@ -30,9 +30,27 @@ class ProductionPlanApiController extends Controller
             ], 422);
         }
 
-        // Find matching records
-        $plans = ProductionPlan::where('dn_number', $request->dn_number)
-            ->where('back_no', $request->back_no)
+        // Normalisasi input
+        $dn = trim($request->dn_number);
+        $backNoRaw = strtoupper(trim($request->back_no));
+
+        // Definisikan grup ekivalensi back_no (bisa ditambah ke depan)
+        $equivGroups = [
+            ['CI17', 'CI18'],
+        ];
+
+        // Tentukan set back_no yang harus dicek
+        $backNosToCheck = [$backNoRaw];
+        foreach ($equivGroups as $group) {
+            if (in_array($backNoRaw, $group, true)) {
+                $backNosToCheck = $group; // mis. kirim CI18 → cek CI17 & CI18
+                break;
+            }
+        }
+
+        // Cari data dengan DN yang sama dan back_no dalam grup ekivalensi
+        $plans = ProductionPlan::where('dn_number', $dn)
+            ->whereIn('back_no', $backNosToCheck)
             ->get();
 
         if ($plans->isEmpty()) {
@@ -40,8 +58,9 @@ class ProductionPlanApiController extends Controller
                 'success' => false,
                 'message' => 'No matching production plans found',
                 'data' => [
-                    'dn_number' => $request->dn_number,
-                    'b_number' => $request->back_no
+                    'dn_number' => $dn,
+                    'back_no_requested' => $backNoRaw,
+                    'back_no_checked' => $backNosToCheck, // info transparan back_no yang dicek
                 ]
             ], 404);
         }
