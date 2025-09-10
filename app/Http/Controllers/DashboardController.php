@@ -419,120 +419,139 @@ class DashboardController extends Controller
 
     protected function updateProductionData($processedData, $backNosByLine, $today)
     {
-        foreach ($backNosByLine as $line => $backNos) {
+        // Filter hanya back_no yang ada di mapping dan kelompokkan per line efektif
+        $itemsByLine = $processedData
+            ->filter(fn($it) => $this->isAllowedBackNo($it->back_no, $backNosByLine))
+            ->groupBy(fn($it) => $this->resolveLineForItem($it, $backNosByLine));
+
+        foreach ($itemsByLine as $line => $items) {
             $startWorkingTime = $today->copy()->setTime(6, 0, 0);
 
-            $lineData = $processedData
-                ->filter(function ($item) use ($backNos) {
-                    return in_array($item->back_no, $backNos);
-                })
-                ->sortBy('time_sort')
-                ->groupBy('dn_number');
+            // Urutkan per waktu, lalu kelompokkan per DN
+            $lineData = $items->sortBy('time_sort')->groupBy('dn_number');
 
             foreach ($lineData as $dnNumber => $group) {
                 $group = $group->sortBy('back_no')->values();
-                $customer = $group->first()->customer;
+                $customer     = $group->first()->customer;
                 $deliveryTime = $group->first()->formatted_time;
 
-                // Calculate working times for the group
+                // Hitung working time untuk grup
                 $currentWorkingTime = $startWorkingTime->copy();
-                foreach ($group as $item) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                $workingEnd = $currentWorkingTime->format('H:i'); // inisialisasi
 
-                    $workingStart = $currentWorkingTime->format('H:i');
-                    $workingEnd = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
-                    $workingDuration = gmdate('H:i:s', $totalSeconds);
+                foreach ($group as $it) {
+                    [$mm, $ss] = explode(':', $it->prod_time);
+                    $prodSeconds = ((int) $mm * 60) + (int) $ss;
+                    $totalSeconds = $prodSeconds * (int) $it->order_qty;
+
+                    $workingStart   = $currentWorkingTime->format('H:i');
+                    $workingEnd     = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
+                    $workingDuration= gmdate('H:i:s', $totalSeconds);
 
                     $currentWorkingTime->addSeconds($totalSeconds);
                 }
 
-                // Calculate balance time for the group
-                $lastEnd = Carbon::createFromFormat('H:i', $workingEnd);
-                $delivery = Carbon::parse($deliveryTime);
+                // Hitung balance time untuk grup (pakai akhir terakhir di grup)
+                $lastEnd  = Carbon::createFromFormat('H:i', $workingEnd);
+                $delivery = Carbon::createFromFormat('H:i', $deliveryTime);
 
                 if ($delivery->lt($lastEnd)) {
                     $delivery->addDay();
                 }
 
-                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true);
-                $isNegative = $balanceSeconds < 0;
+                $balanceSeconds   = $delivery->diffInSeconds($lastEnd, true);
+                $isNegative       = $balanceSeconds < 0;
                 $formattedBalance = gmdate('H:i', abs($balanceSeconds));
-                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
+                $balanceTime      = $isNegative ? "-$formattedBalance" : $formattedBalance;
 
-                // Update or create each record
+                // Simpan setiap item dalam grup
                 $currentWorkingTime = $startWorkingTime->copy();
-                foreach ($group as $item) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
+                foreach ($group as $it) {
+                    [$mm, $ss]  = explode(':', $it->prod_time);
+                    $prodSeconds= ((int) $mm * 60) + (int) $ss;
+                    $totalSec   = $prodSeconds * (int) $it->order_qty;
 
-                    // Get existing record to preserve quantities
+                    $baseLine   = $this->getBaseLineByBackNo($it->back_no, $backNosByLine) ?? $line; // untuk cleanup jika pindah
+
+                    // Cari record eksisting di line tujuan dulu
                     $existingRecord = ProductionPlan::where([
                         'plan_date' => $today->format('Y-m-d'),
-                        'line' => $line,
-                        'customer' => $customer,
-                        'back_no' => $item->back_no,
-                        'dn_number' => $item->dn_number
+                        'line'      => $line,
+                        'customer'  => $customer,
+                        'back_no'   => $it->back_no,
+                        'dn_number' => $it->dn_number
                     ])->first();
 
+                    // Jika belum ada (mungkin sebelumnya tersimpan di line lain), cari tanpa filter line
+                    if (!$existingRecord) {
+                        $existingRecord = ProductionPlan::where([
+                            'plan_date' => $today->format('Y-m-d'),
+                            'customer'  => $customer,
+                            'back_no'   => $it->back_no,
+                            'dn_number' => $it->dn_number
+                        ])->first();
+                    }
+
                     $updateData = [
-                        'dock' => $item->dock,
-                        'cycle' => $item->cycle,
-                        'order_qty' => $item->order_qty,
-                        'prod_time' => $item->prod_time,
-                        'working_start' => $currentWorkingTime->format('H:i'),
-                        'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
-                        'working_duration' => gmdate('H:i:s', $totalSeconds),
-                        'delivery_time' => $deliveryTime,
-                        'delivery_date' => \Carbon\Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
-                        'balance_time' => $balanceTime,
-                        'updated_at' => now()
+                        'dock'             => $it->dock,
+                        'cycle'            => $it->cycle,
+                        'order_qty'        => $it->order_qty,
+                        'prod_time'        => $it->prod_time,
+                        'working_start'    => $currentWorkingTime->format('H:i'),
+                        'working_end'      => $currentWorkingTime->copy()->addSeconds($totalSec)->format('H:i'),
+                        'working_duration' => gmdate('H:i:s', $totalSec),
+                        'delivery_time'    => $deliveryTime,
+                        'delivery_date'    => \Carbon\Carbon::createFromFormat('Ymd', $it->delivery_date)->format('Y-m-d'),
+                        'balance_time'     => $balanceTime,
+                        'updated_at'       => now(),
                     ];
 
-                    // $updateData = [
-                    //     'dock' => $item->dock,
-                    //     'cycle' => $item->cycle,
-                    //     'order_qty' => $item->order_qty,
-                    //     'prod_time' => $item->prod_time,
-                    //     'working_start' => null,
-                    //     'working_end' => null,
-                    //     'working_duration' => gmdate('H:i:s', $totalSeconds),
-                    //     'delivery_time' => $deliveryTime,
-                    //     'delivery_date' => \Carbon\Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
-                    //     'balance_time' => null,
-                    //     'updated_at' => now()
-                    // ];
-
-                    // Preserve existing quantities if they exist
+                    // Preserve actuals jika ada
                     if ($existingRecord) {
                         $updateData['direct_pulling_qty'] = $existingRecord->direct_pulling_qty;
-                        $updateData['stock_chute_qty'] = $existingRecord->stock_chute_qty;
+                        $updateData['stock_chute_qty']    = $existingRecord->stock_chute_qty;
                     } else {
                         $updateData['direct_pulling_qty'] = 0;
-                        $updateData['stock_chute_qty'] = 0;
-                        $updateData['created_at'] = now();
+                        $updateData['stock_chute_qty']    = 0;
+                        $updateData['created_at']         = now();
                     }
 
                     try {
+                        // Simpan ke line tujuan (efektif)
                         ProductionPlan::updateOrCreate(
                             [
                                 'plan_date' => $today->format('Y-m-d'),
-                                'line' => $line,
-                                'customer' => $customer,
-                                'back_no' => $item->back_no,
-                                'dn_number' => $item->dn_number
+                                'line'      => $line,
+                                'customer'  => $customer,
+                                'back_no'   => $it->back_no,
+                                'dn_number' => $it->dn_number
                             ],
                             $updateData
                         );
+
+                        // Jika item ini pindah line (base != efektif), hapus record lama agar tidak dobel
+                        if ($baseLine !== $line) {
+                            ProductionPlan::where([
+                                'plan_date' => $today->format('Y-m-d'),
+                                'line'      => $baseLine,
+                                'customer'  => $customer,
+                                'back_no'   => $it->back_no,
+                                'dn_number' => $it->dn_number
+                            ])->delete();
+                        }
                     } catch (\Exception $e) {
-                        $message = 'Failed to update data: ' . $e->getMessage();
-                        $messageType = 'error';
+                        \Log::error('Failed to update ProductionPlan: '.$e->getMessage(), [
+                            'line' => $line,
+                            'customer' => $customer,
+                            'back_no' => $it->back_no,
+                            'dn_number' => $it->dn_number
+                        ]);
                     }
 
-                    $currentWorkingTime->addSeconds($totalSeconds);
+                    $currentWorkingTime->addSeconds($totalSec);
                 }
+
+                // Update startWorkingTime untuk grup berikutnya di line ini
                 $startWorkingTime = $currentWorkingTime;
             }
         }
@@ -541,69 +560,92 @@ class DashboardController extends Controller
     protected function getGroupedData($backNosByLine, $today)
     {
         $grouped = [];
+        $todayISO = $today->toDateString();
+        $nextISO  = $today->copy()->addDay()->toDateString();
+        $THRESH_MIN = 9*60 + 40; // 09:40
+
+        // helper: parse "H:i" -> menit
+        $toMin = function ($t) {
+            if (!$t) return null;
+            try {
+                // handle "H:i" or "HH:mm"
+                [$h, $m] = array_map('intval', explode(':', $t));
+                if (!is_numeric($h) || !is_numeric($m)) return null;
+                return $h*60 + $m;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
 
         foreach ($backNosByLine as $line => $backNos) {
-            $lineData = ProductionPlan::whereDate('plan_date', $today->format('Y-m-d'))
+            // Ambil data plan untuk selected date (seperti existing)
+            $lineData = ProductionPlan::whereDate('plan_date', $todayISO)
                 ->where('line', $line)
                 ->orderBy('delivery_date')
                 ->orderBy('delivery_time')
                 ->get();
 
-            // Morning shift (06:00 - 13:59)
-            $morningFilter = function ($item) {
+            // --- Filter berdasar DELIVERY ---
+            $isMorning = function ($item) use ($todayISO, $THRESH_MIN, $toMin) {
+                $dd = $item->delivery_date ? \Carbon\Carbon::parse($item->delivery_date)->toDateString() : null;
+                $tm = $toMin($item->delivery_time ?? null);
+                if ($dd && $tm !== null) {
+                    return ($dd === $todayISO) && ($tm >= $THRESH_MIN);
+                }
+                // Fallback ke working time kalau delivery kosong
                 try {
-                    if (!$item->working_start || !$item->working_end) return false;
-                    $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
-                    $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
-                    $isStartMorning = ($startHour >= 6 && $startHour < 14);
-                    $isEndMorning   = ($endHour >= 6 && $endHour < 14);
-                    return $isStartMorning || $isEndMorning;
-                } catch (\Exception $e) {
-                    \Log::warning("Failed to parse working times (morning): ".$e->getMessage(), [
-                        'item_id' => $item->id ?? null,
-                        'working_start' => $item->working_start,
-                        'working_end' => $item->working_end
-                    ]);
+                    if (!$item->working_start && !$item->working_end) return false;
+                    $sh = $item->working_start ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_start)->format('H') : null;
+                    $eh = $item->working_end   ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_end)->format('H')   : null;
+                    $startMorning = ($sh !== null) && ($sh >= 10 && $sh <= 22);
+                    $endMorning   = ($eh !== null) && ($eh >= 10 && $eh <= 22);
+                    return $startMorning || $endMorning;
+                } catch (\Throwable $e) {
+                    \Log::warning("Morning fallback parse error: ".$e->getMessage(), ['item_id'=>$item->id??null]);
                     return false;
                 }
             };
 
-            // Night shift (22:00 - 05:59)
-            $nightFilter = function ($item) {
+            $isNight = function ($item) use ($nextISO, $THRESH_MIN, $toMin) {
+                $dd = $item->delivery_date ? \Carbon\Carbon::parse($item->delivery_date)->toDateString() : null;
+                $tm = $toMin($item->delivery_time ?? null);
+                if ($dd && $tm !== null) {
+                    return ($dd === $nextISO) && ($tm < $THRESH_MIN);
+                }
+                // Fallback ke working time kalau delivery kosong
                 try {
-                    if (!$item->working_start || !$item->working_end) return false;
-                    $startHour = (int) Carbon::createFromFormat('H:i', $item->working_start)->format('H');
-                    $endHour   = (int) Carbon::createFromFormat('H:i', $item->working_end)->format('H');
-                    $isStartNight = ($startHour >= 22 || $startHour < 6);
-                    $isEndNight   = ($endHour >= 22 || $endHour < 6);
-                    return $isStartNight || $isEndNight;
-                } catch (\Exception $e) {
-                    \Log::warning("Failed to parse working times (night): ".$e->getMessage(), [
-                        'item_id' => $item->id ?? null,
-                        'working_start' => $item->working_start,
-                        'working_end' => $item->working_end
-                    ]);
+                    if (!$item->working_start && !$item->working_end) return false;
+                    $sh = $item->working_start ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_start)->format('H') : null;
+                    $eh = $item->working_end   ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_end)->format('H')   : null;
+                    $startNight = ($sh !== null) && ($sh >= 0 && $sh <= 9 || $sh === 23 || $sh >= 22);
+                    $endNight   = ($eh !== null) && ($eh >= 0 && $eh <= 9 || $eh === 23 || $eh >= 22);
+                    return $startNight || $endNight;
+                } catch (\Throwable $e) {
+                    \Log::warning("Night fallback parse error: ".$e->getMessage(), ['item_id'=>$item->id??null]);
                     return false;
                 }
             };
+
+            $morningItems = $lineData->filter($isMorning);
+            $nightItems   = $lineData->filter($isNight);
 
             // Order qty per shift
-            $morningShiftQty = (int) $lineData->filter($morningFilter)->sum('order_qty');
-            $nightShiftQty   = (int) $lineData->filter($nightFilter)->sum('order_qty');
+            $morningShiftQty = (int) $morningItems->sum('order_qty');
+            $nightShiftQty   = (int) $nightItems->sum('order_qty');
 
             // Actual (direct_pulling_qty) per shift
-            $morningShiftActual = (int) $lineData->filter($morningFilter)
-                ->sum(fn($i) => (int) ($i->direct_pulling_qty ?? 0));
-            $nightShiftActual = (int) $lineData->filter($nightFilter)
-                ->sum(fn($i) => (int) ($i->direct_pulling_qty ?? 0));
+            $morningShiftActual = (int) $morningItems->sum(fn($i) => (int) ($i->direct_pulling_qty ?? 0));
+            $nightShiftActual   = (int) $nightItems->sum(fn($i) => (int) ($i->direct_pulling_qty ?? 0));
 
             $grouped[$line] = [
-                'data' => $lineData->groupBy(fn ($item) => $item->customer.'|'.$item->delivery_time),
-                'morning_shift_qty' => $morningShiftQty,
-                'night_shift_qty'   => $nightShiftQty,
-                'total_qty'         => $morningShiftQty + $nightShiftQty,
+                // tetap tampilkan semua data di tabel
+                'data' => $lineData->groupBy(fn ($item) => ($item->customer ?? '--') . '|' . ($item->delivery_time ?? '--')),
 
-                // NEW: actuals
+                // KPI sesuai rule baru
+                'morning_shift_qty'    => $morningShiftQty,
+                'night_shift_qty'      => $nightShiftQty,
+                'total_qty'            => $morningShiftQty + $nightShiftQty,
+
                 'morning_shift_actual' => $morningShiftActual,
                 'night_shift_actual'   => $nightShiftActual,
                 'total_actual'         => $morningShiftActual + $nightShiftActual,
@@ -611,6 +653,39 @@ class DashboardController extends Controller
         }
 
         return $grouped;
+    }
+
+    protected function getBaseLineByBackNo(string $backNo, array $backNosByLine): ?string
+    {
+        foreach ($backNosByLine as $line => $backs) {
+            if (in_array(strtoupper(trim($backNo)), array_map(fn($b) => strtoupper(trim($b)), $backs), true)) {
+                return $line;
+            }
+        }
+        return null;
+    }
+
+    /** Apakah back_no termasuk dalam mapping yang diizinkan */
+    protected function isAllowedBackNo(string $backNo, array $backNosByLine): bool
+    {
+        return (bool) $this->getBaseLineByBackNo($backNo, $backNosByLine);
+    }
+
+    /** Line efektif per item (boleh override aturan base) */
+    protected function resolveLineForItem(object $item, array $backNosByLine): string
+    {
+        $base = $this->getBaseLineByBackNo($item->back_no, $backNosByLine) ?? 'AS003';
+
+        $backNo   = strtoupper(trim((string) $item->back_no));
+        $customer = strtoupper(trim((string) $item->customer));
+        $dock     = strtoupper(trim((string) $item->dock));
+
+        // OVERRIDE: CI13 + ADM ENGINE PLANT + EXP -> AS004
+        if ($backNo === 'CI13' && $customer === 'ADM ENGINE PLANT' && $dock === 'EXP') {
+            return 'AS004';
+        }
+
+        return $base;
     }
 
     public function progressPulling()

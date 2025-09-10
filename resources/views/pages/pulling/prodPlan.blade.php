@@ -1724,11 +1724,9 @@
     </div>
 
     <script>
-        /* ======================
-                           UTILITIES (shared)
-                           ====================== */
         (function() {
             if (window.$u) return;
+
             const normLabel = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
             const normUpper = s => String(s || '').trim().toUpperCase();
             const int = v => {
@@ -1746,6 +1744,54 @@
                 }
                 return null;
             };
+
+            // --- time & date helpers ---
+            const timeToMinutes = txt => {
+                if (!txt) return null;
+                const m = String(txt).trim().match(/^(\d{1,2})\s*:\s*(\d{2})/);
+                if (!m) {
+                    const h = parseInt(String(txt).trim().match(/^(\d{1,2})/)?.[1] ?? '', 10);
+                    return isNaN(h) ? null : h * 60;
+                }
+                const hh = parseInt(m[1], 10),
+                    mm = parseInt(m[2], 10);
+                if (isNaN(hh) || isNaN(mm)) return null;
+                return hh * 60 + mm;
+            };
+            const getCurrentISO = () =>
+                (document.querySelector('input[name="date"]')?.value || new Date().toISOString()).slice(0, 10);
+            const isoAddDays = (iso, days) => {
+                const d = new Date(iso + 'T00:00:00');
+                d.setDate(d.getDate() + (days | 0));
+                return d.toISOString().slice(0, 10);
+            };
+            // Convert "MM/DD" (dari tabel) -> "YYYY-MM-DD" (ambil tahun dari current date)
+            const mdToISO = (mdText, refISO = getCurrentISO()) => {
+                if (!mdText) return null;
+                const m = String(mdText).trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})/);
+                if (!m) return null;
+                const [, MMs, DDs] = m;
+                const MM = parseInt(MMs, 10),
+                    DD = parseInt(DDs, 10);
+                if (isNaN(MM) || isNaN(DD)) return null;
+                const ref = new Date(refISO + 'T00:00:00');
+                const y = ref.getFullYear();
+                const dSame = new Date(y, MM - 1, DD);
+                return dSame.toISOString().slice(0, 10);
+            };
+            // Klasifikasi shift sesuai aturan 09:40 + tanggal
+            const toShiftByDateTime = (currentISO, deliveryISO, timeText) => {
+                if (!currentISO || !deliveryISO || !timeText) return 'other';
+                const mins = timeToMinutes(timeText);
+                if (mins == null) return 'other';
+                const THRESH = 9 * 60 + 40; // 09:40
+                const nextISO = isoAddDays(currentISO, 1);
+                if (deliveryISO === currentISO && mins >= THRESH) return 'morning';
+                if (deliveryISO === nextISO && mins < THRESH) return 'night';
+                return 'other';
+            };
+
+            // (dipakai di tempat lain – biarkan)
             const hourFromText = txt => {
                 if (!txt) return null;
                 const m = String(txt).trim().match(/^(\d{1,2})/);
@@ -1753,29 +1799,31 @@
                 const h = parseInt(m[1], 10);
                 return isNaN(h) ? null : h;
             };
-            const canonicalBackNoSplit = s => String(s || '').toUpperCase().replace(/\s*\(C\d(?:[–-])?\d\)\s*$/, '')
-                .trim();
-            const toShiftByHour = H => {
-                if (H >= 10 && H <= 22) return 'morning'; // 10..22
-                if ((H >= 0 && H <= 9) || H === 23) return 'night'; // 00..09 & 23
-                return 'other';
-            };
+            const canonicalBackNoSplit = s => String(s || '').toUpperCase()
+                .replace(/\s*\(C\d(?:[–-])?\d\)\s*$/, '').trim();
+
             window.$u = {
                 normLabel,
                 normUpper,
                 int,
                 getCellByLabel,
+                // baru:
+                timeToMinutes,
+                getCurrentISO,
+                isoAddDays,
+                mdToISO,
+                toShiftByDateTime,
+                // legacy:
                 hourFromText,
-                canonicalBackNoSplit,
-                toShiftByHour
+                canonicalBackNoSplit
             };
         })();
     </script>
 
     <script>
         /* ======================
-                           THEME TOGGLE
-                           ====================== */
+                                           THEME TOGGLE
+                                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -1805,8 +1853,8 @@
 
     <script>
         /* ======================
-                           SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
-                           ====================== */
+                                           SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
+                                           ====================== */
         const COL_ORDER = [
             'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
             'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date',
@@ -2707,8 +2755,8 @@
 
     <script>
         /* ======================
-                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                           ====================== */
+                                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                           ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2915,8 +2963,8 @@
 
     <script>
         /* ======================
-                           BACK NO RENAMER (trim using $u)
-                           ====================== */
+                                           BACK NO RENAMER (trim using $u)
+                                           ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3005,8 +3053,8 @@
 
     <script>
         /* ======================
-                           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-                           ====================== */
+                                           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+                                           ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
@@ -3085,17 +3133,65 @@
                 return null;
             }
 
+            function readDeliveryTimeTextForRow(row) {
+                let r = row;
+                while (r) {
+                    const td = cellByLabel(r, 'Delivery Time');
+                    if (td) {
+                        const t = (td.textContent || '').trim();
+                        return t || null; // "HH:mm"
+                    }
+                    const prev = r.previousElementSibling;
+                    if (!prev) break;
+                    r = prev;
+                }
+                return null;
+            }
+
+            function readDeliveryDateMDForRow(row) {
+                let r = row;
+                while (r) {
+                    const td = cellByLabel(r, 'Delivery Date');
+                    if (td) {
+                        const t = (td.textContent || '').trim(); // "M/D" atau "MM/DD"
+                        return t || null;
+                    }
+                    const prev = r.previousElementSibling;
+                    if (!prev) break;
+                    r = prev;
+                }
+                return null;
+            }
+
+
             function classifyShift(row, lineKey) {
                 const tag = row.getAttribute('data-shift');
                 if (tag === 'morning' || tag === 'night') return tag;
+
+                // summary khusus (tetap)
                 const ov = specialSummaryShift(lineKey, row);
                 if (ov) return ov;
-                const Hdlv = readDeliveryHourForRow(row);
-                if (Hdlv != null) return $u.toShiftByHour(Hdlv);
+
+                // ==== Aturan baru: berdasarkan Delivery Date + Time ====
+                const curISO = window.prodPlanSSE?.getCurrentDate?.() || $u.getCurrentISO();
+                const md = readDeliveryDateMDForRow(row); // "MM/DD"
+                const tm = readDeliveryTimeTextForRow(row); // "HH:mm"
+                if (md && tm) {
+                    const dlvISO = $u.mdToISO(md, curISO); // "YYYY-MM-DD"
+                    const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
+                    if (byDT !== 'other') return byDT;
+                }
+
+                // Fallback lama (kalau kolom kosong)
+                const Hdlv = $u.hourFromText(readDeliveryTimeTextForRow(row));
+                if (Hdlv != null) return (Hdlv >= 10 && Hdlv <= 22) ? 'morning' :
+                    ((Hdlv >= 0 && Hdlv <= 9) || Hdlv === 23) ? 'night' : 'other';
                 const H = readHourFromRowTimes(row);
-                if (H != null) return $u.toShiftByHour(H);
+                if (H != null) return (H >= 10 && H <= 22) ? 'morning' :
+                    ((H >= 0 && H <= 9) || H === 23) ? 'night' : 'other';
                 return 'other';
             }
+
 
             const rowCountable = tr => tr && tr.style.display !== 'none';
 
@@ -3110,6 +3206,10 @@
                         order: 0,
                         actual: 0
                     },
+                    -total: {
+                        order: 0,
+                        actual: 0
+                    } +
                     total: {
                         order: 0,
                         actual: 0
@@ -3121,16 +3221,19 @@
                     const order = readOrder(tr);
                     const dp = readDP(tr);
                     const lineShift = classifyShift(tr, lineKey);
-                    if (tr.getAttribute('data-shift') !== lineShift) tr.setAttribute('data-shift', lineShift);
-                    sums.total.order += order;
+                    if (tr.getAttribute('data-shift') !== lineShift) tr.setAttribute('data-shift', lineShift); -
+                    sums.total.order += order; -
                     sums.total.actual += dp;
                     if (lineShift === 'morning' || lineShift === 'night') {
                         sums[lineShift].order += order;
                         sums[lineShift].actual += dp;
                     }
-                });
+                }); + // TOTAL = Morning + Night (baris "other" tidak ikut)
+                +sums.total.order = sums.morning.order + sums.night.order; +
+                sums.total.actual = sums.morning.actual + sums.night.actual;
                 return sums;
             }
+
 
             const pct = (a, o) => o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
 
@@ -3463,7 +3566,8 @@
 
     <script>
         (function CardTotalsFromDOM() {
-            /* disabled: handled by FixShiftCardsV3 */ })();
+            /* disabled: handled by FixShiftCardsV3 */
+        })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
