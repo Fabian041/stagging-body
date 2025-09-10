@@ -1725,8 +1725,8 @@
 
     <script>
         /* ======================
-                                                                                                                                                                                                                                                                                                                               THEME TOGGLE (tetap)
-                                                                                                                                                                                                                                                                                                                               ====================== */
+                                                                                                                                                                                                                                                                                                                                       THEME TOGGLE (tetap)
+                                                                                                                                                                                                                                                                                                                                       ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2454,21 +2454,48 @@
                 document.head.appendChild(st);
             }
 
+            _restorePinnedRow(row) {
+                const tbody = row?.parentElement;
+                if (!tbody) return;
+
+                // hapus header kloningan yang tadi ditambah saat dipin
+                Array.from(row.querySelectorAll('[data-cloned-header]')).forEach(n => n.remove());
+
+                const ph = row._pinPlaceholder;
+                if (ph && ph.parentNode === tbody) {
+                    tbody.insertBefore(row, ph); // balik ke posisi asli
+                    ph.remove();
+                    row._pinPlaceholder = null;
+                } else {
+                    // fallback ekstrem: kalau placeholder hilang, barulah pakai cara lama
+                    this._restoreOriginalOrder?.(tbody);
+                }
+
+                row.classList.remove('is-pinned');
+
+                const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
+                this.recalcRowspans(container);
+            }
+
+
             triggerHighlight(row, type = 'direct-pulling') {
                 if (!row) return;
-
-                // 1) Kedip (blink)
                 const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
+
+                // restart blink
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
-                void row.offsetWidth; // restart animasi
+                void row.offsetWidth;
                 row.classList.add(cls);
+
+                // perpanjang blink
                 clearTimeout(row._blinkTimer);
                 row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
 
-                // 2) Pin ke paling atas list (setelah summary)
+                // pin ke atas + perpanjang durasi pin
                 this._pinRowToTop(row);
+                clearTimeout(row._pinRestoreTimer);
+                row._pinRestoreTimer = setTimeout(() => this._restorePinnedRow(row), this.HIGHLIGHT_DURATION_MS);
             }
-
 
             connect() {
                 try {
@@ -2703,34 +2730,30 @@
                 const tbody = row?.parentElement;
                 if (!tbody) return;
 
-                // Klon header grup ke row yang akan dipin (biar kolom lengkap)
+                // simpan posisi asli sekali saja
+                if (!row._pinPlaceholder) {
+                    row._pinPlaceholder = document.createComment('pin-anchor');
+                    tbody.insertBefore(row._pinPlaceholder, row); // placeholder di posisi asli row
+                }
+
+                // klon header merge (Customer/Dock/Cycle) biar kolom tetap lengkap saat di atas
                 const startRow = this._findGroupStartRow(row);
                 if (startRow) this._cloneRowspanCellsToRow(startRow, row);
 
-                // Cari posisi "paling atas list" = setelah baris summary (jika ada)
+                // taruh setelah summary teratas
                 const rows = Array.from(tbody.querySelectorAll('tr'));
-                const firstNonSummary = rows.find(tr => tr.getAttribute('data-summary-row') !== '1');
-
-                if (firstNonSummary && row !== firstNonSummary) {
-                    tbody.insertBefore(row, firstNonSummary);
-                } else {
-                    // kalau tidak ada summary, taruh benar-benar paling atas
-                    tbody.insertBefore(row, tbody.firstChild);
-                }
+                const firstNonSummary = rows.find(tr =>
+                    tr.getAttribute('data-summary-row') !== '1' && tr !== row
+                );
+                if (firstNonSummary) tbody.insertBefore(row, firstNonSummary);
+                else tbody.insertBefore(row, tbody.firstChild);
 
                 row.classList.add('is-pinned');
 
-                // perpanjang pin kalau ada update berulang
-                clearTimeout(row._pinRestoreTimer);
-                row._pinRestoreTimer = setTimeout(() => {
-                    row.classList.remove('is-pinned');
-                    this._restoreOriginalOrder(tbody);
-                }, this.HIGHLIGHT_DURATION_MS);
-
-                // perbaiki rowspan grup setelah row keluar dari grup
-                const container = row.closest('[data-toggle-table]') || row.closest('table')?.parentElement;
+                const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
                 this.recalcRowspans(container);
             }
+
 
             _restoreOriginalOrder(tbody) {
                 // kembalikan urutan berdasarkan snapshot awal
