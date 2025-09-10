@@ -1725,8 +1725,8 @@
 
     <script>
         /* ======================
-                                                                                                                                                                                                                                                                                                       THEME TOGGLE (tetap)
-                                                                                                                                                                                                                                                                                                       ====================== */
+                                                                                                                                                                                                                                                                                                               THEME TOGGLE (tetap)
+                                                                                                                                                                                                                                                                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2451,6 +2451,20 @@
                 document.head.appendChild(st);
             }
 
+            triggerHighlight(row, type = 'direct-pulling') {
+                if (!row) return;
+                const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
+
+                // restart animasi kalau sebelumnya sudah nempel
+                row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
+                void row.offsetWidth; // force reflow
+                row.classList.add(cls);
+
+                // lepas otomatis biar nggak nempel selamanya
+                clearTimeout(row._blinkTimer);
+                row._blinkTimer = setTimeout(() => row.classList.remove(cls), 2000);
+            }
+
             connect() {
                 try {
                     if (this.eventSource) this.eventSource.close();
@@ -2575,14 +2589,18 @@
                     const cur = (el.textContent || '').trim();
                     if (cur !== String(newValue)) {
                         el.textContent = newValue ?? '';
+
                         const td = el.closest('td');
-                        if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
-                            targetQty);
-                        else this.updateCellStyle(td, null, type);
+                        const row = td?.parentElement; // <-- tambahkan ini
+
+                        if (!isNaN(parseFloat(newValue))) {
+                            this.updateCellStyle(td, parseFloat(newValue), type, targetQty);
+                        } else {
+                            this.updateCellStyle(td, null, type);
+                        }
 
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
-                            const row = td.parentElement;
                             const order = this._getOrder(row);
                             const dp = parseInt((row.querySelector('[data-type="direct-pulling"]')
                                 ?.textContent || '0'), 10) || 0;
@@ -2604,6 +2622,11 @@
                             }
                         }
 
+                        // === TAMBAHKAN DI SINI ===
+                        if (row && (type === 'direct-pulling' || type === 'stock-chute')) {
+                            this.triggerHighlight(row, type);
+                        }
+
                         const f = td?.querySelector('.flip');
                         if (f) {
                             f.classList.add('animate-flip');
@@ -2612,6 +2635,7 @@
                     }
                 });
             }
+
 
             updateCellStyle(cell, val, type, targetQty = null) {
                 if (!cell) return;
