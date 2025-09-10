@@ -1725,79 +1725,94 @@
 
     <script>
         /* ======================
-                                                                                                                                                                                                                                                                                                                                       THEME TOGGLE (tetap)
-                                                                                                                                                                                                                                                                                                                                       ====================== */
+           UTILITIES (shared)
+           ====================== */
+        (function() {
+            if (window.$u) return;
+            const normLabel = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            const normUpper = s => String(s || '').trim().toUpperCase();
+            const int = v => {
+                const n = parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10);
+                return isNaN(n) ? 0 : n;
+            };
+            const getCellByLabel = (row, wanted) => {
+                const wl = normLabel(wanted);
+                const tds = Array.from(row?.children || []);
+                for (const c of tds)
+                    if (normLabel(c.getAttribute('data-label')) === wl) return c;
+                for (const c of tds) {
+                    const l = normLabel(c.getAttribute('data-label'));
+                    if (l && (l.includes(wl) || wl.includes(l))) return c;
+                }
+                return null;
+            };
+            const hourFromText = txt => {
+                if (!txt) return null;
+                const m = String(txt).trim().match(/^(\d{1,2})/);
+                if (!m) return null;
+                const h = parseInt(m[1], 10);
+                return isNaN(h) ? null : h;
+            };
+            const canonicalBackNoSplit = s => String(s || '').toUpperCase().replace(/\s*\(C\d(?:[–-])?\d\)\s*$/, '')
+                .trim();
+            const toShiftByHour = H => {
+                if (H >= 10 && H <= 22) return 'morning'; // 10..22
+                if ((H >= 0 && H <= 9) || H === 23) return 'night'; // 00..09 & 23
+                return 'other';
+            };
+            window.$u = {
+                normLabel,
+                normUpper,
+                int,
+                getCellByLabel,
+                hourFromText,
+                canonicalBackNoSplit,
+                toShiftByHour
+            };
+        })();
+    </script>
+
+    <script>
+        /* ======================
+           THEME TOGGLE
+           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
-            const saved = localStorage.getItem(key);
             const el = document.documentElement;
-
-            function apply(mode) {
+            const apply = mode => {
                 el.setAttribute('data-theme', mode);
                 const btn = document.getElementById('themeToggle');
                 if (!btn) return;
                 const icon = btn.querySelector('i');
                 const label = btn.querySelector('span');
                 if (mode === 'dark') {
-                    icon.className = 'far fa-sun me-1';
-                    label.textContent = 'Light';
+                    if (icon) icon.className = 'far fa-sun me-1';
+                    if (label) label.textContent = 'Light';
                 } else {
-                    icon.className = 'far fa-moon me-1';
-                    label.textContent = 'Dark';
+                    if (icon) icon.className = 'far fa-moon me-1';
+                    if (label) label.textContent = 'Dark';
                 }
-            }
-
-            if (saved) apply(saved);
-            else apply(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' :
-                'light');
-
+            };
+            const saved = localStorage.getItem(key);
+            apply(saved || (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'));
             document.getElementById('themeToggle')?.addEventListener('click', () => {
-                const current = el.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-                const next = current === 'dark' ? 'light' : 'dark';
+                const next = (el.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
                 localStorage.setItem(key, next);
                 apply(next);
             });
         })();
+    </script>
 
+    <script>
         /* ======================
-           KONST & UTIL KOLOM
+           SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
            ====================== */
         const COL_ORDER = [
-            'Customer', 'Dock', 'Cycle', 'Back No', 'Order',
-            'Direct Pulling', 'Stock Chute', 'Cycle Time',
-            'Planning Start', 'Actual Start', 'Duration', 'Progress',
-            'Delivery Time', 'Delivery Date', 'Balance Time'
+            'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
+            'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date',
+            'Balance Time'
         ];
 
-        function normLabel(s) {
-            return (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        }
-
-        function colIndexByLabel(td) {
-            const lbl = normLabel(td?.getAttribute('data-label'));
-            const idx = COL_ORDER.map(normLabel).indexOf(lbl);
-            return idx >= 0 ? idx : (td?.cellIndex ?? 9999);
-        }
-
-        function getCellByLabel(row, wanted) {
-            const wl = normLabel(wanted);
-            let td = row.querySelector(`[data-label]`);
-            // cepat: kalau ada yang tepat
-            const tds = Array.from(row.children);
-            for (const c of tds) {
-                if (normLabel(c.getAttribute('data-label')) === wl) return c;
-            }
-            // fallback: hampir sama (mis. spasi/kapitalisasi beda)
-            for (const c of tds) {
-                const l = normLabel(c.getAttribute('data-label'));
-                if (l && (l.includes(wl) || wl.includes(l))) return c;
-            }
-            return null;
-        }
-
-        /* ======================
-        SSE CLIENT + SUMMARY PINNED (V2 – CI12 split C4–7 dan C8–3)
-           ====================== */
         class ProductionPlanSSEClient {
             constructor() {
                 this.eventSource = null;
@@ -1807,11 +1822,12 @@
                 this.originalOrder = new Map();
                 this.orderRestoreTimeouts = new Map();
                 this.summaries = {};
-
-                this.HIGHLIGHT_DURATION_MS = 40000; // <-- 40 detik
-
+                this.HIGHLIGHT_DURATION_MS = 40000;
                 this.init();
             }
+
+            static normLabel = $u.normLabel;
+            static colOrder = COL_ORDER.map($u.normLabel);
 
             init() {
                 this.createStatusIndicator();
@@ -1830,8 +1846,7 @@
                 this.buildSummaries();
 
                 if (window.bootstrap?.Tooltip) {
-                    const triggers = [].slice.call(document.querySelectorAll('[title]'));
-                    triggers.forEach(el => {
+                    document.querySelectorAll('[title]').forEach(el => {
                         el.setAttribute('data-bs-toggle', 'tooltip');
                         try {
                             new bootstrap.Tooltip(el);
@@ -1840,39 +1855,23 @@
                 }
             }
 
+            _cell(row, wanted) {
+                return $u.getCellByLabel(row, wanted);
+            }
+
             prefillRawAttrs(container) {
                 if (!container) return;
                 container.querySelectorAll('tbody tr').forEach(row => {
                     const bnTd = this._cell(row, 'Back No');
                     const bnEl = bnTd?.querySelector('.flip') || bnTd;
-                    if (bnEl && !bnEl.dataset.backnoRaw) {
-                        bnEl.dataset.backnoRaw = (bnEl.textContent || '').trim();
-                    }
+                    if (bnEl && !bnEl.dataset.backnoRaw) bnEl.dataset.backnoRaw = (bnEl.textContent || '')
+                        .trim();
 
                     const odTd = this._cell(row, 'Order');
                     const odEl = odTd?.querySelector('.flip') || odTd;
-                    if (odEl && !odEl.dataset.orderRaw) {
-                        const num = parseInt(String(odEl.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
-                        odEl.dataset.orderRaw = String(num);
-                    }
+                    if (odEl && !odEl.dataset.orderRaw) odEl.dataset.orderRaw = String($u.int(odEl
+                        .textContent || '0'));
                 });
-            }
-
-            static normLabel(s) {
-                return (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-            }
-
-            _cell(row, wanted) {
-                const wl = ProductionPlanSSEClient.normLabel(wanted);
-                const tds = Array.from(row?.children || []);
-                for (const c of tds) {
-                    if (ProductionPlanSSEClient.normLabel(c.getAttribute('data-label')) === wl) return c;
-                }
-                for (const c of tds) {
-                    const l = ProductionPlanSSEClient.normLabel(c.getAttribute('data-label'));
-                    if (l && (l.includes(wl) || wl.includes(l))) return c;
-                }
-                return null;
             }
 
             _getBackNo(row) {
@@ -1890,18 +1889,14 @@
                 const el = td?.querySelector('.flip') || td;
                 if (!el) return 0;
                 const raw = parseInt(el.dataset?.orderRaw || '', 10);
-                if (!isNaN(raw)) return raw;
-                return parseInt(String(el.textContent || '0').replace(/[^\d-]/g, ''), 10) || 0;
+                return isNaN(raw) ? $u.int(el.textContent || '0') : raw;
             }
 
             _getDP(row) {
-                const el = row?.querySelector('[data-type="direct-pulling"]');
-                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
+                return $u.int(row?.querySelector('[data-type="direct-pulling"]')?.textContent);
             }
-
             _getSC(row) {
-                const el = row?.querySelector('[data-type="stock-chute"]');
-                return el ? (parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10) || 0) : 0;
+                return $u.int(row?.querySelector('[data-type="stock-chute"]')?.textContent);
             }
 
             _getId(row) {
@@ -1912,11 +1907,9 @@
 
             _getCycle(row) {
                 const td = this._cell(row, 'Cycle');
-                const txt = (td?.textContent || '').trim();
-                const m = txt.match(/\d+/);
+                const m = (td?.textContent || '').trim().match(/\d+/);
                 const n = m ? parseInt(m[0], 10) : NaN;
-                if (!isNaN(n)) return ((n - 1) % 8) + 1;
-                return null;
+                return isNaN(n) ? null : (((n - 1) % 8) + 1);
             }
 
             isGroupStart(row) {
@@ -1936,14 +1929,12 @@
             _purgePinnedSummaries(container) {
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return;
-                // HANYA buang summary yang kita sisipkan
                 tbody.querySelectorAll('tr[data-summary-row="1"]').forEach(n => n.remove());
             }
 
             _removeSummaryRowIfExists(tbody, label) {
-                tbody
-                    .querySelectorAll(`tr[data-summary-row="1"][data-summary-label="${label}"]`)
-                    .forEach(n => n.remove());
+                tbody.querySelectorAll(`tr[data-summary-row="1"][data-summary-label="${label}"]`).forEach(n => n
+                    .remove());
             }
 
             recalcRowspans(container) {
@@ -1957,12 +1948,6 @@
                 });
             }
 
-            static colOrder = [
-                'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
-                'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress',
-                'Delivery Time', 'Delivery Date', 'Balance Time'
-            ].map(ProductionPlanSSEClient.normLabel);
-
             _indexByLabel(td) {
                 const lbl = ProductionPlanSSEClient.normLabel(td?.getAttribute('data-label'));
                 const idx = ProductionPlanSSEClient.colOrder.indexOf(lbl);
@@ -1972,16 +1957,13 @@
             _moveRowspanCellsTo(startRow, hostRow) {
                 if (!startRow || !hostRow || hostRow === startRow) return;
                 hostRow.querySelectorAll('[data-cloned-header]').forEach(n => n.remove());
-
                 const startCells = Array.from(startRow.children)
                     .filter(td => td.hasAttribute('rowspan'))
                     .sort((a, b) => this._indexByLabel(a) - this._indexByLabel(b));
-
                 startCells.forEach(td => {
                     const clone = td.cloneNode(true);
                     clone.setAttribute('rowspan', 1);
                     clone.setAttribute('data-cloned-header', '1');
-
                     const wantIdx = this._indexByLabel(td);
                     let ref = null;
                     for (const ex of Array.from(hostRow.children)) {
@@ -1992,7 +1974,6 @@
                     }
                     hostRow.insertBefore(clone, ref);
                 });
-
                 const tbody = startRow.parentElement;
                 if (tbody && hostRow.previousElementSibling !== startRow) tbody.insertBefore(hostRow, startRow);
                 Array.from(startRow.querySelectorAll('[rowspan]')).forEach(td => td.removeAttribute('rowspan'));
@@ -2011,7 +1992,6 @@
                         baseLabel: 'CI12'
                     });
                 }
-
                 if (this.AS004) {
                     this._purgePinnedSummaries(this.AS004);
                     const one = this._extractAndPinSummaryGeneral({
@@ -2031,7 +2011,6 @@
                 const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return null;
-
                 const summary = {
                     row: null,
                     totals: {
@@ -2043,13 +2022,12 @@
                 };
                 const allRows = Array.from(tbody.querySelectorAll('tr'));
 
-                let i = 0;
-                const groups = [];
+                let i = 0,
+                    groups = [];
                 while (i < allRows.length) {
                     const start = allRows[i];
-                    const rs = this.isGroupStart(start) ?
-                        parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) :
-                        1;
+                    const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute(
+                        'rowspan') || '1', 10) : 1;
                     const g = [start];
                     for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
                     groups.push(g);
@@ -2057,11 +2035,10 @@
                 }
 
                 const customerBag = [];
-
                 groups.forEach(groupRows => {
                     const startRow = groupRows[0];
                     const matches = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
-                    if (matches.length === 0) return;
+                    if (!matches.length) return;
 
                     const custTd = this._cell(startRow, 'Customer');
                     const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
@@ -2069,10 +2046,10 @@
                     if (custText) customerBag.push(custText);
 
                     matches.forEach(r => {
-                        const id = this._getId(r);
-                        const dp = this._getDP(r);
-                        const sc = this._getSC(r);
-                        const od = this._getOrder(r);
+                        const id = this._getId(r),
+                            dp = this._getDP(r),
+                            sc = this._getSC(r),
+                            od = this._getOrder(r);
                         summary.totals.dp += dp;
                         summary.totals.sc += sc;
                         summary.totals.order += od;
@@ -2084,9 +2061,8 @@
                     });
 
                     const keepRows = groupRows.filter(r => !matches.includes(r));
-                    if (keepRows.length === 0) {
-                        groupRows.forEach(r => r.remove());
-                    } else {
+                    if (!keepRows.length) groupRows.forEach(r => r.remove());
+                    else {
                         if (matches.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
                         matches.forEach(r => {
                             if (r !== startRow) r.remove();
@@ -2114,7 +2090,6 @@
                 return summary;
             }
 
-            /* ========= Anchor helpers for placement ========= */
             _normalize(s) {
                 return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
             }
@@ -2130,25 +2105,18 @@
             }) {
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return null;
-                const wantCust = this._normalize(customer);
-                const wantDock = this._normalize(dock);
-                const wantCycle = Number(cycle);
-
+                const wantCust = this._normalize(customer),
+                    wantDock = this._normalize(dock),
+                    wantCycle = Number(cycle);
                 for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
                     if (!this.isGroupStart(tr)) continue;
                     const custTxt = this._normalize(this._cellText(tr, 'Customer'));
                     const dockTxt = this._normalize(this._cellText(tr, 'Dock'));
                     const cyc = this._getCycle(tr);
-
-                    const custOk = custTxt.includes(wantCust); // tolerate extra wording
-                    const dockOk = dockTxt.includes(wantDock); // tolerate extra wording
-                    const cycOk = (cyc === wantCycle);
-
-                    if (custOk && dockOk && cycOk) return tr;
+                    if (custTxt.includes(wantCust) && dockTxt.includes(wantDock) && cyc === wantCycle) return tr;
                 }
                 return null;
             }
-            /* ================================================ */
 
             _extractAndPinSummaryCI12Split({
                 container,
@@ -2184,13 +2152,12 @@
                 };
 
                 const allRows = Array.from(tbody.querySelectorAll('tr'));
-                let i = 0;
-                const groups = [];
+                let i = 0,
+                    groups = [];
                 while (i < allRows.length) {
                     const start = allRows[i];
-                    const rs = this.isGroupStart(start) ?
-                        parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) :
-                        1;
+                    const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute(
+                        'rowspan') || '1', 10) : 1;
                     const g = [start];
                     for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
                     groups.push(g);
@@ -2200,7 +2167,7 @@
                 groups.forEach(groupRows => {
                     const startRow = groupRows[0];
                     const matchesAll = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
-                    if (matchesAll.length === 0) return;
+                    if (!matchesAll.length) return;
 
                     const custTd = this._cell(startRow, 'Customer');
                     const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
@@ -2221,10 +2188,10 @@
 
                     const collect = (bucket, rows) => {
                         rows.forEach(r => {
-                            const id = this._getId(r);
-                            const dp = this._getDP(r);
-                            const sc = this._getSC(r);
-                            const od = this._getOrder(r);
+                            const id = this._getId(r),
+                                dp = this._getDP(r),
+                                sc = this._getSC(r),
+                                od = this._getOrder(r);
                             bucket.totals.dp += dp;
                             bucket.totals.sc += sc;
                             bucket.totals.order += od;
@@ -2239,9 +2206,8 @@
                     collect(S83, in83);
 
                     const keepRows = groupRows.filter(r => !matchesAll.includes(r));
-                    if (keepRows.length === 0) {
-                        groupRows.forEach(r => r.remove());
-                    } else {
+                    if (!keepRows.length) groupRows.forEach(r => r.remove());
+                    else {
                         if (matchesAll.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
                         matchesAll.forEach(r => {
                             if (r !== startRow) r.remove();
@@ -2249,7 +2215,7 @@
                     }
                 });
 
-                const modeOf = (arr) => {
+                const modeOf = arr => {
                     if (!arr.length) return '--';
                     const freq = arr.reduce((m, s) => (m[s] = (m[s] || 0) + 1, m), {});
                     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
@@ -2257,7 +2223,6 @@
                 const cust47 = modeOf(S47.customers);
                 const cust83 = modeOf(S83.customers);
 
-                // === cari anchor terlebih dahulu (sebelum insert) ===
                 const anchor47 = this._findAnchorRow(container, {
                     customer: 'TMMIN KARAWANG PLANT 3',
                     dock: '6I',
@@ -2276,14 +2241,9 @@
                         totals: S47.totals,
                         customerText: cust47
                     });
-                    if (anchor47) {
-                        tbody.insertBefore(S47.row, anchor47);
-                    } else {
-                        tbody.insertBefore(S47.row, tbody.firstChild || null); // fallback: paling atas
-                    }
+                    tbody.insertBefore(S47.row, anchor47 || tbody.firstChild || null);
                     result.push(S47);
                 }
-
                 if (S83.totals.order + S83.totals.dp + S83.totals.sc > 0) {
                     this._removeSummaryRowIfExists(tbody, S83.label);
                     S83.row = this._createSummaryRow({
@@ -2291,11 +2251,8 @@
                         totals: S83.totals,
                         customerText: cust83
                     });
-                    if (anchor83) {
-                        tbody.insertBefore(S83.row, anchor83);
-                    } else {
-                        tbody.appendChild(S83.row); // fallback: paling akhir
-                    }
+                    if (anchor83) tbody.insertBefore(S83.row, anchor83);
+                    else tbody.appendChild(S83.row);
                     result.push(S83);
                 }
 
@@ -2321,7 +2278,6 @@
                     return el;
                 };
 
-                // 👉 beri rowspan="1" supaya baris ini diperlakukan sebagai start grup baru
                 tr.appendChild(td(customerText, {
                     'data-label': 'Customer',
                     rowspan: '1'
@@ -2334,7 +2290,6 @@
                     'data-label': 'Cycle',
                     rowspan: '1'
                 }));
-
                 tr.appendChild(td(label, {
                     'data-label': 'Back No'
                 }));
@@ -2342,23 +2297,23 @@
                     'data-label': 'Order'
                 }));
 
-                const tdDP = document.createElement('td');
-                tdDP.setAttribute('data-label', 'Direct Pulling');
-                tdDP.innerHTML = `
-    <div class="qty-progress" title="DP ${totals.dp} / ${totals.order}">
-      <div class="bar"><i style="width:${Math.min(100, Math.round((totals.dp/Math.max(1,totals.order))*100))}%;"></i></div>
-      <span class="val"><span class="flip" data-summary-dp>${totals.dp}</span></span>
-    </div>`;
-                tr.appendChild(tdDP);
+                const dpCell = document.createElement('td');
+                dpCell.setAttribute('data-label', 'Direct Pulling');
+                dpCell.innerHTML = `
+      <div class="qty-progress" title="DP ${totals.dp} / ${totals.order}">
+        <div class="bar"><i style="width:${Math.min(100, Math.round((totals.dp/Math.max(1,totals.order))*100))}%"></i></div>
+        <span class="val"><span class="flip" data-summary-dp>${totals.dp}</span></span>
+      </div>`;
+                tr.appendChild(dpCell);
 
-                const tdSC = document.createElement('td');
-                tdSC.setAttribute('data-label', 'Stock Chute');
-                tdSC.innerHTML = `
-    <div class="qty-progress" title="SC ${totals.sc} / ${totals.order}">
-      <div class="bar"><i style="width:${Math.min(100, Math.round((totals.sc/Math.max(1,totals.order))*100))}%;"></i></div>
-      <span class="val"><span class="flip" data-summary-sc>${totals.sc}</span></span>
-    </div>`;
-                tr.appendChild(tdSC);
+                const scCell = document.createElement('td');
+                scCell.setAttribute('data-label', 'Stock Chute');
+                scCell.innerHTML = `
+      <div class="qty-progress" title="SC ${totals.sc} / ${totals.order}">
+        <div class="bar"><i style="width:${Math.min(100, Math.round((totals.sc/Math.max(1,totals.order))*100))}%"></i></div>
+        <span class="val"><span class="flip" data-summary-sc>${totals.sc}</span></span>
+      </div>`;
+                tr.appendChild(scCell);
 
                 tr.appendChild(td('--', {
                     'data-label': 'Cycle Time'
@@ -2373,15 +2328,15 @@
                     'data-label': 'Duration'
                 }));
 
-                const tdProg = document.createElement('td');
-                tdProg.className = 'total-progress';
-                tdProg.setAttribute('data-label', 'Progress');
-                tdProg.innerHTML = `
-    <div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
-      <div class="bar"><i data-summary-totalbar style="width:${pct}%;"></i></div>
-      <span class="val" data-summary-totalpct>${pct}%</span>
-    </div>`;
-                tr.appendChild(tdProg);
+                const prog = document.createElement('td');
+                prog.className = 'total-progress';
+                prog.setAttribute('data-label', 'Progress');
+                prog.innerHTML = `
+      <div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
+        <div class="bar"><i data-summary-totalbar style="width:${pct}%"></i></div>
+        <span class="val" data-summary-totalpct>${pct}%</span>
+      </div>`;
+                tr.appendChild(prog);
 
                 tr.appendChild(td('--', {
                     'data-label': 'Delivery Time'
@@ -2408,8 +2363,7 @@
                 const scSpan = summary.row.querySelector('[data-summary-sc]');
                 const totalBar = summary.row.querySelector('[data-summary-totalbar]');
                 const totalPct = summary.row.querySelector('[data-summary-totalpct]');
-                const orderFlip = summary.row.querySelector('[data-label="Order"] .flip'); // <-- fixed
-
+                const orderFlip = summary.row.querySelector('[data-label="Order"] .flip');
                 if (dpSpan) dpSpan.textContent = dp;
                 if (scSpan) scSpan.textContent = sc;
                 if (orderFlip) orderFlip.textContent = order.toLocaleString('id-ID');
@@ -2449,49 +2403,35 @@
 @keyframes continuousBlink{0%,100%{background-color:var(--highlight-color);}50%{background-color:var(--base-bg);}}
 .highlight-beep-direct{--highlight-color:var(--highlight-direct);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
 .highlight-beep-stock{--highlight-color:var(--highlight-stock);--base-bg:var(--highlight-base);animation:continuousBlink 1s ease-in-out infinite;}
-.highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}
-`;
+.highlight-beep-direct td,.highlight-beep-stock td{background-color:inherit!important;}`;
                 document.head.appendChild(st);
             }
 
             _restorePinnedRow(row) {
                 const tbody = row?.parentElement;
                 if (!tbody) return;
-
-                // hapus header kloningan yang tadi ditambah saat dipin
                 Array.from(row.querySelectorAll('[data-cloned-header]')).forEach(n => n.remove());
-
                 const ph = row._pinPlaceholder;
                 if (ph && ph.parentNode === tbody) {
-                    tbody.insertBefore(row, ph); // balik ke posisi asli
+                    tbody.insertBefore(row, ph);
                     ph.remove();
                     row._pinPlaceholder = null;
                 } else {
-                    // fallback ekstrem: kalau placeholder hilang, barulah pakai cara lama
                     this._restoreOriginalOrder?.(tbody);
                 }
-
                 row.classList.remove('is-pinned');
-
                 const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
                 this.recalcRowspans(container);
             }
 
-
             triggerHighlight(row, type = 'direct-pulling') {
                 if (!row) return;
                 const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
-
-                // restart blink
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth;
                 row.classList.add(cls);
-
-                // perpanjang blink
                 clearTimeout(row._blinkTimer);
                 row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
-
-                // pin ke atas + perpanjang durasi pin
                 this._pinRowToTop(row);
                 clearTimeout(row._pinRestoreTimer);
                 row._pinRestoreTimer = setTimeout(() => this._restorePinnedRow(row), this.HIGHLIGHT_DURATION_MS);
@@ -2502,9 +2442,7 @@
                     if (this.eventSource) this.eventSource.close();
                     this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
                     this.updateConnectionStatus('connecting');
-
                     this.eventSource.onopen = () => this.updateConnectionStatus('connected');
-
                     this.eventSource.addEventListener('directPullingUpdate', e => {
                         try {
                             const data = JSON.parse(e.data);
@@ -2516,7 +2454,6 @@
                             this.updateConnectionStatus('error', 'parse');
                         }
                     });
-
                     this.eventSource.onerror = () => {
                         this.updateConnectionStatus('disconnected');
                         this.reconnect();
@@ -2528,12 +2465,10 @@
 
             setupDateChangeListener() {
                 const inp = document.querySelector('input[name="date"]');
-                if (inp) {
-                    inp.addEventListener('change', () => {
-                        this.currentDate = this.getCurrentDate();
-                        this.reconnect();
-                    });
-                }
+                if (inp) inp.addEventListener('change', () => {
+                    this.currentDate = this.getCurrentDate();
+                    this.reconnect();
+                });
             }
 
             updateConnectionStatus(status, msg = '') {
@@ -2558,7 +2493,6 @@
                     text: '● Update Error',
                     class: 'text-warning border bg-white'
                 };
-
                 this.statusElement.className = m.class;
                 this.statusElement.textContent = m.text;
             }
@@ -2567,10 +2501,11 @@
                 if (this.eventSource) this.eventSource.close();
                 setTimeout(() => this.connect(), 1500);
             }
-
             setupErrorHandling() {
                 window.addEventListener('beforeunload', () => {
-                    if (this.eventSource) this.eventSource.close();
+                    try {
+                        this.eventSource?.close();
+                    } catch {}
                 });
             }
 
@@ -2599,20 +2534,19 @@
                         }
                     });
 
-                    const selDP = `[data-item-id="${item.id}"][data-type="direct-pulling"]`;
-                    const selSC = `[data-item-id="${item.id}"][data-type="stock-chute"]`;
-
-                    if (document.querySelector(selDP) || document.querySelector(selSC)) {
-                        this.updateQuantity(selDP, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
-                        this.updateQuantity(selSC, item.stock_chute_qty, 'stock-chute', item.order_qty);
-                        this.updateQuantity(`[data-item-id="${item.id}"][data-type="actual_start"]`, item
-                            .actual_start, 'time');
-                        this.updateQuantity(`[data-item-id="${item.id}"][data-type="end"]`, item.end, 'time');
-                        this.updateQuantity(`[data-item-id="${item.id}"][data-type="balance"]`, item.balance,
+                    const idSel = id => `[data-item-id="${id}"]`;
+                    if (document.querySelector(`${idSel(item.id)}[data-type="direct-pulling"]`) || document
+                        .querySelector(`${idSel(item.id)}[data-type="stock-chute"]`)) {
+                        this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item
+                            .direct_pulling_qty, 'direct-pulling', item.order_qty);
+                        this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty,
+                            'stock-chute', item.order_qty);
+                        this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, item.actual_start,
                             'time');
+                        this.updateQuantity(`${idSel(item.id)}[data-type="end"]`, item.end, 'time');
+                        this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, item.balance, 'time');
                     }
                 });
-
                 this.refreshSummaries();
             }
 
@@ -2621,23 +2555,18 @@
                     const cur = (el.textContent || '').trim();
                     if (cur !== String(newValue)) {
                         el.textContent = newValue ?? '';
-
                         const td = el.closest('td');
-                        const row = td?.parentElement; // <-- tambahkan ini
+                        const row = td?.parentElement;
 
-                        if (!isNaN(parseFloat(newValue))) {
-                            this.updateCellStyle(td, parseFloat(newValue), type, targetQty);
-                        } else {
-                            this.updateCellStyle(td, null, type);
-                        }
+                        if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
+                            targetQty);
+                        else this.updateCellStyle(td, null, type);
 
                         const bar = td?.querySelector('.qty-progress .bar > i');
                         if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
                             const order = this._getOrder(row);
-                            const dp = parseInt((row.querySelector('[data-type="direct-pulling"]')
-                                ?.textContent || '0'), 10) || 0;
-                            const sc = parseInt((row.querySelector('[data-type="stock-chute"]')?.textContent ||
-                                '0'), 10) || 0;
+                            const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+                            const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
                             const val = (type === 'direct-pulling') ? dp : sc;
                             const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
                             bar.style.width = pct + '%';
@@ -2654,10 +2583,8 @@
                             }
                         }
 
-                        // === TAMBAHKAN DI SINI ===
-                        if (row && (type === 'direct-pulling' || type === 'stock-chute')) {
-                            this.triggerHighlight(row, type);
-                        }
+                        if (row && (type === 'direct-pulling' || type === 'stock-chute')) this.triggerHighlight(
+                            row, type);
 
                         const f = td?.querySelector('.flip');
                         if (f) {
@@ -2668,52 +2595,37 @@
                 });
             }
 
-
             updateCellStyle(cell, val, type, targetQty = null) {
-                if (!cell) return;
-                if (type === 'time') return;
+                if (!cell || type === 'time') return;
                 if (val === null) {
                     cell.className = '';
                     return;
                 }
                 let cls = 'fw-bold ';
                 if (type === 'direct-pulling' || type === 'stock-chute') {
-                    if (targetQty !== null && !isNaN(targetQty)) {
-                        cls += (val >= targetQty) ? 'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
-                    } else {
-                        cls += (val > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
-                    }
+                    if (targetQty !== null && !isNaN(targetQty)) cls += (val >= targetQty) ?
+                        'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
+                    else cls += (val > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
                 }
                 cell.className = cls.trim();
             }
 
             _findGroupStartRow(row) {
-                // cari row start grup (yang punya rowspan)
                 let p = row;
                 while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
                 return (p && this.isGroupStart(p)) ? p : null;
             }
 
             _cloneRowspanCellsToRow(startRow, hostRow) {
-                // klon sel header (Customer/Dock/Cycle) ke hostRow agar kolom tetap lengkap
-                const hasByLabel = (r, lbl) => {
-                    const want = ProductionPlanSSEClient.normLabel(lbl);
-                    return Array.from(r.children).some(td =>
-                        ProductionPlanSSEClient.normLabel(td.getAttribute('data-label')) === want
-                    );
-                };
-
-                const startCells = Array.from(startRow.children)
-                    .filter(td => td.hasAttribute('rowspan')); // hanya header yang merged
+                const hasByLabel = (r, lbl) => Array.from(r.children).some(td => ProductionPlanSSEClient.normLabel(td
+                    .getAttribute('data-label')) === ProductionPlanSSEClient.normLabel(lbl));
+                const startCells = Array.from(startRow.children).filter(td => td.hasAttribute('rowspan'));
                 startCells.forEach(src => {
                     const lbl = src.getAttribute('data-label') || '';
-                    if (hasByLabel(hostRow, lbl)) return; // sudah ada, skip
-
+                    if (hasByLabel(hostRow, lbl)) return;
                     const clone = src.cloneNode(true);
                     clone.setAttribute('rowspan', 1);
                     clone.setAttribute('data-cloned-header', '1');
-
-                    // sisipkan di posisi kolom yang benar
                     const wantIdx = this._indexByLabel(src);
                     let ref = null;
                     for (const ex of Array.from(hostRow.children)) {
@@ -2729,57 +2641,34 @@
             _pinRowToTop(row) {
                 const tbody = row?.parentElement;
                 if (!tbody) return;
-
-                // simpan posisi asli sekali saja
                 if (!row._pinPlaceholder) {
                     row._pinPlaceholder = document.createComment('pin-anchor');
-                    tbody.insertBefore(row._pinPlaceholder, row); // placeholder di posisi asli row
+                    tbody.insertBefore(row._pinPlaceholder, row);
                 }
-
-                // klon header merge (Customer/Dock/Cycle) biar kolom tetap lengkap saat di atas
                 const startRow = this._findGroupStartRow(row);
                 if (startRow) this._cloneRowspanCellsToRow(startRow, row);
 
-                // taruh setelah summary teratas
                 const rows = Array.from(tbody.querySelectorAll('tr'));
-                const firstNonSummary = rows.find(tr =>
-                    tr.getAttribute('data-summary-row') !== '1' && tr !== row
-                );
+                const firstNonSummary = rows.find(tr => tr.getAttribute('data-summary-row') !== '1' && tr !== row);
                 if (firstNonSummary) tbody.insertBefore(row, firstNonSummary);
                 else tbody.insertBefore(row, tbody.firstChild);
-
                 row.classList.add('is-pinned');
 
                 const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
                 this.recalcRowspans(container);
             }
 
-
             _restoreOriginalOrder(tbody) {
-                // kembalikan urutan berdasarkan snapshot awal
                 const orig = this.originalOrder.get(tbody);
                 if (!orig) return;
-
-                // buang header hasil klon dari row yang pernah dipin
-                Array.from(tbody.querySelectorAll('tr [data-cloned-header]'))
-                    .forEach(n => n.remove());
-
-                // susun ulang semua row non-summary sesuai urutan awal
-                const nonSummary = Array.from(tbody.querySelectorAll('tr'))
-                    .filter(tr => tr.getAttribute('data-summary-row') !== '1');
-
-                // pindahkan sesuai urutan awal (yang masih ada di tbody)
+                Array.from(tbody.querySelectorAll('tr [data-cloned-header]')).forEach(n => n.remove());
                 orig.forEach(r => {
-                    if (r && r.parentElement === tbody && r.getAttribute('data-summary-row') !== '1') {
-                        tbody.appendChild(r);
-                    }
+                    if (r && r.parentElement === tbody && r.getAttribute('data-summary-row') !== '1') tbody
+                        .appendChild(r);
                 });
-
-                // perbaiki rowspan lagi
                 const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
                 this.recalcRowspans(container);
             }
-
 
             updateAllInlineSums() {
                 this.refreshSummaries();
@@ -2791,7 +2680,7 @@
             window.prodPlanSSE = new ProductionPlanSSEClient();
         });
 
-        /* Navigasi tanggal (tetap) */
+        /* Navigasi tanggal */
         function navigateDate(days) {
             const inp = document.querySelector('input[name="date"]');
             if (!inp) return;
@@ -2804,32 +2693,31 @@
         function gotoToday() {
             const inp = document.querySelector('input[name="date"]');
             if (!inp) return;
-            const iso = new Date().toISOString().split('T')[0];
-            inp.value = iso;
+            inp.value = new Date().toISOString().split('T')[0];
             document.querySelector('form')?.submit();
         }
 
-        /* Bridge untuk dropdown/presets eksternal bila ada */
+        /* Bridge eksternal */
         (function Bridge() {
-            window.updateAllInlineSums = function() {
-                if (window.prodPlanSSE && typeof window.prodPlanSSE.updateAllInlineSums === 'function') {
-                    window.prodPlanSSE.updateAllInlineSums();
-                }
+            window.updateAllInlineSums = () => {
+                window.prodPlanSSE?.updateAllInlineSums?.();
             };
         })();
     </script>
+
     <script>
+        /* ======================
+           SAFE COLUMN HIDE V5 (as-is, minor tidy)
+           ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
             let isProcessing = false;
 
-            // 1) Canonical order (untuk normalisasi nama)
             const CANON = [
-                'Customer', 'Dock', 'Cycle', 'Back No', 'Order',
-                'Direct Pulling', 'Stock Chute', 'Cycle Time',
-                'Planning Start', 'Actual Start', 'Duration', 'Progress',
-                'Delivery Time', 'Delivery Date', 'Balance Time'
+                'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
+                'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time',
+                'Delivery Date', 'Balance Time'
             ].map(s => s.toLowerCase());
 
             const GROUP_MAP = {
@@ -2837,88 +2725,70 @@
                 'working time': ['Planning Start', 'Actual Start', 'Duration', 'Progress']
             };
 
-            const onceStyleId = 'colhide_label_style';
-            if (!document.getElementById(onceStyleId)) {
+            if (!document.getElementById('colhide_label_style')) {
                 const st = document.createElement('style');
-                st.id = onceStyleId;
-                st.textContent = `.col-hidden{display:none!important}`;
+                st.id = 'colhide_label_style';
+                st.textContent = '.col-hidden{display:none!important}';
                 document.head.appendChild(st);
             }
 
             const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-
-            // Kembalikan bentuk judul kanonik (case yang rapi), jika ada
-            function canonicalize(label) {
+            const canonicalize = label => {
                 const n = norm(label);
                 const idx = CANON.indexOf(n);
-                if (idx >= 0) return CANON[idx].replace(/\b\w/g, c => c.toUpperCase());
-                // fallback: pakai yang ada
-                return (label || '').trim();
-            }
+                return idx >= 0 ? CANON[idx].replace(/\b\w/g, c => c.toUpperCase()) : (label || '').trim();
+            };
 
-            // 2) Baca/simpan hidden set by KEY (label)
-            function readHiddenKeys(tableKey) {
+            const readHiddenKeys = tableKey => {
                 try {
-                    const arr = JSON.parse(localStorage.getItem(STORAGE_PREFIX + tableKey) || '[]');
-                    return new Set(arr.map(canonicalize));
+                    return new Set(JSON.parse(localStorage.getItem(STORAGE_PREFIX + tableKey) || '[]').map(
+                        canonicalize));
                 } catch {
                     return new Set();
                 }
-            }
-
-            function saveHiddenKeys(tableKey, set) {
+            };
+            const saveHiddenKeys = (tableKey, set) => {
                 try {
                     localStorage.setItem(STORAGE_PREFIX + tableKey, JSON.stringify([...set]));
                 } catch {}
-            }
+            };
 
-            // 3) Analisa thead → tentukan LEAF order kiri→kanan + tandai th
             function annotateHeader(container) {
                 const thead = container.querySelector('thead');
                 if (!thead) return {
                     leafKeys: [],
                     groupHeads: []
                 };
-
                 const rows = Array.from(thead.rows);
-                // Dengan struktur yang kamu kirim, ada 2 baris
                 const r0 = rows[0] || null;
                 const r1 = rows[1] || null;
-
                 const leafKeys = [];
-                const groupHeads = []; // {el, children:[keys...]}
-
+                const groupHeads = [];
                 if (!r0) return {
                     leafKeys,
                     groupHeads
                 };
 
-                // Siapkan pointer ke baris kedua untuk children group
                 let childIdx = 0;
                 const r1cells = r1 ? Array.from(r1.cells) : [];
-
                 Array.from(r0.cells).forEach(th => {
                     const text = canonicalize(th.textContent);
                     const ntext = norm(text);
-
                     if ((th.rowSpan || 1) > 1 && (th.colSpan || 1) === 1) {
-                        // Leaf di baris 1 (rowspan=2)
                         const key = text;
                         th.setAttribute('data-col-key', key);
                         leafKeys.push(key);
                     } else if ((th.colSpan || 1) > 1) {
-                        // Group head: ambil anak di baris 2 sebanyak colspan
-                        const span = th.colSpan;
-                        const kids = [];
+                        const span = th.colSpan,
+                            kids = [];
                         for (let i = 0; i < span; i++) {
                             const c = r1cells[childIdx++];
                             if (!c) continue;
                             const k = canonicalize(c.textContent);
-                            c.setAttribute('data-col-key', k); // tandai leaf child
+                            c.setAttribute('data-col-key', k);
                             leafKeys.push(k);
                             kids.push(k);
                         }
-                        // tandai group
                         const gChildren = (GROUP_MAP[ntext] || kids);
                         th.setAttribute('data-col-group', gChildren.join('||'));
                         groupHeads.push({
@@ -2926,57 +2796,40 @@
                             children: gChildren
                         });
                     } else {
-                        // edge case lain (jarang)
                         const key = text;
                         th.setAttribute('data-col-key', key);
                         leafKeys.push(key);
                     }
                 });
-
-                // Kalau ada baris kedua tanpa group (cadangan)
-                if (r1 && groupHeads.length === 0) {
-                    r1cells.forEach(c => {
-                        const k = canonicalize(c.textContent);
-                        c.setAttribute('data-col-key', k);
-                        leafKeys.push(k);
-                    });
-                }
-
+                if (r1 && groupHeads.length === 0) r1cells.forEach(c => {
+                    const k = canonicalize(c.textContent);
+                    c.setAttribute('data-col-key', k);
+                    leafKeys.push(k);
+                });
                 return {
                     leafKeys,
                     groupHeads
                 };
             }
 
-            // 4) Terapkan hide/show ke BODY td dan HEADER th
             function applyHiding(container, hiddenKeys, headerInfo) {
                 const {
-                    leafKeys,
                     groupHeads
                 } = headerInfo;
-
-                // BODY: hide berdasarkan data-label (normalize dulu)
                 container.querySelectorAll('tbody td[data-label]').forEach(td => {
-                    const raw = td.getAttribute('data-label');
-                    const key = canonicalize(raw);
-                    if (hiddenKeys.has(key)) td.classList.add('col-hidden');
-                    else td.classList.remove('col-hidden');
+                    const key = canonicalize(td.getAttribute('data-label'));
+                    td.classList.toggle('col-hidden', hiddenKeys.has(key));
                 });
-
-                // THEAD leaf th
                 container.querySelectorAll('thead th[data-col-key]').forEach(th => {
                     const key = th.getAttribute('data-col-key');
-                    if (hiddenKeys.has(key)) th.classList.add('col-hidden');
-                    else th.classList.remove('col-hidden');
+                    th.classList.toggle('col-hidden', hiddenKeys.has(key));
                 });
-
-                // THEAD group th → hitung anak visible, update colspan / hide jika 0
                 groupHeads.forEach(g => {
                     const visibleCount = g.children.reduce((n, k) => n + (hiddenKeys.has(canonicalize(k)) ? 0 :
                         1), 0);
                     if (visibleCount === 0) {
                         g.el.classList.add('col-hidden');
-                        g.el.colSpan = 1; // aman
+                        g.el.colSpan = 1;
                     } else {
                         g.el.classList.remove('col-hidden');
                         g.el.colSpan = visibleCount;
@@ -2984,7 +2837,6 @@
                 });
             }
 
-            // 5) Setup per tabel
             document.querySelectorAll('[data-colpicker]').forEach(menu => {
                 const tableKey = menu.getAttribute('data-colpicker');
                 const container = document.querySelector(`[data-toggle-table="${tableKey}"]`);
@@ -2993,7 +2845,6 @@
 
                 const headerInfo = annotateHeader(container);
                 const hiddenKeys = readHiddenKeys(tableKey);
-
                 tableStates.set(tableKey, {
                     container,
                     menu,
@@ -3001,9 +2852,6 @@
                     hiddenKeys
                 });
 
-                // Sinkron checkbox:
-                // - Preferred: <input class="column-check" data-key="Direct Pulling">
-                // - Fallback:  <input class="column-check" data-col="index"> (pakai leaf order)
                 menu.querySelectorAll('.column-check').forEach(cb => {
                     let key = cb.dataset.key ? canonicalize(cb.dataset.key) : null;
                     if (!key && cb.dataset.col != null) {
@@ -3012,7 +2860,6 @@
                         if (k2) key = canonicalize(k2);
                     }
                     if (!key) return;
-
                     cb.checked = !hiddenKeys.has(key);
                     cb.addEventListener('change', e => {
                         e.stopPropagation();
@@ -3020,18 +2867,12 @@
                         else hiddenKeys.add(key);
                         saveHiddenKeys(tableKey, hiddenKeys);
                         applyHiding(container, hiddenKeys, headerInfo);
-                        // optional: panggil recalcRowspans milik kamu jika perlu
-                        if (window.prodPlanSSE?.recalcRowspans) {
-                            window.prodPlanSSE.recalcRowspans(container);
-                        }
+                        window.prodPlanSSE?.recalcRowspans?.(container);
                     });
                 });
-
-                // Apply awal
                 applyHiding(container, hiddenKeys, headerInfo);
             });
 
-            // 6) Global re-apply (mis. setelah DOM berubah oleh SSE)
             window.__colHideApplyAll = function() {
                 if (isProcessing) return;
                 isProcessing = true;
@@ -3039,8 +2880,6 @@
                     tableStates.forEach((state, tableKey) => {
                         const hiddenKeys = readHiddenKeys(tableKey);
                         state.hiddenKeys = hiddenKeys;
-
-                        // sinkron checkbox
                         state.menu.querySelectorAll('.column-check').forEach(cb => {
                             let key = cb.dataset.key ? canonicalize(cb.dataset.key) : null;
                             if (!key && cb.dataset.col != null) {
@@ -3051,18 +2890,14 @@
                             if (!key) return;
                             cb.checked = !hiddenKeys.has(key);
                         });
-
                         applyHiding(state.container, hiddenKeys, state.headerInfo);
-                        if (window.prodPlanSSE?.recalcRowspans) {
-                            window.prodPlanSSE.recalcRowspans(state.container);
-                        }
+                        window.prodPlanSSE?.recalcRowspans?.(state.container);
                     });
                 } finally {
                     isProcessing = false;
                 }
             };
 
-            // 7) Observer ringan: jika tbody berubah, cukup re-apply
             try {
                 const observer = new MutationObserver(() => {
                     if (!isProcessing) window.__colHideApplyAll();
@@ -3077,76 +2912,57 @@
             } catch {}
         })();
     </script>
+
     <script>
+        /* ======================
+           BACK NO RENAMER (trim using $u)
+           ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
-            const norm = s => (s || '').trim().toUpperCase();
-
-            function loadMap() {
+            const loadMap = () => {
                 try {
                     return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
                 } catch {
                     return {};
                 }
-            }
-
-            function saveMap(map) {
+            };
+            const saveMap = map => {
                 try {
                     localStorage.setItem(LS_KEY, JSON.stringify(map));
                 } catch {}
-            }
+            };
 
             function applyMapToContainer(container, map) {
                 if (!container) return;
                 container.querySelectorAll('tbody tr').forEach(row => {
-                    const td = (function() {
-                        const wl = 'Back No'.toLowerCase();
-                        const cells = Array.from(row.children);
-                        for (const c of cells) {
-                            const lbl = (c.getAttribute('data-label') || '').replace(/\s+/g, ' ').trim()
-                                .toLowerCase();
-                            if (lbl === wl) return c;
-                        }
-                        return null;
-                    })();
+                    const td = $u.getCellByLabel(row, 'Back No');
                     if (!td) return;
-
                     const el = td.querySelector('.flip') || td;
-                    const original = norm(el.dataset.backnoRaw || el.textContent);
+                    const original = $u.normUpper(el.dataset.backnoRaw || el.textContent);
                     const alias = map[original];
                     if (alias) {
-                        el.dataset.backnoAlias = norm(alias);
+                        el.dataset.backnoAlias = $u.normUpper(alias);
                         (td.querySelector('.flip') || el).textContent = alias;
-                    } else {
-                        // jika sebelumnya pernah di-alias, kembalikan ke raw
-                        if (el.dataset.backnoAlias) {
-                            (td.querySelector('.flip') || el).textContent = el.dataset.backnoRaw || el
-                                .textContent;
-                            delete el.dataset.backnoAlias;
-                        }
+                    } else if (el.dataset.backnoAlias) {
+                        (td.querySelector('.flip') || el).textContent = el.dataset.backnoRaw || el.textContent;
+                        delete el.dataset.backnoAlias;
                     }
                 });
             }
 
             function applyAll(map) {
-                document.querySelectorAll('[data-toggle-table]').forEach(container => {
-                    applyMapToContainer(container, map);
-                });
-                // kalau perlu hitung ulang rowspan milikmu:
-                if (window.prodPlanSSE?.recalcRowspans) {
-                    document.querySelectorAll('[data-toggle-table]').forEach(c => window.prodPlanSSE.recalcRowspans(c));
-                }
+                document.querySelectorAll('[data-toggle-table]').forEach(container => applyMapToContainer(container,
+                    map));
+                document.querySelectorAll('[data-toggle-table]').forEach(c => window.prodPlanSSE?.recalcRowspans?.(c));
             }
 
-            // ==== Public API ====
             window.setBackNoRenameMap = function(map, {
                 persist = true,
                 applyNow = true
             } = {}) {
-                // normalisasi ke UPPERCASE key/value
                 const clean = {};
                 Object.entries(map || {}).forEach(([k, v]) => {
-                    if (k && v) clean[norm(k)] = norm(v);
+                    if (k && v) clean[$u.normUpper(k)] = $u.normUpper(v);
                 });
                 if (persist) saveMap(clean);
                 if (applyNow) applyAll(clean);
@@ -3159,7 +2975,7 @@
             } = {}) {
                 const map = loadMap();
                 if (from && to) {
-                    map[norm(from)] = norm(to);
+                    map[$u.normUpper(from)] = $u.normUpper(to);
                     if (persist) saveMap(map);
                 }
                 if (applyNow) applyAll(map);
@@ -3173,48 +2989,36 @@
                 if (applyNow) applyAll({});
             };
 
-            // Auto-apply saat halaman buka (jika ada mapping tersimpan)
             document.addEventListener('DOMContentLoaded', () => {
                 const map = loadMap();
                 if (Object.keys(map).length) applyAll(map);
             });
         })();
 
+        /* default alias set */
         setBackNoRenameMap({
             'D403': 'CI18',
             'D111': 'CI12',
             'D500': 'CI19'
         });
     </script>
+
     <script>
+        /* ======================
+           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+           ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
 
             const LINES = ['AS003', 'AS004'];
             const IDLOCALE = 'id-ID';
-            const parseIntSafe = v => {
-                const n = parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10);
-                return isNaN(n) ? 0 : n;
-            };
-
-            /* ========= util sel/parse ========= */
-            const norm = s => String(s || '').trim().toUpperCase();
+            const norm = $u.normUpper;
             const isSummaryRow = tr => tr?.getAttribute('data-summary-row') === '1';
             const getLineKeyOfRow = tr => tr?.closest('[data-toggle-table]')?.getAttribute('data-toggle-table') || '';
 
             function cellByLabel(row, wanted) {
-                const wl = String(wanted || '').toLowerCase().trim();
-                const tds = Array.from(row?.children || []);
-                for (const td of tds) {
-                    const lbl = String(td.getAttribute('data-label') || '').toLowerCase().trim();
-                    if (lbl === wl) return td;
-                }
-                for (const td of tds) {
-                    const lbl = String(td.getAttribute('data-label') || '').toLowerCase().trim();
-                    if (lbl && (lbl.includes(wl) || wl.includes(lbl))) return td;
-                }
-                return null;
+                return $u.getCellByLabel(row, wanted);
             }
 
             function readSummaryLabel(tr) {
@@ -3223,109 +3027,78 @@
             }
 
             function readOrder(tr) {
-                // Summary row: prioritas dataset khusus / kolom Order
                 if (isSummaryRow(tr)) {
                     const ds = tr.querySelector('[data-summary-order]');
-                    if (ds) return parseIntSafe(ds.textContent);
+                    if (ds) return $u.int(ds.textContent);
                     const td = cellByLabel(tr, 'Order');
                     const el = td?.querySelector('.flip') || td;
-                    return parseIntSafe(el?.textContent);
+                    return $u.int(el?.textContent);
                 }
-                // Baris normal: pakai dataset prefill kalau ada
                 const td = cellByLabel(tr, 'Order');
                 const el = td?.querySelector('.flip') || td;
                 const raw = el?.dataset?.orderRaw;
-                return raw != null && raw !== '' ? parseIntSafe(raw) : parseIntSafe(el?.textContent);
+                return raw != null && raw !== '' ? $u.int(raw) : $u.int(el?.textContent);
             }
+            const readDP = tr => isSummaryRow(tr) ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent) : $u.int(
+                (tr.querySelector('[data-type="direct-pulling"]') || cellByLabel(tr, 'Direct Pulling')
+                    ?.querySelector('.flip'))?.textContent);
+            const readSC = tr => isSummaryRow(tr) ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent) : $u.int(
+                (tr.querySelector('[data-type="stock-chute"]') || cellByLabel(tr, 'Stock Chute')?.querySelector(
+                    '.flip'))?.textContent);
 
-            function readDP(tr) {
-                // Summary row: dukung marker khusus / fallback ke sel DP biasa
-                if (isSummaryRow(tr)) {
-                    const s = tr.querySelector('[data-summary-dp]');
-                    if (s) return parseIntSafe(s.textContent);
+            function readDeliveryHourForRow(row) {
+                let r = row;
+                while (r) {
+                    const td = cellByLabel(r, 'Delivery Time');
+                    if (td) return $u.hourFromText(td.textContent);
+                    const prev = r.previousElementSibling;
+                    if (!prev) break;
+                    r = prev;
                 }
-                const el = tr.querySelector('[data-type="direct-pulling"]') ||
-                    cellByLabel(tr, 'Direct Pulling')?.querySelector('.flip');
-                return el ? parseIntSafe(el.textContent) : 0;
+                return null;
             }
 
-            function readSC(tr) {
-                // Summary row: dukung marker khusus / fallback ke sel SC biasa
-                if (isSummaryRow(tr)) {
-                    const s = tr.querySelector('[data-summary-sc]');
-                    if (s) return parseIntSafe(s.textContent);
+            function readHourFromRowTimes(row) {
+                const asEl = row.querySelector('[data-type="actual_start"]');
+                const psEl = row.querySelector('[data-type="start"]');
+                let h = $u.hourFromText(asEl?.textContent || '') || $u.hourFromText(cellByLabel(row, 'Actual Start')
+                    ?.textContent);
+                if (h == null) {
+                    h = $u.hourFromText(psEl?.textContent || '') || $u.hourFromText(cellByLabel(row, 'Planning Start')
+                        ?.textContent);
                 }
-                const el = tr.querySelector('[data-type="stock-chute"]') ||
-                    cellByLabel(tr, 'Stock Chute')?.querySelector('.flip');
-                return el ? parseIntSafe(el.textContent) : 0;
+                return h;
             }
 
-            function hourFromText(txt) {
-                if (!txt) return null;
-                const m = String(txt).trim().match(/^(\d{1,2})/);
-                if (!m) return null;
-                const h = parseInt(m[1], 10);
-                return isNaN(h) ? null : h;
-            }
-
-            function readHour(row, dataTypeAttr, fallbackLabel) {
-                const el = row.querySelector(`[data-type="${dataTypeAttr}"]`);
-                let txt = (el?.textContent || '').trim();
-                let h = hourFromText(txt);
-                if (h != null) return h;
-                const td = cellByLabel(row, fallbackLabel);
-                txt = (td?.textContent || '').trim();
-                return hourFromText(txt);
-            }
-
-            // Klasifikasi khusus untuk summary row sesuai rule user
             function specialSummaryShift(lineKey, row) {
                 if (!isSummaryRow(row)) return null;
                 const label = readSummaryLabel(row);
-
                 if (lineKey === 'AS003') {
-                    // CI12 (C4–7) => morning, CI12 (C8–3) => night
                     if (/^CI12\b/i.test(label)) {
                         if (/\bC\s*4\s*[–-]\s*7\b/i.test(label)) return 'morning';
                         if (/\bC\s*8\s*[–-]\s*3\b/i.test(label)) return 'night';
                     }
                 }
                 if (lineKey === 'AS004') {
-                    // CI19 => morning
                     if (/\bCI19\b/i.test(label)) return 'morning';
                 }
-                return null; // biar fallback ke jam
+                return null;
             }
 
             function classifyShift(row, lineKey) {
-                // Hormati tag kalau sudah diset eksplisit
                 const tag = row.getAttribute('data-shift');
                 if (tag === 'morning' || tag === 'night') return tag;
-
-                // Override khusus summary
-                const over = specialSummaryShift(lineKey, row);
-                if (over) return over;
-
-                // Fallback: pakai jam (Actual Start -> Planning Start)
-                const sh = readHour(row, 'actual_start', 'Actual Start');
-                const ph = sh == null ? readHour(row, 'start', 'Planning Start') : null;
-                const H = (sh != null ? sh : ph);
-                if (H == null) return 'other';
-                const isMorning = H >= 6 && H < 14;
-                const isNight = (H >= 22 || H < 6);
-                if (isMorning) return 'morning';
-                if (isNight) return 'night';
+                const ov = specialSummaryShift(lineKey, row);
+                if (ov) return ov;
+                const Hdlv = readDeliveryHourForRow(row);
+                if (Hdlv != null) return $u.toShiftByHour(Hdlv);
+                const H = readHourFromRowTimes(row);
+                if (H != null) return $u.toShiftByHour(H);
                 return 'other';
             }
 
-            function rowCountable(tr) {
-                if (!tr) return false;
-                if (tr.style.display === 'none') return false;
-                // ⛔️ JANGAN exclude summary row — sekarang ikut dihitung
-                return true;
-            }
+            const rowCountable = tr => tr && tr.style.display !== 'none';
 
-            /* ========= hitung kartu dari DOM ========= */
             function computeLine(lineKey) {
                 const wrap = document.querySelector(`[data-toggle-table="${lineKey}"]`);
                 const sums = {
@@ -3343,38 +3116,27 @@
                     }
                 };
                 if (!wrap) return sums;
-
                 wrap.querySelectorAll('tbody tr').forEach(tr => {
                     if (!rowCountable(tr)) return;
-
                     const order = readOrder(tr);
                     const dp = readDP(tr);
-                    const sh = classifyShift(tr, lineKey);
-
-                    // set back ke DOM untuk konsistensi
-                    if (tr.getAttribute('data-shift') !== sh) tr.setAttribute('data-shift', sh);
-
-                    // total
+                    const lineShift = classifyShift(tr, lineKey);
+                    if (tr.getAttribute('data-shift') !== lineShift) tr.setAttribute('data-shift', lineShift);
                     sums.total.order += order;
                     sums.total.actual += dp;
-
-                    // per shift
-                    if (sh === 'morning' || sh === 'night') {
-                        sums[sh].order += order;
-                        sums[sh].actual += dp;
+                    if (lineShift === 'morning' || lineShift === 'night') {
+                        sums[lineShift].order += order;
+                        sums[lineShift].actual += dp;
                     }
                 });
                 return sums;
             }
 
-            function pct(a, o) {
-                return o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
-            }
+            const pct = (a, o) => o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
 
             function renderBlock(lineKey, shift, data) {
                 const root = document.querySelector(
-                    `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
-                );
+                    `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`);
                 if (!root) return;
                 const O = data.order,
                     A = data.actual,
@@ -3402,35 +3164,25 @@
             }
             window.recomputeAllShiftCards = recomputeAll;
 
-            /* ========= per-row DOM updater (dipakai oleh SSE) ========= */
             function updateBarsForRow(row) {
-                const order = readOrder(row);
-                const dp = readDP(row);
-                const sc = readSC(row);
-
-                // DP bar
-                const dpCell = row.querySelector('[data-label][data-label*="Direct Pulling" i]');
-                const dpBar = dpCell?.querySelector('.qty-progress .bar > i');
+                const order = readOrder(row),
+                    dp = readDP(row),
+                    sc = readSC(row);
+                const dpBar = row.querySelector('[data-label][data-label*="Direct Pulling" i] .qty-progress .bar > i');
                 if (dpBar) dpBar.style.width = (order > 0 ? Math.min(100, Math.round((dp / order) * 100)) : 0) + '%';
-
-                // SC bar
-                const scCell = row.querySelector('[data-label][data-label*="Stock Chute" i]');
-                const scBar = scCell?.querySelector('.qty-progress .bar > i');
+                const scBar = row.querySelector('[data-label][data-label*="Stock Chute" i] .qty-progress .bar > i');
                 if (scBar) scBar.style.width = (order > 0 ? Math.min(100, Math.round((sc / order) * 100)) : 0) + '%';
-
-                // Total progress bar
                 const totCell = row.querySelector('.total-progress');
                 const tBar = totCell?.querySelector('.bar > i');
+                const thePct = (order > 0 ? Math.min(100, Math.round(((dp + sc) / order) * 100)) : 0);
+                if (tBar) tBar.style.width = thePct + '%';
                 const tPct = totCell?.querySelector('.val');
-                const totalPct = (order > 0 ? Math.min(100, Math.round(((dp + sc) / order) * 100)) : 0);
-                if (tBar) tBar.style.width = totalPct + '%';
-                if (tPct) tPct.textContent = totalPct + '%';
+                if (tPct) tPct.textContent = thePct + '%';
             }
 
             function applyUpdateItem(it) {
                 const id = String(it.id);
-                const el =
-                    document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`) ||
+                const el = document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`) ||
                     document.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`) ||
                     document.querySelector(`[data-item-id="${id}"][data-type="actual_start"]`) ||
                     document.querySelector(`[data-item-id="${id}"][data-type="start"]`) ||
@@ -3439,21 +3191,16 @@
                 const row = el.closest('tr');
                 if (!row) return;
 
-                // DP / SC
                 if (typeof it.direct_pulling_qty === 'number') {
                     const dpEl = row.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`);
-                    if (dpEl && dpEl.textContent.trim() !== String(it.direct_pulling_qty)) {
-                        dpEl.textContent = it.direct_pulling_qty;
-                    }
+                    if (dpEl && dpEl.textContent.trim() !== String(it.direct_pulling_qty)) dpEl.textContent = it
+                        .direct_pulling_qty;
                 }
                 if (typeof it.stock_chute_qty === 'number') {
                     const scEl = row.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`);
-                    if (scEl && scEl.textContent.trim() !== String(it.stock_chute_qty)) {
-                        scEl.textContent = it.stock_chute_qty;
-                    }
+                    if (scEl && scEl.textContent.trim() !== String(it.stock_chute_qty)) scEl.textContent = it
+                        .stock_chute_qty;
                 }
-
-                // ORDER
                 if (typeof it.order_qty === 'number') {
                     const tdOrder = cellByLabel(row, 'Order');
                     const flip = tdOrder?.querySelector('.flip') || tdOrder;
@@ -3462,8 +3209,6 @@
                         flip.textContent = Number(it.order_qty).toLocaleString(IDLOCALE);
                     }
                 }
-
-                // TIMES (actual_start / end / balance)
                 if (typeof it.actual_start === 'string') {
                     const asEl = row.querySelector(`[data-item-id="${id}"][data-type="actual_start"]`);
                     if (asEl) asEl.textContent = it.actual_start || '--';
@@ -3477,31 +3222,21 @@
                     if (balEl) balEl.textContent = it.balance || '--';
                 }
 
-                // reclassify shift (pakai line key terdekat)
                 const lineKey = getLineKeyOfRow(row);
                 const newShift = classifyShift(row, lineKey);
-                if (newShift !== (row.getAttribute('data-shift') || 'other')) {
-                    row.setAttribute('data-shift', newShift);
-                }
-
-                // update bars in-row
+                if (newShift !== (row.getAttribute('data-shift') || 'other')) row.setAttribute('data-shift', newShift);
                 updateBarsForRow(row);
             }
 
-            /* ========= boot: initial compute ========= */
             document.addEventListener('DOMContentLoaded', recomputeAll);
 
-            /* ========= hook SSE: pakai yang sudah ada atau buat sendiri ========= */
             document.addEventListener('DOMContentLoaded', () => {
-                const currentDate = (document.querySelector('input[name="date"]')?.value) ||
-                    new Date().toISOString().slice(0, 10);
-
-                function onDirectUpdates(updates) {
+                const currentDate = (document.querySelector('input[name="date"]')?.value) || new Date()
+                    .toISOString().slice(0, 10);
+                const onDirectUpdates = updates => {
                     (updates || []).forEach(applyUpdateItem);
-                    // sesudah DOM baris ter-update → hitung ulang kartu
                     recomputeAll();
-                }
-
+                };
                 if (window.prodPlanSSE?.eventSource && !window.__shiftCardsHookedV3) {
                     window.__shiftCardsHookedV3 = true;
                     window.prodPlanSSE.eventSource.addEventListener('directPullingUpdate', (e) => {
@@ -3511,7 +3246,6 @@
                         } catch {}
                     });
                 } else {
-                    // fallback: bikin EventSource sendiri
                     try {
                         const es = new EventSource(`/stream/direct-pulling-updates?date=${currentDate}`);
                         es.addEventListener('directPullingUpdate', (e) => {
@@ -3525,7 +3259,6 @@
                 }
             });
 
-            /* ========= observe perubahan tbody (add/remove rows) ========= */
             document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('[data-toggle-table] tbody').forEach(tbody => {
                     try {
@@ -3537,67 +3270,35 @@
                     } catch {}
                 });
             });
-
         })();
     </script>
+
     <script>
-        /* ===== Order Summary (UI + Data dari tabel) ===== */
+        /* ======================
+           ORDER SUMMARY (UI + data dari tabel) – trimmed using $u
+           ====================== */
         (function() {
-            const intSafe = v => parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10) || 0;
-
-            // Samakan "CI12 (C4–7)" / "CI12 (C8–3)" -> "CI12"
-            const canonicalBackNo = s => String(s || '').toUpperCase().replace(/\s*\(C\d(?:[–-])?\d\)\s*$/, '').trim();
-
-            function getCellByLabel(row, wanted) {
-                const wl = (wanted || '').replace(/\s+/g, ' ').trim().toLowerCase();
-                const tds = Array.from(row?.children || []);
-                for (const c of tds) {
-                    if ((c.getAttribute('data-label') || '').replace(/\s+/g, ' ').trim().toLowerCase() === wl) return c;
-                }
-                for (const c of tds) {
-                    const l = (c.getAttribute('data-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
-                    if (l && (l.includes(wl) || wl.includes(l))) return c;
-                }
-                return null;
-            }
-
-            // Baca Back No pada baris (termasuk alias dari BackNoRenamer)
             function readBackNo(tr) {
-                const td = getCellByLabel(tr, 'Back No');
+                const td = $u.getCellByLabel(tr, 'Back No');
                 const el = td?.querySelector('.flip') || td;
                 const raw = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
                 if (!raw || raw === '--') return '';
-                return canonicalBackNo(raw);
+                return $u.canonicalBackNoSplit(raw);
             }
 
             function readOrder(tr, isSummary) {
-                if (isSummary) {
-                    const el = getCellByLabel(tr, 'Order')?.querySelector('.flip');
-                    return intSafe(el?.textContent);
-                }
-                const el = getCellByLabel(tr, 'Order')?.querySelector('.flip') || getCellByLabel(tr, 'Order');
+                if (isSummary) return $u.int($u.getCellByLabel(tr, 'Order')?.querySelector('.flip')?.textContent);
+                const el = $u.getCellByLabel(tr, 'Order')?.querySelector('.flip') || $u.getCellByLabel(tr, 'Order');
                 const ds = el?.dataset?.orderRaw;
-                return ds != null && ds !== '' ? intSafe(ds) : intSafe(el?.textContent);
+                return ds != null && ds !== '' ? $u.int(ds) : $u.int(el?.textContent);
             }
-
-            function readDP(tr, isSummary) {
-                if (isSummary) {
-                    return intSafe(tr.querySelector('[data-summary-dp]')?.textContent);
-                }
-                const el = tr.querySelector('[data-type="direct-pulling"]');
-                return intSafe(el?.textContent);
-            }
-
-            function readSC(tr, isSummary) {
-                if (isSummary) {
-                    return intSafe(tr.querySelector('[data-summary-sc]')?.textContent);
-                }
-                const el = tr.querySelector('[data-type="stock-chute"]');
-                return intSafe(el?.textContent);
-            }
+            const readDP = (tr, isSummary) => isSummary ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent) :
+                $u.int(tr.querySelector('[data-type="direct-pulling"]')?.textContent);
+            const readSC = (tr, isSummary) => isSummary ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent) :
+                $u.int(tr.querySelector('[data-type="stock-chute"]')?.textContent);
 
             function readCustomer(tr) {
-                const td = getCellByLabel(tr, 'Customer');
+                const td = $u.getCellByLabel(tr, 'Customer');
                 const el = td?.querySelector('.flip') || td;
                 return (el?.textContent || '').trim() || '--';
             }
@@ -3605,20 +3306,16 @@
             function collect(lineCode) {
                 const wrap = document.querySelector(`[data-toggle-table="${lineCode}"]`);
                 const tbody = wrap?.querySelector('tbody');
-                const map = new Map(); // backNo -> {backNo, customer, orderQty, dp, sc}
-
+                const map = new Map();
                 if (!tbody) return [];
-
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
                     const isSummary = tr.hasAttribute('data-summary-row');
                     const bn = readBackNo(tr);
                     if (!bn) return;
-
-                    const ord = readOrder(tr, isSummary);
-                    const dp = readDP(tr, isSummary);
-                    const sc = readSC(tr, isSummary);
-                    const cust = readCustomer(tr);
-
+                    const ord = readOrder(tr, isSummary),
+                        dp = readDP(tr, isSummary),
+                        sc = readSC(tr, isSummary),
+                        cust = readCustomer(tr);
                     const rec = map.get(bn) || {
                         backNo: bn,
                         customer: cust,
@@ -3632,9 +3329,8 @@
                     if (!rec.customer || rec.customer === '--') rec.customer = cust;
                     map.set(bn, rec);
                 });
-
-                return Array.from(map.values())
-                    .sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b.backNo));
+                return Array.from(map.values()).sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b
+                    .backNo));
             }
 
             let __lastSummary = {
@@ -3649,7 +3345,6 @@
                     rows
                 };
 
-                // Stats
                 const totalBack = rows.length;
                 const totalOrders = rows.reduce((s, r) => s + r.orderQty, 0);
                 const completed = rows.reduce((s, r) => s + r.dp + r.sc, 0);
@@ -3661,10 +3356,9 @@
                 document.getElementById('avgOrderPerBack').textContent = avg.toLocaleString('id-ID');
                 document.getElementById('completedOrders').textContent = completed.toLocaleString('id-ID');
 
-                // List
                 const list = document.getElementById('backNumberList');
                 list.innerHTML = '';
-                if (rows.length === 0) {
+                if (!rows.length) {
                     list.innerHTML = '<div class="text-center text-muted py-4">No data available</div>';
                 } else {
                     rows.forEach(r => {
@@ -3672,7 +3366,6 @@
                         const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
                         const status = done >= r.orderQty ? 'Complete' : 'In Progress';
                         const color = status === 'Complete' ? 'success' : 'warning';
-
                         const div = document.createElement('div');
                         div.className = 'back-number-item';
                         div.innerHTML = `
@@ -3697,11 +3390,9 @@
                         list.appendChild(div);
                     });
                 }
-
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('summaryModal')).show();
             }
 
-            // Expose ke global
             window.showSummary = renderModal;
 
             window.exportSummary = function() {
@@ -3710,7 +3401,6 @@
                     rows
                 } = __lastSummary;
                 if (!rows.length) return;
-
                 const header = ['Back Number', 'Customer', 'Order Qty', 'Direct Pulling', 'Stock Chute',
                     'Completed', 'Progress %', 'Status'
                 ];
@@ -3742,34 +3432,19 @@
             };
         })();
     </script>
+
     <script>
+        /* ======================
+           CARD TOTALS FROM DOM – trimmed using $u
+           ====================== */
         (function CardTotalsFromDOM() {
-            const parseIntSafe = (v) => parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10) || 0;
-
-            function normLabel(s) {
-                return (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-            }
-
-            function getCellByLabel(row, wanted) {
-                const wl = normLabel(wanted);
-                const tds = Array.from(row?.children || []);
-                for (const c of tds)
-                    if (normLabel(c.getAttribute('data-label')) === wl) return c;
-                for (const c of tds) {
-                    const l = normLabel(c.getAttribute('data-label'));
-                    if (l && (l.includes(wl) || wl.includes(l))) return c;
-                }
-                return null;
-            }
-
             function readOrderFromRow(tr) {
-                const td = getCellByLabel(tr, 'Order');
+                const td = $u.getCellByLabel(tr, 'Order');
                 const el = td?.querySelector('.flip') || td;
                 const raw = el?.dataset?.orderRaw;
-                return raw != null && raw !== '' ? parseIntSafe(raw) : parseIntSafe(el?.textContent);
+                return raw != null && raw !== '' ? $u.int(raw) : $u.int(el?.textContent);
             }
 
-            // hitung total order & actual (pakai DP) per line dari DOM
             function computeLineTotals(lineKey) {
                 const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
                 if (!container) return {
@@ -3777,14 +3452,13 @@
                     actual: 0,
                     pct: 0
                 };
-
                 let order = 0,
                     actual = 0;
                 container.querySelectorAll('tbody tr').forEach(tr => {
                     const od = readOrderFromRow(tr);
                     if (od) order += od;
                     const dpEl = tr.querySelector('[data-type="direct-pulling"]');
-                    if (dpEl) actual += parseIntSafe(dpEl.textContent);
+                    if (dpEl) actual += $u.int(dpEl.textContent);
                 });
                 const pct = order > 0 ? Math.min(100, Math.round((actual / order) * 100)) : 0;
                 return {
@@ -3812,16 +3486,11 @@
                 if (elBar) elBar.style.width = pct + '%';
             }
 
-            // expose buat dipanggil dari tempat lain juga
             window.recomputeAllLineCards = function() {
                 ['AS003', 'AS004'].forEach(renderLineCard);
             };
-
-            // ① jalan sekali saat DOM siap
             document.addEventListener('DOMContentLoaded', () => window.recomputeAllLineCards());
 
-            // ② setiap kamu rebuild summary / rename back no, panggil lagi:
-            //    – kalau kamu punya prodPlanSSE.buildSummaries(), selipkan after-hook ini:
             const _origBuild = window.prodPlanSSE?.buildSummaries;
             if (_origBuild && !_origBuild.__wrappedForCardTotal__) {
                 window.prodPlanSSE.buildSummaries = function(...args) {
@@ -3834,7 +3503,6 @@
                 window.prodPlanSSE.buildSummaries.__wrappedForCardTotal__ = true;
             }
 
-            // ③ setelah rename back no diterapkan
             const _setMap = window.setBackNoRenameMap;
             if (_setMap && !_setMap.__wrappedForCardTotal__) {
                 window.setBackNoRenameMap = function(map, opts) {
