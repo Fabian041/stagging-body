@@ -1725,8 +1725,8 @@
 
     <script>
         /* ======================
-                                                                                                                                                                                                                                                                                                               THEME TOGGLE (tetap)
-                                                                                                                                                                                                                                                                                                               ====================== */
+                                                                                                                                                                                                                                                                                                                       THEME TOGGLE (tetap)
+                                                                                                                                                                                                                                                                                                                       ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -1807,6 +1807,9 @@
                 this.originalOrder = new Map();
                 this.orderRestoreTimeouts = new Map();
                 this.summaries = {};
+
+                this.HIGHLIGHT_DURATION_MS = 40000; // <-- 40 detik
+
                 this.init();
             }
 
@@ -2455,15 +2458,14 @@
                 if (!row) return;
                 const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
 
-                // restart animasi kalau sebelumnya sudah nempel
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
-                void row.offsetWidth; // force reflow
+                void row.offsetWidth; // restart animasi
                 row.classList.add(cls);
 
-                // lepas otomatis biar nggak nempel selamanya
                 clearTimeout(row._blinkTimer);
-                row._blinkTimer = setTimeout(() => row.classList.remove(cls), 2000);
+                row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
             }
+
 
             connect() {
                 try {
