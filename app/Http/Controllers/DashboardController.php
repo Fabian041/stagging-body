@@ -265,13 +265,15 @@ class DashboardController extends Controller
                 )
                 ->whereNotNull('CHR_TIM_SYUKKA')
                 ->where(function ($query) use ($deliveryDate, $nextDay) {
-                    $query->where(function ($q) use ($deliveryDate) {
+                    $threshold = '094000'; // 09:40:00
+
+                    $query->where(function ($q) use ($deliveryDate, $threshold) {
                             $q->where('CHR_NGP_NOUNYU', $deliveryDate)
-                            ->where('CHR_TIM_SYUKKA', '>=', '100000');
+                            ->where('CHR_TIM_SYUKKA', '>=', $threshold); // mulai 09:40 di deliveryDate
                         })
-                        ->orWhere(function ($q) use ($nextDay) {
+                        ->orWhere(function ($q) use ($nextDay, $threshold) {
                             $q->where('CHR_NGP_NOUNYU', $nextDay)
-                            ->where('CHR_TIM_SYUKKA', '<', '104000');
+                            ->where('CHR_TIM_SYUKKA', '<', $threshold);  // < 09:40 di nextDay
                         });
                 })
                 ->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)

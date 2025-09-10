@@ -1725,8 +1725,8 @@
 
     <script>
         /* ======================
-           UTILITIES (shared)
-           ====================== */
+                           UTILITIES (shared)
+                           ====================== */
         (function() {
             if (window.$u) return;
             const normLabel = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -1774,8 +1774,8 @@
 
     <script>
         /* ======================
-           THEME TOGGLE
-           ====================== */
+                           THEME TOGGLE
+                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -1805,8 +1805,8 @@
 
     <script>
         /* ======================
-           SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
-           ====================== */
+                           SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
+                           ====================== */
         const COL_ORDER = [
             'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
             'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date',
@@ -2707,8 +2707,8 @@
 
     <script>
         /* ======================
-           SAFE COLUMN HIDE V5 (as-is, minor tidy)
-           ====================== */
+                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                           ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2915,8 +2915,8 @@
 
     <script>
         /* ======================
-           BACK NO RENAMER (trim using $u)
-           ====================== */
+                           BACK NO RENAMER (trim using $u)
+                           ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3005,8 +3005,8 @@
 
     <script>
         /* ======================
-           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-           ====================== */
+                           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+                           ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
@@ -3274,27 +3274,42 @@
     </script>
 
     <script>
-        /* ======================
-           ORDER SUMMARY (UI + data dari tabel) – trimmed using $u
-           ====================== */
         (function() {
+            const IDLOCALE = 'id-ID';
+
+            const isSummaryRow = tr => tr?.getAttribute('data-summary-row') === '1';
+
             function readBackNo(tr) {
+                // Untuk baris summary, pakai label apa adanya (biar C4–7 & C8–3 jadi entri terpisah)
+                if (isSummaryRow(tr)) {
+                    const td = $u.getCellByLabel(tr, 'Back No');
+                    const el = td?.querySelector('.flip') || td;
+                    return String(el?.textContent || '').trim(); // contoh: "CI12 (C4–7)"
+                }
+                // Untuk baris normal, pakai canonical (hapus suffix siklus kalau ada)
                 const td = $u.getCellByLabel(tr, 'Back No');
                 const el = td?.querySelector('.flip') || td;
                 const raw = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
                 if (!raw || raw === '--') return '';
-                return $u.canonicalBackNoSplit(raw);
+                return $u.canonicalBackNoSplit(raw); // contoh: "CI12"
             }
 
             function readOrder(tr, isSummary) {
-                if (isSummary) return $u.int($u.getCellByLabel(tr, 'Order')?.querySelector('.flip')?.textContent);
+                if (isSummary) {
+                    const txt = $u.getCellByLabel(tr, 'Order')?.querySelector('.flip')?.textContent;
+                    return $u.int(txt);
+                }
                 const el = $u.getCellByLabel(tr, 'Order')?.querySelector('.flip') || $u.getCellByLabel(tr, 'Order');
                 const ds = el?.dataset?.orderRaw;
                 return ds != null && ds !== '' ? $u.int(ds) : $u.int(el?.textContent);
             }
-            const readDP = (tr, isSummary) => isSummary ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent) :
+
+            const readDP = (tr, isSummary) =>
+                isSummary ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent) :
                 $u.int(tr.querySelector('[data-type="direct-pulling"]')?.textContent);
-            const readSC = (tr, isSummary) => isSummary ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent) :
+
+            const readSC = (tr, isSummary) =>
+                isSummary ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent) :
                 $u.int(tr.querySelector('[data-type="stock-chute"]')?.textContent);
 
             function readCustomer(tr) {
@@ -3308,16 +3323,26 @@
                 const tbody = wrap?.querySelector('tbody');
                 const map = new Map();
                 if (!tbody) return [];
+
                 Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-                    const isSummary = tr.hasAttribute('data-summary-row');
+                    // Lewati baris yang disembunyikan (placeholder hasil move/clone)
+                    if (tr.style?.display === 'none') return;
+
+                    const summary = isSummaryRow(tr);
                     const bn = readBackNo(tr);
                     if (!bn) return;
-                    const ord = readOrder(tr, isSummary),
-                        dp = readDP(tr, isSummary),
-                        sc = readSC(tr, isSummary),
-                        cust = readCustomer(tr);
-                    const rec = map.get(bn) || {
-                        backNo: bn,
+
+                    const ord = readOrder(tr, summary);
+                    const dp = readDP(tr, summary);
+                    const sc = readSC(tr, summary);
+                    const cust = readCustomer(tr);
+
+                    // Kunci pakai nama apa adanya:
+                    //  - Summary: "CI12 (C4–7)" atau "CI12 (C8–3)" -> TERPISAH
+                    //  - Normal : "CI12" (canonical)
+                    const key = bn;
+                    const rec = map.get(key) || {
+                        backNo: key,
                         customer: cust,
                         orderQty: 0,
                         dp: 0,
@@ -3327,8 +3352,10 @@
                     rec.dp += dp;
                     rec.sc += sc;
                     if (!rec.customer || rec.customer === '--') rec.customer = cust;
-                    map.set(bn, rec);
+                    map.set(key, rec);
                 });
+
+                // Urutkan by OrderQty desc, lalu alfabet backNo
                 return Array.from(map.values()).sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b
                     .backNo));
             }
@@ -3345,16 +3372,17 @@
                     rows
                 };
 
+                // Statistik atas modal – dibuat dari data yang sama dengan card
                 const totalBack = rows.length;
                 const totalOrders = rows.reduce((s, r) => s + r.orderQty, 0);
                 const completed = rows.reduce((s, r) => s + r.dp + r.sc, 0);
                 const avg = totalBack > 0 ? Math.round(totalOrders / totalBack) : 0;
 
                 document.getElementById('modalLineTitle').textContent = lineCode;
-                document.getElementById('totalBackNumbers').textContent = totalBack.toLocaleString('id-ID');
-                document.getElementById('totalOrders').textContent = totalOrders.toLocaleString('id-ID');
-                document.getElementById('avgOrderPerBack').textContent = avg.toLocaleString('id-ID');
-                document.getElementById('completedOrders').textContent = completed.toLocaleString('id-ID');
+                document.getElementById('totalBackNumbers').textContent = totalBack.toLocaleString(IDLOCALE);
+                document.getElementById('totalOrders').textContent = totalOrders.toLocaleString(IDLOCALE);
+                document.getElementById('avgOrderPerBack').textContent = avg.toLocaleString(IDLOCALE);
+                document.getElementById('completedOrders').textContent = completed.toLocaleString(IDLOCALE);
 
                 const list = document.getElementById('backNumberList');
                 list.innerHTML = '';
@@ -3375,11 +3403,11 @@
           </div>
           <div class="d-flex align-items-center gap-3">
             <div class="text-end">
-              <div class="order-qty">${r.orderQty.toLocaleString('id-ID')}</div>
+              <div class="order-qty">${r.orderQty.toLocaleString(IDLOCALE)}</div>
               <div class="small number">Order Qty</div>
             </div>
             <div class="text-end">
-              <div class="fw-bold text-${color}">${done.toLocaleString('id-ID')}</div>
+              <div class="fw-bold text-${color}">${done.toLocaleString(IDLOCALE)}</div>
               <div class="small number">Completed</div>
             </div>
             <div class="text-end">
@@ -3434,87 +3462,8 @@
     </script>
 
     <script>
-        /* ======================
-           CARD TOTALS FROM DOM – trimmed using $u
-           ====================== */
         (function CardTotalsFromDOM() {
-            function readOrderFromRow(tr) {
-                const td = $u.getCellByLabel(tr, 'Order');
-                const el = td?.querySelector('.flip') || td;
-                const raw = el?.dataset?.orderRaw;
-                return raw != null && raw !== '' ? $u.int(raw) : $u.int(el?.textContent);
-            }
-
-            function computeLineTotals(lineKey) {
-                const container = document.querySelector(`[data-toggle-table="${lineKey}"]`);
-                if (!container) return {
-                    order: 0,
-                    actual: 0,
-                    pct: 0
-                };
-                let order = 0,
-                    actual = 0;
-                container.querySelectorAll('tbody tr').forEach(tr => {
-                    const od = readOrderFromRow(tr);
-                    if (od) order += od;
-                    const dpEl = tr.querySelector('[data-type="direct-pulling"]');
-                    if (dpEl) actual += $u.int(dpEl.textContent);
-                });
-                const pct = order > 0 ? Math.min(100, Math.round((actual / order) * 100)) : 0;
-                return {
-                    order,
-                    actual,
-                    pct
-                };
-            }
-
-            function renderLineCard(lineKey) {
-                const {
-                    order,
-                    actual,
-                    pct
-                } = computeLineTotals(lineKey);
-                const root = document.querySelector(`[data-shift-card="${lineKey}"]`);
-                if (!root) return;
-                const elOrder = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-order"]`);
-                const elActual = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-actual"]`);
-                const elPct = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-pct"]`);
-                const elBar = root.querySelector(`.strip-stat[data-shift="total"] [data-role="shift-bar"]`);
-                if (elOrder) elOrder.textContent = order.toLocaleString('id-ID');
-                if (elActual) elActual.textContent = actual.toLocaleString('id-ID');
-                if (elPct) elPct.textContent = pct + '%';
-                if (elBar) elBar.style.width = pct + '%';
-            }
-
-            window.recomputeAllLineCards = function() {
-                ['AS003', 'AS004'].forEach(renderLineCard);
-            };
-            document.addEventListener('DOMContentLoaded', () => window.recomputeAllLineCards());
-
-            const _origBuild = window.prodPlanSSE?.buildSummaries;
-            if (_origBuild && !_origBuild.__wrappedForCardTotal__) {
-                window.prodPlanSSE.buildSummaries = function(...args) {
-                    const ret = _origBuild.apply(this, args);
-                    try {
-                        window.recomputeAllLineCards();
-                    } catch {}
-                    return ret;
-                };
-                window.prodPlanSSE.buildSummaries.__wrappedForCardTotal__ = true;
-            }
-
-            const _setMap = window.setBackNoRenameMap;
-            if (_setMap && !_setMap.__wrappedForCardTotal__) {
-                window.setBackNoRenameMap = function(map, opts) {
-                    const r = _setMap(map, opts);
-                    try {
-                        window.recomputeAllLineCards();
-                    } catch {}
-                    return r;
-                };
-                window.setBackNoRenameMap.__wrappedForCardTotal__ = true;
-            }
-        })();
+            /* disabled: handled by FixShiftCardsV3 */ })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
