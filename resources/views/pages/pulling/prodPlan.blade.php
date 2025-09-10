@@ -1725,8 +1725,8 @@
 
     <script>
         /* ======================
-                                                                                                                                                                                                                                                                                                                       THEME TOGGLE (tetap)
-                                                                                                                                                                                                                                                                                                                       ====================== */
+                                                                                                                                                                                                                                                                                                                               THEME TOGGLE (tetap)
+                                                                                                                                                                                                                                                                                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const saved = localStorage.getItem(key);
@@ -2456,14 +2456,17 @@
 
             triggerHighlight(row, type = 'direct-pulling') {
                 if (!row) return;
-                const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
 
+                // 1) Kedip (blink)
+                const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
                 void row.offsetWidth; // restart animasi
                 row.classList.add(cls);
-
                 clearTimeout(row._blinkTimer);
                 row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
+
+                // 2) Pin ke paling atas list (setelah summary)
+                this._pinRowToTop(row);
             }
 
 
@@ -2656,6 +2659,104 @@
                 }
                 cell.className = cls.trim();
             }
+
+            _findGroupStartRow(row) {
+                // cari row start grup (yang punya rowspan)
+                let p = row;
+                while (p && !this.isGroupStart(p)) p = p.previousElementSibling;
+                return (p && this.isGroupStart(p)) ? p : null;
+            }
+
+            _cloneRowspanCellsToRow(startRow, hostRow) {
+                // klon sel header (Customer/Dock/Cycle) ke hostRow agar kolom tetap lengkap
+                const hasByLabel = (r, lbl) => {
+                    const want = ProductionPlanSSEClient.normLabel(lbl);
+                    return Array.from(r.children).some(td =>
+                        ProductionPlanSSEClient.normLabel(td.getAttribute('data-label')) === want
+                    );
+                };
+
+                const startCells = Array.from(startRow.children)
+                    .filter(td => td.hasAttribute('rowspan')); // hanya header yang merged
+                startCells.forEach(src => {
+                    const lbl = src.getAttribute('data-label') || '';
+                    if (hasByLabel(hostRow, lbl)) return; // sudah ada, skip
+
+                    const clone = src.cloneNode(true);
+                    clone.setAttribute('rowspan', 1);
+                    clone.setAttribute('data-cloned-header', '1');
+
+                    // sisipkan di posisi kolom yang benar
+                    const wantIdx = this._indexByLabel(src);
+                    let ref = null;
+                    for (const ex of Array.from(hostRow.children)) {
+                        if (this._indexByLabel(ex) > wantIdx) {
+                            ref = ex;
+                            break;
+                        }
+                    }
+                    hostRow.insertBefore(clone, ref);
+                });
+            }
+
+            _pinRowToTop(row) {
+                const tbody = row?.parentElement;
+                if (!tbody) return;
+
+                // Klon header grup ke row yang akan dipin (biar kolom lengkap)
+                const startRow = this._findGroupStartRow(row);
+                if (startRow) this._cloneRowspanCellsToRow(startRow, row);
+
+                // Cari posisi "paling atas list" = setelah baris summary (jika ada)
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const firstNonSummary = rows.find(tr => tr.getAttribute('data-summary-row') !== '1');
+
+                if (firstNonSummary && row !== firstNonSummary) {
+                    tbody.insertBefore(row, firstNonSummary);
+                } else {
+                    // kalau tidak ada summary, taruh benar-benar paling atas
+                    tbody.insertBefore(row, tbody.firstChild);
+                }
+
+                row.classList.add('is-pinned');
+
+                // perpanjang pin kalau ada update berulang
+                clearTimeout(row._pinRestoreTimer);
+                row._pinRestoreTimer = setTimeout(() => {
+                    row.classList.remove('is-pinned');
+                    this._restoreOriginalOrder(tbody);
+                }, this.HIGHLIGHT_DURATION_MS);
+
+                // perbaiki rowspan grup setelah row keluar dari grup
+                const container = row.closest('[data-toggle-table]') || row.closest('table')?.parentElement;
+                this.recalcRowspans(container);
+            }
+
+            _restoreOriginalOrder(tbody) {
+                // kembalikan urutan berdasarkan snapshot awal
+                const orig = this.originalOrder.get(tbody);
+                if (!orig) return;
+
+                // buang header hasil klon dari row yang pernah dipin
+                Array.from(tbody.querySelectorAll('tr [data-cloned-header]'))
+                    .forEach(n => n.remove());
+
+                // susun ulang semua row non-summary sesuai urutan awal
+                const nonSummary = Array.from(tbody.querySelectorAll('tr'))
+                    .filter(tr => tr.getAttribute('data-summary-row') !== '1');
+
+                // pindahkan sesuai urutan awal (yang masih ada di tbody)
+                orig.forEach(r => {
+                    if (r && r.parentElement === tbody && r.getAttribute('data-summary-row') !== '1') {
+                        tbody.appendChild(r);
+                    }
+                });
+
+                // perbaiki rowspan lagi
+                const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
+                this.recalcRowspans(container);
+            }
+
 
             updateAllInlineSums() {
                 this.refreshSummaries();
