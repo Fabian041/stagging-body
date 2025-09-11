@@ -974,6 +974,115 @@
             color: var(--muted);
             font-size: .85rem
         }
+
+        /* ==== Pinned chip: clean layout ==== */
+        .pinned-chip {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-areas:
+                "info stats"
+                "bar  bar"
+                "meta meta";
+            gap: .4rem .8rem;
+            padding: .55rem .6rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin: .5rem 0;
+        }
+
+        .pinned-chip .info {
+            grid-area: info;
+        }
+
+        .pinned-chip .stats {
+            grid-area: stats;
+            display: flex;
+            gap: .45rem;
+            align-items: flex-start;
+        }
+
+        .pinned-chip .bar {
+            grid-area: bar;
+        }
+
+        .pinned-chip .meta {
+            grid-area: meta;
+            color: var(--muted);
+            font-size: .85rem;
+            display: flex;
+            gap: .55rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .pinned-chip .backno {
+            font-weight: 800;
+        }
+
+        .pinned-chip .dim {
+            color: var(--muted);
+            font-size: .9rem;
+        }
+
+        .stat-chip {
+            background: var(--chip-bg);
+            border: 1px solid var(--chip-border);
+            border-radius: 6px;
+            padding: .25rem .5rem;
+            min-width: 96px;
+        }
+
+        .stat-chip .label {
+            font-size: .7rem;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+            color: var(--muted);
+        }
+
+        .stat-chip .number {
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .pinned-chip .qty-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .pinned-chip .qty-progress .bar {
+            position: relative;
+            flex: 1 1 auto;
+            height: 6px;
+            border-radius: 999px;
+            background: var(--bar-bg);
+            overflow: hidden
+        }
+
+        .pinned-chip .qty-progress .bar>i {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bar-grad-from), var(--bar-grad-to))
+        }
+
+        .pinned-chip .qty-progress .val {
+            font-weight: 800;
+            font-size: .9rem;
+            min-width: 48px;
+            text-align: right
+        }
+
+        .pinned-chip .tag {
+            font-size: .7rem;
+            padding: .05rem .35rem;
+            border: 1px solid var(--chip-border);
+            background: var(--chip-bg);
+            border-radius: 4px;
+            color: var(--chip-ink)
+        }
     </style>
 
 </head>
@@ -1898,8 +2007,8 @@
 
     <script>
         /* ======================
-                                                                                           THEME TOGGLE
-                                                                                           ====================== */
+                                                                                               THEME TOGGLE
+                                                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2846,8 +2955,8 @@
 
     <script>
         /* ======================
-                                                                                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                                           ====================== */
+                                                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                                               ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3054,8 +3163,8 @@
 
     <script>
         /* ======================
-                                                                                           BACK NO RENAMER (trim using $u)
-                                                                                           ====================== */
+                                                                                               BACK NO RENAMER (trim using $u)
+                                                                                               ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3718,60 +3827,56 @@
                 div.className = 'pinned-chip';
                 div.setAttribute('data-pin-id', d.id);
                 div.innerHTML = `
-    <div>
+    <div class="info">
       <div class="backno">${d.backNo}</div>
-      <div class="dim">${d.customer}</div>
+      <div class="dim">${d.customer || '--'}</div>
     </div>
 
-    <div>
-      <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
+    <div class="stats">
+      <div class="stat-chip text-end">
+        <div class="label">Order</div>
+        <div class="number" data-x="order">${d.order.toLocaleString('id-ID')}</div>
+      </div>
+      <div class="stat-chip text-end">
+        <div class="label">Completed</div>
+        <div class="number" data-x="done">${d.done.toLocaleString('id-ID')}</div>
+      </div>
     </div>
 
-    <div class="text-end">
-      <div><b data-x="order">${d.order.toLocaleString('id-ID')}</b></div>
-      <div class="dim">Order</div>
-    </div>
-
-    <!-- Gabungan DP+SC -->
-    <div>
-      <div class="qty-progress" title="Completed (DP+SC) ${d.done} / ${d.order}">
+    <div class="bar">
+      <div class="qty-progress" title="${d.done} / ${d.order}">
         <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
         <span class="val" data-x="totpct">${d.pct}%</span>
       </div>
-      <div class="dim mt-1">
-        Completed: <b data-x="done">${d.done.toLocaleString('id-ID')}</b>
-        <span class="ms-1">(DP <span data-x="dpval">${d.dp}</span> + SC <span data-x="scval">${d.sc}</span>)</span>
-      </div>
     </div>
 
-    <div class="text-end">
-      <div><span class="tag">Delivery Time</span></div>
-      <div class="dim"><span data-x="dtime">${d.deliveryTime}</span> · <span data-x="ddate">${d.deliveryDate}</span></div>
+    <div class="meta">
+      <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
+      <span>•</span>
+      <span data-x="dtime">${d.deliveryTime}</span>
+      <span>·</span>
+      <span data-x="ddate">${d.deliveryDate}</span>
     </div>
   `;
                 return div;
             }
 
-
             _patchChip(el, d) {
-                const set = (sel, val) => {
-                    const n = el.querySelector(`[data-x="${sel}"]`);
-                    if (n) n.textContent = val;
+                const set = (k, v) => {
+                    const n = el.querySelector(`[data-x="${k}"]`);
+                    if (n) n.textContent = v;
                 };
 
-                set('dock', d.dock);
                 set('order', d.order.toLocaleString('id-ID'));
                 set('done', d.done.toLocaleString('id-ID'));
                 set('totpct', `${d.pct}%`);
-                set('dpval', d.dp);
-                set('scval', d.sc);
+                set('dock', d.dock);
                 set('dtime', d.deliveryTime);
                 set('ddate', d.deliveryDate);
 
                 const totbar = el.querySelector('[data-x="totbar"]');
                 if (totbar) totbar.style.width = `${d.pct}%`;
             }
-
 
             upsertFromRow(row) {
                 const d = this._extract(row);
