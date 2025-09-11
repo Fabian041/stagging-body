@@ -1236,7 +1236,7 @@
 
                     <!-- Table -->
                     <div class="card">
-                        <div class="table-responsive" style="max-height:800px;">
+                        <div class="table-responsive">
                             <table class="table table-hover table-bordered align-middle mb-0">
                                 <thead>
                                     <tr>
@@ -1561,7 +1561,7 @@
                     </div>
 
                     <div class="card">
-                        <div class="table-responsive" style="max-height:800px;">
+                        <div class="table-responsive">
                             <table class="table table-hover table-bordered align-middle mb-0">
                                 <thead>
                                     <tr>
@@ -1898,8 +1898,8 @@
 
     <script>
         /* ======================
-                                                                               THEME TOGGLE
-                                                                               ====================== */
+                                                                                   THEME TOGGLE
+                                                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2846,8 +2846,8 @@
 
     <script>
         /* ======================
-                                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                               ====================== */
+                                                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                                   ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3054,8 +3054,8 @@
 
     <script>
         /* ======================
-                                                                               BACK NO RENAMER (trim using $u)
-                                                                               ====================== */
+                                                                                   BACK NO RENAMER (trim using $u)
+                                                                                   ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
