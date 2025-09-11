@@ -1083,8 +1083,25 @@
             border-radius: 4px;
             color: var(--chip-ink)
         }
-    </style>
 
+        /* -- Shift card controls -- */
+        .shiftcard-head .btn {
+            padding: .15rem .45rem;
+        }
+
+        .shiftcard-head .title {
+            font-weight: 700;
+            letter-spacing: .2px;
+        }
+
+        #hidden-cards-tray {
+            border-radius: 8px;
+        }
+
+        #hidden-cards-tray .badge-btn {
+            margin-left: .35rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -1907,7 +1924,7 @@
             </div>
         </div>
     </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         (function() {
             if (window.$u) return;
@@ -2007,8 +2024,8 @@
 
     <script>
         /* ======================
-                                                                                               THEME TOGGLE
-                                                                                               ====================== */
+                                                                                                               THEME TOGGLE
+                                                                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2955,8 +2972,8 @@
 
     <script>
         /* ======================
-                                                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                                               ====================== */
+                                                                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                                                               ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3163,8 +3180,8 @@
 
     <script>
         /* ======================
-                                                                                               BACK NO RENAMER (trim using $u)
-                                                                                               ====================== */
+                                                                                                               BACK NO RENAMER (trim using $u)
+                                                                                                               ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3924,8 +3941,159 @@
             }
         }
     </script>
+    <script>
+        (function ShiftCardControls() {
+            const LS_KEY = 'shiftCardState'; // { mini: {AS003:true}, hidden:{AS004:true} }
+            const readState = () => {
+                try {
+                    return JSON.parse(localStorage.getItem(LS_KEY) || '{"mini":{},"hidden":{}}');
+                } catch {
+                    return {
+                        mini: {},
+                        hidden: {}
+                    };
+                }
+            };
+            const writeState = (s) => {
+                try {
+                    localStorage.setItem(LS_KEY, JSON.stringify(s));
+                } catch {}
+            };
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            const state = readState();
+
+            // tray untuk restore kartu tersembunyi
+            function ensureTray() {
+                let tray = document.getElementById('hidden-cards-tray');
+                if (!tray) {
+                    tray = document.createElement('div');
+                    tray.id = 'hidden-cards-tray';
+                    tray.className = 'alert alert-secondary py-2 px-3 d-flex align-items-center gap-2 d-none';
+                    tray.innerHTML = `
+        <i class="fas fa-eye-slash"></i>
+        <strong class="me-1">Hidden cards:</strong>
+        <span data-tray-list class="d-flex flex-wrap align-items-center"></span>
+      `;
+                    // taruh di atas tab-content (aman, ga nutup table)
+                    const container = document.querySelector('.container') || document.body;
+                    const tabs = document.getElementById('lineTabs') || container.firstElementChild;
+                    container.insertBefore(tray, (tabs?.nextElementSibling) || container.firstChild);
+                }
+                return tray;
+            }
+
+            function refreshTray() {
+                const tray = ensureTray();
+                const list = tray.querySelector('[data-tray-list]');
+                list.innerHTML = '';
+                const hiddenKeys = Object.keys(state.hidden || {}).filter(k => state.hidden[k]);
+                if (!hiddenKeys.length) {
+                    tray.classList.add('d-none');
+                    return;
+                }
+                hiddenKeys.forEach(key => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'badge-btn btn btn-sm btn-outline-secondary';
+                    b.textContent = key + ' (show)';
+                    b.addEventListener('click', () => {
+                        const card = document.querySelector(`[data-shift-card="${key}"]`);
+                        if (card) {
+                            card.classList.remove('d-none');
+                            state.hidden[key] = false;
+                            writeState(state);
+                            refreshTray();
+                        }
+                    });
+                    list.appendChild(b);
+                });
+                tray.classList.remove('d-none');
+            }
+
+            function buildHeader(card, key, collapseId) {
+                // Header
+                const head = document.createElement('div');
+                head.className = 'card-header d-flex justify-content-between align-items-center shiftcard-head';
+                head.innerHTML = `
+      <div class="d-flex align-items-center gap-2">
+        <i class="fas fa-industry text-primary"></i>
+        <span class="title">${key} – Shift Summary</span>
+      </div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-secondary" data-action="minimize" aria-expanded="true" title="Minimize">
+          <i class="fas fa-chevron-up"></i>
+        </button>
+      </div>
+    `;
+                card.insertBefore(head, card.firstChild);
+
+                // Wiring tombol
+                const btnMin = head.querySelector('[data-action="minimize"]');
+                // const btnHide = head.querySelector('[data-action="hide"]');
+                const target = document.getElementById(collapseId);
+                const bsCollapse = new bootstrap.Collapse(target, {
+                    toggle: false
+                });
+
+                function setMinimized(min) {
+                    if (min) {
+                        bsCollapse.hide();
+                        btnMin.setAttribute('aria-expanded', 'false');
+                        btnMin.innerHTML = '<i class="fas fa-chevron-down"></i>';
+                    } else {
+                        bsCollapse.show();
+                        btnMin.setAttribute('aria-expanded', 'true');
+                        btnMin.innerHTML = '<i class="fas fa-chevron-up"></i>';
+                    }
+                }
+
+                btnMin.addEventListener('click', () => {
+                    const current = btnMin.getAttribute('aria-expanded') === 'true';
+                    setMinimized(current); // toggle
+                    state.mini[key] = current; // simpan: kalau tadinya expanded=true, sekarang jadi minimized
+                    writeState(state);
+                });
+
+                // btnHide.addEventListener('click', () => {
+                //     card.classList.add('d-none');
+                //     state.hidden[key] = true;
+                //     writeState(state);
+                //     refreshTray();
+                // });
+
+                // apply state awal
+                setMinimized(!!state.mini[key]);
+            }
+
+            // Upgrade semua card
+            document.querySelectorAll('[data-shift-card]').forEach(card => {
+                const key = card.getAttribute('data-shift-card') || 'CARD';
+                // Bungkus body ke collapse
+                let body = card.querySelector('.card-body');
+                if (!body) return;
+
+                // kalau sudah pernah di-wrap, skip
+                let wrap = body.closest('.collapse');
+                if (!wrap) {
+                    const id = `shiftcard-${key}`;
+                    wrap = document.createElement('div');
+                    wrap.className = 'collapse show';
+                    wrap.id = id;
+                    body.parentElement.insertBefore(wrap, body);
+                    wrap.appendChild(body);
+
+                    // buat header + tombol
+                    buildHeader(card, key, id);
+                }
+
+                // apply hidden state
+                if (state.hidden[key]) card.classList.add('d-none');
+            });
+
+            refreshTray();
+        })();
+    </script>
+
 </body>
 
 </html>
