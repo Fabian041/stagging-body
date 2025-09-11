@@ -1822,8 +1822,8 @@
 
     <script>
         /* ======================
-                                                               THEME TOGGLE
-                                                               ====================== */
+                                                                   THEME TOGGLE
+                                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2601,8 +2601,6 @@
                     }
                 });
                 this.refreshSummaries();
-
-                window.recomputeAllShiftCards?.();
             }
 
             updateQuantity(selector, newValue, type, targetQty = null) {
@@ -2762,8 +2760,8 @@
 
     <script>
         /* ======================
-                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                               ====================== */
+                                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                   ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2970,8 +2968,8 @@
 
     <script>
         /* ======================
-                                                               BACK NO RENAMER (trim using $u)
-                                                               ====================== */
+                                                                   BACK NO RENAMER (trim using $u)
+                                                                   ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
