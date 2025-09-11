@@ -641,9 +641,10 @@ class DashboardController extends Controller
                 // tetap tampilkan semua data di tabel
                 'data' => $lineData->groupBy(function ($item) {
                     $cust = trim((string)($item->customer ?? '')) ?: '--';
-                    $dock = trim((string)($item->dock ?? '')) ?: '--';
                     $time = trim((string)($item->delivery_time ?? '')) ?: '--';
-                    return "{$cust}|{$dock}|{$time}";
+                    $dock = trim((string)($item->dock ?? '')) ?: '--';
+                    // <-- urutkan: customer | delivery_time | dock
+                    return "{$cust}|{$time}|{$dock}";
                 }),
 
                 // KPI sesuai rule baru
