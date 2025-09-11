@@ -669,7 +669,7 @@
             font-size: clamp(16px, 1.2vw, 28px);
         }
 
-        /* judul halaman mengikuti lebar layar */
+        /* judul halaman mengik  lebar layar */
         h2 {
             font-size: clamp(1.75rem, 2.4vw, 3rem);
         }
@@ -1822,8 +1822,8 @@
 
     <script>
         /* ======================
-                                                       THEME TOGGLE
-                                                       ====================== */
+                                                               THEME TOGGLE
+                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2762,8 +2762,8 @@
 
     <script>
         /* ======================
-                                                       SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                       ====================== */
+                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                               ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2970,8 +2970,8 @@
 
     <script>
         /* ======================
-                                                       BACK NO RENAMER (trim using $u)
-                                                       ====================== */
+                                                               BACK NO RENAMER (trim using $u)
+                                                               ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3059,9 +3059,6 @@
     </script>
 
     <script>
-        /* ======================
-                                                       SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-                                                       ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
@@ -3171,37 +3168,33 @@
             }
 
 
+            // 1) Klasifikasi shift: Delivery Date+Time (09:40 rule), fallback jam Delivery Time
             function classifyShift(row, lineKey) {
-                const tag = row.getAttribute('data-shift');
-                if (tag === 'morning' || tag === 'night') return tag;
-
-                // summary khusus (tetap)
+                // summary khusus tetap berlaku
                 const ov = specialSummaryShift(lineKey, row);
                 if (ov) return ov;
 
-                // ==== Aturan baru: berdasarkan Delivery Date + Time ====
-                const curISO = window.prodPlanSSE?.getCurrentDate?.() || $u.getCurrentISO();
-                const md = readDeliveryDateMDForRow(row); // "MM/DD"
                 const tm = readDeliveryTimeTextForRow(row); // "HH:mm"
-                if (md && tm) {
-                    const dlvISO = $u.mdToISO(md, curISO); // "YYYY-MM-DD"
-                    const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
-                    if (byDT !== 'other') return byDT;
+                const md = readDeliveryDateMDForRow(row); // "MM/DD"
+                if (tm) {
+                    if (md) {
+                        const curISO = window.prodPlanSSE?.getCurrentDate?.() || $u.getCurrentISO();
+                        const dlvISO = $u.mdToISO(md, curISO);
+                        const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm); // 09:40 logic
+                        if (byDT === 'morning' || byDT === 'night') return byDT;
+                    }
+                    // fallback kalau "Delivery Date" kosong: nilai jamnya saja
+                    const mins = $u.timeToMinutes(tm);
+                    if (mins != null) return mins >= (9 * 60 + 40) ? 'morning' : 'night';
                 }
 
-                // Fallback lama (kalau kolom kosong)
-                const Hdlv = $u.hourFromText(readDeliveryTimeTextForRow(row));
-                if (Hdlv != null) return (Hdlv >= 10 && Hdlv <= 22) ? 'morning' :
-                    ((Hdlv >= 0 && Hdlv <= 9) || Hdlv === 23) ? 'night' : 'other';
-                const H = readHourFromRowTimes(row);
-                if (H != null) return (H >= 10 && H <= 22) ? 'morning' :
-                    ((H >= 0 && H <= 9) || H === 23) ? 'night' : 'other';
+                // jangan pakai Planning/Actual Start lagi (sesuai: pakai Delivery Time saja)
                 return 'other';
             }
 
-
             const rowCountable = tr => tr && tr.style.display !== 'none';
 
+            // 2) Hitung kartu: actual = DP + SC, hapus sisa +/- diff
             function computeLine(lineKey) {
                 const wrap = document.querySelector(`[data-toggle-table="${lineKey}"]`);
                 const sums = {
@@ -3218,22 +3211,28 @@
                         actual: 0
                     }
                 };
-
                 if (!wrap) return sums;
+
                 wrap.querySelectorAll('tbody tr').forEach(tr => {
-                    if (!rowCountable(tr)) return;
+                    if (tr.style.display === 'none') return;
+
                     const order = readOrder(tr);
                     const dp = readDP(tr);
-                    const lineShift = classifyShift(tr, lineKey);
-                    if (tr.getAttribute('data-shift') !== lineShift) tr.setAttribute('data-shift', lineShift); -
-                    sums.total.order += order; - sums.total.actual += dp;
-                    if (lineShift === 'morning' || lineShift === 'night') {
-                        sums[lineShift].order += order;
-                        sums[lineShift].actual += dp;
+                    const sc = readSC(tr);
+                    const shift = classifyShift(tr, lineKey);
+
+                    if (tr.getAttribute('data-shift') !== shift) tr.setAttribute('data-shift', shift);
+
+                    if (shift === 'morning' || shift === 'night') {
+                        sums[shift].order += order;
+                        sums[shift].actual += (dp + sc); // <= actual = DP + SC
                     }
-                }); + // TOTAL = Morning + Night (baris "other" tidak ikut)
-                +sums.total.order = sums.morning.order + sums.night.order; +
+                });
+
+                // TOTAL = Morning + Night (baris "other" nggak ikut)
+                sums.total.order = sums.morning.order + sums.night.order;
                 sums.total.actual = sums.morning.actual + sums.night.actual;
+
                 return sums;
             }
 
