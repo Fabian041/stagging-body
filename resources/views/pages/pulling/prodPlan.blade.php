@@ -1822,8 +1822,8 @@
 
     <script>
         /* ======================
-                                                           THEME TOGGLE
-                                                           ====================== */
+                                                               THEME TOGGLE
+                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2760,8 +2760,8 @@
 
     <script>
         /* ======================
-                                                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                           ====================== */
+                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                               ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2968,8 +2968,8 @@
 
     <script>
         /* ======================
-                                                           BACK NO RENAMER (trim using $u)
-                                                           ====================== */
+                                                               BACK NO RENAMER (trim using $u)
+                                                               ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3058,8 +3058,8 @@
 
     <script>
         /* ======================
-                                                           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-                                                           ====================== */
+                                                               SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+                                                               ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
@@ -3220,30 +3220,30 @@
 
                 wrap.querySelectorAll('tbody tr').forEach(tr => {
                     if (!rowCountable(tr)) return;
+                    if (isSummaryRow(tr)) return; // <-- JANGAN hitung baris summary
 
                     const order = readOrder(tr);
-                    const dp = readDP(tr);
+                    const dp = readDP(tr); // actual = DP (tetap seperti logika kamu sekarang)
                     const lineShift = classifyShift(tr, lineKey);
 
-                    // set atribut shift (tidak mengubah logika klasifikasi)
-                    if (tr.getAttribute('data-shift') !== lineShift) {
+                    // set atribut shift untuk baris normal saja (biar gak misleading)
+                    if (tr.getAttribute('data-summary-row') !== '1' &&
+                        tr.getAttribute('data-shift') !== lineShift) {
                         tr.setAttribute('data-shift', lineShift);
                     }
 
-                    // HANYA akumulasi ke morning/night. 'other' di-skip.
                     if (lineShift === 'morning' || lineShift === 'night') {
                         sums[lineShift].order += order;
                         sums[lineShift].actual += dp;
                     }
                 });
 
-                // TOTAL = Morning + Night (baris 'other' tidak ikut)
+                // TOTAL = Morning + Night (baris 'other' & summary tidak ikut)
                 sums.total.order = sums.morning.order + sums.night.order;
                 sums.total.actual = sums.morning.actual + sums.night.actual;
 
                 return sums;
             }
-
 
             const pct = (a, o) => o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
 
