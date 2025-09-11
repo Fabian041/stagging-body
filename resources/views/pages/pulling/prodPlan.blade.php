@@ -1822,8 +1822,8 @@
 
     <script>
         /* ======================
-                                           THEME TOGGLE
-                                           ====================== */
+                                                   THEME TOGGLE
+                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -1853,8 +1853,8 @@
 
     <script>
         /* ======================
-                                           SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
-                                           ====================== */
+                                                   SSE CLIENT + SUMMARY PIN (V2 – CI12 split)
+                                                   ====================== */
         const COL_ORDER = [
             'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
             'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date',
@@ -2059,6 +2059,7 @@
                 const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
                 const tbody = container?.querySelector('tbody');
                 if (!tbody) return null;
+
                 const summary = {
                     row: null,
                     totals: {
@@ -2068,14 +2069,17 @@
                     },
                     ids: new Map()
                 };
+
                 const allRows = Array.from(tbody.querySelectorAll('tr'));
 
+                // Kelompokkan per group (rowspan)
                 let i = 0,
                     groups = [];
                 while (i < allRows.length) {
                     const start = allRows[i];
-                    const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute(
-                        'rowspan') || '1', 10) : 1;
+                    const rs = this.isGroupStart(start) ?
+                        parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) :
+                        1;
                     const g = [start];
                     for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
                     groups.push(g);
@@ -2109,8 +2113,9 @@
                     });
 
                     const keepRows = groupRows.filter(r => !matches.includes(r));
-                    if (!keepRows.length) groupRows.forEach(r => r.remove());
-                    else {
+                    if (!keepRows.length) {
+                        groupRows.forEach(r => r.remove());
+                    } else {
                         if (matches.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
                         matches.forEach(r => {
                             if (r !== startRow) r.remove();
@@ -2131,12 +2136,15 @@
                         totals: summary.totals,
                         customerText
                     });
-                    tbody.insertBefore(summary.row, tbody.firstChild || null);
+
+                    // === PIN DI PALING BAWAH ===
+                    tbody.appendChild(summary.row);
                 }
 
                 this.recalcRowspans(container);
                 return summary;
             }
+
 
             _normalize(s) {
                 return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
@@ -2755,8 +2763,8 @@
 
     <script>
         /* ======================
-                                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                           ====================== */
+                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                   ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2963,8 +2971,8 @@
 
     <script>
         /* ======================
-                                           BACK NO RENAMER (trim using $u)
-                                           ====================== */
+                                                   BACK NO RENAMER (trim using $u)
+                                                   ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3053,8 +3061,8 @@
 
     <script>
         /* ======================
-                                           SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-                                           ====================== */
+                                                   SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+                                                   ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
