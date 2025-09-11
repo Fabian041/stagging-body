@@ -1898,8 +1898,8 @@
 
     <script>
         /* ======================
-                                                                           THEME TOGGLE
-                                                                           ====================== */
+                                                                               THEME TOGGLE
+                                                                               ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2846,8 +2846,8 @@
 
     <script>
         /* ======================
-                                                                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                           ====================== */
+                                                                               SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                               ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3054,8 +3054,8 @@
 
     <script>
         /* ======================
-                                                                           BACK NO RENAMER (trim using $u)
-                                                                           ====================== */
+                                                                               BACK NO RENAMER (trim using $u)
+                                                                               ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3669,7 +3669,7 @@
                 this.shelf = document.createElement('div');
                 this.shelf.className = 'pinned-shelf';
                 this.shelf.innerHTML = `
-      <div class="title"><i class="fas fa-thumbtack me-1"></i>Current Production </div>
+      <div class="title"><i class="fas fa-cogs me-1"></i>Current Production / Pulling</div>
       <div data-shelf-list></div>
     `;
                 // taruh di atas kartu tabel
