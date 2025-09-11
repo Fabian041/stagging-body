@@ -899,33 +899,56 @@
             }
         }
 
-        /* ==== Pinned Shelf (non-destructive pin) ==== */
-        .pinned-shelf {
-            border: 1px dashed var(--border);
-            background: var(--surface-subtle);
-            padding: .5rem .6rem;
-            border-radius: 10px;
-            margin-bottom: .6rem
+        /* ==== Right Rail (non-overlay) ==== */
+        .pinned-rail {
+            position: sticky;
+            top: 96px;
+            float: right;
+            width: 320px;
+            margin-left: 16px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
         }
 
-        .pinned-shelf .title {
-            font-size: .75rem;
-            letter-spacing: .3px;
+        [data-toggle-table] .table-responsive {
+            margin-right: 352px;
+        }
+
+        /* kasih ruang untuk rail */
+        .pinned-rail .rail-title {
+            font-size: .8rem;
+            letter-spacing: .4px;
             color: var(--muted);
-            text-transform: uppercase
+            text-transform: uppercase;
+            font-weight: 700
+        }
+
+        .pinned-rail .rail-body {
+            max-height: 60vh;
+            overflow: auto;
+            padding: .6rem
         }
 
         .pinned-chip {
             display: grid;
-            grid-template-columns: 1.2fr .7fr .6fr .7fr 1fr 1fr;
+            grid-template-columns: 1.2fr .7fr .7fr 1fr;
             gap: .6rem;
             align-items: center;
-            padding: .45rem .6rem;
+            padding: .5rem .6rem;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
             box-shadow: var(--shadow);
-            margin-top: .5rem
+            margin: .5rem 0;
+        }
+
+        .pinned-chip .backno {
+            font-weight: 800
+        }
+
+        .pinned-chip .dim {
+            color: var(--muted);
+            font-size: .85rem
         }
 
         .pinned-chip .qty-progress {
@@ -958,21 +981,25 @@
         }
 
         .pinned-chip .tag {
-            font-size: .75rem;
-            padding: .1rem .4rem;
+            font-size: .7rem;
+            padding: .05rem .35rem;
             border: 1px solid var(--chip-border);
             background: var(--chip-bg);
             border-radius: 4px;
             color: var(--chip-ink)
         }
 
-        .pinned-chip .backno {
-            font-weight: 800
-        }
+        @media (max-width: 1200px) {
+            .pinned-rail {
+                display: none
+            }
 
-        .pinned-chip .dim {
-            color: var(--muted);
-            font-size: .85rem
+            /* rail disembunyikan di layar sempit */
+            [data-toggle-table] .table-responsive {
+                margin-right: 0
+            }
+
+            /* table kembali penuh */
         }
     </style>
 
@@ -1898,8 +1925,8 @@
 
     <script>
         /* ======================
-                                                                       THEME TOGGLE
-                                                                       ====================== */
+                                                                                   THEME TOGGLE
+                                                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -1961,9 +1988,17 @@
                 this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
 
+                // di ProductionPlanSSEClient.init()
                 this.shelves = {};
-                if (this.AS003) this.shelves.AS003 = new PinnedShelf(this.AS003);
-                if (this.AS004) this.shelves.AS004 = new PinnedShelf(this.AS004);
+                if (this.AS003) this.shelves.AS003 = new PinnedShelf(this.AS003, {
+                    max: 5,
+                    ttl: this.HIGHLIGHT_DURATION_MS
+                });
+                if (this.AS004) this.shelves.AS004 = new PinnedShelf(this.AS004, {
+                    max: 5,
+                    ttl: this.HIGHLIGHT_DURATION_MS
+                });
+
 
 
                 this.prefillRawAttrs(this.AS003);
@@ -2568,13 +2603,9 @@
                 clearTimeout(row._blinkTimer);
                 row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
 
-                // kirim clone ke shelf sesuai line
                 const lineKey = row.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
-                if (lineKey && this.shelves?.[lineKey]) {
-                    this.shelves[lineKey].upsertFromRow(row);
-                }
+                if (lineKey && this.shelves?.[lineKey]) this.shelves[lineKey].upsertFromRow(row);
             }
-
 
             connect() {
                 try {
@@ -2846,8 +2877,8 @@
 
     <script>
         /* ======================
-                                                                       SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                       ====================== */
+                                                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                                   ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3054,8 +3085,8 @@
 
     <script>
         /* ======================
-                                                                       BACK NO RENAMER (trim using $u)
-                                                                       ====================== */
+                                                                                   BACK NO RENAMER (trim using $u)
+                                                                                   ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3665,19 +3696,21 @@
             }
 
             _ensureShelf() {
-                if (this.shelf) return;
-                this.shelf = document.createElement('div');
-                this.shelf.className = 'pinned-shelf';
-                this.shelf.innerHTML = `
-      <div class="title"><i class="fas fa-thumbtack me-1"></i>Pinned updates</div>
-      <div data-shelf-list></div>
+                if (this.rail) return;
+                this.rail = document.createElement('aside');
+                this.rail.className = 'pinned-rail card';
+                this.rail.innerHTML = `
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div class="rail-title"><i class="fas fa-bolt me-2"></i>Live Updates</div>
+        <small class="text-muted">auto clear</small>
+      </div>
+      <div class="rail-body" data-shelf-list></div>
     `;
-                // taruh di atas kartu tabel
-                const toolbar = this.container.querySelector('.d-flex.justify-content-end') || this.container
-                    .firstElementChild;
-                (toolbar?.parentElement || this.container).insertBefore(this.shelf, toolbar?.nextSibling || this
-                    .container.firstChild);
-                this.list = this.shelf.querySelector('[data-shelf-list]');
+                // sisipkan setelah card/table utama agar jadi kolom kanan
+                const anchor = this.container.querySelector('.card') || this.container.firstElementChild || this
+                    .container;
+                anchor.parentElement.insertBefore(this.rail, anchor.nextSibling);
+                this.list = this.rail.querySelector('[data-shelf-list]');
             }
 
             _extract(row) {
@@ -3718,9 +3751,20 @@
                 div.className = 'pinned-chip';
                 div.setAttribute('data-pin-id', d.id);
                 div.innerHTML = `
-      <div><div class="backno">${d.backNo}</div><div class="dim">${d.customer}</div></div>
-      <div><span class="tag">Dock</span> <span data-x="dock">${d.dock}</span></div>
-      <div class="text-end"><div><b data-x="order">${d.order.toLocaleString('id-ID')}</b></div><div class="dim">Order</div></div>
+      <div>
+        <div class="backno">${d.backNo}</div>
+        <div class="dim">${d.customer || '--'}</div>
+      </div>
+      <div class="small">
+        <span class="tag">Dock</span>
+        <span data-x="dock" class="ms-1">${d.dock}</span>
+        <div class="dim mt-1"><span data-x="dtime">${d.deliveryTime}</span> · <span data-x="ddate">${d.deliveryDate}</span></div>
+      </div>
+      <div class="text-end">
+        <div><b data-x="order">${d.order.toLocaleString('id-ID')}</b></div>
+        <div class="dim">Order</div>
+        <div class="dim mt-1">Done: <b data-x="done">${d.done.toLocaleString('id-ID')}</b></div>
+      </div>
       <div>
         <div class="qty-progress" title="DP ${d.dp} / ${d.order}">
           <div class="bar"><i data-x="dpbar" style="width:${d.order>0?Math.min(100,Math.round(d.dp/d.order*100)):0}%"></i></div>
@@ -3730,17 +3774,10 @@
           <div class="bar"><i data-x="scbar" style="width:${d.order>0?Math.min(100,Math.round(d.sc/d.order*100)):0}%"></i></div>
           <span class="val" data-x="scval">${d.sc}</span>
         </div>
-      </div>
-      <div>
-        <div class="qty-progress" title="Total ${d.done} / ${d.order}">
+        <div class="qty-progress mt-1" title="Total ${d.done} / ${d.order}">
           <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
           <span class="val" data-x="totpct">${d.pct}%</span>
         </div>
-        <div class="dim mt-1">Completed: <b data-x="done">${d.done.toLocaleString('id-ID')}</b></div>
-      </div>
-      <div class="text-end">
-        <div><span class="tag">Delivery</span></div>
-        <div class="dim"><span data-x="dtime">${d.deliveryTime}</span> · <span data-x="ddate">${d.deliveryDate}</span></div>
       </div>
     `;
                 return div;
