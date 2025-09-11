@@ -1,0 +1,1116 @@
+        :root {
+            --brand-primary: #0d6efd;
+            --brand-accent: #20c997;
+            --brand-warning: #ffc107;
+
+            --ink: #2b2f33;
+            /* teks utama */
+            --muted: #6c757d;
+            /* teks sekunder */
+            --surface: #ffffff;
+            /* kartu */
+            --surface-subtle: #f8f9fa;
+            /* page bg */
+            --border: #e9ecef;
+            /* garis */
+
+            --success-25: rgba(25, 135, 84, .15);
+            --success-75: rgba(25, 135, 84, .75);
+            --warning-25: rgba(255, 193, 7, .2);
+            --warning-75: rgba(255, 193, 7, .75);
+            --danger-10: rgba(220, 53, 69, .08);
+
+            --shadow: 0 2px 8px rgba(16, 24, 40, .08);
+            --radius: 12px;
+
+            --highlight-direct: #e7f7ef;
+            /* blinking highlight */
+            --highlight-stock: #fff6e0;
+            --highlight-base: #ffffff;
+
+            --table-hover: #fafcff;
+            --bar-bg: #eef2f7;
+            --bar-grad-from: #3ddc97;
+            --bar-grad-to: #0d6efd;
+
+            --chip-bg: #eef2ff;
+            --chip-border: #e1e6ff;
+            --chip-ink: #344767;
+        }
+
+        /* ======================
+           THEME TOKENS (DARK)
+           ====================== */
+        html[data-theme="dark"] {
+            --ink: #edf1f5;
+            --muted: #b7c0cc;
+            --surface: #1b1f26;
+            --surface-subtle: #12161b;
+            --border: #2f3742;
+
+            --success-25: rgba(52, 199, 89, .25);
+            --success-75: rgba(52, 199, 89, .70);
+            --warning-25: rgba(255, 189, 46, .25);
+            --warning-75: rgba(255, 189, 46, .80);
+            --danger-10: rgba(240, 68, 56, .22);
+
+            --shadow: 0 2px 10px rgba(0, 0, 0, .45);
+
+            --highlight-direct: #163c2a;
+            --highlight-stock: #3a2f10;
+            --highlight-base: #1b1f26;
+
+            --table-hover: #202733;
+            --bar-bg: #2a3340;
+            --bar-grad-from: #2bb383;
+            --bar-grad-to: #5691ff;
+
+            --chip-bg: #243041;
+            --chip-border: #324055;
+            --chip-ink: #e8edf4;
+        }
+
+        /* ======================
+           BASE
+           ====================== */
+        html,
+        body {
+            background: var(--surface-subtle);
+            color: var(--ink);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+        }
+
+        h2 {
+            color: var(--ink);
+            letter-spacing: .2px;
+            line-height: 1.35;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .page-head {
+            background: linear-gradient(180deg, var(--surface), var(--surface-subtle));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        /* Tabs */
+        .nav-tabs .nav-link {
+            color: var(--muted);
+            border: 1px solid transparent;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--ink);
+            background: var(--surface);
+            border-color: var(--border) var(--border) var(--surface);
+            box-shadow: var(--shadow);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
+        html[data-theme="dark"] .nav-tabs .nav-link.active {
+            background: #1f2530;
+            border-color: #2d3746 #2d3746 #1f2530;
+            color: #eaf2ff;
+        }
+
+        /* ======================
+           TABLE (base)
+           ====================== */
+        .table {
+            color: var(--ink);
+            border-color: var(--border);
+        }
+
+        .table td,
+        .table th {
+            vertical-align: middle;
+            border-color: var(--border);
+        }
+
+        .table-hover tbody tr:hover {
+            background: var(--table-hover);
+        }
+
+        html[data-theme="dark"] .table thead th {
+            color: #f5f9ff;
+            background: #1f2530;
+        }
+
+        /* Subtle risk row di dark */
+        html[data-theme="dark"] .table-danger-subtle {
+            background-color: var(--danger-10) !important;
+            color: var(--ink) !important;
+        }
+
+        /* ======================
+           STATUS COLORS (DP/SC cells)
+           ====================== */
+        .bg-success.bg-opacity-75 {
+            background: var(--success-75) !important;
+            color: #fff !important;
+        }
+
+        .bg-success.bg-opacity-25 {
+            background: var(--success-25) !important;
+        }
+
+        .bg-warning.bg-opacity-75 {
+            background: var(--warning-75) !important;
+            color: #1a1d21 !important;
+        }
+
+        .bg-warning.bg-opacity-25 {
+            background: var(--warning-25) !important;
+        }
+
+        html[data-theme="dark"] .bg-success.bg-opacity-75 {
+            color: #0f141a !important;
+            background: var(--success-75) !important;
+        }
+
+        html[data-theme="dark"] .bg-warning.bg-opacity-75 {
+            color: #111 !important;
+            background: var(--warning-75) !important;
+        }
+
+        html[data-theme="dark"] .bg-success.bg-opacity-25 {
+            color: var(--ink) !important;
+            background: var(--success-25) !important;
+        }
+
+        html[data-theme="dark"] .bg-warning.bg-opacity-25 {
+            color: var(--ink) !important;
+            background: var(--warning-25) !important;
+        }
+
+        /* ======================
+           MINI PROGRESS
+           ====================== */
+        .qty-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .qty-progress .bar {
+            position: relative;
+            flex: 1 1 auto;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--bar-bg);
+            overflow: hidden;
+        }
+
+        .qty-progress .bar>i {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bar-grad-from), var(--bar-grad-to));
+            transition: width .3s ease;
+        }
+
+        .qty-progress .val {
+            font-weight: 700;
+            font-size: .9rem;
+            min-width: 56px;
+            text-align: right;
+        }
+
+        html[data-theme="dark"] .qty-progress .bar {
+            background: var(--bar-bg);
+        }
+
+        html[data-theme="dark"] .qty-progress .bar>i {
+            filter: saturate(115%);
+        }
+
+        html[data-theme="dark"] .total-progress .val {
+            color: #eaf2ff;
+        }
+
+        /* ======================
+           HIGHLIGHT + ANIMATIONS
+           ====================== */
+        .flip {
+            display: inline-block;
+            transition: all .3s ease;
+            transform-style: preserve-3d;
+            transform-origin: bottom center;
+        }
+
+        .animate-flip {
+            animation: flipAnimation .6s ease;
+        }
+
+        @keyframes flipAnimation {
+            0% {
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+
+            50% {
+                transform: rotateX(90deg);
+                opacity: 0;
+            }
+
+            51% {
+                transform: rotateX(-90deg);
+            }
+
+            100% {
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+        }
+
+        @keyframes continuousBlink {
+
+            0%,
+            100% {
+                background-color: var(--highlight-color);
+            }
+
+            50% {
+                background-color: var(--base-bg);
+            }
+        }
+
+        .highlight-beep-direct {
+            --highlight-color: var(--highlight-direct);
+            --base-bg: var(--highlight-base);
+            animation: continuousBlink 1s ease-in-out infinite;
+        }
+
+        .highlight-beep-stock {
+            --highlight-color: var(--highlight-stock);
+            --base-bg: var(--highlight-base);
+            animation: continuousBlink 1s ease-in-out infinite;
+        }
+
+        .highlight-beep-direct td,
+        .highlight-beep-stock td {
+            background-color: inherit !important;
+        }
+
+        #sse-connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--ink);
+            z-index: 9999;
+        }
+
+        html[data-theme="dark"] #sse-connection-status {
+            background: #1f2530;
+            border-color: #2e3a49;
+            color: #dfe8f5;
+        }
+
+        .badge-soft {
+            background: var(--chip-bg);
+            color: var(--chip-ink);
+            border: 1px solid var(--chip-border);
+            font-weight: 600;
+        }
+
+        .strip-stat .title {
+            font-size: .75rem;
+            letter-spacing: .5px;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .strip-stat .value {
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .strip-stat .chip {
+            font-size: .7rem;
+            border-radius: 2px;
+            padding: .2rem .5rem;
+        }
+
+        html[data-theme="dark"] .btn-outline-secondary {
+            color: #dbe6f2;
+            border-color: #3b4656;
+        }
+
+        html[data-theme="dark"] .btn-outline-secondary:hover {
+            background: #2a3340;
+            border-color: #4b586c;
+        }
+
+        html[data-theme="dark"] .btn-outline-primary {
+            color: #a3c4ff;
+            border-color: #3a68d8;
+        }
+
+        html[data-theme="dark"] .btn-outline-primary:hover {
+            background: #20335a;
+            border-color: #4c7bf0;
+        }
+
+        html[data-theme="dark"] .input-group-text {
+            background: #242b36;
+            color: var(--muted);
+            border-color: var(--border);
+        }
+
+        html[data-theme="dark"] .form-control {
+            color: var(--ink);
+            background: #1b2230;
+            border-color: var(--border);
+        }
+
+        html[data-theme="dark"] .form-control::placeholder {
+            color: #8b96a6;
+        }
+
+        html[data-theme="dark"] .dropdown-menu {
+            background: #1b2330;
+            border-color: #2d3847;
+            color: var(--ink);
+        }
+
+        html[data-theme="dark"] .dropdown-item {
+            color: var(--ink);
+        }
+
+        html[data-theme="dark"] .dropdown-item:hover {
+            background: #242e3f;
+        }
+
+        html[data-theme="dark"] .tooltip .tooltip-inner {
+            background: #0f1722;
+            color: #e9f0f8;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, .5);
+        }
+
+        html[data-theme="dark"] .tooltip .tooltip-arrow::before {
+            border-top-color: #0f1722 !important;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border) !important;
+        }
+
+        /* ======================
+           RESPONSIVE (stacked table)
+           ====================== */
+        @media (max-width: 992px) {
+            .table thead {
+                display: none;
+            }
+
+            .table tbody tr {
+                display: block;
+                margin-bottom: 12px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .table tbody td {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 10px 12px;
+                border-bottom: 1px dashed var(--border);
+            }
+
+            .table tbody td:last-child {
+                border-bottom: none;
+            }
+
+            .table tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--muted);
+            }
+
+            html[data-theme="dark"] .table tbody td::before {
+                color: #aeb9c8;
+            }
+        }
+
+        /* ======================
+           STICKY THEAD 2-BARIS – SEAMLESS (letakkan terakhir)
+           ====================== */
+        /* hilangkan bayangan/garis ganda */
+        .table thead th {
+            box-shadow: none !important;
+        }
+
+        /* semua th sticky */
+        .table>thead>tr>th {
+            position: sticky;
+            background: var(--surface);
+            z-index: 2;
+        }
+
+        html[data-theme="dark"] .table>thead>tr>th {
+            background: #1f2530;
+        }
+
+        /* Baris 1: tanpa border-bottom, garis dibuat via ::after untuk nutup subpixel gap */
+        .table>thead>tr:first-child>th {
+            top: 0;
+            z-index: 5;
+            border-bottom: 0 !important;
+        }
+
+        .table>thead>tr:first-child>th::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 1px;
+            background: var(--border);
+            pointer-events: none;
+        }
+
+        /* Baris 2: menempel tepat di bawah baris 1 (offset dari JS: --thead-row1) */
+        .table>thead>tr:nth-child(2)>th {
+            top: var(--thead-row1, 40px) !important;
+            z-index: 4;
+            border-top: 0 !important;
+            box-shadow: none !important;
+        }
+
+        /* rapatkan sel */
+        .table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        /* ==== Fix: Total value visibility ==== */
+        .card .strip-stat .value {
+            color: var(--ink) !important;
+            /* terang di light mode */
+            opacity: 1;
+            /* pastikan tidak ikut opacity parent */
+        }
+
+        /* di dark mode, paksa warna terang */
+        html[data-theme="dark"] .card .strip-stat .value {
+            color: #eaf2ff !important;
+            /* atau pakai var(--ink), tapi ini ekstra terang */
+        }
+
+        /* kalau mau angka Total sedikit lebih menonjol */
+        html[data-theme="dark"] .card .strip-stat .value,
+        .card .strip-stat .value {
+            text-shadow: 0 0 0 rgba(0, 0, 0, 0);
+            /* matikan efek blend/anti-alias hairline */
+        }
+
+        .card {
+            border-radius: var(--radius);
+        }
+
+        /* already used by your theme */
+        .radius-4 {
+            --radius: 4px;
+        }
+
+        .radius-6 {
+            --radius: 6px;
+        }
+
+        .radius-8 {
+            --radius: 8px;
+        }
+
+        html[data-theme="dark"] .bg-light {
+            background-color: #262d38 !important;
+            /* gelap lembut */
+            color: #d7dee9 !important;
+        }
+
+        html[data-theme="dark"] .text-secondary {
+            color: #b7c0cc !important;
+        }
+
+        /* 2) Progress number selalu terlihat */
+        .total-progress .val {
+            color: inherit;
+            opacity: 1;
+        }
+
+        html[data-theme="dark"] .total-progress .val {
+            color: #eaf2ff !important;
+            /* kontras di latar gelap */
+            font-weight: 800;
+        }
+
+        /* 3) (opsional, tapi bikin konsisten) latar sel tabel di dark mode */
+        html[data-theme="dark"] .table> :not(caption)>*>* {
+            background-color: #1f2530 !important;
+            color: #e9f0f8 !important;
+            border-color: var(--border) !important;
+        }
+
+        html[data-theme="dark"] .table-hover tbody tr:hover>* {
+            background-color: #202a3a !important;
+        }
+
+        /* ==== Restore borders for .table-bordered (keep sticky header seam) ==== */
+
+        /* Warna garis default (light & dark) */
+        .table.table-bordered {
+            border-color: var(--border) !important;
+        }
+
+        /* Semua sel: ada right & bottom border (left/top diatur terpisah) */
+        .table.table-bordered> :not(caption)>*>* {
+            border-style: solid !important;
+            border-color: var(--border) !important;
+            border-width: 0 1px 1px 0 !important;
+            /* top 0, right 1, bottom 1, left 0 */
+        }
+
+        /* Sel pertama di setiap baris: tampilkan left border */
+        .table.table-bordered>thead>tr>th:first-child,
+        .table.table-bordered>tbody>tr>td:first-child,
+        .table.table-bordered>tfoot>tr>*:first-child {
+            border-left-width: 1px !important;
+        }
+
+        /* Header: pastikan ada border-bottom (sekaligus anti-gap dari sticky) */
+        .table>thead>tr>th {
+            border-bottom: 1px solid var(--border) !important;
+        }
+
+        .table>thead>tr:first-child>th {
+            top: 0;
+            z-index: 5;
+        }
+
+        .table>thead>tr:nth-child(2)>th {
+            top: calc(var(--thead-row1, 40px) - 1px) !important;
+            /* overlap 1px */
+            z-index: 4;
+            border-top: 0 !important;
+            /* hindari double line dengan baris-1 */
+        }
+
+        /* (opsional) garis sedikit lebih tegas di dark */
+        html[data-theme="dark"] .table.table-bordered> :not(caption)>*>* {
+            border-color: #3a4452 !important;
+        }
+
+        html[data-theme="dark"] .table>thead>tr>th {
+            border-bottom-color: #3a4452 !important;
+        }
+
+        /* =========================
+  
+
+        /* lebar container & padding sisi mengikuti layar */
+        :root {
+            --page-side-pad: clamp(16px, 2vw, 32px);
+            --table-top-offset: 260px;
+            /* sesuaikan jika header kamu lebih tinggi/rendah */
+        }
+
+        /* paksa container lebih lebar tapi tetap ada margin aman */
+        .container {
+            max-width: min(96vw, 1920px);
+            /* 96% layar, cap di ~1920px */
+            padding-left: var(--page-side-pad);
+            padding-right: var(--page-side-pad);
+        }
+
+        /* skala font global: 16px di laptop → ±28px di TV lebar */
+        html {
+            font-size: clamp(16px, 1.2vw, 28px);
+        }
+
+        /* judul halaman mengik  lebar layar */
+        h2 {
+            font-size: clamp(1.75rem, 2.4vw, 3rem);
+        }
+
+        /* tabs & tombol lebih besar tapi proporsional */
+        .nav-tabs .nav-link {
+            font-size: clamp(0.95rem, 1.2vw, 1.3rem);
+            padding: clamp(.6rem, .9vw, 1rem) clamp(.8rem, 1.2vw, 1.25rem);
+        }
+
+        .btn {
+            font-size: clamp(.55rem, 1vw, 1.2rem);
+            padding: clamp(.55rem, .8vw, .8rem) clamp(.9rem, 1.3vw, 1.2rem);
+        }
+
+        /* tabel: header & sel membesar responsif */
+        .table thead th {
+            font-size: clamp(1rem, 1.2vw, 1.35rem);
+            padding: clamp(.7rem, .9vw, 1.05rem) clamp(.6rem, .9vw, .9rem);
+        }
+
+        .table tbody td {
+            font-size: clamp(.95rem, 1.1vw, 1.25rem);
+            padding: clamp(.65rem, .9vw, 1rem) clamp(.6rem, .9vw, .9rem);
+        }
+
+        /* progress bar & angka */
+        .qty-progress .val {
+            font-size: clamp(.95rem, 1.1vw, 1.25rem);
+        }
+
+        .qty-progress .bar {
+            height: clamp(8px, .8vw, 16px);
+        }
+
+        /* angka ringkasan di kartu */
+        .strip-stat .title {
+            font-size: clamp(.75rem, .9vw, 1.1rem);
+        }
+
+        .strip-stat .value {
+            font-size: clamp(1.1rem, 2.1vw, 3.2rem);
+        }
+
+        /* area scroll tabel menyesuaikan tinggi layar (biar pas di TV) */
+        /* .table-responsive {
+            max-height: calc(100vh - var(--table-top-offset)) !important;
+        } */
+
+        /* kalau layarnya lebih tinggi, kurangi offset supaya tabel makin tinggi */
+        @media (min-height: 900px) {
+            :root {
+                --table-top-offset: 240px;
+            }
+        }
+
+        @media (min-height: 1080px) {
+            :root {
+                --table-top-offset: 220px;
+            }
+        }
+
+        /* ultra-wide: sedikit lebih melebar lagi */
+        @media (min-width: 2200px) {
+            .container {
+                max-width: 95vw;
+            }
+        }
+
+        html[data-theme="light"] {
+            --thead-bg: #EEF2F7;
+            /* latar header */
+        --thead-ink: #273446;
+        /* teks header (slate gelap) */
+        --thead-border: #D6DEE9;
+        /* garis header */
+        }
+
+        html[data-theme="light"] .table>thead>tr>th {
+            background: var(--thead-bg) !important;
+            color: var(--thead-ink) !important;
+            border-bottom: 1px solid var(--thead-border) !important;
+            box-shadow: none !important;
+        }
+
+        /* Sticky 2-baris tetap rapat (overlap 1px) */
+        html[data-theme="light"] .table>thead>tr:first-child>th {
+            top: 0;
+            z-index: 5;
+        }
+
+        html[data-theme="light"] .table>thead>tr:nth-child(2)>th {
+            top: calc(var(--thead-row1, 40px) - 1px) !important;
+            z-index: 4;
+            border-top: 0 !important;
+        }
+
+        /* Biar .table-bordered pakai warna garis header yang sama */
+        html[data-theme="light"] .table.table-bordered>thead>tr>th {
+            border-color: var(--thead-border) !important;
+        }
+
+        .strip-stat .kpi-mini {
+            margin-top: .2rem;
+            min-width: 240px
+        }
+
+        .strip-stat .kpi-mini .qty-progress .bar {
+            height: 6px
+        }
+
+        /* lebih tipis */
+        .strip-stat .kpi-mini .qty-progress .val {
+            min-width: 48px;
+            font-size: .8rem
+        }
+
+        .strip-stat .kpi-mini .meta {
+            font-size: .8rem;
+            color: var(--muted)
+        }
+
+        /* teks kecil */
+   
+        html[data-theme="dark"] .modal-content {
+            background: var(--surface);
+            border-color: var(--border);
+            color: white;
+        }
+
+        html[data-theme="dark"] .modal-header {
+            border-bottom-color: var(--border);
+        }
+
+        html[data-theme="dark"] .modal-footer {
+            border-top-color: var(--border);
+        }
+
+        .summary-stat {
+            text-align: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--surface) 0%, var(--surface-subtle) 100%);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .summary-stat .number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--brand-primary);
+            display: block;
+        }
+
+        .summary-stat .label {
+            font-size: .85rem;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .back-number-item {
+            padding: .75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: .5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            transition: all .2s ease;
+        }
+
+        .back-number-item:hover {
+            background: var(--table-hover);
+            border-color: var(--brand-primary);
+        }
+
+        .back-number-item .back-no {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--ink);
+        }
+
+        .back-number-item .order-qty {
+            font-weight: 600;
+            font-size: .95rem;
+            padding: .25rem .5rem;
+            background: var(--chip-bg);
+            color: var(--chip-ink);
+            border: 1px solid var(--chip-border);
+            border-radius: 4px;
+        }
+
+        /* Responsive modal width */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                max-width: 95% !important;
+                /* hampir full screen di mobile */
+                margin: 0.5rem auto;
+            }
+
+            .summary-stat {
+                padding: 0.75rem;
+            }
+
+            .summary-stat .number {
+                font-size: 1.5rem;
+            }
+
+            .summary-stat .label {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Biar kolom statistik rapi jadi 2 kolom di tablet & 1 kolom di hp */
+        @media (max-width: 992px) {
+            .summary-stat {
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* ==== Pinned Shelf (non-destructive pin) ==== */
+        .pinned-shelf {
+            border: 1px dashed var(--border);
+            background: var(--surface-subtle);
+            padding: .5rem .6rem;
+            border-radius: 10px;
+            margin-bottom: .6rem
+        }
+
+        .pinned-shelf .title {
+            font-size: .75rem;
+            letter-spacing: .3px;
+            color: var(--muted);
+            text-transform: uppercase
+        }
+
+        .pinned-chip {
+            display: grid;
+            grid-template-columns: 1.2fr .7fr .6fr .7fr 1fr 1fr;
+            gap: .6rem;
+            align-items: center;
+            padding: .45rem .6rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-top: .5rem
+        }
+
+        .pinned-chip .qty-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .pinned-chip .qty-progress .bar {
+            position: relative;
+            flex: 1 1 auto;
+            height: 6px;
+            border-radius: 999px;
+            background: var(--bar-bg);
+            overflow: hidden
+        }
+
+        .pinned-chip .qty-progress .bar>i {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bar-grad-from), var(--bar-grad-to))
+        }
+
+        .pinned-chip .qty-progress .val {
+            font-weight: 700;
+            font-size: .8rem;
+            min-width: 42px;
+            text-align: right
+        }
+
+        .pinned-chip .tag {
+            font-size: .75rem;
+            padding: .1rem .4rem;
+            border: 1px solid var(--chip-border);
+            background: var(--chip-bg);
+            border-radius: 4px;
+            color: var(--chip-ink)
+        }
+
+        .pinned-chip .backno {
+            font-weight: 800
+        }
+
+        .pinned-chip .dim {
+            color: var(--muted);
+            font-size: .85rem
+        }
+
+        /* ==== Pinned chip: clean layout ==== */
+        .pinned-chip {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-areas:
+                "info stats"
+                "bar  bar"
+                "meta meta";
+            gap: .4rem .8rem;
+            padding: .55rem .6rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin: .5rem 0;
+        }
+
+        .pinned-chip .info {
+            grid-area: info;
+        }
+
+        .pinned-chip .stats {
+            grid-area: stats;
+            display: flex;
+            gap: .45rem;
+            align-items: flex-start;
+        }
+
+        .pinned-chip .bar {
+            grid-area: bar;
+        }
+
+        .pinned-chip .meta {
+            grid-area: meta;
+            color: var(--muted);
+            font-size: .85rem;
+            display: flex;
+            gap: .55rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .pinned-chip .backno {
+            font-weight: 800;
+        }
+
+        .pinned-chip .dim {
+            color: var(--muted);
+            font-size: .9rem;
+        }
+
+        .stat-chip {
+            background: var(--chip-bg);
+            border: 1px solid var(--chip-border);
+            border-radius: 6px;
+            padding: .25rem .5rem;
+            min-width: 96px;
+        }
+
+        .stat-chip .label {
+            font-size: .7rem;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+            color: var(--muted);
+        }
+
+        .stat-chip .number {
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .pinned-chip .qty-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .pinned-chip .qty-progress .bar {
+            position: relative;
+            flex: 1 1 auto;
+            height: 6px;
+            border-radius: 999px;
+            background: var(--bar-bg);
+            overflow: hidden
+        }
+
+        .pinned-chip .qty-progress .bar>i {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bar-grad-from), var(--bar-grad-to))
+        }
+
+        .pinned-chip .qty-progress .val {
+            font-weight: 800;
+            font-size: .9rem;
+            min-width: 48px;
+            text-align: right
+        }
+
+        .pinned-chip .tag {
+            font-size: .7rem;
+            padding: .05rem .35rem;
+            border: 1px solid var(--chip-border);
+            background: var(--chip-bg);
+            border-radius: 4px;
+            color: var(--chip-ink)
+        }
+
+        /* -- Shift card controls -- */
+        .shiftcard-head .btn {
+            padding: .15rem .45rem;
+        }
+
+        .shiftcard-head .title {
+            font-weight: 700;
+            letter-spacing: .2px;
+        }
+
+        #hidden-cards-tray {
+            border-radius: 8px;
+        }
+
+        #hidden-cards-tray .badge-btn {
+            margin-left: .35rem;
+        }
+
+        /* ===== Auto-scroll table (dashboard mode) ===== */
+        .table-responsive.auto-scroll {
+            /* Sesuaikan tinggi area yang terlihat */
+            max-height: 62vh;              /* bisa ubah ke 70vh/50vh sesuai layout */
+            overflow-y: auto;
+            scroll-behavior: auto;          /* animasi di-handle oleh JS */
+        }
+
+        /* Opsional: sembunyikan scrollbar agar lebih clean (bisa dihapus kalau mau tampil) */
+        .table-responsive.auto-scroll::-webkit-scrollbar { width: 0; height: 0; }
+        .table-responsive.auto-scroll { scrollbar-width: none; }
+
+        /* Pause hint saat hover (opsional) */
+        .table-responsive.auto-scroll:hover { cursor: pause; }
+
+        /* Biar kontainer auto-scroll menang lawan rule global */
+        .table-responsive.auto-scroll {
+            max-height: 62vh !important;  /* <- tambahkan !important */
+            overflow-y: auto;
+        }
+
+        /* (Opsional tapi rapi) rule global hanya berlaku untuk yang bukan auto-scroll */
+        .table-responsive:not(.auto-scroll) {
+            max-height: calc(100vh - var(--table-top-offset)) !important;
+        }
+
+        /* Auto-scroll pakai transform: tbody digeser halus */
+       .table-responsive.auto-scroll {
+        height: 62vh !important;
+        max-height: 62vh !important;
+        overflow: hidden !important;   /* native scroll diserahkan ke handler manual */
+        position: relative;
+        }
+
+        .table-responsive.auto-scroll thead { position: sticky; top: 0; z-index: 2; }
+        .table-responsive.auto-scroll tbody { will-change: transform; }
+
