@@ -1898,8 +1898,8 @@
 
     <script>
         /* ======================
-                                                                                   THEME TOGGLE
-                                                                                   ====================== */
+                                                                                           THEME TOGGLE
+                                                                                           ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2846,8 +2846,8 @@
 
     <script>
         /* ======================
-                                                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                                   ====================== */
+                                                                                           SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                                           ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -3054,8 +3054,8 @@
 
     <script>
         /* ======================
-                                                                                   BACK NO RENAMER (trim using $u)
-                                                                                   ====================== */
+                                                                                           BACK NO RENAMER (trim using $u)
+                                                                                           ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3718,56 +3718,60 @@
                 div.className = 'pinned-chip';
                 div.setAttribute('data-pin-id', d.id);
                 div.innerHTML = `
-      <div><div class="backno">${d.backNo}</div><div class="dim">${d.customer}</div></div>
-      <div><span class="tag">Dock</span> <span data-x="dock">${d.dock}</span></div>
-      <div class="text-end"><div><b data-x="order">${d.order.toLocaleString('id-ID')}</b></div><div class="dim">Order</div></div>
-      <div>
-        <div class="qty-progress" title="DP ${d.dp} / ${d.order}">
-          <div class="bar"><i data-x="dpbar" style="width:${d.order>0?Math.min(100,Math.round(d.dp/d.order*100)):0}%"></i></div>
-          <span class="val" data-x="dpval">${d.dp}</span>
-        </div>
-        <div class="qty-progress mt-1" title="SC ${d.sc} / ${d.order}">
-          <div class="bar"><i data-x="scbar" style="width:${d.order>0?Math.min(100,Math.round(d.sc/d.order*100)):0}%"></i></div>
-          <span class="val" data-x="scval">${d.sc}</span>
-        </div>
+    <div>
+      <div class="backno">${d.backNo}</div>
+      <div class="dim">${d.customer}</div>
+    </div>
+
+    <div>
+      <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
+    </div>
+
+    <div class="text-end">
+      <div><b data-x="order">${d.order.toLocaleString('id-ID')}</b></div>
+      <div class="dim">Order</div>
+    </div>
+
+    <!-- Gabungan DP+SC -->
+    <div>
+      <div class="qty-progress" title="Completed (DP+SC) ${d.done} / ${d.order}">
+        <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
+        <span class="val" data-x="totpct">${d.pct}%</span>
       </div>
-      <div>
-        <div class="qty-progress" title="Total ${d.done} / ${d.order}">
-          <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
-          <span class="val" data-x="totpct">${d.pct}%</span>
-        </div>
-        <div class="dim mt-1">Completed: <b data-x="done">${d.done.toLocaleString('id-ID')}</b></div>
+      <div class="dim mt-1">
+        Completed: <b data-x="done">${d.done.toLocaleString('id-ID')}</b>
+        <span class="ms-1">(DP <span data-x="dpval">${d.dp}</span> + SC <span data-x="scval">${d.sc}</span>)</span>
       </div>
-      <div class="text-end">
-        <div><span class="tag">Delivery</span></div>
-        <div class="dim"><span data-x="dtime">${d.deliveryTime}</span> · <span data-x="ddate">${d.deliveryDate}</span></div>
-      </div>
-    `;
+    </div>
+
+    <div class="text-end">
+      <div><span class="tag">Delivery Time</span></div>
+      <div class="dim"><span data-x="dtime">${d.deliveryTime}</span> · <span data-x="ddate">${d.deliveryDate}</span></div>
+    </div>
+  `;
                 return div;
             }
+
 
             _patchChip(el, d) {
                 const set = (sel, val) => {
                     const n = el.querySelector(`[data-x="${sel}"]`);
-                    if (n) {
-                        n.textContent = val;
-                    }
+                    if (n) n.textContent = val;
                 };
+
                 set('dock', d.dock);
                 set('order', d.order.toLocaleString('id-ID'));
-                set('dpval', d.dp);
-                set('scval', d.sc);
                 set('done', d.done.toLocaleString('id-ID'));
                 set('totpct', `${d.pct}%`);
-                el.querySelector('[data-x="dpbar"]')?.style && (el.querySelector('[data-x="dpbar"]').style.width = (d
-                    .order > 0 ? Math.min(100, Math.round(d.dp / d.order * 100)) : 0) + '%');
-                el.querySelector('[data-x="scbar"]')?.style && (el.querySelector('[data-x="scbar"]').style.width = (d
-                    .order > 0 ? Math.min(100, Math.round(d.sc / d.order * 100)) : 0) + '%');
-                el.querySelector('[data-x="totbar"]')?.style && (el.querySelector('[data-x="totbar"]').style.width = d
-                    .pct + '%');
+                set('dpval', d.dp);
+                set('scval', d.sc);
                 set('dtime', d.deliveryTime);
                 set('ddate', d.deliveryDate);
+
+                const totbar = el.querySelector('[data-x="totbar"]');
+                if (totbar) totbar.style.width = `${d.pct}%`;
             }
+
 
             upsertFromRow(row) {
                 const d = this._extract(row);
