@@ -3669,7 +3669,7 @@
                 this.shelf = document.createElement('div');
                 this.shelf.className = 'pinned-shelf';
                 this.shelf.innerHTML = `
-      <div class="title"><i class="fas fa-thumbtack me-1"></i>live updates</div>
+      <div class="title"><i class="fas fa-thumbtack me-1"></i>Current Production </div>
       <div data-shelf-list></div>
     `;
                 // taruh di atas kartu tabel
