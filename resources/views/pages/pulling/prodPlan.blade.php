@@ -1822,8 +1822,8 @@
 
     <script>
         /* ======================
-                                                       THEME TOGGLE
-                                                       ====================== */
+                                                   THEME TOGGLE
+                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2760,8 +2760,8 @@
 
     <script>
         /* ======================
-                                                       SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                       ====================== */
+                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                   ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2968,8 +2968,8 @@
 
     <script>
         /* ======================
-                                                       BACK NO RENAMER (trim using $u)
-                                                       ====================== */
+                                                   BACK NO RENAMER (trim using $u)
+                                                   ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3058,8 +3058,8 @@
 
     <script>
         /* ======================
-                                                       SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-                                                       ====================== */
+                                                   SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+                                                   ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
@@ -3170,29 +3170,32 @@
 
 
             function classifyShift(row, lineKey) {
-                // hormati cache kalau sudah pernah ditandai
                 const tag = row.getAttribute('data-shift');
                 if (tag === 'morning' || tag === 'night') return tag;
 
-                // RULE UTAMA: pakai Delivery Time kalau ada
+                // summary khusus (tetap)
+                const ov = specialSummaryShift(lineKey, row);
+                if (ov) return ov;
+
+                // ==== Aturan baru: berdasarkan Delivery Date + Time ====
+                const curISO = window.prodPlanSSE?.getCurrentDate?.() || $u.getCurrentISO();
+                const md = readDeliveryDateMDForRow(row); // "MM/DD"
+                const tm = readDeliveryTimeTextForRow(row); // "HH:mm"
+                if (md && tm) {
+                    const dlvISO = $u.mdToISO(md, curISO); // "YYYY-MM-DD"
+                    const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
+                    if (byDT !== 'other') return byDT;
+                }
+
+                // Fallback lama (kalau kolom kosong)
                 const Hdlv = $u.hourFromText(readDeliveryTimeTextForRow(row));
-                if (Hdlv != null) {
-                    return (Hdlv >= 10 && Hdlv <= 22) ? 'morning' :
-                        ((Hdlv >= 0 && Hdlv <= 9) || Hdlv === 23) ? 'night' :
-                        'other';
-                }
-
-                // FALLBACK: pakai Actual/Planning Start
+                if (Hdlv != null) return (Hdlv >= 10 && Hdlv <= 22) ? 'morning' :
+                    ((Hdlv >= 0 && Hdlv <= 9) || Hdlv === 23) ? 'night' : 'other';
                 const H = readHourFromRowTimes(row);
-                if (H != null) {
-                    return (H >= 10 && H <= 22) ? 'morning' :
-                        ((H >= 0 && H <= 9) || H === 23) ? 'night' :
-                        'other';
-                }
-
+                if (H != null) return (H >= 10 && H <= 22) ? 'morning' :
+                    ((H >= 0 && H <= 9) || H === 23) ? 'night' : 'other';
                 return 'other';
             }
-
 
 
             const rowCountable = tr => tr && tr.style.display !== 'none';
@@ -3208,36 +3211,32 @@
                         order: 0,
                         actual: 0
                     },
+                    -total: {
+                        order: 0,
+                        actual: 0
+                    } +
                     total: {
                         order: 0,
                         actual: 0
                     }
                 };
                 if (!wrap) return sums;
-
                 wrap.querySelectorAll('tbody tr').forEach(tr => {
                     if (!rowCountable(tr)) return;
-
                     const order = readOrder(tr);
-                    const dp = readDP(tr); // actual = DP (sesuai setup kamu)
+                    const dp = readDP(tr);
                     const lineShift = classifyShift(tr, lineKey);
-
-                    // tandai barisnya (biar konsisten untuk render/refresh berikutnya)
-                    if (tr.getAttribute('data-shift') !== lineShift) {
-                        tr.setAttribute('data-shift', lineShift);
-                    }
-
+                    if (tr.getAttribute('data-shift') !== lineShift) tr.setAttribute('data-shift', lineShift); - sums.total.order += order; - sums.total.actual += dp;
                     if (lineShift === 'morning' || lineShift === 'night') {
                         sums[lineShift].order += order;
                         sums[lineShift].actual += dp;
                     }
-                });
-
-                // TOTAL = Morning + Night (baris "other" tidak ikut)
-                sums.total.order = sums.morning.order + sums.night.order;
+                }); + // TOTAL = Morning + Night (baris "other" tidak ikut)
+                +sums.total.order = sums.morning.order + sums.night.order; +
                 sums.total.actual = sums.morning.actual + sums.night.actual;
                 return sums;
             }
+
 
             const pct = (a, o) => o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
 
