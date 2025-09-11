@@ -265,7 +265,7 @@ class DashboardController extends Controller
                 )
                 ->whereNotNull('CHR_TIM_SYUKKA')
                 ->where(function ($query) use ($deliveryDate, $nextDay) {
-                    $threshold = '094000'; // 09:40:00
+                    $threshold = '104000'; // 09:40:00
 
                     $query->where(function ($q) use ($deliveryDate, $threshold) {
                             $q->where('CHR_NGP_NOUNYU', $deliveryDate)
@@ -352,7 +352,7 @@ class DashboardController extends Controller
                         FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
                         WHERE CHR_TIM_SYUKKA IS NOT NULL
                         AND (
-                                (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '100000')
+                                (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '104000')
                             OR (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
                         )
                         AND CHR_MEI_NOUNYU NOT IN ('{$excludedCustomersString}')
@@ -639,7 +639,12 @@ class DashboardController extends Controller
 
             $grouped[$line] = [
                 // tetap tampilkan semua data di tabel
-                'data' => $lineData->groupBy(fn ($item) => ($item->customer ?? '--') . '|' . ($item->delivery_time ?? '--')),
+                'data' => $lineData->groupBy(function ($item) {
+                    $cust = trim((string)($item->customer ?? '')) ?: '--';
+                    $dock = trim((string)($item->dock ?? '')) ?: '--';
+                    $time = trim((string)($item->delivery_time ?? '')) ?: '--';
+                    return "{$cust}|{$dock}|{$time}";
+                }),
 
                 // KPI sesuai rule baru
                 'morning_shift_qty'    => $morningShiftQty,
