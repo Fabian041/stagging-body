@@ -898,6 +898,82 @@
                 margin-bottom: 1rem;
             }
         }
+
+        /* ==== Pinned Shelf (non-destructive pin) ==== */
+        .pinned-shelf {
+            border: 1px dashed var(--border);
+            background: var(--surface-subtle);
+            padding: .5rem .6rem;
+            border-radius: 10px;
+            margin-bottom: .6rem
+        }
+
+        .pinned-shelf .title {
+            font-size: .75rem;
+            letter-spacing: .3px;
+            color: var(--muted);
+            text-transform: uppercase
+        }
+
+        .pinned-chip {
+            display: grid;
+            grid-template-columns: 1.2fr .7fr .6fr .7fr 1fr 1fr;
+            gap: .6rem;
+            align-items: center;
+            padding: .45rem .6rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-top: .5rem
+        }
+
+        .pinned-chip .qty-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .pinned-chip .qty-progress .bar {
+            position: relative;
+            flex: 1 1 auto;
+            height: 6px;
+            border-radius: 999px;
+            background: var(--bar-bg);
+            overflow: hidden
+        }
+
+        .pinned-chip .qty-progress .bar>i {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bar-grad-from), var(--bar-grad-to))
+        }
+
+        .pinned-chip .qty-progress .val {
+            font-weight: 700;
+            font-size: .8rem;
+            min-width: 42px;
+            text-align: right
+        }
+
+        .pinned-chip .tag {
+            font-size: .75rem;
+            padding: .1rem .4rem;
+            border: 1px solid var(--chip-border);
+            background: var(--chip-bg);
+            border-radius: 4px;
+            color: var(--chip-ink)
+        }
+
+        .pinned-chip .backno {
+            font-weight: 800
+        }
+
+        .pinned-chip .dim {
+            color: var(--muted);
+            font-size: .85rem
+        }
     </style>
 
 </head>
@@ -1822,8 +1898,8 @@
 
     <script>
         /* ======================
-                                                                   THEME TOGGLE
-                                                                   ====================== */
+                                                                       THEME TOGGLE
+                                                                       ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -1884,6 +1960,11 @@
 
                 this.AS003 = document.querySelector('[data-toggle-table="AS003"]');
                 this.AS004 = document.querySelector('[data-toggle-table="AS004"]');
+
+                this.shelves = {};
+                if (this.AS003) this.shelves.AS003 = new PinnedShelf(this.AS003);
+                if (this.AS004) this.shelves.AS004 = new PinnedShelf(this.AS004);
+
 
                 this.prefillRawAttrs(this.AS003);
                 this.prefillRawAttrs(this.AS004);
@@ -2477,18 +2558,23 @@
                 this.recalcRowspans(container);
             }
 
+            // REPLACE triggerHighlight di ProductionPlanSSEClient
             triggerHighlight(row, type = 'direct-pulling') {
                 if (!row) return;
                 const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
                 row.classList.remove('highlight-beep-direct', 'highlight-beep-stock');
-                void row.offsetWidth;
+                void row.offsetWidth; // restart anim
                 row.classList.add(cls);
                 clearTimeout(row._blinkTimer);
                 row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
-                this._pinRowToTop(row);
-                clearTimeout(row._pinRestoreTimer);
-                row._pinRestoreTimer = setTimeout(() => this._restorePinnedRow(row), this.HIGHLIGHT_DURATION_MS);
+
+                // kirim clone ke shelf sesuai line
+                const lineKey = row.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
+                if (lineKey && this.shelves?.[lineKey]) {
+                    this.shelves[lineKey].upsertFromRow(row);
+                }
             }
+
 
             connect() {
                 try {
@@ -2760,8 +2846,8 @@
 
     <script>
         /* ======================
-                                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                                   ====================== */
+                                                                       SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                                       ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2968,8 +3054,8 @@
 
     <script>
         /* ======================
-                                                                   BACK NO RENAMER (trim using $u)
-                                                                   ====================== */
+                                                                       BACK NO RENAMER (trim using $u)
+                                                                       ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3568,6 +3654,168 @@
             /* disabled: handled by FixShiftCardsV3 */
         })();
     </script>
+    <script>
+        class PinnedShelf {
+            constructor(container, opts = {}) {
+                this.container = container;
+                this.max = opts.max ?? 4;
+                this.ttl = opts.ttl ?? (window.prodPlanSSE?.HIGHLIGHT_DURATION_MS || 40000);
+                this.map = new Map(); // id -> {el, timer}
+                this._ensureShelf();
+            }
+
+            _ensureShelf() {
+                if (this.shelf) return;
+                this.shelf = document.createElement('div');
+                this.shelf.className = 'pinned-shelf';
+                this.shelf.innerHTML = `
+      <div class="title"><i class="fas fa-thumbtack me-1"></i>Pinned updates</div>
+      <div data-shelf-list></div>
+    `;
+                // taruh di atas kartu tabel
+                const toolbar = this.container.querySelector('.d-flex.justify-content-end') || this.container
+                    .firstElementChild;
+                (toolbar?.parentElement || this.container).insertBefore(this.shelf, toolbar?.nextSibling || this
+                    .container.firstChild);
+                this.list = this.shelf.querySelector('[data-shelf-list]');
+            }
+
+            _extract(row) {
+                const get = (lbl) => {
+                    const td = $u.getCellByLabel(row, lbl);
+                    const el = td?.querySelector('.flip') || td;
+                    return (el?.textContent || '').trim();
+                };
+                const idEl = row.querySelector('[data-item-id]');
+                const id = idEl?.getAttribute('data-item-id') || '';
+                const orderTd = $u.getCellByLabel(row, 'Order');
+                const orderEl = orderTd?.querySelector('.flip') || orderTd;
+                const orderRaw = parseInt(orderEl?.dataset?.orderRaw || orderEl?.textContent || '0'.replace(/[^\d-]/g,
+                    ''), 10) || 0;
+
+                const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+                const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
+                const done = dp + sc;
+                const pct = orderRaw > 0 ? Math.min(100, Math.round(done / orderRaw * 100)) : 0;
+
+                return {
+                    id,
+                    backNo: get('Back No'),
+                    customer: get('Customer') || '--',
+                    dock: get('Dock') || '--',
+                    order: orderRaw,
+                    dp,
+                    sc,
+                    done,
+                    pct,
+                    deliveryTime: get('Delivery Time') || '--',
+                    deliveryDate: get('Delivery Date') || '--'
+                };
+            }
+
+            _renderChip(d) {
+                const div = document.createElement('div');
+                div.className = 'pinned-chip';
+                div.setAttribute('data-pin-id', d.id);
+                div.innerHTML = `
+      <div><div class="backno">${d.backNo}</div><div class="dim">${d.customer}</div></div>
+      <div><span class="tag">Dock</span> <span data-x="dock">${d.dock}</span></div>
+      <div class="text-end"><div><b data-x="order">${d.order.toLocaleString('id-ID')}</b></div><div class="dim">Order</div></div>
+      <div>
+        <div class="qty-progress" title="DP ${d.dp} / ${d.order}">
+          <div class="bar"><i data-x="dpbar" style="width:${d.order>0?Math.min(100,Math.round(d.dp/d.order*100)):0}%"></i></div>
+          <span class="val" data-x="dpval">${d.dp}</span>
+        </div>
+        <div class="qty-progress mt-1" title="SC ${d.sc} / ${d.order}">
+          <div class="bar"><i data-x="scbar" style="width:${d.order>0?Math.min(100,Math.round(d.sc/d.order*100)):0}%"></i></div>
+          <span class="val" data-x="scval">${d.sc}</span>
+        </div>
+      </div>
+      <div>
+        <div class="qty-progress" title="Total ${d.done} / ${d.order}">
+          <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
+          <span class="val" data-x="totpct">${d.pct}%</span>
+        </div>
+        <div class="dim mt-1">Completed: <b data-x="done">${d.done.toLocaleString('id-ID')}</b></div>
+      </div>
+      <div class="text-end">
+        <div><span class="tag">Delivery</span></div>
+        <div class="dim"><span data-x="dtime">${d.deliveryTime}</span> · <span data-x="ddate">${d.deliveryDate}</span></div>
+      </div>
+    `;
+                return div;
+            }
+
+            _patchChip(el, d) {
+                const set = (sel, val) => {
+                    const n = el.querySelector(`[data-x="${sel}"]`);
+                    if (n) {
+                        n.textContent = val;
+                    }
+                };
+                set('dock', d.dock);
+                set('order', d.order.toLocaleString('id-ID'));
+                set('dpval', d.dp);
+                set('scval', d.sc);
+                set('done', d.done.toLocaleString('id-ID'));
+                set('totpct', `${d.pct}%`);
+                el.querySelector('[data-x="dpbar"]')?.style && (el.querySelector('[data-x="dpbar"]').style.width = (d
+                    .order > 0 ? Math.min(100, Math.round(d.dp / d.order * 100)) : 0) + '%');
+                el.querySelector('[data-x="scbar"]')?.style && (el.querySelector('[data-x="scbar"]').style.width = (d
+                    .order > 0 ? Math.min(100, Math.round(d.sc / d.order * 100)) : 0) + '%');
+                el.querySelector('[data-x="totbar"]')?.style && (el.querySelector('[data-x="totbar"]').style.width = d
+                    .pct + '%');
+                set('dtime', d.deliveryTime);
+                set('ddate', d.deliveryDate);
+            }
+
+            upsertFromRow(row) {
+                const d = this._extract(row);
+                if (!d.id) return;
+                const rec = this.map.get(d.id);
+                if (!rec) {
+                    const chip = this._renderChip(d);
+                    this.list.prepend(chip);
+                    const timer = setTimeout(() => this.remove(d.id), this.ttl);
+                    this.map.set(d.id, {
+                        el: chip,
+                        timer,
+                        ts: Date.now()
+                    });
+                    // batasi jumlah chip
+                    this._trim();
+                } else {
+                    this._patchChip(rec.el, d);
+                    // reset TTL saat ada update baru
+                    clearTimeout(rec.timer);
+                    rec.timer = setTimeout(() => this.remove(d.id), this.ttl);
+                    rec.ts = Date.now();
+                }
+            }
+
+            remove(id) {
+                const rec = this.map.get(id);
+                if (!rec) return;
+                clearTimeout(rec.timer);
+                rec.el.remove();
+                this.map.delete(id);
+            }
+
+            _trim() {
+                if (this.map.size <= this.max) return;
+                // hapus yang paling lama
+                const arr = [...this.map.entries()].sort((a, b) => a[1].ts - b[1].ts);
+                const over = this.map.size - this.max;
+                for (let i = 0; i < over; i++) {
+                    const [id, rec] = arr[i];
+                    clearTimeout(rec.timer);
+                    rec.el.remove();
+                    this.map.delete(id);
+                }
+            }
+        }
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
