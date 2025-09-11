@@ -1822,8 +1822,8 @@
 
     <script>
         /* ======================
-                                                       THEME TOGGLE
-                                                       ====================== */
+                                                   THEME TOGGLE
+                                                   ====================== */
         (function themeInit() {
             const key = 'pulling_theme';
             const el = document.documentElement;
@@ -2602,7 +2602,7 @@
                 });
                 this.refreshSummaries();
 
-                window.recomputeAllShiftCards?.();
+                window.recomputeAllShiftCards?.(); 
             }
 
             updateQuantity(selector, newValue, type, targetQty = null) {
@@ -2762,8 +2762,8 @@
 
     <script>
         /* ======================
-                                                       SAFE COLUMN HIDE V5 (as-is, minor tidy)
-                                                       ====================== */
+                                                   SAFE COLUMN HIDE V5 (as-is, minor tidy)
+                                                   ====================== */
         (function SafeColumnHideV5() {
             const STORAGE_PREFIX = 'hiddenCols_';
             const tableStates = new Map();
@@ -2970,8 +2970,8 @@
 
     <script>
         /* ======================
-                                                       BACK NO RENAMER (trim using $u)
-                                                       ====================== */
+                                                   BACK NO RENAMER (trim using $u)
+                                                   ====================== */
         (function BackNoRenamer() {
             const LS_KEY = 'backnoRenameMap';
             const loadMap = () => {
@@ -3060,8 +3060,8 @@
 
     <script>
         /* ======================
-                                                       SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
-                                                       ====================== */
+                                                   SHIFT CARDS (FixShiftCardsV3) – trimmed helpers via $u
+                                                   ====================== */
         (function FixShiftCardsV3() {
             if (window.__fixShiftCardsV3Installed) return;
             window.__fixShiftCardsV3Installed = true;
@@ -3213,35 +3213,29 @@
                         order: 0,
                         actual: 0
                     },
+                    -total: {
+                        order: 0,
+                        actual: 0
+                    } +
                     total: {
                         order: 0,
                         actual: 0
                     }
                 };
                 if (!wrap) return sums;
-
                 wrap.querySelectorAll('tbody tr').forEach(tr => {
                     if (!rowCountable(tr)) return;
-
                     const order = readOrder(tr);
                     const dp = readDP(tr);
-                    const sc = readSC(tr);
-
                     const lineShift = classifyShift(tr, lineKey);
-                    if (tr.getAttribute('data-shift') !== lineShift) {
-                        tr.setAttribute('data-shift', lineShift);
-                    }
-
+                    if (tr.getAttribute('data-shift') !== lineShift) tr.setAttribute('data-shift', lineShift); - sums.total.order += order; - sums.total.actual += dp;
                     if (lineShift === 'morning' || lineShift === 'night') {
                         sums[lineShift].order += order;
-                        sums[lineShift].actual += (dp + sc); // <= kunci: actual = DP + SC
+                        sums[lineShift].actual += dp;
                     }
-                });
-
-                // TOTAL = Morning + Night (baris "other" tidak ikut)
-                sums.total.order = sums.morning.order + sums.night.order;
+                }); + // TOTAL = Morning + Night (baris "other" tidak ikut)
+                +sums.total.order = sums.morning.order + sums.night.order; +
                 sums.total.actual = sums.morning.actual + sums.night.actual;
-
                 return sums;
             }
 
