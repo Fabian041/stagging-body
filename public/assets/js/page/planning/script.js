@@ -1968,73 +1968,47 @@ class PinnedShelf {
     }
 
     _renderChipCurrent(d) {
-        const div = document.createElement('div');
-        div.className = 'pinned-chip border rounded p-2';
         const done = (d.dp || 0) + (d.sc || 0);
-
+        const div = document.createElement('div');
+        div.className = 'pinned-chip';
         div.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start">
             <div class="info">
-                <div class="backno fw-bold">${d.backNo}</div>
-                <div class="small text-muted">${d.customer || '--'}</div>
+            <div class="backno fw-bold">${d.backNo}</div>
+            <div class="dim">${d.customer || '--'}</div>
             </div>
-
-            <!-- ORDER & COMPLETED: label di atas angka -->
-            <div class="d-flex gap-4 text-end">
-                <div class="d-flex flex-column align-items-end">
-                <div class="small text-muted text-uppercase" style="letter-spacing:.06em;">Order</div>
-                <div class="fw-bold lh-1 text-primary" data-x="order" style="font-size:1.25rem;">
-                    ${d.order.toLocaleString('id-ID')}
-                </div>
-                </div>
-                <div class="d-flex flex-column align-items-end">
-                <div class="small text-muted text-uppercase" style="letter-spacing:.06em;">Completed</div>
-                <div class="fw-bold lh-1" data-x="done" style="font-size:1.25rem;">
-                    ${done.toLocaleString('id-ID')}
-                </div>
-                </div>
+            <div class="stat-stack">
+            <div class="stat-label">Order</div>
+            <div class="stat-number primary" data-x="order">${d.order.toLocaleString('id-ID')}</div>
             </div>
+            <div class="stat-stack">
+            <div class="stat-label">Completed</div>
+            <div class="stat-number" data-x="done">${done.toLocaleString('id-ID')}</div>
             </div>
-
-            <div class="meta small text-muted mt-1">
-            <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
-            <span>•</span>
-            <span data-x="dtime">${d.deliveryTime}</span>
-            <span>·</span>
-            <span data-x="ddate">${d.deliveryDate}</span>
-            </div>
-        `;
+            <div class="meta">
+            <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
+            <span>•</span><span data-x="dtime">${d.deliveryTime}</span>
+            <span>·</span><span data-x="ddate">${d.deliveryDate}</span>
+            </div>`;
         return div;
     }
 
-
     _renderChipNext(d) {
         const div = document.createElement('div');
-        div.className = 'pinned-chip border rounded p-2';
+        div.className = 'pinned-chip';
         div.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start">
             <div class="info">
-                <div class="backno fw-bold">${d.backNo}</div>
-                <div class="small text-muted">${d.customer || '--'}</div>
+            <div class="backno fw-bold">${d.backNo}</div>
+            <div class="dim">${d.customer || '--'}</div>
             </div>
-
-            <!-- ORDER: label di atas angka, tanpa icon -->
-            <div class="text-end d-flex flex-column align-items-end">
-                <div class="small text-muted text-uppercase" style="letter-spacing:.06em;">Order</div>
-                <div class="fw-bold lh-1 text-primary" style="font-size:1.5rem;">
-                ${d.order.toLocaleString('id-ID')}
-                </div>
+            <div class="stat-stack">
+            <div class="stat-label">Order</div>
+            <div class="stat-number primary">${d.order.toLocaleString('id-ID')}</div>
             </div>
-            </div>
-
-            <div class="meta small text-muted mt-1">
-            <span class="tag">Dock</span> <span>${d.dock}</span>
-            <span>•</span>
-            <span>${d.deliveryTime}</span>
-            <span>·</span>
-            <span>${d.deliveryDate}</span>
-            </div>
-        `;
+            <div class="meta">
+            <span class="tag">Dock</span><span>${d.dock}</span>
+            <span>•</span><span>${d.deliveryTime}</span>
+            <span>·</span><span>${d.deliveryDate}</span>
+            </div>`;
         return div;
     }
 
