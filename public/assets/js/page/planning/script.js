@@ -2003,7 +2003,7 @@ class PinnedShelf {
         return div;
     }
 
-        _renderChipNext(d) {
+    _renderChipNext(d) {
         const div = document.createElement('div');
         div.className = 'pinned-chip border rounded p-2';
         div.innerHTML = `
@@ -2012,14 +2012,18 @@ class PinnedShelf {
                 <div class="backno fw-bold">${d.backNo}</div>
                 <div class="small text-muted">${d.customer || '--'}</div>
             </div>
-            <div class="stats d-flex gap-3">
-                <div class="text-end">
-                <div class="number">${d.order.toLocaleString('id-ID')}</div>
-                <div class="small text-muted">Order</div>
+
+            <!-- ORDER: dibuat mencolok -->
+            <div class="text-end">
+                <div class="badge bg-primary text-white rounded-pill px-3 py-2">
+                <i class="fas fa-box-open me-1"></i>
+                <span class="fw-bold fs-5">${d.order.toLocaleString('id-ID')}</span>
                 </div>
+                <div class="small text-muted lh-1 mt-1">ORDER</div>
             </div>
             </div>
-            <div class="meta small text-muted">
+
+            <div class="meta small text-muted mt-1">
             <span class="tag">Dock</span> <span>${d.dock}</span>
             <span>•</span>
             <span>${d.deliveryTime}</span>
@@ -2029,7 +2033,6 @@ class PinnedShelf {
         `;
         return div;
     }
-
 
     _patchChip(el, d) {
         const set = (k, v) => {
