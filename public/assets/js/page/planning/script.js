@@ -1970,29 +1970,33 @@ class PinnedShelf {
     _renderChipCurrent(d) {
         const div = document.createElement('div');
         div.className = 'pinned-chip border rounded p-2';
-        div.setAttribute('data-pin-id', d.id);
+        const done = (d.dp || 0) + (d.sc || 0);
+
         div.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
             <div class="info">
                 <div class="backno fw-bold">${d.backNo}</div>
                 <div class="small text-muted">${d.customer || '--'}</div>
             </div>
-            <div class="stats d-flex gap-3">
-                <div class="text-end">
-                <div class="number" data-x="order">${d.order.toLocaleString('id-ID')}</div>
-                <div class="small text-muted">Order</div>
+
+            <!-- ORDER & COMPLETED: label di atas angka -->
+            <div class="d-flex gap-4 text-end">
+                <div class="d-flex flex-column align-items-end">
+                <div class="small text-muted text-uppercase" style="letter-spacing:.06em;">Order</div>
+                <div class="fw-bold lh-1 text-primary" data-x="order" style="font-size:1.25rem;">
+                    ${d.order.toLocaleString('id-ID')}
                 </div>
-                <div class="text-end">
-                <div class="number fw-bold" data-x="done">${(d.dp + d.sc).toLocaleString('id-ID')}</div>
-                <div class="small text-muted">Completed</div>
+                </div>
+                <div class="d-flex flex-column align-items-end">
+                <div class="small text-muted text-uppercase" style="letter-spacing:.06em;">Completed</div>
+                <div class="fw-bold lh-1" data-x="done" style="font-size:1.25rem;">
+                    ${done.toLocaleString('id-ID')}
+                </div>
                 </div>
             </div>
             </div>
-            <div class="qty-progress my-1" title="${d.dp + d.sc} / ${d.order}">
-            <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
-            <span class="val small" data-x="totpct">${d.pct}%</span>
-            </div>
-            <div class="meta small text-muted">
+
+            <div class="meta small text-muted mt-1">
             <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
             <span>•</span>
             <span data-x="dtime">${d.deliveryTime}</span>
@@ -2002,6 +2006,7 @@ class PinnedShelf {
         `;
         return div;
     }
+
 
     _renderChipNext(d) {
         const div = document.createElement('div');
