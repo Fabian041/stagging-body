@@ -220,25 +220,6 @@
 
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
-                        <!-- Presets -->
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
-                                data-bs-toggle="dropdown">
-                                Presets
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS003','default');return false;">Default</a></li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS003','risk');return false;">Risk first</a></li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="saveCurrentView('AS003');return false;">Save current view</a></li>
-                            </ul>
-                        </div>
-
                         <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS003')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
@@ -548,24 +529,6 @@
                     </div>
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
-                                data-bs-toggle="dropdown">
-                                Presets
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS004','default');return false;">Default</a></li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS004','risk');return false;">Risk first</a></li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="saveCurrentView('AS004');return false;">Save current view</a></li>
-                            </ul>
-                        </div>
-
                         <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS004')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
