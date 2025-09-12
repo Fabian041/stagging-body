@@ -1864,26 +1864,70 @@ setBackNoRenameMap({
 class PinnedShelf {
     constructor(container, opts = {}) {
         this.container = container;
-        this.max = opts.max ?? 4;
+        this.max = opts.max ?? 4;          // max chip current
+        this.nextMax = opts.nextMax ?? 6;  // max chip next
         this.ttl = opts.ttl ?? (window.prodPlanSSE?.HIGHLIGHT_DURATION_MS || 40000);
-        this.map = new Map(); // id -> {el, timer}
+        this.map = new Map(); // current: id -> {el, timer, ts}
         this._ensureShelf();
+        this._hookObservers();
     }
 
     _ensureShelf() {
-        if (this.shelf) return;
-        this.shelf = document.createElement('div');
-        this.shelf.className = 'pinned-shelf';
-        this.shelf.innerHTML = `
-            <div class="title"><i class="fas fa-cogs me-1"></i>Current Production / Pulling</div>
-            <div data-shelf-list></div>
-            `;
-        // taruh di atas kartu tabel
-        const toolbar = this.container.querySelector('.d-flex.justify-content-end') || this.container
-            .firstElementChild;
-        (toolbar?.parentElement || this.container).insertBefore(this.shelf, toolbar?.nextSibling || this
-            .container.firstChild);
-        this.list = this.shelf.querySelector('[data-shelf-list]');
+        if (this.deck) return;
+
+        // ---------- 2 CARD SIDE-BY-SIDE ----------
+        this.deck = document.createElement('div');
+        this.deck.className = 'row g-3 shelf-deck';
+
+        this.deck.innerHTML = `
+        <div class="col-12 col-lg-6">
+          <div class="card shadow-sm pinned-card">
+            <div class="card-header d-flex align-items-center gap-2">
+              <i class="fas fa-cogs text-primary"></i>
+              <strong>Current Production / Pulling</strong>
+            </div>
+            <div class="card-body py-3">
+              <div data-shelf-list class="d-flex flex-column gap-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+          <div class="card shadow-sm next-card">
+            <div class="card-header d-flex align-items-center gap-2">
+              <i class="fas fa-forward text-primary"></i>
+              <strong>Next Production</strong>
+            </div>
+            <div class="card-body py-3">
+              <div data-next-list class="d-flex flex-column gap-2"></div>
+            </div>
+          </div>
+        </div>`;
+
+        // taruh di atas kartu tabel (tepat setelah toolbar bila ada)
+        const toolbar = this.container.querySelector('.d-flex.justify-content-end') || this.container.firstElementChild;
+        (toolbar?.parentElement || this.container)
+          .insertBefore(this.deck, toolbar?.nextSibling || this.container.firstChild);
+
+        this.list = this.deck.querySelector('[data-shelf-list]');   // current
+        this.nextList = this.deck.querySelector('[data-next-list]'); // next
+    }
+
+    _hookObservers() {
+        // Refresh Next setiap ada SSE update dari ProductionPlanSSEClient
+        window.addEventListener('pulling:update', () => this.refreshNextQueue());
+
+        // Refresh Next kalau ada insert/remove baris
+        try {
+            const tbody = this.container.querySelector('table tbody');
+            if (tbody) {
+                this._mo = new MutationObserver(() => this.refreshNextQueue());
+                this._mo.observe(tbody, { childList: true, subtree: false });
+            }
+        } catch {}
+
+        // First paint
+        this.refreshNextQueue();
     }
 
     _extract(row) {
@@ -1894,11 +1938,12 @@ class PinnedShelf {
         };
         const idEl = row.querySelector('[data-item-id]');
         const id = idEl?.getAttribute('data-item-id') || '';
+
         const orderTd = $u.getCellByLabel(row, 'Order');
         const orderEl = orderTd?.querySelector('.flip') || orderTd;
         const orderRaw = parseInt(
-        String(orderEl?.dataset?.orderRaw ?? orderEl?.textContent ?? '0').replace(/[^\d-]/g,''),
-        10
+            String(orderEl?.dataset?.orderRaw ?? orderEl?.textContent ?? '0').replace(/[^\d-]/g, ''),
+            10
         ) || 0;
 
         const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
@@ -1907,6 +1952,7 @@ class PinnedShelf {
         const pct = orderRaw > 0 ? Math.min(100, Math.round(done / orderRaw * 100)) : 0;
 
         return {
+            row,
             id,
             backNo: get('Back No'),
             customer: get('Customer') || '--',
@@ -1923,38 +1969,35 @@ class PinnedShelf {
 
     _renderChip(d) {
         const div = document.createElement('div');
-        div.className = 'pinned-chip';
+        div.className = 'pinned-chip border rounded p-2';
         div.setAttribute('data-pin-id', d.id);
         div.innerHTML = `
-            <div class="info">
-            <div class="backno">${d.backNo}</div>
-            <div class="dim">${d.customer || '--'}</div>
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="info">
+                <div class="backno fw-bold">${d.backNo}</div>
+                <div class="small text-muted">${d.customer || '--'}</div>
+              </div>
+              <div class="stats d-flex gap-3">
+                <div class="text-end">
+                  <div class="number" data-x="order">${d.order.toLocaleString('id-ID')}</div>
+                  <div class="small text-muted">Order</div>
+                </div>
+                <div class="text-end">
+                  <div class="number fw-bold" data-x="done">${d.done.toLocaleString('id-ID')}</div>
+                  <div class="small text-muted">Completed</div>
+                </div>
+              </div>
             </div>
-
-            <div class="stats">
-            <div class="stat-chip text-end">
-                <div class="label">Order</div>
-                <div class="number" data-x="order">${d.order.toLocaleString('id-ID')}</div>
+            <div class="qty-progress my-1" title="${d.done} / ${d.order}">
+              <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
+              <span class="val small" data-x="totpct">${d.pct}%</span>
             </div>
-            <div class="stat-chip text-end">
-                <div class="label">Completed</div>
-                <div class="number" data-x="done">${d.done.toLocaleString('id-ID')}</div>
-            </div>
-            </div>
-
-            <div class="bar">
-            <div class="qty-progress" title="${d.done} / ${d.order}">
-                <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
-                <span class="val" data-x="totpct">${d.pct}%</span>
-            </div>
-            </div>
-
-            <div class="meta">
-            <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
-            <span>•</span>
-            <span data-x="dtime">${d.deliveryTime}</span>
-            <span>·</span>
-            <span data-x="ddate">${d.deliveryDate}</span>
+            <div class="meta small text-muted">
+              <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
+              <span>•</span>
+              <span data-x="dtime">${d.deliveryTime}</span>
+              <span>·</span>
+              <span data-x="ddate">${d.deliveryDate}</span>
             </div>
         `;
         return div;
@@ -1965,7 +2008,6 @@ class PinnedShelf {
             const n = el.querySelector(`[data-x="${k}"]`);
             if (n) n.textContent = v;
         };
-
         set('order', d.order.toLocaleString('id-ID'));
         set('done', d.done.toLocaleString('id-ID'));
         set('totpct', `${d.pct}%`);
@@ -1977,28 +2019,27 @@ class PinnedShelf {
         if (totbar) totbar.style.width = `${d.pct}%`;
     }
 
+    // -------- CURRENT (kiri) --------
     upsertFromRow(row) {
         const d = this._extract(row);
         if (!d.id) return;
+
         const rec = this.map.get(d.id);
         if (!rec) {
             const chip = this._renderChip(d);
             this.list.prepend(chip);
             const timer = setTimeout(() => this.remove(d.id), this.ttl);
-            this.map.set(d.id, {
-                el: chip,
-                timer,
-                ts: Date.now()
-            });
-            // batasi jumlah chip
+            this.map.set(d.id, { el: chip, timer, ts: Date.now() });
             this._trim();
         } else {
             this._patchChip(rec.el, d);
-            // reset TTL saat ada update baru
             clearTimeout(rec.timer);
             rec.timer = setTimeout(() => this.remove(d.id), this.ttl);
             rec.ts = Date.now();
         }
+
+        // setiap current update -> refresh Next berdasarkan posisi baris ini
+        this.refreshNextQueue(row);
     }
 
     remove(id) {
@@ -2007,11 +2048,12 @@ class PinnedShelf {
         clearTimeout(rec.timer);
         rec.el.remove();
         this.map.delete(id);
+        // current berkurang -> next bisa berubah
+        this.refreshNextQueue();
     }
 
     _trim() {
         if (this.map.size <= this.max) return;
-        // hapus yang paling lama
         const arr = [...this.map.entries()].sort((a, b) => a[1].ts - b[1].ts);
         const over = this.map.size - this.max;
         for (let i = 0; i < over; i++) {
@@ -2021,7 +2063,64 @@ class PinnedShelf {
             this.map.delete(id);
         }
     }
+
+    // -------- NEXT (kanan) --------
+    _visibleDataRows() {
+        const tbody = this.container.querySelector('tbody');
+        if (!tbody) return [];
+        return Array.from(tbody.querySelectorAll('tr')).filter(tr =>
+            tr.style.display !== 'none' && tr.getAttribute('data-summary-row') !== '1'
+        );
+    }
+
+    _computeNext(anchorRow = null) {
+        const currentIds = new Set(this.map.keys());
+        const rows = this._visibleDataRows();
+
+        // Mulai dari baris di bawah "anchor" kalau tersedia,
+        // kalau tidak ada anchor, mulai dari baris paling atas (global queue).
+        let startIndex = 0;
+        if (anchorRow) {
+            const idx = rows.indexOf(anchorRow);
+            if (idx >= 0) startIndex = idx + 1;
+        }
+
+        const out = [];
+        const pushIfCandidate = (r) => {
+            const d = this._extract(r);
+            if (!d.id) return;
+            if (currentIds.has(d.id)) return;            // skip yang sedang current
+            if (d.order > 0 && d.done >= d.order) return; // skip yang sudah complete
+            out.push(d);
+        };
+
+        for (let i = startIndex; i < rows.length && out.length < this.nextMax; i++) {
+            pushIfCandidate(rows[i]);
+        }
+        // wrap ke atas kalau belum penuh
+        if (out.length < this.nextMax && startIndex > 0) {
+            for (let i = 0; i < startIndex && out.length < this.nextMax; i++) {
+                pushIfCandidate(rows[i]);
+            }
+        }
+        return out;
+    }
+
+    refreshNextQueue(anchorRow = null) {
+        if (!this.nextList) return;
+        const items = this._computeNext(anchorRow);
+        this.nextList.innerHTML = '';
+        if (!items.length) {
+            this.nextList.innerHTML = '<div class="text-muted small">No upcoming rows</div>';
+            return;
+        }
+        items.forEach(d => {
+            const chip = this._renderChip(d);
+            this.nextList.appendChild(chip);
+        });
+    }
 }
+
 
 (function ShiftCardControls() {
     const LS_KEY = 'shiftCardState'; // { mini: {AS003:true}, hidden:{AS004:true} }

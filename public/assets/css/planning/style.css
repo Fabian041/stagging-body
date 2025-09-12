@@ -1121,3 +1121,8 @@
         .table-responsive.auto-scroll thead { position: sticky; top: 0; z-index: 2; }
         .table-responsive.auto-scroll tbody { will-change: transform; }
 
+/* progress bar mini yang dipakai chip */
+.qty-progress .bar{height:6px;border-radius:4px;background:var(--border,#e9ecef);overflow:hidden}
+.qty-progress .bar i{display:block;height:100%;background:var(--brand-primary,#0d6efd)}
+.pinned-chip .number{font-variant-numeric: tabular-nums}
+        
