@@ -521,6 +521,13 @@
             /* atau pakai var(--ink), tapi ini ekstra terang */
         }
 
+        html[data-theme="dark"] .shiftcard-head,
+        html[data-theme="dark"] .shiftcard-head .title,
+        html[data-theme="dark"] .card-header.shiftcard-head {
+            color: #eaf2ff !important;
+            /* atau pakai var(--ink), tapi ini ekstra terang */
+        }
+
         /* kalau mau angka Total sedikit lebih menonjol */
         html[data-theme="dark"] .card .strip-stat .value,
         .card .strip-stat .value {

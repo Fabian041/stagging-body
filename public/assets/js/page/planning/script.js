@@ -703,6 +703,49 @@ class ProductionPlanSSEClient {
         Object.values(this.summaries).flat().forEach(s => this._refreshSummaryRow(s));
     }
 
+    handleSSEPayload(data) {
+        try {
+            if (!data) return;
+            if (data.date && data.date !== this.currentDate) return;
+
+            const finish = (processed = 0) => {
+            // cukup refresh yg tersentuh (lihat patch di handleUpdates)
+            window.dispatchEvent(new CustomEvent('pulling:update', {
+                detail: { date: this.currentDate, processed }
+            }));
+            this.updateConnectionStatus('connected');
+            };
+
+            // helper: proses array besar per-chunk agar UI tetap responsif
+            const runBatched = (arr, size = 150) => {
+            let i = 0, done = 0;
+            const step = () => {
+                const end = Math.min(i + size, arr.length);
+                const slice = arr.slice(i, end);
+                this.handleUpdates(slice);      // <- patch di bawah bikin ini efisien
+                done += slice.length;
+                i = end;
+                if (i < arr.length) requestAnimationFrame(step);
+                else finish(done);
+            };
+            requestAnimationFrame(step);
+            };
+
+            if (Array.isArray(data.batches) && data.batches.length) {
+            // flaten batches dulu lalu proses batched
+            const flat = data.batches.flatMap(ch => Array.isArray(ch) ? ch : Object.values(ch));
+            runBatched(flat, 150);
+            return;
+            }
+
+            if (Array.isArray(data.updates) && data.updates.length) {
+            runBatched(data.updates, 150);
+            }
+        } catch {
+            this.updateConnectionStatus('error', 'payload');
+        }
+    }
+
     storeOriginalOrder() {
         document.querySelectorAll('.tab-pane table tbody').forEach(tbody => {
             this.originalOrder.set(tbody, Array.from(tbody.querySelectorAll('tr')));
@@ -769,24 +812,52 @@ class ProductionPlanSSEClient {
         }
     }
 
-
     connect() {
         try {
             if (this.eventSource) this.eventSource.close();
-            this.eventSource = new EventSource(`/stream/direct-pulling-updates?date=${this.currentDate}`);
+
+            const url = `/stream/direct-pulling-updates?date=${this.currentDate}`;
+            this.eventSource = new EventSource(url);
             this.updateConnectionStatus('connecting');
+
+            // Open
             this.eventSource.onopen = () => this.updateConnectionStatus('connected');
-            this.eventSource.addEventListener('directPullingUpdate', e => {
+
+            // Server says "hello"
+            this.eventSource.addEventListener('connected', (e) => {
+                // e.data: {message, clientId, date, timestamp}
+                this.updateConnectionStatus('connected');
+            });
+
+            // Server mulai refetch dari external
+            this.eventSource.addEventListener('refetching', (e) => {
+                this.updateConnectionStatus('refetching');
+            });
+
+            // Selesai refetch (sukses / tidak)
+            this.eventSource.addEventListener('refetched', (e) => {
+                // balik ke normal; detail status bisa kamu pakai kalau mau
+                this.updateConnectionStatus('connected');
+            });
+
+            // Update data utama
+            this.eventSource.addEventListener('directPullingUpdate', (e) => {
                 try {
-                    const data = JSON.parse(e.data);
-                    if (data.date === this.currentDate) {
-                        this.handleUpdates(data.updates || []);
-                        this.updateConnectionStatus('connected');
-                    }
+                    const data = JSON.parse(e.data || '{}');
+                    this.handleSSEPayload(data);
+                    this.updateConnectionStatus('connected');
                 } catch {
                     this.updateConnectionStatus('error', 'parse');
                 }
             });
+
+            // Server menutup koneksi (mis. rotasi 30 menit)
+            this.eventSource.addEventListener('close', () => {
+                this.updateConnectionStatus('disconnected');
+                this.reconnect();
+            });
+
+            // Error jaringan / stream
             this.eventSource.onerror = () => {
                 this.updateConnectionStatus('disconnected');
                 this.reconnect();
@@ -806,28 +877,17 @@ class ProductionPlanSSEClient {
 
     updateConnectionStatus(status, msg = '') {
         const m = ({
-            connecting: {
-                text: '● Connecting to updates...',
-                class: 'text-primary border bg-white'
-            },
-            connected: {
-                text: '● Live Updates Active',
-                class: 'text-success border bg-white'
-            },
-            disconnected: {
-                text: '● Connection Lost',
-                class: 'text-danger border bg-white'
-            },
-            error: {
-                text: '● Update Error ' + msg,
-                class: 'text-warning border bg-white'
-            }
-        } [status]) || {
-            text: '● Update Error',
-            class: 'text-warning border bg-white'
-        };
-        this.statusElement.className = m.class;
-        this.statusElement.textContent = m.text;
+            connecting:   { text: '● Connecting to updates...',       class: 'text-primary border bg-white' },
+            connected:    { text: '● Live Updates Active',            class: 'text-success border bg-white' },
+            refetching:   { text: '● Refetching data...',             class: 'text-info border bg-white' },
+            disconnected: { text: '● Connection Lost',                class: 'text-danger border bg-white' },
+            error:        { text: '● Update Error ' + msg,            class: 'text-warning border bg-white' }
+        }[status]) || { text: '● Update Error', class: 'text-warning border bg-white' };
+
+        if (this.statusElement) {
+            this.statusElement.className = m.class;
+            this.statusElement.textContent = m.text;
+        }
     }
 
     reconnect() {
@@ -843,87 +903,87 @@ class ProductionPlanSSEClient {
     }
 
     handleUpdates(updates) {
+        const touched = new Set(); // kumpulkan summary yang berubah
+
         updates.forEach(item => {
+            // update angka di summary (tanpa refresh tiap item)
             Object.values(this.summaries).flat().forEach(s => {
-                if (!s?.ids) return;
-                if (s.ids.has(String(item.id))) {
-                    const prev = s.ids.get(String(item.id)) || {
-                        dp: 0,
-                        sc: 0,
-                        order: 0
-                    };
-                    const newDP = (item.direct_pulling_qty ?? prev.dp) | 0;
-                    const newSC = (item.stock_chute_qty ?? prev.sc) | 0;
-                    const newOD = (item.order_qty ?? prev.order) | 0;
-                    s.totals.dp += (newDP - prev.dp);
-                    s.totals.sc += (newSC - prev.sc);
-                    s.totals.order += (newOD - prev.order);
-                    s.ids.set(String(item.id), {
-                        dp: newDP,
-                        sc: newSC,
-                        order: newOD
-                    });
-                    this._refreshSummaryRow(s);
-                }
+            if (!s?.ids) return;
+            if (s.ids.has(String(item.id))) {
+                const prev = s.ids.get(String(item.id)) || { dp: 0, sc: 0, order: 0 };
+                const newDP = (item.direct_pulling_qty ?? prev.dp) | 0;
+                const newSC = (item.stock_chute_qty ?? prev.sc) | 0;
+                const newOD = (item.order_qty ?? prev.order) | 0;
+
+                s.totals.dp    += (newDP - prev.dp);
+                s.totals.sc    += (newSC - prev.sc);
+                s.totals.order += (newOD - prev.order);
+
+                s.ids.set(String(item.id), { dp: newDP, sc: newSC, order: newOD });
+                touched.add(s);
+            }
             });
 
+            // update row DOM kalau ada
             const idSel = id => `[data-item-id="${id}"]`;
-            if (document.querySelector(`${idSel(item.id)}[data-type="direct-pulling"]`) || document
-                .querySelector(`${idSel(item.id)}[data-type="stock-chute"]`)) {
-                this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item
-                    .direct_pulling_qty, 'direct-pulling', item.order_qty);
-                this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty,
-                    'stock-chute', item.order_qty);
-                this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, item.actual_start,
-                    'time');
-                this.updateQuantity(`${idSel(item.id)}[data-type="end"]`, item.end, 'time');
-                this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, item.balance, 'time');
+            if (
+            document.querySelector(`${idSel(item.id)}[data-type="direct-pulling"]`) ||
+            document.querySelector(`${idSel(item.id)}[data-type="stock-chute"]`)
+            ) {
+            this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
+            this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty, 'stock-chute', item.order_qty);
+            this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, item.actual_start, 'time');
+            this.updateQuantity(`${idSel(item.id)}[data-type="end"]`, item.end, 'time');
+            this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, item.balance, 'time');
             }
         });
-        this.refreshSummaries();
+
+        // refresh hanya summary yang berubah
+        touched.forEach(s => this._refreshSummaryRow(s));
     }
 
+
     updateQuantity(selector, newValue, type, targetQty = null) {
-        document.querySelectorAll(selector).forEach(el => {
+        const els = document.querySelectorAll(selector);
+        if (!els.length) return;
+
+        els.forEach(el => {
             const cur = (el.textContent || '').trim();
-            if (cur !== String(newValue)) {
-                el.textContent = newValue ?? '';
-                const td = el.closest('td');
-                const row = td?.parentElement;
+            if (cur === String(newValue)) return; // no-op
 
-                if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type,
-                    targetQty);
-                else this.updateCellStyle(td, null, type);
+            el.textContent = newValue ?? '';
+            const td  = el.closest('td');
+            const row = td?.parentElement;
 
-                const bar = td?.querySelector('.qty-progress .bar > i');
-                if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
-                    const order = this._getOrder(row);
-                    const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
-                    const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
-                    const val = (type === 'direct-pulling') ? dp : sc;
-                    const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
-                    bar.style.width = pct + '%';
+            if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type, targetQty);
+            else this.updateCellStyle(td, null, type);
 
-                    const totCell = row.querySelector('.total-progress');
-                    if (totCell) {
-                        const tBar = totCell.querySelector('.bar > i');
-                        const tPct = totCell.querySelector('.val');
-                        const totalVal = dp + sc;
-                        const totalPct = Math.min(100, Math.round((totalVal / Math.max(1, order)) *
-                            100));
-                        if (tBar) tBar.style.width = totalPct + '%';
-                        if (tPct) tPct.textContent = totalPct + '%';
-                    }
-                }
+            const bar = td?.querySelector('.qty-progress .bar > i');
+            if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
+            const order = this._getOrder(row);
+            const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+            const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
+            const val = (type === 'direct-pulling') ? dp : sc;
+            const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
+            bar.style.width = pct + '%';
 
-                if (row && (type === 'direct-pulling' || type === 'stock-chute')) this.triggerHighlight(
-                    row, type);
+            const totCell = row.querySelector('.total-progress');
+            if (totCell) {
+                const tBar = totCell.querySelector('.bar > i');
+                const tPct = totCell.querySelector('.val');
+                const totalVal = dp + sc;
+                const totalPct = Math.min(100, Math.round((totalVal / Math.max(1, order)) * 100));
+                if (tBar) tBar.style.width = totalPct + '%';
+                if (tPct) tPct.textContent = totalPct + '%';
+            }
+            }
 
-                const f = td?.querySelector('.flip');
-                if (f) {
-                    f.classList.add('animate-flip');
-                    setTimeout(() => f.classList.remove('animate-flip'), 600);
-                }
+            if (row && (type === 'direct-pulling' || type === 'stock-chute')) this.triggerHighlight(row, type);
+
+            const f = td?.querySelector('.flip');
+            if (f) {
+            f.classList.add('animate-flip');
+            setTimeout(() => f.classList.remove('animate-flip'), 600);
             }
         });
     }
@@ -1343,8 +1403,7 @@ setBackNoRenameMap({
     }
 
     function readSummaryLabel(tr) {
-        return norm(tr?.getAttribute('data-summary-label') || tr?.getAttribute('data-summary-key') || tr
-            ?.textContent || '');
+        return norm(tr?.getAttribute('data-summary-label') || tr?.getAttribute('data-summary-key') || tr?.textContent || '');
     }
 
     function readOrder(tr) {
@@ -1360,12 +1419,16 @@ setBackNoRenameMap({
         const raw = el?.dataset?.orderRaw;
         return raw != null && raw !== '' ? $u.int(raw) : $u.int(el?.textContent);
     }
-    const readDP = tr => isSummaryRow(tr) ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent) : $u.int(
-        (tr.querySelector('[data-type="direct-pulling"]') || cellByLabel(tr, 'Direct Pulling')
-            ?.querySelector('.flip'))?.textContent);
-    const readSC = tr => isSummaryRow(tr) ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent) : $u.int(
-        (tr.querySelector('[data-type="stock-chute"]') || cellByLabel(tr, 'Stock Chute')?.querySelector(
-            '.flip'))?.textContent);
+
+    const readDP = tr =>
+        isSummaryRow(tr)
+            ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent)
+            : $u.int((tr.querySelector('[data-type="direct-pulling"]') || cellByLabel(tr, 'Direct Pulling')?.querySelector('.flip'))?.textContent);
+
+    const readSC = tr =>
+        isSummaryRow(tr)
+            ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent)
+            : $u.int((tr.querySelector('[data-type="stock-chute"]') || cellByLabel(tr, 'Stock Chute')?.querySelector('.flip'))?.textContent);
 
     function readDeliveryHourForRow(row) {
         let r = row;
@@ -1382,11 +1445,9 @@ setBackNoRenameMap({
     function readHourFromRowTimes(row) {
         const asEl = row.querySelector('[data-type="actual_start"]');
         const psEl = row.querySelector('[data-type="start"]');
-        let h = $u.hourFromText(asEl?.textContent || '') || $u.hourFromText(cellByLabel(row, 'Actual Start')
-            ?.textContent);
+        let h = $u.hourFromText(asEl?.textContent || '') || $u.hourFromText(cellByLabel(row, 'Actual Start')?.textContent);
         if (h == null) {
-            h = $u.hourFromText(psEl?.textContent || '') || $u.hourFromText(cellByLabel(row, 'Planning Start')
-                ?.textContent);
+            h = $u.hourFromText(psEl?.textContent || '') || $u.hourFromText(cellByLabel(row, 'Planning Start')?.textContent);
         }
         return h;
     }
@@ -1436,7 +1497,6 @@ setBackNoRenameMap({
         return null;
     }
 
-
     // 1) Klasifikasi shift: Delivery Date+Time (09:40 rule), fallback jam Delivery Time
     function classifyShift(row, lineKey) {
         // summary khusus tetap berlaku
@@ -1444,7 +1504,7 @@ setBackNoRenameMap({
         if (ov) return ov;
 
         const tm = readDeliveryTimeTextForRow(row); // "HH:mm"
-        const md = readDeliveryDateMDForRow(row); // "MM/DD"
+        const md = readDeliveryDateMDForRow(row);   // "MM/DD"
         if (tm) {
             if (md) {
                 const curISO = window.prodPlanSSE?.getCurrentDate?.() || $u.getCurrentISO();
@@ -1467,18 +1527,9 @@ setBackNoRenameMap({
     function computeLine(lineKey) {
         const wrap = document.querySelector(`[data-toggle-table="${lineKey}"]`);
         const sums = {
-            morning: {
-                order: 0,
-                actual: 0
-            },
-            night: {
-                order: 0,
-                actual: 0
-            },
-            total: {
-                order: 0,
-                actual: 0
-            }
+            morning: { order: 0, actual: 0 },
+            night:   { order: 0, actual: 0 },
+            total:   { order: 0, actual: 0 }
         };
         if (!wrap) return sums;
 
@@ -1493,13 +1544,13 @@ setBackNoRenameMap({
             if (tr.getAttribute('data-shift') !== shift) tr.setAttribute('data-shift', shift);
 
             if (shift === 'morning' || shift === 'night') {
-                sums[shift].order += order;
+                sums[shift].order  += order;
                 sums[shift].actual += (dp + sc); // <= actual = DP + SC
             }
         });
 
         // TOTAL = Morning + Night (baris "other" nggak ikut)
-        sums.total.order = sums.morning.order + sums.night.order;
+        sums.total.order  = sums.morning.order + sums.night.order;
         sums.total.actual = sums.morning.actual + sums.night.actual;
 
         return sums;
@@ -1509,11 +1560,10 @@ setBackNoRenameMap({
 
     function renderBlock(lineKey, shift, data) {
         const root = document.querySelector(
-            `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`);
+            `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
+        );
         if (!root) return;
-        const O = data.order,
-            A = data.actual,
-            P = pct(A, O);
+        const O = data.order, A = data.actual, P = pct(A, O);
         const q = sel => root.querySelector(sel);
         const elO = q('[data-role="shift-order"]');
         const elA = q('[data-role="shift-actual"]');
@@ -1528,8 +1578,8 @@ setBackNoRenameMap({
     function recompute(lineKey) {
         const sums = computeLine(lineKey);
         renderBlock(lineKey, 'morning', sums.morning);
-        renderBlock(lineKey, 'night', sums.night);
-        renderBlock(lineKey, 'total', sums.total);
+        renderBlock(lineKey, 'night',   sums.night);
+        renderBlock(lineKey, 'total',   sums.total);
     }
 
     function recomputeAll() {
@@ -1538,9 +1588,7 @@ setBackNoRenameMap({
     window.recomputeAllShiftCards = recomputeAll;
 
     function updateBarsForRow(row) {
-        const order = readOrder(row),
-            dp = readDP(row),
-            sc = readSC(row);
+        const order = readOrder(row), dp = readDP(row), sc = readSC(row);
         const dpBar = row.querySelector('[data-label][data-label*="Direct Pulling" i] .qty-progress .bar > i');
         if (dpBar) dpBar.style.width = (order > 0 ? Math.min(100, Math.round((dp / order) * 100)) : 0) + '%';
         const scBar = row.querySelector('[data-label][data-label*="Stock Chute" i] .qty-progress .bar > i');
@@ -1555,24 +1603,22 @@ setBackNoRenameMap({
 
     function applyUpdateItem(it) {
         const id = String(it.id);
-        const el = document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`) ||
-            document.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`) ||
-            document.querySelector(`[data-item-id="${id}"][data-type="actual_start"]`) ||
-            document.querySelector(`[data-item-id="${id}"][data-type="start"]`) ||
-            document.querySelector(`[data-item-id="${id}"][data-type="balance"]`);
+        const el = document.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`)
+            || document.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`)
+            || document.querySelector(`[data-item-id="${id}"][data-type="actual_start"]`)
+            || document.querySelector(`[data-item-id="${id}"][data-type="start"]`)
+            || document.querySelector(`[data-item-id="${id}"][data-type="balance"]`);
         if (!el) return;
         const row = el.closest('tr');
         if (!row) return;
 
         if (typeof it.direct_pulling_qty === 'number') {
             const dpEl = row.querySelector(`[data-item-id="${id}"][data-type="direct-pulling"]`);
-            if (dpEl && dpEl.textContent.trim() !== String(it.direct_pulling_qty)) dpEl.textContent = it
-                .direct_pulling_qty;
+            if (dpEl && dpEl.textContent.trim() !== String(it.direct_pulling_qty)) dpEl.textContent = it.direct_pulling_qty;
         }
         if (typeof it.stock_chute_qty === 'number') {
             const scEl = row.querySelector(`[data-item-id="${id}"][data-type="stock-chute"]`);
-            if (scEl && scEl.textContent.trim() !== String(it.stock_chute_qty)) scEl.textContent = it
-                .stock_chute_qty;
+            if (scEl && scEl.textContent.trim() !== String(it.stock_chute_qty)) scEl.textContent = it.stock_chute_qty;
         }
         if (typeof it.order_qty === 'number') {
             const tdOrder = cellByLabel(row, 'Order');
@@ -1601,50 +1647,28 @@ setBackNoRenameMap({
         updateBarsForRow(row);
     }
 
+    // Initial compute saat load
     document.addEventListener('DOMContentLoaded', recomputeAll);
 
+    // >>> UPDATED: dengarkan event kustom dari ProductionPlanSSEClient, tanpa bikin EventSource sendiri
     document.addEventListener('DOMContentLoaded', () => {
-        const currentDate = (document.querySelector('input[name="date"]')?.value) || new Date()
-            .toISOString().slice(0, 10);
-        const onDirectUpdates = updates => {
-            (updates || []).forEach(applyUpdateItem);
+        // ProductionPlanSSEClient akan update DOM (rows, qty, bar) lebih dulu,
+        // lalu mem-broadcast 'pulling:update' -> kita tinggal recompute kartu.
+        window.addEventListener('pulling:update', (ev) => {
             recomputeAll();
-        };
-        if (window.prodPlanSSE?.eventSource && !window.__shiftCardsHookedV3) {
-            window.__shiftCardsHookedV3 = true;
-            window.prodPlanSSE.eventSource.addEventListener('directPullingUpdate', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data?.date === currentDate) onDirectUpdates(data.updates);
-                } catch {}
-            });
-        } else {
-            try {
-                const es = new EventSource(`/stream/direct-pulling-updates?date=${currentDate}`);
-                es.addEventListener('directPullingUpdate', (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        if (data?.date === currentDate) onDirectUpdates(data.updates);
-                    } catch {}
-                });
-                window.addEventListener('beforeunload', () => es.close());
-            } catch {}
-        }
+        });
     });
 
+    // Recompute saat ada perubahan baris (insert/remove) dari tabel
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-toggle-table] tbody').forEach(tbody => {
             try {
                 const mo = new MutationObserver(() => recomputeAll());
-                mo.observe(tbody, {
-                    childList: true,
-                    subtree: false
-                });
+                mo.observe(tbody, { childList: true, subtree: false });
             } catch {}
         });
     });
 })();
-
 
 (function() {
     const IDLOCALE = 'id-ID';
@@ -1872,8 +1896,10 @@ class PinnedShelf {
         const id = idEl?.getAttribute('data-item-id') || '';
         const orderTd = $u.getCellByLabel(row, 'Order');
         const orderEl = orderTd?.querySelector('.flip') || orderTd;
-        const orderRaw = parseInt(orderEl?.dataset?.orderRaw || orderEl?.textContent || '0'.replace(/[^\d-]/g,
-            ''), 10) || 0;
+        const orderRaw = parseInt(
+        String(orderEl?.dataset?.orderRaw ?? orderEl?.textContent ?? '0').replace(/[^\d-]/g,''),
+        10
+        ) || 0;
 
         const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
         const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
@@ -2146,84 +2172,5 @@ class PinnedShelf {
     });
 
     refreshTray();
-})();
-
-/* ===== Soft Auto-Scroll for dashboard tables ===== */
-(function () {
-    const SPEED_PX_PER_SEC = 24;   // kecepatan scroll (px/detik) -> pelan. Naikkan kalau mau lebih cepat.
-    const EDGE_PAUSE_MS    = 1200; // jeda di bawah sebelum balik ke atas
-    const USER_PAUSE_MS    = 4000; // jeda jika user scroll/drag/hover
-
-    function startAutoScroll(el) {
-    if (!el) return () => {};
-    let raf = 0;
-    let last = performance.now();
-    let paused = false;
-    let userTimer = null;
-
-    // Pause/resume helpers
-    const pauseForUser = () => {
-    paused = true;
-    clearTimeout(userTimer);
-    userTimer = setTimeout(() => (paused = false), USER_PAUSE_MS);
-    };
-
-    // Pause saat interaksi user (scroll/drag/hover)
-    el.addEventListener('wheel',       pauseForUser, { passive: true });
-    el.addEventListener('touchstart',  pauseForUser, { passive: true });
-    el.addEventListener('mousedown',   pauseForUser, { passive: true });
-    el.addEventListener('mouseenter',  () => (paused = true));
-    el.addEventListener('mouseleave',  () => (paused = false));
-
-    function loop(t) {
-    if (!el.isConnected) return; // guard jika DOM dihapus
-    const max = el.scrollHeight - el.clientHeight;
-    if (max <= 2) { raf = requestAnimationFrame(loop); return; } // tidak perlu scroll jika konten pendek
-
-    const dt = t - last;
-    last = t;
-
-    if (!paused) {
-        const delta = (SPEED_PX_PER_SEC * dt) / 1000;
-        el.scrollTop = Math.min(max, el.scrollTop + delta);
-
-        // Sampai bawah? jeda lalu balik ke atas
-        if (el.scrollTop >= max - 1) {
-        paused = true;
-        setTimeout(() => { el.scrollTop = 0; paused = false; }, EDGE_PAUSE_MS);
-        }
-    }
-    raf = requestAnimationFrame(loop);
-    }
-
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-    }
-
-    let stopCurrent = () => {};
-
-    function initActivePaneScroller() {
-        stopCurrent?.();
-
-        const activePane = document.querySelector('.tab-pane.active.show');
-        let scroller = activePane?.querySelector('.table-responsive.auto-scroll');
-        if (!scroller) scroller = activePane?.querySelector('.table-responsive'); // fallback
-
-        if (scroller) stopCurrent = startAutoScroll(scroller);
-        else stopCurrent = () => {};
-    }
-
-    // Inisialisasi saat DOM siap
-    document.addEventListener('DOMContentLoaded', initActivePaneScroller);
-
-    // Re-init saat pindah tab Bootstrap
-    document.addEventListener('shown.bs.tab', initActivePaneScroller);
-
-    // Pause saat Summary Modal dibuka, lanjut lagi saat ditutup (hemat CPU & fokus ke modal)
-    const summaryModal = document.getElementById('summaryModal');
-    if (summaryModal) {
-    summaryModal.addEventListener('show.bs.modal', () => stopCurrent());
-    summaryModal.addEventListener('hidden.bs.modal', () => initActivePaneScroller());
-    }
 })();
 
