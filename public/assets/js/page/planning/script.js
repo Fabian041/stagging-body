@@ -1877,7 +1877,7 @@ class PinnedShelf {
 
         // ---------- 2 CARD SIDE-BY-SIDE ----------
         this.deck = document.createElement('div');
-        this.deck.className = 'row g-3 shelf-deck';
+        this.deck.className = 'row g-3 shelf-deck mb-3';
 
         this.deck.innerHTML = `
         <div class="col-12 col-lg-6">
@@ -1967,41 +1967,69 @@ class PinnedShelf {
         };
     }
 
-    _renderChip(d) {
+    _renderChipCurrent(d) {
         const div = document.createElement('div');
         div.className = 'pinned-chip border rounded p-2';
         div.setAttribute('data-pin-id', d.id);
         div.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
-              <div class="info">
+            <div class="info">
                 <div class="backno fw-bold">${d.backNo}</div>
                 <div class="small text-muted">${d.customer || '--'}</div>
-              </div>
-              <div class="stats d-flex gap-3">
-                <div class="text-end">
-                  <div class="number" data-x="order">${d.order.toLocaleString('id-ID')}</div>
-                  <div class="small text-muted">Order</div>
-                </div>
-                <div class="text-end">
-                  <div class="number fw-bold" data-x="done">${d.done.toLocaleString('id-ID')}</div>
-                  <div class="small text-muted">Completed</div>
-                </div>
-              </div>
             </div>
-            <div class="qty-progress my-1" title="${d.done} / ${d.order}">
-              <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
-              <span class="val small" data-x="totpct">${d.pct}%</span>
+            <div class="stats d-flex gap-3">
+                <div class="text-end">
+                <div class="number" data-x="order">${d.order.toLocaleString('id-ID')}</div>
+                <div class="small text-muted">Order</div>
+                </div>
+                <div class="text-end">
+                <div class="number fw-bold" data-x="done">${(d.dp + d.sc).toLocaleString('id-ID')}</div>
+                <div class="small text-muted">Completed</div>
+                </div>
+            </div>
+            </div>
+            <div class="qty-progress my-1" title="${d.dp + d.sc} / ${d.order}">
+            <div class="bar"><i data-x="totbar" style="width:${d.pct}%"></i></div>
+            <span class="val small" data-x="totpct">${d.pct}%</span>
             </div>
             <div class="meta small text-muted">
-              <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
-              <span>•</span>
-              <span data-x="dtime">${d.deliveryTime}</span>
-              <span>·</span>
-              <span data-x="ddate">${d.deliveryDate}</span>
+            <span class="tag">Dock</span> <span data-x="dock">${d.dock}</span>
+            <span>•</span>
+            <span data-x="dtime">${d.deliveryTime}</span>
+            <span>·</span>
+            <span data-x="ddate">${d.deliveryDate}</span>
             </div>
         `;
         return div;
     }
+
+        _renderChipNext(d) {
+        const div = document.createElement('div');
+        div.className = 'pinned-chip border rounded p-2';
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+            <div class="info">
+                <div class="backno fw-bold">${d.backNo}</div>
+                <div class="small text-muted">${d.customer || '--'}</div>
+            </div>
+            <div class="stats d-flex gap-3">
+                <div class="text-end">
+                <div class="number">${d.order.toLocaleString('id-ID')}</div>
+                <div class="small text-muted">Order</div>
+                </div>
+            </div>
+            </div>
+            <div class="meta small text-muted">
+            <span class="tag">Dock</span> <span>${d.dock}</span>
+            <span>•</span>
+            <span>${d.deliveryTime}</span>
+            <span>·</span>
+            <span>${d.deliveryDate}</span>
+            </div>
+        `;
+        return div;
+    }
+
 
     _patchChip(el, d) {
         const set = (k, v) => {
@@ -2026,7 +2054,7 @@ class PinnedShelf {
 
         const rec = this.map.get(d.id);
         if (!rec) {
-            const chip = this._renderChip(d);
+            const chip = this._renderChipCurrent(d);
             this.list.prepend(chip);
             const timer = setTimeout(() => this.remove(d.id), this.ttl);
             this.map.set(d.id, { el: chip, timer, ts: Date.now() });
@@ -2115,7 +2143,7 @@ class PinnedShelf {
             return;
         }
         items.forEach(d => {
-            const chip = this._renderChip(d);
+            const chip = this._renderChipNext(d);
             this.nextList.appendChild(chip);
         });
     }
