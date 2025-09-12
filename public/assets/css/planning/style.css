@@ -521,6 +521,8 @@
             /* atau pakai var(--ink), tapi ini ekstra terang */
         }
 
+        html[data-theme="dark"] .curr,
+        html[data-theme="dark"] .next,
         html[data-theme="dark"] .shiftcard-head,
         html[data-theme="dark"] .shiftcard-head .title,
         html[data-theme="dark"] .card-header.shiftcard-head {

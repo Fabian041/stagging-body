@@ -1884,7 +1884,7 @@ class PinnedShelf {
           <div class="card shadow-sm pinned-card">
             <div class="card-header d-flex align-items-center gap-2">
               <i class="fas fa-cogs text-primary"></i>
-              <strong>Current Production / Pulling</strong>
+              <strong class="curr">Current Production / Pulling</strong>
             </div>
             <div class="card-body py-3">
               <div data-shelf-list class="d-flex flex-column gap-2"></div>
@@ -1896,7 +1896,7 @@ class PinnedShelf {
           <div class="card shadow-sm next-card">
             <div class="card-header d-flex align-items-center gap-2">
               <i class="fas fa-forward text-primary"></i>
-              <strong>Next Production</strong>
+              <strong class="next">Next Production</strong>
             </div>
             <div class="card-body py-3">
               <div data-next-list class="d-flex flex-column gap-2"></div>
