@@ -507,6 +507,7 @@ $('#pause').on('click', function () {
                 line_id: localStorage.getItem('line_prd') || "1",
                 prd_dt: fmt(now),
                 str_dt: fmtFull(pauseStartTime),
+                // end_dt: '',
                 end_dt: fmtFull(now),
                 matnr: localStorage.getItem('model') || "UNKNOWN",
                 srna_id: selectedSrnaId,
@@ -702,8 +703,11 @@ function fetchStopReasons() {
                 data: JSON.stringify(part),
                 success: function () {
                     notif('success', 'Stop reason berhasil dikirim saat Release');
+                    localStorage.removeItem('production_start_time');
                     localStorage.clear();
-                    window.location.reload();
+                    setInterval(() => {
+                        window.location.reload();
+                    }, 2000);
                 },
                 error: function () {
                     notif('error', 'Gagal kirim stop reason saat Release');
@@ -770,6 +774,8 @@ function fetchStopReasons() {
                     console.log('scan dandori board');
                     // set item
                     localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
+                    localStorage.setItem('production_start_time', new Date().toLocaleString('sv-SE'));
+
 
                     notif("success", 'Berhasil scan dandori board!');
                     // display status
@@ -938,9 +944,7 @@ function fetchStopReasons() {
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
                         let now = Date.now();
-                        let startTime = localStorage.getItem('last_kanban_time') 
-                            ? new Date(parseInt(localStorage.getItem('last_kanban_time'))) 
-                            : new Date(parseInt(localStorage.getItem('scan_timer_start')));
+                        let startTime = localStorage.getItem('production_start_time');
                         let endTime = new Date(now);
 
                         // Simpan endTime ke localStorage untuk digunakan sebagai startTime berikutnya
@@ -948,13 +952,13 @@ function fetchStopReasons() {
                         // get current counter value
                         $.ajax({
                             type: 'get',
-                            url: "{{ url('production/store/') }}",
+                            url: "{{ url('production/store2/') }}",
                             _token: "{{ csrf_token() }}",
                             data: {
                                 partNumber: internal.trim(),
                                 seri: seri,
-                                start_time: startTime.toISOString(),
-                                end_time: endTime.toISOString()
+                                start_time: startTime,
+                                end_time: new Date().toLocaleString('sv-SE')
                             },
                             dataType: 'json',
                             success: function(data) {

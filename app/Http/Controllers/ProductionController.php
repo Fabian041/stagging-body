@@ -39,6 +39,16 @@ class ProductionController extends Controller
         return view('pages.production.index');
     }
 
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function indexprdreport()
+    {
+        return view('pages.production.prdreport');
+    }
+
     public function as523()
     {
         return view('pages.production.as523');
@@ -118,7 +128,7 @@ class ProductionController extends Controller
         }
 
         // get line of internal part based on internal part id
-        $line = Line::select('name')->where('id', $internalPart->line_id)->first();
+        $lineProd = Line::select('name')->where('id', $internalPart->line_id)->first();
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
@@ -215,7 +225,7 @@ class ProductionController extends Controller
             $datas = [
                 'data' => [
                     [
-                        'line_id' => $line->line,
+                        'line_id' => $lineProd->name,
                         'prd_dt' => (new DateTime($request->start_time))->format('Y-m-d'),
                         'str_dt' => $request->start_time,
                         'end_dt' => "",
@@ -225,9 +235,10 @@ class ProductionController extends Controller
                     ]
                 ]
             ];
-
             // Kirim ke API external (jika perlu)
-            $response = Http::post(env('API_PROD_BASE') . 'action=api_insert_inbound', $datas);
+            $response = Http::withOptions([
+                'verify' => false
+            ])->post(env('API_PROD_BASE') . 'action=api_insert_inbound', $datas);
 
             $this->mqttConnect('prod/quantity', $data);
 
@@ -567,7 +578,9 @@ class ProductionController extends Controller
 
     public function getListStop()
     {
-        $response = Http::get(env('API_PROD_BASE') . 'action=api_list_stop');
+        $response = Http::withOptions([
+            'verify' => false
+        ])->get(env('API_PROD_BASE') . 'action=api_list_stop');
 
         if ($response->successful()) {
             return response()->json($response->json());
@@ -579,10 +592,13 @@ class ProductionController extends Controller
     public function insertStop(Request $request)
     {
         $data = $request->all();
-
-        $response = Http::post(env('API_PROD_BASE') . 'action=api_insert_inb_stop', [
-            'data' => [$data]
-        ]);
+        // dd($data);
+        $response = Http::withOptions([
+            'verify' => false
+        ])->post(
+            env('API_PROD_BASE') . 'action=api_insert_inb_stop',
+            $data
+        );
 
         if ($response->successful()) {
             return response()->json(['status' => 'success', 'data' => $response->json()]);
@@ -605,7 +621,9 @@ class ProductionController extends Controller
 
         // get line of internal part based on internal part id
         $line = Line::select('name')->where('id', $internalPart->line_id)->first();
-        $response = Http::post(env('API_PROD_BASE') . 'action=api_stop_inbound', [
+        $response = Http::withOptions([
+            'verify' => false
+        ])->post(env('API_PROD_BASE') . 'action=api_stop_inbound', [
             'line_id' => $line->name
         ]);
 
@@ -613,6 +631,156 @@ class ProductionController extends Controller
             return response()->json(['status' => 'success', 'data' => $response->json()]);
         } else {
             return response()->json(['status' => 'error', 'message' => $response->body()], 500);
+        }
+    }
+
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store2(Request $request)
+    {
+        $partNumber = $request->partNumber;
+        $seri = $request->seri;
+
+        // double check to master sample
+        $internalPart = InternalPart::where('part_number', $partNumber)->first();
+        if (!$internalPart) {
+            return [
+                'status' => 'error',
+                'message' => 'Part Tidak Sesuai Dengan Sample!'
+            ];
+        }
+
+        // get line of internal part based on internal part id
+        $lineProd = Line::select('name')->where('id', $internalPart->line_id)->first();
+        // get customer internalPart based on internal internalPart id
+        $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
+
+        // get kanban_id based on internal part id
+        // $kanban = Kanban::select('id')
+        //             ->where('internal_part_id', $internalPart->id)
+        //             ->where('serial_number', $seri)
+        //             ->first();
+        // if(!$kanban){
+        //     return [
+        //         'status' => 'error',
+        //         'message' => 'Kanban tidak terdaftar!'
+        //     ]; 
+        // }
+
+        // check if kanban after prod is empty (temp disable)   
+        // $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->first();
+        // if($kanbanAfterProd){
+        //     return [
+        //         'status' => 'error',
+        //         'message' => 'Seri kanban sudah di scan!'
+        //     ]; 
+        // }
+
+        try {
+            DB::beginTransaction();
+            // insert into mutation table
+            Mutation::create([
+                'internal_part_id' => $internalPart->id,
+                'serial_number' => $seri,
+                'type' => 'supply',
+                'qty' => $customerPart->qty_per_kanban,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
+
+            // insert into kanban after prod
+            // for($i=0; $i<$customerPart->qty_per_kanban; $i++){
+
+            //     $randomString = Str::random(7);
+            //     $currDate = Carbon::now()->format('Ymd');
+
+            //     KanbanAfterProd::create([
+            //         'kanban_id' => $kanban->id,
+            //         'internal_part_id' => $internalPart->id,
+            //         'code' => $currDate . $randomString,
+            //         'npk' => auth()->user()->npk,
+            //         'date' => Carbon::now()->format('Y-m-d')
+            //     ]);
+            // }
+
+            $result = [];
+
+            // get all current qty of all internal parts 
+            $data = DB::table('internal_parts')
+                ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+                ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+                ->select('lines.name', 'production_stocks.internal_part_id as id', 'internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.current_stock')
+                ->groupBy('internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
+                ->get();
+            foreach ($data as $value) {
+                $lineFound = false;
+                // Check if line already exists in $lines array
+                foreach ($result as $line) {
+                    if ($line->line === $value->name) {
+                        $lineFound = true;
+                        $line->items[] = [
+                            'id' => $value->id,
+                            'part_number' => $value->part_number,
+                            'back_number' => $value->back_number,
+                            'qty' => $value->current_stock,
+                        ];
+                        break;
+                    }
+                }
+
+
+                // If line doesn't exist, create a new object and add it to $result array
+                if (!$lineFound) {
+                    $lineObject = (object) [
+                        'line' => $value->name,
+                        'items' => [
+                            [
+                                'id' => $value->id,
+                                'part_number' => $value->part_number,
+                                'back_number' => $value->back_number,
+                                'qty' => $value->current_stock,
+                            ],
+                        ],
+                    ];
+                    $result[] = $lineObject;
+                }
+            }
+            $datas = [
+                'data' => [
+                    [
+                        'line_id' => $lineProd->name,
+                        'prd_dt' => (new DateTime($request->start_time))->format('Y-m-d'),
+                        'str_dt' => $request->start_time,
+                        'end_dt' => "",
+                        'matnr'  => $request->partNumber,
+                        'menge' => $customerPart->qty_per_kanban,
+                        'crtby'  => auth()->user()->npk,
+                    ]
+                ]
+            ];
+            // Kirim ke API external (jika perlu)
+            $response = Http::withOptions([
+                'verify' => false
+            ])->post(env('API_PROD_BASE') . 'action=api_insert_inbound', $datas);
+
+            $this->mqttConnect('prod/quantity', $data);
+
+            DB::commit();
+
+            return [
+                'status' => 'success',
+                'message' => 'Part Sesuai Dengan Sample',
+                'qty' => $customerPart->qty_per_kanban
+            ];
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return ['message' => $th->getMessage()];
         }
     }
 }

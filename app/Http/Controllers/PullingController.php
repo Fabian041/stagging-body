@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use App\Models\Line;
 use App\Models\Part;
 use App\Models\Kanban;
 use GuzzleHttp\Client;
@@ -247,7 +248,9 @@ class PullingController extends Controller
     public function internalCheck($internal, $isinternal = 0)
     {
         // check internal 
-        $internal = InternalPart::select('part_number', 'back_number', 'photo')->where('part_number', $internal)->first();
+        $internal = InternalPart::select('part_number', 'back_number', 'photo', 'line_id')->where('part_number', $internal)->first();
+        $lineProd = Line::select('name')->where('id', $internal->line_id)->first();
+
         if ($isinternal == 0) {
             DB::beginTransaction();
             // insert into mutation table
@@ -275,7 +278,7 @@ class PullingController extends Controller
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
             'target' => $internal->customerPart->qty_per_kanban ?? "0",
-            'line' => $internal->line->name ?? 'Tidak ada',
+            'line' => $lineProd->name,
             'photo' => $internal->photo,
         ];
     }

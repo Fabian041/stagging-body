@@ -103,6 +103,7 @@ Route::middleware(['auth'])->group(function () {
 
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
+    Route::get('/production/prdreport', [ProductionController::class, 'indexprdreport'])->name('production.indexprdreport');
     Route::prefix('production')->group(function () {
         Route::get('/current-scan-count/{line}', [ProductionController::class, 'getCurrentScanCount']);
         Route::post('/reset-scan-count/{line}', [ProductionController::class, 'resetScanCount']);
@@ -111,6 +112,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
         Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
         Route::get('/store', [ProductionController::class, 'store'])->name('production.store');
+        Route::get('/store2', [ProductionController::class, 'store2'])->name('production.store2'); // prd report
         Route::post('/adjust', [ProductionController::class, 'adjust'])->name('production.adjust');
         Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
