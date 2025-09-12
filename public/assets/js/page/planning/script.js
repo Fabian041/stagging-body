@@ -2013,13 +2013,12 @@ class PinnedShelf {
                 <div class="small text-muted">${d.customer || '--'}</div>
             </div>
 
-            <!-- ORDER: dibuat mencolok -->
-            <div class="text-end">
-                <div class="badge bg-primary text-white rounded-pill px-3 py-2">
-                <i class="fas fa-box-open me-1"></i>
-                <span class="fw-bold fs-5">${d.order.toLocaleString('id-ID')}</span>
+            <!-- ORDER: label di atas angka, tanpa icon -->
+            <div class="text-end d-flex flex-column align-items-end">
+                <div class="small text-muted text-uppercase" style="letter-spacing:.06em;">Order</div>
+                <div class="fw-bold lh-1 text-primary" style="font-size:1.5rem;">
+                ${d.order.toLocaleString('id-ID')}
                 </div>
-                <div class="small text-muted lh-1 mt-1">ORDER</div>
             </div>
             </div>
 
