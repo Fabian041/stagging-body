@@ -1196,3 +1196,45 @@
         }
         .pinned-chip .stat-stack{ align-items: flex-start; text-align: left; }
         }
+
+        /* --- FIX overlap: pakai container .stats --- */
+.pinned-chip .stats{
+  grid-area: stats;
+  display: flex;
+  gap: .8rem;
+  align-items: flex-start;
+}
+
+.pinned-chip .stat-stack{
+  /* penting: jangan pakai grid-area di sini */
+  grid-area: unset;            /* override rule lama */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: 96px;
+  white-space: nowrap;         /* cegah pecah baris angka */
+}
+
+.pinned-chip .stat-label{
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+
+.pinned-chip .stat-number{
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.15rem, 1.2vw, 1.6rem);
+  color: var(--ink);
+}
+
+.pinned-chip .stat-number.primary{ color: var(--brand-primary); }
+
+@media (max-width: 576px){
+  .pinned-chip .stats{ flex-wrap: wrap; }
+  .pinned-chip .stat-stack{ align-items: flex-start; text-align: left; }
+}
+

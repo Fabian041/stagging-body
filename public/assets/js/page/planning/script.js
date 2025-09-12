@@ -1976,13 +1976,15 @@ class PinnedShelf {
             <div class="backno fw-bold">${d.backNo}</div>
             <div class="dim">${d.customer || '--'}</div>
             </div>
+            <div class="stats">
             <div class="stat-stack">
-            <div class="stat-label">Order</div>
-            <div class="stat-number primary" data-x="order">${d.order.toLocaleString('id-ID')}</div>
+                <div class="stat-label">Order</div>
+                <div class="stat-number primary" data-x="order">${d.order.toLocaleString('id-ID')}</div>
             </div>
             <div class="stat-stack">
-            <div class="stat-label">Completed</div>
-            <div class="stat-number" data-x="done">${done.toLocaleString('id-ID')}</div>
+                <div class="stat-label">Completed</div>
+                <div class="stat-number" data-x="done">${done.toLocaleString('id-ID')}</div>
+            </div>
             </div>
             <div class="meta">
             <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
@@ -2000,9 +2002,11 @@ class PinnedShelf {
             <div class="backno fw-bold">${d.backNo}</div>
             <div class="dim">${d.customer || '--'}</div>
             </div>
+            <div class="stats">
             <div class="stat-stack">
-            <div class="stat-label">Order</div>
-            <div class="stat-number primary">${d.order.toLocaleString('id-ID')}</div>
+                <div class="stat-label">Order</div>
+                <div class="stat-number primary">${d.order.toLocaleString('id-ID')}</div>
+            </div>
             </div>
             <div class="meta">
             <span class="tag">Dock</span><span>${d.dock}</span>
