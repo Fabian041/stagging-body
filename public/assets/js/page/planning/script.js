@@ -361,7 +361,11 @@ class ProductionPlanSSEClient {
         const customerBag = [];
         groups.forEach(groupRows => {
             const startRow = groupRows[0];
-            const matches = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
+            const matches = groupRows.filter(r => {
+                const back = this._getBackNo(r);
+                const dock = this._normalize(this._cellText(r, 'Dock')); // sudah ada helpernya
+                return tgtSet.has(back) && dock !== 'STR';
+            });
             if (!matches.length) return;
 
             const custTd = this._cell(startRow, 'Customer');
@@ -494,7 +498,11 @@ class ProductionPlanSSEClient {
 
         groups.forEach(groupRows => {
             const startRow = groupRows[0];
-            const matchesAll = groupRows.filter(r => tgtSet.has(this._getBackNo(r)));
+            const matchesAll = groupRows.filter(r => {
+                const back = this._getBackNo(r);
+                const dock = this._normalize(this._cellText(r, 'Dock'));
+                return tgtSet.has(back) && dock !== 'STR';
+            });
             if (!matchesAll.length) return;
 
             const custTd = this._cell(startRow, 'Customer');
@@ -2285,4 +2293,236 @@ class PinnedShelf {
 
     refreshTray();
 })();
+
+/* ============================================================
+Shift Capacity Reclassifier (S1/NS/LS1 & S3/LS3 + spillover)
+Berlaku untuk AS003 & AS004. Tidak mengubah SSE/DOM lain.
+------------------------------------------------------------
+Aturan:
+- Morning (S1–LS1):
+    0..720      -> S1
+    721..850    -> NS
+    851..1050   -> LS1
+    >1050       -> kelebihan (qty-1050) DIALIHKAN ke Night
+- Night (S3–LS3):
+    0..720      -> S3
+    721..1050   -> LS3
+    >1050       -> kelebihan dipindahkan ke Morning
+                    HANYA jika Morning < 1050 (pindah sebatas sisa kapasitas)
+- Total tetap sama; yang berubah hanya pembagian “order” per shift pada kartu.
+============================================================ */
+/* ============================================================
+   Shift Capacity Reclassifier (v2) — with summary-row support
+   ============================================================ */
+(function ShiftCapacityReclassifierV2(){
+    const LINES = ['AS003','AS004'];
+    const IDLOCALE = 'id-ID';
+    const MAX = 1050;
+    const normU = s => String(s||'').toUpperCase().trim();
+    const isSummary = tr => tr?.getAttribute('data-summary-row') === '1';
+
+    const q = (root, sel) => root ? root.querySelector(sel) : null;
+
+    function cellByLabel(row, label){ return $u.getCellByLabel(row, label); }
+
+    function readOrder(row){
+        const td = cellByLabel(row,'Order');
+        const el = td?.querySelector('.flip') || td;
+        // summary tidak punya dataset orderRaw, jadi pakai text saja
+        const raw = el?.dataset?.orderRaw;
+        return raw != null && raw !== '' ? $u.int(raw) : $u.int(el?.textContent);
+    }
+    function readDP(row){
+        if (isSummary(row)) return $u.int(row.querySelector('[data-summary-dp]')?.textContent);
+        return $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+    }
+    function readSC(row){
+        if (isSummary(row)) return $u.int(row.querySelector('[data-summary-sc]')?.textContent);
+        return $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
+    }
+    function readSummaryLabel(row){
+        const attr = row?.getAttribute('data-summary-label');
+        if (attr) return normU(attr);
+        const td = cellByLabel(row, 'Back No');
+        return normU((td?.textContent || '').trim());
+    }
+
+    // --- ambil Delivery Time + Date dari header group terdekat
+    function readDeliveryTimeText(row){
+        let r = row;
+        while(r){
+        const td = cellByLabel(r,'Delivery Time');
+        if (td) return (td.textContent||'').trim() || null;
+        r = r.previousElementSibling;
+        }
+        return null;
+    }
+    function readDeliveryDateMD(row){
+        let r = row;
+        while(r){
+        const td = cellByLabel(r,'Delivery Date');
+        if (td) return (td.textContent||'').trim() || null;
+        r = r.previousElementSibling;
+        }
+        return null;
+    }
+
+    // --- mapping shift (summary-aware)
+    function classifyShift(row, lineKey){
+        if (isSummary(row)){
+        const label = readSummaryLabel(row);
+        if (lineKey === 'AS003'){
+            if (/^CI12\b.*C\s*4\s*[–-]\s*7\b/.test(label)) return 'morning';
+            if (/^CI12\b.*C\s*8\s*[–-]\s*3\b/.test(label)) return 'night';
+        }
+        if (lineKey === 'AS004'){
+            if (/\bCI19\b/.test(label)) return 'morning';
+        }
+        }
+        // fallback: Delivery Date + Time (09:40)
+        const tm = readDeliveryTimeText(row);       // "HH:mm"
+        const md = readDeliveryDateMD(row);         // "MM/DD"
+        if (!tm) return 'other';
+        if (md){
+        const curISO = $u.getCurrentISO();
+        const dlvISO = $u.mdToISO(md, curISO);
+        const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
+        if (byDT === 'morning' || byDT === 'night') return byDT;
+        }
+        const mins = $u.timeToMinutes(tm);
+        if (mins == null) return 'other';
+        return mins >= (9*60+40) ? 'morning' : 'night';
+    }
+
+    // --- spillover 1050
+    function applyTransfer(morningOrder, nightOrder){
+        let m = Math.max(0, morningOrder|0);
+        let n = Math.max(0, nightOrder|0);
+        let movedMtoN = 0, movedNtoM = 0;
+
+        if (m > MAX){ movedMtoN = m - MAX; m = MAX; n += movedMtoN; }
+        if (n > MAX && m < MAX){
+        const cap = MAX - m;
+        const move = Math.min(n - MAX, cap);
+        if (move > 0){ movedNtoM = move; n -= move; m += move; }
+        }
+        return { morning: m, night: n, movedMtoN, movedNtoM };
+    }
+
+    function statusMorning(q){ return q <= 720 ? 'S1' : (q <= 850 ? 'NS' : 'LS1'); }
+    function statusNight(q){   return q <= 720 ? 'S3' : 'LS3'; }
+
+    function hideLegacyAdvanceChip(root){
+        // sembunyikan chip lama "Advance to ..."
+        root.querySelectorAll('.chip').forEach(ch=>{
+        const t = (ch.textContent||'').toLowerCase();
+        if (!ch.hasAttribute('data-role') && t.startsWith('advance to')) ch.classList.add('d-none');
+        });
+    }
+
+    function setStatusChip(lineKey, shift, label, note=''){
+        const root = document.querySelector(
+        `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
+        );
+        if (!root) return;
+        hideLegacyAdvanceChip(root);
+
+        let chip = root.querySelector('[data-role="shift-status"]');
+        if (!chip){
+        chip = document.createElement('span');
+        chip.setAttribute('data-role','shift-status');
+        chip.className = 'chip border fw-bolder ms-1';
+        const valWrap = root.querySelector('.d-flex.align-items-baseline') || root;
+        valWrap.appendChild(chip);
+        }
+        chip.textContent = label;
+        chip.classList.remove('bg-success-subtle','bg-warning-subtle','bg-danger-subtle','text-dark');
+        if (label === 'S1' || label === 'S3') chip.classList.add('bg-success-subtle','text-dark');
+        else if (label === 'NS')               chip.classList.add('bg-warning-subtle','text-dark');
+        else                                   chip.classList.add('bg-danger-subtle','text-dark');
+        chip.classList.remove('d-none');
+
+        let noteEl = root.querySelector('[data-role="shift-note"]');
+        if (!noteEl){
+        noteEl = document.createElement('small');
+        noteEl.setAttribute('data-role','shift-note');
+        noteEl.className = 'ms-2 text-muted';
+        chip.after(noteEl);
+        }
+        noteEl.textContent = note;
+    }
+
+    function renderOne(lineKey, which, effOrder, actual){
+        const card = document.querySelector(
+        `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${which}"]`
+        );
+        if (!card) return;
+        const pct = effOrder > 0 ? Math.min(100, Math.round((actual/effOrder)*100)) : 0;
+        const setText = (sel, val) => { const el = q(card, sel); if (el) el.textContent = val; };
+
+        setText('[data-role="shift-order"]',  Number(effOrder||0).toLocaleString(IDLOCALE));
+        setText('[data-role="shift-actual"]', Number(actual||0).toLocaleString(IDLOCALE));
+        setText('[data-role="shift-pct"]',    pct + '%');
+        const bar = q(card,'[data-role="shift-bar"]'); if (bar) bar.style.width = pct + '%';
+    }
+
+    function recomputeLine(lineKey){
+        const wrap = document.querySelector(`[data-toggle-table="${lineKey}"]`);
+        const tbody = wrap?.querySelector('tbody');
+        if (!tbody) return;
+
+        let mOrder=0, mActual=0, nOrder=0, nActual=0;
+
+        Array.from(tbody.querySelectorAll('tr')).forEach(tr=>{
+        if (tr.style.display==='none') return;
+        const sh = classifyShift(tr, lineKey);
+        if (sh !== 'morning' && sh !== 'night') return;
+
+        const order = readOrder(tr);
+        const actual = readDP(tr) + readSC(tr);
+
+        if (sh === 'morning'){ mOrder += order; mActual += actual; }
+        else { nOrder += order; nActual += actual; }
+        });
+
+        // spill-over 1050
+        const t = applyTransfer(mOrder, nOrder);
+
+        // render
+        renderOne(lineKey, 'morning', t.morning, mActual);
+        renderOne(lineKey, 'night',   t.night,   nActual);
+
+        // status chip & notes
+        setStatusChip(lineKey, 'morning', statusMorning(t.morning));
+        setStatusChip(lineKey, 'night',   statusNight(t.night));
+
+        // total (efektif)
+        const totalOrder = t.morning + t.night;
+        const totalActual = mActual + nActual;
+        const totalCard = document.querySelector(
+        `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="total"]`
+        );
+        if (totalCard){
+        const pct = totalOrder>0 ? Math.min(100, Math.round((totalActual/totalOrder)*100)) : 0;
+        const setText = (sel, val) => { const el = q(totalCard, sel); if (el) el.textContent = val; };
+        setText('[data-role="shift-order"]',  totalOrder.toLocaleString(IDLOCALE));
+        setText('[data-role="shift-actual"]', totalActual.toLocaleString(IDLOCALE));
+        const bar = q(totalCard,'[data-role="shift-bar"]'); if (bar) bar.style.width = pct + '%';
+        setText('[data-role="shift-pct"]', pct + '%');
+        }
+    }
+
+    function recomputeAll(){ LINES.forEach(recomputeLine); }
+
+    // initial + sse + mutasi
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(recomputeAll,0));
+    else setTimeout(recomputeAll,0);
+
+    window.addEventListener('pulling:update', ()=>setTimeout(recomputeAll,0));
+    document.querySelectorAll('[data-toggle-table] tbody').forEach(tb=>{
+        try{ new MutationObserver(()=>setTimeout(recomputeAll,0)).observe(tb,{childList:true,subtree:false}); }catch{}
+    });
+})();
+
+
 

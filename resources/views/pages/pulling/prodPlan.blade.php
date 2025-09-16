@@ -156,13 +156,12 @@
                             <div class="strip-stat" data-line="AS003" data-shift="morning">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary">
-                                        <span data-role="shift-order">{{ $as003MorningQty }}</span>
+                                    <div class="value text-primary"> {{-- (text-success untuk Night) --}}
+                                        <span data-role="shift-order">{{ $as003MorningQty ?? 0 }}</span>
                                     </div>
-                                    @if ($as003MorningStatus != 'Normal Shift')
-                                        <span
-                                            class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as003MorningStatus }}</span>
-                                    @endif
+                                    {{-- placeholder; akan diisi JS --}}
+                                    <span class="chip border fw-bolder d-none" data-role="shift-status"></span>
+                                    <small class="text-muted" data-role="shift-note"></small>
                                 </div>
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
@@ -466,13 +465,12 @@
                             <div class="strip-stat" data-line="AS004" data-shift="morning">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary">
-                                        <span data-role="shift-order">{{ $as004MorningQty }}</span>
+                                    <div class="value text-primary"> {{-- (text-success untuk Night) --}}
+                                        <span data-role="shift-order">{{ $as004MorningQty ?? 0 }}</span>
                                     </div>
-                                    @if ($as004MorningStatus != 'Normal Shift')
-                                        <span
-                                            class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as004MorningStatus }}</span>
-                                    @endif
+                                    {{-- placeholder; akan diisi JS --}}
+                                    <span class="chip border fw-bolder d-none" data-role="shift-status"></span>
+                                    <small class="text-muted" data-role="shift-note"></small>
                                 </div>
                                 <div class="kpi-mini">
                                     <div class="qty-progress"

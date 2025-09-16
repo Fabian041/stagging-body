@@ -17,6 +17,7 @@ use App\Models\ReceiveSchedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class DashboardController extends Controller
@@ -174,26 +175,35 @@ class DashboardController extends Controller
     {
         set_time_limit(90);
 
-        // Get the date from request or use today
         $selectedDate = $request->input('date')
             ? Carbon::parse($request->input('date'))->startOfDay()
             : now()->startOfDay();
 
         $today = $selectedDate->copy();
-        $start = $today->copy()->addHours(10); // 12:00 selected date
-        $end   = $start->copy()->addDay();     // 12:00 next day
+        $start = $today->copy()->addHours(10);
+        $end   = $start->copy()->addDay();
 
         $allBackNos   = collect($this->backNosByLine)->flatten()->unique()->values();
         $forceRefresh = $request->has('force_refresh');
 
-        // Cek data terakhir (30 menit)
         $lastUpdate = ProductionPlan::where('plan_date', $today->format('Y-m-d'))->max('updated_at');
 
-        if ($forceRefresh || !$lastUpdate || ($lastUpdate instanceof \Carbon\Carbon && $lastUpdate->diffInMinutes(now()) > 30)) {
+        // === NEW: cek signature MSSQL ===
+        $sigKey  = 'pulling:sig:'.$selectedDate->format('Ymd');
+        $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
+        $curSig  = $this->externalSignature($selectedDate, $allBackNos); // pakai default excluded
+        $prevSig = Cache::get($sigKey);
+
+        $shouldRefresh =
+            $forceRefresh ||
+            !$lastUpdate ||
+            !$prevSig ||
+            ($curSig && $curSig !== $prevSig);
+
+        if ($shouldRefresh) {
             try {
                 DB::beginTransaction();
 
-                // === Panggil pipeline dari TRAIT ===
                 $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $this->prodTimeByBackNo, $selectedDate);
                 if ($rawData->isEmpty()) {
                     throw new \Exception("No production data available");
@@ -203,27 +213,22 @@ class DashboardController extends Controller
                 $this->updateProductionData($processedData, $this->backNosByLine, $today);
 
                 DB::commit();
-                $message = 'Production data updated successfully!';
+
+                Cache::put($sigKey, $curSig, now()->addHours(6)); // simpan signature terkini
+                $lastUpdate  = now();
+                $message     = 'Production data updated (upstream changed).';
                 $messageType = 'success';
             } catch (\Exception $e) {
                 DB::rollBack();
-                \Log::error('Production data processing failed: ' . $e->getMessage());
-
-                $message = 'Failed to update data: ' . $e->getMessage();
+                \Log::error('Production data processing failed: '.$e->getMessage());
+                $message = 'Failed to update data: '.$e->getMessage();
                 $messageType = 'error';
-
-                $lastData = ProductionPlan::where('plan_date', $today->copy()->subDay()->format('Y-m-d'))
-                    ->orderBy('updated_at', 'desc')
-                    ->first();
-
-                if ($lastData) {
-                    $message = 'Using cached data from previous day';
-                    $messageType = 'warning';
-                }
             }
+        } else {
+            $message = 'No upstream change; using cached plan.';
+            $messageType = 'info';
         }
 
-        // Tabel + KPI (tetap di controller)
         $grouped = $this->getGroupedData($this->backNosByLine, $today);
 
         return view('pages.pulling.prodPlan', [
@@ -241,7 +246,7 @@ class DashboardController extends Controller
         $grouped   = [];
         $todayISO  = $today->toDateString();
         $nextISO   = $today->copy()->addDay()->toDateString();
-        $THRESH_MIN= 9*60 + 40; // 09:40
+        $THRESH_MIN= 10*60 + 40; // 09:40
 
         $toMin = function ($t) {
             if (!$t) return null;

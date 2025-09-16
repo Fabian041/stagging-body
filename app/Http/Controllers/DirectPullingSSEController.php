@@ -53,7 +53,7 @@ class DirectPullingSSEController extends Controller
             header('Connection: keep-alive');
             header('X-Accel-Buffering: no');
 
-            $lastCheck = now()->subSeconds(3);
+            $lastCheck = now()->subSeconds(2);
             $connectionStart = now();
             $lastHeartbeat = now();
 
@@ -87,40 +87,50 @@ class DirectPullingSSEController extends Controller
 
                     // ==== 1) CEK SIGNATURE EXTERNAL (tiap ~5s) ====
                     if (now()->diffInSeconds($lastSigCheck) >= 5) {
-                        $currentSig = $this->externalSignature($selectedDate);
+                        $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
+                        $currentSig = $this->externalSignature($selectedDate, $allBackNos, $this->excludedCustomers);
                         if ($currentSig && $currentSig !== $lastSig) {
                             $this->sendEvent('refetching', [
                                 'reason' => 'external_changed',
-                                'at' => now()->toISOString(),
-                                'date' => $selectedDate->format('Y-m-d')
+                                'at'     => now()->toISOString(),
+                                'date'   => $selectedDate->format('Y-m-d'),
                             ]);
 
-                            // pakai cache lock supaya tidak balapan multi-client
                             $lockKey = 'pulling:refresh:' . $selectedDate->format('Ymd');
-                            $lock = Cache::lock($lockKey, 60); // 60s
+                            $lock = null;
+                            try {
+                                // Fallback kalau store cache tidak support lock (lihat poin c)
+                                $lock = Cache::lock($lockKey, 60);
+                                $got = method_exists($lock, 'get') ? $lock->get() : true;
 
-                            if ($lock->get()) {
-                                try {
-                                    $ok = $this->refetchFromExternal($selectedDate);
-                                    if ($ok) {
-                                        // update signature yang tersimpan
-                                        Cache::put($sigKey, $currentSig, now()->addHours(6));
-                                        $lastSig = $currentSig;
-                                        $this->sendEvent('refetched', [
-                                            'status' => 'success',
-                                            'at' => now()->toISOString(),
-                                            'date' => $selectedDate->format('Y-m-d')
-                                        ]);
-                                        // catatan: update data akan terdeteksi blok "updates" di bawah
-                                    } else {
-                                        $this->sendEvent('refetched', [
-                                            'status' => 'nochange_or_failed',
-                                            'at' => now()->toISOString()
-                                        ]);
+                                if ($got) {
+                                    try {
+                                        $ok = $this->refetchFromExternal($selectedDate);
+                                    } finally {
+                                        try { $lock?->release(); } catch (\Throwable $e) {}
                                     }
-                                } finally {
-                                    optional($lock)->release();
+
+                                    // **Selalu** tulis signature, walau ok=false (terutama kalau prefix 'empty:')
+                                    Cache::put($sigKey, $currentSig, now()->addMinutes(30));
+                                    $lastSig = $currentSig;
+
+                                    $this->sendEvent('refetched', [
+                                        'status' => $ok ? 'success' : 'nochange',
+                                        'at'     => now()->toISOString(),
+                                        'date'   => $selectedDate->format('Y-m-d')
+                                    ]);
                                 }
+                            } catch (\Throwable $e) {
+                                // jalan tanpa lock kalau store cache tidak support lock
+                                $ok = $this->refetchFromExternal($selectedDate);
+                                Cache::put($sigKey, $currentSig, now()->addMinutes(30));
+                                $lastSig = $currentSig;
+
+                                $this->sendEvent('refetched', [
+                                    'status' => $ok ? 'success' : 'nochange',
+                                    'at'     => now()->toISOString(),
+                                    'date'   => $selectedDate->format('Y-m-d')
+                                ]);
                             }
                         }
                         $lastSigCheck = now();
@@ -194,68 +204,6 @@ class DirectPullingSSEController extends Controller
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache'
         ]);
-    }
-
-    /**
-     * Hitung signature (hash) data eksternal dalam window 09:40–09:39.
-     * Signature = sha256 dari string gabungan "dn|back_no|sum_order".
-     */
-    protected function externalSignature(Carbon $selectedDate): ?string
-    {
-        try {
-            $deliveryDate = $selectedDate->format('Ymd');
-            $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
-            $threshold = '104000'; // 09:40:00
-
-            $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
-
-            // query ringan: group by dn_number + back_no efektif
-            $rows = DB::connection('mssql_external')
-                ->table('TT_GIG_SYKMEISAI')
-                ->selectRaw("
-                    CHR_COD_TKS_NOUBAN as dn_number,
-                    CASE WHEN CHR_COD_UKEIRE = '6I' 
-                        THEN RTRIM(CHR_COD_SEBANGOU_TOK) 
-                        ELSE RTRIM(CHR_COD_SEBANGOU) END as back_no,
-                    SUM(INT_SUR_JYUCYUU) as sum_order
-                ")
-                ->whereNotNull('CHR_TIM_SYUKKA')
-                ->where(function ($query) use ($deliveryDate, $nextDay, $threshold) {
-                    $query->where(function ($q) use ($deliveryDate, $threshold) {
-                            $q->where('CHR_NGP_NOUNYU', $deliveryDate)
-                                ->where('CHR_TIM_SYUKKA', '>=', $threshold);
-                        })
-                        ->orWhere(function ($q) use ($nextDay, $threshold) {
-                            $q->where('CHR_NGP_NOUNYU', $nextDay)
-                                ->where('CHR_TIM_SYUKKA', '<', $threshold);
-                        });
-                })
-                ->whereNotIn('CHR_MEI_NOUNYU', $this->excludedCustomers)
-                ->where(function ($q) use ($allBackNos) {
-                    $q->where(function ($qq) use ($allBackNos) {
-                            $qq->where('CHR_COD_UKEIRE', '<>', '6I')
-                                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
-                        })
-                        ->orWhere(function ($qq) use ($allBackNos) {
-                            $qq->where('CHR_COD_UKEIRE', '6I')
-                                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU_TOK)"), $allBackNos);
-                        });
-                })
-                ->groupBy('dn_number', 'back_no')
-                ->orderBy('dn_number')
-                ->orderBy('back_no')
-                ->get();
-
-            if ($rows->isEmpty()) return 'empty:' . $deliveryDate;
-
-            $payload = $rows->map(fn($r) => "{$r->dn_number}|{$r->back_no}|{$r->sum_order}")
-                            ->implode(';');
-
-            return hash('sha256', $payload);
-        } catch (\Throwable $e) {
-            Log::warning('externalSignature error: ' . $e->getMessage());
-            return null;
-        }
     }
 
     /**

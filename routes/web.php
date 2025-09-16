@@ -138,6 +138,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
 
+        Route::post('/part-scan', [ProductionController::class, 'storePartScan'])
+            ->name('production.part-scan');
+        
+        Route::post('/part-scan/assign-kanban', [ProductionController::class, 'assignKanbanToPartScans'])
+            ->name('production.assign-kanban');
+
         Route::get('/direct', [ProductionController::class, 'direct'])->name('production.direct.index');
     });
 

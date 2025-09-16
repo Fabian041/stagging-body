@@ -5,9 +5,92 @@ namespace App\Traits;
 use Carbon\Carbon;
 use App\Models\ProductionPlan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log; // <-- WAJIB
+use Illuminate\Support\Facades\Cache; // <-- kalau dipakai di trait
 
 trait prodPlanOps
 {
+    /**
+     * Hitung signature (hash) data eksternal dalam window 09:40–09:39.
+     * Signature = sha256 dari string gabungan "dn|back_no|sum_order".
+     */
+    protected array $excludedCustomersDefault = [
+        'TMMIN ASSY PLANT',
+        'ADM SERVICE PART DIVISION',
+        'TMMIN SERVICE PARTS DIVISION',
+        'TAM SPARE PART DIVISION (DAIHATSU)',
+        'PT MITSUBISHI MOTORS KRAMAYUDHA SALES ID'
+    ];
+
+    /**
+     * Hitung signature (hash) data eksternal dalam window 10:40–10:39.
+     * @param \Carbon\Carbon $selectedDate  Tanggal basis
+     * @param \Illuminate\Support\Collection|array $allBackNos daftar back_no yang diizinkan
+     * @param array|null $excludedCustomers override daftar excluded (opsional)
+     */
+    protected function externalSignature(Carbon $selectedDate, $allBackNos, ?array $excludedCustomers = null): ?string
+    {
+        try {
+            $deliveryDate = $selectedDate->format('Ymd');
+            $nextDay      = $selectedDate->copy()->addDay()->format('Ymd');
+            $threshold    = '104000'; // 10:40:00
+
+            $allBackNos = collect($allBackNos)->flatten()->unique()->values();
+            $excluded   = $excludedCustomers ?? $this->excludedCustomersDefault;
+
+            $rows = DB::connection('mssql_external')
+                ->table('TT_GIG_SYKMEISAI')
+                ->selectRaw("
+                    CHR_COD_TKS_NOUBAN as dn_number,
+                    CASE WHEN CHR_COD_UKEIRE = '6I' 
+                        THEN RTRIM(CHR_COD_SEBANGOU_TOK) 
+                        ELSE RTRIM(CHR_COD_SEBANGOU) END as back_no,
+                    SUM(INT_SUR_JYUCYUU) as sum_order
+                ")
+                ->whereNotNull('CHR_TIM_SYUKKA')
+                ->where(function ($q) use ($deliveryDate, $nextDay, $threshold) {
+                    $q->where(function ($qq) use ($deliveryDate, $threshold) {
+                            $qq->where('CHR_NGP_NOUNYU', $deliveryDate)
+                            ->where('CHR_TIM_SYUKKA', '>=', $threshold);
+                        })
+                    ->orWhere(function ($qq) use ($nextDay, $threshold) {
+                            $qq->where('CHR_NGP_NOUNYU', $nextDay)
+                            ->where('CHR_TIM_SYUKKA', '<', $threshold);
+                        });
+                })
+                ->where(function ($q) use ($excluded) {
+                    $q->whereNotIn('CHR_MEI_NOUNYU', $excluded)
+                    ->orWhere(function ($qq) {
+                        $qq->whereRaw("RTRIM(CHR_COD_UKEIRE) = 'STR'")
+                            ->where('CHR_MEI_NOUNYU', 'TMMIN ASSY PLANT');
+                    });
+                })
+                ->where(function ($q) use ($allBackNos) {
+                    $q->where(function ($qq) use ($allBackNos) {
+                            $qq->where('CHR_COD_UKEIRE', '<>', '6I')
+                            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
+                        })
+                    ->orWhere(function ($qq) use ($allBackNos) {
+                            $qq->where('CHR_COD_UKEIRE', '6I')
+                            ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU_TOK)"), $allBackNos);
+                        });
+                })
+                ->groupBy('dn_number', 'back_no')
+                ->orderBy('dn_number')->orderBy('back_no')
+                ->get();
+
+            if ($rows->isEmpty()) return 'empty:'.$deliveryDate;
+
+            $payload = $rows->map(fn($r) => "{$r->dn_number}|{$r->back_no}|{$r->sum_order}")
+                            ->implode(';');
+
+            return hash('sha256', $payload);
+        } catch (\Throwable $e) {
+            Log::warning('externalSignature error: '.$e->getMessage());
+            return null;
+        }
+    }
+
     protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
     {
         try {
@@ -49,7 +132,15 @@ trait prodPlanOps
                             ->where('CHR_TIM_SYUKKA', '<', $threshold);  // < 09:40 di nextDay
                         });
                 })
-                ->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)
+                ->where(function ($q) use ($excludedCustomers) {
+                    // Umumnya exclude list…
+                    $q->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)
+                    // …kecuali TMMIN ASSY PLANT ketika dock = 'STR'
+                    ->orWhere(function ($qq) {
+                        $qq->where('CHR_COD_UKEIRE', 'STR')
+                            ->where('CHR_MEI_NOUNYU', 'TMMIN ASSY PLANT');
+                    });
+                })
                 // Penting: WHERE IN menyesuaikan kolom berdasarkan dock
                 ->where(function ($q) use ($allBackNos) {
                     $q->where(function ($qq) use ($allBackNos) {
@@ -128,7 +219,10 @@ trait prodPlanOps
                                 (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '104000')
                             OR (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
                         )
-                        AND CHR_MEI_NOUNYU NOT IN ('{$excludedCustomersString}')
+                        AND (
+                            CHR_MEI_NOUNYU NOT IN ('{$excludedCustomersString}')
+                        OR (CHR_COD_UKEIRE = 'STR' AND CHR_MEI_NOUNYU = 'TMMIN ASSY PLANT')
+                        )
                         AND (
                                 (CHR_COD_UKEIRE = '6I'  AND RTRIM(CHR_COD_SEBANGOU_TOK) IN ('{$backNosString}'))
                             OR (CHR_COD_UKEIRE <> '6I' AND RTRIM(CHR_COD_SEBANGOU)     IN ('{$backNosString}'))
@@ -205,8 +299,13 @@ trait prodPlanOps
 
             foreach ($lineData as $dnNumber => $group) {
                 $group = $group->sortBy('back_no')->values();
-                $customer     = $group->first()->customer;
-                $deliveryTime = $group->first()->formatted_time;
+                $customer        = $group->first()->customer;
+
+                // ----- DELIVERY TIME: KURANGI 30 MENIT -----
+                $deliveryTimeOrigStr = $group->first()->formatted_time; // "H:i"
+                $deliveryOrig        = \Carbon\Carbon::createFromFormat('H:i', $deliveryTimeOrigStr);
+                $deliveryAdj         = $deliveryOrig->copy()->subMinutes(30); // -30 menit
+                $deliveryTimeStr     = $deliveryAdj->format('H:i');           // simpan sebagai string "H:i"
 
                 // Hitung working time untuk grup
                 $currentWorkingTime = $startWorkingTime->copy();
@@ -214,19 +313,19 @@ trait prodPlanOps
 
                 foreach ($group as $it) {
                     [$mm, $ss] = explode(':', $it->prod_time);
-                    $prodSeconds = ((int) $mm * 60) + (int) $ss;
-                    $totalSeconds = $prodSeconds * (int) $it->order_qty;
+                    $prodSeconds   = ((int) $mm * 60) + (int) $ss;
+                    $totalSeconds  = $prodSeconds * (int) $it->order_qty;
 
-                    $workingStart   = $currentWorkingTime->format('H:i');
-                    $workingEnd     = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
-                    $workingDuration= gmdate('H:i:s', $totalSeconds);
+                    $workingStart    = $currentWorkingTime->format('H:i');
+                    $workingEnd      = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
+                    $workingDuration = gmdate('H:i:s', $totalSeconds);
 
                     $currentWorkingTime->addSeconds($totalSeconds);
                 }
 
                 // Hitung balance time untuk grup (pakai akhir terakhir di grup)
-                $lastEnd  = Carbon::createFromFormat('H:i', $workingEnd);
-                $delivery = Carbon::createFromFormat('H:i', $deliveryTime);
+                $lastEnd  = \Carbon\Carbon::createFromFormat('H:i', $workingEnd);
+                $delivery = \Carbon\Carbon::createFromFormat('H:i', $deliveryTimeStr); // pakai waktu yang sudah -30 menit
 
                 if ($delivery->lt($lastEnd)) {
                     $delivery->addDay();
@@ -236,6 +335,14 @@ trait prodPlanOps
                 $isNegative       = $balanceSeconds < 0;
                 $formattedBalance = gmdate('H:i', abs($balanceSeconds));
                 $balanceTime      = $isNegative ? "-$formattedBalance" : $formattedBalance;
+
+                // Siapkan delivery_date yang konsisten jika -30 menit nyebrang hari (mundur 1 hari)
+                // Ambil tanggal original dari field Ymd, lalu koreksi jika jam melewati midnight.
+                $deliveryDate = \Carbon\Carbon::createFromFormat('Ymd', $group->first()->delivery_date);
+                if ($deliveryAdj->day !== $deliveryOrig->day) {
+                    // contoh: 00:20 - 30m => 23:50 hari sebelumnya
+                    $deliveryDate = $deliveryDate->copy()->subDay();
+                }
 
                 // Simpan setiap item dalam grup
                 $currentWorkingTime = $startWorkingTime->copy();
@@ -273,8 +380,10 @@ trait prodPlanOps
                         'working_start'    => $currentWorkingTime->format('H:i'),
                         'working_end'      => $currentWorkingTime->copy()->addSeconds($totalSec)->format('H:i'),
                         'working_duration' => gmdate('H:i:s', $totalSec),
-                        'delivery_time'    => $deliveryTime,
-                        'delivery_date'    => \Carbon\Carbon::createFromFormat('Ymd', $it->delivery_date)->format('Y-m-d'),
+                        // simpan delivery_time yang sudah dikurangi 30 menit
+                        'delivery_time'    => $deliveryTimeStr,
+                        // simpan delivery_date yang sudah dikoreksi bila nyebrang hari
+                        'delivery_date'    => $deliveryDate->format('Y-m-d'),
                         'balance_time'     => $balanceTime,
                         'updated_at'       => now(),
                     ];
