@@ -797,7 +797,7 @@
     <script>
         /* Smooth Auto-Scroll (GPU) — single active pane, robust di Bootstrap tabs */
         (function() {
-            const SPEED = 8; // px/detik (6..30 tetap halus)
+            const SPEED = 0; // px/detik (6..30 tetap halus) /disable
             const EDGE_PAUSE = 1800; // jeda di bawah (ms)
             const USER_PAUSE = 3000; // jeda setelah user interaksi (ms)
             const REINIT_DEBOUNCE = 600;
