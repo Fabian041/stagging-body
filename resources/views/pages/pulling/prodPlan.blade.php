@@ -219,6 +219,10 @@
 
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+                        <button class="btn btn-outline-secondary btn-sm" data-pane-autoscroll="AS003">
+                            <i class="fas fa-scroll me-1"></i> Auto Scroll: <span class="state">On</span>
+                        </button>
+
                         <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS003')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
@@ -527,6 +531,10 @@
                     </div>
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+                        <button class="btn btn-outline-secondary btn-sm" data-pane-autoscroll="AS004">
+                            <i class="fas fa-scroll me-1"></i> Auto Scroll: <span class="state">On</span>
+                        </button>
+
                         <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS004')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
@@ -795,16 +803,100 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script defer src="{{ asset('assets/js/page/planning/script.js') }}"></script>
     <script>
-        /* Smooth Auto-Scroll (GPU) — single active pane, robust di Bootstrap tabs */
+        /* Smooth Auto-Scroll (GPU) + Global & Per-Pane Toggle */
         (function() {
-            const SPEED = 0; // px/detik (6..30 tetap halus) /disable
+            const SPEED = 8; // px/detik
             const EDGE_PAUSE = 1800; // jeda di bawah (ms)
-            const USER_PAUSE = 1000000; // jeda setelah user interaksi (ms)
+            const USER_PAUSE = 3000; // jeda pasca interaksi user (ms)
             const REINIT_DEBOUNCE = 600;
 
             const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-            const stops = new Set(); // kumpulan stopper untuk pane aktif
+            const stops = new Set(); // stopper untuk pane aktif saja
 
+            // ===== GLOBAL TOGGLE (master switch) =====
+            const KEY_GLOBAL = 'pp:autoScrollEnabled';
+            let enabled = (localStorage.getItem(KEY_GLOBAL) ?? '1') === '1'; // default ON
+
+            function updateGlobalToggleUI() {
+                const btn = document.getElementById('autoScrollToggle');
+                if (!btn) return;
+                const stateEl = btn.querySelector('.state');
+                if (stateEl) stateEl.textContent = enabled ? 'On' : 'Off';
+                btn.classList.toggle('btn-outline-danger', enabled);
+                btn.classList.toggle('btn-outline-secondary', !enabled);
+                btn.setAttribute('aria-pressed', String(enabled));
+            }
+
+            function setEnabled(next) {
+                enabled = !!next;
+                localStorage.setItem(KEY_GLOBAL, enabled ? '1' : '0');
+                updateGlobalToggleUI();
+                if (!enabled) stopAll();
+                else initActive();
+                window.__autoScrollEnabled = enabled;
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const btn = document.getElementById('autoScrollToggle');
+                if (btn) {
+                    btn.addEventListener('click', () => setEnabled(!enabled));
+                    updateGlobalToggleUI();
+                }
+            });
+
+            // ===== PER-PANE TOGGLE =====
+            const KEY_PANE_PREFIX = 'pp:autoScrollPane:'; // contoh: pp:autoScrollPane:AS003
+
+            const getPaneKey = (pane) => {
+                if (!pane) return '';
+                const wrap = pane.querySelector('[data-toggle-table]');
+                return (wrap && wrap.getAttribute('data-toggle-table')) || pane.id || '';
+            };
+            const isPaneEnabled = (key) => {
+                if (!key) return true;
+                const v = localStorage.getItem(KEY_PANE_PREFIX + key);
+                return (v ?? '1') === '1'; // default ON
+            };
+            const setPaneEnabled = (key, on) => {
+                if (!key) return;
+                localStorage.setItem(KEY_PANE_PREFIX + key, on ? '1' : '0');
+                updatePaneToggleUI(key);
+                // jika pane yang diubah adalah pane aktif, re-evaluasi
+                const activePane = document.querySelector('.tab-pane.show.active, .tab-pane.active');
+                const activeKey = getPaneKey(activePane);
+                if (activeKey === key) {
+                    if (!on) stopAll();
+                    else if (enabled) startForPane(activePane);
+                }
+            };
+            const updatePaneToggleUI = (key) => {
+                const on = isPaneEnabled(key);
+                document.querySelectorAll(`[data-pane-autoscroll="${key}"]`).forEach(btn => {
+                    const stateEl = btn.querySelector('.state');
+                    if (stateEl) stateEl.textContent = on ? 'On' : 'Off';
+                    btn.classList.toggle('btn-outline-success', on);
+                    btn.classList.toggle('btn-outline-secondary', !on);
+                    btn.setAttribute('aria-pressed', String(on));
+                });
+            };
+
+            // delegasi klik tombol per-pane
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-pane-autoscroll]');
+                if (!btn) return;
+                const key = btn.getAttribute('data-pane-autoscroll');
+                setPaneEnabled(key, !isPaneEnabled(key));
+            });
+
+            // inisialisasi label per-pane ketika DOM siap
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('[data-pane-autoscroll]').forEach(btn => {
+                    const key = btn.getAttribute('data-pane-autoscroll');
+                    updatePaneToggleUI(key);
+                });
+            });
+
+            // ===== SCROLLER UNTUK 1 CONTAINER =====
             function startScroller(container) {
                 const table = container.querySelector('table');
                 const thead = container.querySelector('thead');
@@ -813,7 +905,6 @@
 
                 container.style.overflow = 'hidden';
 
-                // Ukur tinggi konten dengan andalan tbody.scrollHeight (stabil meski di-transform)
                 const measure = () => {
                     const headH = thead ? thead.offsetHeight : 0;
                     const bodyH = tbody.scrollHeight;
@@ -833,7 +924,6 @@
                     tbody.style.transform = `translate3d(0, ${-y}px, 0)`;
                 };
 
-                // ---- interaksi manual (wheel / touch / drag) → auto-pause sementara
                 const userKick = () => {
                     paused = true;
                     clearTimeout(ut);
@@ -863,8 +953,8 @@
                 container.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     userKick();
-                    const ny = e.touches[0].clientY;
-                    const dy = tY - ny;
+                    const ny = e.touches[0].clientY,
+                        dy = tY - ny;
                     tY = ny;
                     max = measure();
                     offset = clamp(offset + dy, 0, max);
@@ -908,7 +998,6 @@
                     if (!container.isConnected) return;
                     const dt = ts - last;
                     last = ts;
-
                     if (!paused) {
                         max = measure();
                         if (max > 0) {
@@ -941,18 +1030,25 @@
                 };
             }
 
+            // ===== Lifecycle (aktifkan hanya untuk pane aktif) =====
             function stopAll() {
-                for (const s of stops) try {
-                    s();
-                } catch {}
+                for (const s of stops) {
+                    try {
+                        s();
+                    } catch {}
+                }
                 stops.clear();
+                window.__autoScrollCount = 0;
             }
 
             function startForPane(pane) {
                 stopAll();
-                if (!pane) return;
+                if (!pane || !enabled) return;
 
-                // Tunggu 2 frame agar pane yang 'fade' benar2 visible & layout settle
+                const paneKey = getPaneKey(pane);
+                if (!isPaneEnabled(paneKey)) return;
+
+                // tunggu transisi fade
                 requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
                         pane.querySelectorAll('.table-responsive.auto-scroll').forEach(el => {
@@ -966,7 +1062,12 @@
             }
 
             function initActive() {
-                const activePane = document.querySelector('.tab-pane.show.active') ||
+                if (!enabled) {
+                    stopAll();
+                    return;
+                }
+                const activePane =
+                    document.querySelector('.tab-pane.show.active') ||
                     document.querySelector('.tab-pane.active') ||
                     document.querySelector('.tab-pane');
                 startForPane(activePane);
@@ -975,17 +1076,17 @@
             let rt;
             const reinit = () => {
                 clearTimeout(rt);
-                rt = setTimeout(initActive, REINIT_DEBOUNCE);
+                rt = setTimeout(() => {
+                    enabled ? initActive() : stopAll();
+                }, REINIT_DEBOUNCE);
             };
 
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initActive);
             else initActive();
             window.addEventListener('load', initActive);
 
-            // Pakai DELEGATION agar tetap kena walau DOM di-render ulang
             document.addEventListener('shown.bs.tab', (ev) => {
-                const trg = ev.target;
-                const sel = trg.getAttribute('data-bs-target') || trg.getAttribute('href');
+                const sel = ev.target.getAttribute('data-bs-target') || ev.target.getAttribute('href');
                 const pane = sel ? document.querySelector(sel) : null;
                 startForPane(pane);
             });
@@ -996,10 +1097,22 @@
                 subtree: true
             });
 
+            // expose helpers (optional)
             window.reinitAutoScroll = reinit;
+            window.setAutoScrollEnabled = setEnabled;
+            window.getAutoScrollEnabled = () => enabled;
+            window.setPaneAutoScrollEnabled = setPaneEnabled;
+            window.getPaneAutoScrollEnabled = isPaneEnabled;
+
+            // sinkronkan label tombol global di awal
+            updateGlobalToggleUI();
+            // sinkronkan label tombol per-pane di awal
+            document.querySelectorAll('[data-pane-autoscroll]').forEach(btn => {
+                const key = btn.getAttribute('data-pane-autoscroll');
+                updatePaneToggleUI(key);
+            });
         })();
     </script>
-
 </body>
 
 </html>
