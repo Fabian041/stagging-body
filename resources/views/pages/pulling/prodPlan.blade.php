@@ -794,7 +794,7 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script defer src="{{ asset('assets/js/page/planning/script.js') }}"></script>
-    <script>
+    {{-- <script>
         /* Smooth Auto-Scroll (GPU) — single active pane, robust di Bootstrap tabs */
         (function() {
             const SPEED = 0; // px/detik (6..30 tetap halus) /disable
@@ -998,7 +998,7 @@
 
             window.reinitAutoScroll = reinit;
         })();
-    </script>
+    </script> --}}
 
 </body>
 
