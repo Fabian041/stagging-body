@@ -1701,22 +1701,19 @@ setBackNoRenameMap({
 
 (function() {
     const IDLOCALE = 'id-ID';
-
     const isSummaryRow = tr => tr?.getAttribute('data-summary-row') === '1';
 
     function readBackNo(tr) {
-        // Untuk baris summary, pakai label apa adanya (biar C4–7 & C8–3 jadi entri terpisah)
         if (isSummaryRow(tr)) {
             const td = $u.getCellByLabel(tr, 'Back No');
             const el = td?.querySelector('.flip') || td;
-            return String(el?.textContent || '').trim(); // contoh: "CI12 (C4–7)"
+            return String(el?.textContent || '').trim(); // biarkan label summary apa adanya
         }
-        // Untuk baris normal, pakai canonical (hapus suffix siklus kalau ada)
         const td = $u.getCellByLabel(tr, 'Back No');
         const el = td?.querySelector('.flip') || td;
         const raw = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
         if (!raw || raw === '--') return '';
-        return $u.canonicalBackNoSplit(raw); // contoh: "CI12"
+        return $u.canonicalBackNoSplit(raw); // “CI12”
     }
 
     function readOrder(tr, isSummary) {
@@ -1730,12 +1727,12 @@ setBackNoRenameMap({
     }
 
     const readDP = (tr, isSummary) =>
-        isSummary ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent) :
-        $u.int(tr.querySelector('[data-type="direct-pulling"]')?.textContent);
+        isSummary ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent)
+                  : $u.int(tr.querySelector('[data-type="direct-pulling"]')?.textContent);
 
     const readSC = (tr, isSummary) =>
-        isSummary ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent) :
-        $u.int(tr.querySelector('[data-type="stock-chute"]')?.textContent);
+        isSummary ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent)
+                  : $u.int(tr.querySelector('[data-type="stock-chute"]')?.textContent);
 
     function readCustomer(tr) {
         const td = $u.getCellByLabel(tr, 'Customer');
@@ -1743,28 +1740,28 @@ setBackNoRenameMap({
         return (el?.textContent || '').trim() || '--';
     }
 
-    function collect(lineCode) {
+    // Kumpulkan agregat per model untuk 1 line & 1 shift tertentu
+    function collect(lineCode, shiftFilter) {
         const wrap = document.querySelector(`[data-toggle-table="${lineCode}"]`);
         const tbody = wrap?.querySelector('tbody');
         const map = new Map();
         if (!tbody) return [];
 
         Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-            // Lewati baris yang disembunyikan (placeholder hasil move/clone)
             if (tr.style?.display === 'none') return;
+
+            const shift = tr.getAttribute('data-shift') || 'other';
+            if (shiftFilter && shift !== shiftFilter) return; // hanya shift yang diminta
 
             const summary = isSummaryRow(tr);
             const bn = readBackNo(tr);
             if (!bn) return;
 
             const ord = readOrder(tr, summary);
-            const dp = readDP(tr, summary);
-            const sc = readSC(tr, summary);
+            const dp  = readDP(tr, summary);
+            const sc  = readSC(tr, summary);
             const cust = readCustomer(tr);
 
-            // Kunci pakai nama apa adanya:
-            //  - Summary: "CI12 (C4–7)" atau "CI12 (C8–3)" -> TERPISAH
-            //  - Normal : "CI12" (canonical)
             const key = bn;
             const rec = map.get(key) || {
                 backNo: key,
@@ -1780,27 +1777,91 @@ setBackNoRenameMap({
             map.set(key, rec);
         });
 
-        // Urutkan by OrderQty desc, lalu alfabet backNo
-        return Array.from(map.values()).sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b
-            .backNo));
+        // Urut: order desc, lalu alfabet backNo
+        return Array.from(map.values()).sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b.backNo));
     }
 
+    // simpan snapshot terakhir (untuk export)
     let __lastSummary = {
         line: '',
-        rows: []
+        morning: [],
+        night: []
     };
 
-    function renderModal(lineCode) {
-        const rows = collect(lineCode);
-        __lastSummary = {
-            line: lineCode,
-            rows
-        };
+    function sectionHeaderHtml(title, stats) {
+        const pct = stats.order > 0 ? Math.round((stats.completed / stats.order) * 100) : 0;
+        return `
+        <div class="d-flex align-items-center justify-content-between mb-2 mt-3">
+            <div class="fw-bold">${title}</div>
+            <div class="small number">
+                Order: <span class="me-2">${stats.order.toLocaleString(IDLOCALE)}</span>
+                Completed: <span class="me-2">${stats.completed.toLocaleString(IDLOCALE)}</span>
+                <span class="badge bg-secondary-subtle text-dark">${pct}%</span>
+            </div>
+        </div>
+        <div class="progress mb-2" style="height:6px;">
+            <div class="progress-bar" role="progressbar" style="width:${pct}%"></div>
+        </div>`;
+    }
 
-        // Statistik atas modal – dibuat dari data yang sama dengan card
-        const totalBack = rows.length;
-        const totalOrders = rows.reduce((s, r) => s + r.orderQty, 0);
-        const completed = rows.reduce((s, r) => s + r.dp + r.sc, 0);
+    function renderSection(listEl, title, rows) {
+        const totalOrder = rows.reduce((s, r) => s + r.orderQty, 0);
+        const totalDone  = rows.reduce((s, r) => s + r.dp + r.sc, 0);
+
+        listEl.insertAdjacentHTML('beforeend', sectionHeaderHtml(title, { order: totalOrder, completed: totalDone }));
+
+        if (!rows.length) {
+            const empty = document.createElement('div');
+            empty.className = 'text-muted small mb-3';
+            empty.textContent = 'No data';
+            listEl.appendChild(empty);
+            return;
+        }
+
+        rows.forEach(r => {
+            const done = r.dp + r.sc;
+            const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
+            const status = done >= r.orderQty ? 'Complete' : 'In Progress';
+            const color = status === 'Complete' ? 'success' : 'warning';
+
+            const div = document.createElement('div');
+            div.className = 'back-number-item';
+            div.innerHTML = `
+                <div class="d-flex flex-column">
+                    <div class="back-no">${r.backNo}</div>
+                    <div class="small number">${r.customer || '--'}</div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="text-end">
+                        <div class="order-qty">${r.orderQty.toLocaleString(IDLOCALE)}</div>
+                        <div class="small number">Order Qty</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-${color}">${done.toLocaleString(IDLOCALE)}</div>
+                        <div class="small number">Completed</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold">${pct}%</div>
+                        <div class="small number">Progress</div>
+                    </div>
+                </div>`;
+            listEl.appendChild(div);
+        });
+    }
+
+    function renderModal(lineCode) {
+        // pastikan atribut data-shift sudah ada & update-an terbaru
+        try { window.recomputeAllShiftCards?.(); } catch {}
+
+        const rowsMorning = collect(lineCode, 'morning');
+        const rowsNight   = collect(lineCode, 'night');
+
+        __lastSummary = { line: lineCode, morning: rowsMorning, night: rowsNight };
+
+        // Statistik atas modal (total gabungan)
+        const totalBack = rowsMorning.length + rowsNight.length;
+        const totalOrders = [...rowsMorning, ...rowsNight].reduce((s, r) => s + r.orderQty, 0);
+        const completed = [...rowsMorning, ...rowsNight].reduce((s, r) => s + r.dp + r.sc, 0);
         const avg = totalBack > 0 ? Math.round(totalOrders / totalBack) : 0;
 
         document.getElementById('modalLineTitle').textContent = lineCode;
@@ -1809,52 +1870,26 @@ setBackNoRenameMap({
         document.getElementById('avgOrderPerBack').textContent = avg.toLocaleString(IDLOCALE);
         document.getElementById('completedOrders').textContent = completed.toLocaleString(IDLOCALE);
 
+        // Render 2 seksi di satu container list
         const list = document.getElementById('backNumberList');
         list.innerHTML = '';
-        if (!rows.length) {
-            list.innerHTML = '<div class="text-center text-muted py-4">No data available</div>';
-        } else {
-            rows.forEach(r => {
-                const done = r.dp + r.sc;
-                const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
-                const status = done >= r.orderQty ? 'Complete' : 'In Progress';
-                const color = status === 'Complete' ? 'success' : 'warning';
-                const div = document.createElement('div');
-                div.className = 'back-number-item';
-                div.innerHTML = `
-    <div class="d-flex flex-column">
-    <div class="back-no">${r.backNo}</div>
-    <div class="small number">${r.customer || '--'}</div>
-    </div>
-    <div class="d-flex align-items-center gap-3">
-    <div class="text-end">
-        <div class="order-qty">${r.orderQty.toLocaleString(IDLOCALE)}</div>
-        <div class="small number">Order Qty</div>
-    </div>
-    <div class="text-end">
-        <div class="fw-bold text-${color}">${done.toLocaleString(IDLOCALE)}</div>
-        <div class="small number">Completed</div>
-    </div>
-    <div class="text-end">
-        <div class="fw-bold">${pct}%</div>
-        <div class="small number">Progress</div>
-    </div>
-    </div>`;
-                list.appendChild(div);
-            });
-        }
+        renderSection(list, 'Morning Shift', rowsMorning);
+        renderSection(list, 'Night Shift', rowsNight);
+
         bootstrap.Modal.getOrCreateInstance(document.getElementById('summaryModal')).show();
     }
 
     window.showSummary = renderModal;
 
     window.exportSummary = function() {
-        const {
-            line,
-            rows
-        } = __lastSummary;
+        const { line, morning, night } = __lastSummary;
+        const rows = [
+            ...morning.map(r => ({ shift: 'Morning', ...r })),
+            ...night.map(r => ({ shift: 'Night',   ...r }))
+        ];
         if (!rows.length) return;
-        const header = ['Back Number', 'Customer', 'Order Qty', 'Direct Pulling', 'Stock Chute',
+
+        const header = ['Shift', 'Back Number', 'Customer', 'Order Qty', 'Direct Pulling', 'Stock Chute',
             'Completed', 'Progress %', 'Status'
         ];
         const csv = [
@@ -1864,6 +1899,7 @@ setBackNoRenameMap({
                 const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
                 const status = done >= r.orderQty ? 'Complete' : 'In Progress';
                 return [
+                    r.shift,
                     `"${r.backNo.replace(/"/g,'""')}"`,
                     `"${(r.customer||'--').replace(/"/g,'""')}"`,
                     r.orderQty, r.dp, r.sc, done, pct + '%', status
@@ -1871,9 +1907,7 @@ setBackNoRenameMap({
             })
         ].join('\n');
 
-        const blob = new Blob([csv], {
-            type: 'text/csv;charset=utf-8;'
-        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1884,7 +1918,6 @@ setBackNoRenameMap({
         URL.revokeObjectURL(url);
     };
 })();
-
 
 (function CardTotalsFromDOM() {
     /* disabled: handled by FixShiftCardsV3 */
