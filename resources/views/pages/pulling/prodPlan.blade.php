@@ -805,7 +805,7 @@
     <script>
         /* Smooth Auto-Scroll (GPU) + Global & Per-Pane Toggle */
         (function() {
-            const SPEED = 8; // px/detik
+            const SPEED = 6; // px/detik
             const EDGE_PAUSE = 1800; // jeda di bawah (ms)
             const USER_PAUSE = 3000; // jeda pasca interaksi user (ms)
             const REINIT_DEBOUNCE = 600;
