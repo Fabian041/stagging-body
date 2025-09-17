@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\Cache; // <-- kalau dipakai di trait
 
 trait prodPlanOps
 {
+    protected array $backNosByLine = [
+        'AS003' => ['CI11','CI12','CI13','CI14','CI17','CI18','D403','D111'],
+        'AS004' => ['CI15','CI16','CI19','D500'],
+    ];
+
+    protected array $prodTimeByBackNo = [
+        'CI11'=>'00:34','CI12'=>'00:34','CI13'=>'00:40','CI14'=>'00:34',
+        'CI15'=>'00:39','CI16'=>'00:40','CI17'=>'00:40','CI18'=>'00:40','CI19'=>'00:37',
+        'D403'=>'00:40','D111'=>'00:34','D500'=>'00:37',
+    ];
     /**
      * Hitung signature (hash) data eksternal dalam window 09:40–09:39.
      * Signature = sha256 dari string gabungan "dn|back_no|sum_order".

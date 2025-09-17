@@ -150,11 +150,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    private array $backNosByLine = [
-        'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D111'],
-        'AS004' => ['CI15', 'CI16', 'CI19', 'D500'],
-    ];
-
     /** Waktu produksi per back_no (samakan dengan SSE) */
     private array $prodTimeByBackNo = [
         'CI11' => '00:34',

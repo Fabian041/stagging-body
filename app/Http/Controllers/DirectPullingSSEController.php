@@ -18,26 +18,6 @@ class DirectPullingSSEController extends Controller
     private int $errorCount = 0;
     private ?string $clientId = null;
 
-    // mapping shared (samakan dengan BE)
-    private array $backNosByLine = [
-        'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D111'],
-        'AS004' => ['CI15', 'CI16', 'CI19', 'D500'],
-    ];
-
-    private array $prodTimeByBackNo = [
-        'CI11' => '00:34','CI12' => '00:34','CI13' => '00:40','CI14' => '00:34',
-        'CI15' => '00:39','CI16' => '00:40','CI17' => '00:40','CI18' => '00:40','CI19' => '00:37',
-        'D403' => '00:40','D111' => '00:34','D500' => '00:37'
-    ];
-
-    private array $excludedCustomers = [
-        'TMMIN ASSY PLANT',
-        'ADM SERVICE PART DIVISION',
-        'TMMIN SERVICE PARTS DIVISION',
-        'TAM SPARE PART DIVISION (DAIHATSU)',
-        'PT MITSUBISHI MOTORS KRAMAYUDHA SALES ID'
-    ];
-
     public function streamDirectPullingUpdates(Request $request): StreamedResponse
     {
         $this->clientId = $request->ip() . '-' . substr(md5(microtime()), 0, 6);
@@ -88,7 +68,7 @@ class DirectPullingSSEController extends Controller
                     // ==== 1) CEK SIGNATURE EXTERNAL (tiap ~5s) ====
                     if (now()->diffInSeconds($lastSigCheck) >= 5) {
                         $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
-                        $currentSig = $this->externalSignature($selectedDate, $allBackNos, $this->excludedCustomers);
+                        $currentSig = $this->externalSignature($selectedDate, $allBackNos, $this->excludedCustomersDefault);
                         if ($currentSig && $currentSig !== $lastSig) {
                             $this->sendEvent('refetching', [
                                 'reason' => 'external_changed',
