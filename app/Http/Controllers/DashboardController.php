@@ -150,22 +150,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** Waktu produksi per back_no (samakan dengan SSE) */
-    private array $prodTimeByBackNo = [
-        'CI11' => '00:34',
-        'CI12' => '00:34',
-        'CI13' => '00:40',
-        'CI14' => '00:34',
-        'CI15' => '00:39',
-        'CI16' => '00:40',
-        'CI17' => '00:40',
-        'CI18' => '00:40',
-        'CI19' => '00:37',
-        'D403' => '00:40',
-        'D111' => '00:34',
-        'D500' => '00:37'
-    ];
-
     public function prodPlan(Request $request)
     {
         set_time_limit(90);
