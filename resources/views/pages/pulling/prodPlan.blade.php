@@ -794,12 +794,12 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script defer src="{{ asset('assets/js/page/planning/script.js') }}"></script>
-    {{-- <script>
+    <script>
         /* Smooth Auto-Scroll (GPU) — single active pane, robust di Bootstrap tabs */
         (function() {
             const SPEED = 0; // px/detik (6..30 tetap halus) /disable
             const EDGE_PAUSE = 1800; // jeda di bawah (ms)
-            const USER_PAUSE = 3000; // jeda setelah user interaksi (ms)
+            const USER_PAUSE = 1000000; // jeda setelah user interaksi (ms)
             const REINIT_DEBOUNCE = 600;
 
             const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -998,7 +998,7 @@
 
             window.reinitAutoScroll = reinit;
         })();
-    </script> --}}
+    </script>
 
 </body>
 
