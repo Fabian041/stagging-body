@@ -223,7 +223,7 @@
                             <i class="fas fa-scroll me-1"></i> Auto Scroll: <span class="state">On</span>
                         </button>
 
-                        <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS003')">
+                        <button class="btn btn-outline-info btn-sm" onclick="showSummary('AS003')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
 
@@ -535,7 +535,7 @@
                             <i class="fas fa-scroll me-1"></i> Auto Scroll: <span class="state">On</span>
                         </button>
 
-                        <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS004')">
+                        <button class="btn btn-outline-info btn-sm" onclick="showSummary('AS004')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
 
