@@ -73,9 +73,17 @@
         </div> --}}
 
         @if (isset($message))
-            <div class="alert alert-{{ $messageType ?? 'info' }} alert-dismissible fade show mb-3" role="alert">
-                {{ $message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100">
+                <div class="toast text-bg-{{ $messageType ?? 'info' }} border-0 shadow" role="alert"
+                    aria-live="assertive" aria-atomic="true" data-bs-delay="5000" data-bs-autohide="true">
+                    <div class="d-flex align-items-center">
+                        <div class="toast-body">
+                            {{ $message }}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                            aria-label="Close"></button>
+                    </div>
+                </div>
             </div>
         @endif
 
@@ -803,315 +811,46 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script defer src="{{ asset('assets/js/page/planning/script.js') }}"></script>
     <script>
-        /* Smooth Auto-Scroll (GPU) + Global & Per-Pane Toggle */
-        (function() {
-            const SPEED = 6; // px/detik
-            const EDGE_PAUSE = 1800; // jeda di bawah (ms)
-            const USER_PAUSE = 3000; // jeda pasca interaksi user (ms)
-            const REINIT_DEBOUNCE = 600;
-
-            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-            const stops = new Set(); // stopper untuk pane aktif saja
-
-            // ===== GLOBAL TOGGLE (master switch) =====
-            const KEY_GLOBAL = 'pp:autoScrollEnabled';
-            let enabled = (localStorage.getItem(KEY_GLOBAL) ?? '1') === '1'; // default ON
-
-            function updateGlobalToggleUI() {
-                const btn = document.getElementById('autoScrollToggle');
-                if (!btn) return;
-                const stateEl = btn.querySelector('.state');
-                if (stateEl) stateEl.textContent = enabled ? 'On' : 'Off';
-                btn.classList.toggle('btn-outline-danger', enabled);
-                btn.classList.toggle('btn-outline-secondary', !enabled);
-                btn.setAttribute('aria-pressed', String(enabled));
-            }
-
-            function setEnabled(next) {
-                enabled = !!next;
-                localStorage.setItem(KEY_GLOBAL, enabled ? '1' : '0');
-                updateGlobalToggleUI();
-                if (!enabled) stopAll();
-                else initActive();
-                window.__autoScrollEnabled = enabled;
-            }
-
-            document.addEventListener('DOMContentLoaded', () => {
-                const btn = document.getElementById('autoScrollToggle');
-                if (btn) {
-                    btn.addEventListener('click', () => setEnabled(!enabled));
-                    updateGlobalToggleUI();
-                }
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.toast').forEach(function(el) {
+                try {
+                    new bootstrap.Toast(el).show();
+                } catch (e) {}
             });
 
-            // ===== PER-PANE TOGGLE =====
-            const KEY_PANE_PREFIX = 'pp:autoScrollPane:'; // contoh: pp:autoScrollPane:AS003
-
-            const getPaneKey = (pane) => {
-                if (!pane) return '';
-                const wrap = pane.querySelector('[data-toggle-table]');
-                return (wrap && wrap.getAttribute('data-toggle-table')) || pane.id || '';
+            // Helper umum untuk dipakai dari JS lain
+            window.showToast = function({
+                type = 'info',
+                message = '',
+                delay = 4000
+            } = {}) {
+                const wrap = document.querySelector('.toast-container') ??
+                    (() => {
+                        const d = document.createElement('div');
+                        d.className = 'toast-container position-fixed top-0 end-0 p-3';
+                        d.style.zIndex = 1100;
+                        document.body.appendChild(d);
+                        return d;
+                    })();
+                const el = document.createElement('div');
+                el.className = `toast text-bg-${type} border-0 shadow`;
+                el.setAttribute('role', 'alert');
+                el.setAttribute('aria-live', 'assertive');
+                el.setAttribute('aria-atomic', 'true');
+                el.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>`;
+                wrap.appendChild(el);
+                const t = new bootstrap.Toast(el, {
+                    delay,
+                    autohide: true
+                });
+                t.show();
+                el.addEventListener('hidden.bs.toast', () => el.remove());
             };
-            const isPaneEnabled = (key) => {
-                if (!key) return true;
-                const v = localStorage.getItem(KEY_PANE_PREFIX + key);
-                return (v ?? '1') === '1'; // default ON
-            };
-            const setPaneEnabled = (key, on) => {
-                if (!key) return;
-                localStorage.setItem(KEY_PANE_PREFIX + key, on ? '1' : '0');
-                updatePaneToggleUI(key);
-                // jika pane yang diubah adalah pane aktif, re-evaluasi
-                const activePane = document.querySelector('.tab-pane.show.active, .tab-pane.active');
-                const activeKey = getPaneKey(activePane);
-                if (activeKey === key) {
-                    if (!on) stopAll();
-                    else if (enabled) startForPane(activePane);
-                }
-            };
-            const updatePaneToggleUI = (key) => {
-                const on = isPaneEnabled(key);
-                document.querySelectorAll(`[data-pane-autoscroll="${key}"]`).forEach(btn => {
-                    const stateEl = btn.querySelector('.state');
-                    if (stateEl) stateEl.textContent = on ? 'On' : 'Off';
-                    btn.classList.toggle('btn-outline-success', on);
-                    btn.classList.toggle('btn-outline-secondary', !on);
-                    btn.setAttribute('aria-pressed', String(on));
-                });
-            };
-
-            // delegasi klik tombol per-pane
-            document.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-pane-autoscroll]');
-                if (!btn) return;
-                const key = btn.getAttribute('data-pane-autoscroll');
-                setPaneEnabled(key, !isPaneEnabled(key));
-            });
-
-            // inisialisasi label per-pane ketika DOM siap
-            document.addEventListener('DOMContentLoaded', () => {
-                document.querySelectorAll('[data-pane-autoscroll]').forEach(btn => {
-                    const key = btn.getAttribute('data-pane-autoscroll');
-                    updatePaneToggleUI(key);
-                });
-            });
-
-            // ===== SCROLLER UNTUK 1 CONTAINER =====
-            function startScroller(container) {
-                const table = container.querySelector('table');
-                const thead = container.querySelector('thead');
-                const tbody = container.querySelector('tbody');
-                if (!table || !tbody) return () => {};
-
-                container.style.overflow = 'hidden';
-
-                const measure = () => {
-                    const headH = thead ? thead.offsetHeight : 0;
-                    const bodyH = tbody.scrollHeight;
-                    const total = headH + bodyH;
-                    const max = Math.max(0, total - container.clientHeight);
-                    return max;
-                };
-
-                let max = measure();
-                let offset = 0;
-                let last = performance.now();
-                let paused = false;
-                let raf = 0,
-                    ut = null;
-
-                const apply = y => {
-                    tbody.style.transform = `translate3d(0, ${-y}px, 0)`;
-                };
-
-                const userKick = () => {
-                    paused = true;
-                    clearTimeout(ut);
-                    ut = setTimeout(() => {
-                        paused = false;
-                        last = performance.now();
-                    }, USER_PAUSE);
-                };
-
-                container.addEventListener('wheel', (e) => {
-                    e.preventDefault();
-                    userKick();
-                    max = measure();
-                    offset = clamp(offset + e.deltaY, 0, max);
-                    apply(offset);
-                }, {
-                    passive: false
-                });
-
-                let tY = 0;
-                container.addEventListener('touchstart', (e) => {
-                    tY = e.touches[0].clientY;
-                    userKick();
-                }, {
-                    passive: true
-                });
-                container.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    userKick();
-                    const ny = e.touches[0].clientY,
-                        dy = tY - ny;
-                    tY = ny;
-                    max = measure();
-                    offset = clamp(offset + dy, 0, max);
-                    apply(offset);
-                }, {
-                    passive: false
-                });
-
-                let dragging = false,
-                    pY = 0,
-                    pid = null;
-                container.addEventListener('pointerdown', (e) => {
-                    dragging = true;
-                    pY = e.clientY;
-                    pid = e.pointerId;
-                    container.setPointerCapture(pid);
-                    userKick();
-                });
-                container.addEventListener('pointermove', (e) => {
-                    if (!dragging) return;
-                    const dy = pY - e.clientY;
-                    pY = e.clientY;
-                    max = measure();
-                    offset = clamp(offset + dy, 0, max);
-                    apply(offset);
-                });
-                const endDrag = () => {
-                    dragging = false;
-                    if (pid != null) {
-                        try {
-                            container.releasePointerCapture(pid);
-                        } catch {}
-                        pid = null;
-                    }
-                };
-                container.addEventListener('pointerup', endDrag);
-                container.addEventListener('pointercancel', endDrag);
-                container.addEventListener('mouseleave', () => dragging = false);
-
-                function loop(ts) {
-                    if (!container.isConnected) return;
-                    const dt = ts - last;
-                    last = ts;
-                    if (!paused) {
-                        max = measure();
-                        if (max > 0) {
-                            offset += (SPEED * dt / 1000);
-                            if (offset >= max - 0.5) {
-                                offset = max;
-                                apply(offset);
-                                paused = true;
-                                setTimeout(() => {
-                                    if (!container.isConnected) return;
-                                    offset = 0;
-                                    apply(offset);
-                                    paused = false;
-                                    last = performance.now();
-                                }, EDGE_PAUSE);
-                            } else {
-                                apply(offset);
-                            }
-                        }
-                    }
-                    raf = requestAnimationFrame(loop);
-                }
-
-                apply(0);
-                raf = requestAnimationFrame(loop);
-
-                return () => {
-                    cancelAnimationFrame(raf);
-                    clearTimeout(ut);
-                };
-            }
-
-            // ===== Lifecycle (aktifkan hanya untuk pane aktif) =====
-            function stopAll() {
-                for (const s of stops) {
-                    try {
-                        s();
-                    } catch {}
-                }
-                stops.clear();
-                window.__autoScrollCount = 0;
-            }
-
-            function startForPane(pane) {
-                stopAll();
-                if (!pane || !enabled) return;
-
-                const paneKey = getPaneKey(pane);
-                if (!isPaneEnabled(paneKey)) return;
-
-                // tunggu transisi fade
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        pane.querySelectorAll('.table-responsive.auto-scroll').forEach(el => {
-                            const stop = startScroller(el);
-                            stops.add(stop);
-                        });
-                        window.__autoScrollPane = pane.id || '(no id)';
-                        window.__autoScrollCount = stops.size;
-                    });
-                });
-            }
-
-            function initActive() {
-                if (!enabled) {
-                    stopAll();
-                    return;
-                }
-                const activePane =
-                    document.querySelector('.tab-pane.show.active') ||
-                    document.querySelector('.tab-pane.active') ||
-                    document.querySelector('.tab-pane');
-                startForPane(activePane);
-            }
-
-            let rt;
-            const reinit = () => {
-                clearTimeout(rt);
-                rt = setTimeout(() => {
-                    enabled ? initActive() : stopAll();
-                }, REINIT_DEBOUNCE);
-            };
-
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initActive);
-            else initActive();
-            window.addEventListener('load', initActive);
-
-            document.addEventListener('shown.bs.tab', (ev) => {
-                const sel = ev.target.getAttribute('data-bs-target') || ev.target.getAttribute('href');
-                const pane = sel ? document.querySelector(sel) : null;
-                startForPane(pane);
-            });
-
-            const host = document.getElementById('lineTabsContent');
-            if (host) new MutationObserver(reinit).observe(host, {
-                childList: true,
-                subtree: true
-            });
-
-            // expose helpers (optional)
-            window.reinitAutoScroll = reinit;
-            window.setAutoScrollEnabled = setEnabled;
-            window.getAutoScrollEnabled = () => enabled;
-            window.setPaneAutoScrollEnabled = setPaneEnabled;
-            window.getPaneAutoScrollEnabled = isPaneEnabled;
-
-            // sinkronkan label tombol global di awal
-            updateGlobalToggleUI();
-            // sinkronkan label tombol per-pane di awal
-            document.querySelectorAll('[data-pane-autoscroll]').forEach(btn => {
-                const key = btn.getAttribute('data-pane-autoscroll');
-                updatePaneToggleUI(key);
-            });
-        })();
+        });
     </script>
 </body>
 
