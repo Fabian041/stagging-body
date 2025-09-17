@@ -54,15 +54,27 @@
         const dSame = new Date(y, MM - 1, DD);
         return dSame.toISOString().slice(0, 10);
     };
-    // Klasifikasi shift sesuai aturan 09:40 + tanggal
+    // Klasifikasi shift: Morning 12:00–22:57 (hari ini),
+    // Night 22:59–23:59 (hari ini) atau 00:00–09:35 (besok)
     const toShiftByDateTime = (currentISO, deliveryISO, timeText) => {
         if (!currentISO || !deliveryISO || !timeText) return 'other';
         const mins = timeToMinutes(timeText);
         if (mins == null) return 'other';
-        const THRESH = 9 * 60 + 40; // 09:40
+
+        const MORNING_START = 12 * 60;          // 12:00
+        const MORNING_END   = 22 * 60 + 57;     // 22:57
+        const NIGHT_START   = 22 * 60 + 59;     // 22:59
+        const NIGHT_END     =  9 * 60 + 35;     // 09:35
+
         const nextISO = isoAddDays(currentISO, 1);
-        if (deliveryISO === currentISO && mins >= THRESH) return 'morning';
-        if (deliveryISO === nextISO && mins < THRESH) return 'night';
+
+        if (deliveryISO === currentISO) {
+            if (mins >= MORNING_START && mins <= MORNING_END) return 'morning';
+            if (mins >= NIGHT_START) return 'night';
+        }
+        if (deliveryISO === nextISO) {
+            if (mins <= NIGHT_END) return 'night';
+        }
         return 'other';
     };
 
@@ -1522,7 +1534,16 @@ setBackNoRenameMap({
             }
             // fallback kalau "Delivery Date" kosong: nilai jamnya saja
             const mins = $u.timeToMinutes(tm);
-            if (mins != null) return mins >= (9 * 60 + 40) ? 'morning' : 'night';
+            if (mins != null) {
+                const MORNING_START = 12 * 60;
+                const MORNING_END   = 22 * 60 + 57;
+                const NIGHT_START   = 22 * 60 + 59;
+                const NIGHT_END     =  9 * 60 + 35;
+
+                if (mins >= MORNING_START && mins <= MORNING_END) return 'morning';
+                if (mins >= NIGHT_START || mins <= NIGHT_END) return 'night';
+            }
+            return 'other';
         }
 
         // jangan pakai Planning/Actual Start lagi (sesuai: pakai Delivery Time saja)
@@ -2389,9 +2410,18 @@ Aturan:
         const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
         if (byDT === 'morning' || byDT === 'night') return byDT;
         }
+        // fallback kalau "Delivery Date" kosong: pakai jam saja
         const mins = $u.timeToMinutes(tm);
-        if (mins == null) return 'other';
-        return mins >= (9*60+40) ? 'morning' : 'night';
+        if (mins != null) {
+            const MORNING_START = 12 * 60;
+            const MORNING_END   = 22 * 60 + 57;
+            const NIGHT_START   = 22 * 60 + 59;
+            const NIGHT_END     =  9 * 60 + 35;
+
+            if (mins >= MORNING_START && mins <= MORNING_END) return 'morning';
+            if (mins >= NIGHT_START || mins <= NIGHT_END) return 'night';
+        }
+        return 'other';
     }
 
     // --- spillover 1050

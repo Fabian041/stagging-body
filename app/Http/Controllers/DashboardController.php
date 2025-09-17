@@ -225,14 +225,19 @@ class DashboardController extends Controller
         $grouped   = [];
         $todayISO  = $today->toDateString();
         $nextISO   = $today->copy()->addDay()->toDateString();
-        $THRESH_MIN= 10*60 + 40; // 09:40
+
+        // Window (menit)
+        $MORNING_START = 12*60;          // 12:00
+        $MORNING_END   = 22*60 + 57;     // 22:57
+        $NIGHT_START   = 22*60 + 59;     // 22:59
+        $NIGHT_END     =  9*60 + 35;     // 09:35
 
         $toMin = function ($t) {
             if (!$t) return null;
             try {
                 [$h, $m] = array_map('intval', explode(':', $t));
                 if (!is_numeric($h) || !is_numeric($m)) return null;
-                return $h*60 + $m;
+                return $h * 60 + $m;
             } catch (\Throwable $e) {
                 return null;
             }
@@ -245,46 +250,41 @@ class DashboardController extends Controller
                 ->orderBy('delivery_time')
                 ->get();
 
-            $isMorning = function ($item) use ($todayISO, $THRESH_MIN, $toMin) {
+            $isMorning = function ($item) use ($todayISO, $toMin, $MORNING_START, $MORNING_END) {
                 $dd = $item->delivery_date ? \Carbon\Carbon::parse($item->delivery_date)->toDateString() : null;
                 $tm = $toMin($item->delivery_time ?? null);
+
+                // Morning = HARI INI jam 12:00–22:57
                 if ($dd && $tm !== null) {
-                    // Morning = delivery di HARI INI, time >= 09:40
-                    return ($dd === $todayISO) && ($tm >= $THRESH_MIN);
+                    return ($dd === $todayISO) && ($tm >= $MORNING_START) && ($tm <= $MORNING_END);
                 }
-                // Fallback pakai working time jika delivery kosong
-                try {
-                    if (!$item->working_start && !$item->working_end) return false;
-                    $sh = $item->working_start ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_start)->format('H') : null;
-                    $eh = $item->working_end   ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_end)->format('H')   : null;
-                    $startMorning = ($sh !== null) && ($sh >= 10 && $sh <= 22);
-                    $endMorning   = ($eh !== null) && ($eh >= 10 && $eh <= 22);
-                    return $startMorning || $endMorning;
-                } catch (\Throwable $e) {
-                    \Log::warning("Morning fallback parse error: ".$e->getMessage(), ['item_id'=>$item->id??null]);
-                    return false;
-                }
+
+                // Fallback: pakai working time (menit)
+                $sm = $toMin($item->working_start ?? null);
+                $em = $toMin($item->working_end   ?? null);
+                $in = function($min) use ($MORNING_START, $MORNING_END) {
+                    return $min !== null && $min >= $MORNING_START && $min <= $MORNING_END;
+                };
+                return $in($sm) || $in($em);
             };
 
-            $isNight = function ($item) use ($nextISO, $THRESH_MIN, $toMin) {
+            $isNight = function ($item) use ($todayISO, $nextISO, $toMin, $NIGHT_START, $NIGHT_END) {
                 $dd = $item->delivery_date ? \Carbon\Carbon::parse($item->delivery_date)->toDateString() : null;
                 $tm = $toMin($item->delivery_time ?? null);
+
+                // Night = HARI INI >=22:59 ATAU HARI BESOK <=09:35
                 if ($dd && $tm !== null) {
-                    // Night = delivery di HARI BESOK, time < 09:40
-                    return ($dd === $nextISO) && ($tm < $THRESH_MIN);
+                    return ($dd === $todayISO  && $tm >= $NIGHT_START)
+                        || ($dd === $nextISO   && $tm <= $NIGHT_END);
                 }
-                // Fallback pakai working time jika delivery kosong
-                try {
-                    if (!$item->working_start && !$item->working_end) return false;
-                    $sh = $item->working_start ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_start)->format('H') : null;
-                    $eh = $item->working_end   ? (int)\Carbon\Carbon::createFromFormat('H:i', $item->working_end)->format('H')   : null;
-                    $startNight = ($sh !== null) && ($sh >= 0 && $sh <= 9 || $sh === 23 || $sh >= 22);
-                    $endNight   = ($eh !== null) && ($eh >= 0 && $eh <= 9 || $eh === 23 || $eh >= 22);
-                    return $startNight || $endNight;
-                } catch (\Throwable $e) {
-                    \Log::warning("Night fallback parse error: ".$e->getMessage(), ['item_id'=>$item->id??null]);
-                    return false;
-                }
+
+                // Fallback: pakai working time (menit) – melintasi tengah malam
+                $sm = $toMin($item->working_start ?? null);
+                $em = $toMin($item->working_end   ?? null);
+                $in = function($min) use ($NIGHT_START, $NIGHT_END) {
+                    return $min !== null && ($min >= $NIGHT_START || $min <= $NIGHT_END);
+                };
+                return $in($sm) || $in($em);
             };
 
             $morningItems = $lineData->filter($isMorning);

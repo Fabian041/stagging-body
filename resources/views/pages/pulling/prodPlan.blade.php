@@ -475,7 +475,7 @@
                         <div class="card-body d-flex flex-wrap align-items-end gap-3">
                             <!-- MORNING -->
                             <div class="strip-stat" data-line="AS004" data-shift="morning">
-                                <div class="title">Morning Shift Order</div>
+                                <div class="title">Day Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
                                     <div class="value text-primary"> {{-- (text-success untuk Night) --}}
                                         <span data-role="shift-order">{{ $as004MorningQty ?? 0 }}</span>
