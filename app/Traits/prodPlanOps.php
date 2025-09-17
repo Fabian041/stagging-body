@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\Cache; // <-- kalau dipakai di trait
 
 trait prodPlanOps
 {
+    protected array $backNosByLine = [
+        'AS003' => ['CI11','CI12','CI13','CI14','CI17','CI18','D403','D111'],
+        'AS004' => ['CI15','CI16','CI19','D500'],
+    ];
+
+    protected array $prodTimeByBackNo = [
+        'CI11'=>'00:34','CI12'=>'00:34','CI13'=>'00:40','CI14'=>'00:34',
+        'CI15'=>'00:39','CI16'=>'00:40','CI17'=>'00:40','CI18'=>'00:40','CI19'=>'00:37',
+        'D403'=>'00:40','D111'=>'00:34','D500'=>'00:37',
+    ];
     /**
      * Hitung signature (hash) data eksternal dalam window 09:40–09:39.
      * Signature = sha256 dari string gabungan "dn|back_no|sum_order".
@@ -298,23 +308,26 @@ trait prodPlanOps
             $lineData = $items->sortBy('time_sort')->groupBy('dn_number');
 
             foreach ($lineData as $dnNumber => $group) {
-                $group = $group->sortBy('back_no')->values();
-                $customer        = $group->first()->customer;
+                $group     = $group->sortBy('back_no')->values();
+                $customer  = $group->first()->customer;
 
-                // ----- DELIVERY TIME: KURANGI 30 MENIT -----
-                $deliveryTimeOrigStr = $group->first()->formatted_time; // "H:i"
-                $deliveryOrig        = \Carbon\Carbon::createFromFormat('H:i', $deliveryTimeOrigStr);
-                $deliveryAdj         = $deliveryOrig->copy()->subMinutes(30); // -30 menit
-                $deliveryTimeStr     = $deliveryAdj->format('H:i');           // simpan sebagai string "H:i"
+                // ----- DELIVERY TIME ADJUSTMENT -----
+                // Khusus dock STR: -30 menit, dock lain: -60 menit (sesuai logic existing)
+                $dockFirst            = strtoupper(trim((string) $group->first()->dock));
+                $deliveryTimeOrigStr  = $group->first()->formatted_time; // "H:i"
+                $deliveryOrig         = \Carbon\Carbon::createFromFormat('H:i', $deliveryTimeOrigStr);
+                $offsetMinutes        = ($dockFirst === 'STR') ? 30 : 60;
+                $deliveryAdj          = $deliveryOrig->copy()->subMinutes($offsetMinutes);
+                $deliveryTimeStr      = $deliveryAdj->format('H:i'); // simpan "H:i" hasil pengurangan
 
                 // Hitung working time untuk grup
                 $currentWorkingTime = $startWorkingTime->copy();
-                $workingEnd = $currentWorkingTime->format('H:i'); // inisialisasi
+                $workingEnd         = $currentWorkingTime->format('H:i'); // inisialisasi
 
                 foreach ($group as $it) {
-                    [$mm, $ss] = explode(':', $it->prod_time);
-                    $prodSeconds   = ((int) $mm * 60) + (int) $ss;
-                    $totalSeconds  = $prodSeconds * (int) $it->order_qty;
+                    [$mm, $ss]   = explode(':', $it->prod_time);
+                    $prodSeconds = ((int) $mm * 60) + (int) $ss;
+                    $totalSeconds= $prodSeconds * (int) $it->order_qty;
 
                     $workingStart    = $currentWorkingTime->format('H:i');
                     $workingEnd      = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
@@ -323,35 +336,35 @@ trait prodPlanOps
                     $currentWorkingTime->addSeconds($totalSeconds);
                 }
 
-                // Hitung balance time untuk grup (pakai akhir terakhir di grup)
+                // Hitung balance time untuk grup (pakai waktu delivery yang sudah dikurangi $offsetMinutes menit)
                 $lastEnd  = \Carbon\Carbon::createFromFormat('H:i', $workingEnd);
-                $delivery = \Carbon\Carbon::createFromFormat('H:i', $deliveryTimeStr); // pakai waktu yang sudah -30 menit
+                $delivery = \Carbon\Carbon::createFromFormat('H:i', $deliveryTimeStr);
 
+                // Jika delivery lebih kecil dari akhir kerja (nyebrang hari), geser delivery ke hari berikutnya
                 if ($delivery->lt($lastEnd)) {
                     $delivery->addDay();
                 }
 
-                $balanceSeconds   = $delivery->diffInSeconds($lastEnd, true);
-                $isNegative       = $balanceSeconds < 0;
-                $formattedBalance = gmdate('H:i', abs($balanceSeconds));
-                $balanceTime      = $isNegative ? "-$formattedBalance" : $formattedBalance;
+                // Selisih bertanda: positif = masih ada buffer; negatif = minus
+                $balanceSeconds     = $lastEnd->diffInSeconds($delivery, false);
+                $formattedBalance   = gmdate('H:i', abs($balanceSeconds));
+                $balanceTime        = ($balanceSeconds < 0) ? "-{$formattedBalance}" : $formattedBalance;
 
-                // Siapkan delivery_date yang konsisten jika -30 menit nyebrang hari (mundur 1 hari)
-                // Ambil tanggal original dari field Ymd, lalu koreksi jika jam melewati midnight.
+                // Siapkan delivery_date yang konsisten jika pengurangan $offsetMinutes nyebrang hari (mundur 1 hari)
                 $deliveryDate = \Carbon\Carbon::createFromFormat('Ymd', $group->first()->delivery_date);
                 if ($deliveryAdj->day !== $deliveryOrig->day) {
-                    // contoh: 00:20 - 30m => 23:50 hari sebelumnya
+                    // contoh: 00:20 - 60m => 23:50 hari sebelumnya
                     $deliveryDate = $deliveryDate->copy()->subDay();
                 }
 
                 // Simpan setiap item dalam grup
                 $currentWorkingTime = $startWorkingTime->copy();
                 foreach ($group as $it) {
-                    [$mm, $ss]  = explode(':', $it->prod_time);
-                    $prodSeconds= ((int) $mm * 60) + (int) $ss;
-                    $totalSec   = $prodSeconds * (int) $it->order_qty;
+                    [$mm, $ss]   = explode(':', $it->prod_time);
+                    $prodSeconds = ((int) $mm * 60) + (int) $ss;
+                    $totalSec    = $prodSeconds * (int) $it->order_qty;
 
-                    $baseLine   = $this->getBaseLineByBackNo($it->back_no, $backNosByLine) ?? $line; // untuk cleanup jika pindah
+                    $baseLine = $this->getBaseLineByBackNo($it->back_no, $backNosByLine) ?? $line; // untuk cleanup jika pindah
 
                     // Cari record eksisting di line tujuan dulu
                     $existingRecord = ProductionPlan::where([
@@ -380,7 +393,7 @@ trait prodPlanOps
                         'working_start'    => $currentWorkingTime->format('H:i'),
                         'working_end'      => $currentWorkingTime->copy()->addSeconds($totalSec)->format('H:i'),
                         'working_duration' => gmdate('H:i:s', $totalSec),
-                        // simpan delivery_time yang sudah dikurangi 30 menit
+                        // simpan delivery_time yang sudah dikoreksi sesuai dock
                         'delivery_time'    => $deliveryTimeStr,
                         // simpan delivery_date yang sudah dikoreksi bila nyebrang hari
                         'delivery_date'    => $deliveryDate->format('Y-m-d'),
@@ -423,10 +436,10 @@ trait prodPlanOps
                         }
                     } catch (\Exception $e) {
                         \Log::error('Failed to update ProductionPlan: '.$e->getMessage(), [
-                            'line' => $line,
+                            'line'     => $line,
                             'customer' => $customer,
-                            'back_no' => $it->back_no,
-                            'dn_number' => $it->dn_number
+                            'back_no'  => $it->back_no,
+                            'dn_number'=> $it->dn_number
                         ]);
                     }
 
@@ -438,7 +451,7 @@ trait prodPlanOps
             }
         }
     }
-    
+
     protected function getBaseLineByBackNo(string $backNo, array $backNosByLine): ?string
     {
         foreach ($backNosByLine as $line => $backs) {
