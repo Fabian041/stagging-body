@@ -2,10 +2,7 @@
 
 @section('main')
     <style>
-        /* ======================
-                                                                                                                                                                                                                                                                                                         THEME TOKENS (fallback)
-                                                                                                                                                                                                                                                                                                         ====================== */
-        :root {
+        ======================*/ :root {
             --brand-primary: #0d6efd;
             --brand-accent: #20c997;
             --brand-warn: #ffc107;
@@ -61,8 +58,8 @@
         }
 
         /* ==============
-                                                                                                                                                                                                                                                                                                         BASE / WRAPPER
-                                                                                                                                                                                                                                                                                                         ============== */
+                                                                                                                                                                                                                                                                                                             BASE / WRAPPER
+                                                                                                                                                                                                                                                                                                             ============== */
         .seq-board {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -106,8 +103,8 @@
         }
 
         /* =================
-                                                                                                                                                                                                                                                                                                         INFO / SUB HEADER
-                                                                                                                                                                                                                                                                                                         ================= */
+                                                                                                                                                                                                                                                                                                             INFO / SUB HEADER
+                                                                                                                                                                                                                                                                                                             ================= */
         .info-panel {
             display: flex;
             align-items: center;
@@ -139,8 +136,8 @@
         }
 
         /* =========
-                                                                                                                                                                                                                                                                                                         ITEM ROWS
-                                                                                                                                                                                                                                                                                                         ========= */
+                                                                                                                                                                                                                                                                                                             ITEM ROWS
+                                                                                                                                                                                                                                                                                                             ========= */
         .item-row {
             display: flex;
             align-items: center;
@@ -533,10 +530,10 @@
 @push('scripts')
     <script>
         /* =========================================
-                                               BACK NO CANONICAL CONVERTER (global-safe)
-                                               - toCanon() & expandTargets()
-                                               - Disimpan di window.BackNoCanon untuk dipakai modul lain
-                                            ========================================= */
+                                                   BACK NO CANONICAL CONVERTER (global-safe)
+                                                   - toCanon() & expandTargets()
+                                                   - Disimpan di window.BackNoCanon untuk dipakai modul lain
+                                                ========================================= */
         (function BackNoConverter() {
             const BACKNO_PAIRS = [
                 ['D111', 'CI12'],

@@ -682,7 +682,7 @@ class ProductionPlanSSEClient {
         prog.innerHTML = `
 <div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
 <div class="bar"><i data-summary-totalbar style="width:${pct}%"></i></div>
-<span class="val" data-summary-totalpct>${pct}%</span>
+<span class="val number" data-summary-totalpct>${pct}%</span>
 </div>`;
         tr.appendChild(prog);
 
@@ -1588,6 +1588,7 @@ setBackNoRenameMap({
     const pct = (a, o) => o > 0 ? Math.min(100, Math.round((a / o) * 100)) : 0;
 
     function renderBlock(lineKey, shift, data) {
+        if (USE_RECLASS()) return;
         const root = document.querySelector(
             `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
         );
@@ -1612,6 +1613,7 @@ setBackNoRenameMap({
     }
 
     function recomputeAll() {
+        if (USE_RECLASS()) return;
         LINES.forEach(recompute);
     }
     window.recomputeAllShiftCards = recomputeAll;
@@ -1677,22 +1679,20 @@ setBackNoRenameMap({
     }
 
     // Initial compute saat load
-    document.addEventListener('DOMContentLoaded', recomputeAll);
+    document.addEventListener('DOMContentLoaded', () => { if (!USE_RECLASS()) recomputeAll(); });
 
     // >>> UPDATED: dengarkan event kustom dari ProductionPlanSSEClient, tanpa bikin EventSource sendiri
     document.addEventListener('DOMContentLoaded', () => {
         // ProductionPlanSSEClient akan update DOM (rows, qty, bar) lebih dulu,
         // lalu mem-broadcast 'pulling:update' -> kita tinggal recompute kartu.
-        window.addEventListener('pulling:update', (ev) => {
-            recomputeAll();
-        });
+        window.addEventListener('pulling:update', () => { if (!USE_RECLASS()) recomputeAll(); });
     });
 
     // Recompute saat ada perubahan baris (insert/remove) dari tabel
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-toggle-table] tbody').forEach(tbody => {
             try {
-                const mo = new MutationObserver(() => recomputeAll());
+                const mo = new MutationObserver(() => { if (!USE_RECLASS()) recomputeAll(); });
                 mo.observe(tbody, { childList: true, subtree: false });
             } catch {}
         });
@@ -1701,6 +1701,100 @@ setBackNoRenameMap({
 
 (function() {
     const IDLOCALE = 'id-ID';
+
+    function readCardShift(lineCode, shift) {
+        const root = document.querySelector(
+            `[data-shift-card="${lineCode}"] .strip-stat[data-line="${lineCode}"][data-shift="${shift}"]`
+        );
+        if (!root) return null;
+        const order  = $u.int(root.querySelector('[data-role="shift-order"]')?.textContent);
+        const actual = $u.int(root.querySelector('[data-role="shift-actual"]')?.textContent);
+        const status = (root.querySelector('[data-role="shift-status"]')?.textContent || '').trim();
+        return { order, actual, status };
+    }
+    // === Reclass helpers (sinkron dengan ShiftCapacityReclassifierV3) ===
+    const RECLASS_CFG = {
+        AS003: { M: { a1:720, a2:850, max:1050 }, N: { a1:720, max:1050 } },
+        AS004: { M: { a1:630, a2:750, max:900  }, N: { a1:630, max:900  } }
+    };
+    const getCfg = line => RECLASS_CFG[line] || RECLASS_CFG.AS003;
+    const statusMorning = (q, M) => (q <= M.a1 ? 'S1' : q <= M.a2 ? 'NS' : 'LS1');
+    const statusNight   = (q, N) => (q <= N.a1 ? 'S3' : 'LS3');
+
+    // algoritma yang sama seperti di ShiftCapacityReclassifierV3
+    function reassignByRule(mRaw, nRaw, cfg){
+        const M = cfg.M, N = cfg.N;
+        let m = Math.max(0, mRaw|0), n = Math.max(0, nRaw|0);
+
+        if (m > M.max){ n += (m - M.max); m = M.max; }
+        if (m > M.a2 && m < M.max){ n += (m - M.a2); m = M.a2; }
+        if (m > M.a1 && m < M.a2){ n += (m - M.a1); m = M.a1; }
+
+        if (n > N.max){
+            const cap = Math.max(0, M.max - m);
+            const move = Math.min(n - N.max, cap);
+            n -= move; m += move;
+        }
+
+        if (n > N.a1 && n < N.max){
+            const targetN = N.a1;
+            const need = n - targetN;
+
+            let nextAnchor = M.max;
+            if (m < M.a1)        nextAnchor = M.a1;
+            else if (m === M.a1) nextAnchor = M.a2;
+            else if (m === M.a2) nextAnchor = M.max;
+            else                 nextAnchor = m;
+
+            const allowed = Math.max(0, nextAnchor - m);
+            const move = Math.min(need, allowed);
+            n -= move; m += move;
+        }
+        return { m, n };
+    }
+
+    // hitung effective order + label status untuk header modal
+    function computeEffectiveForModal(lineCode, rowsMorning, rowsNight){
+        // 1) Sumber kebenaran: ambil dari kartu (supaya identik)
+        const cm = readCardShift(lineCode, 'morning');
+        const cn = readCardShift(lineCode, 'night');
+        if (cm && cn){
+            return {
+            mEff: cm.order, nEff: cn.order,
+            mDone: cm.actual, nDone: cn.actual,
+            mLabel: cm.status, nLabel: cn.status
+            };
+        }
+
+        // 2) Fallback ke kalkulasi (jaga-jaga kalau kartu belum ada)
+        const sum = (rows, f) => rows.reduce((s,r)=>s+f(r), 0);
+        const mOrder = sum(rowsMorning, r=>r.orderQty);
+        const nOrder = sum(rowsNight,   r=>r.orderQty);
+        const mDone  = sum(rowsMorning, r=>r.dp + r.sc);
+        const nDone  = sum(rowsNight,   r=>r.dp + r.sc);
+
+        if (window.USE_RECLASS && window.USE_RECLASS()){
+            const cfg = getCfg(lineCode);
+            const { m: mEff, n: nEff } = reassignByRule(mOrder, nOrder, cfg);
+            return {
+            mEff, nEff, mDone, nDone,
+            mLabel: statusMorning(mEff, cfg.M),
+            nLabel: statusNight(nEff,   cfg.N)
+            };
+        }
+        return { mEff: mOrder, nEff: nOrder, mDone, nDone, mLabel:'', nLabel:'' };
+    }
+
+
+    // helper kecil buat badge status
+    function chip(label){
+        if (!label) return '';
+        const cls = (label==='S1'||label==='S3') ? 'bg-success-subtle'
+                    : (label==='NS')               ? 'bg-warning-subtle'
+                                                : 'bg-danger-subtle';
+        return `<span class="badge ${cls} ms-2">${label}</span>`;
+    }
+
     const isSummaryRow = tr => tr?.getAttribute('data-summary-row') === '1';
 
     function readBackNo(tr) {
@@ -1788,27 +1882,35 @@ setBackNoRenameMap({
         night: []
     };
 
-    function sectionHeaderHtml(title, stats) {
+    function sectionHeaderHtml(title, stats, statusLabel) {
         const pct = stats.order > 0 ? Math.round((stats.completed / stats.order) * 100) : 0;
+        const statusChip = chip(statusLabel);
         return `
-        <div class="d-flex align-items-center justify-content-between mb-2 mt-3">
-            <div class="fw-bold">${title}</div>
+            <div class="d-flex align-items-center justify-content-between mb-2 mt-3">
+            <div class="fw-bold">${title}${statusChip}</div>
             <div class="small number">
                 Order: <span class="me-2">${stats.order.toLocaleString(IDLOCALE)}</span>
                 Completed: <span class="me-2">${stats.completed.toLocaleString(IDLOCALE)}</span>
                 <span class="badge bg-secondary-subtle text-dark">${pct}%</span>
             </div>
-        </div>
-        <div class="progress mb-2" style="height:6px;">
+            </div>
+            <div class="progress mb-2" style="height:6px;">
             <div class="progress-bar" role="progressbar" style="width:${pct}%"></div>
-        </div>`;
+            </div>`;
     }
 
-    function renderSection(listEl, title, rows) {
-        const totalOrder = rows.reduce((s, r) => s + r.orderQty, 0);
-        const totalDone  = rows.reduce((s, r) => s + r.dp + r.sc, 0);
+    function renderSection(listEl, title, rows, override) {
+        const totalOrderRaw = rows.reduce((s, r) => s + r.orderQty, 0);
+        const totalDoneRaw  = rows.reduce((s, r) => s + r.dp + r.sc, 0);
 
-        listEl.insertAdjacentHTML('beforeend', sectionHeaderHtml(title, { order: totalOrder, completed: totalDone }));
+        const orderForHeader    = (override?.effOrder ?? totalOrderRaw);
+        const completedForHeader= (override?.actual   ?? totalDoneRaw);
+        const statusForHeader   = override?.status || '';
+
+        listEl.insertAdjacentHTML(
+            'beforeend',
+            sectionHeaderHtml(title, { order: orderForHeader, completed: completedForHeader }, statusForHeader)
+        );
 
         if (!rows.length) {
             const empty = document.createElement('div');
@@ -1818,6 +1920,7 @@ setBackNoRenameMap({
             return;
         }
 
+        // Item per back number (tetap pakai raw per-item)
         rows.forEach(r => {
             const done = r.dp + r.sc;
             const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
@@ -1827,42 +1930,41 @@ setBackNoRenameMap({
             const div = document.createElement('div');
             div.className = 'back-number-item';
             div.innerHTML = `
-                <div class="d-flex flex-column">
-                    <div class="back-no">${r.backNo}</div>
-                    <div class="small number">${r.customer || '--'}</div>
+            <div class="d-flex flex-column">
+                <div class="back-no">${r.backNo}</div>
+                <div class="small number">${r.customer || '--'}</div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end">
+                <div class="order-qty">${r.orderQty.toLocaleString(IDLOCALE)}</div>
+                <div class="small number">Order Qty</div>
                 </div>
-                <div class="d-flex align-items-center gap-3">
-                    <div class="text-end">
-                        <div class="order-qty">${r.orderQty.toLocaleString(IDLOCALE)}</div>
-                        <div class="small number">Order Qty</div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold text-${color}">${done.toLocaleString(IDLOCALE)}</div>
-                        <div class="small number">Completed</div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold">${pct}%</div>
-                        <div class="small number">Progress</div>
-                    </div>
-                </div>`;
+                <div class="text-end">
+                <div class="fw-bold text-${color}">${done.toLocaleString(IDLOCALE)}</div>
+                <div class="small number">Completed</div>
+                </div>
+                <div class="text-end">
+                <div class="fw-bold">${pct}%</div>
+                <div class="small number">Progress</div>
+                </div>
+            </div>`;
             listEl.appendChild(div);
         });
     }
 
     function renderModal(lineCode) {
-        // pastikan atribut data-shift sudah ada & update-an terbaru
         try { window.recomputeAllShiftCards?.(); } catch {}
 
         const rowsMorning = collect(lineCode, 'morning');
         const rowsNight   = collect(lineCode, 'night');
-
         __lastSummary = { line: lineCode, morning: rowsMorning, night: rowsNight };
 
-        // Statistik atas modal (total gabungan)
-        const totalBack = rowsMorning.length + rowsNight.length;
-        const totalOrders = [...rowsMorning, ...rowsNight].reduce((s, r) => s + r.orderQty, 0);
-        const completed = [...rowsMorning, ...rowsNight].reduce((s, r) => s + r.dp + r.sc, 0);
-        const avg = totalBack > 0 ? Math.round(totalOrders / totalBack) : 0;
+        const eff = computeEffectiveForModal(lineCode, rowsMorning, rowsNight);
+
+        const totalBack   = rowsMorning.length + rowsNight.length;
+        const totalOrders = eff.mEff + eff.nEff;           // dari kartu (efektif)
+        const completed   = eff.mDone + eff.nDone;         // dari kartu (actual)
+        const avg         = totalBack > 0 ? Math.round(totalOrders / totalBack) : 0;
 
         document.getElementById('modalLineTitle').textContent = lineCode;
         document.getElementById('totalBackNumbers').textContent = totalBack.toLocaleString(IDLOCALE);
@@ -1870,14 +1972,28 @@ setBackNoRenameMap({
         document.getElementById('avgOrderPerBack').textContent = avg.toLocaleString(IDLOCALE);
         document.getElementById('completedOrders').textContent = completed.toLocaleString(IDLOCALE);
 
-        // Render 2 seksi di satu container list
         const list = document.getElementById('backNumberList');
         list.innerHTML = '';
-        renderSection(list, 'Morning Shift', rowsMorning);
-        renderSection(list, 'Night Shift', rowsNight);
 
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('summaryModal')).show();
+        // Header setiap shift pakai angka & status dari kartu
+        renderSection(list, 'Morning Shift', rowsMorning, { effOrder: eff.mEff, actual: eff.mDone, status: eff.mLabel });
+        renderSection(list, 'Night Shift',   rowsNight,   { effOrder: eff.nEff, actual: eff.nDone, status: eff.nLabel });
+
+        const modal = document.getElementById('summaryModal');
+        const inst  = bootstrap.Modal.getOrCreateInstance(modal);
+        if (!modal.classList.contains('show')) inst.show();
     }
+
+        // auto-refresh isi modal saat ada update live (kalau modal sedang terbuka)
+    (function hookModalLiveRefresh(){
+        const modal = document.getElementById('summaryModal');
+        if (!modal) return;
+        const isShown = () => modal.classList.contains('show');
+        window.addEventListener('pulling:update', () => {
+            if (isShown() && __lastSummary?.line) renderModal(__lastSummary.line);
+        });
+    })();
+
 
     window.showSummary = renderModal;
 
@@ -2368,21 +2484,45 @@ Aturan:
 /* ============================================================
    Shift Capacity Reclassifier (v2) — with summary-row support
    ============================================================ */
-(function ShiftCapacityReclassifierV2(){
+/* ============================================================
+   Shift Capacity Reclassifier (V3, aturan baru per-anchored)
+   ------------------------------------------------------------
+   - AS003: Morning anchors 720→850→1050, Night 720→1050
+   - AS004: Morning anchors 630→750→900,  Night 630→900
+   - Morning dibulatkan turun ke anchor terdekat (720/850/Max).
+     Kelebihan dialihkan ke Night.
+   - Night dibulatkan turun ke anchor terdekat (S3/Max) dengan
+     mengalihkan ke Morning SEBATAS sisa kapasitas Morning menuju
+     anchor berikutnya (agar Morning tidak "nanggung").
+   - Total tetap sama; hanya pembagian order per shift yang berubah.
+   ============================================================ */
+(function ShiftCapacityReclassifierV3(){
+    window.__shiftReclassifierV3Active = true;
     const LINES = ['AS003','AS004'];
     const IDLOCALE = 'id-ID';
-    const MAX = 1050;
+    const USE_RECLASS = () => !!window.__shiftReclassifierV3Active;
+
+    // Konfigurasi anchor per line
+    const CONFIG = {
+        AS003: { // "AS3"
+            M: { a1: 720, a2: 850, max: 1050 },  // S1, NS, LS1
+            N: { a1: 720,       max: 1050 }      // S3, LS3
+        },
+        AS004: { // "AS4"
+            M: { a1: 630, a2: 750, max: 900  },  // S1, NS, LS1
+            N: { a1: 630,       max: 900  }      // S3, LS3
+        }
+    };
+
     const normU = s => String(s||'').toUpperCase().trim();
     const isSummary = tr => tr?.getAttribute('data-summary-row') === '1';
-
     const q = (root, sel) => root ? root.querySelector(sel) : null;
 
     function cellByLabel(row, label){ return $u.getCellByLabel(row, label); }
 
     function readOrder(row){
-        const td = cellByLabel(row,'Order');
-        const el = td?.querySelector('.flip') || td;
-        // summary tidak punya dataset orderRaw, jadi pakai text saja
+        const td  = cellByLabel(row,'Order');
+        const el  = td?.querySelector('.flip') || td;
         const raw = el?.dataset?.orderRaw;
         return raw != null && raw !== '' ? $u.int(raw) : $u.int(el?.textContent);
     }
@@ -2394,6 +2534,7 @@ Aturan:
         if (isSummary(row)) return $u.int(row.querySelector('[data-summary-sc]')?.textContent);
         return $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
     }
+
     function readSummaryLabel(row){
         const attr = row?.getAttribute('data-summary-label');
         if (attr) return normU(attr);
@@ -2405,119 +2546,137 @@ Aturan:
     function readDeliveryTimeText(row){
         let r = row;
         while(r){
-        const td = cellByLabel(r,'Delivery Time');
-        if (td) return (td.textContent||'').trim() || null;
-        r = r.previousElementSibling;
+            const td = cellByLabel(r,'Delivery Time');
+            if (td) return (td.textContent||'').trim() || null;
+            r = r.previousElementSibling;
         }
         return null;
     }
     function readDeliveryDateMD(row){
         let r = row;
         while(r){
-        const td = cellByLabel(r,'Delivery Date');
-        if (td) return (td.textContent||'').trim() || null;
-        r = r.previousElementSibling;
+            const td = cellByLabel(r,'Delivery Date');
+            if (td) return (td.textContent||'').trim() || null;
+            r = r.previousElementSibling;
         }
         return null;
     }
 
-    // --- mapping shift (summary-aware)
+    // --- mapping shift (summary-aware) seperti sebelumnya
     function classifyShift(row, lineKey){
         if (isSummary(row)){
-        const label = readSummaryLabel(row);
-        if (lineKey === 'AS003'){
-            if (/^CI12\b.*C\s*4\s*[–-]\s*7\b/.test(label)) return 'morning';
-            if (/^CI12\b.*C\s*8\s*[–-]\s*3\b/.test(label)) return 'night';
+            const label = readSummaryLabel(row);
+            if (lineKey === 'AS003'){
+                if (/^CI12\b.*C\s*4\s*[–-]\s*7\b/i.test(label)) return 'morning';
+                if (/^CI12\b.*C\s*8\s*[–-]\s*3\b/i.test(label)) return 'night';
+            }
+            if (lineKey === 'AS004'){
+                if (/\bCI19\b/i.test(label)) return 'morning';
+            }
         }
-        if (lineKey === 'AS004'){
-            if (/\bCI19\b/.test(label)) return 'morning';
-        }
-        }
-        // fallback: Delivery Date + Time (09:40)
+        // fallback: Delivery Date + Time (09:40 logic)
         const tm = readDeliveryTimeText(row);       // "HH:mm"
         const md = readDeliveryDateMD(row);         // "MM/DD"
         if (!tm) return 'other';
         if (md){
-        const curISO = $u.getCurrentISO();
-        const dlvISO = $u.mdToISO(md, curISO);
-        const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
-        if (byDT === 'morning' || byDT === 'night') return byDT;
+            const curISO = $u.getCurrentISO();
+            const dlvISO = $u.mdToISO(md, curISO);
+            const byDT   = $u.toShiftByDateTime(curISO, dlvISO, tm);
+            if (byDT === 'morning' || byDT === 'night') return byDT;
         }
-        // fallback kalau "Delivery Date" kosong: pakai jam saja
         const mins = $u.timeToMinutes(tm);
         if (mins != null) {
             const MORNING_START = 12 * 60;
             const MORNING_END   = 22 * 60 + 57;
             const NIGHT_START   = 22 * 60 + 59;
             const NIGHT_END     =  9 * 60 + 35;
-
             if (mins >= MORNING_START && mins <= MORNING_END) return 'morning';
             if (mins >= NIGHT_START || mins <= NIGHT_END) return 'night';
         }
         return 'other';
     }
 
-    // --- spillover 1050
-    function applyTransfer(morningOrder, nightOrder){
-        let m = Math.max(0, morningOrder|0);
-        let n = Math.max(0, nightOrder|0);
-        let movedMtoN = 0, movedNtoM = 0;
-
-        if (m > MAX){ movedMtoN = m - MAX; m = MAX; n += movedMtoN; }
-        if (n > MAX && m < MAX){
-        const cap = MAX - m;
-        const move = Math.min(n - MAX, cap);
-        if (move > 0){ movedNtoM = move; n -= move; m += move; }
-        }
-        return { morning: m, night: n, movedMtoN, movedNtoM };
+    // --- status label untuk chip
+    function statusMorning(q, M){
+        if (q <= M.a1) return 'S1';
+        if (q <= M.a2) return 'NS';
+        return 'LS1';
     }
-
-    function statusMorning(q){ return q <= 720 ? 'S1' : (q <= 850 ? 'NS' : 'LS1'); }
-    function statusNight(q){   return q <= 720 ? 'S3' : 'LS3'; }
+    function statusNight(q, N){
+        if (q <= N.a1) return 'S3';
+        return 'LS3';
+    }
 
     function hideLegacyAdvanceChip(root){
-        // sembunyikan chip lama "Advance to ..."
         root.querySelectorAll('.chip').forEach(ch=>{
-        const t = (ch.textContent||'').toLowerCase();
-        if (!ch.hasAttribute('data-role') && t.startsWith('advance to')) ch.classList.add('d-none');
+            const t = (ch.textContent||'').toLowerCase();
+            if (!ch.hasAttribute('data-role') && t.startsWith('advance to')) ch.classList.add('d-none');
         });
     }
-
-    function setStatusChip(lineKey, shift, label, note=''){
+    function setStatusChip(lineKey, shift, label){
         const root = document.querySelector(
-        `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
+            `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${shift}"]`
         );
         if (!root) return;
         hideLegacyAdvanceChip(root);
 
         let chip = root.querySelector('[data-role="shift-status"]');
         if (!chip){
-        chip = document.createElement('span');
-        chip.setAttribute('data-role','shift-status');
-        chip.className = 'chip border fw-bolder ms-1';
-        const valWrap = root.querySelector('.d-flex.align-items-baseline') || root;
-        valWrap.appendChild(chip);
+            chip = document.createElement('span');
+            chip.setAttribute('data-role','shift-status');
+            chip.className = 'chip border fw-bolder ms-1';
+            const valWrap = root.querySelector('.d-flex.align-items-baseline') || root;
+            valWrap.appendChild(chip);
         }
         chip.textContent = label;
-        chip.classList.remove('bg-success-subtle','bg-warning-subtle','bg-danger-subtle','text-dark');
-        if (label === 'S1' || label === 'S3') chip.classList.add('bg-success-subtle','text-dark');
-        else if (label === 'NS')               chip.classList.add('bg-warning-subtle','text-dark');
-        else                                   chip.classList.add('bg-danger-subtle','text-dark');
-        chip.classList.remove('d-none');
+        chip.className = 'chip border fw-bolder ms-1 text-dark ' +
+            (label==='S1'||label==='S3' ? 'bg-success-subtle' :
+             label==='NS'              ? 'bg-warning-subtle' :
+                                         'bg-danger-subtle');
+    }
 
-        let noteEl = root.querySelector('[data-role="shift-note"]');
-        if (!noteEl){
-        noteEl = document.createElement('small');
-        noteEl.setAttribute('data-role','shift-note');
-        noteEl.className = 'ms-2 text-muted';
-        chip.after(noteEl);
+    // --- reclassifier inti (aturan baru)
+    function reassignByRule(mRaw, nRaw, lineKey){
+        const cfg = CONFIG[lineKey] || CONFIG.AS003;
+        const M = cfg.M, N = cfg.N;
+
+        let m = Math.max(0, mRaw|0), n = Math.max(0, nRaw|0);
+
+        // 1) Morning snap-down ke anchor (kelebihan -> Night)
+        if (m > M.max){ n += (m - M.max); m = M.max; }
+        if (m > M.a2 && m < M.max){ n += (m - M.a2); m = M.a2; }
+        if (m > M.a1 && m < M.a2){ n += (m - M.a1); m = M.a1; }
+
+        // 2) Night > Max -> alihkan ke Morning sebatas sisa kapasitas ke MAX
+        if (n > N.max){
+            const cap = Math.max(0, M.max - m);
+            const move = Math.min(n - N.max, cap);
+            n -= move; m += move;
         }
-        noteEl.textContent = note;
+
+        // 3) Night di antara anchor -> bulatkan turun ke S3
+        if (n > N.a1 && n < N.max){
+            const targetN = N.a1;
+            const need = n - targetN;
+
+            // Morning hanya boleh naik sampai "anchor berikutnya" (agar tidak nanggung)
+            let nextAnchor = M.max;
+            if (m < M.a1)       nextAnchor = M.a1;
+            else if (m === M.a1) nextAnchor = M.a2;
+            else if (m === M.a2) nextAnchor = M.max;
+            else                 nextAnchor = m; // sudah MAX, tidak bisa terima
+
+            const allowed = Math.max(0, nextAnchor - m);
+            const move = Math.min(need, allowed);
+            n -= move; m += move;
+        }
+
+        return { m, n };
     }
 
     function renderOne(lineKey, which, effOrder, actual){
         const card = document.querySelector(
-        `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${which}"]`
+            `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="${which}"]`
         );
         if (!card) return;
         const pct = effOrder > 0 ? Math.min(100, Math.round((actual/effOrder)*100)) : 0;
@@ -2534,50 +2693,57 @@ Aturan:
         const tbody = wrap?.querySelector('tbody');
         if (!tbody) return;
 
+        const cfg = CONFIG[lineKey] || CONFIG.AS003;
+
         let mOrder=0, mActual=0, nOrder=0, nActual=0;
 
         Array.from(tbody.querySelectorAll('tr')).forEach(tr=>{
-        if (tr.style.display==='none') return;
-        const sh = classifyShift(tr, lineKey);
-        if (sh !== 'morning' && sh !== 'night') return;
+            if (tr.style.display==='none') return;
 
-        const order = readOrder(tr);
-        const actual = readDP(tr) + readSC(tr);
+            const sh = classifyShift(tr, lineKey);
 
-        if (sh === 'morning'){ mOrder += order; mActual += actual; }
-        else { nOrder += order; nActual += actual; }
+            // NEW: selalu stempel shift ke baris agar modul lain (collect) bisa membacanya
+            if (tr.getAttribute('data-shift') !== sh) tr.setAttribute('data-shift', sh);
+
+            if (sh !== 'morning' && sh !== 'night') return;
+
+            const order  = readOrder(tr);
+            const actual = readDP(tr) + readSC(tr);
+
+            if (sh === 'morning'){ mOrder += order; mActual += actual; }
+            else                 { nOrder += order; nActual += actual; }
         });
 
-        // spill-over 1050
-        const t = applyTransfer(mOrder, nOrder);
+        // Terapkan aturan baru (reassign ke anchor)
+        const { m: mEff, n: nEff } = reassignByRule(mOrder, nOrder, lineKey);
 
-        // render
-        renderOne(lineKey, 'morning', t.morning, mActual);
-        renderOne(lineKey, 'night',   t.night,   nActual);
+        // Render kartu
+        renderOne(lineKey, 'morning', mEff, mActual);
+        renderOne(lineKey, 'night',   nEff, nActual);
 
-        // status chip & notes
-        setStatusChip(lineKey, 'morning', statusMorning(t.morning));
-        setStatusChip(lineKey, 'night',   statusNight(t.night));
+        // Status chip
+        setStatusChip(lineKey, 'morning', statusMorning(mEff, cfg.M));
+        setStatusChip(lineKey, 'night',   statusNight(nEff, cfg.N));
 
-        // total (efektif)
-        const totalOrder = t.morning + t.night;
+        // Total (efektif)
+        const totalOrder  = mEff + nEff;
         const totalActual = mActual + nActual;
         const totalCard = document.querySelector(
-        `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="total"]`
+            `[data-shift-card="${lineKey}"] .strip-stat[data-line="${lineKey}"][data-shift="total"]`
         );
         if (totalCard){
-        const pct = totalOrder>0 ? Math.min(100, Math.round((totalActual/totalOrder)*100)) : 0;
-        const setText = (sel, val) => { const el = q(totalCard, sel); if (el) el.textContent = val; };
-        setText('[data-role="shift-order"]',  totalOrder.toLocaleString(IDLOCALE));
-        setText('[data-role="shift-actual"]', totalActual.toLocaleString(IDLOCALE));
-        const bar = q(totalCard,'[data-role="shift-bar"]'); if (bar) bar.style.width = pct + '%';
-        setText('[data-role="shift-pct"]', pct + '%');
+            const pct = totalOrder>0 ? Math.min(100, Math.round((totalActual/totalOrder)*100)) : 0;
+            const setText = (sel, val) => { const el = q(totalCard, sel); if (el) el.textContent = val; };
+            setText('[data-role="shift-order"]',  totalOrder.toLocaleString(IDLOCALE));
+            setText('[data-role="shift-actual"]', totalActual.toLocaleString(IDLOCALE));
+            const bar = q(totalCard,'[data-role="shift-bar"]'); if (bar) bar.style.width = pct + '%';
+            setText('[data-role="shift-pct"]', pct + '%');
         }
     }
 
     function recomputeAll(){ LINES.forEach(recomputeLine); }
 
-    // initial + sse + mutasi
+    // initial + sse + mutasi (tetap sama seperti versi sebelumnya)
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(recomputeAll,0));
     else setTimeout(recomputeAll,0);
 
@@ -2896,4 +3062,6 @@ Aturan:
         updatePaneToggleUI(key);
     });
 })();
+
+if (!window.USE_RECLASS) window.USE_RECLASS = () => !!window.__shiftReclassifierV3Active;
 

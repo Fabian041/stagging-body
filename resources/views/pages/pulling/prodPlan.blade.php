@@ -176,7 +176,7 @@
                                         title="Actual {{ $as003MorningActual }} / {{ $as003MorningQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as003MorningPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as003MorningPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as003MorningPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as003MorningActual }}</span></div>
@@ -200,7 +200,7 @@
                                         title="Actual {{ $as003NightActual }} / {{ $as003NightQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as003NightPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as003NightPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as003NightPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as003NightActual }}</span></div>
@@ -216,7 +216,7 @@
                                         title="Actual {{ $as003TotalActual }} / {{ $as003TotalQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as003TotalPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as003TotalPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as003TotalPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as003TotalActual }}</span></div>
@@ -489,7 +489,7 @@
                                         title="Actual {{ $as004MorningActual }} / {{ $as004MorningQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004MorningPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as004MorningPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as004MorningPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004MorningActual }}</span></div>
@@ -513,7 +513,7 @@
                                         title="Actual {{ $as004NightActual }} / {{ $as004NightQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004NightPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as004NightPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as004NightPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004NightActual }}</span></div>
@@ -529,7 +529,7 @@
                                         title="Actual {{ $as004TotalActual }} / {{ $as004TotalQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004TotalPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as004TotalPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as004TotalPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004TotalActual }}</span></div>

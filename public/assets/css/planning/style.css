@@ -522,6 +522,7 @@
         }
 
         html[data-theme="dark"] .curr,
+        html[data-theme="dark"] .number,
         html[data-theme="dark"] .next,
         html[data-theme="dark"] .shiftcard-head,
         html[data-theme="dark"] .shiftcard-head .title,

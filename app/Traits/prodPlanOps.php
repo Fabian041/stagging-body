@@ -277,17 +277,24 @@ trait prodPlanOps
     {
         return $rawData
             ->groupBy(function ($item) {
-                // Paksa cast ke string dulu sebelum di-trim untuk mencegah error
-                $dock = trim((string) $item->dock);
+                // Normalisasi
+                $dock = strtoupper(trim((string) $item->dock));
 
                 if ($dock === '6I') {
+                    // 6I: tetap pakai delivery_date + formatted_time + back_no
                     return $item->delivery_date . '|' . $item->formatted_time . '|' . $item->back_no;
                 }
 
-                return $item->dn_number . '|' . $item->back_no;
+                // NON-6I: PENTING → Sertakan CYCLE agar tidak “melebur” antar cycle
+                $cycRaw = $item->cycle ?? null;
+                $cyc    = is_numeric($cycRaw) ? (int) $cycRaw : (int) preg_replace('/\D+/', '', (string) $cycRaw);
+                $cyc    = $cyc ?: 0;
+
+                return $item->dn_number . '|' . $cyc . '|' . $item->back_no;
             })
             ->map(function ($group) {
                 $first = $group->first();
+                // akumulasi order per group (sekarang per DN+Cycle+BackNo)
                 $first->order_qty = $group->sum('order_qty');
                 return $first;
             })
@@ -477,7 +484,18 @@ trait prodPlanOps
         $customer = strtoupper(trim((string) $item->customer));
         $dock     = strtoupper(trim((string) $item->dock));
 
-        // OVERRIDE: CI13 + ADM ENGINE PLANT + EXP -> AS004
+        // Amankan parsing cycle (bisa string/number/null)
+        $cycleRaw = $item->cycle ?? null;
+        $cycle    = is_numeric($cycleRaw)
+            ? (int) $cycleRaw
+            : (int) preg_replace('/\D+/', '', (string) $cycleRaw);
+
+        // NEW RULE: CI13 + ADM ENGINE PLANT + EXP + cycle 4 -> AS003
+        if ($backNo === 'CI13' && $customer === 'ADM ENGINE PLANT' && $dock === 'EXP' && $cycle === 4) {
+            return 'AS003';
+        }
+
+        // EXISTING OVERRIDE: CI13 + ADM ENGINE PLANT + EXP (selain cycle 4) -> AS004
         if ($backNo === 'CI13' && $customer === 'ADM ENGINE PLANT' && $dock === 'EXP') {
             return 'AS004';
         }
