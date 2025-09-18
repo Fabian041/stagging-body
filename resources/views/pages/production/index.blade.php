@@ -1,44 +1,32 @@
 @extends('layouts.root.auth')
 
 @section('main')
-<meta name="csrf-token" content="{{ csrf_token() }}">
-
     <div class="main-section">
         <div class="mx-5 my-5">
             <div class="row">
                 <div class="col-lg-2 col-sm-12">
-                    <div class="card card-warning py-3 shadow" style="padding: 1rem; border-radius:8px">
+                    <div class="card card-warning py-5 shadow" style="padding: 1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark">Scan Part Number</label>
                         <input id="code" type="text" class="form-control" name="code" tabindex="1"
                             placeholder="scan part..." required autofocus autocomplete="off">
                     </div>
                     <div class="shadow pt-4 card card-secondary model-card-header"
-                        style="margin-bottom:80px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Model Running</h5>
                             <div class="bg-secondary m-auto shadow model-card"
-                                style="height: 7rem; width: 85%; border-radius: 6px; padding: 30px 0">
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">-</h1>
                             </div>
                         </div>
                     </div>
                     <div class="shadow pt-4 card card-secondary total-scan-card-header"
-                        style="margin-bottom:80px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Total Scan</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
-                                style="height: 7rem; width: 85%; border-radius: 6px; padding: 30px 0">
+                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0</h1>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="shadow pt-4 card card-secondary model-card-header"
-                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
-                        <div class="hero-inner">
-                            <h5 class="text-center text-dark" id="texttime">Time / Box</h5>
-                            <div class="bg-secondary m-auto shadow model-card"
-                                style="height: 5rem; width: 85%; border-radius: 6px; padding: 15px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="time-per-box">00:00</h1>
                             </div>
                         </div>
                     </div>
@@ -53,10 +41,11 @@
                         style="border-radius:4px; width:100% !important">Full Screen</button>
                     <button class="btn btn-warning py-3 px-5 shadow mb-2"
                         style="padding: 1rem; border-radius:8px; width:100% !important" id="release">
-                        <h3 class="text-center text-white">Stop</h3>
+                        <h3 class="text-center text-white">Release</h3>
                     </button>
                     <button class="btn btn-danger py-3 px-5 shadow mb-4"
-                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pause">Pause
+                        style="padding: 1rem; border-radius:8px; width:100% !important" id="pause">
+                        <h3 class="text-center text-white">Pause</h3>
                     </button>
                     <div class="shadow pt-4 card card-secondary status-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
@@ -114,40 +103,6 @@
         </div>
     </div>
     {{-- end of modal --}}
-    <div class="modal fade" id="pauseModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content" style="border-radius: 12px">
-            <div class="modal-header">
-                <h5 class="modal-title w-100 text-center">Pilih Jenis Masalah</h5>
-            </div>
-            <div class="modal-body">
-                <div class="row text-center">
-                <div class="col-md-6">
-                    <button id="pauseMachine" class="btn btn-danger btn-lg w-100 py-4" style="font-size: 1.5rem;">
-                    <i class="fas fa-tools me-2"></i> Problem Mesin
-                    </button>
-                </div>
-                <div class="col-md-6">
-                    <button id="openOtherProblem" class="btn btn-warning btn-lg w-100 py-4" style="font-size: 1.5rem;">
-                    <i class="fas fa-exclamation-circle me-2"></i> Problem Lain
-                    </button>
-                </div>
-                </div>
-
-                <div class="mt-4" id="otherProblemSection" style="display:none;">
-                <select id="stopReason" class="form-control mb-3">
-                    <option value="">Loading...</option>
-                </select>
-                <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem Lain</button>
-                </div>
-            </div>
-            </div>
-        </div>
-    </div>
-
-
-
-
 
     <audio id="not-match-sound">
         <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
@@ -196,24 +151,6 @@
     var timerId;
     var timerActive = false;
     var endTime; // Time when the timer is supposed to end
-    let timePerBoxInterval;
-
-    function startTimeCounter(startTimestamp = null) {
-        clearInterval(timePerBoxInterval); // stop existing interval
-
-        const startTime = startTimestamp ? new Date(startTimestamp) : new Date();
-
-        timePerBoxInterval = setInterval(() => {
-            const now = new Date();
-            const diffMs = now - startTime;
-
-            const totalSeconds = Math.floor(diffMs / 1000);
-            const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-
-            $('#time-per-box').text(`${minutes}:${seconds}`);
-        }, 1000);
-    }
 
     function notMatchSound() {
         var sound = document.getElementById("not-match-sound");
@@ -295,12 +232,19 @@
         }
     }
 
+    function loopAlreadyScanSound() {
+        if (localStorage.getItem('kanban_exist_error') === 'true') {
+            alreadyScanSound(); // Putar suara
+            showModalConfirmation();
+            setTimeout(loopAlreadyScanSound, 2000); // Loop setiap 2 detik
+        }
+    }
+
     function initApp() {
         let model = localStorage.getItem('model');
         let backNumber = localStorage.getItem('back_number');
         let totalScan = localStorage.getItem('scan_counter');
         let totalPart = localStorage.getItem('part_counter');
-        let startTime = localStorage.getItem('start_time');
         let photo = localStorage.getItem('photo');
         if (model || photo) {
             // display model  running
@@ -338,10 +282,7 @@
         loopNotMatchSound(); // Mulai looping suara
         loopDandoriSound(); // Mulai looping suara
         loopMasterDandoriSound(); // Mulai looping suara
-        let lastScanTime = localStorage.getItem('last_kanban_time');
-        if (lastScanTime) {
-            startTimeCounter(parseInt(lastScanTime));
-        }
+        loopAlreadyScanSound(); // Mulai looping suara
 
         $('#code').focus();
     }
@@ -470,148 +411,6 @@
 
     $(document).ready(function() {
         initApp();
-// UPDATE SCRIPT START
-    let pauseStartTime = null;
-    let selectedSrnaId = null;
-    let pauseTimerInterval = null;
-
-function startPauseTimer() {
-    clearInterval(pauseTimerInterval);
-    clearInterval(timePerBoxInterval); // Stop other timer if active
-
-    const startTime = pauseStartTime || new Date(); // Gunakan waktu pauseStartTime yang sudah dicatat
-    pauseTimerInterval = setInterval(() => {
-        const now = new Date();
-        const diffMs = now - startTime;
-        const totalSeconds = Math.floor(diffMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-        $('#time-per-box').text(`${minutes}:${seconds}`);
-    }, 1000);
-}
-
-function stopAllTimers() {
-    clearInterval(pauseTimerInterval);
-    clearInterval(timePerBoxInterval);
-}
-
-$('#pause').on('click', function () {
-    if ($('#pause').text() === 'Mulai') {
-        const now = new Date();
-        const pad = (n) => n.toString().padStart(2, '0');
-        const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const fmtFull = (d) => `${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-        const payload = {
-            data: [{
-                line_id: localStorage.getItem('line_prd') || "1",
-                prd_dt: fmt(now),
-                str_dt: fmtFull(pauseStartTime),
-                end_dt: fmtFull(now),
-                matnr: localStorage.getItem('model') || "UNKNOWN",
-                srna_id: selectedSrnaId,
-                crtby: "ADMIN"
-            }]
-        };
-
-        $.ajax({
-            url: '/production/api-insert-stop',
-            method: 'POST',
-            contentType: 'application/json',
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            data: JSON.stringify(payload),
-            success: function () {
-                notif('success', 'Stop reason berhasil dikirim');
-                $('#pause').text('Pause').removeClass('btn-success').addClass('btn-danger');
-                $('#texttime').text('Time / Box');
-                $('.status-card').removeClass('bg-danger');
-                $('.status-card').removeClass('bg-success');
-                $('.status-card').addClass(
-                    'bg-secondary');
-                $('#status').text('-');
-
-                pauseStartTime = null;
-                selectedSrnaId = null;
-                stopAllTimers();
-                $('#code').focus();
-                startTimeCounter(now);
-            },
-            error: function () {
-                notif('error', 'Gagal kirim stop reason');
-            }
-        });
-    } else {
-        stopAllTimers();
-        $('#pauseModal').modal('show');
-        fetchStopReasons();
-    }
-});
-
-$('#pauseMachine').on('click', function () {
-    pauseStartTime = new Date();
-    selectedSrnaId = 'STOP1'; // Reset selected stop reason ID
-    $('#pauseModal').modal('hide');
-    $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
-    $('#texttime').text('Stop Time');
-
-    $('.status-card').removeClass('bg-secondary');
-    $('.status-card').removeClass('bg-success');
-    $('.status-card').addClass(
-        'bg-danger');
-    $('#status').text('Stop');
-    
-    startPauseTimer();
-});
-
-$('#openOtherProblem').on('click', function (e) {
-    e.stopPropagation();
-    $('#otherProblemSection').slideDown();
-    $('#pauseModal').off('click.dismiss.bs.modal');
-});
-
-$('#stopReason').on('click', function (e) {
-    e.stopPropagation();
-});
-
-$('#pauseOther').on('click', function () {
-    let selected = $('#stopReason').val();
-    if (!selected) return alert("Pilih alasan terlebih dahulu!");
-
-    selectedSrnaId = selected;
-    pauseStartTime = new Date();
-    $('#pauseModal').modal('hide');
-    $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
-    $('#texttime').text('Stop Time');
-
-    $('.status-card').removeClass('bg-secondary');
-    $('.status-card').removeClass('bg-success');
-    $('.status-card').addClass(
-        'bg-danger');
-    $('#status').text('Stop');
-    startPauseTimer();
-});
-
-function fetchStopReasons() {
-    $.ajax({
-        url: '/production/api-list-stop',
-        method: 'GET',
-        success: function (response) {
-            if (response.status) {
-                let options = '<option value="">-- Pilih Masalah --</option>';
-                response.data.forEach(function (item) {
-                    options += `<option value="${item.srna_id}">${item.name1} (${item.type2_text})</option>`;
-                });
-                $('#stopReason').html(options);
-            }
-        },
-        error: function () {
-            $('#stopReason').html('<option value="">Gagal Load</option>');
-        }
-    });
-}
-// UPDATE SCRIPT END
 
         document.getElementById('fullscreenBtn').addEventListener('click', function() {
             if (!document.fullscreenElement) {
@@ -661,6 +460,7 @@ function fetchStopReasons() {
                         '000040' || barcodecomplete == '000504') {
                         localStorage.removeItem('error');
                         localStorage.removeItem('dandori_error');
+                        localStorage.removeItem('kanban_exist_error');
                         localStorage.removeItem('master_dandori_error');
                         $('#modalConfirmation').modal('hide');
                         notif('success', 'Selamat melanjutkan!');
@@ -689,27 +489,13 @@ function fetchStopReasons() {
 
         $('#release').on('click', function() {
             $('#code').focus();
+            localStorage.clear();
+            window.location.reload();
+        });
 
-            let part = localStorage.getItem('dandori_board')
-
-            $.ajax({
-                url: '/production/api-stop',
-                method: 'POST',
-                contentType: 'application/json',
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                },
-                data: JSON.stringify(part),
-                success: function () {
-                    notif('success', 'Stop reason berhasil dikirim saat Release');
-                    localStorage.clear();
-                    window.location.reload();
-                },
-                error: function () {
-                    notif('error', 'Gagal kirim stop reason saat Release');
-                }
-            });
-
+        $('#pause').on('click', function() {
+            pauseTimer();
+            notif('success', 'Timer telah berhenti!');
         });
 
         var barcode = "";
@@ -729,6 +515,16 @@ function fetchStopReasons() {
             {
                 barcodecomplete = barcode;
                 barcode = "";
+
+                if (barcodecomplete == "AS523") {
+                    window.location.replace("{{ url('/production/as523') }}");
+                    return;
+                }
+
+                if (barcodecomplete == "logout") {
+                    window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
 
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
@@ -767,7 +563,6 @@ function fetchStopReasons() {
 
                 // new rule
                 if (barcodecomplete.endsWith('dandori')) {
-                    console.log('scan dandori board');
                     // set item
                     localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
 
@@ -820,10 +615,6 @@ function fetchStopReasons() {
                 if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
                     model = barcodecomplete.replace(/-model$/, "");
                     if (model == localStorage.getItem('dandori_board')) {
-
-                        localStorage.setItem('scan_timer_start', Date.now()); // MULAI timer dari master sample
-                        localStorage.removeItem('last_kanban_time'); // Reset agar hitungan pertama benar
-                        
                         $.ajax({
                             type: 'GET',
                             url: "{{ url('pulling/internal-check') }}" + '/' + model,
@@ -841,7 +632,6 @@ function fetchStopReasons() {
                                     localStorage.setItem('part_counter', 0);
                                     localStorage.setItem('photo', dataPart
                                         .photo);
-                                    localStorage.setItem('line_prd', dataPart.line);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -886,9 +676,6 @@ function fetchStopReasons() {
 
                                     // start new timer
                                     // resetAndStartTimer();
-
-                                    
-
                                 } else {
                                     notif('error', dataPart.message);
                                 }
@@ -931,20 +718,13 @@ function fetchStopReasons() {
                     }
                 }
 
-
                 // check if model is set in local storage
                 if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
+                    console.log(internal);
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
-                        let now = Date.now();
-                        let startTime = localStorage.getItem('last_kanban_time') 
-                            ? new Date(parseInt(localStorage.getItem('last_kanban_time'))) 
-                            : new Date(parseInt(localStorage.getItem('scan_timer_start')));
-                        let endTime = new Date(now);
 
-                        // Simpan endTime ke localStorage untuk digunakan sebagai startTime berikutnya
-                        localStorage.setItem('last_kanban_time', now);
                         // get current counter value
                         $.ajax({
                             type: 'get',
@@ -952,9 +732,7 @@ function fetchStopReasons() {
                             _token: "{{ csrf_token() }}",
                             data: {
                                 partNumber: internal.trim(),
-                                seri: seri,
-                                start_time: startTime.toISOString(),
-                                end_time: endTime.toISOString()
+                                seri: seri
                             },
                             dataType: 'json',
                             success: function(data) {
@@ -1003,15 +781,6 @@ function fetchStopReasons() {
                                     $('#total-part').text(partCounter)
                                     $('#status').text('OK');
 
-                                    if (data.line_prd) {
-                                        localStorage.setItem('line_prd', data.line_prd);
-                                    }
-
-                                    localStorage.setItem('last_kanban_time', now);
-
-                                    startTimeCounter(now);
-
-
                                     setTimeout(() => {
                                         $('.status-card').removeClass('bg-danger');
                                         $('.status-card').removeClass('bg-success');
@@ -1022,11 +791,32 @@ function fetchStopReasons() {
 
                                     // start new timer
                                     // resetAndStartTimer();
-                                } else {
+                                } else if (data.status == 'kanbanExist') {
                                     notif("error", data.message);
 
                                     // notification sound
                                     alreadyScanSound();
+
+                                    let interval = setInterval(function() {
+                                        $('#notifModal').modal(
+                                            'hide');
+                                        clearInterval(interval);
+                                        $('#code').focus();
+                                    }, 1500);
+
+                                    localStorage.setItem('kanban_exist_error', 'true');
+
+                                    sendErrorLog('Seri Kanban sudah discan!', localStorage
+                                        .getItem('dandori_board'), internal.trim());
+
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1500);
+                                } else {
+                                    notif("error", data.message);
+
+                                    // notification sound
+                                    wrongKanbanSound();
 
                                     let interval = setInterval(function() {
                                         $('#notifModal').modal(
