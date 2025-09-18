@@ -521,6 +521,11 @@
                     return;
                 }
 
+                if (barcodecomplete == "prdreport") {
+                    window.location.replace("{{ url('/production/prdreport') }}");
+                    return;
+                }
+
                 if (barcodecomplete == "logout") {
                     window.location.replace("{{ url('/logout') }}");
                     return;

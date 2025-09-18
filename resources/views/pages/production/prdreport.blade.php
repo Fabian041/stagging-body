@@ -734,6 +734,22 @@ function fetchStopReasons() {
                 barcodecomplete = barcode;
                 barcode = "";
 
+
+                if (barcodecomplete == "AS523") {
+                    window.location.replace("{{ url('/production/as523') }}");
+                    return;
+                }
+
+                if (barcodecomplete == "prdreport") {
+                    window.location.replace("{{ url('/production') }}");
+                    return;
+                }
+
+                if (barcodecomplete == "logout") {
+                    window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
                 // get each information inside kanban code
                 if (barcodecomplete.length == 230) {
                     // normal kanban proccess
