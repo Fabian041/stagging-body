@@ -4,6 +4,108 @@
     .bg-default {
         background-color: #03b1fc;
     }
+
+    #modalLoadingListScan .loading-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        /* selalu flex */
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, .35);
+        backdrop-filter: blur(1px);
+        z-index: 10;
+
+        /* hidden by default */
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity .15s ease;
+    }
+
+    #modalLoadingListScan .loading-overlay.is-active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    #modalLoadingListScan .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    /* Base glass tile */
+    /* Glass tile utk progress saja */
+    .glass-tile {
+        position: relative;
+        border-radius: 14px;
+        padding: .5rem .75rem;
+        min-height: 2.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        color: #fff;
+        background: rgba(17, 25, 40, .45);
+        border: 1px solid rgba(255, 255, 255, .18);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .08);
+        overflow: hidden;
+        transform: translateZ(0);
+    }
+
+    @supports ((-webkit-backdrop-filter:none) or (backdrop-filter:none)) {
+        .glass-tile {
+            backdrop-filter: blur(10px) saturate(140%);
+            -webkit-backdrop-filter: blur(10px) saturate(140%);
+            background: rgba(17, 25, 40, .30);
+        }
+    }
+
+    .glass-tile--loading {
+        border-color: rgba(0, 173, 255, .35);
+        box-shadow: 0 6px 20px rgba(0, 173, 255, .18), inset 0 1px 0 rgba(255, 255, 255, .12);
+    }
+
+    .glass-tile--error {
+        border-color: rgba(255, 99, 132, .45);
+        background: rgba(40, 17, 22, .50);
+    }
+
+    .glass-tile--loading::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, .14) 25%, transparent 50%);
+        transform: translateX(-100%);
+        animation: glass-shimmer 2.2s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    @keyframes glass-shimmer {
+        to {
+            transform: translateX(100%);
+        }
+    }
+
+    .glass-in {
+        animation: glass-in .18s ease-out both;
+    }
+
+    @keyframes glass-in {
+        from {
+            transform: scale(.98);
+            opacity: 0
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1
+        }
+    }
+
+    .glass-tile .spinner-border {
+        color: rgba(255, 255, 255, .92);
+    }
 </style>
 
 @section('main')
@@ -141,12 +243,19 @@
             </div>
         </section>
     </div>
-    <div class="modal fade" id="modalLoadingListScan" aria-hidden="true" aria-labelledby="modalToggleLabel2"
-        tabindex="-1">
+    <div class="modal fade" id="modalLoadingListScan" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+        aria-hidden="true" aria-labelledby="modalToggleLabel2">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
+            <div class="modal-content position-relative">
+                <!-- overlay TANPA d-none/d-flex -->
+                <div class="loading-overlay" aria-live="polite" aria-busy="true">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <div class="mt-3 fw-semibold" id="loading-text">Memproses...</div>
+                    </div>
                 </div>
+
+                <div class="modal-header"></div>
                 <div class="modal-body">
                     <h5 class="text-center"><b>LOADING LIST</b></h5><br>
                     <input type="text" class="form-control" id="input-loadingList" autocomplete="off">
@@ -155,6 +264,7 @@
             </div>
         </div>
     </div>
+
     <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog"
         aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
@@ -185,6 +295,10 @@
     </div>
     {{-- end of modal --}}
 
+    <audio id="ok-sound">
+        <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
+        <!-- Add additional <source> elements for other audio formats if needed -->
+    </audio>
     <audio id="not-match-sound">
         <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
@@ -255,6 +369,10 @@
     let loadingListItem = [];
     let loadinglistDetail = [];
 
+    function okSound() {
+        var sound = document.getElementById("ok-sound");
+        sound.play();
+    }
 
     function kanbanNotExistSound() {
         var sound = document.getElementById("kanban-not-exist-sound");
@@ -558,22 +676,26 @@
         }, 1500);
     }
 
-    function customerCheck(customer) {
+    function customerCheck(customer, pds = null) {
         return new Promise(function(resolve, reject) {
+            let url = "{{ url('pulling/customer-check') }}/" + customer;
+
+            if (pds) {
+                url += '/' + encodeURIComponent(pds); // tanpa tanda tanya
+            }
+
             $.ajax({
                 type: 'GET',
-                url: "{{ url('pulling/customer-check/') }}" + '/' + customer,
-                _token: "{{ csrf_token() }}",
+                url: url,
                 dataType: 'json',
                 success: function(data) {
                     console.log(data);
-                    if (data.status == 'success') {
-                        // display customer
+                    if (data.status === 'success') {
                         $('#customer-display').text(data.customer);
                         localStorage.setItem('customer', data.customer);
                         resolve();
                     } else {
-                        reject();
+                        reject(data.message || 'Unknown error');
                     }
                 },
                 error: function(xhr) {
@@ -582,6 +704,7 @@
             });
         });
     }
+
 
     function checkLoadingList() {
         let pds = localStorage.getItem('pds_local');
@@ -676,38 +799,47 @@
         });
     }
 
-    function customerCharStore(customer) {
+    function customerCharStore(customer, pds = null) {
+        // Buat URL dengan path segment, tanpa tanda tanya
+        let url = "{{ url('pulling/customer-check') }}/" + customer;
+        if (pds) {
+            url += '/' + encodeURIComponent(pds);
+        }
+
         $.ajax({
             type: 'GET',
-            url: "{{ url('pulling/customer-check/') }}" + '/' + customer,
-            _token: "{{ csrf_token() }}",
+            url: url,
             dataType: 'json',
             success: function(data) {
                 console.log(data);
-                if (data.status == 'success') {
-
+                if (data.status === 'success') {
                     // save all data about customer in local storage
                     localStorage.setItem('char_first', data.first);
                     localStorage.setItem('char_length', data.length);
                     localStorage.setItem('char_total', data.total);
-
                 } else {
                     notif('error', data.message);
                     loadingListModal();
                 }
             },
             error: function(xhr) {
-                reject(new Error(xhr.statusText));
+                notif('error', xhr.statusText); // karena di sini ga pakai promise
+                loadingListModal();
             }
         });
     }
 
-    function errorStore(message) {
+    function errorStore(message = null, expected = null, scanned = null) {
         $.ajax({
             type: 'GET',
             url: "{{ route('error.store') }}",
             _token: "{{ csrf_token() }}",
             dataType: 'json',
+            data: {
+                message: message,
+                expected: expected,
+                scanned: scanned
+            },
             success: function(data) {
                 console.log("Error recorded");
             },
@@ -843,311 +975,500 @@
 
         var token = "{{ session()->get('token') }}";
 
-        $('#input-loadingList').keypress(function(e) {
-            let loadingList = getLoadingListNumber();
-            let code = (e.keyCode ? e.keyCode : e.which);
-            if (code == 13) {
-                let loadingListNumber = $(this).val().substr(0, 11) + ' A';
-                //Check Line
-                $.ajax({
-                    type: 'GET',
-                    url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' + loadingListNumber,
-                    _token: "{{ csrf_token() }}",
-                    headers: {
-                        "Authorization": "Bearer " + token
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        if (data.status == 'success') {
-                            // objectStor name is based on pds_number
-                            let pds = data.data.pds_number;
-                            let ll = data.data.number;
-                            let cycle = data.data.cycle;
-                            let customerCode = data.data.customer_code;
-                            let deliveryDate = data.data.delivery_date;
-                            let shippingDate = data.data.shipping_date;
-                            let actualDb;
+        class ModalLoadingListScanner {
+            constructor() {
+                this.token = "{{ session()->get('token') }}" || '';
+                this.modalSel = '#modalLoadingListScan';
+                this.$modal = $(this.modalSel);
+            }
 
-                            deliveryDate ? deliveryDate : null;
-                            shippingDate ? deliveryDate : null;
+            init() {
+                this.hideLoading(); // pastikan hidden on start
+                $('#input-loadingList').on('keypress', (e) => this.handleKeyPress(e));
+            }
 
-                            //insert loading list
-                            $.ajax({
-                                type: 'GET',
-                                url: "{{ url('/loading-list/store') }}" + '/' +
-                                    ll + '/' + pds + '/' + cycle + '/' +
-                                    customerCode + '/' + deliveryDate + '/' +
-                                    shippingDate,
-                                _token: "{{ csrf_token() }}",
-                                dataType: 'json',
-                                success: function(response) {
-                                    console.log(response.message);
-                                },
-                                error: function(xhr) {
-                                    console.log(xhr)
-                                    if (xhr.status == 0) {
-                                        notif("error", 'Connection Error');
-                                        return;
-                                    }
-                                    notif("error", xhr.responseJSON.errors);
-                                }
-                            })
+            handleKeyPress(e) {
+                const keyCode = e.keyCode || e.which;
+                if (keyCode === 13) { // Enter key
+                    const inputValue = $(e.target).val();
+                    this.processLoadingList(inputValue);
+                }
+            }
 
-                            // create database indexed db
-                            request = window.indexedDB.open(pds);
+            async processLoadingList(inputValue) {
+                try {
+                    const loadingList = this.getLoadingListNumber();
+                    const loadingListNumber = inputValue.substr(0, 11) + ' A';
 
-                            // check if loading list already exists
-                            if (loadingList.includes(data.data.number)) {
-                                notif('error', 'Loading list sudah discan!');
-                                alreadyScanLlSound();
-                                return;
-                            }
-
-                            let total_actual = 0;
-                            let total_kanban = 0;
-
-                            // check if already pulled
-                            data.data.items.map((item, index) => {
-                                total_actual += item
-                                    .actual_kanban_qty;
-                                total_kanban += item.total_kanban_qty;
-                            });
-
-                            // if (total_actual >= total_kanban) {
-                            //     notif('error',
-                            //         'Loading list sudah pernah dipulling'
-                            //     );
-                            //     loadingListModal();
-                            //     alreadyPulledSound();
-                            //     return;
-                            // }
-
-                            if (!data.data.items[0].hasOwnProperty(
-                                    'total_kanban_qty')) {
-                                notif('error',
-                                    'Loading list sudah pernah dipulling'
-                                );
-                                loadingListModal();
-                                alreadyPulledSound();
-                                return;
-                            }
-
-                            // check if loading list have same manifest code (pds number)
-                            if (localStorage.getItem('pdsNumber')) {
-                                if (data.data.pds_number != localStorage.getItem(
-                                        'pdsNumber')) {
-                                    notif('error', 'Loading list tidak sesuai!');
-
-                                    // unknown ll sound
-                                    notMatchLlSound();
-
-                                    return false;
-                                }
-                            }
-
-                            let pdsLocal = localStorage.setItem('pds_local', pds);
-                            localStorage.setItem('ll_' + data.data.number, data.data
-                                .number);
-                            localStorage.setItem('pdsNumber', data.data.pds_number);
-
-                            // remove example display
-                            $('#loadingListContainerSample').remove();
-
-                            // loading list display
-                            $('#list').append(
-                                `<li class="col-12 mt-2"
-                                        style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
-                                        id="loadingListContainer">
-                                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
-                                            id="loadingList">
-                                            <h6 class="text-center " style="padding-top: .5rem; color: white;"
-                                                id="loadingList-display">${data.data.number}</h6>
-                                        </div>
-                                </li>`
-                            );
-
-                            // create database schema
-                            request.onupgradeneeded = function(event) {
-                                const database = event.target.result;
-                                const objectStore = database.createObjectStore(
-                                    'loadingList');
-                                var index = objectStore.createIndex('loadingListDetail',
-                                    'seri');
-                            }
-
-                            // transaction
-                            request.onsuccess = function(event) {
-                                const database = event.target.result;
-                                const transaction = database.transaction([
-                                        'loadingList'
-                                    ],
-                                    'readwrite');
-                                const objectStore = transaction.objectStore(
-                                    'loadingList');
-                                var index = objectStore.index('loadingListDetail');
-
-                                data.data.items.map((item, index) => {
-                                    const key = item.part_number_cust;
-
-                                    const getRequest = objectStore.get(key);
-
-                                    getRequest.onsuccess = function(event) {
-                                        const existingData = event.target
-                                            .result;
-
-                                        if (!existingData) {
-                                            objectStore.put({
-                                                key: key,
-                                                loading_list_number: ll,
-                                                internal: item
-                                                    .part_number_int,
-                                                customer: item
-                                                    .part_number_cust,
-                                                qty_per_kbn: item
-                                                    .total_qty /
-                                                    item
-                                                    .total_kanban_qty,
-                                                actual_qty: item
-                                                    .actual_kanban_qty,
-                                                total_qty: item
-                                                    .total_kanban_qty,
-                                                seri: []
-                                            }, key);
-                                        }
-                                    };
-
-                                    // qty per kanban is total qty product devided kanban qty
-                                    let qty_per_kbn = item.total_qty / item
-                                        .total_kanban_qty;
-
-                                    //insert each loading list details
-                                    setTimeout(() => {
-                                        $.ajax({
-                                            type: 'GET',
-                                            url: "{{ url('/loading-list/storeDetail') }}" +
-                                                '/' + ll + '/' +
-                                                item
-                                                .part_number_cust +
-                                                '/' +
-                                                item
-                                                .part_number_int +
-                                                '/' +
-                                                item
-                                                .total_kanban_qty +
-                                                '/' +
-                                                qty_per_kbn +
-                                                '/' + item
-                                                .total_qty +
-                                                '/' + item
-                                                .actual_kanban_qty,
-                                            _token: "{{ csrf_token() }}",
-                                            dataType: 'json',
-                                            success: function(
-                                                data) {
-                                                console.log(
-                                                    data
-                                                    .status
-                                                )
-                                            },
-                                            error: function(
-                                                xhr) {
-                                                console.log(
-                                                    xhr);
-                                                notif('error',
-                                                    'Scan ulang loading list'
-                                                );
-                                                return false;
-                                            }
-                                        })
-                                    }, 200);
-
-                                    getRequest.onerror = function(event) {
-                                        notif(event.data.error);
-                                    };
-                                });
-
-                                // check customer if exist 
-                                customerCheck(data.data.customer_code)
-                                    .then(function() {
-                                        // cycle display
-                                        $('#cycle-display').text(data.data.cycle);
-                                        localStorage.setItem('cycle', data
-                                            .data.cycle);
-
-                                        // calculate total quantity of the orders
-                                        pullingQuantity();
-
-                                        // display skid if customer is TMMIN
-                                        if (data.data.customer_code == '7A00001') {
-                                            let skid = localStorage.getItem('skid');
-                                            if (!skid) {
-                                                localStorage.setItem('skid', 1);
-                                            }
-                                            $('.skid-display').append(`<div class="row mt-2">
-                                                <div class="col-12" style="padding-right: 0px">
-                                                    <div
-                                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
-                                                        <small class="badge badge-dark"
-                                                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
-                                                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
-                                                            <span id="skid-display">${skid}</span>
-                                                        </h5>
-                                                        <div class="btn btn-danger"
-                                                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
-                                                            id="close-skid">
-                                                            Close Skid ${skid}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>`)
-                                        }
-
-                                        // scan kanban
-                                        $('#code').focus();
-
-                                    })
-                                    .catch(function(err) {
-                                        notif('error', err);
-                                    })
-
-                                // loadingList qty
-                                checkLoadingList();
-
-                                // customer check char
-                                customerCharStore(data.data.customer_code);
-
-                                // Close the db when the transaction is done
-                                transaction.oncomplete = function() {
-                                    database.close();
-                                };
-                                $('#code').focus();
-                            }
-                            // create handler
-                            request.onerror = function(event) {
-                                console.log("error: " + event.message);
-                            }
-                        } else {
-                            notif('error', data.message);
-                            loadingListModal();
-                        }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status == 0) {
-                            notif("error", 'Connection Error');
-                            loadingListModal();
-                            return;
-                        } else if (xhr.status == 401) {
-                            notif("error", `${xhr.statusText} Please re-login`);
-                            loadingListModal();
-                            return;
-                        }
-                        notif("error", xhr.statusText);
-                        loadingListModal();
+                    // early return tanpa spinner
+                    if (loadingList.includes(loadingListNumber)) {
+                        this.showError('Loading list sudah discan!', () => {
+                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                        });
+                        return;
                     }
+
+                    // ⬇️ mulai tampilkan loading
+                    this.showLoading('Mengambil data loading list...');
+
+                    const response = await this.fetchLoadingList(loadingListNumber);
+                    if (response.status !== 'success') {
+                        this.showError(response.message);
+                        this.showModal();
+                        return;
+                    }
+
+                    // proses lanjut (spinner tetap on, nanti di-update pesannya di method berikut)
+                    await this.processLoadingListResponse(response.data);
+
+                    // kalau sukses dan mau tutup modal
+                    this.hideModal();
+
+                } catch (error) {
+                    console.error('Loading list error:', error);
+                    this.handleAjaxError(error);
+                } finally {
+                    // pastikan spinner dimatikan & input difokuskan
+                    this.hideLoading();
+                    this?.focusCodeInput?.();
+                }
+            }
+
+
+            async fetchLoadingList(loadingListNumber) {
+                return await $.ajax({
+                    type: 'GET',
+                    url: `https://dea-dev.aiia.co.id/api/v1/loading-lists/${loadingListNumber}`,
+                    headers: {
+                        "Authorization": `Bearer ${this.token}`
+                    },
+                    dataType: 'json'
+                });
+            }
+
+            async processLoadingListResponse(data) {
+                // validasi dulu
+                const validationResult = this.validateLoadingList(data);
+                if (!validationResult.isValid) {
+                    this.showError(validationResult.message, validationResult.soundFn);
+                    if (validationResult.showModal) this.showModal();
+                    return;
+                }
+
+                const {
+                    pds_number,
+                    number: ll,
+                    cycle,
+                    customer_code,
+                    delivery_date,
+                    shipping_date
+                } = data;
+
+                try {
+                    this.setLoadingMessage('Menyimpan header...');
+                    await this.storeLoadingList(ll, pds_number, cycle, customer_code, delivery_date,
+                        shipping_date);
+
+                    this.setLoadingMessage('Menyimpan data lokal...');
+                    this.storeLocalData(data);
+
+                    this.setLoadingMessage('Memperbarui tampilan...');
+                    this.updateLoadingListUI(data);
+
+                    this.setLoadingMessage('Menyiapkan IndexedDB...');
+                    await this.initializeDatabase(data);
+
+                    this.setLoadingMessage('Menyimpan detail item...');
+                    await this.storeLoadingListDetails(ll, data.items);
+
+                    this.setLoadingMessage('Finalisasi...');
+                    await this.performAdditionalProcessing(data);
+
+                } catch (error) {
+                    console.error('Error processing loading list:', error);
+                    this.showError('Gagal memproses loading list');
+                } finally {
+                    // fokus input akan dipanggil di finally processLoadingList (luar)
+                }
+            }
+
+            validateLoadingList(data) {
+                // Check if already pulled (missing total_kanban_qty property)
+                if (!data.items[0]?.hasOwnProperty('total_kanban_qty')) {
+                    return {
+                        isValid: false,
+                        message: 'Loading list sudah pernah dipulling',
+                        soundFn: () => {
+                            if (typeof alreadyPulledSound === 'function') alreadyPulledSound();
+                        },
+                        showModal: true
+                    };
+                }
+
+                // Check totals (commented out in original but keeping logic)
+                const totals = this.calculateTotals(data.items);
+                // if (totals.actual >= totals.kanban) {
+                //     return {
+                //         isValid: false,
+                //         message: 'Loading list sudah pernah dipulling',
+                //         soundFn: () => { if (typeof alreadyPulledSound === 'function') alreadyPulledSound(); },
+                //         showModal: true
+                //     };
+                // }
+
+                // Check PDS consistency
+                const existingPDS = localStorage.getItem('pdsNumber');
+                if (existingPDS && data.pds_number !== existingPDS) {
+                    return {
+                        isValid: false,
+                        message: 'Loading list tidak sesuai!',
+                        soundFn: () => {
+                            if (typeof notMatchLlSound === 'function') notMatchLlSound();
+                        },
+                        showModal: false
+                    };
+                }
+
+                return {
+                    isValid: true
+                };
+            }
+
+            calculateTotals(items) {
+                return items.reduce((acc, item) => {
+                    acc.actual += item.actual_kanban_qty || 0;
+                    acc.kanban += item.total_kanban_qty || 0;
+                    return acc;
+                }, {
+                    actual: 0,
+                    kanban: 0
+                });
+            }
+
+            async storeLoadingList(ll, pds, cycle, customerCode, deliveryDate, shippingDate) {
+                try {
+                    const response = await $.ajax({
+                        type: 'GET',
+                        url: `/loading-list/store/${ll}/${pds}/${cycle}/${customerCode}/${deliveryDate || ''}/${shippingDate || ''}`,
+                        dataType: 'json'
+                    });
+
+                    // console.log('Modal loading list stored:', response.message);
+                    return response;
+
+                } catch (xhr) {
+                    console.error('Error storing loading list:', xhr);
+
+                    if (xhr.status === 0) {
+                        this.showError('Connection Error');
+                        throw new Error('Network error');
+                    } else {
+                        const errorMsg = xhr.responseJSON?.errors || 'Gagal menyimpan loading list';
+                        this.showError(errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                }
+            }
+
+            storeLocalData(data) {
+                localStorage.setItem('pds_local', data.pds_number);
+                localStorage.setItem(`ll_${data.number}`, data.number);
+                localStorage.setItem('pdsNumber', data.pds_number);
+            }
+
+            updateLoadingListUI(data) {
+                $('#loadingListContainerSample').remove();
+                $('#list').append(`
+            <li class="col-12 mt-2" style="padding-left: 1rem; padding-right: 0px; list-style-type: none;" id="loadingListContainer">
+                <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;" id="loadingList">
+                    <h6 class="text-center" style="padding-top: .5rem; color: white;" id="loadingList-display">${data.number}</h6>
+                </div>
+            </li>
+        `);
+            }
+
+            async initializeDatabase(data) {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(data.pds_number);
+
+                    request.onupgradeneeded = (event) => {
+                        const database = event.target.result;
+                        if (!database.objectStoreNames.contains('loadingList')) {
+                            const objectStore = database.createObjectStore('loadingList');
+                            objectStore.createIndex('loadingListDetail', 'seri');
+                        }
+                    };
+
+                    request.onsuccess = async (event) => {
+                        try {
+                            const database = event.target.result;
+                            await this.populateDatabase(database, data);
+                            database.close();
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+
+                    request.onerror = () => {
+                        console.log("Database error:", request.error);
+                        reject(request.error);
+                    };
+                });
+            }
+
+            async populateDatabase(database, data) {
+                const transaction = database.transaction(['loadingList'], 'readwrite');
+                const objectStore = transaction.objectStore('loadingList');
+
+                const promises = data.items.map(item => {
+                    return new Promise((resolve, reject) => {
+                        const key = item.part_number_cust;
+                        const getRequest = objectStore.get(key);
+
+                        getRequest.onsuccess = (event) => {
+                            try {
+                                if (!event.target.result) {
+                                    objectStore.put({
+                                        key,
+                                        loading_list_number: data.number,
+                                        internal: item.part_number_int,
+                                        customer: item.part_number_cust,
+                                        qty_per_kbn: item.total_qty / item
+                                            .total_kanban_qty,
+                                        actual_qty: item.actual_kanban_qty,
+                                        total_qty: item.total_kanban_qty,
+                                        seri: []
+                                    }, key);
+                                }
+                                resolve();
+                            } catch (error) {
+                                reject(error);
+                            }
+                        };
+
+                        getRequest.onerror = () => reject(getRequest.error);
+                    });
                 });
 
+                await Promise.all(promises);
+            }
+
+            async storeLoadingListDetails(ll, items) {
+                const promises = items.map((item, index) => {
+                    const qtyPerKbn = item.total_qty / item.total_kanban_qty;
+
+                    return new Promise((resolve, reject) => {
+                        setTimeout(() => {
+                            $.ajax({
+                                type: 'GET',
+                                url: `/loading-list/storeDetail/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qtyPerKbn}/${item.total_qty}/${item.actual_kanban_qty}`,
+                                dataType: 'json',
+                                success: (response) => {
+                                    console.log('Detail stored:',
+                                        response.status, response
+                                        .data);
+                                    resolve(response);
+                                },
+                                error: (xhr) => {
+                                    console.error('Detail store error:',
+                                        xhr);
+
+                                    if (xhr.status === 0) {
+                                        reject(new Error(
+                                            'Network error storing detail'
+                                        ));
+                                    } else {
+                                        // Log error but don't stop the process
+                                        console.warn(
+                                            `Failed to store detail for ${item.part_number_cust}, continuing...`
+                                        );
+                                        this.showError(
+                                            'Scan ulang loading list'
+                                        );
+                                        resolve({
+                                            status: 'error',
+                                            item: item
+                                                .part_number_cust
+                                        });
+                                    }
+                                }
+                            });
+                        }, 200); // Original timeout
+                    });
+                });
+
+                try {
+                    const results = await Promise.all(promises);
+                    const failures = results.filter(result => result?.status === 'error');
+
+                    if (failures.length > 0) {
+                        console.warn(`${failures.length} detail items failed to store`);
+                    }
+
+                    return results;
+                } catch (error) {
+                    console.error('Critical error storing details:', error);
+                    throw error;
+                }
+            }
+
+            async performAdditionalProcessing(data) {
+                try {
+                    // Customer check
+                    await this.customerCheck(data.customer_code, data.pds_number);
+
+                    // Update cycle display
+                    $('#cycle-display').text(data.cycle);
+                    localStorage.setItem('cycle', data.cycle);
+
+                    // Calculate quantities
+                    this.pullingQuantity();
+
+                    // Handle TMMIN skid display
+                    this.handleTmminSkidDisplay(data.customer_code);
+
+                    // Additional checks
+                    this.checkLoadingList();
+                    this.customerCharStore(data.customer_code, data.pds_number);
+
+                } catch (error) {
+                    console.error('Additional processing error:', error);
+                    this.showError(error.message || 'Error in additional processing');
+                }
+            }
+
+            handleTmminSkidDisplay(customerCode) {
+                if (customerCode === '7A00001') { // TMMIN customer code
+                    let skid = localStorage.getItem('skid') || '1';
+                    if (!localStorage.getItem('skid')) {
+                        localStorage.setItem('skid', '1');
+                    }
+
+                    $('.skid-display').append(`
+                <div class="row mt-2">
+                    <div class="col-12" style="padding-right: 0px">
+                        <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
+                            <small class="badge badge-dark" style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
+                            <h5 style="color: #ffffff; display:inline; padding-left:5rem">
+                                <span id="skid-display">${skid}</span>
+                            </h5>
+                            <div class="btn btn-danger" style="display:inline-block; margin-left:220px; margin-top:-27px;" id="close-skid">
+                                Close Skid ${skid}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+                }
+            }
+
+            showLoading(message = 'Memproses...') {
+                this.setLoadingMessage(message);
+                this.$modal.find('.loading-overlay').addClass('is-active');
+                this.$modal.find('input,button,select,textarea').prop('disabled', true);
+            }
+
+            hideLoading() {
+                this.$modal.find('.loading-overlay').removeClass('is-active');
+                this.$modal.find('input,button,select,textarea').prop('disabled', false);
+            }
+
+            setLoadingMessage(message) {
+                this.$modal.find('#loading-text').text(message);
+            }
+
+            handleAjaxError(xhr) {
+                if (xhr.status === 0) {
+                    this.showError('Connection Error');
+                } else if (xhr.status === 401) {
+                    this.showError(`${xhr.statusText} Please re-login`);
+                } else {
+                    this.showError(xhr.statusText || 'Request failed');
+                }
+                this.showModal();
+            }
+
+            showError(message, soundFunction = null) {
+                if (typeof notif === 'function') {
+                    notif('error', message);
+                }
+                if (soundFunction) soundFunction();
+            }
+
+            showModal() {
+                if (typeof loadingListModal === 'function') {
+                    loadingListModal();
+                }
+            }
+
+            hideModal() {
                 $('#modalLoadingListScan').modal('hide');
             }
+
+            // di dalam class:
+            focusCodeInput = () => {
+                const $el = $('#code:visible:not([disabled])');
+                if (!$el.length) return;
+
+                // kalau ada modal bootstrap, fokuskan setelah modal bener² tertutup
+                if ($('.modal.show').length) {
+                    $('.modal.show').one('hidden.bs.modal', () => this.focusCodeInput());
+                    return;
+                }
+
+                // tunda 1 frame supaya DOM/UI selesai update
+                requestAnimationFrame(() => setTimeout(() => {
+                    $el.trigger('focus');
+                    // opsional: taruh kursor di akhir input
+                    const el = $el.get(0);
+                    if (el && el.setSelectionRange) {
+                        const len = el.value?.length ?? 0;
+                        el.setSelectionRange(len, len);
+                    }
+                }, 0));
+            };
+
+
+            getLoadingListNumber() {
+                return typeof getLoadingListNumber === 'function' ? getLoadingListNumber() : [];
+            }
+
+            async customerCheck(customerCode, pdsNumber) {
+                return new Promise((resolve, reject) => {
+                    if (typeof customerCheck === 'function') {
+                        customerCheck(customerCode, pdsNumber)
+                            .then(resolve)
+                            .catch(reject);
+                    } else {
+                        resolve();
+                    }
+                });
+            }
+
+            pullingQuantity() {
+                if (typeof pullingQuantity === 'function') {
+                    pullingQuantity();
+                }
+            }
+
+            checkLoadingList() {
+                if (typeof checkLoadingList === 'function') {
+                    checkLoadingList();
+                }
+            }
+
+            customerCharStore(customerCode, pdsNumber) {
+                if (typeof customerCharStore === 'function') {
+                    customerCharStore(customerCode, pdsNumber);
+                }
+            }
+        }
+
+        // Initialize the modal loading list scanner
+        $(document).ready(() => {
+            const modalScanner = new ModalLoadingListScanner();
+            modalScanner.init();
         });
 
         $('#input-confirmation').keypress(function(e) {
@@ -1405,7 +1726,7 @@
         var code = $('#code');
         let total = 0;
 
-        function checkInternalAndCustomer(objectStore, cursor, internal, primaryKey, seri) {
+        function checkInternalAndCustomer(database, cursor, internal, primaryKey, seri) {
             let loadingList = cursor['loading_list_number'];
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];
@@ -1415,6 +1736,7 @@
             let skid = localStorage.getItem('skid');
             let originalBarcode = localStorage.getItem('originalCustomerPart');
             let barcodecomplete = localStorage.getItem('customerPart');
+            let manifest, itemNo, seqNo;
 
             if (localStorage.getItem('char_total') == 39) {
                 manifest = originalBarcode.substr(3, 10);
@@ -1422,9 +1744,39 @@
                 seqNo = originalBarcode.substr(35, 4);
             }
 
+            // Helper: ambil pesan error dari xhr
+            const xhrMessage = (xhr) => {
+                if (xhr.status === 0) return 'Connection Error';
+                return (xhr.responseJSON?.message) ||
+                    (xhr.responseJSON?.errors ? JSON.stringify(xhr.responseJSON.errors) : null) ||
+                    xhr.responseText ||
+                    `HTTP ${xhr.status}`;
+            };
+
+            // Helper: uniform error handling + pencatatan
+            // opsi: { expected, scanned, playSound }
+            const handleError = (message, opts = {}) => {
+                const {
+                    expected = null, scanned = null, playSound = true
+                } = opts;
+
+                $('#indicator').removeClass('bg-success bg-warning').addClass('bg-danger');
+                notif('error', message);
+
+                // catat detail error via API
+                errorStore(message, expected, scanned);
+
+                if (playSound) notMatchSound();
+
+                // fokus input kembali (sekali, bukan interval)
+                setTimeout(() => {
+                    $('#code').focus();
+                }, 1000);
+            };
+
+            // === Validasi: internal & customer harus dalam objek yang sama
             for (const key in cursor) {
                 if (cursor[key] === localStorage.getItem('customerPart')) {
-                    // Value1 found, check if Value2 is also in the object
                     if (Object.values(cursor).includes(internal.trimEnd())) {
                         isSameObject = true;
                         break;
@@ -1432,306 +1784,178 @@
                 }
             }
 
-            // check if kanban internal and customer in the same object
             if (!isSameObject) {
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
-                notif('error', 'Kanban tidak sesuai!');
-
-                // error log
-                errorStore('Kanban tidak sesuai!');
-
-                // notification sound   
-                notMatchSound();
-
-                // set local storage
+                handleError('Kanban tidak sesuai!', {
+                    expected: `Internal & Customer satu objek (internal: ${internal.trimEnd()}, customer: ${localStorage.getItem('customerPart')})`,
+                    scanned: `Cursor keys match? ${Object.keys(cursor).length} keys`
+                });
                 localStorage.setItem('status', 'true');
-
-                // show modal for leader or JP confirmation
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);
                 return;
             }
 
-            // check if serial number kanban exist in spesific part number
+            // === Validasi: seri duplikat
             if (arraySeri.includes(seri)) {
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
+                handleError('Seri kanban sudah discan!', {
+                    expected: 'Seri unik (belum pernah discan)',
+                    scanned: `Seri=${seri}`,
+                    playSound: false
+                });
                 alreadyScanSound();
-                notif('error', 'Seri kanban sudah discan!');
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
                 return;
             }
 
-            // check actual qty of spesific part number by compare the current length seri and total_qty
+            // === Validasi: quantity sudah penuh
             if (arraySeri.length >= totalQty) {
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
-                notif('error', 'Part number sudah complete!');
+                handleError('Part number sudah complete!', {
+                    expected: `Qty <= ${totalQty}`,
+                    scanned: `Attempt push, current=${arraySeri.length}`,
+                    playSound: false
+                });
                 fullfilledSound();
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
                 return;
             }
 
-            // push kanban serial number to array seri
-            arraySeri.push(seri);
+            // === Update IndexedDB setelah validasi backend OK
+            const updateIndexedDB = () => {
+                // tambah seri sementara
+                arraySeri.push(seri);
 
-            // update the object
-            objectStore.put(cursor, primaryKey).onsuccess = function(event) {
-                //hit API to create checkout transaction after pulling
-                try {
-                    $.ajax({
-                        type: 'GET',
-                        url: "{{ route('kanban.scanned') }}",
-                        _token: "{{ csrf_token() }}",
-                        data: {
-                            loadingList: loadingList,
-                            internalPart: internal.trimEnd(),
-                            customerPart: localStorage.getItem('customerPart')
-                        },
-                        contentType: 'application/json',
-                        success: function(data) {
-                            if (data.status == 'success') {
+                if (!database.objectStoreNames.contains('loadingList')) {
+                    const availableStores = Array.from(database.objectStoreNames);
+
+                    if (availableStores.length > 0) {
+                        const storeName = availableStores[0];
+                        const transaction = database.transaction([storeName], 'readwrite');
+                        const objectStore = transaction.objectStore(storeName);
+                        performUpdate(transaction, objectStore, storeName);
+                    } else {
+                        handleError('No object stores found in database!', {
+                            expected: 'Tersedia store "loadingList"',
+                            scanned: 'Tidak ada store sama sekali'
+                        });
+                        arraySeri.pop();
+                        return;
+                    }
+                } else {
+                    const transaction = database.transaction(['loadingList'], 'readwrite');
+                    const objectStore = transaction.objectStore('loadingList');
+                    performUpdate(transaction, objectStore, 'loadingList');
+                }
+
+                function performUpdate(transaction, objectStore, storeName) {
+                    const putRequest = objectStore.put(cursor, primaryKey);
+
+                    putRequest.onsuccess = function() {
+                        $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
+                        $('#int-display').text(internal);
+                        $('#cust-display').text('-');
+                        $('#indicator').removeClass('bg-danger bg-warning').addClass('bg-success');
+                        resetIndicator();
+                        pullingQuantity();
+                        okSound();
+                        localStorage.removeItem('customerPart');
+                    };
+
+                    putRequest.onerror = function(event) {
+                        const err = event?.target?.error?.message || 'Put request failed';
+                        handleError('Gagal menyimpan data ke database lokal!', {
+                            expected: `IDB put ke store "${storeName}" key=${primaryKey}`,
+                            scanned: err
+                        });
+                        arraySeri.pop();
+                    };
+
+                    transaction.onerror = function(event) {
+                        const err = event?.target?.error?.message || 'Transaction failed';
+                        handleError('Transaction failed!', {
+                            expected: `IDB transaksi write ke store "${storeName}"`,
+                            scanned: err
+                        });
+                        arraySeri.pop();
+                    };
+                }
+            };
+
+            // === Request ke backend terlebih dahulu
+            try {
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ route('pulling.mutation') }}",
+                    _token: "{{ csrf_token() }}",
+                    data: {
+                        loadingList: loadingList,
+                        internalPart: internal.trimEnd(),
+                        customerPart: localStorage.getItem('customerPart'),
+                        serialNumber: seri,
+                        qty_per_kbn: qty_per_kbn
+                    },
+                    contentType: 'application/json',
+                    success: function(data) {
+                        if (data.status == 'success') {
+                            // eDCL opsional
+                            if (localStorage.getItem('char_total') == 10000) {
                                 $.ajax({
                                     type: 'GET',
-                                    url: "{{ route('pulling.mutation') }}",
+                                    url: "{{ url('/edcl/store') }}/" +
+                                        skid + '/' + manifest + '/' + itemNo + '/' +
+                                        seqNo + '/' + barcodecomplete + '/' +
+                                        originalBarcode + '/' + loadingList + '/' +
+                                        localStorage.getItem('customer'),
                                     _token: "{{ csrf_token() }}",
-                                    data: {
-                                        internalPart: internal.trimEnd(),
-                                        serialNumber: seri,
-                                        qty_per_kbn: qty_per_kbn,
-                                    },
                                     dataType: 'json',
-                                    success: function(data) {
-                                        if (data.status == 'success') {
-                                            // bring eDCL data to backend
-                                            if (localStorage.getItem(
-                                                    'char_total') == 39) {
-                                                $.ajax({
-                                                    type: 'GET',
-                                                    url: "{{ url('/edcl/store') }}" +
-                                                        '/' +
-                                                        skid + '/' +
-                                                        manifest + '/' +
-                                                        itemNo +
-                                                        '/' +
-                                                        seqNo + '/' +
-                                                        barcodecomplete +
-                                                        '/' +
-                                                        originalBarcode +
-                                                        '/' +
-                                                        loadingList +
-                                                        '/' +
-                                                        localStorage
-                                                        .getItem(
-                                                            'customer'),
-                                                    _token: "{{ csrf_token() }}",
-                                                    dataType: 'json',
-                                                    success: function(
-                                                        response) {
-                                                        if (response
-                                                            .status ==
-                                                            'success') {
-                                                            tmminSuccessIndicator
-                                                                ();
-                                                            console.log(
-                                                                'success'
-                                                            );
-                                                        } else if (
-                                                            response
-                                                            .status ==
-                                                            'error') {
-                                                            arraySeri
-                                                                .pop();
-
-                                                            notif('error',
-                                                                response
-                                                                .message
-                                                            );
-                                                            tmminErrorIndicator
-                                                                ();
-                                                            return;
-                                                        }
-                                                    },
-                                                    error: function(xhr) {
-                                                        arraySeri.pop();
-                                                        console.log(xhr)
-                                                        if (xhr
-                                                            .status == 0
-                                                        ) {
-                                                            notif("error",
-                                                                'Connection Error'
-                                                            );
-                                                            return;
-                                                        }
-                                                        notif("error",
-                                                            xhr
-                                                            .responseJSON
-                                                            .errors);
-                                                    }
-                                                })
-                                            }
-                                            // udpate the qty display
-                                            $('#qty-display').text(
-                                                `${arraySeri.length}/${totalQty}`
-                                            );
-
-                                            // display internal
-                                            $('#int-display').text(internal);
-                                            $('#cust-display').text('-');
-
-                                            // success indicator
-                                            $('#indicator').removeClass(
-                                                'bg-danger');
-                                            $('#indicator').removeClass(
-                                                'bg-warning');
-                                            $('#indicator').addClass('bg-success');
-
-                                            resetIndicator();
-
-                                            // display total quantity
-                                            pullingQuantity();
-
-                                            // reset customer local storage
-                                            localStorage.removeItem('customerPart');
-                                        } else if (data.status == 'notExists') {
-
-                                            arraySeri.pop();
-
-                                            // error indicator
-                                            $('#indicator').removeClass(
-                                                'bg-success');
-                                            $('#indicator').removeClass(
-                                                'bg-warning');
-                                            $('#indicator').addClass('bg-danger');
-                                            notif('error', data.message);
-
-                                            notExist();
-
-                                            setInterval(() => {
-                                                $('#code').focus();
-                                            }, 1000);
+                                    success: function(response) {
+                                        if (response.status == 'success') {
+                                            updateIndexedDB();
+                                            tmminSuccessIndicator();
                                         } else {
-
-                                            arraySeri.pop();
-
-                                            // error indicator
-                                            $('#indicator').removeClass(
-                                                'bg-success');
-                                            $('#indicator').removeClass(
-                                                'bg-warning');
-                                            $('#indicator').addClass('bg-danger');
-                                            notif('error', data.message);
-
-                                            setInterval(() => {
-                                                $('#code').focus();
-                                            }, 1000);
+                                            handleError(response.message ||
+                                                'eDCL gagal', {
+                                                    expected: 'eDCL success',
+                                                    scanned: JSON.stringify(
+                                                        response),
+                                                    playSound: false
+                                                });
+                                            tmminErrorIndicator();
                                         }
                                     },
                                     error: function(xhr) {
-                                        arraySeri.pop();
-
-                                        // error indicator
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        notif('error', xhr.getResponseText)
-
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
+                                        const msg = xhrMessage(xhr);
+                                        handleError(msg, {
+                                            expected: 'HTTP 200 OK dari eDCL',
+                                            scanned: `HTTP ${xhr.status}`
+                                        });
                                     }
                                 });
-                            } else if (data.status == 'error') {
-                                arraySeri.pop();
-
-                                // error indicator
-                                $('#indicator').removeClass('bg-success');
-                                $('#indicator').removeClass('bg-warning');
-                                $('#indicator').addClass('bg-danger');
-                                notif('error', data.message);
-
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
-                            } else if (data.status == 'notExists') {
-                                arraySeri.pop();
-
-                                // error indicator
-                                $('#indicator').removeClass('bg-success');
-                                $('#indicator').removeClass('bg-warning');
-                                $('#indicator').addClass('bg-danger');
-                                notif('error', data.message);
-
-                                notExist();
-
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
+                            } else {
+                                // tanpa eDCL
+                                updateIndexedDB();
                             }
-                        },
-                        error: function(xhr) {
-                            arraySeri.pop();
-
-                            // error indicator
-                            $('#indicator').removeClass('bg-success');
-                            $('#indicator').removeClass('bg-warning');
-                            $('#indicator').addClass('bg-danger');
-                            notif('error', xhr.getResponseHeader());
-
-                            setInterval(() => {
-                                $('#code').focus();
-                            }, 1000);
+                        } else {
+                            handleError(data.message || 'Validasi backend gagal', {
+                                expected: 'Response success dari mutation',
+                                scanned: JSON.stringify(data),
+                                playSound: (data.status == 'notExists')
+                            });
+                            if (data.status == 'notExists') notExist();
                         }
-                    })
-                } catch (error) {
-                    // If an error occurs, remove the last 'seri' from the array
-                    arraySeri.pop();
-
-                    // error indicator
-                    $('#indicator').removeClass('bg-success');
-                    $('#indicator').removeClass('bg-warning');
-                    $('#indicator').addClass('bg-danger');
-
-                    // You can also show an error message or perform other actions here
-                    notif('error', 'An error occurred. Please try again.');
-
-                    // Set focus to the code input field
-                    setInterval(() => {
-                        $('#code').focus();
-                    }, 1000);
-                }
+                    },
+                    error: function(xhr) {
+                        const msg = xhrMessage(xhr);
+                        handleError(msg, {
+                            expected: 'HTTP 200 OK dari mutation',
+                            scanned: `HTTP ${xhr.status}`
+                        });
+                    }
+                });
+            } catch (error) {
+                handleError('An error occurred. Please try again.', {
+                    expected: 'AJAX berjalan sukses',
+                    scanned: error?.message || String(error)
+                });
             }
-
-            // error handling
-            objectStore.put(cursor, primaryKey).onerror = function(event) {
-
-                arraySeri.pop();
-
-                // error indicator
-                $('#indicator').removeClass('bg-success');
-                $('#indicator').removeClass('bg-warning');
-                $('#indicator').addClass('bg-danger');
-                notif('error', 'Kanban tidak sesuai!');
-
-                // notification sound
-                notMatchSound();
-
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
-            };
         }
 
         function checkKanban(seri, internal) {
@@ -1776,742 +2000,859 @@
             });
         }
 
-        $('#code').keypress(function(e) {
-            let pds = localStorage.getItem('pds_local');
-            e.preventDefault();
-            var code = (e.keyCode ? e.keyCode : e.which);
-            if (code == 13) // Enter key hit 
-            {
-                barcodecomplete = barcode;
-                barcode = "";
-                if (barcodecomplete.charAt(0) == 'C' && barcodecomplete.length < 22) {
-                    let loadingList = getLoadingListNumber();
-                    barcodecomplete = barcodecomplete.substr(0, 11) + ' A';
-                    $.ajax({
-                        type: 'GET',
-                        url: 'https://dea-dev.aiia.co.id/api/v1/loading-lists/' +
-                            barcodecomplete,
-                        _token: "{{ csrf_token() }}",
-                        headers: {
-                            "Authorization": "Bearer " + token
-                        },
-                        dataType: 'json',
-                        success: function(data) {
-                            if (data.status == 'success') {
-                                // objectStor name is based on pds_number
-                                let pds = data.data.pds_number;
-                                let ll = data.data.number;
-                                let cycle = data.data.cycle;
-                                let customerCode = data.data.customer_code;
-                                let deliveryDate = data.data.delivery_date;
-                                let shippingDate = data.data.shipping_date;
+        class BarcodeScanner {
+            constructor() {
+                this.barcode = "";
+                this.token = "{{ session()->get('token') }}" || '';
+                this.progressTilePrefix = 'll-progress-';
+                this.tileByKey = new Map();
+                // Don't cache PDS value in constructor - get it dynamically when needed
 
-                                deliveryDate ? deliveryDate : null;
-                                shippingDate ? deliveryDate : null;
+                // Barcode patterns and handlers
+                this.patterns = [{
+                        test: (code) => code.startsWith('C') && code.length < 22,
+                        handler: 'handleLoadingList'
+                    },
+                    {
+                        test: (code) => code === "DONE",
+                        handler: 'handleLogout'
+                    },
+                    {
+                        test: (code) => this.isKanbanBarcode(code),
+                        handler: 'handleKanbanBarcode'
+                    },
+                    {
+                        test: (code) => code.length === parseInt(localStorage.getItem('char_total') ||
+                            '0'),
+                        handler: 'handleCustomerKanban'
+                    },
+                    {
+                        test: () => localStorage.getItem('customer') === 'MMKI',
+                        handler: 'handleMMKIKanban'
+                    },
+                    {
+                        test: () => localStorage.getItem('customer') === 'TB INA',
+                        handler: 'handleTBINAKanban'
+                    },
+                    {
+                        test: () => localStorage.getItem('customer') === 'TTI INDONESIA',
+                        handler: 'handleTTIKanban'
+                    }
+                ];
+            }
 
-                                //insert loading list
-                                $.ajax({
-                                    type: 'GET',
-                                    url: "{{ url('/loading-list/store') }}" + '/' +
-                                        ll + '/' + pds + '/' + cycle + '/' +
-                                        customerCode + '/' + deliveryDate + '/' +
-                                        shippingDate,
-                                    _token: "{{ csrf_token() }}",
-                                    dataType: 'json',
-                                    success: function(response) {
-                                        console.log(response.status);
-                                    },
-                                    error: function(xhr) {
-                                        console.log(xhr)
-                                        if (xhr.status == 0) {
-                                            notif("error", 'Connection Error');
-                                            return;
-                                        }
-                                        notif("error", xhr.responseJSON.errors);
-                                    }
-                                })
+            sanitizeKey(str) {
+                return String(str).replace(/[^A-Za-z0-9_-]/g, '');
+            }
+            getTileIdByKey(key) {
+                return `${this.progressTilePrefix}${this.sanitizeKey(key)}`;
+            }
 
-                                // create database indexed db
-                                request = window.indexedDB.open(pds);
+            // ===== progress tile helpers =====
+            createProgressTile(message = 'Mengambil data loading list...') {
+                const id = `${this.progressTilePrefix}${Date.now()}`;
+                $('#list').append(`
+                    <li class="col-12 mt-2" style="padding-left:1rem;padding-right:0;list-style-type:none;" id="${id}">
+                    <div id="${id}-card" class="glass-tile glass-tile--loading glass-in">
+                        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                        <span class="fw-semibold" id="${id}-text" aria-live="polite">${message}</span>
+                    </div>
+                    </li>
+                `);
+                return id;
+            }
 
-                                // check if loading list already exists
-                                if (loadingList.includes(data.data.number)) {
-                                    notif('error', 'Loading list sudah discan!');
-                                    alreadyScanLlSound();
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                    return;
-                                }
+            ensureProgressTile(key, message = 'Mengambil data loading list...') {
+                const id = this.getTileIdByKey(key);
+                const $li = $(`#${id}`);
+                if ($li.length) {
+                    // reset ke state loading
+                    const $card = $li.find(`#${id}-card`);
+                    $card.attr('class', 'glass-tile glass-tile--loading glass-in')
+                        .html(`
+                            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                            <span class="fw-semibold" id="${id}-text" aria-live="polite">${message}</span>
+                            `);
+                    return id;
+                }
+                $('#list').append(`
+                        <li class="col-12 mt-2" style="padding-left:1rem;padding-right:0;list-style-type:none;" id="${id}">
+                        <div id="${id}-card" class="glass-tile glass-tile--loading glass-in">
+                            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                            <span class="fw-semibold" id="${id}-text" aria-live="polite">${message}</span>
+                        </div>
+                        </li>
+                    `);
+                this.tileByKey.set(key, id);
+                return id;
+            }
 
-                                // check if loading list have same manifest code (pds number)
-                                if (localStorage.getItem('pdsNumber')) {
-                                    if (data.data.pds_number != localStorage.getItem(
-                                            'pdsNumber')) {
-                                        notif('error', 'Loading list tidak sesuai!');
+            setProgressTile(id, msg) {
+                $(`#${id}-text`).text(msg);
+            }
 
-                                        // unknown ll sound
-                                        notMatchLlSound();
+            setProgressTileError(id, msg = 'Gagal memproses', {
+                autoRemove = true,
+                delay = 1500
+            } = {}) {
+                const $c = $(`#${id}-card`);
+                $c.removeClass('glass-tile--loading').addClass('glass-tile--error');
+                $c.find('.spinner-border').remove();
+                $(`#${id}-text`).text(msg);
+                if (autoRemove) setTimeout(() => this.removeTileById(id), delay);
+            }
 
-                                        return false;
-                                    }
-                                }
+            removeTileById(id) {
+                const $li = $(`#${id}`);
+                if ($li.length) $li.remove();
+                // bersihkan mapping key->id
+                for (const [k, v] of this.tileByKey.entries())
+                    if (v === id) this.tileByKey.delete(k);
+            }
 
-                                let pdsLocal = localStorage.setItem('pds_local', pds);
-                                localStorage.setItem('ll_' + data.data.number, data.data
-                                    .number);
-                                localStorage.setItem('pdsNumber', data.data.pds_number);
+            // final: ganti tile progress jadi markup LAMA-mu (biru)
+            replaceTileWithFinalOriginal(key, number) {
+                const id = this.getTileIdByKey(key);
+                const html = `
+                    <li class="col-12 mt-2" style="padding-left: 1rem; padding-right: 0px; list-style-type: none;" id="loadingListContainer">
+                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;" id="loadingList">
+                        <h6 class="text-center " style="padding-top: .5rem; color: white;" id="loadingList-display">${number}</h6>
+                    </div>
+                    </li>`;
+                $(`#${id}`).replaceWith(html);
+                this.tileByKey.delete(key);
+            }
 
-                                // remove example display
-                                $('#loadingListContainerSample').remove();
 
-                                // loading list display
-                                $('#list').append(
-                                    `<li class="col-12 mt-2"
-                                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
-                                    id="loadingListContainer">
-                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
-                                        id="loadingList">
-                                        <h6 class="text-center " style="padding-top: .5rem; color: white;"
-                                            id="loadingList-display">${data.data.number}</h6>
-                                    </div>
-                                </li>`
-                                );
+            // Helper method to get current PDS dynamically
+            getCurrentPDS() {
+                return localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber') || '';
+            }
 
-                                // create database schema
-                                request.onupgradeneeded = function(event) {
-                                    const database = event.target.result;
-                                    const objectStore = database.createObjectStore(
-                                        'loadingList');
-                                    var index = objectStore.createIndex(
-                                        'loadingListDetail',
-                                        'seri');
-                                }
+            init() {
+                $('#code').on('keypress', (e) => this.handleKeyPress(e));
+            }
 
-                                // transaction
-                                request.onsuccess = function(event) {
-                                    const database = event.target.result;
-                                    const transaction = database.transaction([
-                                            'loadingList'
-                                        ],
-                                        'readwrite');
-                                    const objectStore = transaction.objectStore(
-                                        'loadingList');
-                                    var index = objectStore.index('loadingListDetail');
+            handleKeyPress(e) {
+                e.preventDefault();
+                const keyCode = e.keyCode || e.which;
 
-                                    data.data.items.map((item, index) => {
-                                        const key = item.part_number_cust;
+                if (keyCode === 13) { // Enter key
+                    this.processBarcode(this.barcode);
+                    this.barcode = "";
+                } else {
+                    this.barcode += String.fromCharCode(e.which);
+                }
+            }
 
-                                        const getRequest = objectStore.get(key);
+            processBarcode(code) {
+                // console.log(`Processing barcode: ${code} (length: ${code.length})`);
 
-                                        getRequest.onsuccess = function(event) {
-                                            const existingData = event
-                                                .target
-                                                .result;
-
-                                            if (!existingData) {
-                                                objectStore.put({
-                                                    key: key,
-                                                    loading_list_number: ll,
-                                                    internal: item
-                                                        .part_number_int,
-                                                    customer: item
-                                                        .part_number_cust,
-                                                    qty_per_kbn: item
-                                                        .total_qty /
-                                                        item
-                                                        .total_kanban_qty,
-                                                    actual_qty: item
-                                                        .actual_kanban_qty,
-                                                    total_qty: item
-                                                        .total_kanban_qty,
-                                                    seri: []
-                                                }, key);
-                                            }
-                                        };
-
-                                        // qty per kanban is total qty product devided kanban qty
-                                        let qty_per_kbn = item.total_qty / item
-                                            .total_kanban_qty;
-
-                                        //insert each loading list details
-                                        setTimeout(() => {
-                                            $.ajax({
-                                                type: 'GET',
-                                                url: "{{ url('/loading-list/storeDetail') }}" +
-                                                    '/' + ll +
-                                                    '/' + item
-                                                    .part_number_cust +
-                                                    '/' +
-                                                    item
-                                                    .part_number_int +
-                                                    '/' +
-                                                    item
-                                                    .total_kanban_qty +
-                                                    '/' +
-                                                    qty_per_kbn +
-                                                    '/' + item
-                                                    .total_qty +
-                                                    '/' + item
-                                                    .actual_kanban_qty,
-                                                _token: "{{ csrf_token() }}",
-                                                dataType: 'json',
-                                                success: function(
-                                                    data) {
-                                                    console
-                                                        .log(
-                                                            data
-                                                            .status
-                                                        )
-                                                },
-                                                error: function(
-                                                    xhr) {
-                                                    console
-                                                        .log(
-                                                            xhr
-                                                        );
-                                                }
-                                            })
-                                        }, 200);
-
-                                        getRequest.onerror = function(event) {
-                                            notif(event.data.error);
-                                        };
-                                    });
-
-                                    // check customer if exist 
-                                    customerCheck(data.data.customer_code)
-                                        .then(function() {
-                                            // cycle display
-                                            $('#cycle-display').text(data.data
-                                                .cycle);
-                                            localStorage.setItem('cycle', data
-                                                .data.cycle);
-
-                                            // calculate total quantity of the orders
-                                            pullingQuantity();
-
-                                            // scan kanban
-                                            $('#code').focus();
-
-                                        })
-                                        .catch(function(err) {
-                                            notif('error', data.message);
-                                        })
-
-                                    // loadingList qty
-                                    checkLoadingList();
-
-                                    // customer check char
-                                    customerCharStore(data.data.customer_code);
-
-                                    // Close the db when the transaction is done
-                                    transaction.oncomplete = function() {
-                                        database.close();
-                                    };
-                                    $('#code').focus();
-                                }
-                                // create handler
-                                request.onerror = function(event) {
-                                    console.log("error: " + event.message);
-                                }
-                            } else {
-                                notif('error', data.message);
-                                setInterval(() => {
-                                    $('#code').focus();
-                                }, 1000);
-                            }
-                        },
-                        error: function(xhr) {
-                            console.log(xhr)
-                            if (xhr.status == 0) {
-                                notif("error", 'Connection Error');
-                                loadingListModal();
-                                return;
-                            }
-                            notif("error", xhr.responseJSON.errors);
-                        }
+                const pattern = this.patterns.find(p => p.test(code));
+                if (pattern) {
+                    this[pattern.handler](code);
+                } else {
+                    this.showError("Kanban tidak dikenali!", () => {
+                        if (typeof unknownSound === 'function') unknownSound();
                     });
-                } else if (barcodecomplete.length == localStorage.getItem('char_total')) {
-                    let skid = localStorage.getItem('skid');
-                    let originalBarcode = barcodecomplete;
-                    let manifest;
-                    let itemNo;
-                    let seqNo;
-                    if (localStorage.getItem('char_length') != 0) {
-                        // substring
-                        barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
-                            localStorage.getItem('char_length'))
-                        barcodecomplete = barcodecomplete.trim();
-                        barcodecomplete = barcodecomplete.replace(/-/g, '');
-                        barcodecomplete = barcodecomplete.toUpperCase();
+                }
+            }
 
-                        // for suzuki case
-                        if (localStorage.getItem('char_length') == 17) {
-                            if (barcodecomplete.substr(10, 3) == '000') {
-                                // delete 3 lastest characters
-                                barcodecomplete = barcodecomplete.slice(0, -3);
-                                barcodecomplete = barcodecomplete.toUpperCase();
-                            }
-                        }
+            isKanbanBarcode(code) {
+                const kanbanLengths = [218, 220, 230, 241, 242];
+                return kanbanLengths.includes(code.length);
+            }
 
-                    } else {
-                        barcodecomplete = barcodecomplete.toUpperCase();
-                    }
+            async handleLoadingList(code) {
+                const formattedCode = code.substr(0, 11) + ' A';
+                const tileId = this.ensureProgressTile(formattedCode, 'Mengambil data loading list...');
 
-                    // initiate database
-                    request = window.indexedDB.open(pds);
-
-                    // transaction
-                    request.onsuccess = function(event) {
-                        const database = event.target.result;
-                        const transaction = database.transaction(["loadingList"], 'readonly');
-                        const objectStore = transaction.objectStore("loadingList");
-                        let isAvailable = false;
-
-                        objectStore.openCursor().onsuccess = function(event) {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                // check if kanban customer exist in loading list record
-                                if (barcodecomplete == record.customer) {
-                                    // check quantity in spesific part number
-                                    if (record.seri.length >= record.total_qty) {
-                                        notif('error', 'Part number sudah complete!');
-                                        fullfilledSound();
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
-                                        return;
-                                    }
-                                    // set flag
-                                    isAvailable = true;
-
-                                    // display customer
-                                    $('#cust-display').text(record.customer);
-                                    $('#int-display').text('-');
-
-                                    // set indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-danger');
-                                    $('#indicator').addClass('bg-warning');
-
-                                    // reset tmmin indcator
-                                    resetIndicator();
-
-                                    // display current qty
-                                    $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-
-                                    // set local storage for customer kanban
-                                    localStorage.setItem('customerPart', record.customer);
-                                    localStorage.setItem('originalCustomerPart',
-                                        originalBarcode);
-                                }
-                                cursor.continue();
-                            } else {
-                                // check if the kanban customer is available
-                                if (!isAvailable) {
-                                    notif('error', 'Kanban tidak dikenali / sesuai!');
-
-                                    // notification sound
-                                    unknownSound();
-
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                }
-                            }
-                        }
-                        // when complete
-                        request.oncomplete = function(event) {
-                            database.close();
-                        }
-                    }
-                    // Event handler for a failed database connection
-                    request.onerror = function(event) {
-                        console.log('Failed to open database');
-                    };
-
-                } else if (barcodecomplete.length == 218 || barcodecomplete.length == 230 ||
-                    barcodecomplete.length == 220 || barcodecomplete.length == 241) {
-                    barcodecomplete = barcodecomplete.toUpperCase();
-                    let internal;
-                    let seri;
-                    // check if already scan customer kanban
-                    if (!localStorage.getItem('customerPart')) {
-                        notif('error', 'Scan kanban customer dulu!');
-                        scanCustomerFirstSound();
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
+                try {
+                    const loadingList = this.getLoadingListNumber();
+                    if (loadingList.includes(formattedCode)) {
+                        this.setProgressTileError(tileId, 'Sudah discan', {
+                            autoRemove: true,
+                            delay: 1200
+                        });
+                        this.showError('Loading list sudah discan!', () => {
+                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                        });
                         return;
                     }
 
-                    if (barcodecomplete.length == 230) {
-                        // normal kanban proccess
-                        internal = barcodecomplete.substr(41, 19);
-                        seri = barcodecomplete.substr(123, 4);
-
-                        // check existence of kanban and check if it already scanned by prod
-                        // checkKanban(seri, internal);
-
-                    } else if (barcodecomplete.length == 220) {
-                        // kanban buffer
-                        internal = barcodecomplete.substr(35, 16);
-                        seri = barcodecomplete.substr(130, 4);
-
-                        // check existence of kanban and check if it already scanned by prod
-                        // checkKanban(seri, internal);
-
-                    } else if (barcodecomplete.length == 241) {
-                        // kanban passtrough
-                        internal = barcodecomplete.substr(35, 12);
-                        seri = barcodecomplete.substr(127, 4);
-
-                        // check existence of kanban and check if it already scanned by prod
-                        // checkKanban(seri, internal);
-                    } else if (barcodecomplete.length == 218) {
-                        // kanban suzuki
-                        internal = barcodecomplete.substr(41, 16);
-                        seri = barcodecomplete.substr(123, 4);
-
-                        // check existence of kanban and check if it already scanned by prod
-                        // checkKanban(seri, internal);
+                    const response = await this.fetchLoadingList(formattedCode);
+                    if (response.status !== 'success') {
+                        this.setProgressTileError(tileId, response.message || 'Gagal ambil data', {
+                            autoRemove: true
+                        });
+                        this.showError(response.message || 'Gagal mengambil data');
+                        return;
                     }
 
-                    console.log(internal);
-                    // initialize databae connection
-                    request = window.indexedDB.open(pds);
+                    await this.processLoadingListData(
+                        response.data,
+                        (msg) => this.setProgressTile(tileId, msg),
+                        /* tileId not needed here now */
+                    );
 
-                    request.onsuccess = function(event) {
-                        const database = event.target.result;
-                        const transaction = database.transaction(["loadingList"], 'readwrite');
-                        const objectStore = transaction.objectStore("loadingList");
-                        let isAvailable = false;
+                    // sukses → replace dengan markup lama (biru)
+                    this.replaceTileWithFinalOriginal(formattedCode, response.data.number);
 
-                        objectStore.openCursor().onsuccess = function(event) {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                // get spesific primary key
-                                let primaryKey = cursor.primaryKey
-                                if (primaryKey == localStorage.getItem('customerPart')) {
-                                    // set flag
-                                    isAvailable = true;
-
-                                    // check pair only in spesific key
-                                    objectStore.get(primaryKey).onsuccess = function(event) {
-                                        const cursor = event.target.result;
-                                        if (cursor) {
-                                            checkInternalAndCustomer(objectStore, cursor,
-                                                internal, primaryKey, seri);
-                                            return;
-                                        } else {
-                                            console.log('Iteration complete');
-                                        }
-                                    }
-
-                                    // error handling
-                                    objectStore.get(primaryKey).onerror = function(event) {
-                                        // error indicator
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        notif('error', 'Kanban tidak sesuai');
-
-                                        // notification sound
-                                        notMatchSound();
-
-                                    }
-                                }
-                                cursor.continue();
-                            } else {
-                                if (!isAvailable) {
-                                    // error indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-warning');
-                                    $('#indicator').addClass('bg-danger');
-                                    notif('error', 'Kanban tidak ditemukan!');
-                                    unknownSound();
-                                }
-                            }
-                        }
-
-                        // error handling
-                        objectStore.openCursor().onerror = function(event) {
-                            notif('error', event.target.error);
-                        }
-                    }
-                    // error handling
-                    request.onerror = function(event) {
-                        notif('error', event.target.error);
-                    }
-                } else if (localStorage.getItem('customer') == 'MMKI') {
-                    // initiate database
-                    request = window.indexedDB.open(pds);
-
-                    // transaction
-                    request.onsuccess = function(event) {
-                        const database = event.target.result;
-                        const transaction = database.transaction(["loadingList"], 'readonly');
-                        const objectStore = transaction.objectStore("loadingList");
-                        let isAvailable = false;
-
-                        objectStore.openCursor().onsuccess = function(event) {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                // check if kanban customer exist in loading list record
-                                if (barcodecomplete.trimEnd() === record.customer) {
-                                    // check quantity in spesific part number
-                                    if (record.seri.length >= record.total_qty) {
-                                        notif('error', 'Part number sudah complete!');
-                                        fullfilledSound();
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
-                                        return;
-                                    }
-                                    // set flag
-                                    isAvailable = true;
-                                    // display customer
-                                    $('#cust-display').text(record.customer);
-                                    $('#int-display').text('-');
-
-                                    // set indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-danger');
-                                    $('#indicator').addClass('bg-warning');
-
-                                    // display current qty
-                                    $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-                                    // set local storage for customer kanban
-                                    localStorage.setItem('customerPart', record.customer);
-                                }
-                                cursor.continue();
-                            } else {
-                                // check if the kanban customer is available
-                                if (!isAvailable) {
-                                    notif('error', 'Kanban tidak sesuai!');
-
-                                    // notification sound
-                                    notMatchSound();
-
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                }
-                            }
-                        }
-                        // when complete
-                        request.oncomplete = function(event) {
-                            database.close();
-                        }
-                    }
-                    // Event handler for a failed database connection
-                    request.onerror = function(event) {
-                        console.log('Failed to open database');
-                    };
-                } else if (localStorage.getItem('customer') == 'TB INA') {
-                    // for TBINA
-                    if (barcodecomplete.length == 36) {
-                        barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
-                            localStorage.getItem('char_length'))
-                        barcodecomplete = barcodecomplete.trim();
-                        barcodecomplete = barcodecomplete.replace(/-/g, '');
-                        barcodecomplete = barcodecomplete.toUpperCase();
-                    } else if (barcodecomplete.length == 14) {
-                        barcodecomplete = barcodecomplete.substr(0, 11)
-                        barcodecomplete = barcodecomplete.trim();
-                        barcodecomplete = barcodecomplete.replace(/-/g, '');
-                        barcodecomplete = barcodecomplete.toUpperCase();
-                    }
-                    // initiate database
-                    request = window.indexedDB.open(pds);
-
-                    // transaction
-                    request.onsuccess = function(event) {
-                        const database = event.target.result;
-                        const transaction = database.transaction(["loadingList"], 'readonly');
-                        const objectStore = transaction.objectStore("loadingList");
-                        let isAvailable = false;
-
-                        objectStore.openCursor().onsuccess = function(event) {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                // check if kanban customer exist in loading list record
-                                if (barcodecomplete.trimEnd() === record.customer) {
-                                    // check quantity in spesific part number
-                                    if (record.seri.length >= record.total_qty) {
-                                        notif('error', 'Part number sudah complete!');
-                                        fullfilledSound();
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
-                                        return;
-                                    }
-                                    // set flag
-                                    isAvailable = true;
-                                    // display customer
-                                    $('#cust-display').text(record.customer);
-                                    $('#int-display').text('-');
-
-                                    // set indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-danger');
-                                    $('#indicator').addClass('bg-warning');
-
-                                    // display current qty
-                                    $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-                                    // set local storage for customer kanban
-                                    localStorage.setItem('customerPart', record.customer);
-                                }
-                                cursor.continue();
-                            } else {
-                                // check if the kanban customer is available
-                                if (!isAvailable) {
-                                    notif('error', 'Kanban tidak sesuai!');
-
-                                    // notification sound
-                                    notMatchSound();
-
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                }
-                            }
-                        }
-                        // when complete
-                        request.oncomplete = function(event) {
-                            database.close();
-                        }
-                    }
-                    // Event handler for a failed database connection
-                    request.onerror = function(event) {
-                        console.log('Failed to open database');
-                    };
-                } else if (localStorage.getItem('customer') == 'TTI INDONESIA') {
-                    // for TTI
-                    // barcodecomplete = barcodecomplete.substr(localStorage.getItem('char_first'),
-                    //         localStorage.getItem('char_length'))
-                    barcodecomplete = barcodecomplete.substr(7, 10)
-
-                    // initiate database
-                    request = window.indexedDB.open(pds);
-
-                    // transaction
-                    request.onsuccess = function(event) {
-                        const database = event.target.result;
-                        const transaction = database.transaction(["loadingList"], 'readonly');
-                        const objectStore = transaction.objectStore("loadingList");
-                        let isAvailable = false;
-
-                        objectStore.openCursor().onsuccess = function(event) {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                // check if kanban customer exist in loading list record
-                                if (barcodecomplete.trimEnd() === record.customer) {
-                                    // check quantity in spesific part number
-                                    if (record.seri.length >= record.total_qty) {
-                                        notif('error', 'Part number sudah complete!');
-                                        fullfilledSound();
-                                        $('#indicator').removeClass('bg-success');
-                                        $('#indicator').removeClass('bg-warning');
-                                        $('#indicator').addClass('bg-danger');
-                                        setInterval(() => {
-                                            $('#code').focus();
-                                        }, 1000);
-                                        return;
-                                    }
-                                    // set flag
-                                    isAvailable = true;
-                                    // display customer
-                                    $('#cust-display').text(record.customer);
-                                    $('#int-display').text('-');
-
-                                    // set indicator
-                                    $('#indicator').removeClass('bg-success');
-                                    $('#indicator').removeClass('bg-danger');
-                                    $('#indicator').addClass('bg-warning');
-
-                                    // display current qty
-                                    $('#qty-display').text(`
-                                        ${record.seri.length}/${record.total_qty}
-                                    `);
-                                    // set local storage for customer kanban
-                                    localStorage.setItem('customerPart', record.customer);
-                                }
-                                cursor.continue();
-                            } else {
-                                // check if the kanban customer is available
-                                if (!isAvailable) {
-                                    notif('error', 'Kanban tidak sesuai!');
-
-                                    // notification sound
-                                    notMatchSound();
-
-                                    setInterval(() => {
-                                        $('#code').focus();
-                                    }, 1000);
-                                }
-                            }
-                        }
-                        // when complete
-                        request.oncomplete = function(event) {
-                            database.close();
-                        }
-                    }
-                    // Event handler for a failed database connection
-                    request.onerror = function(event) {
-                        console.log('Failed to open database');
-                    };
-                } else if (barcodecomplete == "DONE") {
-                    var form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = "{{ url('/logout') }}";
-
-                    // Add a CSRF token field to the form
-                    var csrfToken = document.createElement('input');
-                    csrfToken.type = 'hidden';
-                    csrfToken.name = '_token';
-                    csrfToken.value = '{{ csrf_token() }}';
-                    form.appendChild(csrfToken);
-
-                    // Append the form to the body and submit it
-                    document.body.appendChild(form);
-                    form.submit();
-
-                } else {
-                    notif("error", "Kanban tidak dikenali !");
-
-                    // notification sound
-                    unknownSound();
-
-                    let interval = setInterval(function() {
-                        $('#notifModal').modal('hide');
-                        clearInterval(interval);
-                        $('#code').focus();
-                    }, 1500);
+                } catch (e) {
+                    this.setProgressTileError(tileId, 'Koneksi bermasalah', {
+                        autoRemove: true
+                    });
+                    this.showError('Connection Error');
                 }
-            } else {
-                barcode = barcode + String.fromCharCode(e.which);
             }
+
+            async fetchLoadingList(code) {
+                return await $.ajax({
+                    type: 'GET',
+                    url: `https://dea-dev.aiia.co.id/api/v1/loading-lists/${code}`,
+                    headers: {
+                        "Authorization": `Bearer ${this.token}`
+                    },
+                    dataType: 'json'
+                });
+            }
+
+            async processLoadingListData(data, progressCb = null, tileId = null) {
+                const {
+                    pds_number,
+                    number: ll,
+                    cycle,
+                    customer_code,
+                    delivery_date,
+                    shipping_date
+                } = data;
+
+                const existingPDS = localStorage.getItem('pdsNumber');
+                if (existingPDS && data.pds_number !== existingPDS) {
+                    progressCb?.('LL tidak sesuai');
+                    this.showError('Loading list tidak sesuai!', () => {
+                        if (typeof notMatchLlSound === 'function') notMatchLlSound();
+                    });
+                    return;
+                }
+
+                try {
+                    progressCb?.('Menyimpan header...');
+                    await this.storeLoadingList(ll, pds_number, cycle, customer_code, delivery_date,
+                        shipping_date);
+
+                    progressCb?.('Menyimpan data lokal...');
+                    this.storeLoadingListData(data);
+
+                    progressCb?.('Memperbarui tampilan...');
+
+                    if (!tileId) this.updateLoadingListUI(data);
+                    $('#cycle-display').text(data.cycle);
+
+                    progressCb?.('Menyiapkan IndexedDB...');
+                    await this.initializeDatabase(data);
+
+                    progressCb?.('Menyimpan detail item...');
+                    await this.storeLoadingListDetails(ll, data.items);
+
+                    progressCb?.('Finalisasi...');
+                    await this.customerCheck(customer_code);
+                    this.pullingQuantity();
+                    this.checkLoadingList();
+                    this.customerCharStore(customer_code, pds_number);
+
+                    this.focusInput();
+
+                } catch (error) {
+                    progressCb?.('Gagal memproses');
+                    this.showError('Gagal memproses loading list');
+                }
+            }
+
+            async storeLoadingList(ll, pds, cycle, customerCode, deliveryDate, shippingDate) {
+                try {
+                    const response = await $.ajax({
+                        type: 'GET',
+                        url: `/loading-list/store/${ll}/${pds}/${cycle}/${customerCode}/${deliveryDate || ''}/${shippingDate || ''}`,
+                        dataType: 'json'
+                    });
+
+                    // console.log('Loading list stored:', response.status);
+                    return response;
+
+                } catch (xhr) {
+                    console.error('Error storing loading list:', xhr);
+
+                    if (xhr.status === 0) {
+                        this.showError('Connection Error');
+                        throw new Error('Network error storing loading list');
+                    } else {
+                        const errorMsg = xhr.responseJSON?.errors || 'Gagal menyimpan loading list';
+                        this.showError(errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                }
+            }
+
+            async storeLoadingListDetails(ll, items) {
+                const promises = items.map((item, index) => {
+                    const qtyPerKbn = item.total_qty / item.total_kanban_qty;
+
+                    return new Promise((resolve, reject) => {
+                        setTimeout(() => {
+                            $.ajax({
+                                type: 'GET',
+                                url: `/loading-list/storeDetail/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qtyPerKbn}/${item.total_qty}/${item.actual_kanban_qty}`,
+                                dataType: 'json',
+                                success: (response) => {
+                                    // console.log(
+                                    //     `Stored detail for ${item.part_number_cust}: ${response.status}`
+                                    // );
+                                    resolve(response);
+                                },
+                                error: (xhr, status, error) => {
+                                    // console.error(
+                                    //     `Failed to store detail for ${item.part_number_cust}:`,
+                                    //     xhr);
+
+                                    if (xhr.status === 0) {
+                                        reject(new Error(
+                                            `Network error storing ${item.part_number_cust}`
+                                        ));
+                                    } else {
+                                        console.warn(
+                                            `Server error ${xhr.status} for ${item.part_number_cust}, continuing...`
+                                        );
+                                        resolve({
+                                            status: 'error',
+                                            item: item
+                                                .part_number_cust,
+                                            error: xhr
+                                                .responseJSON
+                                                ?.errors ||
+                                                error
+                                        });
+                                    }
+                                }
+                            });
+                        }, index * 200); // Using 200ms delay like original
+                    });
+                });
+
+                try {
+                    const results = await Promise.all(promises);
+                    const failures = results.filter(result => result && result.status === 'error');
+
+                    if (failures.length > 0) {
+                        console.warn(`${failures.length} items failed to store:`, failures);
+                    }
+
+                    return results;
+                } catch (error) {
+                    // console.error('Critical error storing loading list details:', error);
+                    this.showError('Gagal menyimpan detail loading list. Koneksi bermasalah.');
+                    throw error;
+                }
+            }
+
+            storeLoadingListData(data) {
+                localStorage.setItem('pds_local', data.pds_number);
+                localStorage.setItem(`ll_${data.number}`, data.number);
+                localStorage.setItem('pdsNumber', data.pds_number);
+                localStorage.setItem('cycle', data.cycle);
+            }
+
+            updateLoadingListUI(data, tileId = null) {
+                if (tileId) this.replaceTileWithFinal(tileId, data.number);
+                // update elemen lain:
+                $('#cycle-display').text(data.cycle);
+            }
+
+            async initializeDatabase(data) {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(data.pds_number);
+
+                    request.onupgradeneeded = (event) => {
+                        const database = event.target.result;
+                        if (!database.objectStoreNames.contains('loadingList')) {
+                            const objectStore = database.createObjectStore('loadingList');
+                            objectStore.createIndex('loadingListDetail', 'seri');
+                        }
+                    };
+
+                    request.onsuccess = async (event) => {
+                        const database = event.target.result;
+                        await this.populateDatabase(database, data);
+                        database.close();
+                        resolve();
+                    };
+
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async populateDatabase(database, data) {
+                const transaction = database.transaction(['loadingList'], 'readwrite');
+                const objectStore = transaction.objectStore('loadingList');
+
+                const promises = data.items.map(item => {
+                    return new Promise((resolve) => {
+                        const key = item.part_number_cust;
+                        const getRequest = objectStore.get(key);
+
+                        getRequest.onsuccess = (event) => {
+                            if (!event.target.result) {
+                                objectStore.put({
+                                    key,
+                                    loading_list_number: data.number,
+                                    internal: item.part_number_int,
+                                    customer: item.part_number_cust,
+                                    qty_per_kbn: item.total_qty / item
+                                        .total_kanban_qty,
+                                    actual_qty: item.actual_kanban_qty,
+                                    total_qty: item.total_kanban_qty,
+                                    seri: []
+                                }, key);
+                            }
+                            resolve();
+                        };
+                    });
+                });
+
+                await Promise.all(promises);
+            }
+
+            handleCustomerKanban(code) {
+                const processedCode = this.processCustomerCode(code);
+                this.findKanbanInDatabase(processedCode, code);
+            }
+
+            processCustomerCode(code) {
+                let processed = code;
+                const charLength = parseInt(localStorage.getItem('char_length') || '0');
+                const charFirst = parseInt(localStorage.getItem('char_first') || '0');
+
+                if (charLength > 0) {
+                    processed = code.substr(charFirst, charLength);
+                }
+
+                processed = processed.trim().replace(/-/g, '').toUpperCase();
+
+                // Handle Suzuki special cases
+                if (charLength === 17 && processed.substr(10, 3) === '000') {
+                    processed = processed.slice(0, -3);
+                } else if (charLength === 15 && processed.slice(-3) === '000') {
+                    processed = processed.slice(0, -3);
+                }
+
+                return processed;
+            }
+
+            async findKanbanInDatabase(processedCode, originalCode) {
+                // Get current PDS dynamically
+                const databaseName = this.getCurrentPDS();
+
+                // console.log('PDS value for database:', databaseName);
+                // console.log('Available PDS values:', {
+                //     'getCurrentPDS()': databaseName,
+                //     'pds_local': localStorage.getItem('pds_local'),
+                //     'pdsNumber': localStorage.getItem('pdsNumber')
+                // });
+
+                if (!databaseName) {
+                    this.showError('Database name tidak ditemukan. Scan loading list dulu!');
+                    return;
+                }
+
+                const request = indexedDB.open(databaseName);
+
+                request.onsuccess = (event) => {
+                    const database = event.target.result;
+
+                    // Debug: Check database info
+                    // console.log('Database opened:', database.name);
+                    // console.log('Available object stores:', Array.from(database.objectStoreNames));
+
+                    // Check if objectStore exists before creating transaction
+                    if (!database.objectStoreNames.contains('loadingList')) {
+                        console.error('Object store "loadingList" not found in database');
+                        // console.log('Database version:', database.version);
+                        this.showError('Database belum di-initialize. Scan loading list dulu!');
+                        database.close();
+                        return;
+                    }
+
+                    try {
+                        const transaction = database.transaction(['loadingList'], 'readonly');
+                        const objectStore = transaction.objectStore('loadingList');
+                        let found = false;
+
+                        objectStore.openCursor().onsuccess = (event) => {
+                            const cursor = event.target.result;
+                            if (cursor) {
+                                const record = cursor.value;
+                                // console.log('Checking record:', record.customer, 'against',
+                                //     processedCode);
+                                if (processedCode === record.customer) {
+                                    found = true;
+                                    if (record.seri.length >= record.total_qty) {
+                                        this.showError('Part number sudah complete!', () => {
+                                            if (typeof fullfilledSound === 'function')
+                                                fullfilledSound();
+                                        });
+                                        this.setIndicator('danger');
+                                    } else {
+                                        this.updateKanbanDisplay(record, processedCode,
+                                            originalCode);
+                                    }
+                                }
+                                cursor.continue();
+                            } else if (!found) {
+                                this.showError('Kanban tidak dikenali / sesuai!', () => {
+                                    if (typeof unknownSound === 'function') unknownSound();
+                                });
+                            }
+                        };
+
+                        objectStore.openCursor().onerror = (event) => {
+                            console.error('Cursor error:', event.target.error);
+                            this.showError('Error membaca database');
+                        };
+
+                        transaction.onerror = (event) => {
+                            console.error('Transaction error:', event.target.error);
+                            this.showError('Error dalam transaksi database');
+                        };
+
+                        transaction.oncomplete = () => {
+                            database.close();
+                        };
+
+                    } catch (error) {
+                        console.error('Error creating transaction:', error);
+                        this.showError('Error akses database');
+                        database.close();
+                    }
+                };
+
+                request.onerror = (event) => {
+                    console.error('Database open error:', event.target.error);
+                    this.showError('Error membuka database');
+                };
+            }
+
+            handleKanbanBarcode(code) {
+                if (!localStorage.getItem('customerPart')) {
+                    this.showError('Scan kanban customer dulu!', () => {
+                        if (typeof scanCustomerFirstSound === 'function') scanCustomerFirstSound();
+                    });
+                    return;
+                }
+
+                const kanbanData = this.extractKanbanData(code.toUpperCase());
+                if (kanbanData) {
+                    this.processInternalKanban(kanbanData);
+                }
+            }
+
+            extractKanbanData(code) {
+                const patterns = {
+                    230: {
+                        internal: [41, 19],
+                        seri: [123, 4]
+                    },
+                    220: {
+                        internal: [35, 16],
+                        seri: [130, 4]
+                    },
+                    241: {
+                        internal: [35, 12],
+                        seri: [127, 4]
+                    },
+                    218: {
+                        internal: [41, 16],
+                        seri: [123, 4]
+                    },
+                    242: {
+                        internal: [35, 12],
+                        seri: [127, 4]
+                    }
+                };
+
+                const pattern = patterns[code.length];
+                if (!pattern) return null;
+
+                return {
+                    internal: code.substr(pattern.internal[0], pattern.internal[1]),
+                    seri: code.substr(pattern.seri[0], pattern.seri[1])
+                };
+            }
+
+            processInternalKanban({
+                internal,
+                seri
+            }) {
+                const databaseName = this.getCurrentPDS();
+
+                if (!databaseName) {
+                    this.showError('Database name tidak ditemukan. Scan loading list dulu!');
+                    return;
+                }
+
+                const request = indexedDB.open(databaseName);
+
+                request.onsuccess = (event) => {
+                    const database = event.target.result;
+
+                    // Check if objectStore exists
+                    if (!database.objectStoreNames.contains('loadingList')) {
+                        // console.error('Object store "loadingList" not found');
+                        this.showError('Database belum di-initialize. Scan loading list dulu!');
+                        database.close();
+                        return;
+                    }
+
+                    try {
+                        const transaction = database.transaction(['loadingList'], 'readwrite');
+                        const objectStore = transaction.objectStore('loadingList');
+                        const customerPart = localStorage.getItem('customerPart');
+
+                        objectStore.get(customerPart).onsuccess = (event) => {
+                            const record = event.target.result;
+                            if (record) {
+                                this.checkInternalAndCustomer(database, record, internal,
+                                    customerPart, seri);
+                            } else {
+                                this.showError('Kanban tidak ditemukan!', () => {
+                                    if (typeof unknownSound === 'function') unknownSound();
+                                });
+                                database.close();
+                            }
+                        };
+
+                        objectStore.get(customerPart).onerror = (event) => {
+                            // console.error('Get request error:', event.target.error);
+                            this.showError('Error membaca data kanban');
+                            database.close();
+                        };
+
+                        transaction.onerror = (event) => {
+                            // console.error('Transaction error:', event.target.error);
+                            this.showError('Error dalam transaksi database');
+                        };
+
+                    } catch (error) {
+                        // console.error('Error creating transaction:', error);
+                        this.showError('Error akses database');
+                        database.close();
+                    }
+                };
+
+                request.onerror = (event) => {
+                    // console.error('Database open error:', event.target.error);
+                    this.showError('Error membuka database');
+                };
+            }
+
+            handleMMKIKanban(code) {
+                this.processCustomerSpecificKanban(code.trimEnd(), 'MMKI');
+            }
+
+            handleTBINAKanban(code) {
+                let processed = code;
+                if (code.length === 36) {
+                    processed = code.substr(parseInt(localStorage.getItem('char_first') || '0'),
+                        parseInt(localStorage.getItem('char_length') || '0'));
+                } else if (code.length === 14) {
+                    processed = code.substr(0, 11);
+                }
+                processed = processed.trim().replace(/-/g, '').toUpperCase();
+                this.processCustomerSpecificKanban(processed, 'TB INA');
+            }
+
+            handleTTIKanban(code) {
+                const processed = code.substr(7, 10);
+                this.processCustomerSpecificKanban(processed.trimEnd(), 'TTI INDONESIA');
+            }
+
+            processCustomerSpecificKanban(code, customerType) {
+                const databaseName = this.getCurrentPDS();
+
+                if (!databaseName) {
+                    this.showError('Database name tidak ditemukan. Scan loading list dulu!');
+                    return;
+                }
+
+                const request = indexedDB.open(databaseName);
+
+                request.onsuccess = (event) => {
+                    const database = event.target.result;
+
+                    // Check if objectStore exists
+                    if (!database.objectStoreNames.contains('loadingList')) {
+                        // console.error('Object store "loadingList" not found');
+                        this.showError('Database belum di-initialize. Scan loading list dulu!');
+                        database.close();
+                        return;
+                    }
+
+                    try {
+                        const transaction = database.transaction(['loadingList'], 'readonly');
+                        const objectStore = transaction.objectStore('loadingList');
+                        let found = false;
+
+                        objectStore.openCursor().onsuccess = (event) => {
+                            const cursor = event.target.result;
+                            if (cursor) {
+                                const record = cursor.value;
+                                if (code === record.customer) {
+                                    found = true;
+                                    if (record.seri.length >= record.total_qty) {
+                                        this.showError('Part number sudah complete!', () => {
+                                            if (typeof fullfilledSound === 'function')
+                                                fullfilledSound();
+                                        });
+                                        this.setIndicator('danger');
+                                    } else {
+                                        this.updateKanbanDisplay(record, code);
+                                    }
+                                }
+                                cursor.continue();
+                            } else if (!found) {
+                                this.showError('Kanban tidak sesuai!', () => {
+                                    if (typeof notMatchSound === 'function')
+                                        notMatchSound();
+                                });
+                            }
+                        };
+
+                        objectStore.openCursor().onerror = (event) => {
+                            // console.error('Cursor error:', event.target.error);
+                            this.showError('Error membaca database');
+                        };
+
+                        transaction.onerror = (event) => {
+                            // console.error('Transaction error:', event.target.error);
+                            this.showError('Error dalam transaksi database');
+                        };
+
+                        transaction.oncomplete = () => {
+                            database.close();
+                        };
+
+                    } catch (error) {
+                        // console.error('Error creating transaction:', error);
+                        this.showError('Error akses database');
+                        database.close();
+                    }
+                };
+
+                request.onerror = (event) => {
+                    // console.error('Database open error:', event.target.error);
+                    this.showError('Error membuka database');
+                };
+            }
+
+            handleLogout() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/logout';
+
+                const csrfToken = document.createElement('input');
+                csrfToken.type = 'hidden';
+                csrfToken.name = '_token';
+                csrfToken.value = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                form.appendChild(csrfToken);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+
+            updateKanbanDisplay(record, customerCode, originalCode = null) {
+                $('#cust-display').text(record.customer);
+                $('#int-display').text('-');
+                $('#qty-display').text(`${record.seri.length}/${record.total_qty}`);
+
+                this.setIndicator('warning');
+                this.resetIndicator();
+
+                localStorage.setItem('customerPart', record.customer);
+                if (originalCode) {
+                    localStorage.setItem('originalCustomerPart', originalCode);
+                }
+            }
+
+            setIndicator(type) {
+                const indicator = $('#indicator');
+                indicator.removeClass('bg-success bg-warning bg-danger');
+                indicator.addClass(`bg-${type}`);
+            }
+
+            showError(message, soundFunction = null) {
+                if (typeof notif === 'function') {
+                    notif('error', message);
+                }
+                if (soundFunction) soundFunction();
+                this.delayedFocus();
+            }
+
+            delayedFocus() {
+                setTimeout(() => this.focusInput(), 1000);
+            }
+
+            focusInput() {
+                $('#code').focus();
+            }
+
+            getLoadingListNumber() {
+                return typeof getLoadingListNumber === 'function' ? getLoadingListNumber() : [];
+            }
+
+            checkInternalAndCustomer(database, record, internal, customerPart, seri) {
+                if (typeof checkInternalAndCustomer === 'function') {
+                    checkInternalAndCustomer(database, record, internal, customerPart, seri);
+                }
+            }
+
+            resetIndicator() {
+                if (typeof resetIndicator === 'function') {
+                    resetIndicator();
+                }
+            }
+
+            async customerCheck(customerCode) {
+                return new Promise((resolve, reject) => {
+                    if (typeof customerCheck === 'function') {
+                        customerCheck(customerCode).then(resolve).catch(reject);
+                    } else {
+                        resolve();
+                    }
+                });
+            }
+
+            pullingQuantity() {
+                if (typeof pullingQuantity === 'function') {
+                    pullingQuantity();
+                }
+            }
+
+            checkLoadingList() {
+                if (typeof checkLoadingList === 'function') {
+                    checkLoadingList();
+                }
+            }
+
+            customerCharStore(customerCode, pdsNumber) {
+                if (typeof customerCharStore === 'function') {
+                    customerCharStore(customerCode, pdsNumber);
+                }
+            }
+        }
+
+        // Initialize the barcode scanner
+        $(document).ready(() => {
+            const scanner = new BarcodeScanner();
+            scanner.init();
         });
     });
 </script>

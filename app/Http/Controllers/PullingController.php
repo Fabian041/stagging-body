@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
+use App\Models\ProductionPlan;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
 use App\Models\LoadingListDetail;
@@ -94,9 +95,10 @@ class PullingController extends Controller
                 $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
             }
         } else if ($codeLength == 10) {
-            if ($loadingListId->customer_id == 14) {
+            if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
                 // SUZUKI
-                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+                // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
+                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
             } else {
                 if ($loadingListId->customer_id == 6) {
                     // MMKI
@@ -127,6 +129,340 @@ class PullingController extends Controller
     public function index()
     {
         return view('pages.pulling.index');
+    }
+
+    public function settingIndex()
+    {
+        // Get current line assignments
+        $lineAssignments = [
+            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18', 'D403', 'D111'],
+            'AS004' => ['CI15', 'CI16', 'CI19', 'D500'],
+        ];
+
+        $cycleTimes = [
+            'CI11' => '00:34',
+            'CI12' => '00:34',
+            'CI13' => '00:40',
+            'CI14' => '00:34',
+            'CI15' => '00:39',
+            'CI16' => '00:40',
+            'CI17' => '00:40',
+            'CI18' => '00:40',
+            'CI19' => '00:37',
+        ];
+
+        return view('pages.pulling.setting', [
+            'lineAssignments' => $lineAssignments,
+            'cycleTimes' => $cycleTimes,
+        ]);
+    }
+
+    public function settingUpdate(Request $request)
+    {
+        $request->validate([
+            'line_assignments' => 'required|array',
+            'cycle_times' => 'required|array',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Update line assignments in your configuration or database
+            // This would depend on how you're storing these settings
+            // For now, we'll just return the updated values
+
+            // Example if storing in database:
+            // foreach ($request->line_assignments as $line => $backNos) {
+            //     Setting::updateOrCreate(
+            //         ['key' => 'line_assignments_'.$line],
+            //         ['value' => json_encode($backNos)]
+            //     );
+            // }
+
+            // Update cycle times
+            // foreach ($request->cycle_times as $backNo => $time) {
+            //     Setting::updateOrCreate(
+            //         ['key' => 'cycle_time_'.$backNo],
+            //         ['value' => $time]
+            //     );
+            // }
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Settings updated successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update settings: ' . $e->getMessage());
+        }
+    }
+
+    public function apiProductionItems(Request $request)
+    {
+        $validated = $request->validate([
+            'date' => 'required|date',
+            'line' => 'required|string|in:AS003,AS004',
+        ]);
+
+        $date = Carbon::parse($validated['date'])->toDateString();
+        $line = $validated['line'];
+
+        $rows = ProductionPlan::query()
+            ->where('plan_date', $date)
+            ->where('line', $line)
+            ->orderBy('delivery_date')
+            ->orderBy('delivery_time')
+            ->orderBy('id')            // tidak dipakai
+            ->get(['id', 'back_no', 'customer', 'order_qty', 'delivery_time', 'prod_time']);
+
+        // Normalisasi & kembalikan sebagai array rapi (tanpa mutasi objek)
+        $items = $rows->map(function ($r) {
+            $raw = data_get($r, 'delivery_time');
+
+            // Normalisasi ke 'HH:MM'
+            if ($raw instanceof \DateTimeInterface) {
+                $t = $raw->format('H:i');
+            } else {
+                $t = trim((string) $raw);
+                if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $t)) {
+                    $t = substr($t, 0, 5);
+                }
+                if ($t === '' || !preg_match('/^\d{2}:\d{2}$/', $t)) {
+                    $t = '00:00';
+                }
+            }
+
+            return [
+                'id'             => (int) data_get($r, 'id'),
+                'back_no'        => (string) data_get($r, 'back_no', ''),
+                'customer'       => (string) data_get($r, 'customer', ''),
+                'order_qty'      => (int) data_get($r, 'order_qty', 0),
+                'delivery_time'  => $t,
+                'prod_time'      => (string) data_get($r, 'prod_time', '00:00'),
+            ];
+        })->values();
+
+        return response()->json($items);
+    }
+
+
+    /**
+     * POST /pulling/settings/reorder
+     * Body:
+     * {
+     *   "date": "2025-08-28",
+     *   "line": "AS003",
+     *   "new_order": [{ "id": 123, "delivery_time": "09:30" }, ...] // kirim semua item
+     * }
+     *
+     * Langkah BE:
+     * 1) Update delivery_time sesuai payload.
+     * 2) Recompute working_* & balance_time utk SEMUA item (tanggal+line) mengikuti delivery_time ASC.
+     */
+    public function reorderByDeliveryTime(Request $request)
+    {
+        $validated = $request->validate([
+            'date'                      => 'required|date',
+            'line'                      => 'required|string|in:AS003,AS004',
+            'new_order'                 => 'required|array|min:1',
+            'new_order.*.id'            => 'required|exists:production_plans,id',
+            'new_order.*.delivery_time' => ['required', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $date  = Carbon::parse($validated['date'])->toDateString();
+            $line  = $validated['line'];
+            $pairs = collect($validated['new_order'])->keyBy('id');
+
+            // Lock semua item pada date+line supaya konsisten
+            $all = ProductionPlan::query()
+                ->where('plan_date', $date)
+                ->where('line', $line)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            // Pastikan semua id pada payload memang belong to date+line
+            foreach ($pairs as $id => $payload) {
+                if (!isset($all[$id])) {
+                    throw new \Exception("Item {$id} doesn't belong to selected date/line");
+                }
+            }
+
+            // 1) Update delivery_time sesuai payload (gunakan HH:MM)
+            foreach ($pairs as $id => $payload) {
+                $t = trim($payload['delivery_time']);
+                if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $t)) {
+                    $t = substr($t, 0, 5);
+                }
+                $item = $all[$id];
+                $item->delivery_time = $t;
+                $item->save();
+            }
+
+            // 2) Recompute untuk semua item, urut delivery_time ASC
+            $allItems = ProductionPlan::query()
+                ->where('plan_date', $date)
+                ->where('line', $line)
+                ->orderBy('delivery_date')
+                ->orderBy('delivery_time')
+                ->lockForUpdate()
+                ->get();
+
+            // Start kerja 06:00 di tanggal plan
+            $startWorkingTime = Carbon::parse("$date 06:00:00");
+
+            // Kelompokkan per dn_number (jika null/kosong, treat unik per id)
+            $grouped = $allItems->groupBy(function ($it) {
+                return $it->dn_number ?: "ID-{$it->id}";
+            });
+
+            // Helper parsing detik produksi (utama mm:ss, juga dukung hh:mm(:ss) / menit tunggal)
+            $parseProdSeconds = function (string $time): int {
+                $time = trim($time);
+                if ($time === '') return 0;
+                $parts = explode(':', $time);
+                if (count($parts) === 3) { // hh:mm:ss
+                    return ((int)$parts[0]) * 3600 + ((int)$parts[1]) * 60 + ((int)$parts[2]);
+                }
+                if (count($parts) === 2) {
+                    // Asumsikan mm:ss (sesuai controller referensi)
+                    return ((int)$parts[0]) * 60 + ((int)$parts[1]);
+                }
+                // Angka tunggal = menit
+                if (ctype_digit($time)) return ((int)$time) * 60;
+                return 0;
+            };
+
+            // Iterasi per grup dn_number
+            $currentStartGlobal = $startWorkingTime->copy();
+
+            foreach ($grouped as $dnNumber => $group) {
+                // Urutkan dalam grup (ikuti referensi: by back_no)
+                $group = $group->sortBy('back_no')->values();
+
+                // Delivery time untuk grup = delivery_time item pertama (fallback "00:00")
+                $deliveryTimeStr = (string)($group->first()->delivery_time ?? '00:00');
+                $delivery = Carbon::parse("$date " . substr($deliveryTimeStr, 0, 5));
+
+                // 1) Hitung working_start/working_end/item-duration berantai
+                $cursor = $currentStartGlobal->copy();
+                $lastEnd = $cursor->copy(); // akan jadi end item terakhir
+
+                foreach ($group as $item) {
+                    $perUnitSeconds = $parseProdSeconds((string)$item->prod_time);
+                    $qty            = max(0, (int)$item->order_qty);
+                    $totalSeconds   = $perUnitSeconds * $qty;
+
+                    $workingStart = $cursor->copy();
+                    $workingEnd   = $cursor->copy()->addSeconds($totalSeconds);
+
+                    // Simpan ke model
+                    $item->working_start    = $workingStart->format('H:i');
+                    $item->working_end      = $workingEnd->format('H:i');
+                    $item->working_duration = sprintf(
+                        '%02d:%02d:%02d',
+                        intdiv($totalSeconds, 3600),
+                        intdiv($totalSeconds % 3600, 60),
+                        $totalSeconds % 60
+                    );
+
+                    $cursor = $workingEnd->copy();
+                    $lastEnd = $workingEnd->copy();
+                }
+
+                // 2) Anchor delivery minimal >= lastEnd (kalau lewat tengah malam)
+                while ($delivery->lt($lastEnd)) {
+                    $delivery->addDay();
+                }
+
+                // 3) Balance = delivery - lastEnd (positif = masih ada slack)
+                $balanceSeconds = $lastEnd->diffInSeconds($delivery, false); // << urutan dibalik
+                $sign  = $balanceSeconds < 0 ? '-' : '';
+                $abs   = abs($balanceSeconds);
+                $bh    = intdiv($abs, 3600);
+                $bm    = intdiv($abs % 3600, 60);
+                $balanceFormatted = sprintf('%s%02d:%02d', $sign, $bh, $bm);
+
+                // 4) Commit ke DB untuk semua item di grup (pakai balance grup yang sama)
+                foreach ($group as $item) {
+                    $item->balance_time = $balanceFormatted;
+                    // delivery_time sudah diupdate sebelumnya sesuai payload
+                    // tapi kalau ingin “rapikan” ke HH:MM:
+                    $item->delivery_time = substr((string)$item->delivery_time, 0, 5);
+                    $item->save();
+                }
+
+                // 5) Lanjutkan start berikutnya = selesai grup ini
+                $currentStartGlobal = $cursor->copy();
+            }
+
+            DB::commit();
+
+            $data = ProductionPlan::query()
+                ->where('plan_date', $date)
+                ->where('line', $line)
+                ->orderBy('delivery_date')
+                ->orderBy('delivery_time')
+                ->get();
+
+            $updated = $pairs->count();
+            return response()->json([
+                'success' => true,
+                'message' => "Delivery times updated & schedule recomputed ($updated items).",
+                'data'    => $data,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update by delivery time: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /** Parse "mm", "mm:ss", atau "hh:mm(:ss)" → detik */
+    private function secondsFromProdTime(string $time): int
+    {
+        $time = trim($time);
+        if ($time === '') return 0;
+
+        $parts = array_map('intval', explode(':', $time));
+
+        if (count($parts) === 3) {        // "HH:MM:SS"
+            return $parts[0] * 3600 + $parts[1] * 60 + $parts[2];
+        }
+
+        if (count($parts) === 2) {        // "HH:MM"  (umum di DB)
+            return $parts[0] * 3600 + $parts[1] * 60;
+        }
+
+        // Fallback: angka tunggal dianggap menit
+        if (ctype_digit($time)) {
+            return intval($time) * 60;
+        }
+
+        return 0;
+    }
+
+
+    /** Format detik → H:i:s */
+    private function formatHms(int $seconds): string
+    {
+        $h = intdiv($seconds, 3600);
+        $m = intdiv($seconds % 3600, 60);
+        $s = $seconds % 60;
+        return sprintf('%02d:%02d:%02d', $h, $m, $s);
+    }
+
+    /** Format detik bertanda → "-HH:MM" / "HH:MM" */
+    private function formatHmSigned(int $seconds): string
+    {
+        $sign  = $seconds < 0 ? '-' : '';
+        $abs   = abs($seconds);
+        $hours = intdiv($abs, 3600);
+        $mins  = intdiv($abs % 3600, 60);
+        return sprintf('%s%02d:%02d', $sign, $hours, $mins);
     }
 
     /**
@@ -225,24 +561,30 @@ class PullingController extends Controller
         //
     }
 
-    public function customerCheck($customer)
+    public function customerCheck($customer, $pds = null)
     {
-        // check customer 
-        $check = Customer::where('code', $customer)->first();
-        if (!$check) {
-            return [
-                'status' => 'error',
-                'message' => 'Customer tidak ditemukan'
-            ];
+        if ($customer == '7A00022' && $pds && str_contains($pds, 'KK11')) {
+            $check = Customer::where('code', $customer)
+                ->where('name', 'like', '%SUZUKI RKK11%')
+                ->first();
+        } else {
+            $check = Customer::where('code', $customer)->first();
         }
 
-        return [
+        if (!$check) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Customer tidak ditemukan'
+            ]);
+        }
+
+        return response()->json([
             'status' => 'success',
             'customer' => $check->name,
             'first' => $check->char_first,
             'length' => $check->char_length,
             'total' => $check->char_total
-        ];
+        ]);
     }
 
     public function internalCheck($internal, $isinternal = 0)
@@ -277,7 +619,7 @@ class PullingController extends Controller
             'status' => 'success',
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
-            'target' => $internal->customerPart->qty_per_kanban ?? "0",
+            'target' => $internal->customerPart->qty_per_kanban ?? 0,
             'line' => $lineProd->name,
             'photo' => $internal->photo,
         ];
@@ -285,89 +627,131 @@ class PullingController extends Controller
 
     public function mutation(Request $request)
     {
-        $internal = $request->internalPart;
-        $seri = $request->serialNumber;
-        $qty = $request->qty_per_kbn;
+        $data = $request->validate([
+            'loadingList'  => 'required|string',
+            'customerPart' => 'required|string',
+            'internalPart' => 'required|string',
+            'serialNumber' => 'required|string',
+            'qty_per_kbn'  => 'required|numeric|min:1',
+        ]);
 
-        // get internal part id
-        $internalPart = InternalPart::where('part_number', $internal)->first();
+        $data['qty_per_kbn'] = (int) round($data['qty_per_kbn']);
 
-        if (!$internalPart) {
-            return [
-                'status' => 'notExists',
-                'message' => 'Part atau Kanban tidak ditemukan!'
-            ];
-        }
+        return DB::transaction(function () use ($data) {
+            // 1) Ambil Loading List
+            $loadingList = LoadingList::select('id', 'number', 'customer_id')
+                ->where('number', $data['loadingList'])
+                ->first();
 
-        try {
-            DB::beginTransaction();
-            // insert into mutation table
+            // dd( $data['loadingList']);
+
+            if (!$loadingList) {
+                return response()->json([
+                    'status'  => 'notExists',
+                    'message' => 'Loading list tidak terdaftar!',
+                ]);
+            }
+
+            // 2) Konversi part number customer (pakai fungsi yang sudah ada)
+            $converted = $this->convertPartNumber($loadingList->number, $data['customerPart']);
+            if (is_array($converted) && ($converted['status'] ?? null) === 'notExists') {
+                // Mengikuti kontrak fungsi Anda yang kadang return array error
+                return response()->json($converted, 404);
+            }
+            $convertedPartNumber = is_string($converted) ? $converted : $data['customerPart'];
+
+            // 3) Ambil internal_part & customer_part (minim query)
+            $internalPart = InternalPart::select('id', 'part_number')
+                ->where('part_number', $data['internalPart'])
+                ->first();
+
+            if (!$internalPart) {
+                return response()->json([
+                    'status'  => 'notExists',
+                    'message' => 'Part atau Kanban tidak ditemukan!',
+                ]);
+            }
+
+            $customerPart = DB::table('customer_parts')
+                ->where('internal_part_id', $internalPart->id)
+                ->where('part_number', $convertedPartNumber)
+                ->select('id')
+                ->first();
+
+            if (!$customerPart) {
+                return response()->json([
+                    'status'  => 'notExists',
+                    'message' => 'Part number customer tidak terdaftar!',
+                    'data'    => [
+                        'int'  => $data['internalPart'],
+                        'cust' => $convertedPartNumber,
+                    ],
+                ]);
+            }
+
+            // 4) Validasi kanban-nya
+            $kanban = Kanban::where('internal_part_id', $internalPart->id)
+                ->where('serial_number', $data['serialNumber'])
+                ->first();
+
+            if (!$kanban) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban tidak terdaftar!',
+                ]);
+            }
+
+            // 5) Ambil row LoadingListDetail sekali saja (untuk return info)
+            $lld = LoadingListDetail::where('loading_list_id', $loadingList->id)
+                ->where('customer_part_id', $customerPart->id)
+                ->lockForUpdate()
+                ->first(['id', 'kanban_qty', 'actual_kanban_qty']);
+
+            if (!$lld) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Detail loading list tidak ditemukan untuk part ini.',
+                ]);
+            }
+
+            // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
+            if ((int)$lld->actual_kanban_qty >= (int)$lld->kanban_qty) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban sudah penuh',
+                ]);
+            }
+
+            // update loading list detail
+            LoadingListDetail::where('id', $lld->id)
+                ->whereColumn('actual_kanban_qty', '<', 'kanban_qty')
+                ->update([
+                    'actual_kanban_qty' => DB::raw('actual_kanban_qty + 1')
+                ]);
+
+            // 7) Catat mutasi
             Mutation::create([
                 'internal_part_id' => $internalPart->id,
-                'serial_number' => $seri,
-                'type' => 'checkout',
-                'qty' => $qty,
-                'npk' => auth()->user()->npk,
-                'date' => Carbon::now()->format('Y-m-d H:i:s')
+                'serial_number'    => $data['serialNumber'],
+                'type'             => 'checkout',
+                'qty'              => (int) $data['qty_per_kbn'],
+                'npk'              => auth()->user()->npk ?? null,
+                'date'             => now()->format('Y-m-d H:i:s'),
             ]);
 
-            // commented for temporary
-            // $result = [];
+            // 8) Update status kanban (hindari write jika sudah 2)
+            if ((int) $kanban->status !== 2) {
+                $kanban->update(['status' => 2]);
+            }
 
-            // // get all current qty of all internal parts 
-            // $data = DB::table('internal_parts')
-            //         ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
-            //         ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            //         ->select('lines.name','production_stocks.internal_part_id as id','internal_parts.part_number','internal_parts.back_number', 'production_stocks.current_stock')
-            //         ->groupBy('internal_parts.part_number','internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock')
-            //         ->get();
-
-            //         foreach ($data as $value) {
-            //             $lineFound = false;
-            //             // Check if line already exists in $lines array
-            //             foreach ($result as $line) {
-            //                 if ($line->line === $value->name) {
-            //                     $lineFound = true;
-            //                     $line->items[] = [
-            //                         'id' => $value->id,
-            //                         'part_number' => $value->part_number,
-            //                         'back_number' => $value->back_number,
-            //                         'qty' => $value->current_stock,
-            //                     ];
-            //                     break;
-            //                 }
-            //             }
-            //             // If line doesn't exist, create a new object and add it to $result array
-            //             if (!$lineFound) {
-            //                 $lineObject = (object) [
-            //                     'line' => $value->name,
-            //                     'items' => [
-            //                         [
-            //                             'id' => $value->id,
-            //                             'part_number' => $value->part_number,
-            //                             'back_number' => $value->back_number,
-            //                             'qty' => $value->current_stock,
-            //                         ],
-            //                     ],
-            //                 ];
-            //                 $result[] = $lineObject;
-            //             }
-            //         }
-
-            //     $this->mqttConnect('prod/quantity' , $result);
-
-            DB::commit();
+            // 9) Ambil nilai actual terbaru (opsional: pakai +1 dari sebelumnya)
+            $newActual = $lld->actual_kanban_qty + 1;
 
             return response()->json([
-                'status' => 'success'
+                'status' => 'success',
+                'data'   => $newActual,
             ]);
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return [
-                'status' => 'error',
-                'message' => $th->getMessage(),
-            ];
-        }
+        });
     }
 
     public function post(Request $request)
@@ -429,9 +813,10 @@ class PullingController extends Controller
                             $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -2);
                         }
                     } else if (strlen($kanban_cust) == 10) {
-                        if ($loadingListId->customer_id == 14) {
+                        if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
                             // SUZUKI
-                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
+                            // $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
+                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
                         } else {
                             if ($loadingListId->customer_id == 6) {
                                 // MMKI
@@ -635,17 +1020,18 @@ class PullingController extends Controller
         // get customer part id
         $customerPartId = CustomerPart::with('customer')
             ->where('part_number', $this->convertPartNumber($loadingList, $customerPart))
+            // disable karena part common
             ->whereHas('customer', function ($query) use ($customer) {
                 $query->where('name', $customer);
             })
             ->first();
 
-        // dd($customer);
-
         if (!$customerPartId) {
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer tidak terdaftar!'
+                'message' => 'Part number customer tidak terdaftar!',
+                'customer' => $customer,
+                'customer_part' => $this->convertPartNumber($loadingList, $customerPart)
             ];
         }
 
@@ -694,7 +1080,11 @@ class PullingController extends Controller
         if (!$loadingListDetailId) {
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer / loading list tidak sesuai!'
+                'message' => 'Part number customer / loading list tidak sesuai!',
+                'data' => [
+                    'loading_list_id' => $loadingListId->id,
+                    'customer_part_id' => $customerPartId->id
+                ]
             ];
         }
 
@@ -830,5 +1220,60 @@ class PullingController extends Controller
                 'data' => []
             ], 500);
         }
+    }
+
+    public function manual()
+    {
+        $customers = Customer::all(); // Atau filter sesuai kebutuhan
+        return view('pages.pulling.manual', compact('customers'));
+    }
+
+    public function manualReset(Request $request)
+    {
+        $validated = $request->validate([
+            'internal' => 'required|string',
+            'serial' => 'required|string'
+        ]);
+
+        // Cari internal part
+        $internalPart = InternalPart::with('customerPart')->where('part_number', $request->internal)->first();
+
+        if (!$internalPart) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Back Number <strong>{$request->internal}</strong> tidak ditemukan."
+            ], 404);
+        }
+
+        // Ambil kanban berdasarkan internal_part_id dan serial_number
+        $kanban = \App\Models\Kanban::where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $request->serial)
+            ->first();
+
+        if (!$kanban) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Serial Number <strong>{$request->serial}</strong> tidak ditemukan untuk Back Number <strong>{$request->internal}</strong>."
+            ], 404);
+        }
+
+        // Update status kanban
+        $kanban->status = 2;
+        $kanban->save();
+
+        // update mutation
+        Mutation::create([
+            'internal_part_id' => $internalPart->id,
+            'serial_number' => $request->serial,
+            'qty' => $internalPart->customerPart->qty_per_kanban,
+            'type' => 'manual',
+            'npk' => auth()->user()->npk,
+            'date' => now()
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kanban berhasil di-reset.'
+        ]);
     }
 }

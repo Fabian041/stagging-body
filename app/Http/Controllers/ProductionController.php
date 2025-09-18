@@ -127,31 +127,36 @@ class ProductionController extends Controller
             ];
         }
 
+        $partName = strtoupper($internalPart->part_name);
+
         // get line of internal part based on internal part id
         $lineProd = Line::select('name')->where('id', $internalPart->line_id)->first();
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
         // get kanban_id based on internal part id
-        // $kanban = Kanban::select('id')
-        //             ->where('internal_part_id', $internalPart->id)
-        //             ->where('serial_number', $seri)
-        //             ->first();
-        // if(!$kanban){
-        //     return [
-        //         'status' => 'error',
-        //         'message' => 'Kanban tidak terdaftar!'
-        //     ]; 
-        // }
+        $kanban = Kanban::where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $seri)
+            ->first();
 
-        // check if kanban after prod is empty (temp disable)   
-        // $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id)->first();
-        // if($kanbanAfterProd){
-        //     return [
-        //         'status' => 'error',
-        //         'message' => 'Seri kanban sudah di scan!'
-        //     ]; 
-        // }
+        if (!$kanban) {
+            return [
+                'status' => 'error',
+                'message' => 'Kanban tidak terdaftar!'
+            ];
+        }
+
+        // Cek jika mengandung kata SUB ASSY dalam variasi yang dimaksud
+        if (isset($internalPart->back_number) && strlen($internalPart->back_number) >= 2 && $internalPart->back_number[1] === 'O') {
+            // Lewati pengecekan status
+        } else {
+            if ($kanban->status == 1) {
+                return [
+                    'status' => 'kanbanExist',
+                    'message' => 'Kanban Sudah di scan!'
+                ];
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -165,20 +170,10 @@ class ProductionController extends Controller
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
 
-            // insert into kanban after prod
-            // for($i=0; $i<$customerPart->qty_per_kanban; $i++){
-
-            //     $randomString = Str::random(7);
-            //     $currDate = Carbon::now()->format('Ymd');
-
-            //     KanbanAfterProd::create([
-            //         'kanban_id' => $kanban->id,
-            //         'internal_part_id' => $internalPart->id,
-            //         'code' => $currDate . $randomString,
-            //         'npk' => auth()->user()->npk,
-            //         'date' => Carbon::now()->format('Y-m-d')
-            //     ]);
-            // }
+            // update status in kanbans table
+            $kanban->update([
+                'status' => 1
+            ]);
 
             $result = [];
 
@@ -782,5 +777,10 @@ class ProductionController extends Controller
 
             return ['message' => $th->getMessage()];
         }
+    }
+
+    public function direct()
+    {
+        return view('pages.production.direct');
     }
 }

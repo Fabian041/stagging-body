@@ -31,34 +31,16 @@
     <!-- /END GA -->
 </head>
 
-<body class="sidebar-mini">
-    <div id="app">
-        <div class="main-wrapper main-wrapper-1">
-            <div class="navbar-bg"></div>
-
-            {{-- navbar --}}
-            @include('layouts.partials.nav')
-
-            {{-- sidenav --}}
-            @include('layouts.partials.sidenav')
+<body class="">
+    <div id="app" style="height: 100vh; margin:3rem; padding:0;">
 
             <!-- Main Content -->
-            <div class="main-content">
                 <section class="section">
 
                     @yield('main')
 
                 </section>
-            </div>
-            <footer class="main-footer">
-                <div class="footer-left">
-                    Copyright &copy; ITD 2023
-                </div>
-                <div class="footer-right">
 
-                </div>
-            </footer>
-        </div>
     </div>
 
     <!-- General JS Scripts -->

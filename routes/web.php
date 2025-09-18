@@ -13,8 +13,10 @@ use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
+use App\Http\Controllers\DirectPullingSSEController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,12 +32,21 @@ use App\Http\Controllers\TraceabilityController;
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
 
-    Route::get('/', [LoginController::class, 'index'])->name('login');
+    // Route::get('/', [LoginController::class, 'index'])->name('login');
     Route::get('/login', [LoginController::class, 'index'])->name('login.index');
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
+
+
+    Route::get('dashboard/receiving', [DashboardController::class, 'receivingDashboard'])->name('dashboard.receiving');
+    Route::get('dashboard/receiving/getData', [DashboardController::class, 'getReceivingData'])->name('dashboard.receiving.getData');
+    Route::get('dashboard/receiving/detail', [DashboardController::class, 'showModal'])->name('dashboard.receiving.detail');
 });
+
+// stream SSE
+Route::get('/stream/direct-pulling-updates', [DirectPullingSSEController::class, 'streamDirectPullingUpdates'])
+    ->name('sse.direct-pulling-updates');
 
 Route::post('/refresh-token', function () {
     if (Auth::check()) {
@@ -84,14 +95,26 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::prefix('dashboard')->group(function () {
 
+        Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
+        Route::get('/production/plan', [DashboardController::class, 'prodPlan'])->name('dashboard.prodPlan');
+
         // datatable
         Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');
         Route::get('/getLoadingListDetail/{loadingList}', [LoadingListController::class, 'getLoadingListDetail'])->name('dashboard.getLoadingListDetail');
+
+        // Add this route to your existing routes
+        Route::get('/checkLoadingListUpdates', [LoadingListController::class, 'checkLoadingListUpdates'])->name('dashboard.checkLoadingListUpdates');
+        Route::post('/getLoadingListUpdates', [LoadingListController::class, 'getLoadingListUpdates'])->name('dashboard.getLoadingListUpdates');
+        Route::get('/getLoadingListsByPds', [LoadingListController::class, 'getLoadingListsByPds'])->name('dashboard.getLoadingListsByPds');
 
         Route::get('/progressPulling', [DashboardController::class, 'progressPulling'])->name('progressPulling.index');
         Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
+
+        // check kanban
+        Route::get('/kanban/check', [DashboardController::class, 'kbnCheck'])->name('dashboard.kbnCheck');
+        Route::post('/kanban/check', [DashboardController::class, 'kbnCheckSubmit'])->name('dashboard.kbnCheckSubmit');
     });
 
     // edcl
@@ -117,17 +140,37 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
         Route::post('/api-stop', [ProductionController::class, 'inboundStop']);
+
+        Route::get('/direct', [ProductionController::class, 'direct'])->name('production.direct.index');
     });
 
+    //Validation
+
+    Route::get('/validation', [ValidationController::class, 'index'])->name('validation.index');
+    Route::prefix('validation')->group(function () {
+        Route::get('/kanban/pairing', [ValidationController::class, 'pair'])->name('validation.pairing');
+    });
     // pulling
     Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
     Route::prefix('pulling')->group(function () {
-        Route::get('/customer-check/{customer}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
-        Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
+        Route::get('/settings', [PullingController::class, 'settingIndex'])
+            ->name('pulling.settings');
+
+        Route::post('/settings/update', [PullingController::class, 'settingUpdate'])
+            ->name('pulling.settings.update');
+
+        Route::post('/settings/reorder', [PullingController::class, 'reorderByDeliveryTime'])
+            ->name('pulling.reorder');
+
+        Route::get('/customer-check/{customer}/{pds?}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
+        // Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/internal-check/{internal}/{isinternal?}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');
         Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
         Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
         Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
+
+        Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
+        Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
     });
 
     // get manifest
@@ -136,6 +179,8 @@ Route::middleware(['auth'])->group(function () {
     // error log
     Route::prefix('error')->group(function () {
         Route::get('/store', [ErrorLogController::class, 'store'])->name('error.store');
+        Route::get('/log', [ErrorLogController::class, 'index'])->name('error.log');
+        Route::get('/getErrorLogs', [ErrorLogController::class, 'getErrorLogs'])->name('error.getErrorLogs');
     });
 
     Route::get('/test', [ProductionController::class, 'test'])->name('test');
