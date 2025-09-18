@@ -73,9 +73,17 @@
         </div> --}}
 
         @if (isset($message))
-            <div class="alert alert-{{ $messageType ?? 'info' }} alert-dismissible fade show mb-3" role="alert">
-                {{ $message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100">
+                <div class="toast text-bg-{{ $messageType ?? 'info' }} border-0 shadow" role="alert"
+                    aria-live="assertive" aria-atomic="true" data-bs-delay="5000" data-bs-autohide="true">
+                    <div class="d-flex align-items-center">
+                        <div class="toast-body">
+                            {{ $message }}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                            aria-label="Close"></button>
+                    </div>
+                </div>
             </div>
         @endif
 
@@ -156,20 +164,19 @@
                             <div class="strip-stat" data-line="AS003" data-shift="morning">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary">
-                                        <span data-role="shift-order">{{ $as003MorningQty }}</span>
+                                    <div class="value text-primary"> {{-- (text-success untuk Night) --}}
+                                        <span data-role="shift-order">{{ $as003MorningQty ?? 0 }}</span>
                                     </div>
-                                    @if ($as003MorningStatus != 'Normal Shift')
-                                        <span
-                                            class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as003MorningStatus }}</span>
-                                    @endif
+                                    {{-- placeholder; akan diisi JS --}}
+                                    <span class="chip border fw-bolder d-none" data-role="shift-status"></span>
+                                    <small class="text-muted" data-role="shift-note"></small>
                                 </div>
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as003MorningActual }} / {{ $as003MorningQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as003MorningPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as003MorningPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as003MorningPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as003MorningActual }}</span></div>
@@ -193,7 +200,7 @@
                                         title="Actual {{ $as003NightActual }} / {{ $as003NightQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as003NightPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as003NightPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as003NightPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as003NightActual }}</span></div>
@@ -209,7 +216,7 @@
                                         title="Actual {{ $as003TotalActual }} / {{ $as003TotalQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as003TotalPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as003TotalPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as003TotalPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as003TotalActual }}</span></div>
@@ -220,26 +227,11 @@
 
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
-                        <!-- Presets -->
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
-                                data-bs-toggle="dropdown">
-                                Presets
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS003','default');return false;">Default</a></li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS003','risk');return false;">Risk first</a></li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="saveCurrentView('AS003');return false;">Save current view</a></li>
-                            </ul>
-                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" data-pane-autoscroll="AS003">
+                            <i class="fas fa-scroll me-1"></i> Auto Scroll: <span class="state">On</span>
+                        </button>
 
-                        <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS003')">
+                        <button class="btn btn-outline-info btn-sm" onclick="showSummary('AS003')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
 
@@ -483,22 +475,21 @@
                         <div class="card-body d-flex flex-wrap align-items-end gap-3">
                             <!-- MORNING -->
                             <div class="strip-stat" data-line="AS004" data-shift="morning">
-                                <div class="title">Morning Shift Order</div>
+                                <div class="title">Day Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary">
-                                        <span data-role="shift-order">{{ $as004MorningQty }}</span>
+                                    <div class="value text-primary"> {{-- (text-success untuk Night) --}}
+                                        <span data-role="shift-order">{{ $as004MorningQty ?? 0 }}</span>
                                     </div>
-                                    @if ($as004MorningStatus != 'Normal Shift')
-                                        <span
-                                            class="chip bg-warning-subtle border text-dark fw-bolder">{{ $as004MorningStatus }}</span>
-                                    @endif
+                                    {{-- placeholder; akan diisi JS --}}
+                                    <span class="chip border fw-bolder d-none" data-role="shift-status"></span>
+                                    <small class="text-muted" data-role="shift-note"></small>
                                 </div>
                                 <div class="kpi-mini">
                                     <div class="qty-progress"
                                         title="Actual {{ $as004MorningActual }} / {{ $as004MorningQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004MorningPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as004MorningPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as004MorningPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004MorningActual }}</span></div>
@@ -522,7 +513,7 @@
                                         title="Actual {{ $as004NightActual }} / {{ $as004NightQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004NightPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as004NightPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as004NightPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004NightActual }}</span></div>
@@ -538,7 +529,7 @@
                                         title="Actual {{ $as004TotalActual }} / {{ $as004TotalQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004TotalPct }}%"></i></div>
-                                        <span class="val" data-role="shift-pct">{{ $as004TotalPct }}%</span>
+                                        <span class="val number " data-role="shift-pct">{{ $as004TotalPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004TotalActual }}</span></div>
@@ -548,25 +539,11 @@
                     </div>
                     <!-- Toolbar: Presets & Columns -->
                     <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
-                                data-bs-toggle="dropdown">
-                                Presets
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS004','default');return false;">Default</a></li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="applyPreset('AS004','risk');return false;">Risk first</a></li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li><a class="dropdown-item" href="#"
-                                        onclick="saveCurrentView('AS004');return false;">Save current view</a></li>
-                            </ul>
-                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" data-pane-autoscroll="AS004">
+                            <i class="fas fa-scroll me-1"></i> Auto Scroll: <span class="state">On</span>
+                        </button>
 
-                        <button class="btn btn-outline-success btn-sm" onclick="showSummary('AS004')">
+                        <button class="btn btn-outline-info btn-sm" onclick="showSummary('AS004')">
                             <i class="fas fa-list-ol me-1"></i> Summary
                         </button>
 
@@ -834,211 +811,47 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script defer src="{{ asset('assets/js/page/planning/script.js') }}"></script>
     <script>
-        /* Smooth Auto-Scroll (GPU) — single active pane, robust di Bootstrap tabs */
-        (function() {
-            const SPEED = 8; // px/detik (6..30 tetap halus)
-            const EDGE_PAUSE = 1800; // jeda di bawah (ms)
-            const USER_PAUSE = 3000; // jeda setelah user interaksi (ms)
-            const REINIT_DEBOUNCE = 600;
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.toast').forEach(function(el) {
+                try {
+                    new bootstrap.Toast(el).show();
+                } catch (e) {}
+            });
 
-            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-            const stops = new Set(); // kumpulan stopper untuk pane aktif
-
-            function startScroller(container) {
-                const table = container.querySelector('table');
-                const thead = container.querySelector('thead');
-                const tbody = container.querySelector('tbody');
-                if (!table || !tbody) return () => {};
-
-                container.style.overflow = 'hidden';
-
-                // Ukur tinggi konten dengan andalan tbody.scrollHeight (stabil meski di-transform)
-                const measure = () => {
-                    const headH = thead ? thead.offsetHeight : 0;
-                    const bodyH = tbody.scrollHeight;
-                    const total = headH + bodyH;
-                    const max = Math.max(0, total - container.clientHeight);
-                    return max;
-                };
-
-                let max = measure();
-                let offset = 0;
-                let last = performance.now();
-                let paused = false;
-                let raf = 0,
-                    ut = null;
-
-                const apply = y => {
-                    tbody.style.transform = `translate3d(0, ${-y}px, 0)`;
-                };
-
-                // ---- interaksi manual (wheel / touch / drag) → auto-pause sementara
-                const userKick = () => {
-                    paused = true;
-                    clearTimeout(ut);
-                    ut = setTimeout(() => {
-                        paused = false;
-                        last = performance.now();
-                    }, USER_PAUSE);
-                };
-
-                container.addEventListener('wheel', (e) => {
-                    e.preventDefault();
-                    userKick();
-                    max = measure();
-                    offset = clamp(offset + e.deltaY, 0, max);
-                    apply(offset);
-                }, {
-                    passive: false
+            // Helper umum untuk dipakai dari JS lain
+            window.showToast = function({
+                type = 'info',
+                message = '',
+                delay = 4000
+            } = {}) {
+                const wrap = document.querySelector('.toast-container') ??
+                    (() => {
+                        const d = document.createElement('div');
+                        d.className = 'toast-container position-fixed top-0 end-0 p-3';
+                        d.style.zIndex = 1100;
+                        document.body.appendChild(d);
+                        return d;
+                    })();
+                const el = document.createElement('div');
+                el.className = `toast text-bg-${type} border-0 shadow`;
+                el.setAttribute('role', 'alert');
+                el.setAttribute('aria-live', 'assertive');
+                el.setAttribute('aria-atomic', 'true');
+                el.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>`;
+                wrap.appendChild(el);
+                const t = new bootstrap.Toast(el, {
+                    delay,
+                    autohide: true
                 });
-
-                let tY = 0;
-                container.addEventListener('touchstart', (e) => {
-                    tY = e.touches[0].clientY;
-                    userKick();
-                }, {
-                    passive: true
-                });
-                container.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    userKick();
-                    const ny = e.touches[0].clientY;
-                    const dy = tY - ny;
-                    tY = ny;
-                    max = measure();
-                    offset = clamp(offset + dy, 0, max);
-                    apply(offset);
-                }, {
-                    passive: false
-                });
-
-                let dragging = false,
-                    pY = 0,
-                    pid = null;
-                container.addEventListener('pointerdown', (e) => {
-                    dragging = true;
-                    pY = e.clientY;
-                    pid = e.pointerId;
-                    container.setPointerCapture(pid);
-                    userKick();
-                });
-                container.addEventListener('pointermove', (e) => {
-                    if (!dragging) return;
-                    const dy = pY - e.clientY;
-                    pY = e.clientY;
-                    max = measure();
-                    offset = clamp(offset + dy, 0, max);
-                    apply(offset);
-                });
-                const endDrag = () => {
-                    dragging = false;
-                    if (pid != null) {
-                        try {
-                            container.releasePointerCapture(pid);
-                        } catch {}
-                        pid = null;
-                    }
-                };
-                container.addEventListener('pointerup', endDrag);
-                container.addEventListener('pointercancel', endDrag);
-                container.addEventListener('mouseleave', () => dragging = false);
-
-                function loop(ts) {
-                    if (!container.isConnected) return;
-                    const dt = ts - last;
-                    last = ts;
-
-                    if (!paused) {
-                        max = measure();
-                        if (max > 0) {
-                            offset += (SPEED * dt / 1000);
-                            if (offset >= max - 0.5) {
-                                offset = max;
-                                apply(offset);
-                                paused = true;
-                                setTimeout(() => {
-                                    if (!container.isConnected) return;
-                                    offset = 0;
-                                    apply(offset);
-                                    paused = false;
-                                    last = performance.now();
-                                }, EDGE_PAUSE);
-                            } else {
-                                apply(offset);
-                            }
-                        }
-                    }
-                    raf = requestAnimationFrame(loop);
-                }
-
-                apply(0);
-                raf = requestAnimationFrame(loop);
-
-                return () => {
-                    cancelAnimationFrame(raf);
-                    clearTimeout(ut);
-                };
-            }
-
-            function stopAll() {
-                for (const s of stops) try {
-                    s();
-                } catch {}
-                stops.clear();
-            }
-
-            function startForPane(pane) {
-                stopAll();
-                if (!pane) return;
-
-                // Tunggu 2 frame agar pane yang 'fade' benar2 visible & layout settle
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        pane.querySelectorAll('.table-responsive.auto-scroll').forEach(el => {
-                            const stop = startScroller(el);
-                            stops.add(stop);
-                        });
-                        window.__autoScrollPane = pane.id || '(no id)';
-                        window.__autoScrollCount = stops.size;
-                    });
-                });
-            }
-
-            function initActive() {
-                const activePane = document.querySelector('.tab-pane.show.active') ||
-                    document.querySelector('.tab-pane.active') ||
-                    document.querySelector('.tab-pane');
-                startForPane(activePane);
-            }
-
-            let rt;
-            const reinit = () => {
-                clearTimeout(rt);
-                rt = setTimeout(initActive, REINIT_DEBOUNCE);
+                t.show();
+                el.addEventListener('hidden.bs.toast', () => el.remove());
             };
-
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initActive);
-            else initActive();
-            window.addEventListener('load', initActive);
-
-            // Pakai DELEGATION agar tetap kena walau DOM di-render ulang
-            document.addEventListener('shown.bs.tab', (ev) => {
-                const trg = ev.target;
-                const sel = trg.getAttribute('data-bs-target') || trg.getAttribute('href');
-                const pane = sel ? document.querySelector(sel) : null;
-                startForPane(pane);
-            });
-
-            const host = document.getElementById('lineTabsContent');
-            if (host) new MutationObserver(reinit).observe(host, {
-                childList: true,
-                subtree: true
-            });
-
-            window.reinitAutoScroll = reinit;
-        })();
+        });
     </script>
-
 </body>
 
 </html>

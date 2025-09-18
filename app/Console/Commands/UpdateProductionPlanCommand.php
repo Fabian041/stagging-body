@@ -3,27 +3,31 @@
 namespace App\Console\Commands;
 
 use Carbon\Carbon;
-use Illuminate\Http\Request;
+use App\Traits\prodPlanOps;
 use App\Models\ProductionPlan;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class UpdateProductionPlanCommand extends Command
 {
+    use prodPlanOps;
+
     /**
      * The name and signature of the console command.
      *
-     * @var string
+     * Options:
+     *  --date=YYYY-MM-DD  : proses hanya 1 tanggal tertentu
+     *  --days=1           : proses mulai hari ini sebanyak N hari ke depan (abaikan jika --date dipakai)
+     *  --force            : paksa refresh walau signature sama
      */
     protected $signature = 'update:plan {--date=} {--days=1} {--force}';
 
     /**
      * The console command description.
-     *
-     * @var string
      */
-    protected $description = 'Update production plan data automatically';
+    protected $description = 'Update production plan data (sync with external MSSQL + compute working/balance time)';
 
     /**
      * Execute the console command.
@@ -31,376 +35,99 @@ class UpdateProductionPlanCommand extends Command
     public function handle()
     {
         $this->info('Starting production plan update...');
-        
+
         try {
-            $specificDate = $this->option('date');
-            $days = (int) $this->option('days');
-            $forceRefresh = $this->option('force');
-            
+            $specificDate  = $this->option('date');
+            $days          = max(1, (int) $this->option('days'));
+            $forceRefresh  = (bool) $this->option('force');
+
             if ($specificDate) {
-                // Update specific date
+                // Proses 1 tanggal spesifik
                 $date = Carbon::parse($specificDate)->startOfDay();
                 $this->updateProductionPlan($date, $forceRefresh);
             } else {
-                // Update multiple days from today
+                // Proses mulai hari ini selama N hari
                 for ($i = 0; $i < $days; $i++) {
                     $date = now()->startOfDay()->addDays($i);
                     $this->updateProductionPlan($date, $forceRefresh);
                 }
             }
-            
+
             $this->info('Production plan update completed successfully!');
-            
-        } catch (\Exception $e) {
-            $this->error('Production plan update failed: ' . $e->getMessage());
-            Log::error('Production plan command failed: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            return 0;
+        } catch (\Throwable $e) {
+            $this->error('Production plan update failed: '.$e->getMessage());
+            Log::error('Production plan command failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
             return 1;
         }
-        
-        return 0;
     }
 
     /**
-     * Update production plan for a specific date
+     * Update production plan untuk satu tanggal (selaras dengan Dashboard Controller).
      */
-    protected function updateProductionPlan(Carbon $selectedDate, bool $forceRefresh = false)
+    protected function updateProductionPlan(Carbon $selectedDate, bool $forceRefresh = false): void
     {
-        $this->info("Processing date: " . $selectedDate->format('Y-m-d'));
-        
-        $today = $selectedDate->copy();
-        $start = $today->copy()->addHours(10); // 12:00 selected date
-        $end = $start->copy()->addDay();      // 12:00 next day
+        $this->line("— Processing date: ".$selectedDate->format('Y-m-d'));
 
-        $backNosByLine = [
-            'AS003' => ['CI11', 'CI12', 'CI13', 'CI14', 'CI17', 'CI18'],
-            'AS004' => ['CI15', 'CI16', 'CI19'],
-        ];
+        // Window perhitungan (sama seperti controller)
+        $today = $selectedDate->copy()->startOfDay();
+        $start = $today->copy()->addHours(10);   // 10:00 di selected date
+        $end   = $start->copy()->addDay();       // 10:00 di hari berikutnya
 
-        $prodTimeByBackNo = [
-            'CI11' => '00:34',
-            'CI12' => '00:34',
-            'CI13' => '00:40',
-            'CI14' => '00:34',
-            'CI15' => '00:39',
-            'CI16' => '00:40',
-            'CI17' => '00:40',
-            'CI18' => '00:40',
-            'CI19' => '00:37',
-        ];
+        // Sumber mapping/backNo & prod time dari TRAIT (bukan hardcode di command)
+        $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
 
-        $allBackNos = collect($backNosByLine)->flatten()->unique()->values();
+        // Cek last update lokal
+        $lastUpdate = ProductionPlan::where('plan_date', $today->toDateString())->max('updated_at');
 
-        // Check if we have fresh data in database (last 30 minutes)
-        $lastUpdate = ProductionPlan::where('plan_date', $today->format('Y-m-d'))
-            ->max('updated_at');
+        // === Cek signature MSSQL (selaras dengan controller) ===
+        $sigKey  = 'pulling:sig:'.$selectedDate->format('Ymd');
+        $curSig  = $this->externalSignature($selectedDate, $allBackNos);
+        $prevSig = Cache::get($sigKey);
 
-        if ($forceRefresh || !$lastUpdate || ($lastUpdate instanceof \Carbon\Carbon && $lastUpdate->diffInMinutes(now()) > 30)) {
-            $this->line("Fetching fresh data for " . $selectedDate->format('Y-m-d') . "...");
-            
-            try {
-                DB::beginTransaction();
+        $shouldRefresh = $forceRefresh || !$lastUpdate || !$prevSig || ($curSig && $curSig !== $prevSig);
 
-                // Fetch new data
-                $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate);
-
-                if ($rawData->isEmpty()) {
-                    $this->warn("No production data available for " . $selectedDate->format('Y-m-d'));
-                    return;
-                }
-
-                $this->info("Processing " . $rawData->count() . " records...");
-                $processedData = $this->processRawData($rawData, $start, $end);
-
-                // Update or create records
-                $this->updateProductionData($processedData, $backNosByLine, $today);
-
-                DB::commit();
-                $this->info("Successfully updated production data for " . $selectedDate->format('Y-m-d'));
-                
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error('Production data processing failed for ' . $selectedDate->format('Y-m-d') . ': ' . $e->getMessage());
-                $this->error('Failed to update data for ' . $selectedDate->format('Y-m-d') . ': ' . $e->getMessage());
-                
-                // Try to use cached data from previous day
-                $lastData = ProductionPlan::where('plan_date', $today->copy()->subDay()->format('Y-m-d'))
-                    ->orderBy('updated_at', 'desc')
-                    ->first();
-
-                if ($lastData) {
-                    $this->warn('Using cached data from previous day for ' . $selectedDate->format('Y-m-d'));
-                }
-            }
-        } else {
-            $this->info("Data for " . $selectedDate->format('Y-m-d') . " is fresh (updated: " . $lastUpdate->format('Y-m-d H:i:s') . ")");
+        if (!$shouldRefresh) {
+            $this->info("No upstream change; using cached plan. (last local update: ".($lastUpdate? $lastUpdate->format('Y-m-d H:i:s') : '—').")");
+            return;
         }
-    }
 
-    // Copy all the helper methods from your original controller
-    protected function fetchWithLaravelDB($today, $start, $allBackNos, $prodTimeByBackNo, $selectedDate)
-    {
         try {
-            $deliveryDate = $selectedDate->format('Ymd');
-            $nextDay = $selectedDate->copy()->addDay()->format('Ymd');
+            DB::beginTransaction();
 
-            $excludedCustomers = [
-                'ADM SERVICE PART DIVISION',
-                'TMMIN SERVICE PARTS DIVISION',
-                'TAM SPARE PART DIVISION (DAIHATSU)',
-                'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
-            ];
-
-            $query = DB::connection('mssql_external')
-                ->table('TT_GIG_SYKMEISAI')
-                ->select(
-                    'CHR_MEI_NOUNYU as customer',
-                    'CHR_COD_UKEIRE as dock',
-                    'INT_NUB_NOUBIN as cycle',
-                    DB::raw('RTRIM(CHR_COD_SEBANGOU) as back_no'),
-                    'INT_SUR_SYUUYOU as qty_per_pallet',
-                    'INT_SUR_JYUCYUU as order_qty',
-                    'CHR_TIM_SYUKKA',
-                    'CHR_COD_TKS_NOUBAN as dn_number',
-                    'CHR_NGP_NOUNYU as delivery_date'
-                )
-                ->whereNotNull('CHR_TIM_SYUKKA')
-                ->where(function ($query) use ($deliveryDate, $nextDay) {
-                    $query->where(function ($q) use ($deliveryDate) {
-                        $q->where('CHR_NGP_NOUNYU', $deliveryDate)
-                            ->where('CHR_TIM_SYUKKA', '>=', '100000');
-                    })
-                        ->orWhere(function ($q) use ($nextDay) {
-                            $q->where('CHR_NGP_NOUNYU', $nextDay)
-                                ->where('CHR_TIM_SYUKKA', '<', '104000');
-                        });
-                })
-                ->whereNotIn('CHR_MEI_NOUNYU', $excludedCustomers)
-                ->whereIn(DB::raw("RTRIM(CHR_COD_SEBANGOU)"), $allBackNos);
-
-            return $query->get()->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
-                $item->back_no = trim($item->back_no);
-
-                $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-
-                // Use the delivery date to determine which date to use as base
-                $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
-                $time = $deliveryDate->copy()->setTime(
-                    substr($timeStr, 0, 2),
-                    substr($timeStr, 2, 2),
-                    substr($timeStr, 4, 2)
-                );
-
-                return (object)[
-                    'customer' => $item->customer,
-                    'dock' => $item->dock,
-                    'cycle' => $item->cycle,
-                    'back_no' => $item->back_no,
-                    'qty_per_pallet' => $item->qty_per_pallet,
-                    'order_qty' => $item->order_qty,
-                    'dn_number' => $item->dn_number,
-                    'formatted_time' => $time->format('H:i'),
-                    'time_sort' => $time->timestamp,
-                    'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00',
-                    'delivery_date' => $item->delivery_date
-                ];
-            });
-        } catch (\Exception $e) {
-            Log::warning('Laravel DB parameterized query failed: ' . $e->getMessage());
-
-            try {
-                $backNosString = implode("','", $allBackNos->map(fn($item) => trim($item))->toArray());
-                $date = $selectedDate->format('Ymd');
-                $nextDate = $selectedDate->copy()->addDay()->format('Ymd');
-                $excludedCustomersString = implode("','", [
-                    'ADM SERVICE PART DIVISION',
-                    'TMMIN SERVICE PARTS DIVISIONS',
-                    'TAM SPARE PART DIVISION (DAIHATSU)',
-                    'PT MISTUBISHI MOTORS KRAMAYUDHA SALES ID'
-                ]);
-
-                $sql = "SELECT 
-                        CHR_MEI_NOUNYU as customer,
-                        CHR_COD_UKEIRE as dock,
-                        INT_NUB_NOUBIN as cycle,
-                        RTRIM(CHR_COD_SEBANGOU) as back_no,
-                        INT_SUR_SYUUYOU as qty_per_pallet,
-                        INT_SUR_JYUCYUU as order_qty,
-                        CHR_TIM_SYUKKA,
-                        CHR_COD_TKS_NOUBAN as dn_number,
-                        CHR_NGP_NOUNYU as delivery_date
-                    FROM TT_GIG_SYKMEISAI WITH (NOLOCK)
-                    WHERE CHR_TIM_SYUKKA IS NOT NULL
-                        AND (
-                            (CHR_NGP_NOUNYU = '{$date}' AND CHR_TIM_SYUKKA >= '100000')
-                            OR 
-                            (CHR_NGP_NOUNYU = '{$nextDate}' AND CHR_TIM_SYUKKA < '104000')
-                        )
-                        AND CHR_MEI_NOUNYU NOT IN ('{$excludedCustomersString}')
-                        AND RTRIM(CHR_COD_SEBANGOU) IN ('{$backNosString}')
-                    ORDER BY CHR_COD_SEBANGOU";
-
-                return collect(DB::connection('mssql_external')->select($sql))->map(function ($item) use ($selectedDate, $prodTimeByBackNo) {
-                    $item->back_no = trim($item->back_no);
-
-                    $timeStr = str_pad($item->CHR_TIM_SYUKKA, 6, '0', STR_PAD_LEFT);
-                    $deliveryDate = Carbon::createFromFormat('Ymd', $item->delivery_date);
-                    $time = $deliveryDate->copy()->setTime(
-                        substr($timeStr, 0, 2),
-                        substr($timeStr, 2, 2),
-                        substr($timeStr, 4, 2)
-                    );
-
-                    return (object)[
-                        'customer' => $item->customer,
-                        'dock' => $item->dock,
-                        'cycle' => $item->cycle,
-                        'back_no' => $item->back_no,
-                        'qty_per_pallet' => $item->qty_per_pallet,
-                        'order_qty' => $item->order_qty,
-                        'dn_number' => $item->dn_number,
-                        'formatted_time' => $time->format('H:i'),
-                        'time_sort' => $time->timestamp,
-                        'prod_time' => $prodTimeByBackNo[$item->back_no] ?? '00:00',
-                        'delivery_date' => $item->delivery_date
-                    ];
-                });
-            } catch (\Exception $e) {
-                Log::warning('Laravel DB raw query failed: ' . $e->getMessage());
-                return collect();
+            // Ambil data eksternal (pakai fungsi dari TRAIT, sudah handle 6I/STR & threshold 10:40)
+            $rawData = $this->fetchWithLaravelDB($today, $start, $allBackNos, $this->prodTimeByBackNo, $selectedDate);
+            if ($rawData->isEmpty()) {
+                throw new \Exception('No production data available from MSSQL for '.$selectedDate->format('Y-m-d'));
             }
-        }
-    }
+            $this->info('Fetched '.$rawData->count().' raw rows.');
 
-    protected function processRawData($rawData, $start, $end)
-    {
-        return $rawData
-            ->groupBy(function ($item) {
-                $dock = trim((string) $item->dock);
+            // Agregasi & normalisasi (pakai TRAIT)
+            $processedData = $this->processRawData($rawData, $start, $end);
+            $this->info('Processed into '.$processedData->count().' grouped records.');
 
-                if ($dock === '6I') {
-                    return $item->delivery_date . '|' . $item->formatted_time . '|' . $item->back_no;
-                }
+            // Tulis/Update ke ProductionPlan (pakai TRAIT)
+            // NOTE: Di TRAIT: dock STR -> delivery_time dikurangi 30 menit, selain itu 60 menit.
+            $this->updateProductionData($processedData, $this->backNosByLine, $today);
 
-                return $item->dn_number . '|' . $item->back_no;
-            })
-            ->map(function ($group) {
-                $first = $group->first();
-                $first->order_qty = $group->sum('order_qty');
-                return $first;
-            })
-            ->values();
-    }
+            DB::commit();
 
-    protected function updateProductionData($processedData, $backNosByLine, $today)
-    {
-        foreach ($backNosByLine as $line => $backNos) {
-            $startWorkingTime = $today->copy()->setTime(6, 0, 0);
-
-            $lineData = $processedData
-                ->filter(function ($item) use ($backNos) {
-                    return in_array($item->back_no, $backNos);
-                })
-                ->sortBy('time_sort')
-                ->groupBy('dn_number');
-
-            foreach ($lineData as $dnNumber => $group) {
-                $group = $group->sortBy('back_no')->values();
-                $customer = $group->first()->customer;
-                $deliveryTime = $group->first()->formatted_time;
-
-                // Calculate working times for the group
-                $currentWorkingTime = $startWorkingTime->copy();
-                foreach ($group as $item) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
-
-                    $workingStart = $currentWorkingTime->format('H:i');
-                    $workingEnd = $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i');
-                    $workingDuration = gmdate('H:i:s', $totalSeconds);
-
-                    $currentWorkingTime->addSeconds($totalSeconds);
-                }
-
-                // Calculate balance time for the group
-                $lastEnd = Carbon::createFromFormat('H:i', $workingEnd);
-                $delivery = Carbon::parse($deliveryTime);
-
-                if ($delivery->lt($lastEnd)) {
-                    $delivery->addDay();
-                }
-
-                $balanceSeconds = $delivery->diffInSeconds($lastEnd, true);
-                $isNegative = $balanceSeconds < 0;
-                $formattedBalance = gmdate('H:i', abs($balanceSeconds));
-                $balanceTime = $isNegative ? "-$formattedBalance" : $formattedBalance;
-
-                // Update or create each record
-                $currentWorkingTime = $startWorkingTime->copy();
-                foreach ($group as $item) {
-                    [$mm, $ss] = explode(':', $item->prod_time);
-                    $prodSeconds = ((int)$mm * 60) + (int)$ss;
-                    $totalSeconds = $prodSeconds * (int)$item->order_qty;
-
-                    // Get existing record to preserve quantities
-                    $existingRecord = ProductionPlan::where([
-                        'plan_date' => $today->format('Y-m-d'),
-                        'line' => $line,
-                        'customer' => $customer,
-                        'back_no' => $item->back_no,
-                        'dn_number' => $item->dn_number
-                    ])->first();
-
-                    $updateData = [
-                        'dock' => $item->dock,
-                        'cycle' => $item->cycle,
-                        'order_qty' => $item->order_qty,
-                        'prod_time' => $item->prod_time,
-                        'working_start' => $currentWorkingTime->format('H:i'),
-                        'working_end' => $currentWorkingTime->copy()->addSeconds($totalSeconds)->format('H:i'),
-                        'working_duration' => gmdate('H:i:s', $totalSeconds),
-                        'delivery_time' => $deliveryTime,
-                        'delivery_date' => Carbon::createFromFormat('Ymd', $item->delivery_date)->format('Y-m-d'),
-                        'balance_time' => $balanceTime,
-                        'updated_at' => now()
-                    ];
-
-                    // Preserve existing quantities if they exist
-                    if ($existingRecord) {
-                        $updateData['direct_pulling_qty'] = $existingRecord->direct_pulling_qty;
-                        $updateData['stock_chute_qty'] = $existingRecord->stock_chute_qty;
-                    } else {
-                        $updateData['direct_pulling_qty'] = 0;
-                        $updateData['stock_chute_qty'] = 0;
-                        $updateData['created_at'] = now();
-                    }
-
-                    try {
-                        ProductionPlan::updateOrCreate(
-                            [
-                                'plan_date' => $today->format('Y-m-d'),
-                                'line' => $line,
-                                'customer' => $customer,
-                                'back_no' => $item->back_no,
-                                'dn_number' => $item->dn_number
-                            ],
-                            $updateData
-                        );
-                    } catch (\Exception $e) {
-                        Log::error('Failed to update production plan record: ' . $e->getMessage(), [
-                            'plan_date' => $today->format('Y-m-d'),
-                            'line' => $line,
-                            'back_no' => $item->back_no,
-                            'dn_number' => $item->dn_number
-                        ]);
-                    }
-
-                    $currentWorkingTime->addSeconds($totalSeconds);
-                }
-                $startWorkingTime = $currentWorkingTime;
+            // Simpan signature terbaru (durasi sama seperti controller: 6 jam)
+            if ($curSig) {
+                Cache::put($sigKey, $curSig, now()->addHours(6));
             }
+
+            $this->info('Successfully updated production data for '.$selectedDate->format('Y-m-d').' (upstream changed).');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $this->error('Failed to update data for '.$selectedDate->format('Y-m-d').': '.$e->getMessage());
+            Log::error('Production data processing failed', [
+                'date'  => $selectedDate->format('Y-m-d'),
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

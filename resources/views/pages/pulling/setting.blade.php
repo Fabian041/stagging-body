@@ -2,9 +2,6 @@
 
 @section('main')
     <style>
-        /* ======================
-                                                                                                                                                                                                                                                                                                         THEME TOKENS (fallback)
-                                                                                                                                                                                                                                                                                                         ====================== */
         :root {
             --brand-primary: #0d6efd;
             --brand-accent: #20c997;
@@ -61,8 +58,8 @@
         }
 
         /* ==============
-                                                                                                                                                                                                                                                                                                         BASE / WRAPPER
-                                                                                                                                                                                                                                                                                                         ============== */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         BASE / WRAPPER
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ============== */
         .seq-board {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -106,8 +103,8 @@
         }
 
         /* =================
-                                                                                                                                                                                                                                                                                                         INFO / SUB HEADER
-                                                                                                                                                                                                                                                                                                         ================= */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         INFO / SUB HEADER
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ================= */
         .info-panel {
             display: flex;
             align-items: center;
@@ -139,8 +136,8 @@
         }
 
         /* =========
-                                                                                                                                                                                                                                                                                                         ITEM ROWS
-                                                                                                                                                                                                                                                                                                         ========= */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ITEM ROWS
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ========= */
         .item-row {
             display: flex;
             align-items: center;
@@ -341,7 +338,7 @@
         }
 
         .seq-head .form-control,
-        .seq-head .form-select {
+        .seq-head .form-control {
             height: 44px;
         }
 
@@ -466,6 +463,31 @@
         #itemsContainer .item-row>.text-end {
             min-width: 0 !important;
         }
+
+        /* kolom aksi */
+        :root {
+            --col-act: 80px;
+        }
+
+        /* tambahkan kolom aksi ke grid */
+        .list-head,
+        #itemsContainer .item-row {
+            grid-template-columns:
+                var(--col-seq) var(--col-back) var(--col-cust) var(--col-qty) var(--col-time) var(--col-act) !important;
+        }
+
+        /* header/actions align */
+        .list-head .hcell:nth-child(6),
+        #itemsContainer .item-row>div:nth-child(6) {
+            text-align: right;
+            justify-self: end;
+        }
+
+        /* tombol delete */
+        .row-actions .btn {
+            padding: .35rem .6rem;
+            border-radius: 8px;
+        }
     </style>
 
     <div class="row mt-3">
@@ -491,6 +513,10 @@
                     </div>
 
                     <div class="seq-actions">
+                        <button type="button" id="openAddModal" class="btn btn-outline-primary">
+                            <i class="fas fa-plus me-2"></i> Add Item
+                        </button>
+
                         <button type="button" id="loadItemsBtn" class="btn btn-primary">
                             <i class="fas fa-search me-2"></i> Load Production
                         </button>
@@ -512,6 +538,7 @@
                         <div class="hcell h-cust">CUSTOMER</div>
                         <div class="hcell h-qty">QUANTITY</div>
                         <div class="hcell h-dead">DELIVERY TIME</div>
+                        <div class="hcell h-act text-end">ACTIONS</div> <!-- NEW -->
                     </div>
 
                     <div id="itemsContainer" class="mb-3"></div>
@@ -529,19 +556,67 @@
         </div>
     </div>
 @endsection
+<div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tambah Item Produksi (Multi DN, Multi Back No)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="addItemForm" class="modal-body">
+                <!-- HEADER (shared untuk seluruh DN) -->
+                <div class="row g-3 pb-2 border-bottom">
+                    <div class="col-md-6">
+                        <label class="form-label">Customer</label>
+                        <select name="customer" class="form-control" required>
+                            <option value="">— pilih customer —</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Dock</label>
+                        <select name="dock" class="form-control" required>
+                            <option value="">— pilih dock —</option>
+                        </select>
+                    </div>
+
+                    <!-- hidden dari header utama halaman -->
+                    <input type="hidden" name="plan_date">
+                    <input type="hidden" name="line">
+                </div>
+
+                <!-- DN GROUPS -->
+                <div class="d-flex align-items-center justify-content-between mt-3">
+                    <h6 class="m-0">Delivery Notes (DN)</h6>
+                    <button class="btn btn-sm btn-outline-primary" type="button" id="btnAddDnGroup">
+                        <i class="fas fa-plus me-1"></i> Add DN
+                    </button>
+                </div>
+
+                <div id="dnGroups" class="mt-2">
+                    <!-- DN groups dibuat via JS -->
+                </div>
+            </form>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                <button type="button" id="submitAddItem" class="btn btn-success">
+                    <i class="fas fa-plus me-2"></i> Tambah
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        /* =========================================
-                                               BACK NO CANONICAL CONVERTER (global-safe)
-                                               - toCanon() & expandTargets()
-                                               - Disimpan di window.BackNoCanon untuk dipakai modul lain
-                                            ========================================= */
+        /* ============== BACK NO CANON + REORDER ============== */
         (function BackNoConverter() {
             const BACKNO_PAIRS = [
                 ['D111', 'CI12'],
                 ['D500', 'CI19'],
-                ['D403', 'CI18'], // contoh tambahan
+                ['D403', 'CI18'],
             ];
             const up = s => String(s || '').trim().toUpperCase();
             const BACKNO_CANON = new Map(); // any -> canonical
@@ -563,7 +638,7 @@
 
             function toCanon(code) {
                 const k = up(code);
-                return BACKNO_CANON.get(k) || k; // default ke dirinya sendiri
+                return BACKNO_CANON.get(k) || k;
             }
 
             function expandTargets(targets) {
@@ -590,18 +665,17 @@
         })();
 
         /* =========================================
-           REORDER MODULE (IIFE) — rotate delivery_time
+           REORDER MODULE — rotate delivery_time
            - UI ikut urutan backend (FE tidak sort)
            - Input posisi = insert/shift (ROTATE jam, termasuk summary rows)
-           - Save: POST {id, delivery_time}; waktu SUMMARY dipakai untuk override
-                   SEMUA item dengan alias tsb pada hari & line terpilih
+           - Save: POST {id, delivery_time}; waktu SUMMARY override semua alias(ci12/ci19)
            - Summary CI12 hanya AS003, CI19 hanya AS004
-           - Detail untuk alias yg disummary DISEMBUNYIKAN di list
+           - Detail alias yg disummary DISEMBUNYIKAN di list
         ========================================= */
         (function ReorderModule() {
             let changedRows = new Map(); // id -> note
             let originalSnapshot = []; // [{id, delivery_time}]
-            let loadedItems = []; // cache semua item dari backend (agar hidden items tetap ikut Save & Sum)
+            let loadedItems = []; // cache semua item dari backend
 
             document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('loadItemsBtn')?.addEventListener('click', loadProductionItems);
@@ -612,27 +686,68 @@
                     const container = saveBtn.parentNode;
                     const btns = document.createElement('span');
                     btns.innerHTML = `
-            <button id="resetChangesBtn" class="btn btn-outline-danger ms-2" style="display:none;">Reset All Changes</button>
-          `;
+        <button id="resetChangesBtn" class="btn btn-outline-danger ms-2" style="display:none;">Reset All Changes</button>
+      `;
                     container.appendChild(btns);
                 }
 
-                document.getElementById('resetHighlightsBtn')?.addEventListener('click', () => {
-                    document.querySelectorAll('.sequence-changed').forEach(el => {
-                        el.classList.remove('sequence-changed');
-                        el.removeAttribute('data-swap-info');
-                    });
-                    changedRows.clear();
-                });
-
                 document.getElementById('resetChangesBtn')?.addEventListener('click', resetAllChanges);
-            });
 
-            /* ============ Utilities ============ */
-            const t2m = t => {
-                const [H, M] = String(t || '00:00').split(':').map(v => parseInt(v, 10) || 0);
-                return H * 60 + M;
-            };
+                // Delegasi delete
+                document.getElementById('itemsContainer')?.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('.del-item');
+                    if (!btn) return;
+
+                    const row = btn.closest('.item-row[data-id]');
+                    const id = row?.getAttribute('data-id');
+                    if (!id) return;
+
+                    const back = row?.querySelector(':scope > div:nth-child(2)')?.textContent
+                        ?.trim() || '';
+                    const qty = row?.querySelector('.item-badge')?.textContent?.trim() || '';
+                    if (!confirm(`Hapus item ini?\nBack No: ${back}\n${qty}`)) return;
+
+                    const planDate = document.getElementById('reorderDate')?.value || '';
+                    const line = document.getElementById('reorderLine')?.value || '';
+
+                    try {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                        const res = await fetch(
+                            `/pulling/settings/reorder/${encodeURIComponent(id)}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector(
+                                        'meta[name="csrf-token"]')?.content
+                                },
+                                body: JSON.stringify({
+                                    plan_date: planDate,
+                                    line
+                                })
+                            });
+
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok || json.success === false) {
+                            throw new Error(json.message || 'Gagal menghapus item');
+                        }
+
+                        if (Array.isArray(json.data) && typeof window.renderItemsFromServer ===
+                            'function') {
+                            window.renderItemsFromServer(json.data);
+                        } else if (typeof window.loadProductionItems === 'function') {
+                            window.loadProductionItems();
+                        }
+                    } catch (err) {
+                        alert(err.message || 'Delete gagal');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-trash"></i>';
+                    }
+                });
+            });
 
             function renumberPositions() {
                 const rows = Array.from(document.querySelectorAll('#itemsContainer .item-row'));
@@ -655,14 +770,6 @@
                 if (cell) cell.textContent = v;
             }
 
-            function markChanged(row, text) {
-                row.classList.add('sequence-changed');
-                row.setAttribute('data-swap-info', text);
-                const id = row.getAttribute('data-id');
-                if (id) changedRows.set(id, text);
-            }
-
-            /* ============ Target summary dinamis per line ============ */
             function getActiveSumTargets() {
                 const line = (document.getElementById('reorderLine')?.value || '').toUpperCase();
                 if (line === 'AS003') return ['CI12'];
@@ -670,7 +777,6 @@
                 return [];
             }
 
-            /* ============ SUM & SUMMARY ROWS (REORDERABLE) ============ */
             function ensureSumBadgesBar() {
                 let bar = document.getElementById('backnoSums');
                 if (!bar) {
@@ -690,48 +796,39 @@
             function renderSummaryListRows(sums, earliestTimes, targets) {
                 const wrap = document.getElementById('itemsContainer');
                 if (!wrap) return;
-                // Hapus summary row sebelumnya
                 wrap.querySelectorAll('.summary-list-row').forEach(n => n.remove());
 
-                // Sisipkan baris summary (dengan input) di PALING ATAS list
-                // hanya kalau ada total > 0 (alias memang ada di hari/line tsb)
                 for (let i = targets.length - 1; i >= 0; i--) {
                     const key = targets[i];
-                    if (!sums[key]) continue; // skip jika 0
+                    if (!sums[key]) continue;
                     const time = (earliestTimes[key] || '00:00');
                     const row = document.createElement('div');
-                    row.className =
-                        'item-row summary-list-row d-flex align-items-center gap-3 rounded-3 py-2 mb-2';
+                    row.className = 'item-row summary-list-row d-flex align-items-center gap-3 rounded-3 py-2 mb-2';
                     row.setAttribute('data-summary', '1');
                     row.setAttribute('data-group-alias', key);
                     row.setAttribute('data-delivery', time);
 
                     row.innerHTML = `
-            <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
-              <input type="number" class="industrial-sequence-input"
-                     value="1" min="1" max="1"
-                     onchange="handleSequenceChange(this)">
-            </div>
-            <div class="flex-grow-1 fw-semibold" style="min-width:220px">${key}</div>
-            <div class="flex-grow-1" style="min-width:300px">--</div>
-            <div class="text-center" style="min-width:160px">
-              <span class="item-badge">${(sums[key] || 0).toLocaleString('id-ID')} UNITS</span>
-            </div>
-            <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${time}</div>
-          `;
+        <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
+          <input type="number" class="industrial-sequence-input" value="1" min="1" max="1" onchange="handleSequenceChange(this)">
+        </div>
+        <div class="flex-grow-1 fw-semibold" style="min-width:220px">${key}</div>
+        <div class="flex-grow-1" style="min-width:300px">--</div>
+        <div class="text-center" style="min-width:160px">
+          <span class="item-badge">${(sums[key] || 0).toLocaleString('id-ID')} UNITS</span>
+        </div>
+        <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${time}</div>
+        <div class="row-actions text-end" style="min-width:var(--col-act)"></div>
+      `;
                     wrap.insertBefore(row, wrap.firstChild);
                 }
-
-                // Nomori ulang semua rows + set min/max input
                 renumberPositions();
             }
 
             function updateBacknoSums() {
                 const TARGETS = getActiveSumTargets();
-                const bar = ensureSumBadgesBar();
+                ensureSumBadgesBar();
 
-                // Hitung sum & earliest delivery_time dari CACHE (bukan DOM),
-                // supaya item yang DISSEMBUNYIKAN juga ikut dihitung.
                 const sums = Object.fromEntries(TARGETS.map(k => [k, 0]));
                 const earliest = Object.fromEntries(TARGETS.map(k => [k, null]));
 
@@ -744,11 +841,9 @@
                     if (!earliest[alias] || time < earliest[alias]) earliest[alias] = time;
                 });
 
-                // Tambahkan baris ringkasan (ikut di-reorder) sesuai targets aktif
                 renderSummaryListRows(sums, earliest, TARGETS);
             }
 
-            /* ============ Load (pakai urutan backend) ============ */
             function loadProductionItems() {
                 document.querySelectorAll('.sequence-changed').forEach(el => {
                     el.classList.remove('sequence-changed');
@@ -783,10 +878,7 @@
                             return;
                         }
 
-                        // normalisasi jam & simpan CACHE
-                        data.forEach(d => {
-                            d.delivery_time = (d.delivery_time || '00:00').slice(0, 5);
-                        });
+                        data.forEach(d => d.delivery_time = (d.delivery_time || '00:00').slice(0, 5));
                         loadedItems = data.slice();
 
                         originalSnapshot = data.map(d => ({
@@ -798,15 +890,13 @@
                         if (!wrap) return;
                         wrap.innerHTML = '';
 
-                        // Render HANYA item yg BUKAN alias summary aktif
-                        const activeAliases = new Set(getActiveSumTargets()); // canonical
+                        const activeAliases = new Set(getActiveSumTargets());
                         let visibleIdx = 0;
 
                         data.forEach(item => {
                             const aliasBN = (window.BackNoCanon?.toCanon(String(item.back_no || '')
                                 .trim()) || (item.back_no || '')).toUpperCase();
-                            if (activeAliases.has(aliasBN))
-                                return; // sembunyikan detail dari alias yg disummary
+                            if (activeAliases.has(aliasBN)) return;
 
                             visibleIdx++;
                             const row = document.createElement('div');
@@ -815,33 +905,30 @@
                             row.setAttribute('data-pos', visibleIdx);
                             row.setAttribute('data-delivery', (item.delivery_time || '00:00').slice(0, 5));
 
-                            // simpan untuk referensi
                             row.dataset.backnoAlias = aliasBN;
                             row.dataset.orderQty = String(item.order_qty ?? 0);
 
-                            const isChanged = changedRows.has(String(item.id));
                             row.innerHTML = `
-                <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
-                  <input type="number" class="industrial-sequence-input"
-                         value="${visibleIdx}" min="1" max="${data.length}"
-                         onchange="handleSequenceChange(this)">
-                </div>
-                <div class="flex-grow-1 fw-semibold" style="min-width:220px">
-                  ${aliasBN || '-'}
-                  ${isChanged ? '<span class="swap-info-badge">Modified</span>' : ''}
-                </div>
-                <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
-                <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
-                <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${(item.delivery_time || '00:00').slice(0,5)}</div>
-              `;
+            <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
+              <input type="number" class="industrial-sequence-input" value="${visibleIdx}" min="1" max="${data?.length ?? visibleIdx}" onchange="handleSequenceChange(this)">
+            </div>
+            <div class="flex-grow-1 fw-semibold" style="min-width:220px">${aliasBN || '-'}</div>
+            <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
+            <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
+            <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${(item.delivery_time || '00:00').slice(0,5)}</div>
+            <div class="row-actions text-end" style="min-width:var(--col-act)">
+              <button type="button" class="btn btn-outline-danger btn-sm del-item" data-id="${item.id}" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          `;
                             wrap.appendChild(row);
                         });
 
                         document.getElementById('reorderContainer')?.classList.remove('d-none');
-                        const resetBtn = document.getElementById('resetChangesBtn');
-                        if (resetBtn) resetBtn.style.display = 'none';
+                        document.getElementById('resetChangesBtn') && (document.getElementById('resetChangesBtn')
+                            .style.display = 'none');
 
-                        // pastikan numbering benar, lalu render SUMMARY (badge + row)
                         renumberPositions();
                         updateBacknoSums();
                     })
@@ -854,15 +941,12 @@
                     });
             }
 
-            /* ============ Insert/Shift by rotating delivery_time (rows + summary) ============ */
             function handleSequenceChange(input) {
                 const container = document.getElementById('itemsContainer');
                 if (!container) return;
 
-                // Ambil SEMUA row termasuk summary
                 const rows = Array.from(container.querySelectorAll('.item-row'));
 
-                // Init sequence & delivery if missing
                 rows.forEach((r, i) => {
                     if (!r.hasAttribute('data-sequence')) {
                         r.setAttribute('data-sequence', i + 1);
@@ -911,12 +995,6 @@
                     const cell = r.querySelector('[data-col="delivery"]');
                     if (cell) cell.textContent = v;
                 };
-                const mark = (r, text) => {
-                    r.classList.add('sequence-changed');
-                    r.setAttribute('data-swap-info', text);
-                    const id = r.getAttribute('data-id');
-                    if (id) changedRows.set(id, text);
-                };
 
                 const ordered = rows.slice().sort((a, b) => seq(a) - seq(b));
                 const timesOld = ordered.map(getTime);
@@ -931,22 +1009,25 @@
                 ordered.forEach((r, iOld) => {
                     const iNew = indexOfNew.get(r);
                     const delta = iNew - iOld;
-                    if (r === movedRow) mark(r, `Moved ${oldPos} → ${newPos}`);
-                    else if (delta === 1) mark(r, '↓1');
-                    else if (delta === -1) mark(r, '↑1');
+                    if (r === movedRow) {
+                        r.classList.add('sequence-changed');
+                        r.setAttribute('data-swap-info', `Moved ${oldPos} → ${newPos}`);
+                    } else if (delta === 1) {
+                        r.classList.add('sequence-changed');
+                        r.setAttribute('data-swap-info', '↓1');
+                    } else if (delta === -1) {
+                        r.classList.add('sequence-changed');
+                        r.setAttribute('data-swap-info', '↑1');
+                    }
                 });
 
-                // ROTATE delivery_time per slot baru (summary rows ikut)
                 newOrder.forEach((r, iNew) => setTime(r, timesOld[iNew]));
-
                 newOrder.forEach((r, i) => setSeq(r, i + 1));
                 newOrder.forEach(r => container.appendChild(r));
             }
 
-            /* ============ Reset ============ */
             function resetAllChanges() {
                 if (!originalSnapshot.length) return;
-                // Kembalikan jam item nyata ke snapshot
                 const map = new Map(originalSnapshot.map(x => [String(x.id), (x.delivery_time || '00:00').slice(0,
                     5)]));
                 const itemRows = Array.from(document.querySelectorAll('#itemsContainer .item-row[data-id]'));
@@ -957,24 +1038,19 @@
                     row.removeAttribute('data-swap-info');
                 });
                 changedRows.clear();
-                // Rebuild summary rows dari CACHE (line-aware)
                 updateBacknoSums();
-
                 const resetBtn = document.getElementById('resetChangesBtn');
                 if (resetBtn) resetBtn.style.display = 'none';
             }
 
-            /* ============ Save ============ */
             function saveProductionSequence() {
                 const date = document.getElementById('reorderDate')?.value;
                 const line = document.getElementById('reorderLine')?.value;
-
                 if (!date || !line) {
                     alert('Please select both date and production line');
                     return;
                 }
 
-                // Ambil waktu summary rows → aliasTimeMap (akan override semua item dgn alias tsb)
                 const aliasTimeMap = {};
                 document.querySelectorAll('#itemsContainer .summary-list-row').forEach(sr => {
                     const alias = (sr.getAttribute('data-group-alias') || '').toUpperCase();
@@ -983,19 +1059,14 @@
                     if (alias && time) aliasTimeMap[alias] = time;
                 });
 
-                // Build payload:
-                // A) Semua item yang nampak di list (bukan alias summary) -> ambil time dari DOM
-                // B) Semua item tersembunyi (alias summary aktif) -> ambil dari loadedItems & set time = aliasTimeMap[alias]
                 const payloadMap = new Map();
 
-                // A) visible
                 document.querySelectorAll('#itemsContainer .item-row[data-id]').forEach(r => {
                     const id = r.getAttribute('data-id');
                     const time = (r.getAttribute('data-delivery') || '00:00').slice(0, 5);
                     payloadMap.set(id, time);
                 });
 
-                // B) hidden (alias summary)
                 const activeAliases = new Set(getActiveSumTargets());
                 loadedItems.forEach(it => {
                     const alias = (window.BackNoCanon?.toCanon(String(it.back_no || '')) || '').toUpperCase();
@@ -1035,17 +1106,14 @@
                     })
                     .then(async r => {
                         const ct = r.headers.get('content-type') || '';
-                        if (!ct.includes('application/json')) {
-                            throw new Error(await r.text() || 'Non-JSON response');
-                        }
+                        if (!ct.includes('application/json')) throw new Error(await r.text() ||
+                            'Non-JSON response');
                         return r.json();
                     })
                     .then(data => {
                         if (!data.success) throw new Error(data.message || 'Server error');
-                        if (Array.isArray(data.data)) {
-                            renderItemsFromServer(data.data);
-                        }
-                        // snapshot baru (dari DOM hasil render terbaru)
+                        if (Array.isArray(data.data)) renderItemsFromServer(data.data);
+
                         const rowsNow = Array.from(document.querySelectorAll('#itemsContainer .item-row[data-id]'));
                         originalSnapshot = rowsNow.map(r => ({
                             id: String(r.getAttribute('data-id')),
@@ -1068,15 +1136,13 @@
             }
 
             function renderItemsFromServer(items) {
-                // normalisasi jam (TANPA sort—biarkan urutan backend)
                 items.forEach(d => d.delivery_time = (d.delivery_time || '00:00').slice(0, 5));
-                loadedItems = items.slice(); // refresh cache
+                loadedItems = items.slice();
 
                 const wrap = document.getElementById('itemsContainer');
                 if (!wrap) return;
                 wrap.innerHTML = '';
 
-                // Render HANYA item yg BUKAN alias summary aktif
                 const activeAliases = new Set(getActiveSumTargets());
                 let visibleIdx = 0;
 
@@ -1084,7 +1150,7 @@
                     const aliasBN = window.BackNoCanon?.toCanon(String(item.back_no || '').trim()) || (item
                         .back_no || '');
                     const aliasUp = aliasBN.toUpperCase();
-                    if (activeAliases.has(aliasUp)) return; // sembunyikan pecahan alias summary
+                    if (activeAliases.has(aliasUp)) return;
 
                     visibleIdx++;
                     const row = document.createElement('div');
@@ -1098,28 +1164,442 @@
                     row.dataset.orderQty = String(item.order_qty ?? 0);
 
                     row.innerHTML = `
-            <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
-              <input type="number" class="industrial-sequence-input"
-                     value="${visibleIdx}" min="1" max="${items.length}"
-                     onchange="handleSequenceChange(this)">
-            </div>
-            <div class="flex-grow-1 fw-semibold" style="min-width:220px">${aliasUp || '-'}</div>
-            <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
-            <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
-            <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${item.delivery_time}</div>
-          `;
+        <div class="sequence-input-container" style="width:100px;flex:0 0 100px">
+          <input type="number" class="industrial-sequence-input" value="${visibleIdx}" min="1" max="${items.length}" onchange="handleSequenceChange(this)">
+        </div>
+        <div class="flex-grow-1 fw-semibold" style="min-width:220px">${aliasUp || '-'}</div>
+        <div class="flex-grow-1" style="min-width:300px">${item.customer || '-'}</div>
+        <div class="text-center" style="min-width:160px"><span class="item-badge">${item.order_qty ?? 0} UNITS</span></div>
+        <div class="text-end fw-semibold" style="min-width:160px" data-col="delivery">${(item.delivery_time || '00:00').slice(0,5)}</div>
+        <div class="row-actions text-end" style="min-width:var(--col-act)">
+          <button type="button" class="btn btn-outline-danger btn-sm del-item" data-id="${item.id}" title="Delete">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `;
                     wrap.appendChild(row);
                 });
 
-                // Rebuild SUMMARY (badge + row) & renumber
                 renumberPositions();
                 updateBacknoSums();
             }
 
-            // Expose minimal APIs yang dibutuhkan inline/luar
+            // Expose
             window.handleSequenceChange = handleSequenceChange;
             window.loadProductionItems = loadProductionItems;
             window.saveProductionSequence = saveProductionSequence;
+            window.renderItemsFromServer = renderItemsFromServer;
+        })();
+    </script>
+
+    <script>
+        (() => {
+            /* ====== UTIL ====== */
+            function toYMD(d) {
+                const y = d.getFullYear(),
+                    m = String(d.getMonth() + 1).padStart(2, '0'),
+                    day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
+
+            function todayYMD(baseDate = new Date()) {
+                return toYMD(baseDate);
+            }
+
+            function addDaysYMD(ymd, days) {
+                const d = new Date(ymd + 'T00:00:00');
+                d.setDate(d.getDate() + days);
+                return toYMD(d);
+            }
+
+            function plusOneMinute(hhmm) {
+                try {
+                    const [H, M] = String(hhmm || '06:00').split(':').map(n => parseInt(n, 10) || 0);
+                    const t = Math.min(1439, Math.max(0, H * 60 + M + 1));
+                    return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+                } catch {
+                    return '06:01';
+                }
+            }
+
+            function enforceDeliveryDateTodayBesok(input) {
+                const t = todayYMD();
+                const besok = addDaysYMD(t, 1);
+                input.min = t;
+                input.max = besok;
+                input.addEventListener('change', () => {
+                    if (input.value < t || input.value > besok) input.value = t;
+                });
+            }
+
+            /* ====== FETCH OPSI (customers, docks, back_nos) ====== */
+            async function fetchAddOptions(line, planDate) {
+                const url = new URL('/pulling/settings/reorder/options', window.location.origin);
+                if (line) url.searchParams.set('line', line);
+                if (planDate) url.searchParams.set('plan_date', planDate);
+                const res = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!res.ok) throw new Error('Gagal load opsi');
+                return res.json(); // { customers:[], docks:[], back_nos:[] }
+            }
+
+            function fillSelect(sel, options, placeholder) {
+                sel.innerHTML = '';
+                const opt0 = document.createElement('option');
+                opt0.value = '';
+                opt0.textContent = placeholder || '— pilih —';
+                sel.appendChild(opt0);
+                (options || []).forEach(v => {
+                    if (!v) return;
+                    const opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = v;
+                    sel.appendChild(opt);
+                });
+            }
+
+            /* ====== PROD TIME MAP (fallback) ====== */
+            const PTMAP = (window.PROD_TIME_MAP) || {
+                CI11: '00:34',
+                CI12: '00:34',
+                CI13: '00:40',
+                CI14: '00:34',
+                CI15: '00:39',
+                CI16: '00:40',
+                CI17: '00:40',
+                CI18: '00:40',
+                CI19: '00:37',
+                D403: '00:40',
+                D111: '00:34',
+                D500: '00:37',
+            };
+
+            /* ====== ITEM ROW (per Back No) ====== */
+            function createItemRow(backNoOptions) {
+                const row = document.createElement('div');
+                row.className = 'row g-2 align-items-end item-line border rounded p-2 mb-2';
+                row.innerHTML = `
+      <div class="col-md-3">
+        <label class="form-label">Back No</label>
+        <select class="form-control back-no" required>
+          <option value="">— pilih back no —</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Order Qty</label>
+        <input type="number" class="form-control qty" min="1" step="1" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Cycle Time (mm:ss)</label>
+        <input type="text" class="form-control prod-time" placeholder="00:34" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Cycle</label>
+        <input type="number" class="form-control cycle" min="0" step="1" value="0">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Working Start</label>
+        <input type="time" class="form-control working-start" placeholder="auto">
+      </div>
+      <div class="col-md-1 text-end">
+        <button type="button" class="btn btn-outline-danger btn-sm btnDelRow" title="Hapus baris">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    `;
+                // options
+                const sel = row.querySelector('.back-no');
+                fillSelect(sel, backNoOptions || [], '— pilih back no —');
+                // auto prod_time dari mapping
+                const pt = row.querySelector('.prod-time');
+                sel.addEventListener('change', e => {
+                    const key = String(e.target.value || '').trim().toUpperCase();
+                    if (PTMAP[key] && !pt.value) pt.value = PTMAP[key];
+                });
+                // hapus baris
+                row.querySelector('.btnDelRow').addEventListener('click', () => row.remove());
+                return row;
+            }
+
+            /* ====== DN GROUP (berisi DN header + repeater back_no) ====== */
+            let dnIndex = 0;
+
+            function createDnGroup(backNoOptions, {
+                defaultDate,
+                defaultTime
+            }) {
+                dnIndex++;
+                const group = document.createElement('div');
+                group.className = 'dn-group card mb-3';
+                group.innerHTML = `
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">DN Number</label>
+            <input type="text" class="form-control dn-number" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Delivery Date</label>
+            <input type="date" class="form-control delivery-date" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Delivery Time</label>
+            <input type="time" class="form-control delivery-time" required>
+          </div>
+          <div class="col-md-1 text-end">
+            <button type="button" class="btn btn-outline-danger btn-sm btnDelGroup" title="Hapus DN">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mt-3">
+          <h6 class="m-0">Model / Back No</h6>
+          <button class="btn btn-sm btn-outline-primary btnAddRow" type="button">
+            <i class="fas fa-plus me-1"></i> Add Model
+          </button>
+        </div>
+        <div class="itemsRepeater mt-2"></div>
+      </div>
+    `;
+
+                // set default date/time + enforce hanya hari ini/besok
+                const dInput = group.querySelector('.delivery-date');
+                const tInput = group.querySelector('.delivery-time');
+                enforceDeliveryDateTodayBesok(dInput);
+                dInput.value = defaultDate;
+                tInput.value = defaultTime;
+
+                // row pertama
+                const repeater = group.querySelector('.itemsRepeater');
+                repeater.appendChild(createItemRow(backNoOptions));
+
+                // tambah row di group ini
+                group.querySelector('.btnAddRow').addEventListener('click', () => {
+                    repeater.appendChild(createItemRow(backNoOptions));
+                });
+
+                // hapus group
+                group.querySelector('.btnDelGroup').addEventListener('click', () => {
+                    const groups = document.querySelectorAll('#dnGroups .dn-group');
+                    if (groups.length <= 1) {
+                        alert('Minimal 1 DN.');
+                        return;
+                    }
+                    group.remove();
+                });
+
+                return group;
+            }
+
+            /* ====== OPEN MODAL ====== */
+            let addModal;
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('openAddModal')?.addEventListener('click', async () => {
+                    const form = document.getElementById('addItemForm');
+                    form.reset();
+
+                    // hidden dari header utama
+                    const line = document.getElementById('reorderLine')?.value || '';
+                    const planDate = document.getElementById('reorderDate')?.value || todayYMD();
+                    form.elements['plan_date'].value = planDate;
+                    form.elements['line'].value = line;
+
+                    // default time = +1 menit dari jam terakhir visible list
+                    const lastVisibleTime = (() => {
+                        const rows = document.querySelectorAll(
+                            '#itemsContainer .item-row[data-id]');
+                        if (!rows.length) return '06:00';
+                        const last = rows[rows.length - 1];
+                        return (last.getAttribute('data-delivery') || last.querySelector(
+                            '[data-col="delivery"]')?.textContent || '06:00').slice(0,
+                            5);
+                    })();
+                    const defaultTime = plusOneMinute(lastVisibleTime);
+
+                    // isi selects customer & dock, siapkan options back_no
+                    const custSel = form.elements['customer'];
+                    const dockSel = form.elements['dock'];
+                    const dnWrap = document.getElementById('dnGroups');
+                    dnWrap.innerHTML = '';
+
+                    fillSelect(custSel, [], 'Memuat...');
+                    fillSelect(dockSel, [], 'Memuat...');
+                    let backNoOptions = [];
+
+                    try {
+                        const json = await fetchAddOptions(line, planDate);
+                        fillSelect(custSel, json.customers || [], '— pilih customer —');
+                        fillSelect(dockSel, json.docks || ['STR', 'EXP', '6I', 'OTHERS'],
+                            '— pilih dock —');
+                        backNoOptions = json.back_nos || [];
+                    } catch (e) {
+                        fillSelect(custSel, [], '— pilih customer —');
+                        fillSelect(dockSel, ['STR', 'EXP', '6I', 'OTHERS'], '— pilih dock —');
+                        backNoOptions = (line === 'AS003') ? ['CI11', 'CI12', 'CI13', 'CI14',
+                            'CI17', 'CI18', 'D403', 'D111'
+                        ] : ['CI15', 'CI16', 'CI19', 'D500'];
+                        console.warn(e);
+                    }
+
+                    // default date untuk group pertama: pakai planDate kalau hari ini/besok, selain itu fallback ke hari ini
+                    const tdy = todayYMD();
+                    const besok = addDaysYMD(tdy, 1);
+                    const defaultDate = ([tdy, besok].includes(planDate) ? planDate : tdy);
+
+                    // buat 1 DN group awal
+                    dnWrap.appendChild(createDnGroup(backNoOptions, {
+                        defaultDate,
+                        defaultTime
+                    }));
+
+                    // tombol tambah DN
+                    document.getElementById('btnAddDnGroup').onclick = () => {
+                        // tiap DN baru default time tetap +1 menit dari lastVisibleTime (biar user atur sendiri)
+                        dnWrap.appendChild(createDnGroup(backNoOptions, {
+                            defaultDate,
+                            defaultTime
+                        }));
+                    };
+
+                    addModal ??= new bootstrap.Modal(document.getElementById('addItemModal'));
+                    addModal.show();
+                });
+
+                /* ====== SUBMIT (serial per ROW across all DN) ====== */
+                document.getElementById('submitAddItem')?.addEventListener('click', async () => {
+                    const form = document.getElementById('addItemForm');
+                    const btn = document.getElementById('submitAddItem');
+
+                    // validasi header
+                    const headerReq = ['customer', 'dock', 'plan_date', 'line'];
+                    for (const n of headerReq) {
+                        const el = form.elements[n];
+                        if (!el || !el.value) {
+                            alert(`Field "${n.replace('_',' ').toUpperCase()}" wajib diisi`);
+                            return;
+                        }
+                    }
+
+                    const dnGroups = [...document.querySelectorAll('#dnGroups .dn-group')];
+                    if (!dnGroups.length) {
+                        alert('Tambah minimal 1 DN.');
+                        return;
+                    }
+
+                    const base = {
+                        line: form.elements['line'].value,
+                        plan_date: form.elements['plan_date'].value,
+                        customer: form.elements['customer'].value,
+                        dock: form.elements['dock'].value,
+                    };
+
+                    // bangun semua payload per model (row) di setiap DN
+                    const payloads = [];
+                    for (const g of dnGroups) {
+                        const dn_number = g.querySelector('.dn-number')?.value?.trim();
+                        const delivery_date = g.querySelector('.delivery-date')?.value;
+                        const delivery_time = g.querySelector('.delivery-time')?.value;
+                        if (!dn_number || !delivery_date || !delivery_time) {
+                            alert(
+                                'DN Number, Delivery Date, dan Delivery Time wajib diisi pada setiap DN.'
+                            );
+                            return;
+                        }
+
+                        const rows = [...g.querySelectorAll('.itemsRepeater .item-line')];
+                        if (!rows.length) {
+                            alert(`DN ${dn_number}: minimal 1 model/back no.`);
+                            return;
+                        }
+
+                        for (const r of rows) {
+                            const back_no = r.querySelector('.back-no')?.value || '';
+                            const order_qty = parseInt(r.querySelector('.qty')?.value || '0', 10);
+                            const prod_time = (r.querySelector('.prod-time')?.value || '').trim();
+                            const cycle = parseInt(r.querySelector('.cycle')?.value || '0', 10);
+                            const working_start = r.querySelector('.working-start')?.value || '';
+
+                            if (!back_no || !order_qty || !prod_time) {
+                                alert(
+                                    `DN ${dn_number}: Pastikan setiap baris memiliki Back No, Order Qty, dan Cycle Time.`
+                                );
+                                return;
+                            }
+                            if (!/^\d{1,2}:[0-5]\d$/.test(prod_time)) {
+                                alert(
+                                    `DN ${dn_number}: Format Cycle Time salah pada back no ${back_no} (contoh 00:34)`
+                                );
+                                return;
+                            }
+
+                            payloads.push({
+                                ...base,
+                                dn_number,
+                                delivery_date,
+                                delivery_time,
+                                back_no,
+                                order_qty,
+                                prod_time,
+                                cycle,
+                                working_start
+                            });
+                        }
+                    }
+
+                    // kirim serial → /pulling/settings/reorder/add
+                    try {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Menyimpan...';
+
+                        let lastResponseData = null;
+                        for (let i = 0; i < payloads.length; i++) {
+                            const res = await fetch('/pulling/settings/reorder/add', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector(
+                                        'meta[name="csrf-token"]')?.content
+                                },
+                                body: JSON.stringify(payloads[i])
+                            });
+                            const json = await res.json().catch(() => ({
+                                success: false,
+                                message: 'Non-JSON response'
+                            }));
+                            if (!res.ok || json.success === false) {
+                                throw new Error(
+                                    `Gagal simpan item ${i+1} (DN ${payloads[i].dn_number}, Back ${payloads[i].back_no}): ${json.message || res.statusText}`
+                                );
+                            }
+                            lastResponseData = json.data || lastResponseData;
+                        }
+
+                        // refresh list
+                        if (Array.isArray(lastResponseData) && typeof window
+                            .renderItemsFromServer === 'function') {
+                            window.renderItemsFromServer(lastResponseData);
+                        } else if (typeof window.loadProductionItems === 'function') {
+                            window.loadProductionItems();
+                        }
+
+                        addModal?.hide();
+                        alert(
+                            `Berhasil menambahkan ${payloads.length} item dari ${dnGroups.length} DN.`
+                        );
+                    } catch (e) {
+                        console.error(e);
+                        alert(e.message || 'Gagal menambah item.');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-plus me-2"></i> Tambah';
+                    }
+                });
+            });
         })();
     </script>
 @endpush

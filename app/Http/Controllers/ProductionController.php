@@ -12,6 +12,7 @@ use App\Models\Kanban;
 use App\Models\Mutation;
 use App\Models\Injection;
 use PhpMqtt\ClientBuilder;
+use App\Models\ScannedPart;
 use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
@@ -782,5 +783,111 @@ class ProductionController extends Controller
     public function direct()
     {
         return view('pages.production.direct');
+    }
+
+    public function storePartScan(Request $r)
+    {
+        $r->validate([
+            'line'    => ['required','string','max:32'],
+            'model'   => ['required','string','max:128'],
+            'barcode' => ['required','string','size:26'], // alfanumerik
+            'dandori' => ['nullable','string','max:128'],
+        ]);
+
+        $line    = $r->line;
+        $model   = $r->model;
+        $barcode = $r->barcode;
+        $dandori = $r->dandori;
+
+        $today = Carbon::today();
+
+        // Dedupe: per line + barcode + tanggal
+        $exists = ScannedPart::where('line', $line)
+            ->where('barcode', $barcode)
+            ->whereDate('scan_date', $today)
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['status' => 'duplicate']);
+        }
+
+        ScannedPart::create([
+            'line'          => $line,
+            'model'         => $model,
+            'dandori_board' => $dandori,
+            'barcode'       => $barcode,
+            'last4'         => strtoupper(substr($barcode, -4)),
+            'scan_date'     => $today,   // penanda batch harian
+            'scanned_at'    => now(),
+            'kanban_id'     => null
+        ]);
+
+        // ACTUAL = hanya yang belum ter-assign kanban (batch aktif)
+        $actual = ScannedPart::where('line', $line)
+            ->where('model', $model)
+            ->whereDate('scan_date', $today)
+            ->whereNull('kanban_id')
+            ->count();
+
+        // Target dikelola FE, jadi server tidak mengembalikan/menentukan target.
+        return response()->json([
+            'status' => 'ok',
+            'actual' => $actual,
+        ]);
+    }
+
+    public function assignKanbanToPartScans(Request $r)
+    {
+        $r->validate([
+            'line'     => ['required','string','max:32'],
+            'model'    => ['required','string','max:128'],
+            'internal' => ['required','string'],      // k.internal dari barcode KANBAN
+            'seri'     => ['required','string','max:10'],
+            'limit'    => ['nullable','integer','min:1'],
+        ]);
+
+        // Cari kanban terkait
+        $kanban = \App\Models\Kanban::where('internal', $r->internal)
+            ->where('seri', $r->seri)
+            ->latest('id')
+            ->first();
+
+        if (!$kanban) {
+            return response()->json([
+                'status'  => 'not_found',
+                'message' => 'KANBAN tidak ditemukan (internal/seri tidak match).'
+            ], 422);
+        }
+
+        $today = \Carbon\Carbon::today();
+
+        // Ambil unassigned IDs untuk batch aktif (line + model + hari ini)
+        $baseQuery = ScannedPart::where('line', $r->line)
+            ->where('model', $r->model)
+            ->whereDate('scan_date', $today)
+            ->whereNull('kanban_id')
+            ->orderBy('scanned_at', 'asc');
+
+        $ids = $r->filled('limit') && (int)$r->limit > 0
+            ? $baseQuery->limit((int)$r->limit)->pluck('id')
+            : $baseQuery->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'status'     => 'ok',
+                'assigned'   => 0,
+                'kanban_id'  => $kanban->id,
+            ]);
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($ids, $kanban) {
+            ScannedPart::whereIn('id', $ids)->update(['kanban_id' => $kanban->id]);
+        });
+
+        return response()->json([
+            'status'    => 'ok',
+            'assigned'  => $ids->count(),
+            'kanban_id' => $kanban->id,
+        ]);
     }
 }
