@@ -162,8 +162,17 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/settings/update', [PullingController::class, 'settingUpdate'])
             ->name('pulling.settings.update');
 
+        Route::post('/settings/reorder/add', [PullingController::class, 'addManualItem'])
+            ->name('pulling.reorder.add');
+
         Route::post('/settings/reorder', [PullingController::class, 'reorderByDeliveryTime'])
             ->name('pulling.reorder');
+
+        Route::delete('/settings/reorder/{id}', [PullingController::class, 'deleteItem'])
+            ->name('pulling.reorder.delete');
+
+        Route::get('/settings/reorder/options', [PullingController::class, 'addItemOptions'])
+            ->name('pulling.reorder.options');
 
         Route::get('/customer-check/{customer}/{pds?}', [PullingController::class, 'customerCheck'])->name('pulling.customer-check');
         // Route::get('/internal-check/{internal}', [PullingController::class, 'internalCheck'])->name('pulling.internal-check');

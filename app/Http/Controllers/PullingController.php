@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use App\Models\ProductionPlan;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
+use Illuminate\Validation\Rule;
 use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
@@ -460,6 +461,210 @@ class PullingController extends Controller
         $hours = intdiv($abs, 3600);
         $mins  = intdiv($abs % 3600, 60);
         return sprintf('%s%02d:%02d', $sign, $hours, $mins);
+    }
+
+    public function addManualItem(Request $req)
+    {
+        // Validasi
+        $data = $req->validate([
+            'line'           => ['required', Rule::in(['AS003','AS004'])],
+            'plan_date'      => ['required','date'],
+            'customer'       => ['required','string','max:150'],
+            'dock'           => ['required','string','max:10'],
+            'cycle'          => ['nullable','integer','min:0'],
+            'back_no'        => ['required','string','max:20'],
+            'order_qty'      => ['required','integer','min:1'],
+            'prod_time'      => ['required','regex:/^\d{2}:\d{2}$/'], // mm:ss
+            'working_start'  => ['nullable','regex:/^\d{2}:\d{2}$/'], // HH:MM (optional, akan di-override)
+            'delivery_time'  => ['required','regex:/^\d{2}:\d{2}$/'], // HH:MM
+            'delivery_date'  => ['required','date'],                   // YYYY-MM-DD
+            'dn_number'      => ['required','string','max:50'],
+        ]);
+
+        $tz = config('app.timezone', 'Asia/Jakarta');
+        $planDate = Carbon::parse($data['plan_date'], $tz)->toDateString();
+        $line     = $data['line'];
+
+        // Hitung total waktu kerja (detik)
+        [$mm, $ss] = explode(':', $data['prod_time']);
+        $perItemSeconds = ((int)$mm * 60) + (int)$ss;
+        $totalSeconds   = $perItemSeconds * (int)$data['order_qty'];
+
+        // Ambil working_end terakhir (string HH:MM) untuk plan_date+line
+        $lastEnd = ProductionPlan::where('plan_date', $planDate)
+            ->where('line', $line)
+            ->orderByDesc('working_start')  // paling akhir
+            ->value('working_end');
+
+        // Jika belum ada data, start dari 06:00
+        $base = Carbon::parse($planDate.' '.($lastEnd ?: '06:00'), $tz);
+        $workStart = $base->copy();
+        $workEnd   = $base->copy()->addSeconds($totalSeconds);
+
+        // Delivery (gabung date + time)
+        $del  = Carbon::parse($data['delivery_date'].' '.$data['delivery_time'], $tz);
+        // Kalau delivery < workEnd → berarti lewat tengah malam, majukan 1 hari
+        if ($del->lt($workEnd)) {
+            $del->addDay();
+        }
+        $balSec = $workEnd->diffInSeconds($del, false);
+        $balFmt = gmdate('H:i', abs($balSec));
+        $balanceTime = ($balSec < 0 ? '-' : '').$balFmt;
+
+        $payload = [
+            'plan_date'         => $planDate,
+            'line'              => $line,
+            'customer'          => $data['customer'],
+            'dock'              => $data['dock'],
+            'cycle'             => (int)($data['cycle'] ?? 0),
+            'back_no'           => strtoupper(trim($data['back_no'])),
+            'order_qty'         => (int)$data['order_qty'],
+            'prod_time'         => $data['prod_time'],                 // mm:ss
+            'working_start'     => $workStart->format('H:i'),
+            'working_end'       => $workEnd->format('H:i'),
+            'working_duration'  => gmdate('H:i:s', $totalSeconds),
+            'delivery_time'     => substr($data['delivery_time'], 0, 5), // HH:MM (disimpan apa adanya)
+            'delivery_date'     => Carbon::parse($data['delivery_date'], $tz)->toDateString(),
+            'balance_time'      => $balanceTime,
+            'dn_number'         => $data['dn_number'],
+            'direct_pulling_qty'=> 0,
+            'stock_chute_qty'   => 0,
+            'created_at'        => now($tz),
+            'updated_at'        => now($tz),
+        ];
+
+        // Optional: kalau mau pakai aturan "dock STR -30 menit" untuk penyimpanan delivery_time,
+        // uncomment 3 baris di bawah ini:
+        // if (strtoupper($payload['dock']) === 'STR') {
+        //     $dt = Carbon::parse($payload['delivery_time'], $tz)->subMinutes(30)->format('H:i');
+        //     $payload['delivery_time'] = $dt;
+        // }
+
+        DB::beginTransaction();
+        try {
+            ProductionPlan::create($payload);
+
+            // Kembalikan list terbaru untuk plan_date & line (urut paling logis)
+            $items = ProductionPlan::where('plan_date', $planDate)
+                ->where('line', $line)
+                ->orderBy('working_start') // biar urut sesuai urutan produksi
+                ->get([
+                    'id','customer','back_no','order_qty','delivery_time','dn_number'
+                ])
+                ->map(function ($r) {
+                    return [
+                        'id'            => (string)$r->id,
+                        'customer'      => $r->customer,
+                        'back_no'       => $r->back_no,
+                        'order_qty'     => (int)$r->order_qty,
+                        'delivery_time' => substr($r->delivery_time ?? '00:00', 0, 5),
+                        'dn_number'     => $r->dn_number,
+                    ];
+                });
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'data'    => $items,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'DB error: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deleteItem($id, \Illuminate\Http\Request $req)
+    {
+        $item = \App\Models\ProductionPlan::find($id);
+        if (!$item) {
+            return response()->json(['success' => false, 'message' => 'Item not found'], 404);
+        }
+
+        $planDate = $item->plan_date;
+        $line     = $item->line;
+
+        try {
+            $item->delete();
+
+            // Balikkan list terbaru untuk tanggal & line yang sama (urut working_start)
+            $items = \App\Models\ProductionPlan::where('plan_date', $planDate)
+                ->where('line', $line)
+                ->orderBy('working_start')
+                ->get(['id','customer','back_no','order_qty','delivery_time','dn_number'])
+                ->map(function ($r) {
+                    return [
+                        'id'            => (string)$r->id,
+                        'customer'      => $r->customer,
+                        'back_no'       => $r->back_no,
+                        'order_qty'     => (int)$r->order_qty,
+                        'delivery_time' => substr($r->delivery_time ?? '00:00', 0, 5),
+                        'dn_number'     => $r->dn_number,
+                    ];
+                });
+
+            return response()->json(['success' => true, 'data' => $items]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => 'DB error: '.$e->getMessage()], 500);
+        }
+    }
+
+    public function addItemOptions(Request $req)
+    {
+        $line = $req->query('line');           // AS003 / AS004 (opsional tapi direkomendasikan)
+        $plan = $req->query('plan_date');      // YYYY-MM-DD (opsional)
+        $daysLookback = 30; // batasi 30 hari terakhir biar ringan
+
+        $q = ProductionPlan::query();
+
+        if ($line) $q->where('line', $line);
+
+        if ($plan) {
+            // ambil yang relevan di sekitar plan_date biar hasilnya kontekstual
+            $q->whereBetween('plan_date', [
+                \Carbon\Carbon::parse($plan)->subDays($daysLookback)->toDateString(),
+                \Carbon\Carbon::parse($plan)->addDays(1)->toDateString(),
+            ]);
+        } else {
+            // fallback: 30 hari terakhir
+            $q->where('plan_date', '>=', now()->subDays($daysLookback)->toDateString());
+        }
+
+        // DISTINCT values, tanpa null/kosong
+        $customers = (clone $q)->whereNotNull('customer')->where('customer','<>','')
+            ->distinct()->orderBy('customer')->pluck('customer')->values()->all();
+
+        $docks = (clone $q)->whereNotNull('dock')->where('dock','<>','')
+            ->distinct()->orderBy('dock')->pluck('dock')->values()->all();
+
+        $backNos = (clone $q)->whereNotNull('back_no')->where('back_no','<>','')
+            ->distinct()->orderBy('back_no')->pluck('back_no')->values()->all();
+
+        // jaga-jaga kalau kosong, kasih fallback ringan
+        if (empty($docks)) $docks = ['STR','EXP','6I','OTHERS'];
+
+        // optionally: filter back_no agar sesuai mapping line kalau diminta
+        if ($line) {
+            $map = [
+                'AS003' => ['CI11','CI12','CI13','CI14','CI17','CI18','D403','D111'],
+                'AS004' => ['CI15','CI16','CI19','D500'],
+            ];
+            if (!empty($map[$line])) {
+                // gabungkan hasil DB + mapping, lalu unique
+                $backNos = collect($backNos)->merge($map[$line])->unique()->sort()->values()->all();
+            }
+        }
+
+        return response()->json([
+            'success'   => true,
+            'customers' => $customers,
+            'docks'     => $docks,
+            'back_nos'  => $backNos,
+        ]);
     }
 
     /**
