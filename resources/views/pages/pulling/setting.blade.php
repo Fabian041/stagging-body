@@ -58,8 +58,8 @@
         }
 
         /* ==============
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         BASE / WRAPPER
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ============== */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 BASE / WRAPPER
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ============== */
         .seq-board {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -103,8 +103,8 @@
         }
 
         /* =================
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         INFO / SUB HEADER
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ================= */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 INFO / SUB HEADER
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ================= */
         .info-panel {
             display: flex;
             align-items: center;
@@ -136,8 +136,8 @@
         }
 
         /* =========
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ITEM ROWS
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         ========= */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ITEM ROWS
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ========= */
         .item-row {
             display: flex;
             align-items: center;
@@ -573,7 +573,7 @@
                             <option value="">— pilih customer —</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <label class="form-label">Dock</label>
                         <select name="dock" class="form-control" required>
                             <option value="">— pilih dock —</option>
