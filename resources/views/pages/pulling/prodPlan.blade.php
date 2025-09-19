@@ -92,9 +92,9 @@
                 {{ Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y') }}
             </h2>
             <div class="d-flex align-items-center gap-2">
-                <span class="badge badge-soft">
-                    <i class="far fa-clock me-1"></i> Last Update:
-                    {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
+                <span class="badge badge-soft" id="lastUpdateBadge" aria-live="polite">
+                    <i class="far fa-clock me-1"></i>
+                    Last Update: {{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('H:i:s') }}
                 </span>
                 <a class="btn btn-outline-primary" href="/pulling/settings">
                     <i class="fas fa-cog me-1"></i> Settings
@@ -489,7 +489,8 @@
                                         title="Actual {{ $as004MorningActual }} / {{ $as004MorningQty }}">
                                         <div class="bar"><i data-role="shift-bar"
                                                 style="width: {{ $as004MorningPct }}%"></i></div>
-                                        <span class="val number " data-role="shift-pct">{{ $as004MorningPct }}%</span>
+                                        <span class="val number "
+                                            data-role="shift-pct">{{ $as004MorningPct }}%</span>
                                     </div>
                                     <div class="meta">Actual: <span class="fw-bold"
                                             data-role="shift-actual">{{ $as004MorningActual }}</span></div>
@@ -752,7 +753,7 @@
     <!-- Summary Modal -->
     <div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="summaryModalLabel">
@@ -851,6 +852,15 @@
                 el.addEventListener('hidden.bs.toast', () => el.remove());
             };
         });
+    </script>
+    <script>
+        (function() {
+            const el = document.getElementById('lastUpdateBadge');
+            const updatedAt = new Date("{{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('Y-m-d\TH:i:s') }}");
+            const ageMin = (Date.now() - updatedAt.getTime()) / 60000;
+            if (ageMin > 5) el.classList.add('text-bg-warning'); // atau tambah style sendiri
+            if (ageMin > 15) el.classList.add('text-bg-danger');
+        })();
     </script>
 </body>
 
