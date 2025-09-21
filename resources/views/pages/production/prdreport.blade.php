@@ -657,6 +657,16 @@ function fetchStopReasons() {
                 barcodecomplete = barcode;
                 barcode = "";
 
+                if (barcodecomplete == "prdreport") {
+                    window.location.replace("{{ url('/production') }}");
+                    return;
+                }
+
+                if (barcodecomplete == "logout") {
+                    window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
                 if (barcodecomplete.length === 6) {
                     if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
                         '000040' || barcodecomplete == '000504') {
