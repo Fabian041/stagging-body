@@ -231,10 +231,6 @@ class ProductionController extends Controller
                     ]
                 ]
             ];
-            // Kirim ke API external (jika perlu)
-            $response = Http::withOptions([
-                'verify' => false
-            ])->post(env('API_PROD_BASE') . 'action=api_insert_inbound', $datas);
 
             $this->mqttConnect('prod/quantity', $data);
 
@@ -788,10 +784,10 @@ class ProductionController extends Controller
     public function storePartScan(Request $r)
     {
         $r->validate([
-            'line'    => ['required','string','max:32'],
-            'model'   => ['required','string','max:128'],
-            'barcode' => ['required','string','size:26'], // alfanumerik
-            'dandori' => ['nullable','string','max:128'],
+            'line'    => ['required', 'string', 'max:32'],
+            'model'   => ['required', 'string', 'max:128'],
+            'barcode' => ['required', 'string', 'size:26'], // alfanumerik
+            'dandori' => ['nullable', 'string', 'max:128'],
         ]);
 
         $line    = $r->line;
@@ -839,11 +835,11 @@ class ProductionController extends Controller
     public function assignKanbanToPartScans(Request $r)
     {
         $r->validate([
-            'line'     => ['required','string','max:32'],
-            'model'    => ['required','string','max:128'],
-            'internal' => ['required','string'],      // k.internal dari barcode KANBAN
-            'seri'     => ['required','string','max:10'],
-            'limit'    => ['nullable','integer','min:1'],
+            'line'     => ['required', 'string', 'max:32'],
+            'model'    => ['required', 'string', 'max:128'],
+            'internal' => ['required', 'string'],      // k.internal dari barcode KANBAN
+            'seri'     => ['required', 'string', 'max:10'],
+            'limit'    => ['nullable', 'integer', 'min:1'],
         ]);
 
         // Cari kanban terkait
