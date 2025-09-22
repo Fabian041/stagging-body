@@ -572,7 +572,7 @@ class ProductionController extends Controller
     {
         $response = Http::withOptions([
             'verify' => false
-        ])->get(env('API_PROD_BASE') . 'action=api_list_stop');
+        ])->get('https://prdreport.aiia.co.id/prd_body/?action=api_list_stop');
 
         if ($response->successful()) {
             return response()->json($response->json());
@@ -588,7 +588,7 @@ class ProductionController extends Controller
         $response = Http::withOptions([
             'verify' => false
         ])->post(
-            env('API_PROD_BASE') . 'action=api_insert_inb_stop',
+            'https://prdreport.aiia.co.id/prd_body/?action=api_insert_inb_stop',
             $data
         );
 
@@ -615,7 +615,7 @@ class ProductionController extends Controller
         $line = Line::select('name')->where('id', $internalPart->line_id)->first();
         $response = Http::withOptions([
             'verify' => false
-        ])->post(env('API_PROD_BASE') . 'action=api_stop_inbound', [
+        ])->post('https://prdreport.aiia.co.id/prd_body/?action=api_stop_inbound', [
             'line_id' => $line->name
         ]);
 
@@ -758,7 +758,7 @@ class ProductionController extends Controller
             // Kirim ke API external (jika perlu)
             $response = Http::withOptions([
                 'verify' => false
-            ])->post(env('API_PROD_BASE') . 'action=api_insert_inbound', $datas);
+            ])->post('https://prdreport.aiia.co.id/prd_body/?action=api_insert_inbound', $datas);
 
             $this->mqttConnect('prod/quantity', $data);
 
