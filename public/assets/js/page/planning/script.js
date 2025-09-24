@@ -1,3 +1,11 @@
+/* ============================================================
+   PLANNING PRODUCTION – UPDATED SCRIPT
+   - Tabel: "Running Qty" tunggal (menampilkan DP saja)
+   - DP & SC tetap ditarik dari SSE (disimpan hidden span)
+   - Progress bar & % pada baris = DP / Order
+   - Summary row disesuaikan: 1 kolom "Running Qty" (tampilkan DP),
+     DP & SC disimpan sebagai span tersembunyi untuk perhitungan.
+   ============================================================ */
 
 (function() {
     if (window.$u) return;
@@ -29,7 +37,7 @@
             return isNaN(h) ? null : h * 60;
         }
         const hh = parseInt(m[1], 10),
-            mm = parseInt(m[2], 10);
+              mm = parseInt(m[2], 10);
         if (isNaN(hh) || isNaN(mm)) return null;
         return hh * 60 + mm;
     };
@@ -47,7 +55,7 @@
         if (!m) return null;
         const [, MMs, DDs] = m;
         const MM = parseInt(MMs, 10),
-            DD = parseInt(DDs, 10);
+              DD = parseInt(DDs, 10);
         if (isNaN(MM) || isNaN(DD)) return null;
         const ref = new Date(refISO + 'T00:00:00');
         const y = ref.getFullYear();
@@ -134,10 +142,11 @@
 })();
 
 
+/* ===== ORDER OF COLUMNS (sinkron dgn Blade) ===== */
 const COL_ORDER = [
-    'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
-    'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date',
-    'Balance Time'
+    'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Running Qty',
+    'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress',
+    'Delivery Time', 'Delivery Date', 'Balance Time'
 ];
 
 class ProductionPlanSSEClient {
@@ -171,7 +180,6 @@ class ProductionPlanSSEClient {
         if (this.AS003) this.shelves.AS003 = new PinnedShelf(this.AS003);
         if (this.AS004) this.shelves.AS004 = new PinnedShelf(this.AS004);
 
-
         this.prefillRawAttrs(this.AS003);
         this.prefillRawAttrs(this.AS004);
 
@@ -180,9 +188,7 @@ class ProductionPlanSSEClient {
         if (window.bootstrap?.Tooltip) {
             document.querySelectorAll('[title]').forEach(el => {
                 el.setAttribute('data-bs-toggle', 'tooltip');
-                try {
-                    new bootstrap.Tooltip(el);
-                } catch {}
+                try { new bootstrap.Tooltip(el); } catch {}
             });
         }
     }
@@ -196,13 +202,11 @@ class ProductionPlanSSEClient {
         container.querySelectorAll('tbody tr').forEach(row => {
             const bnTd = this._cell(row, 'Back No');
             const bnEl = bnTd?.querySelector('.flip') || bnTd;
-            if (bnEl && !bnEl.dataset.backnoRaw) bnEl.dataset.backnoRaw = (bnEl.textContent || '')
-                .trim();
+            if (bnEl && !bnEl.dataset.backnoRaw) bnEl.dataset.backnoRaw = (bnEl.textContent || '').trim();
 
             const odTd = this._cell(row, 'Order');
             const odEl = odTd?.querySelector('.flip') || odTd;
-            if (odEl && !odEl.dataset.orderRaw) odEl.dataset.orderRaw = String($u.int(odEl
-                .textContent || '0'));
+            if (odEl && !odEl.dataset.orderRaw) odEl.dataset.orderRaw = String($u.int(odEl.textContent || '0'));
         });
     }
 
@@ -232,8 +236,7 @@ class ProductionPlanSSEClient {
     }
 
     _getId(row) {
-        const el = row?.querySelector('[data-type="direct-pulling"]') || row?.querySelector(
-            '[data-type="stock-chute"]');
+        const el = row?.querySelector('[data-type="direct-pulling"]') || row?.querySelector('[data-type="stock-chute"]');
         return el ? el.getAttribute('data-item-id') : null;
     }
 
@@ -265,8 +268,7 @@ class ProductionPlanSSEClient {
     }
 
     _removeSummaryRowIfExists(tbody, label) {
-        tbody.querySelectorAll(`tr[data-summary-row="1"][data-summary-label="${label}"]`).forEach(n => n
-            .remove());
+        tbody.querySelectorAll(`tr[data-summary-row="1"][data-summary-label="${label}"]`).forEach(n => n.remove());
     }
 
     recalcRowspans(container) {
@@ -335,35 +337,24 @@ class ProductionPlanSSEClient {
         }
     }
 
-    _extractAndPinSummaryGeneral({
-        container,
-        targets,
-        label
-    }) {
+    _extractAndPinSummaryGeneral({ container, targets, label }) {
         const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
         const tbody = container?.querySelector('tbody');
         if (!tbody) return null;
 
         const summary = {
             row: null,
-            totals: {
-                order: 0,
-                dp: 0,
-                sc: 0
-            },
+            totals: { order: 0, dp: 0, sc: 0 },
             ids: new Map()
         };
 
         const allRows = Array.from(tbody.querySelectorAll('tr'));
 
         // Kelompokkan per group (rowspan)
-        let i = 0,
-            groups = [];
+        let i = 0, groups = [];
         while (i < allRows.length) {
             const start = allRows[i];
-            const rs = this.isGroupStart(start) ?
-                parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) :
-                1;
+            const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) : 1;
             const g = [start];
             for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
             groups.push(g);
@@ -375,29 +366,24 @@ class ProductionPlanSSEClient {
             const startRow = groupRows[0];
             const matches = groupRows.filter(r => {
                 const back = this._getBackNo(r);
-                const dock = this._normalize(this._cellText(r, 'Dock')); // sudah ada helpernya
+                const dock = this._normalize(this._cellText(r, 'Dock'));
                 return tgtSet.has(back) && dock !== 'STR';
             });
             if (!matches.length) return;
 
             const custTd = this._cell(startRow, 'Customer');
-            const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
-                .trim();
+            const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '').trim();
             if (custText) customerBag.push(custText);
 
             matches.forEach(r => {
                 const id = this._getId(r),
-                    dp = this._getDP(r),
-                    sc = this._getSC(r),
-                    od = this._getOrder(r);
+                      dp = this._getDP(r),
+                      sc = this._getSC(r),
+                      od = this._getOrder(r);
                 summary.totals.dp += dp;
                 summary.totals.sc += sc;
                 summary.totals.order += od;
-                if (id) summary.ids.set(id, {
-                    dp,
-                    sc,
-                    order: od
-                });
+                if (id) summary.ids.set(id, { dp, sc, order: od });
             });
 
             const keepRows = groupRows.filter(r => !matches.includes(r));
@@ -405,9 +391,7 @@ class ProductionPlanSSEClient {
                 groupRows.forEach(r => r.remove());
             } else {
                 if (matches.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
-                matches.forEach(r => {
-                    if (r !== startRow) r.remove();
-                });
+                matches.forEach(r => { if (r !== startRow) r.remove(); });
             }
         });
 
@@ -425,7 +409,7 @@ class ProductionPlanSSEClient {
                 customerText
             });
 
-            // === PIN DI PALING BAWAH ===
+            // PIN di paling bawah
             tbody.appendChild(summary.row);
         }
 
@@ -442,16 +426,12 @@ class ProductionPlanSSEClient {
         const el = td?.querySelector('.flip') || td;
         return (el?.textContent || '').trim();
     }
-    _findAnchorRow(container, {
-        customer,
-        dock,
-        cycle
-    }) {
+    _findAnchorRow(container, { customer, dock, cycle }) {
         const tbody = container?.querySelector('tbody');
         if (!tbody) return null;
         const wantCust = this._normalize(customer),
-            wantDock = this._normalize(dock),
-            wantCycle = Number(cycle);
+              wantDock = this._normalize(dock),
+              wantCycle = Number(cycle);
         for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
             if (!this.isGroupStart(tr)) continue;
             const custTxt = this._normalize(this._cellText(tr, 'Customer'));
@@ -462,46 +442,20 @@ class ProductionPlanSSEClient {
         return null;
     }
 
-    _extractAndPinSummaryCI12Split({
-        container,
-        targets,
-        baseLabel
-    }) {
+    _extractAndPinSummaryCI12Split({ container, targets, baseLabel }) {
         const tgtSet = new Set(targets.map(t => String(t).toUpperCase()));
         const tbody = container?.querySelector('tbody');
         const result = [];
         if (!tbody) return result;
 
-        const S47 = {
-            row: null,
-            totals: {
-                order: 0,
-                dp: 0,
-                sc: 0
-            },
-            ids: new Map(),
-            label: `${baseLabel} (C4–7)`,
-            customers: []
-        };
-        const S83 = {
-            row: null,
-            totals: {
-                order: 0,
-                dp: 0,
-                sc: 0
-            },
-            ids: new Map(),
-            label: `${baseLabel} (C8–3)`,
-            customers: []
-        };
+        const S47 = { row: null, totals: { order: 0, dp: 0, sc: 0 }, ids: new Map(), label: `${baseLabel} (C4–7)`, customers: [] };
+        const S83 = { row: null, totals: { order: 0, dp: 0, sc: 0 }, ids: new Map(), label: `${baseLabel} (C8–3)`, customers: [] };
 
         const allRows = Array.from(tbody.querySelectorAll('tr'));
-        let i = 0,
-            groups = [];
+        let i = 0, groups = [];
         while (i < allRows.length) {
             const start = allRows[i];
-            const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute(
-                'rowspan') || '1', 10) : 1;
+            const rs = this.isGroupStart(start) ? parseInt(start.querySelector('[rowspan]')?.getAttribute('rowspan') || '1', 10) : 1;
             const g = [start];
             for (let k = 1; k < rs && (i + k) < allRows.length; k++) g.push(allRows[i + k]);
             groups.push(g);
@@ -518,15 +472,13 @@ class ProductionPlanSSEClient {
             if (!matchesAll.length) return;
 
             const custTd = this._cell(startRow, 'Customer');
-            const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '')
-                .trim();
+            const custText = (custTd?.querySelector('.flip')?.textContent || custTd?.textContent || '').trim();
             if (custText) {
                 S47.customers.push(custText);
                 S83.customers.push(custText);
             }
 
-            const in47 = [],
-                in83 = [];
+            const in47 = [], in83 = [];
             matchesAll.forEach(r => {
                 const cyc = this._getCycle(r);
                 if (cyc == null) in83.push(r);
@@ -537,17 +489,13 @@ class ProductionPlanSSEClient {
             const collect = (bucket, rows) => {
                 rows.forEach(r => {
                     const id = this._getId(r),
-                        dp = this._getDP(r),
-                        sc = this._getSC(r),
-                        od = this._getOrder(r);
+                          dp = this._getDP(r),
+                          sc = this._getSC(r),
+                          od = this._getOrder(r);
                     bucket.totals.dp += dp;
                     bucket.totals.sc += sc;
                     bucket.totals.order += od;
-                    if (id) bucket.ids.set(id, {
-                        dp,
-                        sc,
-                        order: od
-                    });
+                    if (id) bucket.ids.set(id, { dp, sc, order: od });
                 });
             };
             collect(S47, in47);
@@ -557,9 +505,7 @@ class ProductionPlanSSEClient {
             if (!keepRows.length) groupRows.forEach(r => r.remove());
             else {
                 if (matchesAll.includes(startRow)) this._moveRowspanCellsTo(startRow, keepRows[0]);
-                matchesAll.forEach(r => {
-                    if (r !== startRow) r.remove();
-                });
+                matchesAll.forEach(r => { if (r !== startRow) r.remove(); });
             }
         });
 
@@ -571,34 +517,18 @@ class ProductionPlanSSEClient {
         const cust47 = modeOf(S47.customers);
         const cust83 = modeOf(S83.customers);
 
-        const anchor47 = this._findAnchorRow(container, {
-            customer: 'TMMIN KARAWANG PLANT 3',
-            dock: '6I',
-            cycle: 7
-        });
-        const anchor83 = this._findAnchorRow(container, {
-            customer: 'ADM ENGINE PLANT',
-            dock: 'EXP',
-            cycle: 1
-        });
+        const anchor47 = this._findAnchorRow(container, { customer: 'TMMIN KARAWANG PLANT 3', dock: '6I', cycle: 7 });
+        const anchor83 = this._findAnchorRow(container, { customer: 'ADM ENGINE PLANT',       dock: 'EXP', cycle: 1 });
 
         if (S47.totals.order + S47.totals.dp + S47.totals.sc > 0) {
             this._removeSummaryRowIfExists(tbody, S47.label);
-            S47.row = this._createSummaryRow({
-                label: S47.label,
-                totals: S47.totals,
-                customerText: cust47
-            });
+            S47.row = this._createSummaryRow({ label: S47.label, totals: S47.totals, customerText: cust47 });
             tbody.insertBefore(S47.row, anchor47 || tbody.firstChild || null);
             result.push(S47);
         }
         if (S83.totals.order + S83.totals.dp + S83.totals.sc > 0) {
             this._removeSummaryRowIfExists(tbody, S83.label);
-            S83.row = this._createSummaryRow({
-                label: S83.label,
-                totals: S83.totals,
-                customerText: cust83
-            });
+            S83.row = this._createSummaryRow({ label: S83.label, totals: S83.totals, customerText: cust83 });
             if (anchor83) tbody.insertBefore(S83.row, anchor83);
             else tbody.appendChild(S83.row);
             result.push(S83);
@@ -608,17 +538,19 @@ class ProductionPlanSSEClient {
         return result;
     }
 
-    _createSummaryRow({
-        label,
-        totals,
-        customerText = '--'
-    }) {
+    /* ===== Summary Row builder (DISESUAIKAN dgn header baru) =====
+       - Kolom: Customer | Dock | Cycle | Back No | Order | Running Qty | Cycle Time | ... | Progress | Delivery Time | Delivery Date | Balance Time
+       - Running Qty menampilkan DP; menyimpan DP & SC sebagai span tersembunyi.
+       - Progress = DP / Order.
+    */
+    _createSummaryRow({ label, totals, customerText = '--' }) {
         const tr = document.createElement('tr');
         tr.className = 'fw-bold';
         tr.setAttribute('data-summary-row', '1');
         tr.setAttribute('data-summary-label', label);
 
-        const pct = Math.min(100, Math.round(((totals.dp + totals.sc) / Math.max(1, totals.order)) * 100));
+        const pctDP = Math.min(100, Math.round((totals.dp / Math.max(1, totals.order)) * 100));
+
         const td = (text, attrs = {}) => {
             const el = document.createElement('td');
             if (text != null) el.innerHTML = `<span class="flip">${text}</span>`;
@@ -626,97 +558,71 @@ class ProductionPlanSSEClient {
             return el;
         };
 
-        tr.appendChild(td(customerText, {
-            'data-label': 'Customer',
-            rowspan: '1'
-        }));
-        tr.appendChild(td('--', {
-            'data-label': 'Dock',
-            rowspan: '1'
-        }));
-        tr.appendChild(td('--', {
-            'data-label': 'Cycle',
-            rowspan: '1'
-        }));
-        tr.appendChild(td(label, {
-            'data-label': 'Back No'
-        }));
-        tr.appendChild(td(totals.order.toLocaleString('id-ID'), {
-            'data-label': 'Order'
-        }));
+        tr.appendChild(td(customerText, { 'data-label': 'Customer', rowspan: '1' }));
+        tr.appendChild(td('--',         { 'data-label': 'Dock',     rowspan: '1' }));
+        tr.appendChild(td('--',         { 'data-label': 'Cycle',    rowspan: '1' }));
+        tr.appendChild(td(label,        { 'data-label': 'Back No' }));
+        tr.appendChild(td(totals.order.toLocaleString('id-ID'), { 'data-label': 'Order' }));
 
-        const dpCell = document.createElement('td');
-        dpCell.setAttribute('data-label', 'Direct Pulling');
-        dpCell.innerHTML = `
-<div class="qty-progress" title="DP ${totals.dp} / ${totals.order}">
-<div class="bar"><i style="width:${Math.min(100, Math.round((totals.dp/Math.max(1,totals.order))*100))}%"></i></div>
-<span class="val"><span class="flip" data-summary-dp>${totals.dp}</span></span>
+        // Running Qty (menampilkan DP)
+        const runCell = document.createElement('td');
+        runCell.setAttribute('data-label', 'Running Qty');
+        runCell.innerHTML = `
+<div class="qty-progress" title="RUN ${totals.dp} / ${totals.order}">
+  <div class="bar"><i style="width:${pctDP}%"></i></div>
+  <span class="val">
+    <span class="flip" data-summary-running>${totals.dp}</span>
+    <span class="flip" data-summary-dp style="display:none">${totals.dp}</span>
+    <span class="flip" data-summary-sc style="display:none">${totals.sc}</span>
+  </span>
 </div>`;
-        tr.appendChild(dpCell);
+        tr.appendChild(runCell);
 
-        const scCell = document.createElement('td');
-        scCell.setAttribute('data-label', 'Stock Chute');
-        scCell.innerHTML = `
-<div class="qty-progress" title="SC ${totals.sc} / ${totals.order}">
-<div class="bar"><i style="width:${Math.min(100, Math.round((totals.sc/Math.max(1,totals.order))*100))}%"></i></div>
-<span class="val"><span class="flip" data-summary-sc>${totals.sc}</span></span>
-</div>`;
-        tr.appendChild(scCell);
+        tr.appendChild(td('--', { 'data-label': 'Cycle Time' }));
+        tr.appendChild(td('--', { 'data-label': 'Planning Start' }));
+        tr.appendChild(td('--', { 'data-label': 'Actual Start' }));
+        tr.appendChild(td('<span class="text-warning">--</span>', { 'data-label': 'Duration' }));
 
-        tr.appendChild(td('--', {
-            'data-label': 'Cycle Time'
-        }));
-        tr.appendChild(td('--', {
-            'data-label': 'Planning Start'
-        }));
-        tr.appendChild(td('--', {
-            'data-label': 'Actual Start'
-        }));
-        tr.appendChild(td('<span class="text-warning">--</span>', {
-            'data-label': 'Duration'
-        }));
-
+        // Progress (DP/Order)
         const prog = document.createElement('td');
         prog.className = 'total-progress';
         prog.setAttribute('data-label', 'Progress');
         prog.innerHTML = `
-<div class="qty-progress" title="DP+SC ${totals.dp + totals.sc} / ${totals.order} (${pct}%)">
-<div class="bar"><i data-summary-totalbar style="width:${pct}%"></i></div>
-<span class="val number" data-summary-totalpct>${pct}%</span>
+<div class="qty-progress" title="DP ${totals.dp} / ${totals.order} (${pctDP}%)">
+  <div class="bar"><i data-summary-totalbar style="width:${pctDP}%"></i></div>
+  <span class="val number" data-summary-totalpct>${pctDP}%</span>
 </div>`;
         tr.appendChild(prog);
 
-        tr.appendChild(td('--', {
-            'data-label': 'Delivery Time'
-        }));
-        tr.appendChild(td('--', {
-            'data-label': 'Delivery Date'
-        }));
-        tr.appendChild(td('--', {
-            'data-label': 'Balance Time'
-        }));
+        tr.appendChild(td('--', { 'data-label': 'Delivery Time' }));
+        tr.appendChild(td('--', { 'data-label': 'Delivery Date' }));
+        tr.appendChild(td('--', { 'data-label': 'Balance Time' }));
 
         return tr;
     }
 
     _refreshSummaryRow(summary) {
         if (!summary?.row) return;
-        const {
-            order,
-            dp,
-            sc
-        } = summary.totals;
-        const pct = Math.min(100, Math.round(((dp + sc) / Math.max(1, order)) * 100));
-        const dpSpan = summary.row.querySelector('[data-summary-dp]');
-        const scSpan = summary.row.querySelector('[data-summary-sc]');
+        const { order, dp, sc } = summary.totals;
+        const pctDP = Math.min(100, Math.round((dp / Math.max(1, order)) * 100));
+        const runSpan = summary.row.querySelector('[data-summary-running]');
+        const dpSpan  = summary.row.querySelector('[data-summary-dp]');
+        const scSpan  = summary.row.querySelector('[data-summary-sc]');
         const totalBar = summary.row.querySelector('[data-summary-totalbar]');
         const totalPct = summary.row.querySelector('[data-summary-totalpct]');
         const orderFlip = summary.row.querySelector('[data-label="Order"] .flip');
-        if (dpSpan) dpSpan.textContent = dp;
-        if (scSpan) scSpan.textContent = sc;
+        if (runSpan) runSpan.textContent = dp;
+        if (dpSpan)  dpSpan.textContent  = dp;
+        if (scSpan)  scSpan.textContent  = sc;
         if (orderFlip) orderFlip.textContent = order.toLocaleString('id-ID');
-        if (totalBar) totalBar.style.width = pct + '%';
-        if (totalPct) totalPct.textContent = pct + '%';
+
+        // Running Qty bar
+        const runBar = summary.row.querySelector('[data-label="Running Qty"] .bar > i');
+        if (runBar) runBar.style.width = pctDP + '%';
+
+        // Progress = DP/Order
+        if (totalBar) totalBar.style.width = pctDP + '%';
+        if (totalPct) totalPct.textContent = pctDP + '%';
     }
 
     refreshSummaries() {
@@ -729,37 +635,34 @@ class ProductionPlanSSEClient {
             if (data.date && data.date !== this.currentDate) return;
 
             const finish = (processed = 0) => {
-            // cukup refresh yg tersentuh (lihat patch di handleUpdates)
-            window.dispatchEvent(new CustomEvent('pulling:update', {
-                detail: { date: this.currentDate, processed }
-            }));
-            this.updateConnectionStatus('connected');
+                window.dispatchEvent(new CustomEvent('pulling:update', {
+                    detail: { date: this.currentDate, processed }
+                }));
+                this.updateConnectionStatus('connected');
             };
 
-            // helper: proses array besar per-chunk agar UI tetap responsif
             const runBatched = (arr, size = 150) => {
-            let i = 0, done = 0;
-            const step = () => {
-                const end = Math.min(i + size, arr.length);
-                const slice = arr.slice(i, end);
-                this.handleUpdates(slice);      // <- patch di bawah bikin ini efisien
-                done += slice.length;
-                i = end;
-                if (i < arr.length) requestAnimationFrame(step);
-                else finish(done);
-            };
-            requestAnimationFrame(step);
+                let i = 0, done = 0;
+                const step = () => {
+                    const end = Math.min(i + size, arr.length);
+                    const slice = arr.slice(i, end);
+                    this.handleUpdates(slice);
+                    done += slice.length;
+                    i = end;
+                    if (i < arr.length) requestAnimationFrame(step);
+                    else finish(done);
+                };
+                requestAnimationFrame(step);
             };
 
             if (Array.isArray(data.batches) && data.batches.length) {
-            // flaten batches dulu lalu proses batched
-            const flat = data.batches.flatMap(ch => Array.isArray(ch) ? ch : Object.values(ch));
-            runBatched(flat, 150);
-            return;
+                const flat = data.batches.flatMap(ch => Array.isArray(ch) ? ch : Object.values(ch));
+                runBatched(flat, 150);
+                return;
             }
 
             if (Array.isArray(data.updates) && data.updates.length) {
-            runBatched(data.updates, 150);
+                runBatched(data.updates, 150);
             }
         } catch {
             this.updateConnectionStatus('error', 'payload');
@@ -815,7 +718,7 @@ class ProductionPlanSSEClient {
         this.recalcRowspans(container);
     }
 
-    // REPLACE triggerHighlight di ProductionPlanSSEClient
+    // Highlight row
     triggerHighlight(row, type = 'direct-pulling') {
         if (!row) return;
         const cls = (type === 'stock-chute') ? 'highlight-beep-stock' : 'highlight-beep-direct';
@@ -825,7 +728,6 @@ class ProductionPlanSSEClient {
         clearTimeout(row._blinkTimer);
         row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
 
-        // kirim clone ke shelf sesuai line
         const lineKey = row.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
         if (lineKey && this.shelves?.[lineKey]) {
             this.shelves[lineKey].upsertFromRow(row);
@@ -840,27 +742,20 @@ class ProductionPlanSSEClient {
             this.eventSource = new EventSource(url);
             this.updateConnectionStatus('connecting');
 
-            // Open
             this.eventSource.onopen = () => this.updateConnectionStatus('connected');
 
-            // Server says "hello"
-            this.eventSource.addEventListener('connected', (e) => {
-                // e.data: {message, clientId, date, timestamp}
+            this.eventSource.addEventListener('connected', () => {
                 this.updateConnectionStatus('connected');
             });
 
-            // Server mulai refetch dari external
-            this.eventSource.addEventListener('refetching', (e) => {
+            this.eventSource.addEventListener('refetching', () => {
                 this.updateConnectionStatus('refetching');
             });
 
-            // Selesai refetch (sukses / tidak)
-            this.eventSource.addEventListener('refetched', (e) => {
-                // balik ke normal; detail status bisa kamu pakai kalau mau
+            this.eventSource.addEventListener('refetched', () => {
                 this.updateConnectionStatus('connected');
             });
 
-            // Update data utama
             this.eventSource.addEventListener('directPullingUpdate', (e) => {
                 try {
                     const data = JSON.parse(e.data || '{}');
@@ -871,13 +766,11 @@ class ProductionPlanSSEClient {
                 }
             });
 
-            // Server menutup koneksi (mis. rotasi 30 menit)
             this.eventSource.addEventListener('close', () => {
                 this.updateConnectionStatus('disconnected');
                 this.reconnect();
             });
 
-            // Error jaringan / stream
             this.eventSource.onerror = () => {
                 this.updateConnectionStatus('disconnected');
                 this.reconnect();
@@ -916,45 +809,43 @@ class ProductionPlanSSEClient {
     }
     setupErrorHandling() {
         window.addEventListener('beforeunload', () => {
-            try {
-                this.eventSource?.close();
-            } catch {}
+            try { this.eventSource?.close(); } catch {}
         });
     }
 
     handleUpdates(updates) {
-        const touched = new Set(); // kumpulkan summary yang berubah
+        const touched = new Set(); // summary yang berubah
 
         updates.forEach(item => {
             // update angka di summary (tanpa refresh tiap item)
             Object.values(this.summaries).flat().forEach(s => {
-            if (!s?.ids) return;
-            if (s.ids.has(String(item.id))) {
-                const prev = s.ids.get(String(item.id)) || { dp: 0, sc: 0, order: 0 };
-                const newDP = (item.direct_pulling_qty ?? prev.dp) | 0;
-                const newSC = (item.stock_chute_qty ?? prev.sc) | 0;
-                const newOD = (item.order_qty ?? prev.order) | 0;
+                if (!s?.ids) return;
+                if (s.ids.has(String(item.id))) {
+                    const prev = s.ids.get(String(item.id)) || { dp: 0, sc: 0, order: 0 };
+                    const newDP = (item.direct_pulling_qty ?? prev.dp) | 0;
+                    const newSC = (item.stock_chute_qty ?? prev.sc) | 0;
+                    const newOD = (item.order_qty ?? prev.order) | 0;
 
-                s.totals.dp    += (newDP - prev.dp);
-                s.totals.sc    += (newSC - prev.sc);
-                s.totals.order += (newOD - prev.order);
+                    s.totals.dp    += (newDP - prev.dp);
+                    s.totals.sc    += (newSC - prev.sc);
+                    s.totals.order += (newOD - prev.order);
 
-                s.ids.set(String(item.id), { dp: newDP, sc: newSC, order: newOD });
-                touched.add(s);
-            }
+                    s.ids.set(String(item.id), { dp: newDP, sc: newSC, order: newOD });
+                    touched.add(s);
+                }
             });
 
             // update row DOM kalau ada
             const idSel = id => `[data-item-id="${id}"]`;
             if (
-            document.querySelector(`${idSel(item.id)}[data-type="direct-pulling"]`) ||
-            document.querySelector(`${idSel(item.id)}[data-type="stock-chute"]`)
+                document.querySelector(`${idSel(item.id)}[data-type="direct-pulling"]`) ||
+                document.querySelector(`${idSel(item.id)}[data-type="stock-chute"]`)
             ) {
-            this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
-            this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty, 'stock-chute', item.order_qty);
-            this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, item.actual_start, 'time');
-            this.updateQuantity(`${idSel(item.id)}[data-type="end"]`, item.end, 'time');
-            this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, item.balance, 'time');
+                this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
+                this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty, 'stock-chute', item.order_qty);
+                this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, item.actual_start, 'time');
+                this.updateQuantity(`${idSel(item.id)}[data-type="end"]`, item.end, 'time');
+                this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, item.balance, 'time');
             }
         });
 
@@ -978,32 +869,34 @@ class ProductionPlanSSEClient {
             if (!isNaN(parseFloat(newValue))) this.updateCellStyle(td, parseFloat(newValue), type, targetQty);
             else this.updateCellStyle(td, null, type);
 
+            // Update progress bar di "Running Qty" (DP) & "Progress" (DP/Order)
             const bar = td?.querySelector('.qty-progress .bar > i');
             if (bar && (type === 'direct-pulling' || type === 'stock-chute')) {
-            const order = this._getOrder(row);
-            const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
-            const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
-            const val = (type === 'direct-pulling') ? dp : sc;
-            const pct = Math.min(100, Math.round((val / Math.max(1, order)) * 100));
-            bar.style.width = pct + '%';
+                const order = this._getOrder(row);
+                const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+                const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
 
-            const totCell = row.querySelector('.total-progress');
-            if (totCell) {
-                const tBar = totCell.querySelector('.bar > i');
-                const tPct = totCell.querySelector('.val');
-                const totalVal = dp + sc;
-                const totalPct = Math.min(100, Math.round((totalVal / Math.max(1, order)) * 100));
-                if (tBar) tBar.style.width = totalPct + '%';
-                if (tPct) tPct.textContent = totalPct + '%';
-            }
+                // Running bar = DP/Order (selalu)
+                const runPct = Math.min(100, Math.round((dp / Math.max(1, order)) * 100));
+                bar.style.width = runPct + '%';
+
+                // Total progress = DP/Order (bukan DP+SC)
+                const totCell = row.querySelector('.total-progress');
+                if (totCell) {
+                    const tBar = totCell.querySelector('.bar > i');
+                    const tPct = totCell.querySelector('.val');
+                    const totalPct = runPct;
+                    if (tBar) tBar.style.width = totalPct + '%';
+                    if (tPct) tPct.textContent = totalPct + '%';
+                }
             }
 
             if (row && (type === 'direct-pulling' || type === 'stock-chute')) this.triggerHighlight(row, type);
 
             const f = td?.querySelector('.flip');
             if (f) {
-            f.classList.add('animate-flip');
-            setTimeout(() => f.classList.remove('animate-flip'), 600);
+                f.classList.add('animate-flip');
+                setTimeout(() => f.classList.remove('animate-flip'), 600);
             }
         });
     }
@@ -1016,9 +909,10 @@ class ProductionPlanSSEClient {
         }
         let cls = 'fw-bold ';
         if (type === 'direct-pulling' || type === 'stock-chute') {
-            if (targetQty !== null && !isNaN(targetQty)) cls += (val >= targetQty) ?
-                'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
-            else cls += (val > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
+            if (targetQty !== null && !isNaN(targetQty))
+                cls += (val >= targetQty) ? 'bg-success bg-opacity-75 text-white' : 'bg-warning bg-opacity-75';
+            else
+                cls += (val > 0) ? 'bg-success bg-opacity-25' : 'bg-warning bg-opacity-25';
         }
         cell.className = cls.trim();
     }
@@ -1076,8 +970,7 @@ class ProductionPlanSSEClient {
         if (!orig) return;
         Array.from(tbody.querySelectorAll('tr [data-cloned-header]')).forEach(n => n.remove());
         orig.forEach(r => {
-            if (r && r.parentElement === tbody && r.getAttribute('data-summary-row') !== '1') tbody
-                .appendChild(r);
+            if (r && r.parentElement === tbody && r.getAttribute('data-summary-row') !== '1') tbody.appendChild(r);
         });
         const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
         this.recalcRowspans(container);
@@ -1118,19 +1011,23 @@ function gotoToday() {
 })();
 
 
+/* ============================================================
+   SAFE COLUMN HIDE (sinkron ke header baru)
+   - "Running Qty" single column
+   ============================================================ */
 (function SafeColumnHideV5() {
     const STORAGE_PREFIX = 'hiddenCols_';
     const tableStates = new Map();
     let isProcessing = false;
 
     const CANON = [
-        'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute',
-        'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time',
-        'Delivery Date', 'Balance Time'
+        'Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Running Qty',
+        'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress',
+        'Delivery Time', 'Delivery Date', 'Balance Time'
     ].map(s => s.toLowerCase());
 
     const GROUP_MAP = {
-        'running qty': ['Direct Pulling', 'Stock Chute'],
+        'running qty': ['Running Qty'],
         'working time': ['Planning Start', 'Actual Start', 'Duration', 'Progress']
     };
 
@@ -1164,32 +1061,25 @@ function gotoToday() {
 
     function annotateHeader(container) {
         const thead = container.querySelector('thead');
-        if (!thead) return {
-            leafKeys: [],
-            groupHeads: []
-        };
+        if (!thead) return { leafKeys: [], groupHeads: [] };
         const rows = Array.from(thead.rows);
         const r0 = rows[0] || null;
         const r1 = rows[1] || null;
         const leafKeys = [];
         const groupHeads = [];
-        if (!r0) return {
-            leafKeys,
-            groupHeads
-        };
+        if (!r0) return { leafKeys, groupHeads };
 
         let childIdx = 0;
         const r1cells = r1 ? Array.from(r1.cells) : [];
         Array.from(r0.cells).forEach(th => {
-            const text = canonicalize(th.textContent);
+            const text  = canonicalize(th.textContent);
             const ntext = norm(text);
             if ((th.rowSpan || 1) > 1 && (th.colSpan || 1) === 1) {
                 const key = text;
                 th.setAttribute('data-col-key', key);
                 leafKeys.push(key);
             } else if ((th.colSpan || 1) > 1) {
-                const span = th.colSpan,
-                    kids = [];
+                const span = th.colSpan, kids = [];
                 for (let i = 0; i < span; i++) {
                     const c = r1cells[childIdx++];
                     if (!c) continue;
@@ -1200,10 +1090,7 @@ function gotoToday() {
                 }
                 const gChildren = (GROUP_MAP[ntext] || kids);
                 th.setAttribute('data-col-group', gChildren.join('||'));
-                groupHeads.push({
-                    el: th,
-                    children: gChildren
-                });
+                groupHeads.push({ el: th, children: gChildren });
             } else {
                 const key = text;
                 th.setAttribute('data-col-key', key);
@@ -1215,16 +1102,11 @@ function gotoToday() {
             c.setAttribute('data-col-key', k);
             leafKeys.push(k);
         });
-        return {
-            leafKeys,
-            groupHeads
-        };
+        return { leafKeys, groupHeads };
     }
 
     function applyHiding(container, hiddenKeys, headerInfo) {
-        const {
-            groupHeads
-        } = headerInfo;
+        const { groupHeads } = headerInfo;
         container.querySelectorAll('tbody td[data-label]').forEach(td => {
             const key = canonicalize(td.getAttribute('data-label'));
             td.classList.toggle('col-hidden', hiddenKeys.has(key));
@@ -1234,8 +1116,7 @@ function gotoToday() {
             th.classList.toggle('col-hidden', hiddenKeys.has(key));
         });
         groupHeads.forEach(g => {
-            const visibleCount = g.children.reduce((n, k) => n + (hiddenKeys.has(canonicalize(k)) ? 0 :
-                1), 0);
+            const visibleCount = g.children.reduce((n, k) => n + (hiddenKeys.has(canonicalize(k)) ? 0 : 1), 0);
             if (visibleCount === 0) {
                 g.el.classList.add('col-hidden');
                 g.el.colSpan = 1;
@@ -1254,12 +1135,7 @@ function gotoToday() {
 
         const headerInfo = annotateHeader(container);
         const hiddenKeys = readHiddenKeys(tableKey);
-        tableStates.set(tableKey, {
-            container,
-            menu,
-            headerInfo,
-            hiddenKeys
-        });
+        tableStates.set(tableKey, { container, menu, headerInfo, hiddenKeys });
 
         menu.querySelectorAll('.column-check').forEach(cb => {
             let key = cb.dataset.key ? canonicalize(cb.dataset.key) : null;
@@ -1313,28 +1189,22 @@ function gotoToday() {
         });
         document.querySelectorAll('[data-toggle-table]').forEach(container => {
             const tbody = container.querySelector('table tbody');
-            if (tbody) observer.observe(tbody, {
-                childList: true,
-                subtree: false
-            });
+            if (tbody) observer.observe(tbody, { childList: true, subtree: false });
         });
     } catch {}
 })();
 
 
+/* ======================= Back No Renamer ======================= */
 (function BackNoRenamer() {
     const LS_KEY = 'backnoRenameMap';
     const loadMap = () => {
-        try {
-            return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-        } catch {
-            return {};
-        }
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+        catch { return {}; }
     };
     const saveMap = map => {
-        try {
-            localStorage.setItem(LS_KEY, JSON.stringify(map));
-        } catch {}
+        try { localStorage.setItem(LS_KEY, JSON.stringify(map)); }
+        catch {}
     };
 
     function applyMapToContainer(container, map) {
@@ -1356,15 +1226,11 @@ function gotoToday() {
     }
 
     function applyAll(map) {
-        document.querySelectorAll('[data-toggle-table]').forEach(container => applyMapToContainer(container,
-            map));
+        document.querySelectorAll('[data-toggle-table]').forEach(container => applyMapToContainer(container, map));
         document.querySelectorAll('[data-toggle-table]').forEach(c => window.prodPlanSSE?.recalcRowspans?.(c));
     }
 
-    window.setBackNoRenameMap = function(map, {
-        persist = true,
-        applyNow = true
-    } = {}) {
+    window.setBackNoRenameMap = function(map, { persist = true, applyNow = true } = {}) {
         const clean = {};
         Object.entries(map || {}).forEach(([k, v]) => {
             if (k && v) clean[$u.normUpper(k)] = $u.normUpper(v);
@@ -1374,10 +1240,7 @@ function gotoToday() {
         return clean;
     };
 
-    window.renameBackNo = function(from, to, {
-        persist = true,
-        applyNow = true
-    } = {}) {
+    window.renameBackNo = function(from, to, { persist = true, applyNow = true } = {}) {
         const map = loadMap();
         if (from && to) {
             map[$u.normUpper(from)] = $u.normUpper(to);
@@ -1387,9 +1250,7 @@ function gotoToday() {
         return map;
     };
 
-    window.clearBackNoRenameMap = function({
-        applyNow = true
-    } = {}) {
+    window.clearBackNoRenameMap = function({ applyNow = true } = {}) {
         saveMap({});
         if (applyNow) applyAll({});
     };
@@ -1408,6 +1269,7 @@ setBackNoRenameMap({
 });
 
 
+/* ======================= Shift Cards (recompute) ======================= */
 (function FixShiftCardsV3() {
     if (window.__fixShiftCardsV3Installed) return;
     window.__fixShiftCardsV3Installed = true;
@@ -1443,12 +1305,12 @@ setBackNoRenameMap({
     const readDP = tr =>
         isSummaryRow(tr)
             ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent)
-            : $u.int((tr.querySelector('[data-type="direct-pulling"]') || cellByLabel(tr, 'Direct Pulling')?.querySelector('.flip'))?.textContent);
+            : $u.int((tr.querySelector('[data-type="direct-pulling"]') || cellByLabel(tr, 'Running Qty')?.querySelector('.flip'))?.textContent);
 
     const readSC = tr =>
         isSummaryRow(tr)
             ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent)
-            : $u.int((tr.querySelector('[data-type="stock-chute"]') || cellByLabel(tr, 'Stock Chute')?.querySelector('.flip'))?.textContent);
+            : $u.int((tr.querySelector('[data-type="stock-chute"]'))?.textContent);
 
     function readDeliveryHourForRow(row) {
         let r = row;
@@ -1519,20 +1381,18 @@ setBackNoRenameMap({
 
     // 1) Klasifikasi shift: Delivery Date+Time (09:40 rule), fallback jam Delivery Time
     function classifyShift(row, lineKey) {
-        // summary khusus tetap berlaku
         const ov = specialSummaryShift(lineKey, row);
         if (ov) return ov;
 
-        const tm = readDeliveryTimeTextForRow(row); // "HH:mm"
-        const md = readDeliveryDateMDForRow(row);   // "MM/DD"
+        const tm = readDeliveryTimeTextForRow(row);
+        const md = readDeliveryDateMDForRow(row);
         if (tm) {
             if (md) {
                 const curISO = window.prodPlanSSE?.getCurrentDate?.() || $u.getCurrentISO();
                 const dlvISO = $u.mdToISO(md, curISO);
-                const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm); // 09:40 logic
+                const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
                 if (byDT === 'morning' || byDT === 'night') return byDT;
             }
-            // fallback kalau "Delivery Date" kosong: nilai jamnya saja
             const mins = $u.timeToMinutes(tm);
             if (mins != null) {
                 const MORNING_START = 12 * 60;
@@ -1545,14 +1405,12 @@ setBackNoRenameMap({
             }
             return 'other';
         }
-
-        // jangan pakai Planning/Actual Start lagi (sesuai: pakai Delivery Time saja)
         return 'other';
     }
 
     const rowCountable = tr => tr && tr.style.display !== 'none';
 
-    // 2) Hitung kartu: actual = DP + SC, hapus sisa +/- diff
+    // 2) Hitung kartu: actual = DP + SC (tetap)
     function computeLine(lineKey) {
         const wrap = document.querySelector(`[data-toggle-table="${lineKey}"]`);
         const sums = {
@@ -1574,11 +1432,10 @@ setBackNoRenameMap({
 
             if (shift === 'morning' || shift === 'night') {
                 sums[shift].order  += order;
-                sums[shift].actual += (dp + sc); // <= actual = DP + SC
+                sums[shift].actual += (dp + sc);
             }
         });
 
-        // TOTAL = Morning + Night (baris "other" nggak ikut)
         sums.total.order  = sums.morning.order + sums.night.order;
         sums.total.actual = sums.morning.actual + sums.night.actual;
 
@@ -1620,13 +1477,14 @@ setBackNoRenameMap({
 
     function updateBarsForRow(row) {
         const order = readOrder(row), dp = readDP(row), sc = readSC(row);
-        const dpBar = row.querySelector('[data-label][data-label*="Direct Pulling" i] .qty-progress .bar > i');
-        if (dpBar) dpBar.style.width = (order > 0 ? Math.min(100, Math.round((dp / order) * 100)) : 0) + '%';
-        const scBar = row.querySelector('[data-label][data-label*="Stock Chute" i] .qty-progress .bar > i');
-        if (scBar) scBar.style.width = (order > 0 ? Math.min(100, Math.round((sc / order) * 100)) : 0) + '%';
+        // Running Qty bar = DP/Order
+        const runBar = row.querySelector('[data-label][data-label*="Running Qty" i] .qty-progress .bar > i');
+        if (runBar) runBar.style.width = (order > 0 ? Math.min(100, Math.round((dp / order) * 100)) : 0) + '%';
+
+        // Total progress = DP/Order (bukan DP+SC)
         const totCell = row.querySelector('.total-progress');
         const tBar = totCell?.querySelector('.bar > i');
-        const thePct = (order > 0 ? Math.min(100, Math.round(((dp + sc) / order) * 100)) : 0);
+        const thePct = (order > 0 ? Math.min(100, Math.round((dp / order) * 100)) : 0);
         if (tBar) tBar.style.width = thePct + '%';
         const tPct = totCell?.querySelector('.val');
         if (tPct) tPct.textContent = thePct + '%';
@@ -1678,17 +1536,12 @@ setBackNoRenameMap({
         updateBarsForRow(row);
     }
 
-    // Initial compute saat load
     document.addEventListener('DOMContentLoaded', () => { if (!USE_RECLASS()) recomputeAll(); });
 
-    // >>> UPDATED: dengarkan event kustom dari ProductionPlanSSEClient, tanpa bikin EventSource sendiri
     document.addEventListener('DOMContentLoaded', () => {
-        // ProductionPlanSSEClient akan update DOM (rows, qty, bar) lebih dulu,
-        // lalu mem-broadcast 'pulling:update' -> kita tinggal recompute kartu.
         window.addEventListener('pulling:update', () => { if (!USE_RECLASS()) recomputeAll(); });
     });
 
-    // Recompute saat ada perubahan baris (insert/remove) dari tabel
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-toggle-table] tbody').forEach(tbody => {
             try {
@@ -1699,6 +1552,7 @@ setBackNoRenameMap({
     });
 })();
 
+/* ===== Summary Modal, Export, dsb. (disesuaikan progress DP/Order) ===== */
 (function() {
     const IDLOCALE = 'id-ID';
 
@@ -1721,7 +1575,6 @@ setBackNoRenameMap({
     const statusMorning = (q, M) => (q <= M.a1 ? 'S1' : q <= M.a2 ? 'NS' : 'LS1');
     const statusNight   = (q, N) => (q <= N.a1 ? 'S3' : 'LS3');
 
-    // algoritma yang sama seperti di ShiftCapacityReclassifierV3
     function reassignByRule(mRaw, nRaw, cfg){
         const M = cfg.M, N = cfg.N;
         let m = Math.max(0, mRaw|0), n = Math.max(0, nRaw|0);
@@ -1753,20 +1606,17 @@ setBackNoRenameMap({
         return { m, n };
     }
 
-    // hitung effective order + label status untuk header modal
     function computeEffectiveForModal(lineCode, rowsMorning, rowsNight){
-        // 1) Sumber kebenaran: ambil dari kartu (supaya identik)
         const cm = readCardShift(lineCode, 'morning');
         const cn = readCardShift(lineCode, 'night');
         if (cm && cn){
             return {
-            mEff: cm.order, nEff: cn.order,
-            mDone: cm.actual, nDone: cn.actual,
-            mLabel: cm.status, nLabel: cn.status
+                mEff: cm.order, nEff: cn.order,
+                mDone: cm.actual, nDone: cn.actual,
+                mLabel: cm.status, nLabel: cn.status
             };
         }
-
-        // 2) Fallback ke kalkulasi (jaga-jaga kalau kartu belum ada)
+        // fallback
         const sum = (rows, f) => rows.reduce((s,r)=>s+f(r), 0);
         const mOrder = sum(rowsMorning, r=>r.orderQty);
         const nOrder = sum(rowsNight,   r=>r.orderQty);
@@ -1777,21 +1627,19 @@ setBackNoRenameMap({
             const cfg = getCfg(lineCode);
             const { m: mEff, n: nEff } = reassignByRule(mOrder, nOrder, cfg);
             return {
-            mEff, nEff, mDone, nDone,
-            mLabel: statusMorning(mEff, cfg.M),
-            nLabel: statusNight(nEff,   cfg.N)
+                mEff, nEff, mDone, nDone,
+                mLabel: statusMorning(mEff, cfg.M),
+                nLabel: statusNight(nEff,   cfg.N)
             };
         }
         return { mEff: mOrder, nEff: nOrder, mDone, nDone, mLabel:'', nLabel:'' };
     }
 
-
-    // helper kecil buat badge status
     function chip(label){
         if (!label) return '';
         const cls = (label==='S1'||label==='S3') ? 'bg-success-subtle'
-                    : (label==='NS')               ? 'bg-warning-subtle'
-                                                : 'bg-danger-subtle';
+                  : (label==='NS')               ? 'bg-warning-subtle'
+                                                  : 'bg-danger-subtle';
         return `<span class="badge ${cls} ms-2">${label}</span>`;
     }
 
@@ -1801,17 +1649,17 @@ setBackNoRenameMap({
         if (isSummaryRow(tr)) {
             const td = $u.getCellByLabel(tr, 'Back No');
             const el = td?.querySelector('.flip') || td;
-            return String(el?.textContent || '').trim(); // biarkan label summary apa adanya
+            return String(el?.textContent || '').trim();
         }
         const td = $u.getCellByLabel(tr, 'Back No');
         const el = td?.querySelector('.flip') || td;
         const raw = (el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '').trim();
         if (!raw || raw === '--') return '';
-        return $u.canonicalBackNoSplit(raw); // “CI12”
+        return $u.canonicalBackNoSplit(raw);
     }
 
-    function readOrder(tr, isSummary) {
-        if (isSummary) {
+    function readOrder(tr, isSum) {
+        if (isSum) {
             const txt = $u.getCellByLabel(tr, 'Order')?.querySelector('.flip')?.textContent;
             return $u.int(txt);
         }
@@ -1820,13 +1668,13 @@ setBackNoRenameMap({
         return ds != null && ds !== '' ? $u.int(ds) : $u.int(el?.textContent);
     }
 
-    const readDP = (tr, isSummary) =>
-        isSummary ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent)
-                  : $u.int(tr.querySelector('[data-type="direct-pulling"]')?.textContent);
+    const readDP = (tr, isSum) =>
+        isSum ? $u.int(tr.querySelector('[data-summary-dp]')?.textContent)
+              : $u.int(tr.querySelector('[data-type="direct-pulling"]')?.textContent);
 
-    const readSC = (tr, isSummary) =>
-        isSummary ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent)
-                  : $u.int(tr.querySelector('[data-type="stock-chute"]')?.textContent);
+    const readSC = (tr, isSum) =>
+        isSum ? $u.int(tr.querySelector('[data-summary-sc]')?.textContent)
+              : $u.int(tr.querySelector('[data-type="stock-chute"]')?.textContent);
 
     function readCustomer(tr) {
         const td = $u.getCellByLabel(tr, 'Customer');
@@ -1834,7 +1682,6 @@ setBackNoRenameMap({
         return (el?.textContent || '').trim() || '--';
     }
 
-    // Kumpulkan agregat per model untuk 1 line & 1 shift tertentu
     function collect(lineCode, shiftFilter) {
         const wrap = document.querySelector(`[data-toggle-table="${lineCode}"]`);
         const tbody = wrap?.querySelector('tbody');
@@ -1845,7 +1692,7 @@ setBackNoRenameMap({
             if (tr.style?.display === 'none') return;
 
             const shift = tr.getAttribute('data-shift') || 'other';
-            if (shiftFilter && shift !== shiftFilter) return; // hanya shift yang diminta
+            if (shiftFilter && shift !== shiftFilter) return;
 
             const summary = isSummaryRow(tr);
             const bn = readBackNo(tr);
@@ -1871,31 +1718,25 @@ setBackNoRenameMap({
             map.set(key, rec);
         });
 
-        // Urut: order desc, lalu alfabet backNo
         return Array.from(map.values()).sort((a, b) => (b.orderQty - a.orderQty) || a.backNo.localeCompare(b.backNo));
     }
 
-    // simpan snapshot terakhir (untuk export)
-    let __lastSummary = {
-        line: '',
-        morning: [],
-        night: []
-    };
+    let __lastSummary = { line: '', morning: [], night: [] };
 
     function sectionHeaderHtml(title, stats, statusLabel) {
         const pct = stats.order > 0 ? Math.round((stats.completed / stats.order) * 100) : 0;
         const statusChip = chip(statusLabel);
         return `
             <div class="d-flex align-items-center justify-content-between mb-2 mt-3">
-            <div class="fw-bold">${title}${statusChip}</div>
-            <div class="small number">
+              <div class="fw-bold">${title}${statusChip}</div>
+              <div class="small number">
                 Order: <span class="me-2">${stats.order.toLocaleString(IDLOCALE)}</span>
                 Completed: <span class="me-2">${stats.completed.toLocaleString(IDLOCALE)}</span>
                 <span class="badge bg-secondary-subtle text-dark">${pct}%</span>
-            </div>
+              </div>
             </div>
             <div class="progress mb-2" style="height:6px;">
-            <div class="progress-bar" role="progressbar" style="width:${pct}%"></div>
+              <div class="progress-bar" role="progressbar" style="width:${pct}%"></div>
             </div>`;
     }
 
@@ -1903,9 +1744,9 @@ setBackNoRenameMap({
         const totalOrderRaw = rows.reduce((s, r) => s + r.orderQty, 0);
         const totalDoneRaw  = rows.reduce((s, r) => s + r.dp + r.sc, 0);
 
-        const orderForHeader    = (override?.effOrder ?? totalOrderRaw);
-        const completedForHeader= (override?.actual   ?? totalDoneRaw);
-        const statusForHeader   = override?.status || '';
+        const orderForHeader     = (override?.effOrder ?? totalOrderRaw);
+        const completedForHeader = (override?.actual   ?? totalDoneRaw);
+        const statusForHeader    = override?.status || '';
 
         listEl.insertAdjacentHTML(
             'beforeend',
@@ -1920,7 +1761,6 @@ setBackNoRenameMap({
             return;
         }
 
-        // Item per back number (tetap pakai raw per-item)
         rows.forEach(r => {
             const done = r.dp + r.sc;
             const pct = r.orderQty > 0 ? Math.round((done / r.orderQty) * 100) : 0;
@@ -1931,22 +1771,22 @@ setBackNoRenameMap({
             div.className = 'back-number-item';
             div.innerHTML = `
             <div class="d-flex flex-column">
-                <div class="back-no">${r.backNo}</div>
-                <div class="small number">${r.customer || '--'}</div>
+              <div class="back-no">${r.backNo}</div>
+              <div class="small number">${r.customer || '--'}</div>
             </div>
             <div class="d-flex align-items-center gap-3">
-                <div class="text-end">
+              <div class="text-end">
                 <div class="order-qty">${r.orderQty.toLocaleString(IDLOCALE)}</div>
                 <div class="small number">Order Qty</div>
-                </div>
-                <div class="text-end">
+              </div>
+              <div class="text-end">
                 <div class="fw-bold text-${color}">${done.toLocaleString(IDLOCALE)}</div>
                 <div class="small number">Completed</div>
-                </div>
-                <div class="text-end">
+              </div>
+              <div class="text-end">
                 <div class="fw-bold">${pct}%</div>
                 <div class="small number">Progress</div>
-                </div>
+              </div>
             </div>`;
             listEl.appendChild(div);
         });
@@ -1962,8 +1802,8 @@ setBackNoRenameMap({
         const eff = computeEffectiveForModal(lineCode, rowsMorning, rowsNight);
 
         const totalBack   = rowsMorning.length + rowsNight.length;
-        const totalOrders = eff.mEff + eff.nEff;           // dari kartu (efektif)
-        const completed   = eff.mDone + eff.nDone;         // dari kartu (actual)
+        const totalOrders = eff.mEff + eff.nEff;
+        const completed   = eff.mDone + eff.nDone;
         const avg         = totalBack > 0 ? Math.round(totalOrders / totalBack) : 0;
 
         document.getElementById('modalLineTitle').textContent = lineCode;
@@ -1975,7 +1815,6 @@ setBackNoRenameMap({
         const list = document.getElementById('backNumberList');
         list.innerHTML = '';
 
-        // Header setiap shift pakai angka & status dari kartu
         renderSection(list, 'Morning Shift', rowsMorning, { effOrder: eff.mEff, actual: eff.mDone, status: eff.mLabel });
         renderSection(list, 'Night Shift',   rowsNight,   { effOrder: eff.nEff, actual: eff.nDone, status: eff.nLabel });
 
@@ -1984,7 +1823,6 @@ setBackNoRenameMap({
         if (!modal.classList.contains('show')) inst.show();
     }
 
-        // auto-refresh isi modal saat ada update live (kalau modal sedang terbuka)
     (function hookModalLiveRefresh(){
         const modal = document.getElementById('summaryModal');
         if (!modal) return;
@@ -1993,7 +1831,6 @@ setBackNoRenameMap({
             if (isShown() && __lastSummary?.line) renderModal(__lastSummary.line);
         });
     })();
-
 
     window.showSummary = renderModal;
 
@@ -2005,9 +1842,7 @@ setBackNoRenameMap({
         ];
         if (!rows.length) return;
 
-        const header = ['Shift', 'Back Number', 'Customer', 'Order Qty', 'Direct Pulling', 'Stock Chute',
-            'Completed', 'Progress %', 'Status'
-        ];
+        const header = ['Shift','Back Number','Customer','Order Qty','Direct Pulling','Stock Chute','Completed','Progress %','Status'];
         const csv = [
             header.join(','),
             ...rows.map(r => {
@@ -2035,10 +1870,12 @@ setBackNoRenameMap({
     };
 })();
 
+
 (function CardTotalsFromDOM() {
     /* disabled: handled by FixShiftCardsV3 */
 })();
 
+/* ======================= PinnedShelf (chips) ======================= */
 class PinnedShelf {
     constructor(container, opts = {}) {
         this.container = container;
@@ -2053,7 +1890,6 @@ class PinnedShelf {
     _ensureShelf() {
         if (this.deck) return;
 
-        // ---------- 2 CARD SIDE-BY-SIDE ----------
         this.deck = document.createElement('div');
         this.deck.className = 'row g-3 shelf-deck mb-3';
 
@@ -2082,20 +1918,16 @@ class PinnedShelf {
           </div>
         </div>`;
 
-        // taruh di atas kartu tabel (tepat setelah toolbar bila ada)
         const toolbar = this.container.querySelector('.d-flex.justify-content-end') || this.container.firstElementChild;
-        (toolbar?.parentElement || this.container)
-          .insertBefore(this.deck, toolbar?.nextSibling || this.container.firstChild);
+        (toolbar?.parentElement || this.container).insertBefore(this.deck, toolbar?.nextSibling || this.container.firstChild);
 
-        this.list = this.deck.querySelector('[data-shelf-list]');   // current
-        this.nextList = this.deck.querySelector('[data-next-list]'); // next
+        this.list = this.deck.querySelector('[data-shelf-list]');
+        this.nextList = this.deck.querySelector('[data-next-list]');
     }
 
     _hookObservers() {
-        // Refresh Next setiap ada SSE update dari ProductionPlanSSEClient
         window.addEventListener('pulling:update', () => this.refreshNextQueue());
 
-        // Refresh Next kalau ada insert/remove baris
         try {
             const tbody = this.container.querySelector('table tbody');
             if (tbody) {
@@ -2104,7 +1936,6 @@ class PinnedShelf {
             }
         } catch {}
 
-        // First paint
         this.refreshNextQueue();
     }
 
@@ -2151,23 +1982,23 @@ class PinnedShelf {
         div.className = 'pinned-chip';
         div.innerHTML = `
             <div class="info">
-            <div class="backno fw-bold">${d.backNo}</div>
-            <div class="dim">${d.customer || '--'}</div>
+              <div class="backno fw-bold">${d.backNo}</div>
+              <div class="dim">${d.customer || '--'}</div>
             </div>
             <div class="stats">
-            <div class="stat-stack">
+              <div class="stat-stack">
                 <div class="stat-label">Order</div>
                 <div class="stat-number primary" data-x="order">${d.order.toLocaleString('id-ID')}</div>
-            </div>
-            <div class="stat-stack">
+              </div>
+              <div class="stat-stack">
                 <div class="stat-label">Completed</div>
                 <div class="stat-number" data-x="done">${done.toLocaleString('id-ID')}</div>
-            </div>
+              </div>
             </div>
             <div class="meta">
-            <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
-            <span>•</span><span data-x="dtime">${d.deliveryTime}</span>
-            <span>·</span><span data-x="ddate">${d.deliveryDate}</span>
+              <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
+              <span>•</span><span data-x="dtime">${d.deliveryTime}</span>
+              <span>·</span><span data-x="ddate">${d.deliveryDate}</span>
             </div>`;
         return div;
     }
@@ -2177,19 +2008,19 @@ class PinnedShelf {
         div.className = 'pinned-chip';
         div.innerHTML = `
             <div class="info">
-            <div class="backno fw-bold">${d.backNo}</div>
-            <div class="dim">${d.customer || '--'}</div>
+              <div class="backno fw-bold">${d.backNo}</div>
+              <div class="dim">${d.customer || '--'}</div>
             </div>
             <div class="stats">
-            <div class="stat-stack">
+              <div class="stat-stack">
                 <div class="stat-label">Order</div>
                 <div class="stat-number primary">${d.order.toLocaleString('id-ID')}</div>
-            </div>
+              </div>
             </div>
             <div class="meta">
-            <span class="tag">Dock</span><span>${d.dock}</span>
-            <span>•</span><span>${d.deliveryTime}</span>
-            <span>·</span><span>${d.deliveryDate}</span>
+              <span class="tag">Dock</span><span>${d.dock}</span>
+              <span>•</span><span>${d.deliveryTime}</span>
+              <span>·</span><span>${d.deliveryDate}</span>
             </div>`;
         return div;
     }
@@ -2200,12 +2031,10 @@ class PinnedShelf {
             if (n) n.textContent = v;
         };
         set('order', d.order.toLocaleString('id-ID'));
-        set('done', d.done.toLocaleString('id-ID'));
-        set('totpct', `${d.pct}%`);
+        set('done', (d.dp + d.sc).toLocaleString('id-ID'));
         set('dock', d.dock);
         set('dtime', d.deliveryTime);
         set('ddate', d.deliveryDate);
-
         const totbar = el.querySelector('[data-x="totbar"]');
         if (totbar) totbar.style.width = `${d.pct}%`;
     }
@@ -2229,7 +2058,6 @@ class PinnedShelf {
             rec.ts = Date.now();
         }
 
-        // setiap current update -> refresh Next berdasarkan posisi baris ini
         this.refreshNextQueue(row);
     }
 
@@ -2239,7 +2067,6 @@ class PinnedShelf {
         clearTimeout(rec.timer);
         rec.el.remove();
         this.map.delete(id);
-        // current berkurang -> next bisa berubah
         this.refreshNextQueue();
     }
 
@@ -2268,8 +2095,6 @@ class PinnedShelf {
         const currentIds = new Set(this.map.keys());
         const rows = this._visibleDataRows();
 
-        // Mulai dari baris di bawah "anchor" kalau tersedia,
-        // kalau tidak ada anchor, mulai dari baris paling atas (global queue).
         let startIndex = 0;
         if (anchorRow) {
             const idx = rows.indexOf(anchorRow);
@@ -2280,15 +2105,14 @@ class PinnedShelf {
         const pushIfCandidate = (r) => {
             const d = this._extract(r);
             if (!d.id) return;
-            if (currentIds.has(d.id)) return;            // skip yang sedang current
-            if (d.order > 0 && d.done >= d.order) return; // skip yang sudah complete
+            if (currentIds.has(d.id)) return;
+            if (d.order > 0 && d.done >= d.order) return;
             out.push(d);
         };
 
         for (let i = startIndex; i < rows.length && out.length < this.nextMax; i++) {
             pushIfCandidate(rows[i]);
         }
-        // wrap ke atas kalau belum penuh
         if (out.length < this.nextMax && startIndex > 0) {
             for (let i = 0; i < startIndex && out.length < this.nextMax; i++) {
                 pushIfCandidate(rows[i]);
@@ -2313,27 +2137,19 @@ class PinnedShelf {
 }
 
 
+/* ======================= Shift Card Controls (UI) ======================= */
 (function ShiftCardControls() {
-    const LS_KEY = 'shiftCardState'; // { mini: {AS003:true}, hidden:{AS004:true} }
+    const LS_KEY = 'shiftCardState';
     const readState = () => {
-        try {
-            return JSON.parse(localStorage.getItem(LS_KEY) || '{"mini":{},"hidden":{}}');
-        } catch {
-            return {
-                mini: {},
-                hidden: {}
-            };
-        }
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '{"mini":{},"hidden":{}}'); }
+        catch { return { mini: {}, hidden: {} }; }
     };
     const writeState = (s) => {
-        try {
-            localStorage.setItem(LS_KEY, JSON.stringify(s));
-        } catch {}
+        try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch {}
     };
 
     const state = readState();
 
-    // tray untuk restore kartu tersembunyi
     function ensureTray() {
         let tray = document.getElementById('hidden-cards-tray');
         if (!tray) {
@@ -2345,7 +2161,6 @@ class PinnedShelf {
                 <strong class="me-1">Hidden cards:</strong>
                 <span data-tray-list class="d-flex flex-wrap align-items-center"></span>
             `;
-            // taruh di atas tab-content (aman, ga nutup table)
             const container = document.querySelector('.container') || document.body;
             const tabs = document.getElementById('lineTabs') || container.firstElementChild;
             container.insertBefore(tray, (tabs?.nextElementSibling) || container.firstChild);
@@ -2382,7 +2197,6 @@ class PinnedShelf {
     }
 
     function buildHeader(card, key, collapseId) {
-        // Header
         const head = document.createElement('div');
         head.className = 'card-header d-flex justify-content-between align-items-center shiftcard-head';
         head.innerHTML = `
@@ -2392,19 +2206,14 @@ class PinnedShelf {
         </div>
         <div class="btn-group btn-group-sm">
             <button type="button" class="btn btn-outline-secondary" data-action="minimize" aria-expanded="true" title="Minimize">
-            <i class="fas fa-chevron-up"></i>
+                <i class="fas fa-chevron-up"></i>
             </button>
-        </div>
-        `;
+        </div>`;
         card.insertBefore(head, card.firstChild);
 
-        // Wiring tombol
         const btnMin = head.querySelector('[data-action="minimize"]');
-        // const btnHide = head.querySelector('[data-action="hide"]');
         const target = document.getElementById(collapseId);
-        const bsCollapse = new bootstrap.Collapse(target, {
-            toggle: false
-        });
+        const bsCollapse = new bootstrap.Collapse(target, { toggle: false });
 
         function setMinimized(min) {
             if (min) {
@@ -2420,30 +2229,19 @@ class PinnedShelf {
 
         btnMin.addEventListener('click', () => {
             const current = btnMin.getAttribute('aria-expanded') === 'true';
-            setMinimized(current); // toggle
-            state.mini[key] = current; // simpan: kalau tadinya expanded=true, sekarang jadi minimized
+            setMinimized(current);
+            state.mini[key] = current;
             writeState(state);
         });
 
-        // btnHide.addEventListener('click', () => {
-        //     card.classList.add('d-none');
-        //     state.hidden[key] = true;
-        //     writeState(state);
-        //     refreshTray();
-        // });
-
-        // apply state awal
         setMinimized(!!state.mini[key]);
     }
 
-    // Upgrade semua card
     document.querySelectorAll('[data-shift-card]').forEach(card => {
         const key = card.getAttribute('data-shift-card') || 'CARD';
-        // Bungkus body ke collapse
         let body = card.querySelector('.card-body');
         if (!body) return;
 
-        // kalau sudah pernah di-wrap, skip
         let wrap = body.closest('.collapse');
         if (!wrap) {
             const id = `shiftcard-${key}`;
@@ -2452,49 +2250,18 @@ class PinnedShelf {
             wrap.id = id;
             body.parentElement.insertBefore(wrap, body);
             wrap.appendChild(body);
-
-            // buat header + tombol
             buildHeader(card, key, id);
         }
 
-        // apply hidden state
         if (state.hidden[key]) card.classList.add('d-none');
     });
 
     refreshTray();
 })();
 
+
 /* ============================================================
-Shift Capacity Reclassifier (S1/NS/LS1 & S3/LS3 + spillover)
-Berlaku untuk AS003 & AS004. Tidak mengubah SSE/DOM lain.
-------------------------------------------------------------
-Aturan:
-- Morning (S1–LS1):
-    0..720      -> S1
-    721..850    -> NS
-    851..1050   -> LS1
-    >1050       -> kelebihan (qty-1050) DIALIHKAN ke Night
-- Night (S3–LS3):
-    0..720      -> S3
-    721..1050   -> LS3
-    >1050       -> kelebihan dipindahkan ke Morning
-                    HANYA jika Morning < 1050 (pindah sebatas sisa kapasitas)
-- Total tetap sama; yang berubah hanya pembagian “order” per shift pada kartu.
-============================================================ */
-/* ============================================================
-   Shift Capacity Reclassifier (v2) — with summary-row support
-   ============================================================ */
-/* ============================================================
-   Shift Capacity Reclassifier (V3, aturan baru per-anchored)
-   ------------------------------------------------------------
-   - AS003: Morning anchors 720→850→1050, Night 720→1050
-   - AS004: Morning anchors 630→750→900,  Night 630→900
-   - Morning dibulatkan turun ke anchor terdekat (720/850/Max).
-     Kelebihan dialihkan ke Night.
-   - Night dibulatkan turun ke anchor terdekat (S3/Max) dengan
-     mengalihkan ke Morning SEBATAS sisa kapasitas Morning menuju
-     anchor berikutnya (agar Morning tidak "nanggung").
-   - Total tetap sama; hanya pembagian order per shift yang berubah.
+   Shift Capacity Reclassifier V3 (tetap)
    ============================================================ */
 (function ShiftCapacityReclassifierV3(){
     window.__shiftReclassifierV3Active = true;
@@ -2502,16 +2269,9 @@ Aturan:
     const IDLOCALE = 'id-ID';
     const USE_RECLASS = () => !!window.__shiftReclassifierV3Active;
 
-    // Konfigurasi anchor per line
     const CONFIG = {
-        AS003: { // "AS3"
-            M: { a1: 720, a2: 850, max: 1050 },  // S1, NS, LS1
-            N: { a1: 720,       max: 1050 }      // S3, LS3
-        },
-        AS004: { // "AS4"
-            M: { a1: 630, a2: 750, max: 900  },  // S1, NS, LS1
-            N: { a1: 630,       max: 900  }      // S3, LS3
-        }
+        AS003: { M: { a1: 720, a2: 850, max: 1050 },  N: { a1: 720, max: 1050 } },
+        AS004: { M: { a1: 630, a2: 750, max: 900  },  N: { a1: 630, max: 900  } }
     };
 
     const normU = s => String(s||'').toUpperCase().trim();
@@ -2542,7 +2302,6 @@ Aturan:
         return normU((td?.textContent || '').trim());
     }
 
-    // --- ambil Delivery Time + Date dari header group terdekat
     function readDeliveryTimeText(row){
         let r = row;
         while(r){
@@ -2562,7 +2321,6 @@ Aturan:
         return null;
     }
 
-    // --- mapping shift (summary-aware) seperti sebelumnya
     function classifyShift(row, lineKey){
         if (isSummary(row)){
             const label = readSummaryLabel(row);
@@ -2574,9 +2332,8 @@ Aturan:
                 if (/\bCI19\b/i.test(label)) return 'morning';
             }
         }
-        // fallback: Delivery Date + Time (09:40 logic)
-        const tm = readDeliveryTimeText(row);       // "HH:mm"
-        const md = readDeliveryDateMD(row);         // "MM/DD"
+        const tm = readDeliveryTimeText(row);
+        const md = readDeliveryDateMD(row);
         if (!tm) return 'other';
         if (md){
             const curISO = $u.getCurrentISO();
@@ -2596,7 +2353,6 @@ Aturan:
         return 'other';
     }
 
-    // --- status label untuk chip
     function statusMorning(q, M){
         if (q <= M.a1) return 'S1';
         if (q <= M.a2) return 'NS';
@@ -2635,36 +2391,31 @@ Aturan:
                                          'bg-danger-subtle');
     }
 
-    // --- reclassifier inti (aturan baru)
     function reassignByRule(mRaw, nRaw, lineKey){
         const cfg = CONFIG[lineKey] || CONFIG.AS003;
         const M = cfg.M, N = cfg.N;
 
         let m = Math.max(0, mRaw|0), n = Math.max(0, nRaw|0);
 
-        // 1) Morning snap-down ke anchor (kelebihan -> Night)
         if (m > M.max){ n += (m - M.max); m = M.max; }
         if (m > M.a2 && m < M.max){ n += (m - M.a2); m = M.a2; }
         if (m > M.a1 && m < M.a2){ n += (m - M.a1); m = M.a1; }
 
-        // 2) Night > Max -> alihkan ke Morning sebatas sisa kapasitas ke MAX
         if (n > N.max){
             const cap = Math.max(0, M.max - m);
             const move = Math.min(n - N.max, cap);
             n -= move; m += move;
         }
 
-        // 3) Night di antara anchor -> bulatkan turun ke S3
         if (n > N.a1 && n < N.max){
             const targetN = N.a1;
             const need = n - targetN;
 
-            // Morning hanya boleh naik sampai "anchor berikutnya" (agar tidak nanggung)
             let nextAnchor = M.max;
             if (m < M.a1)       nextAnchor = M.a1;
             else if (m === M.a1) nextAnchor = M.a2;
             else if (m === M.a2) nextAnchor = M.max;
-            else                 nextAnchor = m; // sudah MAX, tidak bisa terima
+            else                 nextAnchor = m;
 
             const allowed = Math.max(0, nextAnchor - m);
             const move = Math.min(need, allowed);
@@ -2701,10 +2452,7 @@ Aturan:
             if (tr.style.display==='none') return;
 
             const sh = classifyShift(tr, lineKey);
-
-            // NEW: selalu stempel shift ke baris agar modul lain (collect) bisa membacanya
             if (tr.getAttribute('data-shift') !== sh) tr.setAttribute('data-shift', sh);
-
             if (sh !== 'morning' && sh !== 'night') return;
 
             const order  = readOrder(tr);
@@ -2714,18 +2462,14 @@ Aturan:
             else                 { nOrder += order; nActual += actual; }
         });
 
-        // Terapkan aturan baru (reassign ke anchor)
         const { m: mEff, n: nEff } = reassignByRule(mOrder, nOrder, lineKey);
 
-        // Render kartu
         renderOne(lineKey, 'morning', mEff, mActual);
         renderOne(lineKey, 'night',   nEff, nActual);
 
-        // Status chip
         setStatusChip(lineKey, 'morning', statusMorning(mEff, cfg.M));
         setStatusChip(lineKey, 'night',   statusNight(nEff, cfg.N));
 
-        // Total (efektif)
         const totalOrder  = mEff + nEff;
         const totalActual = mActual + nActual;
         const totalCard = document.querySelector(
@@ -2743,7 +2487,6 @@ Aturan:
 
     function recomputeAll(){ LINES.forEach(recomputeLine); }
 
-    // initial + sse + mutasi (tetap sama seperti versi sebelumnya)
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>setTimeout(recomputeAll,0));
     else setTimeout(recomputeAll,0);
 
@@ -2753,19 +2496,18 @@ Aturan:
     });
 })();
 
- /* Smooth Auto-Scroll (GPU) + Global & Per-Pane Toggle */
+/* ======================= Smooth Auto-Scroll ======================= */
 (function() {
     const SPEED = 6; // px/detik
-    const EDGE_PAUSE = 1800; // jeda di bawah (ms)
-    const USER_PAUSE = 3000; // jeda pasca interaksi user (ms)
+    const EDGE_PAUSE = 1800;
+    const USER_PAUSE = 3000;
     const REINIT_DEBOUNCE = 600;
 
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-    const stops = new Set(); // stopper untuk pane aktif saja
+    const stops = new Set();
 
-    // ===== GLOBAL TOGGLE (master switch) =====
     const KEY_GLOBAL = 'pp:autoScrollEnabled';
-    let enabled = (localStorage.getItem(KEY_GLOBAL) ?? '1') === '1'; // default ON
+    let enabled = (localStorage.getItem(KEY_GLOBAL) ?? '1') === '1';
 
     function updateGlobalToggleUI() {
         const btn = document.getElementById('autoScrollToggle');
@@ -2794,8 +2536,7 @@ Aturan:
         }
     });
 
-    // ===== PER-PANE TOGGLE =====
-    const KEY_PANE_PREFIX = 'pp:autoScrollPane:'; // contoh: pp:autoScrollPane:AS003
+    const KEY_PANE_PREFIX = 'pp:autoScrollPane:';
 
     const getPaneKey = (pane) => {
         if (!pane) return '';
@@ -2805,13 +2546,12 @@ Aturan:
     const isPaneEnabled = (key) => {
         if (!key) return true;
         const v = localStorage.getItem(KEY_PANE_PREFIX + key);
-        return (v ?? '1') === '1'; // default ON
+        return (v ?? '1') === '1';
     };
     const setPaneEnabled = (key, on) => {
         if (!key) return;
         localStorage.setItem(KEY_PANE_PREFIX + key, on ? '1' : '0');
         updatePaneToggleUI(key);
-        // jika pane yang diubah adalah pane aktif, re-evaluasi
         const activePane = document.querySelector('.tab-pane.show.active, .tab-pane.active');
         const activeKey = getPaneKey(activePane);
         if (activeKey === key) {
@@ -2830,7 +2570,6 @@ Aturan:
         });
     };
 
-    // delegasi klik tombol per-pane
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-pane-autoscroll]');
         if (!btn) return;
@@ -2838,7 +2577,6 @@ Aturan:
         setPaneEnabled(key, !isPaneEnabled(key));
     });
 
-    // inisialisasi label per-pane ketika DOM siap
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-pane-autoscroll]').forEach(btn => {
             const key = btn.getAttribute('data-pane-autoscroll');
@@ -2846,7 +2584,6 @@ Aturan:
         });
     });
 
-    // ===== SCROLLER UNTUK 1 CONTAINER =====
     function startScroller(container) {
         const table = container.querySelector('table');
         const thead = container.querySelector('thead');
@@ -2867,12 +2604,9 @@ Aturan:
         let offset = 0;
         let last = performance.now();
         let paused = false;
-        let raf = 0,
-            ut = null;
+        let raf = 0, ut = null;
 
-        const apply = y => {
-            tbody.style.transform = `translate3d(0, ${-y}px, 0)`;
-        };
+        const apply = y => { tbody.style.transform = `translate3d(0, ${-y}px, 0)`; };
 
         const userKick = () => {
             paused = true;
@@ -2889,33 +2623,24 @@ Aturan:
             max = measure();
             offset = clamp(offset + e.deltaY, 0, max);
             apply(offset);
-        }, {
-            passive: false
-        });
+        }, { passive: false });
 
         let tY = 0;
         container.addEventListener('touchstart', (e) => {
             tY = e.touches[0].clientY;
             userKick();
-        }, {
-            passive: true
-        });
+        }, { passive: true });
         container.addEventListener('touchmove', (e) => {
             e.preventDefault();
             userKick();
-            const ny = e.touches[0].clientY,
-                dy = tY - ny;
+            const ny = e.touches[0].clientY, dy = tY - ny;
             tY = ny;
             max = measure();
             offset = clamp(offset + dy, 0, max);
             apply(offset);
-        }, {
-            passive: false
-        });
+        }, { passive: false });
 
-        let dragging = false,
-            pY = 0,
-            pid = null;
+        let dragging = false, pY = 0, pid = null;
         container.addEventListener('pointerdown', (e) => {
             dragging = true;
             pY = e.clientY;
@@ -2934,9 +2659,7 @@ Aturan:
         const endDrag = () => {
             dragging = false;
             if (pid != null) {
-                try {
-                    container.releasePointerCapture(pid);
-                } catch {}
+                try { container.releasePointerCapture(pid); } catch {}
                 pid = null;
             }
         };
@@ -2980,12 +2703,9 @@ Aturan:
         };
     }
 
-    // ===== Lifecycle (aktifkan hanya untuk pane aktif) =====
     function stopAll() {
         for (const s of stops) {
-            try {
-                s();
-            } catch {}
+            try { s(); } catch {}
         }
         stops.clear();
         window.__autoScrollCount = 0;
@@ -2998,7 +2718,6 @@ Aturan:
         const paneKey = getPaneKey(pane);
         if (!isPaneEnabled(paneKey)) return;
 
-        // tunggu transisi fade
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 pane.querySelectorAll('.table-responsive.auto-scroll').forEach(el => {
@@ -3042,21 +2761,15 @@ Aturan:
     });
 
     const host = document.getElementById('lineTabsContent');
-    if (host) new MutationObserver(reinit).observe(host, {
-        childList: true,
-        subtree: true
-    });
+    if (host) new MutationObserver(reinit).observe(host, { childList: true, subtree: true });
 
-    // expose helpers (optional)
     window.reinitAutoScroll = reinit;
     window.setAutoScrollEnabled = setEnabled;
     window.getAutoScrollEnabled = () => enabled;
     window.setPaneAutoScrollEnabled = setPaneEnabled;
     window.getPaneAutoScrollEnabled = isPaneEnabled;
 
-    // sinkronkan label tombol global di awal
     updateGlobalToggleUI();
-    // sinkronkan label tombol per-pane di awal
     document.querySelectorAll('[data-pane-autoscroll]').forEach(btn => {
         const key = btn.getAttribute('data-pane-autoscroll');
         updatePaneToggleUI(key);
@@ -3064,4 +2777,3 @@ Aturan:
 })();
 
 if (!window.USE_RECLASS) window.USE_RECLASS = () => !!window.__shiftReclassifierV3Active;
-

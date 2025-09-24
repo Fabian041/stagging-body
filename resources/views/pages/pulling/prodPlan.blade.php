@@ -15,62 +15,7 @@
     <div class="container py-4">
 
         <!-- Header / Filters -->
-        {{-- <div class="page-head p-3 mb-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="fas fa-industry text-primary"></i>
-                    <strong class="h5 m-0">Production Date</strong>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge text-bg-light border">
-                        {{ Carbon\Carbon::parse($selectedDate ?? now())->format('D, M j Y') }}
-                    </span>
-
-                    <!-- Theme toggle -->
-                   
-                </div>
-            </div>
-
-            <form method="GET" action="{{ route('dashboard.prodPlan') }}" class="row g-2 align-items-center mt-2">
-                <div class="col-md-4">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border">
-                            <i class="far fa-calendar"></i>
-                        </span>
-                        <input type="date" class="form-control border" name="date"
-                            value="{{ $selectedDate ?? now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}"
-                            style="font-weight:600">
-                    </div>
-                </div>
-                <div class="col-md-8">
-                    <div class="btn-group" role="group">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-funnel-fill me-1"></i> Filter
-                        </button>
-                        @if (request()->has('date'))
-                            <a href="{{ route('dashboard.prodPlan') }}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-                            </a>
-                        @endif
-                        <button type="button" class="btn btn-outline-secondary" onclick="navigateDate(-1)">
-                            <i class="fas fa-arrow-left"></i>
-                        </button>
-                        @php
-                            $selected = $selectedDate ?? now()->format('Y-m-d');
-                            $isToday = $selected === now()->format('Y-m-d');
-                        @endphp
-                        <button type="button" class="btn btn-outline-secondary {{ $isToday ? 'disabled' : '' }}"
-                            onclick="navigateDate(1)" {{ $isToday ? 'disabled' : '' }}>
-                            <i class="fas fa-arrow-right"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="gotoToday()">Today</button>
-                        <button type="submit" name="force_refresh" value="1" class="btn btn-warning">
-                            <i class="fas fa-sync-alt me-1"></i> Re-fetch
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div> --}}
+        {{-- <div class="page-head p-3 mb-4"> ... </div> --}}
 
         @if (isset($message))
             <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100">
@@ -164,10 +109,9 @@
                             <div class="strip-stat" data-line="AS003" data-shift="morning">
                                 <div class="title">Morning Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary"> {{-- (text-success untuk Night) --}}
+                                    <div class="value text-primary">
                                         <span data-role="shift-order">{{ $as003MorningQty ?? 0 }}</span>
                                     </div>
-                                    {{-- placeholder; akan diisi JS --}}
                                     <span class="chip border fw-bolder d-none" data-role="shift-status"></span>
                                     <small class="text-muted" data-role="shift-note"></small>
                                 </div>
@@ -242,7 +186,7 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width: 160px"
                                 data-colpicker="AS003">
-                                @foreach (['Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute', 'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date', 'Balance Time'] as $i => $label)
+                                @foreach (['Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Running Qty', 'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date', 'Balance Time'] as $i => $label)
                                     <li class="form-check form-check-sm d-flex align-items-center gap-2 mb-1">
                                         <input class="form-check-input column-check" type="checkbox"
                                             data-col="{{ $i }}" id="col_AS003_{{ $i }}">
@@ -270,7 +214,8 @@
                                         <th rowspan="2">Cycle</th>
                                         <th rowspan="2">Back No</th>
                                         <th rowspan="2">Order</th>
-                                        <th colspan="2" class="text-center">Running Qty</th>
+                                        <!-- Running Qty sekarang 1 kolom (rowspan 2) -->
+                                        <th rowspan="2" class="text-center">Running Qty</th>
                                         <th rowspan="2">Cycle Time</th>
                                         <th colspan="4" class="text-center">Working Time</th>
                                         <th rowspan="2">Delivery Time</th>
@@ -278,8 +223,7 @@
                                         <th rowspan="2">Balance Time</th>
                                     </tr>
                                     <tr>
-                                        <th>Direct Pulling</th>
-                                        <th>Stock Chute</th>
+                                        <!-- Subheader Running Qty dihapus -->
                                         <th>Planning Start</th>
                                         <th>Actual Start</th>
                                         <th>Duration</th>
@@ -313,7 +257,10 @@
                                                 $dp = (int) ($item->direct_pulling_qty ?: 0);
                                                 $sc = (int) ($item->stock_chute_qty ?: 0);
                                                 $ord = max(1, (int) $item->order_qty);
-                                                $pct = min(100, round((($dp + $sc) / $ord) * 100));
+
+                                                $run = $dp;
+                                                $runPct = min(100, round(($run / $ord) * 100));
+                                                $pct = $runPct; // progress = DP/Order
 
                                                 $startHour = null;
                                                 $endHour = null;
@@ -350,6 +297,7 @@
                                                     <td rowspan="{{ $rowspan }}" data-label="Dock"><span
                                                             class="flip">{{ $dock }}</span></td>
                                                 @endif
+
                                                 <td data-label="Cycle"><span
                                                         class="flip">{{ $item->cycle }}</span></td>
                                                 <td data-label="Back No"><span
@@ -357,30 +305,22 @@
                                                 <td data-label="Order"><span
                                                         class="flip">{{ $item->order_qty }}</span></td>
 
-                                                <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}"
-                                                    data-label="Direct Pulling">
+                                                <!-- RUNNING QTY = DP (visible) | DP & SC hidden untuk SSE -->
+                                                <td class="{{ getQtyClass($run, $item->order_qty) }}"
+                                                    data-label="Running Qty">
                                                     <div class="qty-progress"
-                                                        title="DP {{ $dp }} / {{ $ord }}">
+                                                        title="RUN {{ $run }} / {{ $ord }}">
                                                         <div class="bar"><i
-                                                                style="width: {{ min(100, round(($dp / $ord) * 100)) }}%"></i>
-                                                        </div>
+                                                                style="width: {{ $runPct }}%"></i></div>
                                                         <span class="val">
+                                                            <span class="flip" data-type="running"
+                                                                data-item-id="{{ $item->id }}">{{ $run }}</span>
                                                             <span class="flip" data-type="direct-pulling"
-                                                                data-item-id="{{ $item->id }}">{{ $dp }}</span>
-                                                        </span>
-                                                    </div>
-                                                </td>
-
-                                                <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}"
-                                                    data-label="Stock Chute">
-                                                    <div class="qty-progress"
-                                                        title="SC {{ $sc }} / {{ $ord }}">
-                                                        <div class="bar"><i
-                                                                style="width: {{ min(100, round(($sc / $ord) * 100)) }}%"></i>
-                                                        </div>
-                                                        <span class="val">
+                                                                data-item-id="{{ $item->id }}"
+                                                                style="display:none">{{ $dp }}</span>
                                                             <span class="flip" data-type="stock-chute"
-                                                                data-item-id="{{ $item->id }}">{{ $sc }}</span>
+                                                                data-item-id="{{ $item->id }}"
+                                                                style="display:none">{{ $sc }}</span>
                                                         </span>
                                                     </div>
                                                 </td>
@@ -397,10 +337,10 @@
                                                         class="flip text-warning">{{ $item->working_duration ?? '--' }}</span>
                                                 </td>
 
-                                                <!-- Progress total -->
+                                                <!-- Progress total (DP/Order) -->
                                                 <td data-label="Progress" class="total-progress">
                                                     <div class="qty-progress"
-                                                        title="DP+SC {{ $dp + $sc }} / {{ $ord }} ({{ $pct }}%)">
+                                                        title="DP {{ $dp }} / {{ $ord }} ({{ $pct }}%)">
                                                         <div class="bar"><i
                                                                 style="width: {{ $pct }}%"></i></div>
                                                         <span class="val">{{ $pct }}%</span>
@@ -477,10 +417,9 @@
                             <div class="strip-stat" data-line="AS004" data-shift="morning">
                                 <div class="title">Day Shift Order</div>
                                 <div class="d-flex align-items-baseline gap-2">
-                                    <div class="value text-primary"> {{-- (text-success untuk Night) --}}
+                                    <div class="value text-primary">
                                         <span data-role="shift-order">{{ $as004MorningQty ?? 0 }}</span>
                                     </div>
-                                    {{-- placeholder; akan diisi JS --}}
                                     <span class="chip border fw-bolder d-none" data-role="shift-status"></span>
                                     <small class="text-muted" data-role="shift-note"></small>
                                 </div>
@@ -554,7 +493,7 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width: 160px"
                                 data-colpicker="AS004">
-                                @foreach (['Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Direct Pulling', 'Stock Chute', 'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date', 'Balance Time'] as $i => $label)
+                                @foreach (['Customer', 'Dock', 'Cycle', 'Back No', 'Order', 'Running Qty', 'Cycle Time', 'Planning Start', 'Actual Start', 'Duration', 'Progress', 'Delivery Time', 'Delivery Date', 'Balance Time'] as $i => $label)
                                     <li class="form-check form-check-sm d-flex align-items-center gap-2 mb-1">
                                         <input class="form-check-input column-check" type="checkbox"
                                             data-col="{{ $i }}" id="col_AS004_{{ $i }}">
@@ -581,7 +520,8 @@
                                         <th rowspan="2">Cycle</th>
                                         <th rowspan="2">Back No</th>
                                         <th rowspan="2">Order</th>
-                                        <th colspan="2" class="text-center">Running Qty</th>
+                                        <!-- Running Qty sekarang 1 kolom -->
+                                        <th rowspan="2" class="text-center">Running Qty</th>
                                         <th rowspan="2">Cycle Time</th>
                                         <th colspan="4" class="text-center">Working Time</th>
                                         <th rowspan="2">Delivery Time</th>
@@ -589,8 +529,7 @@
                                         <th rowspan="2">Balance Time</th>
                                     </tr>
                                     <tr>
-                                        <th>Direct Pulling</th>
-                                        <th>Stock Chute</th>
+                                        <!-- Subheader Running Qty dihapus -->
                                         <th>Planning Start</th>
                                         <th>Actual Start</th>
                                         <th>Duration</th>
@@ -624,7 +563,10 @@
                                                 $dp = (int) ($item->direct_pulling_qty ?: 0);
                                                 $sc = (int) ($item->stock_chute_qty ?: 0);
                                                 $ord = max(1, (int) $item->order_qty);
-                                                $pct = min(100, round((($dp + $sc) / $ord) * 100));
+
+                                                $run = $dp;
+                                                $runPct = min(100, round(($run / $ord) * 100));
+                                                $pct = $runPct; // progress = DP/Order
 
                                                 $startHour = null;
                                                 $endHour = null;
@@ -661,6 +603,7 @@
                                                     <td rowspan="{{ $rowspan }}" data-label="Dock"><span
                                                             class="flip">{{ $dock }}</span></td>
                                                 @endif
+
                                                 <td data-label="Cycle"><span
                                                         class="flip">{{ $item->cycle }}</span></td>
                                                 <td data-label="Back No"><span
@@ -668,30 +611,22 @@
                                                 <td data-label="Order"><span
                                                         class="flip">{{ $item->order_qty }}</span></td>
 
-                                                <td class="{{ getQtyClass($item->direct_pulling_qty, $item->order_qty) }}"
-                                                    data-label="Direct Pulling">
+                                                <!-- RUNNING QTY = DP (visible) | DP & SC hidden -->
+                                                <td class="{{ getQtyClass($run, $item->order_qty) }}"
+                                                    data-label="Running Qty">
                                                     <div class="qty-progress"
-                                                        title="DP {{ $dp }} / {{ $ord }}">
+                                                        title="RUN {{ $run }} / {{ $ord }}">
                                                         <div class="bar"><i
-                                                                style="width: {{ min(100, round(($dp / $ord) * 100)) }}%"></i>
-                                                        </div>
+                                                                style="width: {{ $runPct }}%"></i></div>
                                                         <span class="val">
+                                                            <span class="flip" data-type="running"
+                                                                data-item-id="{{ $item->id }}">{{ $run }}</span>
                                                             <span class="flip" data-type="direct-pulling"
-                                                                data-item-id="{{ $item->id }}">{{ $dp }}</span>
-                                                        </span>
-                                                    </div>
-                                                </td>
-
-                                                <td class="{{ getQtyClass($item->stock_chute_qty, $item->order_qty) }}"
-                                                    data-label="Stock Chute">
-                                                    <div class="qty-progress"
-                                                        title="SC {{ $sc }} / {{ $ord }}">
-                                                        <div class="bar"><i
-                                                                style="width: {{ min(100, round(($sc / $ord) * 100)) }}%"></i>
-                                                        </div>
-                                                        <span class="val">
+                                                                data-item-id="{{ $item->id }}"
+                                                                style="display:none">{{ $dp }}</span>
                                                             <span class="flip" data-type="stock-chute"
-                                                                data-item-id="{{ $item->id }}">{{ $sc }}</span>
+                                                                data-item-id="{{ $item->id }}"
+                                                                style="display:none">{{ $sc }}</span>
                                                         </span>
                                                     </div>
                                                 </td>
@@ -708,9 +643,10 @@
                                                         class="flip text-warning">{{ $item->working_duration ?? '--' }}</span>
                                                 </td>
 
+                                                <!-- Progress total (DP/Order) -->
                                                 <td data-label="Progress" class="total-progress">
                                                     <div class="qty-progress"
-                                                        title="DP+SC {{ $dp + $sc }} / {{ $ord }} ({{ $pct }}%)">
+                                                        title="DP {{ $dp }} / {{ $ord }} ({{ $pct }}%)">
                                                         <div class="bar"><i
                                                                 style="width: {{ $pct }}%"></i></div>
                                                         <span class="val">{{ $pct }}%</span>
@@ -750,7 +686,6 @@
     </div><!-- /container -->
 
     <!-- Order Summary Modal -->
-    <!-- Summary Modal -->
     <div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
@@ -791,7 +726,6 @@
                         </div>
                     </div>
 
-
                     <!-- Back Number List -->
                     <div class="mb-3">
                         <h6 class="fw-bold text-secondary text-uppercase mb-3" style="letter-spacing:.5px;">
@@ -819,7 +753,6 @@
                 } catch (e) {}
             });
 
-            // Helper umum untuk dipakai dari JS lain
             window.showToast = function({
                 type = 'info',
                 message = '',
@@ -839,10 +772,10 @@
                 el.setAttribute('aria-live', 'assertive');
                 el.setAttribute('aria-atomic', 'true');
                 el.innerHTML = `
-            <div class="d-flex align-items-center">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>`;
+                    <div class="d-flex align-items-center">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>`;
                 wrap.appendChild(el);
                 const t = new bootstrap.Toast(el, {
                     delay,
@@ -858,7 +791,7 @@
             const el = document.getElementById('lastUpdateBadge');
             const updatedAt = new Date("{{ \Carbon\Carbon::parse($lastUpdate ?? now())->format('Y-m-d\TH:i:s') }}");
             const ageMin = (Date.now() - updatedAt.getTime()) / 60000;
-            if (ageMin > 5) el.classList.add('text-bg-warning'); // atau tambah style sendiri
+            if (ageMin > 5) el.classList.add('text-bg-warning');
             if (ageMin > 15) el.classList.add('text-bg-danger');
         })();
     </script>
