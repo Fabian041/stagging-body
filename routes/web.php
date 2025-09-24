@@ -127,7 +127,6 @@ Route::middleware(['auth'])->group(function () {
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
     Route::get('/production/prdreport', [ProductionController::class, 'indexprdreport'])->name('production.indexprdreport');
-    Route::get('/production/prdreporttes', [ProductionController::class, 'indexprdreport'])->name('production.indexprdreport');
     Route::prefix('production')->group(function () {
         Route::get('/current-scan-count/{line}', [ProductionController::class, 'getCurrentScanCount']);
         Route::post('/reset-scan-count/{line}', [ProductionController::class, 'resetScanCount']);
