@@ -891,7 +891,11 @@ class ProductionPlanSSEClient {
                 }
             }
 
-            if (row && (type === 'direct-pulling' || type === 'stock-chute')) this.triggerHighlight(row, type);
+            if (row && (type === 'direct-pulling' || type === 'stock-chute')) {
+                this.triggerHighlight(row, type);
+                // SELALU sync Running Qty & Progress di baris ini
+                this.updateRowProgress(row);
+            }
 
             const f = td?.querySelector('.flip');
             if (f) {
@@ -964,6 +968,41 @@ class ProductionPlanSSEClient {
         const container = tbody.closest('[data-toggle-table]') || tbody.closest('table')?.parentElement;
         this.recalcRowspans(container);
     }
+
+    updateRowProgress(row){
+        if (!row) return;
+        const order = this._getOrder(row);
+        const dp    = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+        const sc    = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
+
+        // --- Running Qty (selalu = DP / Order) ---
+        const runCell = this._cell(row, 'Running Qty');
+        if (runCell){
+            const runPct = Math.min(100, Math.round((dp / Math.max(1, order)) * 100));
+            // bar
+            runCell.querySelector('.qty-progress .bar > i')?.style && 
+            (runCell.querySelector('.qty-progress .bar > i').style.width = runPct + '%');
+            // angka tampil (ambil yang paling aman di struktur kamu)
+            const runVal = runCell.querySelector('[data-running-val]') 
+                        || runCell.querySelector('.val .flip') 
+                        || runCell.querySelector('.flip');
+            if (runVal) runVal.textContent = dp;
+            // title/tooltip
+            const wrap = runCell.querySelector('.qty-progress') || runCell;
+            wrap.title = `RUN ${dp} / ${order}`;
+        }
+
+        // --- Total Progress kolom "Progress" (tetap DP/Order) ---
+        const totCell = row.querySelector('.total-progress');
+        if (totCell){
+            const totalPct = Math.min(100, Math.round((dp / Math.max(1, order)) * 100));
+            const tBar = totCell.querySelector('.bar > i');
+            const tPct = totCell.querySelector('.val');
+            if (tBar) tBar.style.width = totalPct + '%';
+            if (tPct) tPct.textContent = totalPct + '%';
+        }
+    }
+
 
     _restoreOriginalOrder(tbody) {
         const orig = this.originalOrder.get(tbody);
