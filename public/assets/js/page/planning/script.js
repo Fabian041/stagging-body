@@ -158,6 +158,7 @@ class ProductionPlanSSEClient {
         this.originalOrder = new Map();
         this.orderRestoreTimeouts = new Map();
         this.summaries = {};
+        this.g6i = { byMember: new Map(), byGroup: new Map() };
         this.HIGHLIGHT_DURATION_MS = 40000;
         this.init();
     }
@@ -182,6 +183,9 @@ class ProductionPlanSSEClient {
 
         this.prefillRawAttrs(this.AS003);
         this.prefillRawAttrs(this.AS004);
+
+        this._build6IGroups(this.AS003);
+        this._build6IGroups(this.AS004);
 
         this.buildSummaries();
 
@@ -281,6 +285,232 @@ class ProductionPlanSSEClient {
             row.querySelectorAll('[rowspan]').forEach(td => td.rowSpan = visible);
         });
     }
+
+    // >>> PATCH: helpers + merger khusus 6I (CI18/D403)
+
+    // Hanya back no ini yang digabung
+    _isSpecial6IBackNo(bn) {
+    const b = String(bn || '').trim().toUpperCase();
+    return b === 'CI18' || b === 'D403';
+    }
+    _isDock6I(row) {
+    const t = (this._cell(row,'Dock')?.textContent || '').trim().toUpperCase();
+    return t === '6I';
+    }
+    _getDeliveryTime(row) {
+    return (this._cell(row,'Delivery Time')?.textContent || '').trim(); // "HH:mm"
+    }
+    _getDeliveryDateISO(row) {
+    const md = (this._cell(row,'Delivery Date')?.textContent || '').trim(); // "M/D"
+    const curISO = this.getCurrentDate?.() || $u.getCurrentISO();
+    return $u.mdToISO(md, curISO) || curISO; // "YYYY-MM-DD"
+    }
+    // Kunci grup: YYYY-MM-DD|HH:mm|BACK_NO (menit ikut)
+    _key6I_minute(row) {
+    const iso = this._getDeliveryDateISO(row);
+    const tm  = this._getDeliveryTime(row);     // HH:mm
+    const bn  = this._getBackNo(row);           // upper, sudah ikut alias kalau ada
+    return `${iso}|${tm}|${bn}`;
+    }
+
+    // Hitung ulang total host dari semua anggota; sembunyikan anggota selain host
+    _apply6IHostTotals(hostRow, memberRows) {
+    if (!hostRow || !memberRows?.length) return;
+
+    let totOrder = 0, totDP = 0, totSC = 0;
+    memberRows.forEach(r => {
+        totOrder += this._getOrder(r);
+        totDP    += this._getDP(r);
+        totSC    += this._getSC(r);
+    });
+
+    // Order (dataset + tampilan)
+    const tdOrder = this._cell(hostRow,'Order');
+    const flip    = tdOrder?.querySelector('.flip') || tdOrder;
+    if (flip){
+        flip.dataset.orderRaw = String(totOrder);
+        flip.textContent = Number(totOrder).toLocaleString('id-ID');
+    }
+    // DP & SC host
+    const dpEl = hostRow.querySelector('[data-type="direct-pulling"]');
+    if (dpEl) dpEl.textContent = String(totDP);
+    const scEl = hostRow.querySelector('[data-type="stock-chute"]');
+    if (scEl) scEl.textContent = String(totSC);
+
+    // Progress bar host (Running Qty & Progress)
+    this.updateRowProgress(hostRow);
+
+    // Sembunyikan anggota non-host (tetap di DOM agar SSE tetap update)
+    memberRows.forEach(r => { if (r !== hostRow) r.style.display = 'none'; });
+    }
+
+    // Bangun grup 6I khusus CI18/D403 lalu collapse tampilannya
+    _build6IGroups(container) {
+    const tbody = container?.querySelector('tbody');
+    if (!tbody) return;
+
+    const localByMember = new Map();
+    const localByGroup  = new Map();
+
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+        .filter(tr => tr.style.display !== 'none'
+                && tr.getAttribute('data-summary-row') !== '1'
+                && this._isDock6I(tr));
+
+    rows.forEach(row => {
+        const bn = this._getBackNo(row);
+        if (!this._isSpecial6IBackNo(bn)) return; // hanya CI18/D403
+
+        const key = this._key6I_minute(row); // YYYY-MM-DD|HH:mm|BACK_NO
+        const id  = this._getId(row);
+        if (!key) return;
+
+        let rec = localByGroup.get(key);
+        if (!rec) {
+        rec = { host: row, members: new Set([row]) };
+        localByGroup.set(key, rec);
+        } else {
+        rec.members.add(row);
+        }
+        if (id) localByMember.set(String(id), key);
+    });
+
+    // Gabungkan ke index global
+    this.g6i.byGroup  = new Map([...this.g6i.byGroup, ...localByGroup]);
+    this.g6i.byMember = new Map([...this.g6i.byMember, ...localByMember]);
+
+    // Terapkan agregasi & hide anggota non-host
+    localByGroup.forEach(({host, members}) => {
+        this._apply6IHostTotals(host, Array.from(members));
+    });
+
+    this.recalcRowspans(container);
+    }
+
+    // Ketika ada update DN member, refresh host grupnya
+    _refresh6IHostByMemberId(memberId) {
+    const key = this.g6i.byMember.get(String(memberId));
+    if (!key) return;
+    const rec = this.g6i.byGroup.get(key);
+    if (!rec) return;
+
+    const host = rec.host;
+    const members = Array.from(rec.members).filter(Boolean);
+    if (!host || !members.length) return;
+
+    this._apply6IHostTotals(host, members);
+    }
+
+    
+    // ---- Helpers khusus 6I merge ----
+    _isDock6I(row){
+    const t = (this._cell(row,'Dock')?.textContent || '').trim().toUpperCase();
+    return t === '6I';
+    }
+    _getDeliveryTime(row){
+    return (this._cell(row,'Delivery Time')?.textContent || '').trim(); // "HH:mm"
+    }
+    _getDeliveryDateISO(row){
+    // tabel pakai "M/D" → konversi ke ISO pakai current date sebagai tahun
+    const md = (this._cell(row,'Delivery Date')?.textContent || '').trim();
+    const curISO = this.getCurrentDate?.() || $u.getCurrentISO();
+    return $u.mdToISO(md, curISO) || curISO;
+    }
+    _key6I(row){
+    const iso = this._getDeliveryDateISO(row);
+    const tm  = this._getDeliveryTime(row);
+    const bn  = this._getBackNo(row);
+    return `${iso}|${tm}|${bn}`; // sama seperti logic BE (tgl|HH:mm|back_no)
+    }
+
+    // Kumpulkan semua row 6I → buat grup dan host
+    _build6IGroups(container){
+    const tbody = container?.querySelector('tbody');
+    if (!tbody) return;
+
+    // reset index untuk container ini
+    // (biarkan global map tetap, kita bakal overwrite entry yang terlihat)
+    const localByMember = new Map();
+    const localByGroup  = new Map();
+
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+        .filter(tr => tr.style.display !== 'none' && tr.getAttribute('data-summary-row') !== '1' && this._isDock6I(tr));
+
+    rows.forEach(row => {
+        const key = this._key6I(row);
+        const id  = this._getId(row);
+        if (!key) return;    
+
+        let rec = localByGroup.get(key);
+        if (!rec) {
+        rec = { host: row, members: new Set([row]) };
+        localByGroup.set(key, rec);
+        } else {
+        rec.members.add(row);
+        }
+        localByMember.set(id, key);
+    });
+
+    // simpan ke index global
+    // NB: satu halaman punya dua container (AS003/AS004), map global boleh berisi gabungan keduanya
+    this.g6i.byGroup  = new Map([...this.g6i.byGroup, ...localByGroup]);
+    this.g6i.byMember = new Map([...this.g6i.byMember, ...localByMember]);
+
+    // terapkan collapse visual
+    localByGroup.forEach(({host, members}, key) => {
+        // hitung total & sembunyikan non-host
+        this._apply6IHostTotals(host, Array.from(members));
+    });
+
+    this.recalcRowspans(container);
+    }
+
+    // Hitung ulang total host dari daftar anggota (host termasuk di dalamnya)
+    _apply6IHostTotals(hostRow, memberRows){
+    if (!hostRow || !memberRows?.length) return;
+
+    // jumlahkan Order/DP/SC dari semua anggota (termasuk host)
+    let totOrder = 0, totDP = 0, totSC = 0;
+    memberRows.forEach(r => {
+        totOrder += this._getOrder(r);
+        totDP    += this._getDP(r);
+        totSC    += this._getSC(r);
+    });
+
+    // set Order host (dataset & tampilan)
+    const tdOrder = this._cell(hostRow,'Order');
+    const flip    = tdOrder?.querySelector('.flip') || tdOrder;
+    if (flip){
+        flip.dataset.orderRaw = String(totOrder);
+        flip.textContent = Number(totOrder).toLocaleString('id-ID');
+    }
+    // set DP & SC host
+    const dpEl = hostRow.querySelector('[data-type="direct-pulling"]');
+    if (dpEl) dpEl.textContent = String(totDP);
+    const scEl = hostRow.querySelector('[data-type="stock-chute"]');
+    if (scEl) scEl.textContent = String(totSC);
+
+    // progress bar pada host
+    this.updateRowProgress(hostRow);
+
+    // sembunyikan anggota selain host (tetap di DOM supaya SSE bisa update angkanya)
+    memberRows.forEach(r => { if (r !== hostRow) r.style.display = 'none'; });
+    }
+
+    // Recompute host ketika ada DN (member) berubah
+    _refresh6IHostByMemberId(memberId){
+    const key = this.g6i.byMember.get(String(memberId));
+    if (!key) return;
+    const rec = this.g6i.byGroup.get(key);
+    if (!rec) return;
+
+    const host = rec.host;
+    const members = Array.from(rec.members).filter(Boolean);
+    if (!host || !members.length) return;
+
+    this._apply6IHostTotals(host, members);
+    }
+
 
     _indexByLabel(td) {
         const lbl = ProductionPlanSSEClient.normLabel(td?.getAttribute('data-label'));
@@ -851,6 +1081,20 @@ class ProductionPlanSSEClient {
 
         // refresh hanya summary yang berubah
         touched.forEach(s => this._refreshSummaryRow(s));
+
+        // Recompute host 6I untuk item-item yang berubah
+        if (Array.isArray(updates)) {
+            const seen = new Set();
+            updates.forEach(it => {
+                if (!it?.id || seen.has(it.id)) return;
+                this._refresh6IHostByMemberId(it.id);
+                seen.add(it.id);
+            });
+        }
+
+        // Jika ada mutasi struktur (row hide/show), rapikan rowspan
+        this.recalcRowspans(this.AS003);
+        this.recalcRowspans(this.AS004);
     }
 
 
@@ -1924,6 +2168,7 @@ class PinnedShelf {
         this.map = new Map(); // current: id -> {el, timer, ts}
         this._ensureShelf();
         this._hookObservers();
+        this.g6i = { byMember: new Map(), byGroup: new Map() }; // index merge 6I
     }
 
     _ensureShelf() {

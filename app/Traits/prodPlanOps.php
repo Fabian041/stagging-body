@@ -279,10 +279,13 @@ trait prodPlanOps
             ->groupBy(function ($item) {
                 // Normalisasi
                 $dock = strtoupper(trim((string) $item->dock));
-
+                
                 if ($dock === '6I') {
-                    // 6I: tetap pakai delivery_date + formatted_time + back_no
-                    return $item->delivery_date . '|' . $item->formatted_time . '|' . $item->back_no;
+                    $cycRaw = $item->cycle ?? null;
+                    $cyc    = is_numeric($cycRaw) ? (int) $cycRaw : (int) preg_replace('/\D+/', '', (string) $cycRaw);
+                    $cyc    = $cyc ?: 0;
+
+                    return $item->delivery_date . '|' . $item->formatted_time . '|' . $item->back_no . '|' . $item->dn_number /* . '|' . $cyc */;
                 }
 
                 // NON-6I: PENTING → Sertakan CYCLE agar tidak “melebur” antar cycle
@@ -318,7 +321,7 @@ trait prodPlanOps
                 $group     = $group->sortBy('back_no')->values();
                 $customer  = $group->first()->customer;
 
-                // ----- DELIVERY TIME ADJUSTMENT -----
+                // ----- DELIVERY TIME ADJUSTMENT ----- 
                 // Khusus dock STR: -30 menit, dock lain: -60 menit (sesuai logic existing)
                 $dockFirst            = strtoupper(trim((string) $group->first()->dock));
                 $deliveryTimeOrigStr  = $group->first()->formatted_time; // "H:i"
