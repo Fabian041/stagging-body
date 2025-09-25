@@ -1082,6 +1082,14 @@ class ProductionPlanSSEClient {
         // refresh hanya summary yang berubah
         touched.forEach(s => this._refreshSummaryRow(s));
 
+        touched.forEach(s => {
+            const sumRow = s?.row;
+            if (!sumRow) return;
+            const lineKey = sumRow.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
+            const shelf = lineKey && this.shelves?.[lineKey];
+            if (shelf) shelf.upsertFromRow(sumRow);
+        });
+
         // Recompute host 6I untuk item-item yang berubah
         if (Array.isArray(updates)) {
             const seen = new Set();
@@ -2229,9 +2237,21 @@ class PinnedShelf {
             const el = td?.querySelector('.flip') || td;
             return (el?.textContent || '').trim();
         };
-        const idEl = row.querySelector('[data-item-id]');
-        const id = idEl?.getAttribute('data-item-id') || '';
 
+        const isSum   = row?.getAttribute('data-summary-row') === '1';
+        const lineKey = row.closest('[data-toggle-table]')?.getAttribute('data-toggle-table') || '';
+
+        // --- id: item-id untuk row biasa, id sintetis untuk summary
+        let id = '';
+        if (isSum) {
+            const label = (row.getAttribute('data-summary-label') || get('Back No') || '').trim();
+            id = `sum:${lineKey}:${label}`;
+        } else {
+            const idEl = row.querySelector('[data-item-id]');
+            id = idEl?.getAttribute('data-item-id') || '';
+        }
+
+        // --- order
         const orderTd = $u.getCellByLabel(row, 'Order');
         const orderEl = orderTd?.querySelector('.flip') || orderTd;
         const orderRaw = parseInt(
@@ -2239,26 +2259,31 @@ class PinnedShelf {
             10
         ) || 0;
 
-        const dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
-        const sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
+        // --- dp/sc
+        let dp = 0, sc = 0;
+        if (isSum) {
+            dp = $u.int(row.querySelector('[data-summary-dp]')?.textContent);
+            sc = $u.int(row.querySelector('[data-summary-sc]')?.textContent);
+        } else {
+            dp = $u.int(row.querySelector('[data-type="direct-pulling"]')?.textContent);
+            sc = $u.int(row.querySelector('[data-type="stock-chute"]')?.textContent);
+        }
         const done = dp + sc;
-        const pct = orderRaw > 0 ? Math.min(100, Math.round(done / orderRaw * 100)) : 0;
+        const pct  = orderRaw > 0 ? Math.min(100, Math.round(done / orderRaw * 100)) : 0;
 
         return {
             row,
             id,
-            backNo: get('Back No'),
+            backNo: isSum ? get('Back No') : get('Back No'),
             customer: get('Customer') || '--',
             dock: get('Dock') || '--',
             order: orderRaw,
-            dp,
-            sc,
-            done,
-            pct,
+            dp, sc, done, pct,
             deliveryTime: get('Delivery Time') || '--',
             deliveryDate: get('Delivery Date') || '--'
         };
     }
+
 
     _renderChipCurrent(d) {
         const done = (d.dp || 0) + (d.sc || 0);
