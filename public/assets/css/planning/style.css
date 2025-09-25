@@ -578,7 +578,7 @@
         }
 
         /* 3) (opsional, tapi bikin konsisten) latar sel tabel di dark mode */
-        html[data-theme="dark"] .table> :not(caption)>*>* {
+        html[data-theme="dark"] .table> :not(caption)>tr:not(.highlight-beep-direct):not(.highlight-beep-stock)>* {
             background-color: #1f2530 !important;
             color: #e9f0f8 !important;
             border-color: var(--border) !important;
