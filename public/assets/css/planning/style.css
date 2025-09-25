@@ -621,6 +621,22 @@
             background-color: #202a3a !important;
         }
 
+        /* Dark mode: JANGAN timpa sel status DP/SC */
+        html[data-theme="dark"]
+        .table> :not(caption)>tr:not(.highlight-beep-direct):not(.highlight-beep-stock)
+        > td:not(.bg-success):not(.bg-warning) {
+        background-color: #1f2530 !important;
+        color: #e9f0f8 !important;
+        border-color: var(--border) !important;
+        }
+
+        /* Saat hover, juga jangan timpa DP/SC */
+        html[data-theme="dark"] .table-hover tbody tr:hover
+        > td:not(.bg-success):not(.bg-warning) {
+        background-color: #202a3a !important;
+        }
+
+
         /* ==== Restore borders for .table-bordered (keep sticky header seam) ==== */
 
         /* Warna garis default (light & dark) */
