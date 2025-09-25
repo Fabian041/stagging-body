@@ -584,6 +584,39 @@
             border-color: var(--border) !important;
         }
 
+        /* Dark mode: pastikan teks di baris highlight terlihat (putih) */
+        html[data-theme="dark"] tr.highlight-beep-direct,
+        html[data-theme="dark"] tr.highlight-beep-stock {
+        color: #fff !important;
+        }
+
+        /* Seluruh sel & elemen umum di dalamnya ikut putih */
+        html[data-theme="dark"] tr.highlight-beep-direct > td,
+        html[data-theme="dark"] tr.highlight-beep-stock  > td,
+        html[data-theme="dark"] tr.highlight-beep-direct .flip,
+        html[data-theme="dark"] tr.highlight-beep-stock  .flip,
+        html[data-theme="dark"] tr.highlight-beep-direct .number,
+        html[data-theme="dark"] tr.highlight-beep-stock  .number {
+        color: #fff !important;
+        }
+
+        /* Override sel DP/SC yang pakai .bg-success/.bg-warning 75% (mereka set color gelap) */
+        html[data-theme="dark"] tr.highlight-beep-direct  > td.bg-success.bg-opacity-75,
+        html[data-theme="dark"] tr.highlight-beep-direct  > td.bg-warning.bg-opacity-75,
+        html[data-theme="dark"] tr.highlight-beep-stock   > td.bg-success.bg-opacity-75,
+        html[data-theme="dark"] tr.highlight-beep-stock   > td.bg-warning.bg-opacity-75 {
+        color: #fff !important;
+        }
+
+        /* Mode tabel stacked (mobile): label di kiri juga dibuat putih */
+        @media (max-width: 992px) {
+        html[data-theme="dark"] tr.highlight-beep-direct  > td::before,
+        html[data-theme="dark"] tr.highlight-beep-stock   > td::before {
+            color: #fff !important;
+        }
+        }
+
+
         html[data-theme="dark"] .table-hover tbody tr:hover>* {
             background-color: #202a3a !important;
         }
