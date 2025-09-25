@@ -735,8 +735,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="exportSummary()">
-                        <i class="fas fa-download me-1"></i> Export CSV
+                    <!-- contoh tombol (opsional) -->
+                    <button id="btn-export-planning-excel" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-file-excel"></i> Download Excel
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>

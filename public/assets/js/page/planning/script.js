@@ -3085,4 +3085,225 @@ class PinnedShelf {
     });
 })();
 
+/* ============================================================
+   EXPORT SUMMARY PER MODEL (ORDER QTY)
+   - Mirip modal summary, tapi hanya rekap Order per Model.
+   - Per line (AS003/AS004) & per shift (Morning/Night/Other).
+   - Model = Back No (pakai alias kalau ada), ringkas "(...)".
+   - Excel HTML (.xls).
+   ============================================================ */
+(function ExportSummaryPerModel(){
+    const COL_TITLE = ['Model','Customer','Order Qty'];
+    const SHIFT_KEYS = ['morning','night','other'];
+    const SHIFT_NAME = { morning:'Morning', night:'Night', other:'Other' };
+    const norm = s => String(s||'').replace(/\s+/g,' ').trim();
+    const esc  = v => String(v ?? '').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c]));
+    const isSummary = tr => tr?.getAttribute('data-summary-row') === '1';
+
+    // --- helpers baca cell dengan backtrack (rowspan)
+    function cellTextBack(row, label){
+        let r = row;
+        while(r){
+        const td = $u.getCellByLabel(r, label);
+        if (td){
+            const el = td.querySelector('.flip') || td;
+            const t = norm(el.textContent);
+            if (t) return t;
+        }
+        r = r.previousElementSibling;
+        }
+        return '';
+    }
+
+    function readOrder(row){
+        if (isSummary(row)){
+        const td = $u.getCellByLabel(row,'Order'); const el = td?.querySelector('.flip')||td;
+        return $u.int(el?.textContent);
+        }
+        const td = $u.getCellByLabel(row,'Order'); const el = td?.querySelector('.flip')||td;
+        const raw = el?.dataset?.orderRaw;
+        return raw!=null && raw!=='' ? $u.int(raw) : $u.int(el?.textContent);
+    }
+
+    function readModel(row){
+        if (isSummary(row)){
+        // summary label bisa mengandung "(C4–7)" → singkirkan
+        const td = $u.getCellByLabel(row,'Back No'); const el = td?.querySelector('.flip')||td;
+        return norm((el?.textContent||'').replace(/\s*\(.*?\)\s*$/,''));
+        }
+        const td = $u.getCellByLabel(row,'Back No');
+        const el = td?.querySelector('.flip') || td;
+        const base = el?.dataset?.backnoAlias || el?.dataset?.backnoRaw || el?.textContent || '';
+        return norm(String(base).replace(/\s*\(.*?\)\s*$/,''));
+    }
+
+    function readCustomer(row){
+        const td = $u.getCellByLabel(row,'Customer');
+        const el = td?.querySelector('.flip') || td;
+        return norm(el?.textContent || '--') || '--';
+    }
+
+    // --- shift classifier (selaras rule yang dipakai modal)
+    function classifyShift(row, lineKey){
+        if (isSummary(row)){
+        const label = norm(row.getAttribute('data-summary-label') || '');
+        if (lineKey==='AS003'){
+            if (/^CI12\b.*C\s*4\s*[–-]\s*7\b/i.test(label)) return 'morning';
+            if (/^CI12\b.*C\s*8\s*[–-]\s*3\b/i.test(label)) return 'night';
+        }
+        if (lineKey==='AS004'){
+            if (/\bCI19\b/i.test(label)) return 'morning';
+        }
+        }
+        const tm = cellTextBack(row,'Delivery Time'); // "HH:mm"
+        const md = cellTextBack(row,'Delivery Date'); // "M/D"
+        if (tm){
+        if (md){
+            const curISO = $u.getCurrentISO();
+            const dlvISO = $u.mdToISO(md, curISO);
+            const byDT = $u.toShiftByDateTime(curISO, dlvISO, tm);
+            if (byDT==='morning' || byDT==='night') return byDT;
+        }
+        const mins = $u.timeToMinutes(tm);
+        if (mins != null){
+            const MORNING_START = 12*60, MORNING_END=22*60+57;
+            const NIGHT_START   = 22*60+59, NIGHT_END = 9*60+35;
+            if (mins>=MORNING_START && mins<=MORNING_END) return 'morning';
+            if (mins>=NIGHT_START || mins<=NIGHT_END)     return 'night';
+        }
+        }
+        return 'other';
+    }
+
+    // mode customer = ambil yang paling sering tampil per model
+    function mode(arr){
+        if (!arr.length) return '--';
+        const m = arr.reduce((o,s)=>(o[s]=(o[s]||0)+1,o),{});
+        return Object.entries(m).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+
+    function collectPerModel(){
+        // return: { AS003:{ morning: Map(model->{order, customers[]}), ... }, AS004:{...} }
+        const out = {};
+        document.querySelectorAll('[data-toggle-table]').forEach(container=>{
+        const lineKey = container.getAttribute('data-toggle-table') || 'LINE';
+        const tbody = container.querySelector('tbody');
+        if (!tbody) return;
+        const bucket = out[lineKey] = out[lineKey] || { morning:new Map(), night:new Map(), other:new Map() };
+
+        Array.from(tbody.querySelectorAll('tr')).forEach(tr=>{
+            if (tr.style.display==='none') return;
+            const order = readOrder(tr);
+            if (!order) return;
+            const model = readModel(tr) || '--';
+            const cust  = readCustomer(tr) || '--';
+            const sh    = classifyShift(tr, lineKey);
+            const map   = bucket[sh] || bucket.other;
+
+            const rec = map.get(model) || { order:0, customers:[] };
+            rec.order += order;
+            if (cust) rec.customers.push(cust);
+            map.set(model, rec);
+        });
+        });
+        return out;
+    }
+
+    function buildTableHtml(records){
+        const head = `
+        <thead>
+            <tr>${COL_TITLE.map(h=>`<th style="border:1px solid #ccc;padding:6px;background:#f7f7f7;">${esc(h)}</th>`).join('')}</tr>
+        </thead>`;
+        const body = `
+        <tbody>
+            ${records.map(r=>`
+            <tr>
+                <td style="border:1px solid #ccc;padding:6px;">${esc(r.model)}</td>
+                <td style="border:1px solid #ccc;padding:6px;">${esc(r.customer)}</td>
+                <td style="border:1px solid #ccc;padding:6px;text-align:right;">${r.order}</td>
+            </tr>`).join('')}
+        </tbody>`;
+        return `<table>${head}${body}</table>`;
+    }
+
+    function buildWorkbook(perLine){
+        // bikin beberapa tabel: per line, per shift (skip kalau kosong)
+        let html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                xmlns:x="urn:schemas-microsoft-com:office:excel"
+                xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+            <meta charset="UTF-8">
+            <meta name=ProgId content=Excel.Sheet>
+            <style>
+                body{font-family:Arial, sans-serif; font-size:12px}
+                h2{margin:18px 0 6px}
+                h3{margin:12px 0 6px; color:#333}
+                table{border-collapse:collapse; margin-bottom:14px}
+            </style>
+            </head>
+            <body>
+        `;
+
+        Object.entries(perLine).forEach(([lineKey, byShift])=>{
+        html += `<h2>${esc(lineKey)} – Order per Model</h2>`;
+        SHIFT_KEYS.forEach(sk=>{
+            const map = byShift[sk];
+            if (!map || map.size===0) return;
+            // to rows
+            const rows = Array.from(map.entries()).map(([model, rec])=>({
+            model,
+            customer: mode(rec.customers),
+            order: rec.order|0
+            })).sort((a,b)=> b.order - a.order || a.model.localeCompare(b.model));
+
+            const total = rows.reduce((s,r)=>s+r.order,0);
+            html += `<h3>${esc(SHIFT_NAME[sk])} (Total Order: ${total})</h3>`;
+            html += buildTableHtml(rows);
+        });
+        });
+
+        html += `</body></html>`;
+        return html;
+    }
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function defaultName(){
+        const d = new Date();
+        const date = (document.querySelector('input[name="date"]')?.value || d.toISOString().slice(0,10)).replaceAll('-','');
+        return `summary_per_model_${date}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.xls`;
+    }
+
+    function download(html, filename){
+        const blob = new Blob([html], { type:'application/vnd.ms-excel;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    // API publik
+    window.exportSummaryPerModelToExcel = function(filename){
+        const data = collectPerModel();
+        // cek kosong?
+        const hasData = Object.values(data).some(byShift => Object.values(byShift).some(map => map && map.size));
+        if (!hasData){ alert('Tidak ada data untuk diexport.'); return; }
+        const html = buildWorkbook(data);
+        download(html, filename || defaultName());
+    };
+
+    // Auto-hook tombol
+    document.addEventListener('DOMContentLoaded', ()=>{
+        const btn =
+        document.getElementById('btn-export-summary-model') ||
+        document.getElementById('btn-download-excel') ||
+        document.getElementById('btn-export-planning-excel');
+        if (btn){
+        btn.addEventListener('click', ()=> window.exportSummaryPerModelToExcel());
+        }
+    });
+})();
+
+
 if (!window.USE_RECLASS) window.USE_RECLASS = () => !!window.__shiftReclassifierV3Active;
