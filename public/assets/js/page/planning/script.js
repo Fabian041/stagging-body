@@ -2350,7 +2350,7 @@ class PinnedShelf {
 
     _patchChip(el, d) {
         const set = (k, v) => {
-            const n = el.querySelector(`[data-x="\${k}"]`);
+            const n = el.querySelector(`[data-x="${k}"]`);
             if (n) n.textContent = v;
         };
         set('order', d.order.toLocaleString('id-ID'));
