@@ -161,6 +161,7 @@ class ProductionPlanSSEClient {
         this.g6i = { byMember: new Map(), byGroup: new Map() };
         this.HIGHLIGHT_DURATION_MS = 40000;
         this.init();
+        this._isFirstSync = true;
     }
 
     static normLabel = $u.normLabel;
@@ -869,6 +870,7 @@ class ProductionPlanSSEClient {
                     detail: { date: this.currentDate, processed }
                 }));
                 this.updateConnectionStatus('connected');
+                this._isFirstSync = false;
             };
 
             const runBatched = (arr, size = 150) => {
@@ -959,7 +961,7 @@ class ProductionPlanSSEClient {
         row._blinkTimer = setTimeout(() => row.classList.remove(cls), this.HIGHLIGHT_DURATION_MS);
 
         const lineKey = row.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
-        if (lineKey && this.shelves?.[lineKey]) {
+        if (lineKey && this.shelves?.[lineKey] && !this._isFirstSync) {
             this.shelves[lineKey].upsertFromRow(row);
         }
     }
@@ -967,7 +969,7 @@ class ProductionPlanSSEClient {
     connect() {
         try {
             if (this.eventSource) this.eventSource.close();
-
+            this._isFirstSync = true;
             const url = `/stream/direct-pulling-updates?date=${this.currentDate}`;
             this.eventSource = new EventSource(url);
             this.updateConnectionStatus('connecting');
@@ -1056,6 +1058,9 @@ class ProductionPlanSSEClient {
                     const newSC = (item.stock_chute_qty ?? prev.sc) | 0;
                     const newOD = (item.order_qty ?? prev.order) | 0;
 
+                    const changed = (newDP !== prev.dp) || (newSC !== prev.sc) || (newOD !== prev.order);
+                    if (!changed) return;  // <— skip kalau tidak ada perubahan
+
                     s.totals.dp    += (newDP - prev.dp);
                     s.totals.sc    += (newSC - prev.sc);
                     s.totals.order += (newOD - prev.order);
@@ -1082,13 +1087,15 @@ class ProductionPlanSSEClient {
         // refresh hanya summary yang berubah
         touched.forEach(s => this._refreshSummaryRow(s));
 
-        touched.forEach(s => {
-            const sumRow = s?.row;
-            if (!sumRow) return;
-            const lineKey = sumRow.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
-            const shelf = lineKey && this.shelves?.[lineKey];
-            if (shelf) shelf.upsertFromRow(sumRow);
-        });
+        if (!this._isFirstSync) {
+            touched.forEach(s => {
+                const sumRow = s?.row;
+                if (!sumRow) return;
+                const lineKey = sumRow.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
+                const shelf = lineKey && this.shelves?.[lineKey];   
+                if (shelf) shelf.upsertFromRow(sumRow);
+            });
+        }
 
         // Recompute host 6I untuk item-item yang berubah
         if (Array.isArray(updates)) {
@@ -2358,6 +2365,7 @@ class PinnedShelf {
 
     // -------- CURRENT (kiri) --------
     upsertFromRow(row) {
+            if (window.prodPlanSSE?._isFirstSync) return; 
         const d = this._extract(row);
         if (!d.id) return;
 
