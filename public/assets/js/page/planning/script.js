@@ -2279,7 +2279,7 @@ class PinnedShelf {
         const pct  = orderRaw > 0 ? Math.min(100, Math.round(done / orderRaw * 100)) : 0;
 
         // --- balance = order - actual
-        const balance = orderRaw - done;
+        const balance = Math.max(0, orderRaw - done);
 
         return {
             row,
@@ -2297,6 +2297,7 @@ class PinnedShelf {
 
     _renderChipCurrent(d) {
         const done = (d.dp || 0) + (d.sc || 0);
+        const balanceText = (d.balance <= 0) ? 'completed' : d.balance.toLocaleString('id-ID');
         const div = document.createElement('div');
         div.className = 'pinned-chip';
         div.innerHTML = `
@@ -2315,7 +2316,7 @@ class PinnedShelf {
             </div>
             <div class="stat-stack">
                 <div class="stat-label">Balance</div>
-                <div class="stat-number" data-x="balance">${(d.balance).toLocaleString('id-ID')}</div>
+                <div class="stat-number" data-x="balance">${balanceText}</div>
             </div>
             </div>
             <div class="meta">
@@ -2351,11 +2352,23 @@ class PinnedShelf {
     _patchChip(el, d) {
         const set = (k, v) => {
             const n = el.querySelector(`[data-x="${k}"]`);
-            if (n) n.textContent = v;
+            if (n) n.textContent = v;   
         };
         set('order', d.order.toLocaleString('id-ID'));
         set('done', (d.dp + d.sc).toLocaleString('id-ID'));
         set('balance', (d.balance).toLocaleString('id-ID')); // <<<<<< ADDED
+
+        {
+        const balEl = el.querySelector('[data-x="balance"]');
+            if (balEl) {
+            balEl.textContent = (d.balance <= 0)
+                ? 'completed'
+                : d.balance.toLocaleString('id-ID');
+            balEl.classList.toggle('text-success', d.balance <= 0);
+            balEl.classList.toggle('fw-semibold',  d.balance <= 0);
+            }
+        }
+
         set('dock', d.dock);
         set('dtime', d.deliveryTime);
         set('ddate', d.deliveryDate);
