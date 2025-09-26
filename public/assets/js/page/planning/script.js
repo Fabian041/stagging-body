@@ -2271,6 +2271,9 @@ class PinnedShelf {
         const done = dp + sc;
         const pct  = orderRaw > 0 ? Math.min(100, Math.round(done / orderRaw * 100)) : 0;
 
+        // --- balance = order - actual
+        const balance = orderRaw - done;
+
         return {
             row,
             id,
@@ -2279,11 +2282,11 @@ class PinnedShelf {
             dock: get('Dock') || '--',
             order: orderRaw,
             dp, sc, done, pct,
+            balance, // <<<<<<<<<< ADDED
             deliveryTime: get('Delivery Time') || '--',
             deliveryDate: get('Delivery Date') || '--'
         };
     }
-
 
     _renderChipCurrent(d) {
         const done = (d.dp || 0) + (d.sc || 0);
@@ -2291,23 +2294,27 @@ class PinnedShelf {
         div.className = 'pinned-chip';
         div.innerHTML = `
             <div class="info">
-              <div class="backno fw-bold">${d.backNo}</div>
-              <div class="dim">${d.customer || '--'}</div>
+            <div class="backno fw-bold">${d.backNo}</div>
+            <div class="dim">${d.customer || '--'}</div>
             </div>
             <div class="stats">
-              <div class="stat-stack">
+            <div class="stat-stack">
                 <div class="stat-label">Order</div>
                 <div class="stat-number primary" data-x="order">${d.order.toLocaleString('id-ID')}</div>
-              </div>
-              <div class="stat-stack">
+            </div>
+            <div class="stat-stack">
                 <div class="stat-label">Completed</div>
                 <div class="stat-number" data-x="done">${done.toLocaleString('id-ID')}</div>
-              </div>
+            </div>
+            <div class="stat-stack">
+                <div class="stat-label">Balance</div>
+                <div class="stat-number" data-x="balance">${(d.balance).toLocaleString('id-ID')}</div>
+            </div>
             </div>
             <div class="meta">
-              <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
-              <span>•</span><span data-x="dtime">${d.deliveryTime}</span>
-              <span>·</span><span data-x="ddate">${d.deliveryDate}</span>
+            <span class="tag">Dock</span><span data-x="dock">${d.dock}</span>
+            <span>•</span><span data-x="dtime">${d.deliveryTime}</span>
+            <span>·</span><span data-x="ddate">${d.deliveryDate}</span>
             </div>`;
         return div;
     }
@@ -2336,11 +2343,12 @@ class PinnedShelf {
 
     _patchChip(el, d) {
         const set = (k, v) => {
-            const n = el.querySelector(`[data-x="${k}"]`);
+            const n = el.querySelector(`[data-x="\${k}"]`);
             if (n) n.textContent = v;
         };
         set('order', d.order.toLocaleString('id-ID'));
         set('done', (d.dp + d.sc).toLocaleString('id-ID'));
+        set('balance', (d.balance).toLocaleString('id-ID')); // <<<<<< ADDED
         set('dock', d.dock);
         set('dtime', d.deliveryTime);
         set('ddate', d.deliveryDate);
@@ -3086,11 +3094,11 @@ class PinnedShelf {
 })();
 
 /* ============================================================
-   EXPORT SUMMARY PER MODEL (ORDER QTY)
-   - Mirip modal summary, tapi hanya rekap Order per Model.
-   - Per line (AS003/AS004) & per shift (Morning/Night/Other).
-   - Model = Back No (pakai alias kalau ada), ringkas "(...)".
-   - Excel HTML (.xls).
+EXPORT SUMMARY PER MODEL (ORDER QTY)
+- Mirip modal summary, tapi hanya rekap Order per Model.
+- Per line (AS003/AS004) & per shift (Morning/Night/Other).
+- Model = Back No (pakai alias kalau ada), ringkas "(...)".
+- Excel HTML (.xls).
    ============================================================ */
 (function ExportSummaryPerModel(){
     const COL_TITLE = ['Model','Customer','Order Qty'];
