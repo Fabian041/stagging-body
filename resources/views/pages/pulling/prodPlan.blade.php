@@ -796,6 +796,69 @@
             if (ageMin > 15) el.classList.add('text-bg-danger');
         })();
     </script>
+    <script>
+        /* Auto refresh at 06:00 every day */
+        (function refreshAtSix() {
+            const H = 6,
+                M = 0,
+                S = 0;
+            const KEY = 'planning:autoRefreshAt6_last';
+
+            const pad = n => String(n).padStart(2, '0');
+            const todayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+            const alreadyRefreshedToday = () => {
+                try {
+                    return localStorage.getItem(KEY) === todayKey();
+                } catch {
+                    return false;
+                }
+            };
+            const markRefreshed = () => {
+                try {
+                    localStorage.setItem(KEY, todayKey());
+                } catch {}
+            };
+
+            function msUntilNext(h = H, m = M, s = S) {
+                const now = new Date();
+                const t = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, s, 0);
+                if (t <= now) t.setDate(t.getDate() + 1);
+                return t - now;
+            }
+
+            function doReloadOnce() {
+                if (alreadyRefreshedToday()) return;
+                markRefreshed();
+                if (window.showToast) {
+                    window.showToast({
+                        type: 'info',
+                        message: 'Auto-refresh: 06:00',
+                        delay: 1500
+                    });
+                }
+                setTimeout(() => location.reload(), 300); // beri jeda agar toast sempat tampil
+            }
+
+            // Jadwalkan tepat ke 06:00 + sedikit jitter agar tidak serentak
+            setTimeout(doReloadOnce, msUntilNext(H, M, S) + Math.floor(Math.random() * 1000));
+
+            // Safety net: cek tiap menit jika tab/sistem tidur lalu bangun tepat setelah 06:00
+            setInterval(() => {
+                if (alreadyRefreshedToday()) return;
+                const now = new Date();
+                if (now.getHours() === H && now.getMinutes() === M) doReloadOnce();
+            }, 60 * 1000);
+
+            // Jika tab kembali aktif sekitar 06:00, lakukan pengecekan lagi
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && !alreadyRefreshedToday()) {
+                    const now = new Date();
+                    if (now.getHours() === H && now.getMinutes() === M) doReloadOnce();
+                }
+            });
+        })();
+    </script>
 </body>
 
 </html>
