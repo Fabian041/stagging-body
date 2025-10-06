@@ -55,8 +55,14 @@
                         style="padding: 1rem; border-radius:8px; width:100% !important" id="release">
                         <h3 class="text-center text-white">Stop</h3>
                     </button>
-                    <button class="btn btn-danger py-3 px-5 shadow mb-4"
-                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pause">Pause
+                    <button class="btn btn-danger py-3 px-5 shadow mb-2"
+                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pause">Problem
+                    </button>
+                    <button class="btn btn-success py-3 px-5 shadow mb-2"
+                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pauseSetup">Setup
+                    </button>
+                    <button class="btn btn-success py-3 px-5 shadow mb-4"
+                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pauseQualityCheck">QC Cek
                     </button>
                     <div class="shadow pt-4 card card-secondary status-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
@@ -69,12 +75,12 @@
                         </div>
                     </div>
                     <div class="shadow pt-4 card card-secondary total-part-card-header"
-                        style="margin-bottom:130px;height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+                        style="margin-bottom:130px;height: 5rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
                             <h5 class="text-center text-dark">Total Part</h5>
                             <div class="bg-secondary m-auto shadow total-part-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-part">0</h1>
+                                style="height: 5rem; width: 85%; border-radius: 6px; padding: 15px 0">
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="ttotal-part">0</h1>
                             </div>
                         </div>
                     </div>
@@ -122,14 +128,24 @@
             </div>
             <div class="modal-body">
                 <div class="row text-center">
-                <div class="col-md-6">
-                    <button id="pauseMachine" class="btn btn-danger btn-lg w-100 py-4" style="font-size: 1.5rem;">
-                    <i class="fas fa-tools me-2"></i> Problem Mesin
+                <div class="col-md-3">
+                    <button id="pauseMachine" class="btn btn-danger btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="mesin">
+                    Mesin
                     </button>
                 </div>
-                <div class="col-md-6">
-                    <button id="openOtherProblem" class="btn btn-warning btn-lg w-100 py-4" style="font-size: 1.5rem;">
-                    <i class="fas fa-exclamation-circle me-2"></i> Problem Lain
+                <div class="col-md-3">
+                    <button id="pauseQuality" class="btn btn-warning btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="quality">
+                    Quality
+                    </button>
+                </div>
+                <div class="col-md-3">
+                    <button id="pauseSupply" class="btn btn-success btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="supply">
+                    Supply
+                    </button>
+                </div>
+                <div class="col-md-3">
+                    <button id="openOtherProblem" class="btn btn-secodary btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="others">
+                    Others
                     </button>
                 </div>
                 </div>
@@ -138,7 +154,7 @@
                 <select id="stopReason" class="form-control mb-3">
                     <option value="">Loading...</option>
                 </select>
-                <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem Lain</button>
+                <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem</button>
                 </div>
             </div>
             </div>
@@ -470,149 +486,193 @@
 
     $(document).ready(function() {
         initApp();
-// UPDATE SCRIPT START
-    let pauseStartTime = null;
-    let selectedSrnaId = null;
-    let pauseTimerInterval = null;
+        // UPDATE SCRIPT START
 
-function startPauseTimer() {
-    clearInterval(pauseTimerInterval);
-    clearInterval(timePerBoxInterval); // Stop other timer if active
+        let pauseStartTime = null;
+        let selectedSrnaId = null;
+        let pauseTimerInterval = null;
+        let selectedCategory = null;
 
-    const startTime = pauseStartTime || new Date(); // Gunakan waktu pauseStartTime yang sudah dicatat
-    pauseTimerInterval = setInterval(() => {
-        const now = new Date();
-        const diffMs = now - startTime;
-        const totalSeconds = Math.floor(diffMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-        $('#time-per-box').text(`${minutes}:${seconds}`);
-    }, 1000);
-}
+        $('.btn-stop-category').on('click', function () {
+            selectedCategory = $(this).data('category');
+            pauseStartTime = new Date();
 
-function stopAllTimers() {
-    clearInterval(pauseTimerInterval);
-    clearInterval(timePerBoxInterval);
-}
+            if (selectedCategory) {
+                console.log(selectedCategory);
+                $('#otherProblemSection').slideDown();
+                fetchStopReasons(selectedCategory); // fetch alasan kategori OTHERS
+            } else {
+                $('#pauseModal').modal('hide');
+                selectedSrnaId = selectedCategory; // misalnya langsung gunakan kategori sebagai ID jika tidak pakai dropdown
+                $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
+                $('#texttime').text('Stop Time');
 
-$('#pause').on('click', function () {
-    if ($('#pause').text() === 'Mulai') {
-        const now = new Date();
-        const pad = (n) => n.toString().padStart(2, '0');
-        const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const fmtFull = (d) => `${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                $('.status-card').removeClass('bg-secondary').addClass('bg-danger');
+                $('#status').text('Stop');
 
-        const payload = {
-            data: [{
-                line_id: localStorage.getItem('line_prd') || "1",
-                prd_dt: fmt(now),
-                str_dt: fmtFull(pauseStartTime),
-                // end_dt: '',
-                end_dt: fmtFull(now),
-                matnr: localStorage.getItem('model') || "UNKNOWN",
-                srna_id: selectedSrnaId,
-                crtby: "ADMIN"
-            }]
-        };
-
-        $.ajax({
-            url: '/production/api-insert-stop',
-            method: 'POST',
-            contentType: 'application/json',
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            data: JSON.stringify(payload),
-            success: function () {
-                notif('success', 'Stop reason berhasil dikirim');
-                $('#pause').text('Pause').removeClass('btn-success').addClass('btn-danger');
-                $('#texttime').text('Time / Box');
-                $('.status-card').removeClass('bg-danger');
-                $('.status-card').removeClass('bg-success');
-                $('.status-card').addClass(
-                    'bg-secondary');
-                $('#status').text('-');
-
-                pauseStartTime = null;
-                selectedSrnaId = null;
-                stopAllTimers();
-                $('#code').focus();
-                startTimeCounter(now);
-            },
-            error: function () {
-                notif('error', 'Gagal kirim stop reason');
+                startPauseTimer();
             }
         });
-    } else {
-        stopAllTimers();
-        $('#pauseModal').modal('show');
-        fetchStopReasons();
-    }
-});
 
-$('#pauseMachine').on('click', function () {
-    pauseStartTime = new Date();
-    selectedSrnaId = 'STOP1'; // Reset selected stop reason ID
-    $('#pauseModal').modal('hide');
-    $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
-    $('#texttime').text('Stop Time');
 
-    $('.status-card').removeClass('bg-secondary');
-    $('.status-card').removeClass('bg-success');
-    $('.status-card').addClass(
-        'bg-danger');
-    $('#status').text('Stop');
-    
-    startPauseTimer();
-});
+        function startPauseTimer() {
+            clearInterval(pauseTimerInterval);
+            clearInterval(timePerBoxInterval); // Stop other timer if active
 
-$('#openOtherProblem').on('click', function (e) {
-    e.stopPropagation();
-    $('#otherProblemSection').slideDown();
-    $('#pauseModal').off('click.dismiss.bs.modal');
-});
-
-$('#stopReason').on('click', function (e) {
-    e.stopPropagation();
-});
-
-$('#pauseOther').on('click', function () {
-    let selected = $('#stopReason').val();
-    if (!selected) return alert("Pilih alasan terlebih dahulu!");
-
-    selectedSrnaId = selected;
-    pauseStartTime = new Date();
-    $('#pauseModal').modal('hide');
-    $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
-    $('#texttime').text('Stop Time');
-
-    $('.status-card').removeClass('bg-secondary');
-    $('.status-card').removeClass('bg-success');
-    $('.status-card').addClass(
-        'bg-danger');
-    $('#status').text('Stop');
-    startPauseTimer();
-});
-
-function fetchStopReasons() {
-    $.ajax({
-        url: '/production/api-list-stop',
-        method: 'GET',
-        success: function (response) {
-            if (response.status) {
-                let options = '<option value="">-- Pilih Masalah --</option>';
-                response.data.forEach(function (item) {
-                    options += `<option value="${item.srna_id}">${item.name1} (${item.type2_text})</option>`;
-                });
-                $('#stopReason').html(options);
-            }
-        },
-        error: function () {
-            $('#stopReason').html('<option value="">Gagal Load</option>');
+            const startTime = pauseStartTime || new Date(); // Gunakan waktu pauseStartTime yang sudah dicatat
+            pauseTimerInterval = setInterval(() => {
+                const now = new Date();
+                const diffMs = now - startTime;
+                const totalSeconds = Math.floor(diffMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+                $('#time-per-box').text(`${minutes}:${seconds}`);
+            }, 1000);
         }
-    });
-}
-// UPDATE SCRIPT END
+
+        function stopAllTimers() {
+            clearInterval(pauseTimerInterval);
+            clearInterval(timePerBoxInterval);
+        }
+
+        $('#pause').on('click', function () {
+            if ($('#pause').text() === 'Mulai') {
+                const now = new Date();
+                const pad = (n) => n.toString().padStart(2, '0');
+                const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                const fmtFull = (d) => `${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+                const payload = {
+                    data: [{
+                        line_id: localStorage.getItem('line_prd') || "1",
+                        prd_dt: fmt(now),
+                        str_dt: fmtFull(pauseStartTime),
+                        // end_dt: '',
+                        end_dt: fmtFull(now),
+                        matnr: localStorage.getItem('model') || "UNKNOWN",
+                        srna_id: selectedSrnaId,
+                        crtby: "{{ auth()->user()->npk }}"
+                    }]
+                };
+
+                $.ajax({
+                    url: '/production/api-insert-stop',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: JSON.stringify(payload),
+                    success: function () {
+                        notif('success', 'Stop reason berhasil dikirim');
+                        $('#pause').text('Pause').removeClass('btn-success').addClass('btn-danger');
+                        $('#texttime').text('Time / Box');
+                        $('.status-card').removeClass('bg-danger');
+                        $('.status-card').removeClass('bg-success');
+                        $('.status-card').addClass(
+                            'bg-secondary');
+                        $('#status').text('-');
+
+                        pauseStartTime = null;
+                        selectedSrnaId = null;
+                        stopAllTimers();
+                        $('#code').focus();
+                        startTimeCounter(now);
+                    },
+                    error: function () {
+                        notif('error', 'Gagal kirim stop reason');
+                    }
+                });
+            } else {
+                stopAllTimers();
+                $('#pauseModal').modal('show');
+                
+            }
+        });
+
+        $('#pauseSetup').on('click', function () {
+            pauseStartTime = new Date();
+            selectedSrnaId = 'SETUP'; // Reset selected stop reason ID
+            $('#pauseModal').modal('hide');
+            $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
+            $('#texttime').text('Stop Time');
+
+            $('.status-card').removeClass('bg-secondary');
+            $('.status-card').removeClass('bg-success');
+            $('.status-card').addClass(
+                'bg-danger');
+            $('#status').text('Stop');
+            
+            startPauseTimer();
+        });
+
+        $('#pauseQualityCheck').on('click', function () {
+            pauseStartTime = new Date();
+            selectedSrnaId = 'QCCEK'; // Reset selected stop reason ID
+            $('#pauseModal').modal('hide');
+            $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
+            $('#texttime').text('Stop Time');
+
+            $('.status-card').removeClass('bg-secondary');
+            $('.status-card').removeClass('bg-success');
+            $('.status-card').addClass(
+                'bg-danger');
+            $('#status').text('Stop');
+            
+            startPauseTimer();
+        });
+
+        $('#openOtherProblem').on('click', function (e) {
+            e.stopPropagation();
+            $('#otherProblemSection').slideDown();
+            $('#pauseModal').off('click.dismiss.bs.modal');
+        });
+
+        $('#stopReason').on('click', function (e) {
+            e.stopPropagation();
+        });
+
+        $('#pauseOther').on('click', function () {
+            let selected = $('#stopReason').val();
+            if (!selected) return alert("Pilih alasan terlebih dahulu!");
+
+            selectedSrnaId = selected;
+            pauseStartTime = new Date();
+            $('#pauseModal').modal('hide');
+            $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
+            $('#texttime').text('Stop Time');
+
+            $('.status-card').removeClass('bg-secondary');
+            $('.status-card').removeClass('bg-success');
+            $('.status-card').addClass(
+                'bg-danger');
+            $('#status').text('Stop');
+            startPauseTimer();
+        });
+
+        function fetchStopReasons(category) {
+            let line = localStorage.getItem('line_prd');
+            $.ajax({
+                url: `/production/api-list-stop/AS548/${category}`,
+                method: 'GET',
+                success: function (response) {
+                    if (response.status) {
+                        let options = '<option value="">-- Pilih Masalah --</option>';
+                        response.data.forEach(function (item) {
+                            options += `<option value="${item.srna_id}">${item.name1} (${item.type2_text})</option>`;
+                        });
+                        $('#stopReason').html(options);
+                    } else {
+                        $('#stopReason').html('<option value="">Tidak ada data</option>');
+                    }
+                },
+                error: function () {
+                    $('#stopReason').html('<option value="">Gagal Load</option>');
+                }
+            });
+        }
+
+    // UPDATE SCRIPT END
 
         document.getElementById('fullscreenBtn').addEventListener('click', function() {
             if (!document.fullscreenElement) {

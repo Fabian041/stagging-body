@@ -137,7 +137,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/store', [ProductionController::class, 'store'])->name('production.store');
         Route::get('/store2', [ProductionController::class, 'store2'])->name('production.store2'); // prd report
         Route::post('/adjust', [ProductionController::class, 'adjust'])->name('production.adjust');
-        Route::get('/api-list-stop', [ProductionController::class, 'getListStop']);
+        Route::get('/api-list-stop/{line}/{category}', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
         Route::post('/api-stop', [ProductionController::class, 'inboundStop']);
 
