@@ -74,7 +74,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [NidecController::class, 'index'])->name('nidec.index');
     });
 
-    Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
+    Route::get('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
     // kanban
     Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');

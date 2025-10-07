@@ -80,7 +80,7 @@
                             <h5 class="text-center text-dark">Total Part</h5>
                             <div class="bg-secondary m-auto shadow total-part-card"
                                 style="height: 5rem; width: 85%; border-radius: 6px; padding: 15px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="ttotal-part">0</h1>
+                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-part">0</h1>
                             </div>
                         </div>
                     </div>
@@ -150,11 +150,18 @@
                 </div>
                 </div>
 
-                <div class="mt-4" id="otherProblemSection" style="display:none;">
+                <div class="mt-4" id="otherProblemSection">
                 <select id="stopReason" class="form-control mb-3">
                     <option value="">Loading...</option>
                 </select>
-                <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem</button>
+                <div class="row">
+                    <div class="col-md-6">
+                        <button class="btn btn-secondary btn-lg w-100" data-dismiss="modal">Cancel</button>
+                    </div>
+                    <div class="col-md-6">
+                        <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem</button>
+                    </div>
+                </div>
                 </div>
             </div>
             </div>
@@ -544,7 +551,7 @@
 
                 const payload = {
                     data: [{
-                        line_id: localStorage.getItem('line_prd') || "1",
+                        line_id: localStorage.getItem('line_prd') || "UNKNOWN",
                         prd_dt: fmt(now),
                         str_dt: fmtFull(pauseStartTime),
                         // end_dt: '',
@@ -651,9 +658,9 @@
         });
 
         function fetchStopReasons(category) {
-            let line = localStorage.getItem('line_prd');
+            let line = localStorage.getItem('line_prd') || "DEFAULT";
             $.ajax({
-                url: `/production/api-list-stop/AS548/${category}`,
+                url: `/production/api-list-stop/${line}/${category}`,
                 method: 'GET',
                 success: function (response) {
                     if (response.status) {
@@ -820,6 +827,11 @@
                     return;
                 }
 
+                if (barcodecomplete.length == 13) {
+                    window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
                 if (barcodecomplete == "logout") {
                     window.location.replace("{{ url('/logout') }}");
                     return;
@@ -938,7 +950,7 @@
                                     localStorage.setItem('part_counter', 0);
                                     localStorage.setItem('photo', dataPart
                                         .photo);
-                                    localStorage.setItem('line_prd', dataPart.line);
+                                    localStorage.setItem('  ', dataPart.line);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -975,7 +987,7 @@
                                     $('#model').text(dataPart.backNumber)
                                     $('#total-scan').text(scanCounter)
                                     $('#total-part').text(partCounter)
-
+                                    startTimeCounter(now);
                                     // display PIS
                                     $('#pis').html(
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
