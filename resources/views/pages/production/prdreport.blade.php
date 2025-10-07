@@ -928,6 +928,7 @@
 
                 if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
                     model = barcodecomplete.replace(/-model$/, "");
+                    let now = Date.now();
                     if (model == localStorage.getItem('dandori_board')) {
 
                         localStorage.setItem('scan_timer_start', Date.now()); // MULAI timer dari master sample
