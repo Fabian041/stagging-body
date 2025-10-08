@@ -951,7 +951,7 @@
                                     localStorage.setItem('part_counter', 0);
                                     localStorage.setItem('photo', dataPart
                                         .photo);
-                                    localStorage.setItem('  ', dataPart.line);
+                                    localStorage.setItem('line_prd', dataPart.line);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
