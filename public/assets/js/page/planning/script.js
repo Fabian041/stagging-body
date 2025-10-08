@@ -2186,35 +2186,99 @@ class PinnedShelf {
         this.g6i = { byMember: new Map(), byGroup: new Map() }; // index merge 6I
     }
 
+    _installMinimize(card, idSuffix) {
+        const lineKey = this.container.getAttribute('data-toggle-table') || 'LINE';
+        const storeKey = `pinnedShelf:min:${lineKey}:${idSuffix}`;
+
+        const head = card.querySelector('.card-header');
+        let body  = card.querySelector('.card-body');
+        if (!head || !body) return;
+
+        // Bungkus body ke .collapse
+        const collapseId = `ps-${lineKey}-${idSuffix}`;
+        let coll = body.closest('.collapse');
+        if (!coll) {
+        coll = document.createElement('div');
+        coll.className = 'collapse show';
+        coll.id = collapseId;
+        body.parentElement.insertBefore(coll, body);
+        coll.appendChild(body);
+        } else if (!coll.id) {
+        coll.id = collapseId;
+        }
+
+        // Tambah tombol minimize (chevron)
+        let btn = head.querySelector('[data-role="ps-minimize"]');
+        if (!btn) {
+        const wrap = document.createElement('div');
+        wrap.className = 'ms-auto';
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-outline-secondary';
+        btn.setAttribute('data-role', 'ps-minimize');
+        btn.setAttribute('aria-expanded', 'true');
+        btn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+        wrap.appendChild(btn);
+        head.appendChild(wrap);
+        }
+
+        // Bootstrap Collapse (fallback: toggle class)
+        const bs = window.bootstrap?.Collapse
+        ? bootstrap.Collapse.getOrCreateInstance(coll, { toggle: false })
+        : null;
+
+        const setMin = (min) => {
+        if (bs) {
+            min ? bs.hide() : bs.show();
+        } else {
+            coll.classList.toggle('show', !min);
+        }
+        btn.setAttribute('aria-expanded', String(!min));
+        btn.innerHTML = min
+            ? '<i class="fas fa-chevron-down"></i>'
+            : '<i class="fas fa-chevron-up"></i>';
+        try { localStorage.setItem(storeKey, min ? '1' : '0'); } catch {}
+        };
+
+        // Restore state
+        const saved = (localStorage.getItem(storeKey) || '0') === '1';
+        setMin(saved);
+
+        // Click handler
+        btn.addEventListener('click', () => {
+        const cur = btn.getAttribute('aria-expanded') === 'true';
+        setMin(cur); // jika sedang terbuka (expanded=true), jadikan minimize
+        });
+    }
+
     _ensureShelf() {
         if (this.deck) return;
-
         this.deck = document.createElement('div');
         this.deck.className = 'row g-3 shelf-deck mb-3';
 
         this.deck.innerHTML = `
         <div class="col-12 col-lg-6">
-          <div class="card shadow-sm pinned-card">
+            <div class="card shadow-sm pinned-card">
             <div class="card-header d-flex align-items-center gap-2">
-              <i class="fas fa-cogs text-primary"></i>
-              <strong class="curr">Current Production / Pulling</strong>
+                <i class="fas fa-cogs text-primary"></i>
+                <strong class="curr">Current Production / Pulling</strong>
             </div>
             <div class="card-body py-3">
-              <div data-shelf-list class="d-flex flex-column gap-2"></div>
+                <div data-shelf-list class="d-flex flex-column gap-2"></div>
             </div>
-          </div>
+            </div>
         </div>
 
         <div class="col-12 col-lg-6">
-          <div class="card shadow-sm next-card">
+            <div class="card shadow-sm next-card">
             <div class="card-header d-flex align-items-center gap-2">
-              <i class="fas fa-forward text-primary"></i>
-              <strong class="next">Next Production</strong>
+                <i class="fas fa-forward text-primary"></i>
+                <strong class="next">Next Production</strong>
             </div>
             <div class="card-body py-3">
-              <div data-next-list class="d-flex flex-column gap-2"></div>
+                <div data-next-list class="d-flex flex-column gap-2"></div>
             </div>
-          </div>
+            </div>
         </div>`;
 
         const toolbar = this.container.querySelector('.d-flex.justify-content-end') || this.container.firstElementChild;
@@ -2222,6 +2286,12 @@ class PinnedShelf {
 
         this.list = this.deck.querySelector('[data-shelf-list]');
         this.nextList = this.deck.querySelector('[data-next-list]');
+
+        // ← aktifkan minimize untuk current & next
+        const curCard  = this.deck.querySelector('.pinned-card');
+        const nextCard = this.deck.querySelector('.next-card');
+        this._installMinimize(curCard,  'current');
+        this._installMinimize(nextCard, 'next');
     }
 
     _hookObservers() {
