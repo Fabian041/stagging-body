@@ -2177,8 +2177,8 @@ setBackNoRenameMap({
 class PinnedShelf {
     constructor(container, opts = {}) {
         this.container = container;
-        this.max = opts.max ?? 4;          // max chip current
-        this.nextMax = opts.nextMax ?? 1;  // max chip next
+        this.max = opts.max ?? 2;          // max chip current
+        this.nextMax = opts.nextMax ?? 3;  // max chip next
         this.ttl = opts.ttl ?? (window.prodPlanSSE?.HIGHLIGHT_DURATION_MS || 40000);
         this.map = new Map(); // current: id -> {el, timer, ts}
         this._ensureShelf();
