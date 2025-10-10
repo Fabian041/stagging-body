@@ -219,6 +219,118 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function prodBoard(Request $request)
+    {
+        // 1) Resolve tanggal (ikut pola lama)
+        $selectedDate = $request->input('date')
+            ? Carbon::parse($request->input('date'))->startOfDay()
+            : now()->startOfDay();
+
+        $todayISO = $selectedDate->toDateString();
+        $nowHHmm  = now()->format('H:i'); // dipake buat "current" & "next"
+
+        // 2) Ambil semua item rencana kerja utk hari itu
+        $items = ProductionPlan::whereDate('plan_date', $todayISO)
+            ->orderBy('working_start')   // "HH:ii" – aman utk sort lexicographic
+            ->orderBy('dn_number')
+            ->get();
+
+        // Helper konversi "HH:ii" → menit
+        $toMin = function (?string $t) {
+            if (!$t) return null;
+            [$h,$m] = array_map('intval', explode(':', $t));
+            return $h*60 + $m;
+        };
+        $nowMin = $toMin($nowHHmm);
+
+        // 3) Tentukan CURRENT (yang sedang berjalan) → kalau nggak ada, ambil yang akan mulai terdekat
+        $currentItem = $items->first(function($it) use ($toMin, $nowMin){
+            $s = $toMin($it->working_start);
+            $e = $toMin($it->working_end);
+            return $s !== null && $e !== null && $s <= $nowMin && $nowMin <= $e;
+        });
+
+        if (!$currentItem) {
+            $currentItem = $items->first(function($it) use ($toMin, $nowMin){
+                $s = $toMin($it->working_start);
+                return $s !== null && $s > $nowMin;
+            }) ?? $items->last(); // fallback: terakhir hari itu
+        }
+
+        // 4) NEXT highlight & list (semua yang start >= sekarang)
+        $nextCandidates = $items->filter(function($it) use ($toMin, $nowMin){
+            $s = $toMin($it->working_start);
+            return $s !== null && $s >= $nowMin;
+        })->values();
+
+        $nextHighlightItem = $nextCandidates->first();
+        $nextListItems     = $nextCandidates->slice(1, 12); // ambil beberapa buat grid
+
+        // 5) Progress shift (pakai fungsi existing getGroupedData lalu agregasi)
+        $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
+        $morningQty = $morningAct = $nightQty = $nightAct = 0;
+
+        foreach ($grouped as $line => $bag) {
+            $morningQty += (int)($bag['morning_shift_qty']    ?? 0);
+            $morningAct += (int)($bag['morning_shift_actual'] ?? 0);
+            $nightQty   += (int)($bag['night_shift_qty']      ?? 0);
+            $nightAct   += (int)($bag['night_shift_actual']   ?? 0);
+        }
+
+        // Tentukan shift aktif berdasar rule window yang sama dg getGroupedData
+        [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress($nowMin, $morningQty, $morningAct, $nightQty, $nightAct);
+
+        // 6) Bentuk payload utk Blade
+
+        // Current
+        $current = $currentItem ? [
+            'back_no'       => $currentItem->back_no,
+            'customer'      => $currentItem->customer,
+            'dock'          => $currentItem->dock,
+            'order_qty'     => (int) $currentItem->order_qty,
+            'dp'            => (int) ($currentItem->direct_pulling_qty ?? 0),
+            'sc'            => (int) ($currentItem->stock_chute_qty ?? 0),
+            'start'         => $currentItem->working_start,
+            'progress_note' => $this->makeProgressNote($currentItem->balance_time ?? null),
+        ] : null;
+
+        // Progress (ringkas)
+        $progress = [
+            'label'  => $shiftLabel,
+            'order'  => $orderQty,
+            'actual' => $actualQty,
+            'status' => $status, // 'S1' / 'NS' / 'LS1' (chip kuning kalau NS/LS…)
+        ];
+
+        // Next highlight
+        $nextHighlight = $nextHighlightItem ? [
+            'back_no'       => $nextHighlightItem->back_no,
+            'customer'      => $nextHighlightItem->customer,
+            'dock'          => $nextHighlightItem->dock,
+            'order_qty'     => (int) $nextHighlightItem->order_qty,
+            'delivery_time' => $nextHighlightItem->delivery_time,
+            'delivery_date' => $nextHighlightItem->delivery_date,
+        ] : null;
+
+        // Next list (grid)
+        $nextList = $nextListItems->map(function($it){
+            return [
+                'back_no'   => $it->back_no,
+                'customer'  => $it->customer,
+                'dock'      => $it->dock,
+                'order_qty' => (int) $it->order_qty,
+            ];
+        })->values()->all();
+
+        return view('pages.pulling.board', [
+            'selectedDate'   => $selectedDate->format('Y-m-d'),
+            'current'        => $current,
+            'progress'       => $progress,
+            'nextHighlight'  => $nextHighlight,
+            'nextList'       => $nextList,
+        ]);
+    }
+
     /** Khusus penyusunan data tabel + KPI shift (delivery-based 09:40 rule) */
     protected function getGroupedData($backNosByLine, $today)
     {
@@ -312,6 +424,65 @@ class DashboardController extends Controller
         }
 
         return $grouped;
+    }
+
+    /**
+     * Hitung status shift sederhana (pakai window yang sama dengan getGroupedData):
+     * Morning 12:00–22:57, Night 22:59–09:35.
+     */
+    private function resolveShiftProgress(int $nowMin, int $mQty, int $mAct, int $nQty, int $nAct): array
+    {
+        $MORNING_START = 12*60;          // 720
+        $MORNING_END   = 22*60 + 57;     // 1377
+        $NIGHT_START   = 22*60 + 59;     // 1379
+        $NIGHT_END     =  9*60 + 35;     // 575
+
+        // default: pilih shift yang “berlaku” sekarang; kalau di gap, anggap Morning
+        $label = 'Morning'; $order = $mQty; $actual = $mAct;
+        $elapsed = 0; $duration = max(1, $MORNING_END - $MORNING_START); // 657
+
+        if ($nowMin >= $MORNING_START && $nowMin <= $MORNING_END) {
+            $label = 'Morning';
+            $order = $mQty; $actual = $mAct;
+            $elapsed = $nowMin - $MORNING_START;
+            $duration = max(1, $MORNING_END - $MORNING_START);
+        } elseif ($nowMin >= $NIGHT_START || $nowMin <= $NIGHT_END) {
+            $label = 'Night';
+            $order = $nQty; $actual = $nAct;
+            // durasi night melewati tengah malam
+            $duration = (1440 - $NIGHT_START) + $NIGHT_END; // 61 + 575 = 636
+            $elapsed  = ($nowMin >= $NIGHT_START)
+                ? ($nowMin - $NIGHT_START)
+                : ((1440 - $NIGHT_START) + $nowMin);
+        }
+
+        // status sederhana: S1 (OK), NS (no start > 60min), LS1 (di bawah expected progress)
+        if ($order <= 0) {
+            return [$label, 0, 0, 'S1'];
+        }
+
+        $ratio    = $actual / max(1,$order);
+        $expected = min(1, $elapsed / max(1,$duration)); // linear expectation
+        $status   = 'S1';
+
+        if ($ratio == 0 && $elapsed > 60) {
+            $status = 'NS';
+        } elseif ($ratio + 0.05 < $expected) { // toleransi 5%
+            $status = 'LS1';
+        }
+
+        return [$label, $order, $actual, $status];
+    }
+
+    /** Bikin note singkat dari balance_time (format "H:i" atau "-H:i") */
+    private function makeProgressNote(?string $balance): string
+    {
+        if (!$balance || !preg_match('/^-?\d{2}:\d{2}$/', $balance)) {
+            return 'Back no detail information';
+        }
+        return str_starts_with($balance, '-')
+            ? "Late {$balance} to delivery"
+            : "Buffer {$balance} to delivery";
     }
 
     public function progressPulling()

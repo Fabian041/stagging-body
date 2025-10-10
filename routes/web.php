@@ -97,6 +97,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
         Route::get('/production/plan', [DashboardController::class, 'prodPlan'])->name('dashboard.prodPlan');
+        Route::get('/production/board', [DashboardController::class, 'prodBoard'])->name('dashboard.board');
 
         // datatable
         Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');

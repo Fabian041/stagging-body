@@ -1,0 +1,95 @@
+
+:root{
+  --bg:#f8fafc;
+  --fg:#0f172a;
+  --muted:#475569;
+  --tile:#ffffff;
+  --tile-border:#e2e8f0;
+  --chip:#f1f5f9;
+  --accent:#0ea5e9;
+  --bar:#e5e7eb;
+}
+[data-theme="dark"]{
+  --bg:#0b0f14;
+  --fg:#e5e7eb;
+  --muted:#a3b1c6;
+  --tile:#141922;
+  --tile-border:#253043;
+  --chip:#202838;
+  --accent:#60a5fa;
+  --bar:#2b3446;
+}
+
+/* dasar halaman */
+body{background:var(--bg);color:var(--fg);}
+.board-container .text-secondary{color:var(--muted)!important;}
+
+/* kartu & ubin */
+.tile,.tile-square{background:var(--tile);border:1px solid var(--tile-border);}
+.radius-4{border-radius:12px;}
+.date-pill,.note-tile{background:var(--chip);border:1px solid var(--tile-border);color:var(--fg);}
+
+/* progress bar */
+.qty-progress .bar{background:var(--bar);}
+.qty-progress .bar i{display:block;height:100%;background:var(--accent);}
+
+/* meta */
+.meta-row .tag{color:var(--muted);}
+
+/* badge (biar terbaca di dark mode) */
+.badge{background:var(--chip);color:var(--fg);border:1px solid var(--tile-border);}
+[data-theme="dark"] .bg-warning-subtle{background:rgba(245,158,11,.18)!important;color:#fde68a;border:1px solid rgba(245,158,11,.35);}
+[data-theme="dark"] .bg-success-subtle{background:rgba(34,197,94,.18)!important;color:#bbf7d0;border:1px solid rgba(34,197,94,.35);}
+
+/* Industrial board add-on */
+.board-container { max-width: 1400px; }
+
+/* tiles */
+.tile { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); }
+[data-theme="dark"] .tile { background: #131619; border-color: #242a30; }
+.radius-4 { border-radius: .75rem; }
+.card-header { border-bottom: 1px dashed var(--bs-border-color); }
+
+/* date badge */
+.date-pill { background:#1f242a; color:#d7dee8; border:1px solid #2b323a; padding:.5rem .75rem; }
+
+/* current block */
+.current-block .current-title,
+.next-highlight .next-title { color:#9fb2c6; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+.current-block .meta-row, .next-highlight .meta-row, .tile-square .meta-row {
+  display:flex; gap:.5rem; align-items:center; color:#9fb2c6; font-size:.85rem;
+}
+.current-block .tag, .next-highlight .tag, .tile-square .tag {
+  background:#1b2026; border:1px solid #29313a; border-radius:999px; padding:.12rem .5rem; font-size:.75rem; color:#cfd8e3;
+}
+
+/* stat boxes */
+.stat-box { background:#181d23; border:1px solid #252c34; border-radius:.75rem; padding:.75rem .9rem; }
+.stat-box .label { color:#9fb2c6; font-size:.85rem; }
+.stat-box .value { font-size:1.35rem; }
+
+/* qty-progress reuse */
+.qty-progress { position:relative; background:#161b20; border:1px solid #2a323b; border-radius:999px; padding:.35rem; }
+.qty-progress.big { padding:.45rem; }
+.qty-progress .bar { height:10px; background:#0e1216; border-radius:999px; overflow:hidden; }
+.qty-progress.big .bar { height:12px; }
+.qty-progress .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,#2ea8ff,#44ffa1); transition:width .35s ease; }
+.qty-progress .val { position:absolute; right:.75rem; top:50%; transform:translateY(-50%); font-weight:700; }
+
+/* info note */
+.note-tile { background:#1b2026; border:1px dashed #2a323b; border-radius:.6rem; padding:.6rem .8rem; color:#cfd8e3; }
+
+/* progress readout (left tile) */
+.progress-readout { text-align:center; }
+.progress-readout .big-number { font-size:2.2rem; }
+.progress-readout .sub-label { text-transform:uppercase; letter-spacing:.06em; color:#9fb2c6; }
+
+/* square grid */
+.tile-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; }
+@media (max-width: 1199.98px){ .tile-grid{ grid-template-columns:repeat(3,1fr);} }
+@media (max-width: 991.98px) { .tile-grid{ grid-template-columns:repeat(2,1fr);} }
+@media (max-width: 575.98px){ .tile-grid{ grid-template-columns:1fr;} }
+
+.tile-square { background:#161b20; border:1px solid #2a323b; padding:1rem; min-height:170px; display:flex; flex-direction:column; justify-content:space-between; }
+.tile-square .bk { font-size:1.8rem; font-weight:800; }
+.tile-square .ord { font-size:1.2rem; }
