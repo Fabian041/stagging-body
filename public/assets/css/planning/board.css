@@ -154,3 +154,21 @@ body{background:var(--bg);color:var(--fg);}
 .tile-grid#npRow::-webkit-scrollbar{ height: 8px; }
 .tile-grid#npRow::-webkit-scrollbar-track{ background: rgba(255,255,255,.06); border-radius: 8px; }
 .tile-grid#npRow::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.18); border-radius: 8px; }
+
+
+html, body { height: auto; overflow-y: auto; }
+
+/* beri ruang di bawah section next list supaya tidak “nabrak” viewport */
+.np-wrap, .np-section { padding-bottom: 36px; }      /* salah satu/dua class mana yang dipakai */
+.np-scroll {
+  overflow-x: auto;
+  overflow-y: visible;           /* jangan hidden agar tinggi konten dihitung */
+  padding-bottom: 12px;          /* ruang untuk sticky rail */
+}
+
+/* rail tetap sticky tapi tidak menghalangi konten akhir halaman */
+.np-rail {
+  position: sticky;
+  left: 0; right: 0; bottom: 0;
+  margin-top: 10px;
+}

@@ -311,8 +311,6 @@
                         <div class="tile-square radius-4">
                             <div class="bk number js-backno">{{ $bk }}</div>
 
-                            <div class="small text-secondary">{{ $cust }}</div>
-
                             <div class="meta-row mt-1">
                                 <span class="tag">Dock</span><span>{{ $dock }}</span>
                             </div>

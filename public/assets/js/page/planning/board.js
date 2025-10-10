@@ -48,3 +48,27 @@ document.addEventListener('DOMContentLoaded', () => {
     prev.addEventListener('click', () => row.scrollBy({ left: -getStep(), behavior: 'smooth' }));
     next.addEventListener('click', () => row.scrollBy({ left:  getStep(), behavior: 'smooth' }));
   });
+
+  document.addEventListener('DOMContentLoaded', () => {
+  // Hanya “ambil” wheel untuk horizontal scroll kalau memang masih bisa geser.
+  document.querySelectorAll('.np-scroll').forEach(sc => {
+    sc.addEventListener('wheel', (e) => {
+      // kalau user memang scroll horizontal (pakai shift/trackpad), jangan ganggu
+      if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+
+      const goingRight = e.deltaY > 0;
+      const goingLeft  = e.deltaY < 0;
+      const canLeft  = sc.scrollLeft > 0;
+      const canRight = sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 1;
+
+      const willScrollHoriz =
+        (goingRight && canRight) || (goingLeft && canLeft);
+
+      // cuma cegah default kalau kita benar-benar akan geser horizontal
+      if (willScrollHoriz) {
+        e.preventDefault();
+        sc.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+  });
+});
