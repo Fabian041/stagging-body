@@ -263,3 +263,46 @@ html, body { height: auto; overflow-y: auto; }
 .next-row-wrap .np-scroll::-webkit-scrollbar-track{
   background: transparent !important;
 }
+
+/* === Hide scrollbar tanpa motong konten === */
+
+/* 1) Wrapper boleh terlihat (jangan hidden), ada overlay di bawah */
+.next-row-wrap{
+  position: relative;
+  overflow: visible;              /* <- biar konten nggak kepotong */
+}
+
+/* 2) Elemen yang nge-scroll */
+.next-row-wrap .np-scroll{
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+
+  /* kasih ruang kecil agar konten gak “nabrak” overlay */
+  --sb: 18px;                     /* tinggi overlay ~ tinggi scrollbar OS */
+  padding-bottom: var(--sb);
+
+  /* sembunyiin scrollbar di Firefox/Edge legacy */
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* 3) Chromium/WebKit — bikin scrollbar transparan */
+.next-row-wrap .np-scroll::-webkit-scrollbar{
+  height: var(--sb);              /* biarkan ada ruang, tapi transparan */
+}
+.next-row-wrap .np-scroll::-webkit-scrollbar-thumb,
+.next-row-wrap .np-scroll::-webkit-scrollbar-track{
+  background: transparent !important;
+}
+
+/* 4) Overlay nutup area scrollbar, tanpa halangin scroll (wheel/drag) */
+.next-row-wrap::after{
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: var(--sb);
+  background: var(--bg);          /* pakai warna background halaman */
+  pointer-events: none;           /* biar event scroll tetap tembus */
+}
+
