@@ -232,3 +232,18 @@ html, body { height: auto; overflow-y: auto; }
   font-weight: 800;
   font-size: clamp(.9rem, 1.1vw, 1rem);
 }
+
+/* ===== Hide scrollbar (cross-browser) untuk Next Production list ===== */
+#npRow{
+  overflow-x: auto;                 /* tetap bisa geser */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;            /* Firefox */
+  -ms-overflow-style: none;         /* IE/Edge legacy */
+}
+#npRow::-webkit-scrollbar{          /* Chrome/Safari/Edge (Chromium) */
+  width: 0;
+  height: 0;
+}
+
+/* Opsional: beri sedikit ruang bawah agar konten tidak "nempel" tepi */
+.next-row-wrap{ padding-bottom: 4px; }
