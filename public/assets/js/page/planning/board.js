@@ -18,3 +18,17 @@
     apply(next);
   });
 })();
+
+(function backnoAliasBoard(){
+  const LS_KEY = 'backnoRenameMap';
+  let map = {};
+  try { map = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch {}
+  const fallback = { 'D403':'CI18', 'D111':'CI12', 'D500':'CI19' };
+  const aliasMap = Object.assign({}, fallback, map);
+
+  document.querySelectorAll('.js-backno').forEach(el=>{
+    const raw = (el.textContent || '').trim().toUpperCase();
+    const alias = aliasMap[raw];
+    if (alias) el.textContent = alias;
+  });
+})();
