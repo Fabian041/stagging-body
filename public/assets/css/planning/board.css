@@ -233,17 +233,26 @@ html, body { height: auto; overflow-y: auto; }
   font-size: clamp(.9rem, 1.1vw, 1rem);
 }
 
-/* ===== Hide scrollbar (cross-browser) untuk Next Production list ===== */
-#npRow{
-  overflow-x: auto;                 /* tetap bisa geser */
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;            /* Firefox */
-  -ms-overflow-style: none;         /* IE/Edge legacy */
-}
-#npRow::-webkit-scrollbar{          /* Chrome/Safari/Edge (Chromium) */
-  width: 0;
-  height: 0;
+/* Wrapper memotong area scrollbar */
+.next-row-wrap{
+  position: relative;
+  overflow: hidden;              /* track scrollbar ketutup wrapper */
 }
 
-/* Opsional: beri sedikit ruang bawah agar konten tidak "nempel" tepi */
-.next-row-wrap{ padding-bottom: 4px; }
+/* Elemen yang nge-scroll */
+#npRow{
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;         /* Firefox */
+  -ms-overflow-style: none;      /* IE/Edge legacy */
+
+  /* trik universal: geser scrollbar "turun" agar ketutup wrapper */
+  padding-bottom: 22px;          /* ruang dummy setebal scrollbar */
+  margin-bottom: -22px;          /* tarik balik supaya konten tetap rapi */
+}
+
+/* Chrome/Safari/Edge (Chromium) */
+#npRow::-webkit-scrollbar{
+  height: 0;                     /* sembunyikan bar */
+  width: 0;
+}

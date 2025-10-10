@@ -383,27 +383,29 @@
                             <h5 class="m-0 text-secondary">Next Production list</h5>
                         </div>
 
-                        <div class="tile-grid np-scroll" data-role="next-list">
-                            @forelse($nextList as $row)
-                                @php
-                                    $bk = $row['back_no'] ?? '—';
-                                    $dock = $row['dock'] ?? '—';
-                                    $ord = (int) ($row['order_qty'] ?? 0);
-                                @endphp
-                                <div class="tile-square radius-4">
-                                    <div class="bk number js-backno">{{ $bk }}</div>
-                                    <div class="meta-row mt-1">
-                                        <span class="tag">Dock</span><span>{{ $dock }}</span>
+                        <div class="next-row-wrap">
+                            <div class="tile-grid np-scroll" data-role="next-list">
+                                @forelse($nextList as $row)
+                                    @php
+                                        $bk = $row['back_no'] ?? '—';
+                                        $dock = $row['dock'] ?? '—';
+                                        $ord = (int) ($row['order_qty'] ?? 0);
+                                    @endphp
+                                    <div class="tile-square radius-4">
+                                        <div class="bk number js-backno">{{ $bk }}</div>
+                                        <div class="meta-row mt-1">
+                                            <span class="tag">Dock</span><span>{{ $dock }}</span>
+                                        </div>
+                                        <div></div>
+                                        <div class="next-order-pill mt-2">
+                                            <div class="label">ORDER</div>
+                                            <div class="value number">{{ number_format($ord) }}</div>
+                                        </div>
                                     </div>
-                                    <div></div>
-                                    <div class="next-order-pill mt-2">
-                                        <div class="label">ORDER</div>
-                                        <div class="value number">{{ number_format($ord) }}</div>
-                                    </div>
-                                </div>
-                            @empty
-                                <div class="text-muted">Tidak ada data berikutnya.</div>
-                            @endforelse
+                                @empty
+                                    <div class="text-muted">Tidak ada data berikutnya.</div>
+                                @endforelse
+                            </div>
                         </div>
                     </div>
 
