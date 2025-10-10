@@ -173,66 +173,62 @@ html, body { height: auto; overflow-y: auto; }
   margin-top: 10px;
 }
 
-/* ===== Spotlight untuk ORDER / COMPLETED / BALANCE ===== */
+/* ===== Callout ORDER / COMPLETED / BALANCE (medium emphasis) ===== */
 .card-current .metric-callout,
 .card-next .metric-callout{
-  padding: clamp(18px, 2.2vw, 26px) clamp(20px, 2.5vw, 28px);
-  border-radius: 18px;
+  padding: clamp(14px, 1.6vw, 20px) clamp(16px, 2vw, 22px);
+  border-radius: 16px;
   border: 1px solid var(--tile-border);
-  backdrop-filter: saturate(120%) blur(0.5px);
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,.02) inset,
-    0 10px 24px rgba(0,0,0,.22);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset;
 }
 
-/* Label kecil, rapih, uppercase */
+/* label kecil, jelas */
 .card-current .metric-callout .metric-label,
 .card-next .metric-callout .metric-label{
-  font-size: clamp(.85rem, .95vw, 1rem);
+  font-size: clamp(.80rem, .90vw, .95rem);
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--muted);
-  opacity: .95;
 }
 
-/* Angka bener2 besar & tebal */
+/* angka cukup besar tapi tidak berlebihan */
 .card-current .metric-callout .metric-value,
 .card-next .metric-callout .metric-value{
-  font-size: clamp(2.4rem, 5.6vw, 3.9rem);
-  line-height: 1.05;
-  font-weight: 900;
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  line-height: 1.1;
+  font-weight: 800;
   letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   color: var(--text-strong);
-  text-shadow: 0 2px 10px rgba(0,0,0,.25);
 }
 
-/* Gradien lebih kuat buat "Current" (biru) */
+/* gradien sedikit lebih kuat agar kontras, tapi tetap subtle */
 .card-current .metric-order{
   background: linear-gradient(
     90deg,
-    color-mix(in oklab, var(--curr-accent) 48%, transparent),
-    transparent 70%
+    color-mix(in oklab, var(--curr-accent) 36%, transparent),
+    transparent 65%
   );
 }
 .card-current .metric-completed{
   background: linear-gradient(
     90deg,
-    color-mix(in oklab, var(--curr-accent) 40%, transparent),
-    transparent 70%
+    color-mix(in oklab, var(--curr-accent) 30%, transparent),
+    transparent 65%
   );
 }
 .card-current .metric-balance{
   background: linear-gradient(
     90deg,
-    color-mix(in oklab, var(--curr-accent) 32%, transparent),
-    transparent 70%
+    color-mix(in oklab, var(--curr-accent) 24%, transparent),
+    transparent 65%
   );
 }
 
-/* Sedikit ruang untuk progress bar supaya gak “ngalah” */
-.qty-progress.big .bar{ height: 16px; }
+/* progress tetap kebaca */
+.qty-progress.big .bar{ height: 14px; }
 .qty-progress.big .val{
-  font-weight: 900;
-  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  font-weight: 800;
+  font-size: clamp(.9rem, 1.1vw, 1rem);
 }
