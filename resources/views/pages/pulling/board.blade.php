@@ -310,11 +310,19 @@
                         @endphp
                         <div class="tile-square radius-4">
                             <div class="bk number js-backno">{{ $bk }}</div>
+
                             <div class="small text-secondary">{{ $cust }}</div>
-                            <div class="meta-row">
+
+                            <div class="meta-row mt-1">
                                 <span class="tag">Dock</span><span>{{ $dock }}</span>
                             </div>
-                            <div class="ord number">{{ number_format($ord) }}</div>
+
+                            <div></div> {{-- spacer biar ORDER nempel bawah --}}
+
+                            <div class="next-order-pill mt-2">
+                                <div class="label">ORDER</div>
+                                <div class="value number">{{ number_format($ord) }}</div>
+                            </div>
                         </div>
                     @empty
                         <div class="text-muted">Tidak ada data berikutnya.</div>
