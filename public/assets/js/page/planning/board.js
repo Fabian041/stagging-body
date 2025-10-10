@@ -32,3 +32,19 @@
     if (alias) el.textContent = alias;
   });
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+    const row = document.getElementById('npRow');
+    const prev = document.getElementById('npPrev');
+    const next = document.getElementById('npNext');
+    if (!row || !prev || !next) return;
+
+    const getStep = () => {
+      const card = row.querySelector('.tile-square');
+      const w = card ? card.getBoundingClientRect().width : 280;
+      return Math.max(200, Math.min(w + 16, 420)); // kira-kira 1 kartu
+    };
+
+    prev.addEventListener('click', () => row.scrollBy({ left: -getStep(), behavior: 'smooth' }));
+    next.addEventListener('click', () => row.scrollBy({ left:  getStep(), behavior: 'smooth' }));
+  });

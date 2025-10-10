@@ -93,3 +93,40 @@ body{background:var(--bg);color:var(--fg);}
 .tile-square { background:#161b20; border:1px solid #2a323b; padding:1rem; min-height:170px; display:flex; flex-direction:column; justify-content:space-between; }
 .tile-square .bk { font-size:1.8rem; font-weight:800; }
 .tile-square .ord { font-size:1.2rem; }
+
+
+/* === horizontal list (Next Production) === */
+.next-row-wrap{
+  position: relative;
+}
+
+.tile-grid#npRow{
+  display: flex;
+  gap: clamp(.75rem, 1.2vw, 1rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: .25rem 0 .5rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.tile-grid#npRow .tile-square{
+  flex: 0 0 auto;
+  min-width: clamp(220px, 22vw, 320px);
+  max-width: 90vw;
+  height: clamp(120px, 18vw, 170px);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* scrollbar yang tipis */
+.tile-grid#npRow::-webkit-scrollbar{ height: 8px; }
+.tile-grid#npRow::-webkit-scrollbar-track{ background: rgba(255,255,255,.06); border-radius: 8px; }
+.tile-grid#npRow::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.18); border-radius: 8px; }
+
+/* tombol prev/next */
+.hscroll-nav .btn{
+  padding: .25rem .6rem;
+  line-height: 1;
+}

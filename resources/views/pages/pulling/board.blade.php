@@ -27,7 +27,18 @@
         }
 
         .board-container {
-            max-width: 1600px
+            max-width: none;
+            /* full-bleed */
+            padding-inline: clamp(8px, 1.2vw, 16px);
+            /* tepi dinamis: 8–16px */
+        }
+
+        @media (min-width: 1400px) {
+            .row.g-4 {
+                --bs-gutter-x: 1.25rem;
+            }
+
+            /* default ~1.5rem, ini sedikit lebih rapat */
         }
 
         .card-current,
@@ -91,20 +102,16 @@
             font-weight: 800
         }
 
-        /* variasi intensitas supaya bertingkat */
         .metric-order {
-            background: linear-gradient(90deg,
-                    color-mix(in oklab, var(--curr-accent) 30%, transparent), transparent);
+            background: linear-gradient(90deg, color-mix(in oklab, var(--curr-accent) 30%, transparent), transparent);
         }
 
         .metric-completed {
-            background: linear-gradient(90deg,
-                    color-mix(in oklab, var(--curr-accent) 22%, transparent), transparent);
+            background: linear-gradient(90deg, color-mix(in oklab, var(--curr-accent) 22%, transparent), transparent);
         }
 
         .metric-balance {
-            background: linear-gradient(90deg,
-                    color-mix(in oklab, var(--curr-accent) 14%, transparent), transparent);
+            background: linear-gradient(90deg, color-mix(in oklab, var(--curr-accent) 14%, transparent), transparent);
         }
 
         .qty-progress.big .bar {
@@ -115,16 +122,9 @@
             font-weight: 800
         }
 
-        @media (min-width:1200px) {
-            .col-xl-3 {
-                flex: 0 0 auto;
-                width: 25%
-            }
-
-            .col-xl-6 {
-                flex: 0 0 auto;
-                width: 50%
-            }
+        /* Badge jam biar konsisten dengan date-pill */
+        .time-pill {
+            font-variant-numeric: tabular-nums
         }
     </style>
 </head>
@@ -144,7 +144,6 @@
     $curDone = max(0, $curDP + $curSC);
     $curPct = $curOrder ? min(100, round(($curDP / $curOrder) * 100)) : 0; // DP/Order
     $curStart = $cur['start'] ?? '--';
-    $curNote = $cur['progress_note'] ?? 'Back no detail information';
     $curBalance = max(0, $curOrder - $curDone);
 
     $prog = $progress ?? [];
@@ -166,19 +165,19 @@
 @endphp
 
 <body>
-    <div class="container-xxl px-3 py-4 board-container">
+    <div class="container-fluid px-2 px-lg-3 py-4 board-container">
 
-        {{-- HEADER --}}
+        {{-- HEADER: Running time (kiri) & date (kanan) --}}
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="fw-bold m-0">Current Production</h2>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge date-pill"><span id="boardDate">{{ $nowStr }}</span></span>
-            </div>
+            <span class="badge date-pill time-pill">
+                <span id="rt-hms">00:00:00</span>
+            </span>
+            <span class="badge date-pill"><span id="boardDate">{{ $nowStr }}</span></span>
         </div>
 
         <div class="row g-4">
             {{-- LEFT: PROGRESS --}}
-            <div class="col-12 col-xl-3">
+            <div class="col-12 col-xl-3 col-xxl-2">
                 <div class="card tile radius-4 h-100">
                     <div class="card-header d-flex align-items-center gap-2">
                         <strong>Progress</strong>
@@ -205,8 +204,11 @@
             </div>
 
             {{-- CENTER: CURRENT (besar + biru) --}}
-            <div class="col-12 col-xl-6">
+            <div class="col-12 col-xl-6 col-xxl-8">
                 <div class="card tile radius-4 h-100 card-current">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <strong>Current Production</strong>
+                    </div>
                     <div class="card-body">
                         <div class="current-block">
                             <div class="current-title">BACK NUMBER</div>
@@ -226,7 +228,7 @@
                                 <div class="metric-value number">{{ number_format($curOrder) }}</div>
                             </div>
 
-                            <!-- COMPLETED (tanpa 'DP+SC') -->
+                            <!-- COMPLETED -->
                             <div class="metric-callout metric-completed mt-3" title="Completed">
                                 <div class="metric-label">COMPLETED</div>
                                 <div class="metric-value number">{{ number_format($curDone) }}</div>
@@ -240,23 +242,23 @@
                                 </div>
                             </div>
 
-                            <!-- Progress DP/Order (tetap) -->
+                            <!-- Progress DP/Order -->
                             <div class="qty-progress big mt-3" title="DP {{ $curDP }} / {{ $curOrder }}">
                                 <div class="bar"><i style="width: {{ $curPct }}%"></i></div>
                                 <span class="val number">{{ $curPct }}%</span>
                             </div>
 
-                            <div class="note-tile mt-3">{{ $curNote }}</div>
+                            <!-- Note tile dihapus sesuai request -->
                         </div>
                     </div>
                 </div>
             </div>
 
             {{-- RIGHT: NEXT (besar + hijau) --}}
-            <div class="col-12 col-xl-3">
+            <div class="col-12 col-xl-3 col-xxl-2">
                 <div class="card tile radius-4 h-100 card-next">
                     <div class="card-header d-flex align-items-center gap-2">
-                        <strong>Next Prod</strong>
+                        <strong>Next Production</strong>
                     </div>
                     <div class="card-body d-flex flex-column justify-content-between">
                         <div>
@@ -283,35 +285,41 @@
             </div>
         </div>
 
-        {{-- LIST: NEXT PRODUCTION --}}
+        {{-- LIST: NEXT PRODUCTION (horizontal) --}}
         <div class="mt-4">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <h5 class="m-0 text-secondary">Next Production list</h5>
-                <div class="d-flex gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm hscroll-nav" role="group" aria-label="nav">
+                        <button class="btn btn-outline-secondary" id="npPrev">‹</button>
+                        <button class="btn btn-outline-secondary" id="npNext">›</button>
+                    </div>
                     <a class="btn btn-outline-secondary btn-sm" href="/pulling">Go to Table</a>
                     <button id="btn-download-excel" class="btn btn-outline-success btn-sm">Export</button>
                 </div>
             </div>
 
-            <div class="tile-grid">
-                @forelse($nextList as $row)
-                    @php
-                        $bk = $row['back_no'] ?? '—';
-                        $cust = $row['customer'] ?? '—';
-                        $dock = $row['dock'] ?? '—';
-                        $ord = (int) ($row['order_qty'] ?? 0);
-                    @endphp
-                    <div class="tile-square radius-4">
-                        <div class="bk number js-backno">{{ $bk }}</div>
-                        <div class="small text-secondary">{{ $cust }}</div>
-                        <div class="meta-row">
-                            <span class="tag">Dock</span><span>{{ $dock }}</span>
+            <div class="next-row-wrap">
+                <div class="tile-grid" id="npRow">
+                    @forelse($nextList as $row)
+                        @php
+                            $bk = $row['back_no'] ?? '—';
+                            $cust = $row['customer'] ?? '—';
+                            $dock = $row['dock'] ?? '—';
+                            $ord = (int) ($row['order_qty'] ?? 0);
+                        @endphp
+                        <div class="tile-square radius-4">
+                            <div class="bk number js-backno">{{ $bk }}</div>
+                            <div class="small text-secondary">{{ $cust }}</div>
+                            <div class="meta-row">
+                                <span class="tag">Dock</span><span>{{ $dock }}</span>
+                            </div>
+                            <div class="ord number">{{ number_format($ord) }}</div>
                         </div>
-                        <div class="ord number">{{ number_format($ord) }}</div>
-                    </div>
-                @empty
-                    <div class="text-muted">Tidak ada data berikutnya.</div>
-                @endforelse
+                    @empty
+                        <div class="text-muted">Tidak ada data berikutnya.</div>
+                    @endforelse
+                </div>
             </div>
         </div>
 
@@ -321,7 +329,24 @@
     <script defer src="{{ asset('assets/js/planning/board.js') }}"></script>
 
     <script>
-        // alias Back No (opsional, mengikuti mapping dari halaman tabel)
+        // Running time badge (HH:MM:SS)
+        (function clock() {
+            const el = document.getElementById('rt-hms');
+
+            function pad(n) {
+                return String(n).padStart(2, '0');
+            }
+
+            function tick() {
+                const now = new Date();
+                const t = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                if (el) el.textContent = t;
+            }
+            tick();
+            setInterval(tick, 1000);
+        })();
+
+        // Alias Back No (mengikuti mapping dari halaman tabel)
         document.addEventListener('DOMContentLoaded', function() {
             const map = (() => {
                 try {
