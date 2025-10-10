@@ -125,20 +125,26 @@ body{background:var(--bg);color:var(--fg);}
 }
 
 /* ORDER highlight (green, same tone as Next) */
+/* ORDER pill (Next list) — full width */
 .next-order-pill{
+  box-sizing: border-box;
   display: flex;
-  align-items: baseline;
+  width: 100%;
+  flex: 0 0 100%;
+  align-items: center;                /* was baseline */
   justify-content: space-between;
   gap: .75rem;
-  padding: .9rem 1rem;
-  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
   background: linear-gradient(
     90deg,
-    color-mix(in oklab, var(--next-accent) 30%, transparent),
-    color-mix(in oklab, var(--next-accent) 10%, transparent)
+    color-mix(in oklab, var(--next-accent) 38%, transparent),
+    color-mix(in oklab, var(--next-accent) 12%, transparent) 60%
   );
   border: 1px solid color-mix(in oklab, var(--next-accent) 25%, var(--tile-border));
 }
+
+
 .next-order-pill .label{
   font-weight: 700;
   letter-spacing: .02em;
@@ -172,41 +178,3 @@ html, body { height: auto; overflow-y: auto; }
   left: 0; right: 0; bottom: 0;
   margin-top: 10px;
 }
-
-/* --- Next list: ORDER full width --- */
-.np-card {
-  padding: 14px 16px 18px;
-}
-
-.np-card .np-order,
-.np-card .metric-callout.np-order {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;                /* penuh */
-  min-height: 86px;
-  border-radius: 16px;
-  padding: 14px 18px;
-  margin-top: 12px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--next-accent) 38%, transparent),
-    color-mix(in oklab, var(--next-accent) 12%, transparent) 60%
-  );
-  border: 1px solid var(--tile-border);
-}
-
-.np-card .np-order .metric-label {
-  font-weight: 700;
-  letter-spacing: .04em;
-  opacity: .9;
-}
-
-.np-card .np-order .metric-value {
-  font-weight: 900;
-  font-size: clamp(1.8rem, 4vw, 3.2rem); /* dibesarin */
-  line-height: 1;
-}
-
-/* jika sebelumnya ada pill yg membatasi lebar, force penuh */
-.np-card .order-pill { width: 100% !important; }
