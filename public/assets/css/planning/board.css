@@ -233,26 +233,33 @@ html, body { height: auto; overflow-y: auto; }
   font-size: clamp(.9rem, 1.1vw, 1rem);
 }
 
-/* Wrapper memotong area scrollbar */
+/* ===== FORCE HIDE SCROLLBAR di Next Production list ===== */
 .next-row-wrap{
   position: relative;
-  overflow: hidden;              /* track scrollbar ketutup wrapper */
+  overflow: hidden;                 /* track scrollbar ketutup wrapper */
 }
 
-/* Elemen yang nge-scroll */
-#npRow{
+.next-row-wrap .np-scroll{
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;         /* Firefox */
-  -ms-overflow-style: none;      /* IE/Edge legacy */
 
-  /* trik universal: geser scrollbar "turun" agar ketutup wrapper */
-  padding-bottom: 22px;          /* ruang dummy setebal scrollbar */
-  margin-bottom: -22px;          /* tarik balik supaya konten tetap rapi */
+  /* Firefox & IE/legacy Edge */
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+
+  /* Trik universal: geser bar ke bawah lalu ditutup wrapper */
+  --sb: 24px;                       /* tinggi scrollbar tipikal Windows */
+  padding-bottom: var(--sb);
+  margin-bottom: calc(var(--sb) * -1);
 }
 
-/* Chrome/Safari/Edge (Chromium) */
-#npRow::-webkit-scrollbar{
-  height: 0;                     /* sembunyikan bar */
-  width: 0;
+/* Chrome/Edge/Safari (WebKit/Blink) */
+.next-row-wrap .np-scroll::-webkit-scrollbar{
+  width: 0 !important;
+  height: 0 !important;
+}
+.next-row-wrap .np-scroll::-webkit-scrollbar-thumb,
+.next-row-wrap .np-scroll::-webkit-scrollbar-track{
+  background: transparent !important;
 }
