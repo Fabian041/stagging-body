@@ -309,9 +309,9 @@
 
                             <div></div> {{-- spacer biar ORDER nempel bawah --}}
 
-                            <div class="next-order-pill mt-2">
-                                <div class="label">ORDER</div>
-                                <div class="value number">{{ number_format($ord) }}</div>
+                            <div class="np-order metric-callout">
+                                <div class="metric-label">ORDER</div>
+                                <div class="metric-value number">{{ number_format($ord) }}</div>
                             </div>
                         </div>
                     @empty
