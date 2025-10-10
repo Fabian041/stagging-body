@@ -306,3 +306,13 @@ html, body { height: auto; overflow-y: auto; }
   pointer-events: none;           /* biar event scroll tetap tembus */
 }
 
+/* drag-to-scroll UX */
+.next-row-wrap .np-scroll{
+  cursor: grab;
+  /* biar di touch device tetap bisa scroll vertikal halaman */
+  touch-action: pan-y;
+}
+.next-row-wrap .np-scroll.is-dragging{
+  cursor: grabbing;
+  user-select: none;
+}

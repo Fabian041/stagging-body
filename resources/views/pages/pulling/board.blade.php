@@ -649,6 +649,82 @@
             document.addEventListener('DOMContentLoaded', refreshBoard);
         })();
     </script>
+    <script>
+        // Drag-to-scroll untuk semua container .np-scroll
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.np-scroll').forEach(sc => {
+                let isDown = false,
+                    lastX = 0,
+                    vel = 0,
+                    raf = 0,
+                    dragged = false;
+
+                const stopMomentum = () => {
+                    if (raf) cancelAnimationFrame(raf);
+                    raf = 0;
+                };
+                const momentum = () => {
+                    stopMomentum();
+                    let v = vel; // px per frame (dari gerakan terakhir)
+                    const step = () => {
+                        if (Math.abs(v) < 0.1) return; // selesai
+                        sc.scrollLeft -= v; // terusin arah gerak
+                        v *= 0.95; // friction / pelan-pelan berhenti
+                        raf = requestAnimationFrame(step);
+                    };
+                    step();
+                };
+
+                sc.addEventListener('pointerdown', e => {
+                    // hanya tombol kiri mouse (kalau ada info button)
+                    if (e.button !== undefined && e.button !== 0) return;
+                    isDown = true;
+                    dragged = false;
+                    vel = 0;
+                    lastX = e.clientX;
+                    sc.classList.add('is-dragging');
+                    sc.setPointerCapture?.(e.pointerId);
+                    stopMomentum();
+                    e.preventDefault(); // cegah text selection
+                });
+
+                sc.addEventListener('pointermove', e => {
+                    if (!isDown) return;
+                    const x = e.clientX;
+                    const dx = x - lastX;
+                    if (dx !== 0) {
+                        sc.scrollLeft -= dx; // drag kanan => scroll kiri
+                        vel = dx; // simpan kecepatan terakhir
+                        lastX = x;
+                        if (Math.abs(dx) > 3) dragged = true;
+                    }
+                });
+
+                const end = () => {
+                    if (!isDown) return;
+                    isDown = false;
+                    sc.classList.remove('is-dragging');
+                    if (Math.abs(vel) > 0.5) momentum();
+                    setTimeout(() => {
+                        dragged = false;
+                    }, 0);
+                };
+
+                sc.addEventListener('pointerup', end);
+                sc.addEventListener('pointercancel', end);
+                sc.addEventListener('pointerleave', end);
+
+                // tahan klik setelah drag supaya nggak nge-trigger klik di dalam kartu
+                sc.addEventListener('click', e => {
+                    if (dragged) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }, true);
+            });
+        });
+    </script>
+
 </body>
 
 </html>
