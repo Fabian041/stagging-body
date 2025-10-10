@@ -115,6 +115,7 @@
             font-weight: 800
         }
 
+        /* Next list */
         .np-section .tile-grid {
             display: flex;
             gap: 12px;
@@ -253,8 +254,8 @@
 
                 <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="tab-{{ $L }}"
                     role="tabpanel" data-line="{{ $L }}">
-
                     <div class="row g-4">
+
                         {{-- LEFT: PROGRESS --}}
                         <div class="col-12 col-xl-3 col-xxl-2">
                             <div class="card tile radius-4 h-100">
@@ -316,13 +317,11 @@
                                             <div class="metric-value number" data-role="curr-order">
                                                 {{ number_format($curOrder) }}</div>
                                         </div>
-
                                         <div class="metric-callout metric-completed mt-3" title="Completed">
                                             <div class="metric-label">COMPLETED</div>
                                             <div class="metric-value number" data-role="curr-done">
                                                 {{ number_format($curDone) }}</div>
                                         </div>
-
                                         <div class="metric-callout metric-balance mt-3" title="Balance">
                                             <div class="metric-label">BALANCE</div>
                                             <div class="metric-value number {{ $curBalance <= 0 ? 'text-success' : '' }}"
@@ -377,7 +376,7 @@
                         </div>
                     </div>
 
-                    {{-- NEXT PRODUCTION LIST (horizontal) --}}
+                    {{-- NEXT PRODUCTION LIST --}}
                     <div class="mt-4 np-section">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h5 class="m-0 text-secondary">Next Production list</h5>
@@ -393,9 +392,8 @@
                                     @endphp
                                     <div class="tile-square radius-4">
                                         <div class="bk number js-backno">{{ $bk }}</div>
-                                        <div class="meta-row mt-1">
-                                            <span class="tag">Dock</span><span>{{ $dock }}</span>
-                                        </div>
+                                        <div class="meta-row mt-1"><span
+                                                class="tag">Dock</span><span>{{ $dock }}</span></div>
                                         <div></div>
                                         <div class="next-order-pill mt-2">
                                             <div class="label">ORDER</div>
@@ -408,7 +406,6 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
             @endforeach
         </div>
@@ -432,7 +429,7 @@
             setInterval(tick, 1000);
         })();
 
-        // Theme toggle (opsional; siapkan #themeToggle kalau mau)
+        // Theme toggle (opsional)
         (() => {
             const html = document.documentElement;
             const btn = document.getElementById('themeToggle');
@@ -451,7 +448,7 @@
             });
         })();
 
-        // Alias Back No (sinkron dengan halaman tabel)
+        // Alias Back No
         function applyBacknoAlias(root = document) {
             let map = {};
             try {
@@ -470,7 +467,7 @@
         }
         document.addEventListener('DOMContentLoaded', () => applyBacknoAlias());
 
-        // Horizontal scroll untuk list
+        // Wheel → horizontal scroll
         document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.np-scroll').forEach(sc => {
                 sc.addEventListener('wheel', (e) => {
@@ -489,12 +486,18 @@
                 });
             });
         });
+    </script>
 
-        // ===== SSE Hook (pakai channel yang sama dengan halaman prodplan) =====
+    <!-- ====== SSE Hook (versi update) ====== -->
+    <script>
         (function boardLiveSSE() {
             const dateISO = @json($selectedDate ?? now()->format('Y-m-d'));
+            const DEBUG = false;
+            const log = (...a) => {
+                if (DEBUG) console.debug('[board-sse]', ...a);
+            };
 
-            // Debounce utility
+            // --- debounce ---
             function debounce(fn, wait) {
                 let t = null;
                 return function() {
@@ -503,12 +506,12 @@
                 };
             }
 
-            // Update DOM satu line
+            // --- Update DOM satu line (tetap sama seperti punyamu) ---
             function updateLine(lineKey, payload) {
                 const tab = document.querySelector(`[data-line="${lineKey}"]`);
                 if (!tab) return;
 
-                // ---- Progress
+                // Progress
                 const pg = payload.progress || {};
                 const pgOrder = +pg.order || 0;
                 const pgActual = +pg.actual || 0;
@@ -517,14 +520,15 @@
 
                 tab.querySelector('[data-role="prog-label"]')?.replaceChildren(document.createTextNode(
                     `(${pg.label||''})`));
-                tab.querySelector('[data-role="prog-order"]') && (tab.querySelector('[data-role="prog-order"]')
-                    .textContent = pgOrder.toLocaleString('id-ID'));
-                tab.querySelector('[data-role="prog-actual"]') && (tab.querySelector('[data-role="prog-actual"]')
-                    .textContent = pgActual.toLocaleString('id-ID'));
-                tab.querySelector('[data-role="prog-pct"]') && (tab.querySelector('[data-role="prog-pct"]')
-                    .textContent = pgPct + '%');
-                tab.querySelector('[data-role="prog-bar"]') && (tab.querySelector('[data-role="prog-bar"]').style
-                    .width = pgPct + '%');
+                const setTxt = (sel, v) => {
+                    const el = tab.querySelector(sel);
+                    if (el) el.textContent = v;
+                };
+                setTxt('[data-role="prog-order"]', pgOrder.toLocaleString('id-ID'));
+                setTxt('[data-role="prog-actual"]', pgActual.toLocaleString('id-ID'));
+                setTxt('[data-role="prog-pct"]', pgPct + '%');
+                const pgBar = tab.querySelector('[data-role="prog-bar"]');
+                if (pgBar) pgBar.style.width = pgPct + '%';
 
                 const badge = tab.querySelector('[data-role="prog-status"]');
                 if (badge) {
@@ -534,24 +538,19 @@
                         'bg-success-subtle');
                 }
 
-                // ---- Current
+                // Current
                 const cur = payload.current || {};
                 const cOrder = +cur.order_qty || 0;
                 const cDone = (+cur.dp || 0) + (+cur.sc || 0);
-                const cPct = cOrder ? Math.min(100, Math.round(((+cur.dp || 0) / cOrder) * 100)) : 0;
+                const cPct = cOrder ? Math.min(100, Math.round((+cur.dp || 0) / cOrder * 100)) : 0;
                 const cBal = Math.max(0, cOrder - cDone);
 
-                const set = (sel, v) => {
-                    const el = tab.querySelector(sel);
-                    if (el) el.textContent = v;
-                };
-
-                set('[data-role="curr-backno"]', cur.back_no || '—');
-                set('[data-role="curr-customer"]', cur.customer || '—');
-                set('[data-role="curr-dock"]', cur.dock || '—');
-                set('[data-role="curr-start"]', cur.start || '--');
-                set('[data-role="curr-order"]', cOrder.toLocaleString('id-ID'));
-                set('[data-role="curr-done"]', cDone.toLocaleString('id-ID'));
+                setTxt('[data-role="curr-backno"]', cur.back_no || '—');
+                setTxt('[data-role="curr-customer"]', cur.customer || '—');
+                setTxt('[data-role="curr-dock"]', cur.dock || '—');
+                setTxt('[data-role="curr-start"]', cur.start || '--');
+                setTxt('[data-role="curr-order"]', cOrder.toLocaleString('id-ID'));
+                setTxt('[data-role="curr-done"]', cDone.toLocaleString('id-ID'));
                 const balEl = tab.querySelector('[data-role="curr-balance"]');
                 if (balEl) {
                     if (cBal <= 0) {
@@ -562,21 +561,20 @@
                         balEl.classList.remove('text-success');
                     }
                 }
-                tab.querySelector('[data-role="curr-bar"]') && (tab.querySelector('[data-role="curr-bar"]').style
-                    .width = cPct + '%');
-                tab.querySelector('[data-role="curr-pct"]') && (tab.querySelector('[data-role="curr-pct"]')
-                    .textContent = cPct + '%');
+                const cBar = tab.querySelector('[data-role="curr-bar"]');
+                if (cBar) cBar.style.width = cPct + '%';
+                setTxt('[data-role="curr-pct"]', cPct + '%');
 
-                // ---- Next card
+                // Next card
                 const nx = payload.nextHighlight || {};
-                set('[data-role="next-backno"]', nx.back_no || '—');
-                set('[data-role="next-customer"]', nx.customer || '—');
-                set('[data-role="next-dock"]', nx.dock || '—');
-                set('[data-role="next-time"]', nx.delivery_time || '--');
-                set('[data-role="next-date"]', nx.delivery_date || '');
-                set('[data-role="next-order"]', (+nx.order_qty || 0).toLocaleString('id-ID'));
+                setTxt('[data-role="next-backno"]', nx.back_no || '—');
+                setTxt('[data-role="next-customer"]', nx.customer || '—');
+                setTxt('[data-role="next-dock"]', nx.dock || '—');
+                setTxt('[data-role="next-time"]', nx.delivery_time || '--');
+                setTxt('[data-role="next-date"]', nx.delivery_date || '');
+                setTxt('[data-role="next-order"]', (+nx.order_qty || 0).toLocaleString('id-ID'));
 
-                // ---- Next list
+                // Next list
                 const listWrap = tab.querySelector('[data-role="next-list"]');
                 if (listWrap) {
                     listWrap.innerHTML = '';
@@ -603,12 +601,10 @@
                         applyBacknoAlias(listWrap);
                     }
                 }
-
-                // Alias untuk backno yang baru di-inject
                 applyBacknoAlias(tab);
             }
 
-            // Fetch state JSON dari server lalu apply
+            // Fetch state JSON & apply
             const refreshBoard = debounce(function() {
                 fetch(`/pulling/board/state?date=${encodeURIComponent(dateISO)}`, {
                         cache: 'no-store'
@@ -616,24 +612,35 @@
                     .then(r => r.ok ? r.json() : Promise.reject(r.status))
                     .then(data => {
                         const boards = data.boards || {};
-                        ['AS003', 'AS004'].forEach(L => {
-                            if (boards[L]) updateLine(L, boards[L]);
-                        });
+                        ['AS003', 'AS004'].forEach(L => boards[L] && updateLine(L, boards[L]));
+                        log('refreshed');
                     })
-                    .catch(() => {
-                        /* diamkan saja */
-                    });
-            }, 500);
+                    .catch(err => log('refresh error', err));
+            }, 350);
 
-            // Buka SSE ke channel yang sama dipakai halaman prodplan
+            // EventSource
             let es;
             try {
                 es = new EventSource(`/stream/direct-pulling-updates?date=${encodeURIComponent(dateISO)}`);
-                es.addEventListener('connected', refreshBoard);
-                es.addEventListener('refetched', refreshBoard);
-                es.addEventListener('directPullingUpdate', refreshBoard);
-                es.onerror = () => {
-                    /* koneksi putus → biarkan EventSource auto-reconnect */
+
+                es.onopen = () => {
+                    log('open');
+                    refreshBoard();
+                };
+                es.onmessage = (e) => {
+                    log('message', e.data);
+                    refreshBoard();
+                };
+
+                ['connected', 'refetching', 'refetched', 'directPullingUpdate', 'ping'].forEach(name => {
+                    es.addEventListener(name, (e) => {
+                        log(name, e.data);
+                        refreshBoard();
+                    });
+                });
+
+                es.onerror = (e) => {
+                    log('error', e); /* biarkan auto-reconnect */
                 };
                 window.addEventListener('beforeunload', () => {
                     try {
@@ -641,16 +648,20 @@
                     } catch {}
                 });
             } catch (e) {
-                // fallback: polling ringan tiap 10s kalau SSE gagal
-                setInterval(refreshBoard, 10000);
+                log('EventSource construct fail', e);
             }
 
-            // Render pertama (jaga-jaga)
-            document.addEventListener('DOMContentLoaded', refreshBoard);
+            // Safety nets
+            setInterval(refreshBoard, 15000); // polling ringan
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) refreshBoard(); // balik fokus → refresh
+            });
+            document.addEventListener('DOMContentLoaded', refreshBoard); // render awal
         })();
     </script>
+
+    <!-- Drag-to-scroll momentum -->
     <script>
-        // Drag-to-scroll untuk semua container .np-scroll
         document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.np-scroll').forEach(sc => {
                 let isDown = false,
@@ -658,25 +669,23 @@
                     vel = 0,
                     raf = 0,
                     dragged = false;
-
                 const stopMomentum = () => {
                     if (raf) cancelAnimationFrame(raf);
                     raf = 0;
                 };
                 const momentum = () => {
                     stopMomentum();
-                    let v = vel; // px per frame (dari gerakan terakhir)
+                    let v = vel;
                     const step = () => {
-                        if (Math.abs(v) < 0.1) return; // selesai
-                        sc.scrollLeft -= v; // terusin arah gerak
-                        v *= 0.95; // friction / pelan-pelan berhenti
+                        if (Math.abs(v) < 0.1) return;
+                        sc.scrollLeft -= v;
+                        v *= 0.95;
                         raf = requestAnimationFrame(step);
                     };
                     step();
                 };
 
                 sc.addEventListener('pointerdown', e => {
-                    // hanya tombol kiri mouse (kalau ada info button)
                     if (e.button !== undefined && e.button !== 0) return;
                     isDown = true;
                     dragged = false;
@@ -685,36 +694,29 @@
                     sc.classList.add('is-dragging');
                     sc.setPointerCapture?.(e.pointerId);
                     stopMomentum();
-                    e.preventDefault(); // cegah text selection
+                    e.preventDefault();
                 });
-
                 sc.addEventListener('pointermove', e => {
                     if (!isDown) return;
-                    const x = e.clientX;
-                    const dx = x - lastX;
+                    const x = e.clientX,
+                        dx = x - lastX;
                     if (dx !== 0) {
-                        sc.scrollLeft -= dx; // drag kanan => scroll kiri
-                        vel = dx; // simpan kecepatan terakhir
+                        sc.scrollLeft -= dx;
+                        vel = dx;
                         lastX = x;
                         if (Math.abs(dx) > 3) dragged = true;
                     }
                 });
-
                 const end = () => {
                     if (!isDown) return;
                     isDown = false;
                     sc.classList.remove('is-dragging');
                     if (Math.abs(vel) > 0.5) momentum();
-                    setTimeout(() => {
-                        dragged = false;
-                    }, 0);
+                    setTimeout(() => dragged = false, 0);
                 };
-
                 sc.addEventListener('pointerup', end);
                 sc.addEventListener('pointercancel', end);
                 sc.addEventListener('pointerleave', end);
-
-                // tahan klik setelah drag supaya nggak nge-trigger klik di dalam kartu
                 sc.addEventListener('click', e => {
                     if (dragged) {
                         e.preventDefault();
@@ -724,7 +726,6 @@
             });
         });
     </script>
-
 </body>
 
 </html>
