@@ -289,14 +289,6 @@
         <div class="mt-4">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <h5 class="m-0 text-secondary">Next Production list</h5>
-                <div class="d-flex align-items-center gap-2">
-                    <div class="btn-group btn-group-sm hscroll-nav" role="group" aria-label="nav">
-                        <button class="btn btn-outline-secondary" id="npPrev">‹</button>
-                        <button class="btn btn-outline-secondary" id="npNext">›</button>
-                    </div>
-                    <a class="btn btn-outline-secondary btn-sm" href="/pulling">Go to Table</a>
-                    <button id="btn-download-excel" class="btn btn-outline-success btn-sm">Export</button>
-                </div>
             </div>
 
             <div class="next-row-wrap">
