@@ -124,19 +124,21 @@ body{background:var(--bg);color:var(--fg);}
   line-height: 1.15;
 }
 
-/* isi full lebar card-body (tanpa sisa padding kanan/kiri) */
 .next-order-pill{
-  --pad-x: var(--bs-card-spacer-x, 1.25rem); /* fallback 1.25rem, sesuaikan kalau beda */
+  /* samakan dengan padding .card-body di tempat kamu */
+  --pad-x: 1rem;
 
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
 
-  /* tetap nyaman di dalam, tapi melebar keluar padding parent */
   padding: .9rem 1rem;
-  width: calc(100% + (var(--pad-x) * 2));
-  margin-inline: calc(var(--pad-x) * -1);   /* -padding kiri/kanan parent */
+
+  /* trik full-bleed tanpa hitung width */
+  margin-left:  calc(-1 * var(--pad-x));
+  margin-right: calc(-1 * var(--pad-x));
+  width: auto;
 
   border-radius: 14px;
   background: linear-gradient(
@@ -145,8 +147,9 @@ body{background:var(--bg);color:var(--fg);}
     color-mix(in oklab, var(--next-accent) 10%, transparent)
   );
   border: 1px solid color-mix(in oklab, var(--next-accent) 25%, var(--tile-border));
-  box-sizing: border-box; /* jaga perhitungan width */
+  box-sizing: border-box;
 }
+
 
 .next-order-pill .label{
   font-weight: 700;
