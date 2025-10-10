@@ -124,26 +124,29 @@ body{background:var(--bg);color:var(--fg);}
   line-height: 1.15;
 }
 
-/* ORDER highlight (green, same tone as Next) */
-/* ORDER pill (Next list) — full width */
+/* isi full lebar card-body (tanpa sisa padding kanan/kiri) */
 .next-order-pill{
-  box-sizing: border-box;
+  --pad-x: var(--bs-card-spacer-x, 1.25rem); /* fallback 1.25rem, sesuaikan kalau beda */
+
   display: flex;
-  width: 100%;
-  flex: 0 0 100%;
-  align-items: center;                /* was baseline */
+  align-items: center;
   justify-content: space-between;
   gap: .75rem;
-  padding: 1rem 1.25rem;
-  border-radius: 16px;
+
+  /* tetap nyaman di dalam, tapi melebar keluar padding parent */
+  padding: .9rem 1rem;
+  width: calc(100% + (var(--pad-x) * 2));
+  margin-inline: calc(var(--pad-x) * -1);   /* -padding kiri/kanan parent */
+
+  border-radius: 14px;
   background: linear-gradient(
     90deg,
-    color-mix(in oklab, var(--next-accent) 38%, transparent),
-    color-mix(in oklab, var(--next-accent) 12%, transparent) 60%
+    color-mix(in oklab, var(--next-accent) 30%, transparent),
+    color-mix(in oklab, var(--next-accent) 10%, transparent)
   );
   border: 1px solid color-mix(in oklab, var(--next-accent) 25%, var(--tile-border));
+  box-sizing: border-box; /* jaga perhitungan width */
 }
-
 
 .next-order-pill .label{
   font-weight: 700;
