@@ -452,33 +452,29 @@
             });
         })();
 
-        // --- Total Back No Today ---
-        (() => {
-            // Prefer angka dari payload jika backend sudah kirim
-            let total = +(payload?.daily?.totalBackNo || payload?.totalBackNo || 0);
+        // --- Total Back No Today (from backend, fallback if missing) ---
+        let totalBN = Number(
+            (payload && payload.daily && payload.daily.totalBackNo) ??
+            payload?.totalBackNo ?? 0
+        );
 
-            if (!total) {
-                // Fallback: hitung unik dari current + nextHighlight + nextList
-                const set = new Set();
-                const add = v => {
-                    v = (v || '').toString().trim();
-                    if (v && v !== '—') set.add(v.toUpperCase());
-                };
+        if (!totalBN) {
+            // Fallback: hitung unik dari current + nextHighlight + nextList
+            const seen = new Set();
+            const add = v => {
+                v = (v || '').toString().trim().toUpperCase();
+                if (v && v !== '—') seen.add(v);
+            };
+            const cur = payload.current || {};
+            const nx = payload.nextHighlight || {};
+            add(cur.back_no);
+            add(nx.back_no);
+            (payload.nextList || []).forEach(r => add(r?.back_no));
+            totalBN = seen.size;
+        }
 
-                const cur = payload.current || {};
-                const nx = payload.nextHighlight || {};
-                const arr = Array.isArray(payload.nextList) ? payload.nextList : [];
-
-                add(cur.back_no);
-                add(nx.back_no);
-                arr.forEach(r => add(r?.back_no));
-
-                total = set.size;
-            }
-
-            const el = tab.querySelector('[data-role="prog-total-bn"]');
-            if (el) el.textContent = total.toLocaleString('id-ID');
-        })();
+        const elTotal = tab.querySelector('[data-role="prog-total-bn"]');
+        if (elTotal) elTotal.textContent = totalBN.toLocaleString('id-ID');
 
 
         // Alias Back No
