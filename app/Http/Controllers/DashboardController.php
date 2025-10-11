@@ -258,7 +258,11 @@ class DashboardController extends Controller
      *   progress (shift), current, nextHighlight, nextList
      * - AUTO-ADVANCE: jika current.complete → next naik, list kiri naik ke next
      */
-    private function buildBoardsForDate_(Carbon $selectedDate): array
+    /**
+ * Bangun data board untuk tanggal tertentu.
+ * Return: [$boards, $stamp]
+ */
+    private function buildBoardsForDate_(\Carbon\Carbon $selectedDate): array
     {
         $todayISO = $selectedDate->toDateString();
         $stamp    = now()->format('H:i:s');
@@ -270,10 +274,10 @@ class DashboardController extends Controller
             [$h, $m] = array_map('intval', explode(':', $t));
             return $h * 60 + $m;
         };
-        $nowMin = (int) $toMin($nowHHmm); // <- pakai buat resolveShiftProgress
+        $nowMin = (int) $toMin($nowHHmm); // dipakai di resolveShiftProgress
 
         // Ambil semua rencana hari itu (urut sesuai rencana)
-        $items = ProductionPlan::whereDate('plan_date', $todayISO)
+        $items = \App\Models\ProductionPlan::whereDate('plan_date', $todayISO)
             ->orderBy('working_start')
             ->orderBy('dn_number')
             ->get();
@@ -295,7 +299,7 @@ class DashboardController extends Controller
 
         $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped, $nowMin) {
 
-            // ===== Progress (kartu kiri) — tetap pakai waktu SEKARANG hanya untuk label/status shift
+            // ===== Progress (kartu kiri) — gunakan waktu SEKARANG untuk label/status shift
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
@@ -303,11 +307,18 @@ class DashboardController extends Controller
             $nAct = (int)($g['night_shift_actual']   ?? 0);
 
             [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress(
-                $nowMin,  // <— TIDAK null lagi
+                $nowMin,  // tidak null
                 $mQty, $mAct, $nQty, $nAct
             );
 
             $rows = $rows->values();
+
+            // --- Total unik Back No untuk HARI INI (per line)
+            $uniqBackNo = $rows->pluck('back_no')
+                ->filter(fn ($v) => filled($v))
+                ->map(fn ($v) => strtoupper(trim($v)))
+                ->unique()
+                ->count();
 
             // Helper: cek complete per item (berbasis qty)
             $isComplete = function ($it) {
@@ -356,7 +367,10 @@ class DashboardController extends Controller
                 'order_qty'     => (int)($nh->order_qty ?? 0),
                 'delivery_time' => $nh->delivery_time ?: '--',
                 'delivery_date' => $nh->delivery_date ?: '',
-            ] : ['back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'delivery_time'=>'--','delivery_date'=>''];
+            ] : [
+                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
+                'delivery_time'=>'--','delivery_date'=>''
+            ];
 
             // NEXT list (sisanya setelah highlight)
             $nextList = $nextCandidates->slice(1, 20)->map(function ($it) {
@@ -370,9 +384,6 @@ class DashboardController extends Controller
                 ];
             })->values()->all();
 
-            // Tidak perlu auto-advance manual:
-            // saat dp+sc >= order di DB, current otomatis pindah pada refresh JSON/SSE.
-
             return [
                 'progress' => [
                     'label'  => $shiftLabel,
@@ -380,9 +391,13 @@ class DashboardController extends Controller
                     'actual' => $actualQty,
                     'status' => $status, // S1 / NS / LS1 / LS3
                 ],
-                'current'       => $current,
-                'nextHighlight' => $nextHighlight,
-                'nextList'      => $nextList,
+                'current'        => $current,
+                'nextHighlight'  => $nextHighlight,
+                'nextList'       => $nextList,
+
+                // Tambahan untuk Progress Card:
+                'daily'       => ['totalBackNo' => $uniqBackNo], // utama
+                'totalBackNo' => $uniqBackNo,                    // fallback kompatibel
             ];
         };
 
@@ -393,6 +408,7 @@ class DashboardController extends Controller
 
         return [$boards, $stamp];
     }
+
 
     /** Khusus penyusunan data tabel + KPI shift (delivery-based 09:40 rule) */
     protected function getGroupedData($backNosByLine, $today)
