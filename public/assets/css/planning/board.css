@@ -637,7 +637,7 @@ html, body { height: auto; overflow-y: auto; }
 }
 .kpi-label{
   max-width:100%;
-  font-size:clamp(.68rem, 1.2vw, .82rem);  /* <<< dikecilkan */
+  font-size:clamp(.5rem, 1.2vw, .82rem);  /* <<< dikecilkan */
   letter-spacing:.01em;                     /* rapatkan huruf */
   white-space:nowrap;                       /* tetap 1 baris */
   overflow:visible;
