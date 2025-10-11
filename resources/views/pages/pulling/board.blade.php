@@ -277,10 +277,10 @@
                                         <span class="val number" data-role="prog-pct">{{ $progPct }}%</span>
                                     </div>
 
-                                    <hr class="my-4">
-                                    <div class="d-grid gap-2">
-                                        <button class="btn btn-outline-secondary btn-sm">Shift Summary</button>
-                                        <button class="btn btn-outline-secondary btn-sm">Warnings &amp; Alarms</button>
+                                    <hr class="my-3 d-none"><!-- opsional: sembunyikan pemisah -->
+                                    <div class="metric-callout mt-2" title="Total unique Back Number planned for today">
+                                        <div class="metric-label">TOTAL BACK NO (TODAY)</div>
+                                        <div class="metric-value number" data-role="prog-total-bn">0</div>
                                     </div>
                                 </div>
                             </div>
@@ -451,6 +451,35 @@
                 apply(next);
             });
         })();
+
+        // --- Total Back No Today ---
+        (() => {
+            // Prefer angka dari payload jika backend sudah kirim
+            let total = +(payload?.daily?.totalBackNo || payload?.totalBackNo || 0);
+
+            if (!total) {
+                // Fallback: hitung unik dari current + nextHighlight + nextList
+                const set = new Set();
+                const add = v => {
+                    v = (v || '').toString().trim();
+                    if (v && v !== '—') set.add(v.toUpperCase());
+                };
+
+                const cur = payload.current || {};
+                const nx = payload.nextHighlight || {};
+                const arr = Array.isArray(payload.nextList) ? payload.nextList : [];
+
+                add(cur.back_no);
+                add(nx.back_no);
+                arr.forEach(r => add(r?.back_no));
+
+                total = set.size;
+            }
+
+            const el = tab.querySelector('[data-role="prog-total-bn"]');
+            if (el) el.textContent = total.toLocaleString('id-ID');
+        })();
+
 
         // Alias Back No
         function applyBacknoAlias(root = document) {

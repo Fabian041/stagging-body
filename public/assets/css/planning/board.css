@@ -537,3 +537,6 @@ html, body { height: auto; overflow-y: auto; }
   text-overflow: ellipsis;
 }
 
+/* Progress card compact */
+.progress-readout .big-number{font-size:clamp(2.2rem,4.2vw,3rem)}
+.card .qty-progress .val{font-weight:800}
