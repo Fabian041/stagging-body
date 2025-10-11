@@ -263,17 +263,26 @@ class DashboardController extends Controller
         $todayISO = $selectedDate->toDateString();
         $stamp    = now()->format('H:i:s');
 
-        // Ambil semua plan hari itu, urut sesuai rencana (tetap pakai working_start lalu dn_number)
+        // ============ ONLY for Progress Card (shift) ============
+        $nowHHmm = now()->format('H:i');
+        $toMin = function (?string $t) {
+            if (!$t || strpos($t, ':') === false) return null;
+            [$h, $m] = array_map('intval', explode(':', $t));
+            return $h * 60 + $m;
+        };
+        $nowMin = (int) $toMin($nowHHmm); // <- pakai buat resolveShiftProgress
+
+        // Ambil semua rencana hari itu (urut sesuai rencana)
         $items = ProductionPlan::whereDate('plan_date', $todayISO)
             ->orderBy('working_start')
             ->orderBy('dn_number')
             ->get();
 
-        // Kelompok per line (hanya 2 line ini yang dipakai di board)
-        $LINES = ['AS003','AS004'];
+        // Kelompok per line yang dipakai di board
+        $LINES = ['AS003', 'AS004'];
         $getLineKey = function ($it) {
             $v = strtoupper($it->line_code ?? $it->line ?? $it->assembly_line ?? '');
-            return in_array($v, ['AS003','AS004'], true) ? $v : null;
+            return in_array($v, ['AS003', 'AS004'], true) ? $v : null;
         };
         $byLine = ['AS003' => collect(), 'AS004' => collect()];
         foreach ($items as $it) {
@@ -281,57 +290,55 @@ class DashboardController extends Controller
             if ($key) $byLine[$key]->push($it);
         }
 
-        // Data progress shift per line (biar kartu kiri tetap konsisten dengan halaman planning)
+        // Data progress shift per line (sinkron dengan halaman planning)
         $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
 
-        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped) {
+        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped, $nowMin) {
 
-            // ===== Progress (kartu kiri)
+            // ===== Progress (kartu kiri) — tetap pakai waktu SEKARANG hanya untuk label/status shift
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
             $nQty = (int)($g['night_shift_qty']      ?? 0);
             $nAct = (int)($g['night_shift_actual']   ?? 0);
 
-            // pakai rule shift yang sudah ada
             [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress(
-                null, // tidak butuh "now" di rule baru ini
+                $nowMin,  // <— TIDAK null lagi
                 $mQty, $mAct, $nQty, $nAct
             );
 
             $rows = $rows->values();
 
-            // Helper untuk cek complete per item
-            $isComplete = function($it){
+            // Helper: cek complete per item (berbasis qty)
+            $isComplete = function ($it) {
                 $ord  = (int)($it->order_qty ?? 0);
                 $done = (int)($it->direct_pulling_qty ?? 0) + (int)($it->stock_chute_qty ?? 0);
-                // order<=0 dianggap "selesai"/skip ke item berikutnya
+                // order <= 0 dianggap selesai
                 return $ord <= 0 || $done >= $ord;
             };
 
-            // ===== CURRENT: ambil item PERTAMA yang BELUM COMPLETE (dp+sc < order), abaikan jam
-            $currentIdx  = null;
+            // ===== CURRENT: item pertama yang BELUM complete (abaikan jam)
+            $currentIdx = null;
             foreach ($rows as $idx => $it) {
                 if (!$isComplete($it)) { $currentIdx = $idx; break; }
             }
 
-            // Kalau semua sudah complete → tampilkan item terakhir sebagai info (tetap boleh), next kosong
+            // Jika semua complete → ambil item terakhir sebagai info, next kosong
             $currentItem = $currentIdx !== null ? $rows[$currentIdx] : ($rows->last() ?: null);
 
-            // Bentuk payload CURRENT
             $current = $currentItem ? [
-                'back_no'  => $currentItem->back_no,
-                'customer' => $currentItem->customer,
-                'dock'     => $currentItem->dock,
-                'order_qty'=> (int)($currentItem->order_qty ?? 0),
-                'dp'       => (int)($currentItem->direct_pulling_qty ?? 0),
-                'sc'       => (int)($currentItem->stock_chute_qty ?? 0),
-                'start'    => $currentItem->working_start ?: '--',
+                'back_no'   => $currentItem->back_no,
+                'customer'  => $currentItem->customer,
+                'dock'      => $currentItem->dock,
+                'order_qty' => (int)($currentItem->order_qty ?? 0),
+                'dp'        => (int)($currentItem->direct_pulling_qty ?? 0),
+                'sc'        => (int)($currentItem->stock_chute_qty ?? 0),
+                'start'     => $currentItem->working_start ?: '--',
             ] : [
-                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
+                'back_no' => '—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
             ];
 
-            // ===== NEXT candidates: semua item SETELAH currentIdx yang BELUM COMPLETE
+            // ===== NEXT candidates: setelah currentIdx yang juga BELUM complete
             $nextCandidates = collect();
             if ($currentIdx !== null) {
                 $nextCandidates = $rows
@@ -351,8 +358,8 @@ class DashboardController extends Controller
                 'delivery_date' => $nh->delivery_date ?: '',
             ] : ['back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'delivery_time'=>'--','delivery_date'=>''];
 
-            // NEXT list (sisanya sesudah highlight)
-            $nextList = $nextCandidates->slice(1, 20)->map(function($it){
+            // NEXT list (sisanya setelah highlight)
+            $nextList = $nextCandidates->slice(1, 20)->map(function ($it) {
                 return [
                     'back_no'       => $it->back_no,
                     'customer'      => $it->customer,
@@ -363,9 +370,8 @@ class DashboardController extends Controller
                 ];
             })->values()->all();
 
-            // NB: Tidak perlu “auto-advance” manual lagi.
-            // Ketika dp+sc >= order di DB, current otomatis pindah ke item
-            // belum-complete berikutnya saat endpoint /board/state di-fetch ulang (via SSE/polling).
+            // Tidak perlu auto-advance manual:
+            // saat dp+sc >= order di DB, current otomatis pindah pada refresh JSON/SSE.
 
             return [
                 'progress' => [
@@ -387,7 +393,6 @@ class DashboardController extends Controller
 
         return [$boards, $stamp];
     }
-
 
     /** Khusus penyusunan data tabel + KPI shift (delivery-based 09:40 rule) */
     protected function getGroupedData($backNosByLine, $today)
