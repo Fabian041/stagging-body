@@ -625,25 +625,31 @@ html, body { height: auto; overflow-y: auto; }
 }
 
 
-/* ==== KPI: Total Back No (Today) — smaller label ==== */
+/* ==== KPI: Total Back No (Today) — extra small ==== */
 .kpi-tile{
-  gap:.7rem;                 /* rapetin */
-  padding:.75rem .9rem;      /* lebih compact */
+  gap:.55rem;                 /* lebih rapat */
+  padding:.6rem .75rem;       /* lebih compact */
 }
 .kpi-icon{
-  width:36px; height:36px;   /* kecilkan icon */
-  flex:0 0 36px;
-  font-size:.8rem;
+  width:30px; height:30px;    /* kecilkan ikon */
+  flex:0 0 30px;
+  font-size:.72rem;
 }
 .kpi-label{
   max-width:100%;
-  font-size:clamp(.5rem, 1.2vw, .82rem);  /* <<< dikecilkan */
-  letter-spacing:.01em;                     /* rapatkan huruf */
-  white-space:nowrap;                       /* tetap 1 baris */
+  font-size:clamp(.46rem, .9vw, .72rem);  /* << lebih kecil di semua ukuran */
+  letter-spacing:.005em;                   /* rapatkan lagi */
+  white-space:nowrap;                      /* tetap 1 baris */
   overflow:visible;
-  text-overflow:clip;                       /* jangan jadi ... */
+  text-overflow:clip;
 }
 .kpi-value{
-  font-size:clamp(1.6rem, 2.6vw, 2.1rem);   /* sedikit diperkecil supaya lega */
+  font-size:clamp(1.45rem, 2.2vw, 1.9rem); /* sedikit dikecilkan biar lega */
   line-height:1;
 }
+
+/* Jaga tetap kecil di layar sangat sempit */
+@media (max-width: 420px){
+  .kpi-label{ font-size:.52rem }
+}
+
