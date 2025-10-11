@@ -261,24 +261,15 @@ class DashboardController extends Controller
     private function buildBoardsForDate_(Carbon $selectedDate): array
     {
         $todayISO = $selectedDate->toDateString();
-        $nowHHmm  = now()->format('H:i');
         $stamp    = now()->format('H:i:s');
 
-        // helper HH:ii -> menit
-        $toMin = function (?string $t) {
-            if (!$t || strpos($t, ':') === false) return null;
-            [$h,$m] = array_map('intval', explode(':', $t));
-            return $h*60 + $m;
-        };
-        $nowMin = $toMin($nowHHmm);
-
-        // Ambil semua plan hari itu
+        // Ambil semua plan hari itu, urut sesuai rencana (tetap pakai working_start lalu dn_number)
         $items = ProductionPlan::whereDate('plan_date', $todayISO)
-            ->orderBy('working_start')   // aman lexicographic
+            ->orderBy('working_start')
             ->orderBy('dn_number')
             ->get();
 
-        // Kelompok per line
+        // Kelompok per line (hanya 2 line ini yang dipakai di board)
         $LINES = ['AS003','AS004'];
         $getLineKey = function ($it) {
             $v = strtoupper($it->line_code ?? $it->line ?? $it->assembly_line ?? '');
@@ -290,110 +281,98 @@ class DashboardController extends Controller
             if ($key) $byLine[$key]->push($it);
         }
 
-        // Data shift per line (pakai fungsi existing dari controller ini)
+        // Data progress shift per line (biar kartu kiri tetap konsisten dengan halaman planning)
         $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
 
-        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($toMin, $nowMin, $grouped) {
+        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped) {
 
-            // Progress (shift) dari grouped (sinkron halaman planning)
+            // ===== Progress (kartu kiri)
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
             $nQty = (int)($g['night_shift_qty']      ?? 0);
             $nAct = (int)($g['night_shift_actual']   ?? 0);
-            [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress($nowMin, $mQty, $mAct, $nQty, $nAct);
 
-            // Current
-            $currentItem = $rows->first(function($it) use ($toMin, $nowMin){
-                $s = $toMin($it->working_start);
-                $e = $toMin($it->working_end);
-                return $s !== null && $e !== null && $s <= $nowMin && $nowMin <= $e;
-            });
-            if (!$currentItem) {
-                $currentItem = $rows->first(function($it) use ($toMin, $nowMin){
-                    $s = $toMin($it->working_start);
-                    return $s !== null && $s > $nowMin;
-                }) ?? $rows->last();
+            // pakai rule shift yang sudah ada
+            [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress(
+                null, // tidak butuh "now" di rule baru ini
+                $mQty, $mAct, $nQty, $nAct
+            );
+
+            $rows = $rows->values();
+
+            // Helper untuk cek complete per item
+            $isComplete = function($it){
+                $ord  = (int)($it->order_qty ?? 0);
+                $done = (int)($it->direct_pulling_qty ?? 0) + (int)($it->stock_chute_qty ?? 0);
+                // order<=0 dianggap "selesai"/skip ke item berikutnya
+                return $ord <= 0 || $done >= $ord;
+            };
+
+            // ===== CURRENT: ambil item PERTAMA yang BELUM COMPLETE (dp+sc < order), abaikan jam
+            $currentIdx  = null;
+            foreach ($rows as $idx => $it) {
+                if (!$isComplete($it)) { $currentIdx = $idx; break; }
             }
 
+            // Kalau semua sudah complete → tampilkan item terakhir sebagai info (tetap boleh), next kosong
+            $currentItem = $currentIdx !== null ? $rows[$currentIdx] : ($rows->last() ?: null);
+
+            // Bentuk payload CURRENT
             $current = $currentItem ? [
-                'back_no'       => $currentItem->back_no,
-                'customer'      => $currentItem->customer,
-                'dock'          => $currentItem->dock,
-                'order_qty'     => (int) $currentItem->order_qty,
-                'dp'            => (int) ($currentItem->direct_pulling_qty ?? 0),
-                'sc'            => (int) ($currentItem->stock_chute_qty ?? 0),
-                'start'         => $currentItem->working_start ?: '--',
+                'back_no'  => $currentItem->back_no,
+                'customer' => $currentItem->customer,
+                'dock'     => $currentItem->dock,
+                'order_qty'=> (int)($currentItem->order_qty ?? 0),
+                'dp'       => (int)($currentItem->direct_pulling_qty ?? 0),
+                'sc'       => (int)($currentItem->stock_chute_qty ?? 0),
+                'start'    => $currentItem->working_start ?: '--',
             ] : [
-                'back_no'   => '—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
+                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
             ];
 
-            // Next candidates = start >= now
-            $nextCandidates = $rows->filter(function($it) use ($toMin, $nowMin){
-                $s = $toMin($it->working_start);
-                return $s !== null && $s >= $nowMin;
-            })->values();
+            // ===== NEXT candidates: semua item SETELAH currentIdx yang BELUM COMPLETE
+            $nextCandidates = collect();
+            if ($currentIdx !== null) {
+                $nextCandidates = $rows
+                    ->slice($currentIdx + 1)
+                    ->filter(fn($it) => !$isComplete($it))
+                    ->values();
+            }
 
+            // Kartu NEXT (highlight)
             $nh = $nextCandidates->first();
             $nextHighlight = $nh ? [
                 'back_no'       => $nh->back_no,
                 'customer'      => $nh->customer,
                 'dock'          => $nh->dock,
-                'order_qty'     => (int) $nh->order_qty,
+                'order_qty'     => (int)($nh->order_qty ?? 0),
                 'delivery_time' => $nh->delivery_time ?: '--',
                 'delivery_date' => $nh->delivery_date ?: '',
             ] : ['back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'delivery_time'=>'--','delivery_date'=>''];
 
+            // NEXT list (sisanya sesudah highlight)
             $nextList = $nextCandidates->slice(1, 20)->map(function($it){
                 return [
                     'back_no'       => $it->back_no,
                     'customer'      => $it->customer,
                     'dock'          => $it->dock,
-                    'order_qty'     => (int) $it->order_qty,
+                    'order_qty'     => (int)($it->order_qty ?? 0),
                     'delivery_time' => $it->delivery_time ?: '--',
                     'delivery_date' => $it->delivery_date ?: '',
                 ];
             })->values()->all();
 
-            // ===== AUTO-ADVANCE (server-side) =====
-            $curOrder = (int)($current['order_qty'] ?? 0);
-            $curDone  = (int)($current['dp'] ?? 0) + (int)($current['sc'] ?? 0);
-            $hasNextCard = ($nextHighlight['back_no'] ?? '—') !== '—';
-
-            if ($curOrder > 0 && $curDone >= $curOrder && $hasNextCard) {
-                // next → current
-                $current = [
-                    'back_no'   => $nextHighlight['back_no'],
-                    'customer'  => $nextHighlight['customer'],
-                    'dock'      => $nextHighlight['dock'],
-                    'order_qty' => (int)$nextHighlight['order_qty'],
-                    'dp'        => 0,
-                    'sc'        => 0,
-                    'start'     => '--',
-                ];
-
-                // list[0] → next
-                if (!empty($nextList)) {
-                    $first = array_shift($nextList);
-                    $nextHighlight = [
-                        'back_no'       => $first['back_no'],
-                        'customer'      => $first['customer'],
-                        'dock'          => $first['dock'],
-                        'order_qty'     => (int)$first['order_qty'],
-                        'delivery_time' => $first['delivery_time'] ?? '--',
-                        'delivery_date' => $first['delivery_date'] ?? '',
-                    ];
-                } else {
-                    $nextHighlight = ['back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'delivery_time'=>'--','delivery_date'=>''];
-                }
-            }
+            // NB: Tidak perlu “auto-advance” manual lagi.
+            // Ketika dp+sc >= order di DB, current otomatis pindah ke item
+            // belum-complete berikutnya saat endpoint /board/state di-fetch ulang (via SSE/polling).
 
             return [
                 'progress' => [
                     'label'  => $shiftLabel,
                     'order'  => $orderQty,
                     'actual' => $actualQty,
-                    'status' => $status, // S1/NS/LS1/LS3
+                    'status' => $status, // S1 / NS / LS1 / LS3
                 ],
                 'current'       => $current,
                 'nextHighlight' => $nextHighlight,
