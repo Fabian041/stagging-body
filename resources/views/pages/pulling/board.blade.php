@@ -151,9 +151,7 @@
             padding: .9rem 1rem;
             border-radius: 14px;
             width: 100%;
-            background: linear-gradient(90deg,
-                    color-mix(in oklab, var(--next-accent) 30%, transparent),
-                    color-mix(in oklab, var(--next-accent) 10%, transparent));
+            background: linear-gradient(90deg, color-mix(in oklab, var(--next-accent) 30%, transparent), color-mix(in oklab, var(--next-accent) 10%, transparent));
             border: 1px solid color-mix(in oklab, var(--next-accent) 25%, var(--tile-border));
         }
 
@@ -165,6 +163,115 @@
 
         .next-order-pill .value {
             font-weight: 800
+        }
+
+        /* Meta pills current (rapi) */
+        .current-block .meta-row {
+            display: flex;
+            align-items: center;
+            gap: .75rem 1rem;
+            flex-wrap: wrap;
+            opacity: .95;
+            margin-top: .35rem
+        }
+
+        .current-block .meta-row .tag {
+            padding: .45rem .9rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid var(--tile-border);
+            font-size: .9rem;
+            font-weight: 600;
+            letter-spacing: .03em;
+            color: var(--muted)
+        }
+
+        .current-block .meta-row .val {
+            font-weight: 800;
+            font-size: 1.05rem;
+            line-height: 1;
+            margin-right: .2rem;
+            text-transform: uppercase
+        }
+
+        .current-block .meta-row .dot {
+            opacity: .45;
+            padding: 0 .15rem;
+            line-height: 1
+        }
+
+        /* Next compact info */
+        .card-next .card-body {
+            display: flex;
+            flex-direction: column;
+            padding: .9rem 1rem .5rem
+        }
+
+        .np-head {
+            margin-bottom: .4rem
+        }
+
+        .np-backno {
+            font-size: clamp(2.6rem, 5vw, 4.4rem);
+            line-height: 1.05;
+            font-weight: 800;
+            letter-spacing: .02em
+        }
+
+        .np-customer {
+            margin-top: .15rem;
+            font-size: .9rem;
+            font-weight: 600;
+            opacity: .9;
+            text-transform: uppercase;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden
+        }
+
+        .np-rows {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            column-gap: .6rem;
+            row-gap: .25rem;
+            align-items: center;
+            margin-top: .35rem
+        }
+
+        .np-rows dt {
+            display: inline-flex;
+            align-items: center;
+            padding: .28rem .6rem;
+            border-radius: 999px;
+            border: 1px solid var(--tile-border);
+            background: rgba(255, 255, 255, .03);
+            font-size: .70rem;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            white-space: nowrap
+        }
+
+        .np-rows dd {
+            margin: 0;
+            font-size: .80rem;
+            font-weight: 800;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .card-next .order-badge {
+            margin-top: auto;
+            padding: .85rem 1rem;
+            border-radius: 14px
+        }
+
+        .card-next .order-badge .value {
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-weight: 900
         }
     </style>
 </head>
@@ -218,6 +325,8 @@
                             'delivery_date' => '',
                         ],
                         'nextList' => [],
+                        'daily' => ['totalBackNo' => 0],
+                        'totalBackNo' => 0,
                     ];
 
                     $cur = $data['current'] ?? [];
@@ -250,6 +359,9 @@
                     $nextDate = $next['delivery_date'] ?? '--';
 
                     $nextList = $data['nextList'] ?? [];
+
+                    // >>> Nilai awal Total Back No dari server <<<
+                    $progTotalBN = (int) ($data['daily']['totalBackNo'] ?? ($data['totalBackNo'] ?? 0));
                 @endphp
 
                 <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="tab-{{ $L }}"
@@ -260,7 +372,7 @@
                         <div class="col-12 col-xl-3 col-xxl-2">
                             <div class="card tile radius-4 h-100">
                                 <div class="card-header d-flex align-items-center gap-2">
-                                    <strong>Overal Progress</strong>
+                                    <strong>Overall Progress</strong>
                                 </div>
                                 <div class="card-body">
                                     <div class="progress-readout">
@@ -277,10 +389,11 @@
                                         <span class="val number" data-role="prog-pct">{{ $progPct }}%</span>
                                     </div>
 
-                                    <hr class="my-3 d-none"><!-- opsional: sembunyikan pemisah -->
+                                    <hr class="my-3 d-none">
                                     <div class="metric-callout mt-2" title="Total unique Back Number planned for today">
                                         <div class="metric-label">TOTAL BACK NO (TODAY)</div>
-                                        <div class="metric-value number" data-role="prog-total-bn">0</div>
+                                        <div class="metric-value number" data-role="prog-total-bn">
+                                            {{ number_format($progTotalBN) }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -299,16 +412,13 @@
                                             {{ $curBack }}</div>
 
                                         <div class="meta-row">
-                                            <span class="tag">Customer</span>
-                                            <span class="val" data-role="curr-customer">{{ $curCust }}</span>
-                                            <span class="dot">•</span>
-
-                                            <span class="tag">Dock</span>
-                                            <span class="val" data-role="curr-dock">{{ $curDock }}</span>
-                                            <span class="dot">•</span>
-
-                                            <span class="tag">Start</span>
-                                            <span class="val time-pill"
+                                            <span class="tag">Customer</span><span class="val"
+                                                data-role="curr-customer">{{ $curCust }}</span><span
+                                                class="dot">•</span>
+                                            <span class="tag">Dock</span><span class="val"
+                                                data-role="curr-dock">{{ $curDock }}</span><span
+                                                class="dot">•</span>
+                                            <span class="tag">Start</span><span class="val time-pill"
                                                 data-role="curr-start">{{ $curStart }}</span>
                                         </div>
 
@@ -368,9 +478,9 @@
 
                                     <div class="order-badge mt-3"
                                         style="background:linear-gradient(90deg,
-       color-mix(in oklab,var(--next-accent) 30%, transparent),
-       color-mix(in oklab,var(--next-accent) 10%, transparent));
-       border:1px solid color-mix(in oklab,var(--next-accent) 25%, var(--tile-border));">
+                          color-mix(in oklab,var(--next-accent) 30%, transparent),
+                          color-mix(in oklab,var(--next-accent) 10%, transparent));
+                          border:1px solid color-mix(in oklab,var(--next-accent) 25%, var(--tile-border));">
                                         <span class="label">ORDER</span>
                                         <strong class="value number"
                                             data-role="next-order">{{ number_format($nextOrder) }}</strong>
@@ -378,6 +488,7 @@
                                 </div>
                             </div>
                         </div>
+
                     </div>
 
                     {{-- NEXT PRODUCTION LIST --}}
@@ -452,31 +563,6 @@
             });
         })();
 
-        // --- Total Back No Today (from backend, fallback if missing) ---
-        let totalBN = Number(
-            (payload && payload.daily && payload.daily.totalBackNo) ??
-            payload?.totalBackNo ?? 0
-        );
-
-        if (!totalBN) {
-            // Fallback: hitung unik dari current + nextHighlight + nextList
-            const seen = new Set();
-            const add = v => {
-                v = (v || '').toString().trim().toUpperCase();
-                if (v && v !== '—') seen.add(v);
-            };
-            const cur = payload.current || {};
-            const nx = payload.nextHighlight || {};
-            add(cur.back_no);
-            add(nx.back_no);
-            (payload.nextList || []).forEach(r => add(r?.back_no));
-            totalBN = seen.size;
-        }
-
-        const elTotal = tab.querySelector('[data-role="prog-total-bn"]');
-        if (elTotal) elTotal.textContent = totalBN.toLocaleString('id-ID');
-
-
         // Alias Back No
         function applyBacknoAlias(root = document) {
             let map = {};
@@ -517,7 +603,7 @@
         });
     </script>
 
-    <!-- ====== SSE Hook (versi update) ====== -->
+    <!-- ====== SSE Hook ====== -->
     <script>
         (function boardLiveSSE() {
             const dateISO = @json($selectedDate ?? now()->format('Y-m-d'));
@@ -526,7 +612,6 @@
                 if (DEBUG) console.debug('[board-sse]', ...a);
             };
 
-            // --- debounce ---
             function debounce(fn, wait) {
                 let t = null;
                 return function() {
@@ -535,7 +620,7 @@
                 };
             }
 
-            // --- Update DOM satu line (tetap sama seperti punyamu) ---
+            // --- Update DOM satu line ---
             function updateLine(lineKey, payload) {
                 const tab = document.querySelector(`[data-line="${lineKey}"]`);
                 if (!tab) return;
@@ -547,8 +632,9 @@
                 const pgPct = pgOrder ? Math.min(100, Math.round((pgActual / pgOrder) * 100)) : 0;
                 const pgStatus = String(pg.status || 'Normal');
 
-                tab.querySelector('[data-role="prog-label"]')?.replaceChildren(document.createTextNode(
-                    `(${pg.label||''})`));
+                tab.querySelector('[data-role="prog-label"]')
+                    ?.replaceChildren(document.createTextNode(`(${pg.label||''})`));
+
                 const setTxt = (sel, v) => {
                     const el = tab.querySelector(sel);
                     if (el) el.textContent = v;
@@ -594,7 +680,7 @@
                 if (cBar) cBar.style.width = cPct + '%';
                 setTxt('[data-role="curr-pct"]', cPct + '%');
 
-                // Next card
+                // Next highlight
                 const nx = payload.nextHighlight || {};
                 setTxt('[data-role="next-backno"]', nx.back_no || '—');
                 setTxt('[data-role="next-customer"]', nx.customer || '—');
@@ -618,18 +704,38 @@
                             const item = document.createElement('div');
                             item.className = 'tile-square radius-4';
                             item.innerHTML = `
-              <div class="bk number js-backno">${(row.back_no||'—')}</div>
-              <div class="meta-row mt-1"><span class="tag">Dock</span><span>${(row.dock||'—')}</span></div>
-              <div></div>
-              <div class="next-order-pill mt-2">
-                <div class="label">ORDER</div>
-                <div class="value number">${((+row.order_qty||0).toLocaleString('id-ID'))}</div>
-              </div>`;
+            <div class="bk number js-backno">${(row.back_no||'—')}</div>
+            <div class="meta-row mt-1"><span class="tag">Dock</span><span>${(row.dock||'—')}</span></div>
+            <div></div>
+            <div class="next-order-pill mt-2">
+              <div class="label">ORDER</div>
+              <div class="value number">${((+row.order_qty||0).toLocaleString('id-ID'))}</div>
+            </div>`;
                             listWrap.appendChild(item);
                         });
                         applyBacknoAlias(listWrap);
                     }
                 }
+
+                // TOTAL BACK NO (TODAY)
+                let totalBN = Number(
+                    (payload && payload.daily && payload.daily.totalBackNo) ??
+                    payload?.totalBackNo ?? 0
+                );
+                if (!totalBN) {
+                    const seen = new Set();
+                    const add = v => {
+                        v = (v || '').toString().trim().toUpperCase();
+                        if (v && v !== '—') seen.add(v);
+                    };
+                    add(cur.back_no);
+                    add(nx.back_no);
+                    (payload.nextList || []).forEach(r => add(r?.back_no));
+                    totalBN = seen.size;
+                }
+                const elTotal = tab.querySelector('[data-role="prog-total-bn"]');
+                if (elTotal) elTotal.textContent = totalBN.toLocaleString('id-ID');
+
                 applyBacknoAlias(tab);
             }
 
@@ -651,7 +757,6 @@
             let es;
             try {
                 es = new EventSource(`/stream/direct-pulling-updates?date=${encodeURIComponent(dateISO)}`);
-
                 es.onopen = () => {
                     log('open');
                     refreshBoard();
@@ -660,16 +765,14 @@
                     log('message', e.data);
                     refreshBoard();
                 };
-
                 ['connected', 'refetching', 'refetched', 'directPullingUpdate', 'ping'].forEach(name => {
                     es.addEventListener(name, (e) => {
                         log(name, e.data);
                         refreshBoard();
                     });
                 });
-
                 es.onerror = (e) => {
-                    log('error', e); /* biarkan auto-reconnect */
+                    log('error', e); /* auto-reconnect */
                 };
                 window.addEventListener('beforeunload', () => {
                     try {
@@ -681,11 +784,11 @@
             }
 
             // Safety nets
-            setInterval(refreshBoard, 15000); // polling ringan
+            setInterval(refreshBoard, 15000);
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) refreshBoard(); // balik fokus → refresh
+                if (!document.hidden) refreshBoard();
             });
-            document.addEventListener('DOMContentLoaded', refreshBoard); // render awal
+            document.addEventListener('DOMContentLoaded', refreshBoard);
         })();
     </script>
 
