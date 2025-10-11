@@ -1,655 +1,157 @@
-
+/* =============================
+   THEME TOKENS
+   ============================= */
 :root{
-  --bg:#f8fafc;
-  --fg:#0f172a;
-  --muted:#475569;
-  --tile:#ffffff;
-  --tile-border:#e2e8f0;
+  --curr-accent:#3b82f6;       /* biru: current */
+  --next-accent:#10b981;       /* hijau: next  */
+  --tile-border:rgba(0,0,0,.08);
+  --muted:rgba(0,0,0,.60);
+  --text-strong:#0f172a;
   --chip:#f1f5f9;
-  --accent:#0ea5e9;
-  --bar:#e5e7eb;
 }
 [data-theme="dark"]{
-  --bg:#0b0f14;
-  --fg:#e5e7eb;
-  --muted:#a3b1c6;
-  --tile:#141922;
-  --tile-border:#253043;
+  --tile-border:rgba(255,255,255,.10);
+  --muted:rgba(255,255,255,.65);
+  --text-strong:#fff;
   --chip:#202838;
-  --accent:#60a5fa;
-  --bar:#2b3446;
 }
 
-/* dasar halaman */
-body{background:var(--bg);color:var(--fg);}
-.board-container .text-secondary{color:var(--muted)!important;}
+/* =============================
+   BASIC CARDS / TILES
+   ============================= */
+.tile, .tile-square{ background:var(--bs-body-bg); border:1px solid var(--bs-border-color); }
+[data-theme="dark"] .tile{ background:#131619; border-color:#242a30; }
+.radius-4{ border-radius:.75rem; }
+.card-header{ border-bottom:1px dashed var(--bs-border-color); }
 
-/* kartu & ubin */
-.tile,.tile-square{background:var(--tile);border:1px solid var(--tile-border);}
-.radius-4{border-radius:12px;}
-.date-pill,.note-tile{background:var(--chip);border:1px solid var(--tile-border);color:var(--fg);}
+/* Date badge & generic badge */
+.date-pill{ background:#1f242a; color:#d7dee8; border:1px solid #2b323a; padding:.5rem .75rem; }
+.badge{ background:var(--chip); color:var(--text-strong); border:1px solid var(--tile-border); }
+[data-theme="dark"] .bg-warning-subtle{ background:rgba(245,158,11,.18)!important; color:#fde68a; border:1px solid rgba(245,158,11,.35); }
+[data-theme="dark"] .bg-success-subtle{ background:rgba(34,197,94,.18)!important;  color:#bbf7d0; border:1px solid rgba(34,197,94,.35); }
 
-/* progress bar */
-.qty-progress .bar{background:var(--bar);}
-.qty-progress .bar i{display:block;height:100%;background:var(--accent);}
+/* =============================
+   PROGRESS BAR + READOUT
+   ============================= */
+.qty-progress{ position:relative; background:#161b20; border:1px solid #2a323b; border-radius:999px; padding:.35rem; }
+.qty-progress.big{ padding:.45rem; }
+.qty-progress .bar{ height:10px; background:#0e1216; border-radius:999px; overflow:hidden; }
+.qty-progress.big .bar{ height:12px; }
+.qty-progress .bar i{ display:block; height:100%; width:0; background:linear-gradient(90deg,#2ea8ff,#44ffa1); transition:width .35s ease; }
+.qty-progress .val{ position:absolute; right:.75rem; top:50%; transform:translateY(-50%); font-weight:700; }
+.progress-readout{ text-align:center; }
+.progress-readout .big-number{ font-size:2.2rem; }
+.card .qty-progress .val{ font-weight:800; }
 
-/* meta */
-.meta-row .tag{color:var(--muted);}
-
-/* badge (biar terbaca di dark mode) */
-.badge{background:var(--chip);color:var(--fg);border:1px solid var(--tile-border);}
-[data-theme="dark"] .bg-warning-subtle{background:rgba(245,158,11,.18)!important;color:#fde68a;border:1px solid rgba(245,158,11,.35);}
-[data-theme="dark"] .bg-success-subtle{background:rgba(34,197,94,.18)!important;color:#bbf7d0;border:1px solid rgba(34,197,94,.35);}
-
-/* Industrial board add-on */
-.board-container { max-width: 1400px; }
-
-/* tiles */
-.tile { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); }
-[data-theme="dark"] .tile { background: #131619; border-color: #242a30; }
-.radius-4 { border-radius: .75rem; }
-.card-header { border-bottom: 1px dashed var(--bs-border-color); }
-
-/* date badge */
-.date-pill { background:#1f242a; color:#d7dee8; border:1px solid #2b323a; padding:.5rem .75rem; }
-
-/* current block */
-.current-block .current-title,
-.next-highlight .next-title { color:#9fb2c6; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
-.current-block .meta-row, .next-highlight .meta-row, .tile-square .meta-row {
-  display:flex; gap:.5rem; align-items:center; color:#9fb2c6; font-size:.85rem;
-}
-.current-block .tag, .next-highlight .tag, .tile-square .tag {
-  background:#1b2026; border:1px solid #29313a; border-radius:999px; padding:.12rem .5rem; font-size:.75rem; color:#cfd8e3;
-}
-
-/* stat boxes */
-.stat-box { background:#181d23; border:1px solid #252c34; border-radius:.75rem; padding:.75rem .9rem; }
-.stat-box .label { color:#9fb2c6; font-size:.85rem; }
-.stat-box .value { font-size:1.35rem; }
-
-/* qty-progress reuse */
-.qty-progress { position:relative; background:#161b20; border:1px solid #2a323b; border-radius:999px; padding:.35rem; }
-.qty-progress.big { padding:.45rem; }
-.qty-progress .bar { height:10px; background:#0e1216; border-radius:999px; overflow:hidden; }
-.qty-progress.big .bar { height:12px; }
-.qty-progress .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,#2ea8ff,#44ffa1); transition:width .35s ease; }
-.qty-progress .val { position:absolute; right:.75rem; top:50%; transform:translateY(-50%); font-weight:700; }
-
-/* info note */
-.note-tile { background:#1b2026; border:1px dashed #2a323b; border-radius:.6rem; padding:.6rem .8rem; color:#cfd8e3; }
-
-/* progress readout (left tile) */
-.progress-readout { text-align:center; }
-.progress-readout .big-number { font-size:2.2rem; }
-.progress-readout .sub-label { text-transform:uppercase; letter-spacing:.06em; color:#9fb2c6; }
-
-/* square grid */
-.tile-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; }
-@media (max-width: 1199.98px){ .tile-grid{ grid-template-columns:repeat(3,1fr);} }
-@media (max-width: 991.98px) { .tile-grid{ grid-template-columns:repeat(2,1fr);} }
-@media (max-width: 575.98px){ .tile-grid{ grid-template-columns:1fr;} }
-
-.tile-square { background:#161b20; border:1px solid #2a323b; padding:1rem; min-height:170px; display:flex; flex-direction:column; justify-content:space-between; }
-.tile-square .bk { font-size:1.8rem; font-weight:800; }
-.tile-square .ord { font-size:1.2rem; }
-
-
-/* === Next Production list — horizontal, bigger cards + ORDER highlight === */
-.tile-grid#npRow{
-  display: flex;
-  gap: clamp(.9rem, 1.4vw, 1.2rem);
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: .25rem 0 .75rem;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
-.tile-grid#npRow .tile-square{
-  flex: 0 0 auto;
-  min-width: clamp(260px, 26vw, 360px);  /* <<< bigger */
-  height: clamp(190px, 24vw, 240px);     /* <<< bigger */
-  padding: 14px 14px 12px;
-  border: 1px solid var(--tile-border);
-  border-radius: 16px;
-  scroll-snap-align: start;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr auto; /* back no, cust, meta, spacer, order */
-}
-
-/* back number a bit larger */
-.tile-grid#npRow .tile-square .bk{
-  font-size: clamp(1.4rem, 2.4vw, 2rem);
-  line-height: 1.15;
-}
-
-/* ORDER highlight (green, same tone as Next) */
-.next-order-pill{
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: .75rem;
-  padding: .9rem 1rem;
-  border-radius: 14px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--next-accent) 30%, transparent),
-    color-mix(in oklab, var(--next-accent) 10%, transparent)
-  );
-  border: 1px solid color-mix(in oklab, var(--next-accent) 25%, var(--tile-border));
-}
-.next-order-pill .label{
-  font-weight: 700;
-  letter-spacing: .02em;
-  color: var(--muted);
-}
-.next-order-pill .value{
-  font-weight: 900;
-  font-size: clamp(1.8rem, 3vw, 2.4rem); /* <<< big number */
-  line-height: 1;
-}
-
-/* thin scrollbar (optional) */
-.tile-grid#npRow::-webkit-scrollbar{ height: 8px; }
-.tile-grid#npRow::-webkit-scrollbar-track{ background: rgba(255,255,255,.06); border-radius: 8px; }
-.tile-grid#npRow::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.18); border-radius: 8px; }
-
-
-html, body { height: auto; overflow-y: auto; }
-
-/* beri ruang di bawah section next list supaya tidak “nabrak” viewport */
-.np-wrap, .np-section { padding-bottom: 36px; }      /* salah satu/dua class mana yang dipakai */
-.np-scroll {
-  overflow-x: auto;
-  overflow-y: visible;           /* jangan hidden agar tinggi konten dihitung */
-  padding-bottom: 12px;          /* ruang untuk sticky rail */
-}
-
-/* rail tetap sticky tapi tidak menghalangi konten akhir halaman */
-.np-rail {
-  position: sticky;
-  left: 0; right: 0; bottom: 0;
-  margin-top: 10px;
-}
-
-/* ===== Callout ORDER / COMPLETED / BALANCE (medium emphasis) ===== */
-.card-current .metric-callout,
-.card-next .metric-callout{
-  padding: clamp(14px, 1.6vw, 20px) clamp(16px, 2vw, 22px);
-  border-radius: 16px;
-  border: 1px solid var(--tile-border);
-  box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset;
-}
-
-/* label kecil, jelas */
-.card-current .metric-callout .metric-label,
-.card-next .metric-callout .metric-label{
-  font-size: clamp(.80rem, .90vw, .95rem);
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-/* angka cukup besar tapi tidak berlebihan */
-.card-current .metric-callout .metric-value,
-.card-next .metric-callout .metric-value{
-  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
-  line-height: 1.1;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-strong);
-}
-
-/* gradien sedikit lebih kuat agar kontras, tapi tetap subtle */
-.card-current .metric-order{
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--curr-accent) 36%, transparent),
-    transparent 65%
-  );
-}
-.card-current .metric-completed{
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--curr-accent) 30%, transparent),
-    transparent 65%
-  );
-}
-.card-current .metric-balance{
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--curr-accent) 24%, transparent),
-    transparent 65%
-  );
-}
-
-/* progress tetap kebaca */
-.qty-progress.big .bar{ height: 14px; }
-.qty-progress.big .val{
-  font-weight: 800;
-  font-size: clamp(.9rem, 1.1vw, 1rem);
-}
-
-/* ===== FORCE HIDE SCROLLBAR di Next Production list ===== */
-.next-row-wrap{
-  position: relative;
-  overflow: hidden;                 /* track scrollbar ketutup wrapper */
-}
-
-.next-row-wrap .np-scroll{
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-
-  /* Firefox & IE/legacy Edge */
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-
-  /* Trik universal: geser bar ke bawah lalu ditutup wrapper */
-  --sb: 24px;                       /* tinggi scrollbar tipikal Windows */
-  padding-bottom: var(--sb);
-  margin-bottom: calc(var(--sb) * -1);
-}
-
-/* Chrome/Edge/Safari (WebKit/Blink) */
-.next-row-wrap .np-scroll::-webkit-scrollbar{
-  width: 0 !important;
-  height: 0 !important;
-}
-.next-row-wrap .np-scroll::-webkit-scrollbar-thumb,
-.next-row-wrap .np-scroll::-webkit-scrollbar-track{
-  background: transparent !important;
-}
-
-/* === Hide scrollbar tanpa motong konten === */
-
-/* 1) Wrapper boleh terlihat (jangan hidden), ada overlay di bawah */
-.next-row-wrap{
-  position: relative;
-  overflow: visible;              /* <- biar konten nggak kepotong */
-}
-
-/* 2) Elemen yang nge-scroll */
-.next-row-wrap .np-scroll{
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-
-  /* kasih ruang kecil agar konten gak “nabrak” overlay */
-  --sb: 18px;                     /* tinggi overlay ~ tinggi scrollbar OS */
-  padding-bottom: var(--sb);
-
-  /* sembunyiin scrollbar di Firefox/Edge legacy */
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-/* 3) Chromium/WebKit — bikin scrollbar transparan */
-.next-row-wrap .np-scroll::-webkit-scrollbar{
-  height: var(--sb);              /* biarkan ada ruang, tapi transparan */
-}
-.next-row-wrap .np-scroll::-webkit-scrollbar-thumb,
-.next-row-wrap .np-scroll::-webkit-scrollbar-track{
-  background: transparent !important;
-}
-
-/* 4) Overlay nutup area scrollbar, tanpa halangin scroll (wheel/drag) */
-.next-row-wrap::after{
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: var(--sb);
-  background: var(--bg);          /* pakai warna background halaman */
-  pointer-events: none;           /* biar event scroll tetap tembus */
-}
-
-/* drag-to-scroll UX */
-.next-row-wrap .np-scroll{
-  cursor: grab;
-  /* biar di touch device tetap bisa scroll vertikal halaman */
-  touch-action: pan-y;
-}
-.next-row-wrap .np-scroll.is-dragging{
-  cursor: grabbing;
-  user-select: none;
-}
-
-/* ===== Clarity & Tidy for "Current" + "Next" cards ===== */
-.card-header{padding:.8rem 1rem}
-.card-body{padding:1rem 1.1rem}
-
-/* Eyebrow/label kecil */
-.eyebrow{
-  font-size:.78rem; letter-spacing:.14em; opacity:.72; text-transform:uppercase
-}
-
-/* --- NEXT CARD --- */
-.np-card{display:flex; flex-direction:column; height:100%; gap:.75rem}
-.np-card .backno{
-  font-size:clamp(2.6rem,5vw,4.6rem);
-  line-height:1.05; font-weight:800; letter-spacing:.02em
-}
-.np-card .customer{
-  font-size:.95rem; font-weight:600; line-height:1.2; text-transform:uppercase;
-  opacity:.95; margin-top:.25rem
-}
-/* 2-line clamp untuk nama customer panjang */
-.clamp-2{
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden
-}
-/* Meta pakai definisi grid agar rapi */
-.meta-list{
-  margin:.35rem 0 0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:.35rem .75rem; align-items:baseline
-}
-.meta-list dt{font-size:.75rem; color:var(--muted); letter-spacing:.06em}
-.meta-list dd{margin:0; font-weight:700; font-variant-numeric:tabular-nums}
-
-/* Order badge di kaki kartu */
-.order-badge{
-  margin-top:auto; padding:.85rem 1rem; border-radius:14px; display:flex; align-items:center; justify-content:space-between;
-  background:linear-gradient(90deg, color-mix(in oklab,var(--next-accent) 30%, transparent), color-mix(in oklab,var(--next-accent) 10%, transparent));
-  border:1px solid color-mix(in oklab, var(--next-accent) 25%, var(--tile-border));
-}
-.order-badge .label{font-weight:600; letter-spacing:.02em; color:var(--muted)}
-.order-badge .value{font-size:clamp(1.6rem,3.4vw,2.2rem); font-weight:900}
-
-/* --- CURRENT CARD --- */
-.current-block{display:grid; grid-template-rows:auto auto auto auto 1fr auto; gap:.6rem}
-.current-block .current-title{ @supports (text-transform:uppercase){ text-transform:uppercase } }
-.current-block .js-backno{
-  font-size:clamp(3rem,6vw,5.6rem); line-height:1.05; letter-spacing:.02em
-}
-/* Customer & meta jadi lebih jelas */
+/* =============================
+   CURRENT CARD – meta pills
+   ============================= */
 .current-block .meta-row{
-  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:.35rem .75rem; align-items:baseline; opacity:.95
-}
-
-.current-block .meta-row span[data-role]{display:block; font-weight:700}
-
-/* Tiga metric sejajar agar hemat ruang */
-.metrics-grid{
-  display:grid; grid-template-columns:repeat(3, 1fr); gap:.6rem
-}
-.metrics-grid .metric-callout{padding:.9rem 1rem}
-
-/* Progress bar lebih tebal & angka menyatu */
-.qty-progress.big .bar{height:16px; border-radius:10px}
-.qty-progress.big .val{font-weight:800; margin-left:.4rem}
-
-/* ==== CURRENT meta: kembali ke pill-inline, bukan grid ==== */
-.current-block .meta-row{
-  display:flex !important;
-  align-items:center;
-  gap:.75rem 1rem;
-  flex-wrap:wrap;
-  opacity:.95;
-  margin-top:.35rem;
+  display:flex; align-items:center; gap:.75rem 1rem; flex-wrap:wrap; opacity:.95; margin-top:.35rem;
 }
 .current-block .meta-row .tag{
-  padding:.45rem .9rem;
-  border-radius:999px;
-  background:rgba(255,255,255,.03);
-  border:1px solid var(--tile-border);
-  font-size:.9rem;
-  font-weight:600;
-  letter-spacing:.03em;
-  color:var(--muted);
+  padding:.45rem .9rem; border-radius:999px; background:rgba(255,255,255,.03);
+  border:1px solid var(--tile-border); font-size:.9rem; font-weight:600; letter-spacing:.03em; color:var(--muted);
 }
-.current-block .meta-row .val{
-  font-weight:800;
-  font-size:1.05rem;
-  line-height:1;
-  margin-right:.2rem;
-  text-transform:uppercase;           /* biar konsisten seperti sebelumnya */
+.current-block .meta-row .val{ font-weight:800; font-size:1.05rem; line-height:1; margin-right:.2rem; text-transform:uppercase; }
+.current-block .meta-row .dot{ opacity:.45; padding:0 .15rem; line-height:1; }
+
+/* =============================
+   METRIC CALLOUTS (Order/Completed/Balance)
+   ============================= */
+.card-current .metric-callout, .card-next .metric-callout{
+  padding:clamp(14px,1.6vw,20px) clamp(16px,2vw,22px);
+  border-radius:16px; border:1px solid var(--tile-border);
+  box-shadow:0 0 0 1px rgba(255,255,255,.02) inset;
 }
-.current-block .meta-row .dot{
-  opacity:.45;
-  padding:0 .15rem;
-  line-height:1;
+.card-current .metric-callout .metric-label,
+.card-next  .metric-callout .metric-label{
+  font-size:clamp(.80rem,.90vw,.95rem); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+}
+.card-current .metric-callout .metric-value,
+.card-next  .metric-callout .metric-value{
+  font-size:clamp(1.8rem,3.2vw,2.6rem); line-height:1.1; font-weight:800; letter-spacing:-0.01em; font-variant-numeric:tabular-nums;
+}
+.card-current .metric-order{
+  background:linear-gradient(90deg, color-mix(in oklab,var(--curr-accent) 36%, transparent), transparent 65%);
+}
+.card-current .metric-completed{
+  background:linear-gradient(90deg, color-mix(in oklab,var(--curr-accent) 30%, transparent), transparent 65%);
+}
+.card-current .metric-balance{
+  background:linear-gradient(90deg, color-mix(in oklab,var(--curr-accent) 24%, transparent), transparent 65%);
 }
 
-/* ==== NEXT card: compact & aligned, order sticky bottom ==== */
-.card-next .card-body{
-  display:flex; flex-direction:column;
-  padding: .9rem 1rem .4rem;   /* kecilkan padding bawah → mepet */
-}
-.np-head{margin-bottom:.4rem}
-.np-backno{
-  font-size:clamp(2.8rem,5vw,4.8rem);
-  line-height:1.05; font-weight:800; letter-spacing:.02em
-}
+/* =============================
+   NEXT CARD (compact)
+   ============================= */
+.card-next .card-body{ display:flex; flex-direction:column; padding:.9rem 1rem .5rem; }
+.np-head{ margin-bottom:.4rem; }
+.np-backno{ font-size:clamp(2.6rem,5vw,4.4rem); line-height:1.05; font-weight:800; letter-spacing:.02em; }
 .np-customer{
-  margin-top:.25rem; font-size:.98rem; font-weight:700; opacity:.95; text-transform:uppercase;
+  margin-top:.15rem; font-size:.9rem; font-weight:600; opacity:.9; text-transform:uppercase;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
-/* 3 kolom Dock/Time/Date dengan label kecil & value tebal */
-.np-keyline{
-  display:grid; grid-template-columns:repeat(3, minmax(0,1fr));
-  gap:.3rem 1rem; align-items:end; margin-top:.5rem;
-}
-.np-keyline .lbl{
-  font-size:.78rem; letter-spacing:.08em; color:var(--muted); text-transform:uppercase
-}
-.np-keyline .val{
-  margin:0; font-weight:800; font-size:1.15rem; font-variant-numeric:tabular-nums
-}
-/* Order badge nempel bawah */
-.card-next .order-badge{ margin-top:auto; padding:.85rem 1rem; border-radius:14px }
-.card-next .order-badge .value{ font-size:clamp(1.6rem,3vw,2.2rem); font-weight:900 }
-
-/* ==== NEXT card — compact details ==== */
-.card-next .card-body{display:flex;flex-direction:column;padding:.9rem 1rem .5rem}
-
-.np-head{margin-bottom:.4rem}
-.np-backno{font-size:clamp(2.6rem,5vw,4.4rem);line-height:1.05;font-weight:800;letter-spacing:.02em}
-.np-customer{
-  margin-top:.15rem;font-size:.9rem;font-weight:600;opacity:.9;text-transform:uppercase;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-}
-
-/* Detail rows: label kecil (pill), value tebal & tidak terpotong */
+/* Label pill + value tebal; label tidak terpotong */
 .np-rows{
-  display:grid;grid-template-columns:70px 1fr;gap:.2rem .75rem;align-items:center;margin-top:.35rem;
+  display:grid; grid-template-columns:max-content 1fr; column-gap:.6rem; row-gap:.25rem; align-items:center; margin-top:.35rem;
 }
 .np-rows dt{
-  margin:0;padding:.35rem .7rem;border-radius:999px;
-  border:1px solid var(--tile-border);background:rgba(255,255,255,.03);
-  font-size:.78rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;text-align:left;
+  margin:0; padding:.28rem .60rem; border-radius:999px; border:1px solid var(--tile-border);
+  background:rgba(255,255,255,.03); font-size:.70rem; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;
 }
 .np-rows dd{
-  margin:0;font-size:.98rem;font-weight:800;line-height:1.1;
-  font-variant-numeric:tabular-nums;white-space:nowrap; /* cegah "2025-10-11" jadi turun-turun */
+  margin:0; font-weight:800; font-size:.80rem; line-height:1.1; font-variant-numeric:tabular-nums;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-@media (max-width:420px){
-  .np-rows{grid-template-columns:64px 1fr}
-  .np-rows dd{font-size:.95rem}
-}
+/* Order badge di bawah */
+.card-next .order-badge{ margin-top:auto; padding:.85rem 1rem; border-radius:14px; }
+.card-next .order-badge .value{ font-size:clamp(1.6rem,3vw,2.2rem); font-weight:900; }
 
-/* ORDER nempel bawah */
-.card-next .order-badge{margin-top:auto;padding:.85rem 1rem;border-radius:14px}
-.card-next .order-badge .value{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:900}
-
-/* ==== NEXT card — super compact details ==== */
-.card-next .np-backno{ font-size:clamp(2.2rem, 3.6vw, 3.8rem) }   /* kecilkan Back No sedikit */
-
-.card-next .np-customer{
-  font-size:.85rem;            /* sebelumnya ~.95rem */
-  font-weight:600;
+/* =============================
+   NEXT LIST – hide native scrollbar, tetap bisa drag/scroll
+   ============================= */
+.next-row-wrap{ position:relative; overflow:visible; }
+.next-row-wrap .np-scroll{
+  overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+  --sb:18px; padding-bottom:var(--sb);
+  scrollbar-width:none!important; -ms-overflow-style:none!important;
+  cursor:grab; touch-action:pan-y;
 }
-
-/* Label & value detail benar-benar kecil, tidak pecah baris */
-.card-next .np-rows{
-  grid-template-columns:60px 1fr;   /* sempitkan kolom label */
-  gap:.15rem .55rem;
-}
-.card-next .np-rows dt{
-  padding:.28rem .55rem;
-  font-size:clamp(.60rem, .70vw, .72rem);
-}
-.card-next .np-rows dd{
-  font-size:clamp(.72rem, .85vw, .90rem);  /* <<< inti pengecilan */
-  font-weight:700;
-  line-height:1.05;
-  white-space:nowrap;
+.next-row-wrap .np-scroll.is-dragging{ cursor:grabbing; user-select:none; }
+.next-row-wrap .np-scroll::-webkit-scrollbar{ height:var(--sb); }
+.next-row-wrap .np-scroll::-webkit-scrollbar-thumb,
+.next-row-wrap .np-scroll::-webkit-scrollbar-track{ background:transparent!important; }
+.next-row-wrap::after{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:var(--sb);
+  background:var(--bs-body-bg); pointer-events:none;
 }
 
-/* jaga "ORDER" tetap nempel bawah */
-.card-next .card-body{ padding:.8rem 1rem .4rem }
-.card-next .order-badge{ margin-top:auto }
-
-/* ==== FIX: label "Dock/Time/Date" tidak terpotong ==== */
-.card-next .np-rows{
-  grid-template-columns: max-content 1fr !important; /* ikut lebar label */
-  column-gap: .6rem;
-  row-gap: .25rem;
-}
-
-.card-next .np-rows dt{
-  display: inline-flex;              /* biar pill ngikut konten */
-  align-items: center;
-  padding: .28rem .60rem;
-  border-radius: 999px;
-  border: 1px solid var(--tile-border);
-  background: rgba(255,255,255,.03);
-  font-size: .70rem;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  white-space: nowrap;               /* jangan bungkus */
-  word-break: keep-all;
-  hyphens: none;
-  width: auto;                       /* pastikan tidak ter-limit */
-  min-width: fit-content;
-}
-
-.card-next .np-rows dd{
-  margin: 0;
-  font-weight: 800;
-  font-size: .80rem;                 /* kecil */
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;               /* tanggal tidak patah */
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Progress card compact */
-.progress-readout .big-number{font-size:clamp(2.2rem,4.2vw,3rem)}
-.card .qty-progress .val{font-weight:800}
-
-/* ==== KPI: Total Back No (Today) ==== */
+/* =============================
+   KPI: TOTAL BACK NO (TODAY) — gray, compact
+   ============================= */
 .kpi-tile{
-  display:flex; align-items:center; gap:.9rem;
-  padding: .9rem 1rem;
-  border-radius:16px;
-  border:1px solid var(--tile-border);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.03), transparent),
-    linear-gradient(90deg,
-      color-mix(in oklab, var(--curr-accent) 18%, transparent),
-      color-mix(in oklab, var(--curr-accent) 6%,  transparent));
-}
-.kpi-icon{
-  width:44px; height:44px; border-radius:999px; flex:0 0 44px;
-  display:grid; place-items:center;
-  font-weight:800; letter-spacing:.04em;
-  background:
-    radial-gradient(closest-side, rgba(255,255,255,.06), transparent),
-    linear-gradient(180deg,
-      color-mix(in oklab, var(--curr-accent) 30%, transparent),
-      color-mix(in oklab, var(--curr-accent) 8%,  transparent));
-  border:1px solid color-mix(in oklab, var(--curr-accent) 30%, var(--tile-border));
-}
-.kpi-body{min-width:0}
-.kpi-label{
-  font-size:.78rem; line-height:1; letter-spacing:.10em;
-  text-transform:uppercase; color:var(--muted);
-}
-.kpi-sub{
-  font-size:.72rem; line-height:1.1; letter-spacing:.08em;
-  text-transform:uppercase; opacity:.75;
-}
-.kpi-value{
-  margin-left:auto; font-weight:900;
-  font-size:clamp(1.8rem, 3.4vw, 2.4rem);
-  line-height:1; padding-left:.5rem;
-}
-@media (max-width:480px){
-  .kpi-icon{width:40px;height:40px;flex-basis:40px}
-  .kpi-value{font-size:clamp(1.6rem, 4.6vw, 2rem)}
-}
-
-/* ==== KPI: Total Back No (Today) — gray, no wrap ==== */
-.kpi-tile{
-  display:grid;
-  grid-template-columns: auto minmax(0,1fr) auto; /* icon | label | value */
-  align-items:center;
-  gap:.9rem;
-  padding: .95rem 1rem;
-  border-radius:16px;
+  display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center;
+  gap:.55rem; padding:.6rem .75rem; border-radius:16px;
   border:1px solid color-mix(in oklab, var(--muted) 35%, transparent);
-  background:
-    linear-gradient(180deg,
-      color-mix(in oklab, var(--muted) 16%, transparent),
-      color-mix(in oklab, var(--muted) 6%, transparent));
+  background:linear-gradient(180deg,
+            color-mix(in oklab, var(--muted) 16%, transparent),
+            color-mix(in oklab, var(--muted) 6%,  transparent));
 }
 .kpi-icon{
-  width:42px;height:42px;flex:0 0 42px;border-radius:999px;
-  display:grid;place-items:center;
-  font-weight:800;letter-spacing:.02em;
+  width:30px; height:30px; border-radius:999px; display:grid; place-items:center; flex:0 0 30px;
+  font-weight:800; font-size:.72rem; letter-spacing:.02em;
   color:color-mix(in oklab, var(--text-strong) 85%, transparent);
-  background:
-    radial-gradient(closest-side, rgba(255,255,255,.06), transparent),
-    linear-gradient(180deg,
-      color-mix(in oklab, var(--muted) 22%, transparent),
-      color-mix(in oklab, var(--muted) 8%, transparent));
+  background:radial-gradient(closest-side, rgba(255,255,255,.06), transparent),
+             linear-gradient(180deg,
+               color-mix(in oklab, var(--muted) 22%, transparent),
+               color-mix(in oklab, var(--muted) 8%,  transparent));
   border:1px solid color-mix(in oklab, var(--muted) 40%, transparent);
 }
 .kpi-label{
-  min-width:0;
-  font-size:.9rem;font-weight:600;
+  max-width:100%; font-size:clamp(.46rem,.9vw,.72rem); letter-spacing:.005em;
+  white-space:nowrap; overflow:visible; text-overflow:clip; font-weight:600;
   color:color-mix(in oklab, var(--muted) 85%, transparent);
-  white-space:nowrap;           /* << no wrap */
-  overflow:hidden;text-overflow:ellipsis;
-  letter-spacing:.02em;
 }
-.kpi-value{
-  margin-left:.25rem;
-  font-weight:900;
-  font-size:clamp(1.8rem,3.2vw,2.3rem);
-  line-height:1;
-}
-
-
-/* ==== KPI: Total Back No (Today) — extra small ==== */
-.kpi-tile{
-  gap:.55rem;                 /* lebih rapat */
-  padding:.6rem .75rem;       /* lebih compact */
-}
-.kpi-icon{
-  width:30px; height:30px;    /* kecilkan ikon */
-  flex:0 0 30px;
-  font-size:.72rem;
-}
-.kpi-label{
-  max-width:100%;
-  font-size:clamp(.46rem, .9vw, .72rem);  /* << lebih kecil di semua ukuran */
-  letter-spacing:.005em;                   /* rapatkan lagi */
-  white-space:nowrap;                      /* tetap 1 baris */
-  overflow:visible;
-  text-overflow:clip;
-}
-.kpi-value{
-  font-size:clamp(1.45rem, 2.2vw, 1.9rem); /* sedikit dikecilkan biar lega */
-  line-height:1;
-}
-
-/* Jaga tetap kecil di layar sangat sempit */
-@media (max-width: 420px){
-  .kpi-label{ font-size:.52rem }
-}
-
+.kpi-value{ margin-left:.25rem; font-weight:900; font-size:clamp(1.45rem,2.2vw,1.9rem); line-height:1; }
+@media (max-width:420px){ .kpi-label{ font-size:.52rem } }
