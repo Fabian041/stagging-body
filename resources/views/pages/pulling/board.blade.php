@@ -302,31 +302,36 @@
                                             {{ $curBack }}</div>
 
                                         <div class="meta-row">
-                                            <span class="tag">Customer</span><span
-                                                data-role="curr-customer">{{ $curCust }}</span>
-                                            <span>•</span>
-                                            <span class="tag">Dock</span><span
-                                                data-role="curr-dock">{{ $curDock }}</span>
-                                            <span>•</span>
-                                            <span class="tag">Start</span><span
+                                            <span class="tag">Customer</span>
+                                            <span class="val" data-role="curr-customer">{{ $curCust }}</span>
+                                            <span class="dot">•</span>
+
+                                            <span class="tag">Dock</span>
+                                            <span class="val" data-role="curr-dock">{{ $curDock }}</span>
+                                            <span class="dot">•</span>
+
+                                            <span class="tag">Start</span>
+                                            <span class="val time-pill"
                                                 data-role="curr-start">{{ $curStart }}</span>
                                         </div>
 
-                                        <div class="metric-callout metric-order mt-3" title="Order">
-                                            <div class="metric-label">ORDER</div>
-                                            <div class="metric-value number" data-role="curr-order">
-                                                {{ number_format($curOrder) }}</div>
-                                        </div>
-                                        <div class="metric-callout metric-completed mt-3" title="Completed">
-                                            <div class="metric-label">COMPLETED</div>
-                                            <div class="metric-value number" data-role="curr-done">
-                                                {{ number_format($curDone) }}</div>
-                                        </div>
-                                        <div class="metric-callout metric-balance mt-3" title="Balance">
-                                            <div class="metric-label">BALANCE</div>
-                                            <div class="metric-value number {{ $curBalance <= 0 ? 'text-success' : '' }}"
-                                                data-role="curr-balance">
-                                                {{ $curBalance <= 0 ? 'COMPLETED' : number_format($curBalance) }}
+                                        <div class="metrics-grid mt-3">
+                                            <div class="metric-callout metric-order" title="Order">
+                                                <div class="metric-label">ORDER</div>
+                                                <div class="metric-value number" data-role="curr-order">
+                                                    {{ number_format($curOrder) }}</div>
+                                            </div>
+                                            <div class="metric-callout metric-completed" title="Completed">
+                                                <div class="metric-label">COMPLETED</div>
+                                                <div class="metric-value number" data-role="curr-done">
+                                                    {{ number_format($curDone) }}</div>
+                                            </div>
+                                            <div class="metric-callout metric-balance" title="Balance">
+                                                <div class="metric-label">BALANCE</div>
+                                                <div class="metric-value number {{ $curBalance <= 0 ? 'text-success' : '' }}"
+                                                    data-role="curr-balance">
+                                                    {{ $curBalance <= 0 ? 'COMPLETED' : number_format($curBalance) }}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -341,35 +346,37 @@
                             </div>
                         </div>
 
-                        {{-- RIGHT: NEXT --}}
+                        <!-- RIGHT: NEXT -->
                         <div class="col-12 col-xl-3 col-xxl-2">
                             <div class="card tile radius-4 h-100 card-next">
                                 <div class="card-header d-flex align-items-center gap-2">
                                     <strong>Next Production</strong>
                                 </div>
-                                <div class="card-body d-flex flex-column justify-content-between">
-                                    <div>
-                                        <div class="next-title">BACK NUMBER</div>
-                                        <div class="next-value fw-bold number js-backno" data-role="next-backno">
+                                <div class="card-body">
+                                    <div class="np-head">
+                                        <div class="eyebrow">Back Number</div>
+                                        <div class="np-backno number js-backno" data-role="next-backno">
                                             {{ $nextBack }}</div>
-                                        <div class="small text-secondary" data-role="next-customer">
-                                            {{ $nextCust }}</div>
-                                        <div class="meta-row mt-2">
-                                            <span class="tag">Dock</span><span
-                                                data-role="next-dock">{{ $nextDock }}</span>
-                                            <span>•</span>
-                                            <span class="tag">Time</span><span
-                                                data-role="next-time">{{ $nextTime }}</span>
-                                            <span>·</span>
-                                            <span data-role="next-date">{{ $nextDate }}</span>
-                                        </div>
+                                        <div class="np-customer" data-role="next-customer">{{ $nextCust }}</div>
                                     </div>
 
-                                    <div class="metric-callout mt-4"
-                                        style="background:linear-gradient(90deg,color-mix(in oklab,var(--next-accent) 30%,transparent),transparent);">
-                                        <div class="metric-label">ORDER</div>
-                                        <div class="metric-value display-6 number" data-role="next-order">
-                                            {{ number_format($nextOrder) }}</div>
+                                    <dl class="np-rows">
+                                        <dt>Dock</dt>
+                                        <dd data-role="next-dock">{{ $nextDock }}</dd>
+                                        <dt>Time</dt>
+                                        <dd class="time-pill" data-role="next-time">{{ $nextTime }}</dd>
+                                        <dt>Date</dt>
+                                        <dd data-role="next-date">{{ $nextDate }}</dd>
+                                    </dl>
+
+                                    <div class="order-badge mt-3"
+                                        style="background:linear-gradient(90deg,
+       color-mix(in oklab,var(--next-accent) 30%, transparent),
+       color-mix(in oklab,var(--next-accent) 10%, transparent));
+       border:1px solid color-mix(in oklab,var(--next-accent) 25%, var(--tile-border));">
+                                        <span class="label">ORDER</span>
+                                        <strong class="value number"
+                                            data-role="next-order">{{ number_format($nextOrder) }}</strong>
                                     </div>
                                 </div>
                             </div>
