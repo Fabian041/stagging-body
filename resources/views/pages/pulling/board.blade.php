@@ -390,9 +390,13 @@
                                     </div>
 
                                     <hr class="my-3 d-none">
-                                    <div class="metric-callout mt-2" title="Total unique Back Number planned for today">
-                                        <div class="metric-label">TOTAL BACK NO (TODAY)</div>
-                                        <div class="metric-value number" data-role="prog-total-bn">
+                                    <div class="kpi-tile mt-3" aria-label="Total Back Number Today">
+                                        <div class="kpi-icon" aria-hidden="true">BN</div>
+                                        <div class="kpi-body">
+                                            <div class="kpi-label">Total Back No</div>
+                                            <div class="kpi-sub">Today</div>
+                                        </div>
+                                        <div class="kpi-value number" data-role="prog-total-bn">
                                             {{ number_format($progTotalBN) }}</div>
                                     </div>
                                 </div>

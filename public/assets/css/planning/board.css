@@ -540,3 +540,45 @@ html, body { height: auto; overflow-y: auto; }
 /* Progress card compact */
 .progress-readout .big-number{font-size:clamp(2.2rem,4.2vw,3rem)}
 .card .qty-progress .val{font-weight:800}
+
+/* ==== KPI: Total Back No (Today) ==== */
+.kpi-tile{
+  display:flex; align-items:center; gap:.9rem;
+  padding: .9rem 1rem;
+  border-radius:16px;
+  border:1px solid var(--tile-border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.03), transparent),
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--curr-accent) 18%, transparent),
+      color-mix(in oklab, var(--curr-accent) 6%,  transparent));
+}
+.kpi-icon{
+  width:44px; height:44px; border-radius:999px; flex:0 0 44px;
+  display:grid; place-items:center;
+  font-weight:800; letter-spacing:.04em;
+  background:
+    radial-gradient(closest-side, rgba(255,255,255,.06), transparent),
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--curr-accent) 30%, transparent),
+      color-mix(in oklab, var(--curr-accent) 8%,  transparent));
+  border:1px solid color-mix(in oklab, var(--curr-accent) 30%, var(--tile-border));
+}
+.kpi-body{min-width:0}
+.kpi-label{
+  font-size:.78rem; line-height:1; letter-spacing:.10em;
+  text-transform:uppercase; color:var(--muted);
+}
+.kpi-sub{
+  font-size:.72rem; line-height:1.1; letter-spacing:.08em;
+  text-transform:uppercase; opacity:.75;
+}
+.kpi-value{
+  margin-left:auto; font-weight:900;
+  font-size:clamp(1.8rem, 3.4vw, 2.4rem);
+  line-height:1; padding-left:.5rem;
+}
+@media (max-width:480px){
+  .kpi-icon{width:40px;height:40px;flex-basis:40px}
+  .kpi-value{font-size:clamp(1.6rem, 4.6vw, 2rem)}
+}
