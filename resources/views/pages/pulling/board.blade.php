@@ -260,8 +260,7 @@
                         <div class="col-12 col-xl-3 col-xxl-2">
                             <div class="card tile radius-4 h-100">
                                 <div class="card-header d-flex align-items-center gap-2">
-                                    <strong>Overal Progress<span
-                                            data-role="prog-label">({{ $data['progress']['label'] ?? '' }})</span></strong>
+                                    <strong>Overal Progress</strong>
                                 </div>
                                 <div class="card-body">
                                     <div class="progress-readout">
