@@ -165,7 +165,7 @@
             font-weight: 800
         }
 
-        /* Meta pills current (rapi) */
+        /* Meta pills current */
         .current-block .meta-row {
             display: flex;
             align-items: center;
@@ -392,7 +392,7 @@
                                     <hr class="my-3 d-none">
                                     <div class="kpi-tile mt-3" aria-label="Total Back Number Today">
                                         <div class="kpi-icon" aria-hidden="true">BN</div>
-                                        <div class="kpi-label">Total Model  </div>
+                                        <div class="kpi-label">Total Model </div>
                                         <div class="kpi-value number" data-role="prog-total-bn">
                                             {{ number_format($progTotalBN) }}</div>
                                     </div>
@@ -564,7 +564,7 @@
             });
         })();
 
-        // Alias Back No
+        // Alias Back No (untuk tampilan)
         function applyBacknoAlias(root = document) {
             let map = {};
             try {
@@ -613,6 +613,124 @@
                 if (DEBUG) console.debug('[board-sse]', ...a);
             };
 
+            /* ===================== 6I MERGE HELPERS ===================== */
+            const normU = s => String(s || '').trim().toUpperCase();
+            const isDock6I = v => normU(v) === '6I';
+
+            function readAliasMap() {
+                let map = {};
+                try {
+                    map = JSON.parse(localStorage.getItem('backnoRenameMap') || '{}');
+                } catch {}
+                return Object.assign({
+                    D403: 'CI18',
+                    D111: 'CI12',
+                    D500: 'CI19'
+                }, map || {});
+            }
+
+            function unifyAlias(bn) {
+                const map = readAliasMap();
+                const B = normU(bn);
+                return map[B] || B;
+            }
+
+            function unifyBacknoForLine(bn, lineKey) {
+                const B = normU(bn);
+                if (lineKey === 'AS003') return (B === 'CI12' || B === 'D111') ? 'CI12' : null;
+                if (lineKey === 'AS004') return (B === 'CI19' || B === 'D500') ? 'CI19' : null;
+                return null;
+            }
+
+            function mdToISO(md, refISO) {
+                if (!md) return '';
+                const m = String(md).trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
+                if (!m) return String(md);
+                const y = String((refISO || dateISO || new Date().toISOString().slice(0, 10))).slice(0, 4);
+                const MM = String(m[1]).padStart(2, '0'),
+                    DD = String(m[2]).padStart(2, '0');
+                return `${y}-${MM}-${DD}`;
+            }
+
+            function key6I(lineKey, row) {
+                const bnUnified = unifyBacknoForLine(row?.back_no, lineKey);
+                if (!bnUnified || !isDock6I(row?.dock)) return null;
+                const tm = (row?.delivery_time || '').trim();
+                const d = row?.delivery_date || '';
+                const iso = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : mdToISO(d, dateISO);
+                if (!tm || !iso) return null;
+                return `${iso}|${tm}|${bnUnified}`;
+            }
+
+            function apply6IMerge(lineKey, payload) {
+                if (!payload) return payload;
+                const nx = payload.nextHighlight || null;
+                const nl = Array.isArray(payload.nextList) ? payload.nextList.slice() : [];
+
+                const groups = new Map(); // key -> { sum, rep, unified }
+                const add = (row) => {
+                    const k = key6I(lineKey, row);
+                    if (!k) return null;
+                    const sum = (+row.order_qty || 0);
+                    const bnU = unifyBacknoForLine(row.back_no, lineKey);
+                    const rec = groups.get(k) || {
+                        sum: 0,
+                        rep: {
+                            ...row
+                        },
+                        unified: bnU
+                    };
+                    rec.sum += sum;
+                    rec.rep = {
+                        ...rec.rep,
+                        back_no: bnU,
+                        dock: '6I',
+                        order_qty: rec.sum
+                    };
+                    groups.set(k, rec);
+                    return k;
+                };
+
+                const nxKey = nx ? add(nx) : null;
+                nl.forEach(r => add(r));
+
+                if (nx && nxKey && groups.has(nxKey)) {
+                    payload.nextHighlight = {
+                        ...groups.get(nxKey).rep
+                    };
+                } else if (nx) {
+                    payload.nextHighlight = {
+                        ...nx,
+                        back_no: unifyAlias(nx.back_no)
+                    };
+                }
+
+                const emitted = new Set(nxKey ? [nxKey] : []);
+                const out = [];
+                nl.forEach(row => {
+                    const k = key6I(lineKey, row);
+                    if (!k) {
+                        out.push({
+                            ...row,
+                            back_no: unifyAlias(row.back_no)
+                        });
+                        return;
+                    }
+                    if (emitted.has(k)) return;
+                    const rec = groups.get(k);
+                    if (rec) {
+                        out.push({
+                            ...rec.rep
+                        });
+                        emitted.add(k);
+                    }
+                });
+
+                payload.nextList = out;
+                return payload;
+            }
+            /* ============================================================ */
+
             function debounce(fn, wait) {
                 let t = null;
                 return function() {
@@ -623,6 +741,11 @@
 
             // --- Update DOM satu line ---
             function updateLine(lineKey, payload) {
+                // >>> TERAPKAN MERGE 6I SEKARANG <<<
+                payload = apply6IMerge(lineKey, payload ? {
+                    ...payload
+                } : payload);
+
                 const tab = document.querySelector(`[data-line="${lineKey}"]`);
                 if (!tab) return;
 
@@ -718,25 +841,26 @@
                     }
                 }
 
-                // TOTAL BACK NO (TODAY)
-                let totalBN = Number(
-                    (payload && payload.daily && payload.daily.totalBackNo) ??
-                    payload?.totalBackNo ?? 0
-                );
+                // TOTAL BACK NO (TODAY) - dihitung dengan alias unified agar tidak double (D111->CI12, D500->CI19)
+                let totalBN = Number(payload?.daily?.totalBackNo ?? payload?.totalBackNo ?? 0);
                 if (!totalBN) {
                     const seen = new Set();
                     const add = v => {
-                        v = (v || '').toString().trim().toUpperCase();
+                        v = unifyAlias((v || '').toString()); // satukan alias
+                        v = v.trim().toUpperCase();
                         if (v && v !== '—') seen.add(v);
                     };
-                    add(cur.back_no);
-                    add(nx.back_no);
+                    const curRow = payload.current || {};
+                    const nxRow = payload.nextHighlight || {};
+                    add(curRow.back_no);
+                    add(nxRow.back_no);
                     (payload.nextList || []).forEach(r => add(r?.back_no));
                     totalBN = seen.size;
                 }
                 const elTotal = tab.querySelector('[data-role="prog-total-bn"]');
                 if (elTotal) elTotal.textContent = totalBN.toLocaleString('id-ID');
 
+                // apply alias ke tampilan di tab ini
                 applyBacknoAlias(tab);
             }
 
@@ -773,7 +897,7 @@
                     });
                 });
                 es.onerror = (e) => {
-                    log('error', e); /* auto-reconnect */
+                    log('error', e); /* auto-reconnect by browser */
                 };
                 window.addEventListener('beforeunload', () => {
                     try {
@@ -817,7 +941,6 @@
                     };
                     step();
                 };
-
                 sc.addEventListener('pointerdown', e => {
                     if (e.button !== undefined && e.button !== 0) return;
                     isDown = true;
