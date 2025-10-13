@@ -259,9 +259,9 @@ class DashboardController extends Controller
      * - AUTO-ADVANCE: jika current.complete → next naik, list kiri naik ke next
      */
     /**
- * Bangun data board untuk tanggal tertentu.
- * Return: [$boards, $stamp]
- */
+     * Bangun data board untuk tanggal tertentu.
+     * Return: [$boards, $stamp]
+     */
     private function buildBoardsForDate_(\Carbon\Carbon $selectedDate): array
     {
         $todayISO = $selectedDate->toDateString();

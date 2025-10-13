@@ -20,169 +20,148 @@ class DirectPullingSSEController extends Controller
 
     public function streamDirectPullingUpdates(Request $request): StreamedResponse
     {
-        $this->clientId = $request->ip() . '-' . substr(md5(microtime()), 0, 6);
+        $clientId = $request->ip() . '-' . substr(md5(microtime()), 0, 6);
 
         $selectedDate = $request->has('date')
             ? Carbon::parse($request->input('date'))->startOfDay()
             : now()->startOfDay();
 
-        return new StreamedResponse(function () use ($selectedDate) {
-            // SSE headers
-            header('Content-Type: text/event-stream');
-            header('Cache-Control: no-cache');
-            header('Connection: keep-alive');
-            header('X-Accel-Buffering: no');
+        // Lepaskan session lock (kalau ada) biar stream nggak keganjal
+        try { if (app()->bound('session')) { session()->save(); } } catch (\Throwable $e) {}
 
-            $lastCheck = now()->subSeconds(2);
-            $connectionStart = now();
-            $lastHeartbeat = now();
+        ignore_user_abort(true);
+        @set_time_limit(0);
+        @ini_set('zlib.output_compression', '0');
+        @ini_set('output_buffering', 'off');
 
-            // signature init
-            $sigKey = 'pulling:sig:' . $selectedDate->format('Ymd');
-            $lastSig = Cache::get($sigKey, null);
-            $lastSigCheck = now()->subSeconds(5);
+        return response()->stream(function () use ($selectedDate, $clientId) {
 
-            $this->sendEvent('connected', [
+            // ===== headers awal SSE + retry =====
+            echo "retry: 5000\n\n";
+            @ob_flush(); @flush();
+
+            // kirim event "connected" (Blade mendengarkan ini)
+            $connectedPayload = [
                 'message'   => 'Connected to production plan updates',
-                'clientId'  => $this->clientId,
+                'clientId'  => $clientId,
                 'date'      => $selectedDate->format('Y-m-d'),
-                'timestamp' => now()->toISOString()
-            ]);
+                'timestamp' => now()->toIso8601String(),
+            ];
+            echo "event: connected\n";
+            echo "data: " . json_encode($connectedPayload) . "\n\n";
+            @ob_flush(); @flush();
 
-            $emptyPolls = 0;
-            $loopCount = 0;
+            $startAt         = now();
+            $lastCheck       = now()->subSeconds(2);
+            $lastPing        = now()->subSeconds(10); // paksa ping segera
+            $lastSig         = null;
+            $lastSigCheck    = now()->subSeconds(5);
 
             while (true) {
+                // putuskan kalau client udah nutup atau 30 menit lewat
+                if (connection_aborted() || now()->diffInMinutes($startAt) > 30) {
+                    echo "event: close\n";
+                    echo "data: " . json_encode(['message' => 'Connection ended']) . "\n\n";
+                    @ob_flush(); @flush();
+                    break;
+                }
+
                 try {
-                    // putuskan koneksi tiap 30 menit / client abort
-                    if ($loopCount++ % 10 === 0) {
-                        if (now()->diffInMinutes($connectionStart) > 30 || connection_aborted()) {
-                            if (connection_aborted()) {
-                                Log::channel('sse')->debug("Client {$this->clientId} disconnected");
-                            }
-                            $this->sendEvent('close', ['message' => 'Connection ended']);
-                            break;
-                        }
-                    }
-
-                    // ==== 1) CEK SIGNATURE EXTERNAL (tiap ~5s) ====
+                    // 1) cek signature eksternal tiap 5s → kalau beda, refetch + event "refetched"
                     if (now()->diffInSeconds($lastSigCheck) >= 5) {
-                        $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
-                        $currentSig = $this->externalSignature($selectedDate, $allBackNos, $this->excludedCustomersDefault);
+                        $allBackNos  = collect($this->backNosByLine)->flatten()->unique()->values();
+                        $currentSig  = $this->externalSignature($selectedDate, $allBackNos, $this->excludedCustomersDefault);
+
                         if ($currentSig && $currentSig !== $lastSig) {
-                            $this->sendEvent('refetching', [
+                            echo "event: refetching\n";
+                            echo "data: " . json_encode([
                                 'reason' => 'external_changed',
-                                'at'     => now()->toISOString(),
+                                'at'     => now()->toIso8601String(),
                                 'date'   => $selectedDate->format('Y-m-d'),
-                            ]);
+                            ]) . "\n\n";
+                            @ob_flush(); @flush();
 
-                            $lockKey = 'pulling:refresh:' . $selectedDate->format('Ymd');
-                            $lock = null;
-                            try {
-                                // Fallback kalau store cache tidak support lock (lihat poin c)
-                                $lock = Cache::lock($lockKey, 60);
-                                $got = method_exists($lock, 'get') ? $lock->get() : true;
+                            // lakukan refresh data
+                            $ok = $this->refetchFromExternal($selectedDate);
 
-                                if ($got) {
-                                    try {
-                                        $ok = $this->refetchFromExternal($selectedDate);
-                                    } finally {
-                                        try { $lock?->release(); } catch (\Throwable $e) {}
-                                    }
+                            $lastSig = $currentSig;
+                            Cache::put('pulling:sig:'.$selectedDate->format('Ymd'), $currentSig, now()->addMinutes(30));
 
-                                    // **Selalu** tulis signature, walau ok=false (terutama kalau prefix 'empty:')
-                                    Cache::put($sigKey, $currentSig, now()->addMinutes(30));
-                                    $lastSig = $currentSig;
-
-                                    $this->sendEvent('refetched', [
-                                        'status' => $ok ? 'success' : 'nochange',
-                                        'at'     => now()->toISOString(),
-                                        'date'   => $selectedDate->format('Y-m-d')
-                                    ]);
-                                }
-                            } catch (\Throwable $e) {
-                                // jalan tanpa lock kalau store cache tidak support lock
-                                $ok = $this->refetchFromExternal($selectedDate);
-                                Cache::put($sigKey, $currentSig, now()->addMinutes(30));
-                                $lastSig = $currentSig;
-
-                                $this->sendEvent('refetched', [
-                                    'status' => $ok ? 'success' : 'nochange',
-                                    'at'     => now()->toISOString(),
-                                    'date'   => $selectedDate->format('Y-m-d')
-                                ]);
-                            }
+                            echo "event: refetched\n";
+                            echo "data: " . json_encode([
+                                'status' => $ok ? 'success' : 'nochange',
+                                'at'     => now()->toIso8601String(),
+                                'date'   => $selectedDate->format('Y-m-d'),
+                            ]) . "\n\n";
+                            @ob_flush(); @flush();
                         }
                         $lastSigCheck = now();
                     }
 
-                    // ==== 2) PANTAU UPDATE DI PRODUCTIONPLAN ====
+                    // 2) pantau perubahan di ProductionPlan sejak lastCheck → event "directPullingUpdate"
                     $updates = \App\Models\ProductionPlan::where('plan_date', $selectedDate->format('Y-m-d'))
-                        ->where(function($query) use ($lastCheck) {
-                            $query->where('updated_at', '>', $lastCheck)
-                                    ->orWhere('created_at', '>', $lastCheck);
+                        ->where(function($q) use ($lastCheck) {
+                            $q->where('updated_at', '>', $lastCheck)
+                            ->orWhere('created_at', '>', $lastCheck);
                         })
                         ->orderBy('updated_at', 'desc')
                         ->get()
                         ->map(function ($item) {
                             return [
-                                'id'                  => $item->id,
-                                'order_qty'           => $item->order_qty,
-                                'direct_pulling_qty'  => $item->direct_pulling_qty,
-                                'stock_chute_qty'     => $item->stock_chute_qty,
-                                'back_no'             => $item->back_no,
-                                'cycle'               => $item->cycle,
-                                'line'                => $item->line,
-                                'balance'             => $item->balance_time,
-                                'start'               => $item->working_start,
-                                'actual_start'        => $item->actual_working_start,
-                                'end'                 => $item->working_end,
-                                'updated_at'          => $item->updated_at->toISOString()
+                                'id'                 => $item->id,
+                                'order_qty'          => $item->order_qty,
+                                'direct_pulling_qty' => $item->direct_pulling_qty,
+                                'stock_chute_qty'    => $item->stock_chute_qty,
+                                'back_no'            => $item->back_no,
+                                'cycle'              => $item->cycle,
+                                'line'               => $item->line,
+                                'balance'            => $item->balance_time,
+                                'start'              => $item->working_start,
+                                'end'                => $item->working_end,
+                                'updated_at'         => optional($item->updated_at)->toIso8601String(),
                             ];
                         });
 
                     if ($updates->isNotEmpty()) {
-                        $payload = $updates->count() > 15
-                            ? ['batches' => $updates->chunk(5)]
-                            : ['updates' => $updates];
-
-                        $this->sendEvent('directPullingUpdate', $payload + [
-                            'timestamp' => now()->toISOString(),
-                            'clientId'  => $this->clientId,
-                            'date'      => $selectedDate->format('Y-m-d')
-                        ]);
+                        echo "event: directPullingUpdate\n";
+                        echo "data: " . json_encode([
+                            'updates'   => $updates,
+                            'timestamp' => now()->toIso8601String(),
+                            'clientId'  => $clientId,
+                            'date'      => $selectedDate->format('Y-m-d'),
+                        ]) . "\n\n";
+                        @ob_flush(); @flush();
 
                         $lastCheck = now();
-                        $emptyPolls = 0;
-                    } else {
-                        $emptyPolls++;
                     }
 
-                    // heartbeat
-                    if (now()->diffInSeconds($lastHeartbeat) >= 15) {
-                        $this->sendHeartbeat();
-                        $lastHeartbeat = now();
+                    // 3) heartbeat yang *match Blade*: event name = "ping"
+                    if (now()->diffInSeconds($lastPing) >= 10) {
+                        echo "event: ping\n";
+                        echo "data: " . json_encode(['at' => now()->toIso8601String()]) . "\n\n";
+                        @ob_flush(); @flush();
+                        $lastPing = now();
                     }
 
-                    // dynamic sleep
-                    $sleepTime = $updates->isEmpty()
-                        ? min(5000000, 100000 * pow(2, min($emptyPolls, 5))) // 0.1s → max 5s
-                        : 500000; // 0.5s
-                    usleep($sleepTime);
-
-                    if ($loopCount % 100 === 0) {
-                        gc_collect_cycles();
-                    }
+                    // jeda pendek
+                    usleep(400000); // 0.4s
                 } catch (\Throwable $e) {
-                    $this->handleStreamError($e);
-                    $sleepTime = min(30, pow(2, $this->errorCount++));
-                    sleep($sleepTime);
-                    if ($this->errorCount > 5) break;
+                    Log::error('SSE loop error: '.$e->getMessage());
+                    // beri tahu FE (opsional)
+                    echo "event: error\n";
+                    echo "data: " . json_encode([
+                        'message' => 'Temporary connection issue',
+                        'at'      => now()->toIso8601String(),
+                    ]) . "\n\n";
+                    @ob_flush(); @flush();
+                    sleep(2);
                 }
             }
         }, 200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache'
+            'Content-Type'      => 'text/event-stream; charset=utf-8',
+            'Cache-Control'     => 'no-cache, no-transform',
+            'Connection'        => 'keep-alive',
+            'X-Accel-Buffering' => 'no', // cegah buffering di Nginx
         ]);
     }
 
@@ -237,7 +216,8 @@ class DirectPullingSSEController extends Controller
 
     protected function sendHeartbeat(): void
     {
-        echo ":heartbeat\n\n";
+        echo "event: ping\n";
+        echo "data: " . json_encode(['at' => now()->toIso8601String()]) . "\n\n";
         @ob_flush(); @flush();
     }
 }
