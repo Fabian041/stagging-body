@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use App\Providers\RouteServiceProvider;
-use App\Http\Middleware\VerifyCsrfToken;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\NidecController;
 use App\Http\Controllers\PullingController;
@@ -16,7 +15,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
-use Illuminate\Session\Middleware\StartSession;
 use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
 
@@ -48,8 +46,7 @@ Route::middleware(['guest'])->group(function () {
 
 // stream SSE
 Route::get('/stream/direct-pulling-updates', [DirectPullingSSEController::class, 'streamDirectPullingUpdates'])
-    ->name('sse.direct-pulling-updates')
-    ->withoutMiddleware([VerifyCsrfToken::class, StartSession::class]);
+    ->name('sse.direct-pulling-updates');
 
 Route::post('/refresh-token', function () {
     if (Auth::check()) {
