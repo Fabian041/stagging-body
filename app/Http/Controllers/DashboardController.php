@@ -299,7 +299,7 @@ class DashboardController extends Controller
 
         $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped, $nowMin) {
 
-            // ===== Progress (kartu kiri) — gunakan waktu SEKARANG untuk label/status shift
+            // ===== Progress (kartu kiri)
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
@@ -307,8 +307,7 @@ class DashboardController extends Controller
             $nAct = (int)($g['night_shift_actual']   ?? 0);
 
             [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress(
-                $nowMin,  // tidak null
-                $mQty, $mAct, $nQty, $nAct
+                $nowMin, $mQty, $mAct, $nQty, $nAct
             );
 
             $rows = $rows->values();
@@ -324,7 +323,6 @@ class DashboardController extends Controller
             $isComplete = function ($it) {
                 $ord  = (int)($it->order_qty ?? 0);
                 $done = (int)($it->direct_pulling_qty ?? 0) + (int)($it->stock_chute_qty ?? 0);
-                // order <= 0 dianggap selesai
                 return $ord <= 0 || $done >= $ord;
             };
 
@@ -359,53 +357,78 @@ class DashboardController extends Controller
             }
 
             /**
-             * AGREGASI per Back No (alias disatukan):
-             * - D111 -> CI12
-             * - D500 -> CI19
-             * - D403 -> CI18
-             * Aturan:
-             * - order_qty dijumlahkan per back_no
-             * - dock: jika salah satu 6I, pakai '6I'
-             * - urutan: earliest working_start agar tetap dekat rencana
+             * RULE AGREGASI:
+             * - HANYA back_no CI12 & CI19 yang DIJUMLAHKAN di Next Production
+             * - Alias:
+             *     D111 -> CI12
+             *     D500 -> CI19
+             * - Back_no lain (termasuk CI18/D403) TIDAK di-merge
              */
-            $aliasMap = [
-                'D111' => 'CI12',
-                'D500' => 'CI19',
-                'D403' => 'CI18',
-            ];
+            $norm = fn($s) => strtoupper(trim((string)$s));
+            $unifyForMerge = function ($bn) use ($norm) {
+                $B = $norm($bn);
+                if ($B === 'D111') return 'CI12';
+                if ($B === 'D500') return 'CI19';
+                return $B;
+            };
+            $isMergeTargetBN = function ($bnU) {
+                return in_array($bnU, ['CI12','CI19'], true);
+            };
 
-            $aggregatedNext = $nextCandidates
-                ->groupBy(function ($it) use ($aliasMap) {
-                    $bn = strtoupper(trim((string)($it->back_no ?? '')));
-                    return $aliasMap[$bn] ?? $bn;
-                })
-                ->map(function ($grp) use ($aliasMap) {
-                    // earliest by working_start (string "H:i")
-                    $earliest = $grp->sortBy(function ($x) {
-                        return sprintf('%s', $x->working_start ?? '99:99');
-                    })->first();
+            // Bangun grup: CI12 & CI19 digabung; lainnya unik per baris
+            $groups = []; // key => array payload
+            foreach ($nextCandidates as $it) {
+                $bnU = $unifyForMerge($it->back_no);
+                $mergeThis = $isMergeTargetBN($bnU);
 
-                    // dock prioritization: 6I wins if exists
-                    $has6I = $grp->contains(function ($x) {
-                        return strtoupper(trim((string)$x->dock)) === '6I';
-                    });
+                // Non-merge target → key unik agar tidak bergabung
+                $uniqueRowKey = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.($it->working_start ?? '');
+                // Merge target → satu key per BN (CI12 / CI19)
+                $key = $mergeThis ? ('MERGE|'.$bnU) : $uniqueRowKey;
 
-                    $bnRaw     = strtoupper(trim((string)($earliest->back_no ?? '')));
-                    $bnUnified = $aliasMap[$bnRaw] ?? $bnRaw;
-
-                    return [
-                        'back_no'       => $bnUnified,
-                        'customer'      => $earliest->customer ?? '—',
-                        'dock'          => $has6I ? '6I' : ($earliest->dock ?? '—'),
-                        'order_qty'     => (int)$grp->sum('order_qty'),
-                        'delivery_time' => $earliest->delivery_time ?: '--',
-                        'delivery_date' => $earliest->delivery_date ?: '',
-                        'sort_key'      => $earliest->working_start ?: '99:99',
+                if (!isset($groups[$key])) {
+                    $groups[$key] = [
+                        'back_no'       => $mergeThis ? $bnU : ($it->back_no ?? '—'),
+                        'customer'      => $it->customer ?? '—',
+                        'dock'          => $norm($it->dock) === '6I' ? '6I' : ($it->dock ?? '—'),
+                        'order_qty'     => 0,
+                        'delivery_time' => $it->delivery_time ?: '--',
+                        'delivery_date' => $it->delivery_date ?: '',
+                        'sort_key'      => $it->working_start ?: '99:99',
+                        '__has6I'       => ($norm($it->dock) === '6I'), // flag utk override dock kalau ada 6I
                     ];
-                })
-                ->values()
-                ->sortBy('sort_key')
-                ->values();
+                }
+
+                // akumulasi qty
+                $groups[$key]['order_qty'] += (int)($it->order_qty ?? 0);
+
+                // simpan earliest utk sort + meta
+                $sk  = $groups[$key]['sort_key'] ?? '99:99';
+                $cur = $it->working_start ?: '99:99';
+                if ($cur < $sk) {
+                    $groups[$key]['sort_key']      = $cur;
+                    $groups[$key]['delivery_time'] = $it->delivery_time ?: $groups[$key]['delivery_time'];
+                    $groups[$key]['delivery_date'] = $it->delivery_date ?: $groups[$key]['delivery_date'];
+                    $groups[$key]['customer']      = $it->customer ?? $groups[$key]['customer'];
+                    if (!$mergeThis) {
+                        $groups[$key]['back_no'] = $it->back_no ?? $groups[$key]['back_no'];
+                    }
+                }
+
+                // jika ada salah satu 6I → keseluruhan grup pakai '6I'
+                if ($norm($it->dock) === '6I') {
+                    $groups[$key]['__has6I'] = true;
+                    $groups[$key]['dock']    = '6I';
+                }
+            }
+
+            // Konversi, bersihkan flag, dan sorting
+            $aggregatedNext = collect(array_values(array_map(function ($g) {
+                unset($g['__has6I']);
+                return $g;
+            }, $groups)))
+            ->sortBy('sort_key')
+            ->values();
 
             // Kartu NEXT (highlight) + NEXT list
             if ($aggregatedNext->isNotEmpty()) {
@@ -448,8 +471,8 @@ class DashboardController extends Controller
                 'nextList'       => $nextList,
 
                 // Tambahan untuk Progress Card:
-                'daily'       => ['totalBackNo' => $uniqBackNo], // utama
-                'totalBackNo' => $uniqBackNo,                    // fallback kompatibel
+                'daily'       => ['totalBackNo' => $uniqBackNo],
+                'totalBackNo' => $uniqBackNo,
             ];
         };
 
@@ -460,6 +483,7 @@ class DashboardController extends Controller
 
         return [$boards, $stamp];
     }
+
 
     /** Khusus penyusunan data tabel + KPI shift (delivery-based 09:40 rule) */
     protected function getGroupedData($backNosByLine, $today)
