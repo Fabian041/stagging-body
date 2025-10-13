@@ -358,31 +358,83 @@ class DashboardController extends Controller
                     ->values();
             }
 
-            // Kartu NEXT (highlight)
-            $nh = $nextCandidates->first();
-            $nextHighlight = $nh ? [
-                'back_no'       => $nh->back_no,
-                'customer'      => $nh->customer,
-                'dock'          => $nh->dock,
-                'order_qty'     => (int)($nh->order_qty ?? 0),
-                'delivery_time' => $nh->delivery_time ?: '--',
-                'delivery_date' => $nh->delivery_date ?: '',
-            ] : [
-                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
-                'delivery_time'=>'--','delivery_date'=>''
+            /**
+             * AGREGASI per Back No (alias disatukan):
+             * - D111 -> CI12
+             * - D500 -> CI19
+             * - D403 -> CI18
+             * Aturan:
+             * - order_qty dijumlahkan per back_no
+             * - dock: jika salah satu 6I, pakai '6I'
+             * - urutan: earliest working_start agar tetap dekat rencana
+             */
+            $aliasMap = [
+                'D111' => 'CI12',
+                'D500' => 'CI19',
+                'D403' => 'CI18',
             ];
 
-            // NEXT list (sisanya setelah highlight)
-            $nextList = $nextCandidates->slice(1, 20)->map(function ($it) {
-                return [
-                    'back_no'       => $it->back_no,
-                    'customer'      => $it->customer,
-                    'dock'          => $it->dock,
-                    'order_qty'     => (int)($it->order_qty ?? 0),
-                    'delivery_time' => $it->delivery_time ?: '--',
-                    'delivery_date' => $it->delivery_date ?: '',
+            $aggregatedNext = $nextCandidates
+                ->groupBy(function ($it) use ($aliasMap) {
+                    $bn = strtoupper(trim((string)($it->back_no ?? '')));
+                    return $aliasMap[$bn] ?? $bn;
+                })
+                ->map(function ($grp) use ($aliasMap) {
+                    // earliest by working_start (string "H:i")
+                    $earliest = $grp->sortBy(function ($x) {
+                        return sprintf('%s', $x->working_start ?? '99:99');
+                    })->first();
+
+                    // dock prioritization: 6I wins if exists
+                    $has6I = $grp->contains(function ($x) {
+                        return strtoupper(trim((string)$x->dock)) === '6I';
+                    });
+
+                    $bnRaw     = strtoupper(trim((string)($earliest->back_no ?? '')));
+                    $bnUnified = $aliasMap[$bnRaw] ?? $bnRaw;
+
+                    return [
+                        'back_no'       => $bnUnified,
+                        'customer'      => $earliest->customer ?? '—',
+                        'dock'          => $has6I ? '6I' : ($earliest->dock ?? '—'),
+                        'order_qty'     => (int)$grp->sum('order_qty'),
+                        'delivery_time' => $earliest->delivery_time ?: '--',
+                        'delivery_date' => $earliest->delivery_date ?: '',
+                        'sort_key'      => $earliest->working_start ?: '99:99',
+                    ];
+                })
+                ->values()
+                ->sortBy('sort_key')
+                ->values();
+
+            // Kartu NEXT (highlight) + NEXT list
+            if ($aggregatedNext->isNotEmpty()) {
+                $firstAgg = $aggregatedNext->first();
+                $nextHighlight = [
+                    'back_no'       => $firstAgg['back_no'],
+                    'customer'      => $firstAgg['customer'],
+                    'dock'          => $firstAgg['dock'],
+                    'order_qty'     => $firstAgg['order_qty'],
+                    'delivery_time' => $firstAgg['delivery_time'],
+                    'delivery_date' => $firstAgg['delivery_date'],
                 ];
-            })->values()->all();
+
+                $nextList = $aggregatedNext->slice(1, 20)
+                    ->map(fn($a) => [
+                        'back_no'       => $a['back_no'],
+                        'customer'      => $a['customer'],
+                        'dock'          => $a['dock'],
+                        'order_qty'     => $a['order_qty'],
+                        'delivery_time' => $a['delivery_time'],
+                        'delivery_date' => $a['delivery_date'],
+                    ])->values()->all();
+            } else {
+                $nextHighlight = [
+                    'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
+                    'delivery_time'=>'--','delivery_date'=>''
+                ];
+                $nextList = [];
+            }
 
             return [
                 'progress' => [
@@ -408,7 +460,6 @@ class DashboardController extends Controller
 
         return [$boards, $stamp];
     }
-
 
     /** Khusus penyusunan data tabel + KPI shift (delivery-based 09:40 rule) */
     protected function getGroupedData($backNosByLine, $today)
