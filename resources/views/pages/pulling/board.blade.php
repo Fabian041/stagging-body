@@ -866,7 +866,7 @@
 
             // Fetch state JSON & apply
             const refreshBoard = debounce(function() {
-                fetch(`/pulling/board/state?date=${encodeURIComponent(dateISO)}`, {
+                fetch(`/dashboard/production/board/state?date=${encodeURIComponent(dateISO)}`, {
                         cache: 'no-store'
                     })
                     .then(r => r.ok ? r.json() : Promise.reject(r.status))
