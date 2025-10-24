@@ -13,6 +13,13 @@ trait prodPlanOps
     protected array $backNosByLine = [
         'AS003' => ['CI11','CI12','CI13','CI14','CI17','CI18','D403','D111'],
         'AS004' => ['CI15','CI16','CI19','D500'],
+
+         // Tambahan MA: isi back_no yang dipakai di line tsb (sekadar penanda)
+        'MA001' => ['CI12','CI14','CI13','CI11'],
+        'MA002' => ['CI17'],
+        'MA003' => ['CI15','CI13'],
+        'MA004' => ['CI16'],
+        // MA005..MA008 tambahkan nanti jika ada
     ];
 
     protected array $prodTimeByBackNo = [

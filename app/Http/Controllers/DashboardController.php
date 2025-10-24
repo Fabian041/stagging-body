@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use App\Models\ProductionPlan;
 use App\Imports\ManifestImport;
 use App\Models\ReceiveSchedule;
+use App\Models\LineStaticSequence;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
@@ -219,17 +220,28 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function boardLanding(Request $request)
+    {
+        $today = $request->input('date') ?? now()->toDateString();
+        return view('pages.pulling.landing', [
+            'selectedDate' => $today,
+        ]);
+    }
+
     public function prodBoard(Request $request)
     {
+        $group = strtoupper($request->input('group', 'AS')); // default AS
         $selectedDate = $request->input('date')
-            ? Carbon::parse($request->input('date'))->startOfDay()
+            ? \Carbon\Carbon::parse($request->input('date'))->startOfDay()
             : now()->startOfDay();
 
-        [$boards] = $this->buildBoardsForDate_($selectedDate);
+        [$boards, $stamp, $lines] = $this->buildBoardsForDate_($selectedDate, $group);
 
         return view('pages.pulling.board', [
             'selectedDate' => $selectedDate->format('Y-m-d'),
             'boards'       => $boards,
+            'lines'        => $lines,
+            'group'        => $group, // <<— penting untuk Blade & JS
         ]);
     }
 
@@ -239,100 +251,109 @@ class DashboardController extends Controller
      */
     public function prodBoardState(Request $request)
     {
+        $group = strtoupper($request->input('group', 'AS'));
         $selectedDate = $request->input('date')
-            ? Carbon::parse($request->input('date'))->startOfDay()
+            ? \Carbon\Carbon::parse($request->input('date'))->startOfDay()
             : now()->startOfDay();
 
-        [$boards, $stamp] = $this->buildBoardsForDate_($selectedDate);
+        [$boards, $stamp, $lines] = $this->buildBoardsForDate_($selectedDate, $group);
 
         return response()->json([
             'date'   => $selectedDate->format('Y-m-d'),
-            'at'     => $stamp,       // time of compute
-            'boards' => $boards,      // per line
+            'at'     => $stamp,
+            'group'  => $group,
+            'lines'  => $lines,
+            'boards' => $boards,
         ]);
     }
 
-    /**
-     * ===== Helper utama: hitung state board per tanggal =====
-     * - Per line (AS003/AS004) tentukan:
-     *   progress (shift), current, nextHighlight, nextList
-     * - AUTO-ADVANCE: jika current.complete → next naik, list kiri naik ke next
-     */
-    /**
-     * Bangun data board untuk tanggal tertentu.
-     * Return: [$boards, $stamp]
-     */
-    private function buildBoardsForDate_(\Carbon\Carbon $selectedDate): array
+    private function buildBoardsForDate_(\Carbon\Carbon $selectedDate, string $group = 'AS'): array
     {
         $todayISO = $selectedDate->toDateString();
         $stamp    = now()->format('H:i:s');
 
-        // ============ ONLY for Progress Card (shift) ============
-        $nowHHmm = now()->format('H:i');
-        $toMin = function (?string $t) {
-            if (!$t || strpos($t, ':') === false) return null;
-            [$h, $m] = array_map('intval', explode(':', $t));
-            return $h * 60 + $m;
-        };
-        $nowMin = (int) $toMin($nowHHmm); // dipakai di resolveShiftProgress
-
-        // Ambil semua rencana hari itu (urut sesuai rencana)
-        $items = \App\Models\ProductionPlan::whereDate('plan_date', $todayISO)
+        // Ambil semua plan hari itu, urut fallback
+        $items = ProductionPlan::whereDate('plan_date', $todayISO)
+            ->orderByRaw('CASE WHEN working_start IS NULL OR working_start = "" THEN 1 ELSE 0 END')
             ->orderBy('working_start')
+            ->orderBy('seq_no')
             ->orderBy('dn_number')
             ->get();
 
-        // Kelompok per line yang dipakai di board
-        $LINES = ['AS003', 'AS004'];
-        $getLineKey = function ($it) {
-            $v = strtoupper($it->line_code ?? $it->line ?? $it->assembly_line ?? '');
-            return in_array($v, ['AS003', 'AS004'], true) ? $v : null;
-        };
-        $byLine = ['AS003' => collect(), 'AS004' => collect()];
+        // Susun daftar line preferensi lalu gabung dengan yang hadir di data
+        $preferred = collect(['AS003','AS004'])
+            ->merge(collect(range(1, 8))->map(fn($i) => sprintf('MA%03d', $i)));
+
+        $present = $items->pluck('line')
+            ->filter()
+            ->map(fn($s) => strtoupper(trim($s)))
+            ->unique();
+
+        $allLines = $preferred->merge($present)->unique()->values();
+
+        // Filter per group (ASxxx / MAxxx)
+        $LINES = $allLines->filter(function ($L) use ($group) {
+            $L = (string) $L;
+            if (strtoupper($group) === 'MA') return str_starts_with($L, 'MA');
+            return str_starts_with($L, 'AS');
+        })->values()->all();
+
+        // Kelompok per line (hanya yg masuk group)
+        $byLine = [];
+        foreach ($LINES as $L) $byLine[$L] = collect();
         foreach ($items as $it) {
-            $key = $getLineKey($it);
-            if ($key) $byLine[$key]->push($it);
+            $key = strtoupper((string)($it->line ?? ''));
+            if (isset($byLine[$key])) $byLine[$key]->push($it);
         }
 
-        // Data progress shift per line (sinkron dengan halaman planning)
+        // >>> Inject virtual order utk MA dari summary AS × 1.1 (tanpa tulis DB)
+        if (strtoupper($group) === 'MA') {
+            $this->applyMAOverlayInto($byLine, $selectedDate);
+        }
+
+        // Data KPI/progress per line (sinkron halaman planning)
         $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
 
-        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped, $nowMin) {
+        // ===== Helper builder satu line =====
+        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped) {
 
-            // ===== Progress (kartu kiri)
+            // ------- Progress (kartu kiri) -------
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
             $nQty = (int)($g['night_shift_qty']      ?? 0);
             $nAct = (int)($g['night_shift_actual']   ?? 0);
 
+            if ($rows->count() > 0 && ($mQty + $nQty) === 0) {
+                $mQty = (int) $rows->sum('order_qty');
+                $mAct = (int) $rows->sum(fn($i) => (int)($i->direct_pulling_qty ?? 0));
+                $nQty = 0; $nAct = 0;
+            }
+
+            $nowMin = (int) now()->format('H') * 60 + (int) now()->format('i');
             [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress(
                 $nowMin, $mQty, $mAct, $nQty, $nAct
             );
 
             $rows = $rows->values();
 
-            // --- Total unik Back No untuk HARI INI (per line)
+            // Total unik Back No (untuk KPI kecil kanan)
             $uniqBackNo = $rows->pluck('back_no')
                 ->filter(fn ($v) => filled($v))
                 ->map(fn ($v) => strtoupper(trim($v)))
                 ->unique()
                 ->count();
 
-            // Helper: cek complete per item (berbasis qty)
+            // Helper complete
             $isComplete = function ($it) {
                 $ord  = (int)($it->order_qty ?? 0);
                 $done = (int)($it->direct_pulling_qty ?? 0) + (int)($it->stock_chute_qty ?? 0);
                 return $ord <= 0 || $done >= $ord;
             };
 
-            // ===== CURRENT: item pertama yang BELUM complete (abaikan jam)
+            // CURRENT = item pertama yg belum complete; jika semua complete ambil terakhir
             $currentIdx = null;
-            foreach ($rows as $idx => $it) {
-                if (!$isComplete($it)) { $currentIdx = $idx; break; }
-            }
-
-            // Jika semua complete → ambil item terakhir sebagai info, next kosong
+            foreach ($rows as $idx => $it) { if (!$isComplete($it)) { $currentIdx = $idx; break; } }
             $currentItem = $currentIdx !== null ? $rows[$currentIdx] : ($rows->last() ?: null);
 
             $current = $currentItem ? [
@@ -344,26 +365,16 @@ class DashboardController extends Controller
                 'sc'        => (int)($currentItem->stock_chute_qty ?? 0),
                 'start'     => $currentItem->working_start ?: '--',
             ] : [
-                'back_no' => '—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
+                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
             ];
 
-            // ===== NEXT candidates: setelah currentIdx yang juga BELUM complete
+            // NEXT candidates (setelah current, yang belum complete)
             $nextCandidates = collect();
             if ($currentIdx !== null) {
-                $nextCandidates = $rows
-                    ->slice($currentIdx + 1)
-                    ->filter(fn($it) => !$isComplete($it))
-                    ->values();
+                $nextCandidates = $rows->slice($currentIdx + 1)->filter(fn($it) => !$isComplete($it))->values();
             }
 
-            /**
-             * RULE AGREGASI:
-             * - HANYA back_no CI12 & CI19 yang DIJUMLAHKAN di Next Production
-             * - Alias:
-             *     D111 -> CI12
-             *     D500 -> CI19
-             * - Back_no lain (termasuk CI18/D403) TIDAK di-merge
-             */
+            // ------- Agregasi NEXT (merge CI12/CI19 alias) -------
             $norm = fn($s) => strtoupper(trim((string)$s));
             $unifyForMerge = function ($bn) use ($norm) {
                 $B = $norm($bn);
@@ -371,86 +382,72 @@ class DashboardController extends Controller
                 if ($B === 'D500') return 'CI19';
                 return $B;
             };
-            $isMergeTargetBN = function ($bnU) {
-                return in_array($bnU, ['CI12','CI19'], true);
-            };
+            $isMergeTargetBN = fn($bnU) => in_array($bnU, ['CI12','CI19'], true);
 
-            // Bangun grup: CI12 & CI19 digabung; lainnya unik per baris
-            $groups = []; // key => array payload
+            $groups = [];
+            $idxCounter = 0;
             foreach ($nextCandidates as $it) {
-                $bnU = $unifyForMerge($it->back_no);
-                $mergeThis = $isMergeTargetBN($bnU);
+                $bnU   = $unifyForMerge($it->back_no);
+                $merge = $isMergeTargetBN($bnU);
+                $rowOrderIdx = $idxCounter++;
 
-                // Non-merge target → key unik agar tidak bergabung
-                $uniqueRowKey = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.($it->working_start ?? '');
-                // Merge target → satu key per BN (CI12 / CI19)
-                $key = $mergeThis ? ('MERGE|'.$bnU) : $uniqueRowKey;
+                $uniqueRowKey = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.($it->working_start ?? '').'|'.$rowOrderIdx;
+                $key = $merge ? ('MERGE|'.$bnU) : $uniqueRowKey;
 
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
-                        'back_no'       => $mergeThis ? $bnU : ($it->back_no ?? '—'),
+                        'back_no'       => $merge ? $bnU : ($it->back_no ?? '—'),
                         'customer'      => $it->customer ?? '—',
                         'dock'          => $norm($it->dock) === '6I' ? '6I' : ($it->dock ?? '—'),
                         'order_qty'     => 0,
                         'delivery_time' => $it->delivery_time ?: '--',
                         'delivery_date' => $it->delivery_date ?: '',
-                        'sort_key'      => $it->working_start ?: '99:99',
-                        '__has6I'       => ($norm($it->dock) === '6I'), // flag utk override dock kalau ada 6I
+                        'sort_key'      => ($it->working_start ?: '99:99') . sprintf('|%06d', $rowOrderIdx),
+                        '__has6I'       => ($norm($it->dock) === '6I'),
                     ];
                 }
 
-                // akumulasi qty
                 $groups[$key]['order_qty'] += (int)($it->order_qty ?? 0);
 
-                // simpan earliest utk sort + meta
-                $sk  = $groups[$key]['sort_key'] ?? '99:99';
-                $cur = $it->working_start ?: '99:99';
+                $sk  = $groups[$key]['sort_key'] ?? '99:99|999999';
+                $cur = ($it->working_start ?: '99:99') . sprintf('|%06d', $rowOrderIdx);
                 if ($cur < $sk) {
                     $groups[$key]['sort_key']      = $cur;
                     $groups[$key]['delivery_time'] = $it->delivery_time ?: $groups[$key]['delivery_time'];
                     $groups[$key]['delivery_date'] = $it->delivery_date ?: $groups[$key]['delivery_date'];
                     $groups[$key]['customer']      = $it->customer ?? $groups[$key]['customer'];
-                    if (!$mergeThis) {
-                        $groups[$key]['back_no'] = $it->back_no ?? $groups[$key]['back_no'];
-                    }
+                    if (!$merge) $groups[$key]['back_no'] = $it->back_no ?? $groups[$key]['back_no'];
                 }
 
-                // jika ada salah satu 6I → keseluruhan grup pakai '6I'
                 if ($norm($it->dock) === '6I') {
                     $groups[$key]['__has6I'] = true;
                     $groups[$key]['dock']    = '6I';
                 }
             }
 
-            // Konversi, bersihkan flag, dan sorting
             $aggregatedNext = collect(array_values(array_map(function ($g) {
-                unset($g['__has6I']);
-                return $g;
-            }, $groups)))
-            ->sortBy('sort_key')
-            ->values();
+                unset($g['__has6I']); return $g;
+            }, $groups)))->sortBy('sort_key')->values();
 
-            // Kartu NEXT (highlight) + NEXT list
+            // NEXT highlight + list
             if ($aggregatedNext->isNotEmpty()) {
-                $firstAgg = $aggregatedNext->first();
+                $first = $aggregatedNext->first();
                 $nextHighlight = [
-                    'back_no'       => $firstAgg['back_no'],
-                    'customer'      => $firstAgg['customer'],
-                    'dock'          => $firstAgg['dock'],
-                    'order_qty'     => $firstAgg['order_qty'],
-                    'delivery_time' => $firstAgg['delivery_time'],
-                    'delivery_date' => $firstAgg['delivery_date'],
+                    'back_no'       => $first['back_no'],
+                    'customer'      => $first['customer'],
+                    'dock'          => $first['dock'],
+                    'order_qty'     => $first['order_qty'],
+                    'delivery_time' => $first['delivery_time'],
+                    'delivery_date' => $first['delivery_date'],
                 ];
-
-                $nextList = $aggregatedNext->slice(1, 20)
-                    ->map(fn($a) => [
-                        'back_no'       => $a['back_no'],
-                        'customer'      => $a['customer'],
-                        'dock'          => $a['dock'],
-                        'order_qty'     => $a['order_qty'],
-                        'delivery_time' => $a['delivery_time'],
-                        'delivery_date' => $a['delivery_date'],
-                    ])->values()->all();
+                $nextList = $aggregatedNext->slice(1, 20)->map(fn($a) => [
+                    'back_no'       => $a['back_no'],
+                    'customer'      => $a['customer'],
+                    'dock'          => $a['dock'],
+                    'order_qty'     => $a['order_qty'],
+                    'delivery_time' => $a['delivery_time'],
+                    'delivery_date' => $a['delivery_date'],
+                ])->values()->all();
             } else {
                 $nextHighlight = [
                     'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
@@ -464,24 +461,186 @@ class DashboardController extends Controller
                     'label'  => $shiftLabel,
                     'order'  => $orderQty,
                     'actual' => $actualQty,
-                    'status' => $status, // S1 / NS / LS1 / LS3
+                    'status' => $status,
                 ],
                 'current'        => $current,
                 'nextHighlight'  => $nextHighlight,
                 'nextList'       => $nextList,
 
-                // Tambahan untuk Progress Card:
                 'daily'       => ['totalBackNo' => $uniqBackNo],
                 'totalBackNo' => $uniqBackNo,
             ];
         };
 
+        // Build semua line di group
         $boards = [];
         foreach ($LINES as $L) {
             $boards[$L] = $buildBoardForLine($byLine[$L] ?? collect(), $L);
         }
 
-        return [$boards, $stamp];
+        return [$boards, $stamp, $LINES];
+    }
+
+    // --- Helpers alias & dock ---
+    private function normalizeBackNo(?string $bn): string
+    {
+        $B = strtoupper(trim((string)$bn));
+        return match ($B) {
+            'D111' => 'CI12',
+            'D500' => 'CI19',
+            'D403' => 'CI18',
+            default => $B,
+        };
+    }
+
+    private function normalizeDock(?string $dock): ?string
+    {
+        $d = strtoupper(trim((string)$dock));
+        if (in_array($d, ['DOM','DOMESTIC'], true)) return 'DOM';
+        if (in_array($d, ['EXP','EXPORT'], true))   return 'EXP';
+        return null;
+    }
+
+    /**
+     * Ringkas order AS pada tanggal tsb.
+     * Return:
+     *   ['total' => [BN=>sum], 'byDock' => ["BN|DOM"=>sum, "BN|EXP"=>sum]]
+     */
+    private function getASBacknoSummary(\Carbon\Carbon $date): array
+    {
+        $iso = $date->toDateString();
+
+        $rows = ProductionPlan::whereDate('plan_date', $iso)
+            ->where('line', 'like', 'AS%')
+            ->get();
+
+        $total = [];
+        $byDock = [];
+
+        foreach ($rows as $r) {
+            $bn = $this->normalizeBackNo($r->back_no);
+            if (!$bn) continue;
+
+            $ord = (int)($r->order_qty ?? 0);
+            if ($ord <= 0) continue; // nol tidak berpengaruh
+
+            $total[$bn] = ($total[$bn] ?? 0) + $ord;
+
+            $dock = $this->normalizeDock($r->dock);
+            if ($dock) {
+                $key = $bn.'|'.$dock;
+                $byDock[$key] = ($byDock[$key] ?? 0) + $ord;
+            }
+        }
+
+        return ['total' => $total, 'byDock' => $byDock];
+    }
+
+    /**
+     * Bangun target order MA (virtual) per line berdasarkan LineStaticSequence.
+     * Mengembalikan: [ 'MA001' => [ {back_no, dock, order_qty, seq_no, ...}, ... ], ... ]
+     */
+    private function buildMAAutoOrders(\Carbon\Carbon $date): array
+    {
+        $sum = $this->getASBacknoSummary($date);
+        $factor = 1.1; // KONSTANTA: pengali 10%
+        $seq = LineStaticSequence::where('is_active', true)
+            ->where('line', 'like', 'MA%')
+            ->orderBy('line')->orderBy('seq_no')->get();
+
+        $out = [];
+        foreach ($seq as $row) {
+            $bn   = $this->normalizeBackNo($row->back_no);
+            $hint = $this->normalizeDock($row->dock_hint); // DOM/EXP/null
+
+            $base = $hint
+                ? ($sum['byDock'][$bn.'|'.$hint] ?? 0)
+                : ($sum['total'][$bn]            ?? 0);
+
+            $qty = (int) ceil($base * $factor);
+            if ($qty <= 0) continue;
+
+            $out[$row->line][] = [
+                'back_no'   => $bn,
+                'customer'  => '—',
+                'dock'      => $hint ?: '—',
+                'order_qty' => $qty,
+                'dp'        => 0,
+                'sc'        => 0,
+                'start'     => null,
+                'seq_no'    => (int)$row->seq_no,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Suntikkan “virtual” order MA ke $byLine (reference) TANPA menulis DB.
+     * - Jika sudah ada row & order_qty == 0 → set ke target qty
+     * - Jika belum ada row → push object stdClass (virtual)
+     */
+    private function applyMAOverlayInto(array &$byLine, \Carbon\Carbon $date): void
+    {
+        $virtual = $this->buildMAAutoOrders($date);
+        if (empty($virtual)) return;
+
+        foreach ($virtual as $line => $targets) {
+            if (!isset($byLine[$line])) continue; // line tidak tampil di board
+
+            /** @var \Illuminate\Support\Collection $col */
+            $col = $byLine[$line];
+
+            foreach ($targets as $t) {
+                $bn   = $this->normalizeBackNo($t['back_no']);
+                $dock = $this->normalizeDock($t['dock']) ?: null;
+
+                // Cari row existing utk BN (+dock bila ada hint)
+                $match = $col->first(function ($it) use ($bn, $dock) {
+                    $bnIt   = $this->normalizeBackNo($it->back_no ?? '');
+                    $dockIt = $this->normalizeDock($it->dock ?? null);
+                    $dockOk = $dock ? ($dockIt === $dock) : true;
+                    return ($bnIt === $bn) && $dockOk;
+                });
+
+                if ($match) {
+                    // Hanya inject bila kosong
+                    $ord = (int)($match->order_qty ?? 0);
+                    if ($ord <= 0) {
+                        $match->order_qty = (int)$t['order_qty'];
+                        if ($dock && empty($match->dock)) $match->dock = $dock;
+                    }
+                    continue;
+                }
+
+                // Tidak ada row: buat virtual row (stdClass aman untuk builder)
+                $fake = new \stdClass();
+                $fake->line                 = $line;
+                $fake->back_no              = $bn;
+                $fake->customer             = $t['customer'] ?? '—';
+                $fake->dock                 = $dock;
+                $fake->order_qty            = (int)$t['order_qty'];
+                $fake->direct_pulling_qty   = 0;
+                $fake->stock_chute_qty      = 0;
+                $fake->working_start        = null;
+                $fake->working_end          = null;
+                $fake->delivery_time        = null;
+                $fake->delivery_date        = null;
+                $fake->dn_number            = null;
+                $fake->cycle                = null;
+                $fake->prod_time            = null;
+                $fake->__virt_seq           = (int)$t['seq_no'];
+
+                $col->push($fake);
+            }
+
+            // Urutkan: yang punya working_start dulu, lalu urut seq static (jika ada), sisanya di belakang
+            $byLine[$line] = $col->sortBy(function ($it) {
+                $hasStart = filled($it->working_start);
+                $seq      = property_exists($it, '__virt_seq') ? (int)$it->__virt_seq : 999;
+                // prioritas: punya start (0), tidak (1) → seq → dn_number sebagai tie-breaker
+                return ($hasStart ? 0 : 1).'|'.sprintf('%03d', $seq).'|'.($it->dn_number ?? 'ZZZ');
+            })->values();
+        }
     }
 
 

@@ -95,6 +95,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::prefix('dashboard')->group(function () {
 
+        Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
+
         Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
         Route::get('/production/plan', [DashboardController::class, 'prodPlan'])->name('dashboard.prodPlan');
         Route::get('/production/board', [DashboardController::class, 'prodBoard'])->name('dashboard.board');

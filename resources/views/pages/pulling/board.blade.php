@@ -3,7 +3,22 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Current Production Board</title>
+
+    <!-- Theme pre-init to avoid flicker -->
+    <script>
+        (function() {
+            try {
+                var html = document.documentElement;
+                var saved = localStorage.getItem('board-theme');
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var theme = saved || (prefersDark ? 'dark' : 'light');
+                html.setAttribute('data-theme', theme);
+                html.setAttribute('data-bs-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{{ asset('assets/css/planning/style.css') }}">
@@ -12,9 +27,7 @@
     <style>
         :root {
             --curr-accent: #3b82f6;
-            /* biru */
             --next-accent: #10b981;
-            /* hijau */
             --tile-border: rgba(255, 255, 255, .06);
             --muted: rgba(255, 255, 255, .65);
             --text-strong: #fff;
@@ -115,7 +128,6 @@
             font-weight: 800
         }
 
-        /* Next list */
         .np-section .tile-grid {
             display: flex;
             gap: 12px;
@@ -165,7 +177,6 @@
             font-weight: 800
         }
 
-        /* Meta pills current */
         .current-block .meta-row {
             display: flex;
             align-items: center;
@@ -200,7 +211,6 @@
             line-height: 1
         }
 
-        /* Next compact info */
         .card-next .card-body {
             display: flex;
             flex-direction: column;
@@ -273,24 +283,67 @@
             font-size: clamp(1.6rem, 3vw, 2.2rem);
             font-weight: 900
         }
+
+        /* Theme icon button */
+        .btn-theme {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid var(--tile-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: inherit;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+            cursor: pointer;
+        }
+
+        .btn-theme:hover {
+            border-color: color-mix(in oklab, var(--curr-accent) 40%, var(--tile-border))
+        }
+
+        .btn-theme svg {
+            width: 22px;
+            height: 22px;
+            display: none
+        }
+
+        html[data-theme="light"] .btn-theme .icon-sun {
+            display: block
+        }
+
+        html[data-theme="dark"] .btn-theme .icon-moon {
+            display: block
+        }
     </style>
 </head>
 
 @php
-    $nowStr = \Carbon\Carbon::parse($selectedDate ?? now())->format('l, j F Y');
-    $lines = ['AS003', 'AS004'];
+    // ==== GROUP & LINES (server side) ====
+    $group = strtoupper(request('group', 'AS')); // 'AS' or 'MA'
+    $selectedDate = request('date', $selectedDate ?? now()->format('Y-m-d'));
+    $nowStr = \Carbon\Carbon::parse($selectedDate)->format('l, j F Y');
+    $lines = $group === 'MA' ? array_map(fn($i) => sprintf('MA%03d', $i), range(1, 8)) : ['AS003', 'AS004'];
 @endphp
 
 <body>
     <div class="container-fluid px-2 px-lg-3 py-4 board-container">
 
-        {{-- HEADER global --}}
+        <!-- HEADER -->
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="badge date-pill time-pill"><span id="rt-hms">00:00:00</span></span>
-            <span class="badge date-pill"><span id="boardDate">{{ $nowStr }}</span></span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge date-pill time-pill"><span id="rt-hms">00:00:00</span></span>
+                <span class="badge date-pill">Group: <strong class="ms-1">{{ $group }}</strong></span>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge date-pill"><span id="boardDate">{{ $nowStr }}</span></span>
+            </div>
         </div>
 
-        {{-- Tabs line --}}
+        <!-- Tabs line -->
         <ul class="nav nav-tabs mb-3" id="lineTabs" role="tablist">
             @foreach ($lines as $i => $L)
                 <li class="nav-item" role="presentation">
@@ -345,10 +398,6 @@
                     $progOrder = (int) ($prog['order'] ?? 0);
                     $progActual = (int) ($prog['actual'] ?? 0);
                     $progPct = $progOrder ? min(100, round(($progActual / $progOrder) * 100)) : 0;
-                    $progStatus = $prog['status'] ?? 'Normal';
-                    $warnChipCls = in_array($progStatus, ['NS', 'LS1', 'LS3'])
-                        ? 'bg-warning-subtle'
-                        : 'bg-success-subtle';
 
                     $next = $data['nextHighlight'] ?? [];
                     $nextBack = $next['back_no'] ?? '—';
@@ -359,8 +408,6 @@
                     $nextDate = $next['delivery_date'] ?? '--';
 
                     $nextList = $data['nextList'] ?? [];
-
-                    // >>> Nilai awal Total Back No dari server <<<
                     $progTotalBN = (int) ($data['daily']['totalBackNo'] ?? ($data['totalBackNo'] ?? 0));
                 @endphp
 
@@ -368,7 +415,7 @@
                     role="tabpanel" data-line="{{ $L }}">
                     <div class="row g-4">
 
-                        {{-- LEFT: PROGRESS --}}
+                        <!-- LEFT: PROGRESS -->
                         <div class="col-12 col-xl-3 col-xxl-2">
                             <div class="card tile radius-4 h-100">
                                 <div class="card-header d-flex align-items-center gap-2">
@@ -389,10 +436,9 @@
                                         <span class="val number" data-role="prog-pct">{{ $progPct }}%</span>
                                     </div>
 
-                                    <hr class="my-3 d-none">
                                     <div class="kpi-tile mt-3" aria-label="Total Back Number Today">
                                         <div class="kpi-icon" aria-hidden="true">BN</div>
-                                        <div class="kpi-label">Total Model </div>
+                                        <div class="kpi-label">Total Model</div>
                                         <div class="kpi-value number" data-role="prog-total-bn">
                                             {{ number_format($progTotalBN) }}</div>
                                     </div>
@@ -400,7 +446,7 @@
                             </div>
                         </div>
 
-                        {{-- CENTER: CURRENT --}}
+                        <!-- CENTER: CURRENT -->
                         <div class="col-12 col-xl-6 col-xxl-8">
                             <div class="card tile radius-4 h-100 card-current">
                                 <div class="card-header d-flex align-items-center gap-2">
@@ -477,11 +523,8 @@
                                         <dd data-role="next-date">{{ $nextDate }}</dd>
                                     </dl>
 
-                                    <div class="order-badge mt-3"
-                                        style="background:linear-gradient(90deg,
-                          color-mix(in oklab,var(--next-accent) 30%, transparent),
-                          color-mix(in oklab,var(--next-accent) 10%, transparent));
-                          border:1px solid color-mix(in oklab,var(--next-accent) 25%, var(--tile-border));">
+                                    <div class="order-badge mt-3 mb-3"
+                                        style="background:linear-gradient(90deg,color-mix(in oklab,var(--next-accent) 30%, transparent),color-mix(in oklab,var(--next-accent) 10%, transparent));border:1px solid color-mix(in oklab,var(--next-accent) 25%, var(--tile-border));">
                                         <span class="label">ORDER</span>
                                         <strong class="value number"
                                             data-role="next-order">{{ number_format($nextOrder) }}</strong>
@@ -492,7 +535,7 @@
 
                     </div>
 
-                    {{-- NEXT PRODUCTION LIST --}}
+                    <!-- NEXT PRODUCTION LIST -->
                     <div class="mt-4 np-section">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h5 class="m-0 text-secondary">Next Production list</h5>
@@ -531,68 +574,80 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Jam berjalan
+        /* ==== Clock ==== */
         (function clock() {
-            const el = document.getElementById('rt-hms');
-            const pad = n => String(n).padStart(2, '0');
+            var el = document.getElementById('rt-hms');
+            var pad = function(n) {
+                return String(n).padStart(2, '0');
+            };
 
             function tick() {
-                const now = new Date();
-                const t = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                var now = new Date();
+                var t = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
                 if (el) el.textContent = t;
             }
             tick();
             setInterval(tick, 1000);
         })();
 
-        // Theme toggle (opsional)
-        (() => {
-            const html = document.documentElement;
-            const btn = document.getElementById('themeToggle');
-            const apply = theme => {
-                html.setAttribute('data-theme', theme);
-                html.setAttribute('data-bs-theme', theme);
-                localStorage.setItem('board-theme', theme);
-                if (btn) btn.querySelector('span').textContent = theme === 'dark' ? 'Dark' : 'Light';
+        /* ==== Alias Back No (robust) ==== */
+        function buildAliasMap() {
+            // base map dua arah (fallback)
+            var base = {
+                D111: 'CI12',
+                CI12: 'CI12',
+                D500: 'CI19',
+                CI19: 'CI19',
+                D403: 'CI18',
+                CI18: 'CI18'
             };
-            const saved = localStorage.getItem('board-theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            apply(saved || (prefersDark ? 'dark' : 'light'));
-            btn?.addEventListener('click', () => {
-                const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                apply(next);
-            });
-        })();
-
-        // Alias Back No (untuk tampilan)
-        function applyBacknoAlias(root = document) {
-            let map = {};
+            var custom = {};
             try {
-                map = JSON.parse(localStorage.getItem('backnoRenameMap') || '{}');
-            } catch {}
-            const fallback = {
-                'D403': 'CI18',
-                'D111': 'CI12',
-                'D500': 'CI19'
-            };
-            const aliasMap = Object.assign({}, fallback, map);
-            root.querySelectorAll('.js-backno').forEach(el => {
-                const raw = (el.textContent || '').trim().toUpperCase();
-                if (aliasMap[raw]) el.textContent = aliasMap[raw];
+                custom = JSON.parse(localStorage.getItem('backnoRenameMap') || '{}');
+            } catch (e) {}
+            var normCustom = {};
+            for (var k in (custom || {})) {
+                if (!Object.prototype.hasOwnProperty.call(custom, k)) continue;
+                var K = String(k).trim().toUpperCase();
+                var V = String(custom[k] || '').trim().toUpperCase();
+                if (K) normCustom[K] = V || K;
+            }
+            // custom override base
+            for (var c in normCustom) {
+                base[c] = normCustom[c];
+            }
+            return base;
+        }
+
+        function aliasBackNo(raw, map) {
+            var B = String(raw || '').trim().toUpperCase();
+            return map[B] || B;
+        }
+
+        function applyBacknoAlias(root) {
+            root = root || document;
+            var map = buildAliasMap();
+            var els = root.querySelectorAll('.js-backno');
+            els.forEach(function(el) {
+                var before = el.textContent;
+                var after = aliasBackNo(before, map);
+                if (after !== before) el.textContent = after;
             });
         }
-        document.addEventListener('DOMContentLoaded', () => applyBacknoAlias());
+        document.addEventListener('DOMContentLoaded', function() {
+            applyBacknoAlias(document);
+        });
 
-        // Wheel → horizontal scroll
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.np-scroll').forEach(sc => {
-                sc.addEventListener('wheel', (e) => {
+        /* ==== Wheel → horizontal scroll ==== */
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.np-scroll').forEach(function(sc) {
+                sc.addEventListener('wheel', function(e) {
                     if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
-                    const goingRight = e.deltaY > 0,
+                    var goingRight = e.deltaY > 0,
                         goingLeft = e.deltaY < 0;
-                    const canLeft = sc.scrollLeft > 0;
-                    const canRight = sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 1;
-                    const willScrollHoriz = (goingRight && canRight) || (goingLeft && canLeft);
+                    var canLeft = sc.scrollLeft > 0;
+                    var canRight = sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 1;
+                    var willScrollHoriz = (goingRight && canRight) || (goingLeft && canLeft);
                     if (willScrollHoriz) {
                         e.preventDefault();
                         sc.scrollLeft += e.deltaY;
@@ -604,124 +659,112 @@
         });
     </script>
 
-    <!-- ====== SSE Hook ====== -->
+    <!-- ====== SSE Hook (support GROUP) ====== -->
     <script>
         (function boardLiveSSE() {
-            const dateISO = @json($selectedDate ?? now()->format('Y-m-d'));
-            const DEBUG = false;
-            const log = (...a) => {
-                if (DEBUG) console.debug('[board-sse]', ...a);
+            var dateISO = @json($selectedDate);
+            var GROUP = @json($group);
+            var LINES = @json($lines);
+
+            var DEBUG = false;
+            var log = function() {
+                if (DEBUG) console.debug('[board-sse]', ...arguments);
             };
 
-            /* ===================== 6I MERGE HELPERS ===================== */
-            const normU = s => String(s || '').trim().toUpperCase();
-            const isDock6I = v => normU(v) === '6I';
-
-            function readAliasMap() {
-                let map = {};
-                try {
-                    map = JSON.parse(localStorage.getItem('backnoRenameMap') || '{}');
-                } catch {}
-                return Object.assign({
-                    D403: 'CI18',
-                    D111: 'CI12',
-                    D500: 'CI19'
-                }, map || {});
-            }
+            /* ===== helpers merge 6I (khusus AS) ===== */
+            var normU = function(s) {
+                return String(s || '').trim().toUpperCase();
+            };
+            var isDock6I = function(v) {
+                return normU(v) === '6I';
+            };
+            var isASLine = function(L) {
+                return /^AS/i.test(String(L || ''));
+            };
 
             function unifyAlias(bn) {
-                const map = readAliasMap();
-                const B = normU(bn);
-                return map[B] || B;
+                return aliasBackNo(bn, buildAliasMap());
             }
 
             function unifyBacknoForLine(bn, lineKey) {
-                const B = normU(bn);
-                if (lineKey === 'AS003') return (B === 'CI12' || B === 'D111') ? 'CI12' : null;
-                if (lineKey === 'AS004') return (B === 'CI19' || B === 'D500') ? 'CI19' : null;
+                if (!isASLine(lineKey)) return null;
+                var B = normU(unifyAlias(bn));
+                if (lineKey === 'AS003') return (B === 'CI12') ? 'CI12' : null;
+                if (lineKey === 'AS004') return (B === 'CI19') ? 'CI19' : null;
                 return null;
             }
 
             function mdToISO(md, refISO) {
                 if (!md) return '';
-                const m = String(md).trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
+                var m = String(md).trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
                 if (!m) return String(md);
-                const y = String((refISO || dateISO || new Date().toISOString().slice(0, 10))).slice(0, 4);
-                const MM = String(m[1]).padStart(2, '0'),
-                    DD = String(m[2]).padStart(2, '0');
-                return `${y}-${MM}-${DD}`;
+                var y = String((refISO || dateISO || new Date().toISOString().slice(0, 10))).slice(0, 4);
+                var MM = String(m[1]).padStart(2, '0');
+                var DD = String(m[2]).padStart(2, '0');
+                return y + '-' + MM + '-' + DD;
             }
 
             function key6I(lineKey, row) {
-                const bnUnified = unifyBacknoForLine(row?.back_no, lineKey);
-                if (!bnUnified || !isDock6I(row?.dock)) return null;
-                const tm = (row?.delivery_time || '').trim();
-                const d = row?.delivery_date || '';
-                const iso = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : mdToISO(d, dateISO);
+                var bnUnified = unifyBacknoForLine(row && row.back_no, lineKey);
+                if (!bnUnified || !isDock6I(row && row.dock)) return null;
+                var tm = (row && row.delivery_time ? String(row.delivery_time).trim() : '');
+                var d = (row && row.delivery_date) || '';
+                var iso = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : mdToISO(d, dateISO);
                 if (!tm || !iso) return null;
-                return `${iso}|${tm}|${bnUnified}`;
+                return iso + '|' + tm + '|' + bnUnified;
             }
 
             function apply6IMerge(lineKey, payload) {
                 if (!payload) return payload;
-                const nx = payload.nextHighlight || null;
-                const nl = Array.isArray(payload.nextList) ? payload.nextList.slice() : [];
+                var nx = payload.nextHighlight || null;
+                var nl = Array.isArray(payload.nextList) ? payload.nextList.slice() : [];
 
-                const groups = new Map(); // key -> { sum, rep, unified }
-                const add = (row) => {
-                    const k = key6I(lineKey, row);
+                var groups = new Map(); // key -> { sum, rep, unified }
+                function add(row) {
+                    var k = key6I(lineKey, row);
                     if (!k) return null;
-                    const sum = (+row.order_qty || 0);
-                    const bnU = unifyBacknoForLine(row.back_no, lineKey);
-                    const rec = groups.get(k) || {
+                    var sum = (+row.order_qty || 0);
+                    var bnU = unifyBacknoForLine(row.back_no, lineKey);
+                    var rec = groups.get(k) || {
                         sum: 0,
-                        rep: {
-                            ...row
-                        },
+                        rep: Object.assign({}, row),
                         unified: bnU
                     };
                     rec.sum += sum;
-                    rec.rep = {
-                        ...rec.rep,
+                    rec.rep = Object.assign({}, rec.rep, {
                         back_no: bnU,
                         dock: '6I',
                         order_qty: rec.sum
-                    };
+                    });
                     groups.set(k, rec);
                     return k;
-                };
-
-                const nxKey = nx ? add(nx) : null;
-                nl.forEach(r => add(r));
-
-                if (nx && nxKey && groups.has(nxKey)) {
-                    payload.nextHighlight = {
-                        ...groups.get(nxKey).rep
-                    };
-                } else if (nx) {
-                    payload.nextHighlight = {
-                        ...nx,
-                        back_no: unifyAlias(nx.back_no)
-                    };
                 }
 
-                const emitted = new Set(nxKey ? [nxKey] : []);
-                const out = [];
-                nl.forEach(row => {
-                    const k = key6I(lineKey, row);
+                var nxKey = nx ? add(nx) : null;
+                nl.forEach(add);
+
+                if (nx && nxKey && groups.has(nxKey)) {
+                    payload.nextHighlight = Object.assign({}, groups.get(nxKey).rep);
+                } else if (nx) {
+                    payload.nextHighlight = Object.assign({}, nx, {
+                        back_no: unifyAlias(nx.back_no)
+                    });
+                }
+
+                var emitted = new Set(nxKey ? [nxKey] : []);
+                var out = [];
+                nl.forEach(function(row) {
+                    var k = key6I(lineKey, row);
                     if (!k) {
-                        out.push({
-                            ...row,
+                        out.push(Object.assign({}, row, {
                             back_no: unifyAlias(row.back_no)
-                        });
+                        }));
                         return;
                     }
                     if (emitted.has(k)) return;
-                    const rec = groups.get(k);
+                    var rec = groups.get(k);
                     if (rec) {
-                        out.push({
-                            ...rec.rep
-                        });
+                        out.push(Object.assign({}, rec.rep));
                         emitted.add(k);
                     }
                 });
@@ -729,68 +772,54 @@
                 payload.nextList = out;
                 return payload;
             }
-            /* ============================================================ */
+            /* ===================================== */
 
             function debounce(fn, wait) {
-                let t = null;
+                var t = null;
                 return function() {
                     clearTimeout(t);
-                    t = setTimeout(() => fn.apply(this, arguments), wait);
+                    t = setTimeout(fn.bind(this, ...arguments), wait);
                 };
             }
 
-            // --- Update DOM satu line ---
-            function updateLine(lineKey, payload) {
-                // >>> TERAPKAN MERGE 6I SEKARANG <<<
-                payload = apply6IMerge(lineKey, payload ? {
-                    ...payload
-                } : payload);
+            function setTxt(tab, sel, v) {
+                var el = tab.querySelector(sel);
+                if (el) el.textContent = v;
+            }
 
-                const tab = document.querySelector(`[data-line="${lineKey}"]`);
+            // Update DOM per line
+            function updateLine(lineKey, payload) {
+                payload = apply6IMerge(lineKey, payload ? Object.assign({}, payload) : payload);
+
+                var tab = document.querySelector('[data-line="' + lineKey + '"]');
                 if (!tab) return;
 
                 // Progress
-                const pg = payload.progress || {};
-                const pgOrder = +pg.order || 0;
-                const pgActual = +pg.actual || 0;
-                const pgPct = pgOrder ? Math.min(100, Math.round((pgActual / pgOrder) * 100)) : 0;
-                const pgStatus = String(pg.status || 'Normal');
+                var pg = payload.progress || {};
+                var pgOrder = +pg.order || 0;
+                var pgActual = +pg.actual || 0;
+                var pgPct = pgOrder ? Math.min(100, Math.round((pgActual / pgOrder) * 100)) : 0;
 
-                tab.querySelector('[data-role="prog-label"]')
-                    ?.replaceChildren(document.createTextNode(`(${pg.label||''})`));
-
-                const setTxt = (sel, v) => {
-                    const el = tab.querySelector(sel);
-                    if (el) el.textContent = v;
-                };
-                setTxt('[data-role="prog-order"]', pgOrder.toLocaleString('id-ID'));
-                setTxt('[data-role="prog-actual"]', pgActual.toLocaleString('id-ID'));
-                setTxt('[data-role="prog-pct"]', pgPct + '%');
-                const pgBar = tab.querySelector('[data-role="prog-bar"]');
+                setTxt(tab, '[data-role="prog-order"]', pgOrder.toLocaleString('id-ID'));
+                setTxt(tab, '[data-role="prog-actual"]', pgActual.toLocaleString('id-ID'));
+                setTxt(tab, '[data-role="prog-pct"]', pgPct + '%');
+                var pgBar = tab.querySelector('[data-role="prog-bar"]');
                 if (pgBar) pgBar.style.width = pgPct + '%';
 
-                const badge = tab.querySelector('[data-role="prog-status"]');
-                if (badge) {
-                    badge.textContent = pgStatus;
-                    badge.classList.remove('bg-warning-subtle', 'bg-success-subtle');
-                    badge.classList.add(['NS', 'LS1', 'LS3'].includes(pgStatus) ? 'bg-warning-subtle' :
-                        'bg-success-subtle');
-                }
-
                 // Current
-                const cur = payload.current || {};
-                const cOrder = +cur.order_qty || 0;
-                const cDone = (+cur.dp || 0) + (+cur.sc || 0);
-                const cPct = cOrder ? Math.min(100, Math.round((+cur.dp || 0) / cOrder * 100)) : 0;
-                const cBal = Math.max(0, cOrder - cDone);
+                var cur = payload.current || {};
+                var cOrder = +cur.order_qty || 0;
+                var cDone = (+cur.dp || 0) + (+cur.sc || 0);
+                var cPct = cOrder ? Math.min(100, Math.round((+cur.dp || 0) / cOrder * 100)) : 0;
+                var cBal = Math.max(0, cOrder - cDone);
 
-                setTxt('[data-role="curr-backno"]', cur.back_no || '—');
-                setTxt('[data-role="curr-customer"]', cur.customer || '—');
-                setTxt('[data-role="curr-dock"]', cur.dock || '—');
-                setTxt('[data-role="curr-start"]', cur.start || '--');
-                setTxt('[data-role="curr-order"]', cOrder.toLocaleString('id-ID'));
-                setTxt('[data-role="curr-done"]', cDone.toLocaleString('id-ID'));
-                const balEl = tab.querySelector('[data-role="curr-balance"]');
+                setTxt(tab, '[data-role="curr-backno"]', unifyAlias(cur.back_no) || '—');
+                setTxt(tab, '[data-role="curr-customer"]', cur.customer || '—');
+                setTxt(tab, '[data-role="curr-dock"]', cur.dock || '—');
+                setTxt(tab, '[data-role="curr-start"]', cur.start || '--');
+                setTxt(tab, '[data-role="curr-order"]', cOrder.toLocaleString('id-ID'));
+                setTxt(tab, '[data-role="curr-done"]', cDone.toLocaleString('id-ID'));
+                var balEl = tab.querySelector('[data-role="curr-balance"]');
                 if (balEl) {
                     if (cBal <= 0) {
                         balEl.textContent = 'COMPLETED';
@@ -800,117 +829,123 @@
                         balEl.classList.remove('text-success');
                     }
                 }
-                const cBar = tab.querySelector('[data-role="curr-bar"]');
+                var cBar = tab.querySelector('[data-role="curr-bar"]');
                 if (cBar) cBar.style.width = cPct + '%';
-                setTxt('[data-role="curr-pct"]', cPct + '%');
+                setTxt(tab, '[data-role="curr-pct"]', cPct + '%');
 
                 // Next highlight
-                const nx = payload.nextHighlight || {};
-                setTxt('[data-role="next-backno"]', nx.back_no || '—');
-                setTxt('[data-role="next-customer"]', nx.customer || '—');
-                setTxt('[data-role="next-dock"]', nx.dock || '—');
-                setTxt('[data-role="next-time"]', nx.delivery_time || '--');
-                setTxt('[data-role="next-date"]', nx.delivery_date || '');
-                setTxt('[data-role="next-order"]', (+nx.order_qty || 0).toLocaleString('id-ID'));
+                var nx = payload.nextHighlight || {};
+                setTxt(tab, '[data-role="next-backno"]', unifyAlias(nx.back_no) || '—');
+                setTxt(tab, '[data-role="next-customer"]', nx.customer || '—');
+                setTxt(tab, '[data-role="next-dock"]', nx.dock || '—');
+                setTxt(tab, '[data-role="next-time"]', nx.delivery_time || '--');
+                setTxt(tab, '[data-role="next-date"]', nx.delivery_date || '');
+                setTxt(tab, '[data-role="next-order"]', (+nx.order_qty || 0).toLocaleString('id-ID'));
 
                 // Next list
-                const listWrap = tab.querySelector('[data-role="next-list"]');
+                var listWrap = tab.querySelector('[data-role="next-list"]');
                 if (listWrap) {
                     listWrap.innerHTML = '';
-                    const arr = payload.nextList || [];
+                    var arr = payload.nextList || [];
                     if (!arr.length) {
-                        const d = document.createElement('div');
+                        var d = document.createElement('div');
                         d.className = 'text-muted';
                         d.textContent = 'Tidak ada data berikutnya.';
                         listWrap.appendChild(d);
                     } else {
-                        arr.forEach(row => {
-                            const item = document.createElement('div');
+                        var map = buildAliasMap();
+                        arr.forEach(function(row) {
+                            var item = document.createElement('div');
                             item.className = 'tile-square radius-4';
-                            item.innerHTML = `
-            <div class="bk number js-backno">${(row.back_no||'—')}</div>
-            <div class="meta-row mt-1"><span class="tag">Dock</span><span>${(row.dock||'—')}</span></div>
-            <div></div>
-            <div class="next-order-pill mt-2">
-              <div class="label">ORDER</div>
-              <div class="value number">${((+row.order_qty||0).toLocaleString('id-ID'))}</div>
-            </div>`;
+                            var bk = aliasBackNo(row.back_no, map);
+                            item.innerHTML =
+                                '<div class="bk number js-backno">' + bk + '</div>' +
+                                '<div class="meta-row mt-1"><span class="tag">Dock</span><span>' + (row.dock ||
+                                    '—') + '</span></div>' +
+                                '<div></div>' +
+                                '<div class="next-order-pill mt-2"><div class="label">ORDER</div><div class="value number">' +
+                                ((+row.order_qty || 0).toLocaleString('id-ID')) + '</div></div>';
                             listWrap.appendChild(item);
                         });
                         applyBacknoAlias(listWrap);
                     }
                 }
 
-                // TOTAL BACK NO (TODAY) - dihitung dengan alias unified agar tidak double (D111->CI12, D500->CI19)
-                let totalBN = Number(payload?.daily?.totalBackNo ?? payload?.totalBackNo ?? 0);
+                // TOTAL BACK NO (unified)
+                var totalBN = Number((payload.daily && payload.daily.totalBackNo) ?? payload.totalBackNo ?? 0);
                 if (!totalBN) {
-                    const seen = new Set();
-                    const add = v => {
-                        v = unifyAlias((v || '').toString()); // satukan alias
-                        v = v.trim().toUpperCase();
+                    var seen = new Set();
+
+                    function add(v) {
+                        v = unifyAlias((v || '').toString()).trim().toUpperCase();
                         if (v && v !== '—') seen.add(v);
-                    };
-                    const curRow = payload.current || {};
-                    const nxRow = payload.nextHighlight || {};
-                    add(curRow.back_no);
-                    add(nxRow.back_no);
-                    (payload.nextList || []).forEach(r => add(r?.back_no));
+                    }
+                    add(cur.back_no);
+                    add(nx.back_no);
+                    (payload.nextList || []).forEach(function(r) {
+                        add(r && r.back_no);
+                    });
                     totalBN = seen.size;
                 }
-                const elTotal = tab.querySelector('[data-role="prog-total-bn"]');
+                var elTotal = tab.querySelector('[data-role="prog-total-bn"]');
                 if (elTotal) elTotal.textContent = totalBN.toLocaleString('id-ID');
 
-                // apply alias ke tampilan di tab ini
+                // final pass alias
                 applyBacknoAlias(tab);
             }
 
-            // Fetch state JSON & apply
-            const refreshBoard = debounce(function() {
-                fetch(`/dashboard/production/board/state?date=${encodeURIComponent(dateISO)}`, {
+            var refreshBoard = debounce(function() {
+                var url = '/dashboard/production/board/state?date=' + encodeURIComponent(dateISO) + '&group=' +
+                    encodeURIComponent(GROUP);
+                fetch(url, {
                         cache: 'no-store'
                     })
-                    .then(r => r.ok ? r.json() : Promise.reject(r.status))
-                    .then(data => {
-                        const boards = data.boards || {};
-                        ['AS003', 'AS004'].forEach(L => boards[L] && updateLine(L, boards[L]));
+                    .then(function(r) {
+                        return r.ok ? r.json() : Promise.reject(r.status);
+                    })
+                    .then(function(data) {
+                        var boards = data.boards || {};
+                        LINES.forEach(function(L) {
+                            if (boards[L]) updateLine(L, boards[L]);
+                        });
                         log('refreshed');
                     })
-                    .catch(err => log('refresh error', err));
+                    .catch(function(err) {
+                        log('refresh error', err);
+                    });
             }, 350);
 
-            // EventSource
-            let es;
+            var es;
             try {
-                es = new EventSource(`/stream/direct-pulling-updates?date=${encodeURIComponent(dateISO)}`);
-                es.onopen = () => {
+                es = new EventSource('/stream/direct-pulling-updates?date=' + encodeURIComponent(dateISO));
+                es.onopen = function() {
                     log('open');
                     refreshBoard();
                 };
-                es.onmessage = (e) => {
+                es.onmessage = function(e) {
                     log('message', e.data);
                     refreshBoard();
                 };
-                ['connected', 'refetching', 'refetched', 'directPullingUpdate', 'ping'].forEach(name => {
-                    es.addEventListener(name, (e) => {
+                ['connected', 'refetching', 'refetched', 'directPullingUpdate', 'ping'].forEach(function(name) {
+                    es.addEventListener(name, function(e) {
                         log(name, e.data);
                         refreshBoard();
                     });
                 });
-                es.onerror = (e) => {
-                    log('error', e); /* auto-reconnect by browser */
+                es.onerror = function(e) {
+                    log('error', e);
                 };
-                window.addEventListener('beforeunload', () => {
+                window.addEventListener('beforeunload', function() {
                     try {
                         es && es.close();
-                    } catch {}
+                    } catch (_) {}
                 });
             } catch (e) {
                 log('EventSource construct fail', e);
             }
 
-            // Safety nets
             setInterval(refreshBoard, 15000);
-            document.addEventListener('visibilitychange', () => {
+            document.addEventListener('visibilitychange', function() {
                 if (!document.hidden) refreshBoard();
             });
             document.addEventListener('DOMContentLoaded', refreshBoard);
@@ -919,42 +954,45 @@
 
     <!-- Drag-to-scroll momentum -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.np-scroll').forEach(sc => {
-                let isDown = false,
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.np-scroll').forEach(function(sc) {
+                var isDown = false,
                     lastX = 0,
                     vel = 0,
                     raf = 0,
                     dragged = false;
-                const stopMomentum = () => {
+
+                function stopMomentum() {
                     if (raf) cancelAnimationFrame(raf);
                     raf = 0;
-                };
-                const momentum = () => {
+                }
+
+                function momentum() {
                     stopMomentum();
-                    let v = vel;
-                    const step = () => {
+                    var v = vel;
+
+                    function step() {
                         if (Math.abs(v) < 0.1) return;
                         sc.scrollLeft -= v;
                         v *= 0.95;
                         raf = requestAnimationFrame(step);
-                    };
+                    }
                     step();
-                };
-                sc.addEventListener('pointerdown', e => {
+                }
+                sc.addEventListener('pointerdown', function(e) {
                     if (e.button !== undefined && e.button !== 0) return;
                     isDown = true;
                     dragged = false;
                     vel = 0;
                     lastX = e.clientX;
                     sc.classList.add('is-dragging');
-                    sc.setPointerCapture?.(e.pointerId);
+                    sc.setPointerCapture && sc.setPointerCapture(e.pointerId);
                     stopMomentum();
                     e.preventDefault();
                 });
-                sc.addEventListener('pointermove', e => {
+                sc.addEventListener('pointermove', function(e) {
                     if (!isDown) return;
-                    const x = e.clientX,
+                    var x = e.clientX,
                         dx = x - lastX;
                     if (dx !== 0) {
                         sc.scrollLeft -= dx;
@@ -963,17 +1001,20 @@
                         if (Math.abs(dx) > 3) dragged = true;
                     }
                 });
-                const end = () => {
+
+                function end() {
                     if (!isDown) return;
                     isDown = false;
                     sc.classList.remove('is-dragging');
                     if (Math.abs(vel) > 0.5) momentum();
-                    setTimeout(() => dragged = false, 0);
-                };
+                    setTimeout(function() {
+                        dragged = false;
+                    }, 0);
+                }
                 sc.addEventListener('pointerup', end);
                 sc.addEventListener('pointercancel', end);
                 sc.addEventListener('pointerleave', end);
-                sc.addEventListener('click', e => {
+                sc.addEventListener('click', function(e) {
                     if (dragged) {
                         e.preventDefault();
                         e.stopPropagation();
