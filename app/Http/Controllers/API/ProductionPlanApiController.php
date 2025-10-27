@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\ProductionPlan;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
 class ProductionPlanApiController extends Controller
@@ -75,9 +76,9 @@ class ProductionPlanApiController extends Controller
                 $plansQ->where('dn_number', $dn);
             }
 
-            // Urutkan agar "paling atas" duluan. Kalau tidak ada delivery_time, id jadi tie-breaker.
+            // Urutkan agar "paling atas" duluan
             $plans = $plansQ
-                ->orderBy('delivery_time') // jika kolom ada; null akan diurutkan dulu/terakhir tergantung DB, tidak apa.
+                ->orderBy('delivery_time')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
@@ -114,13 +115,10 @@ class ProductionPlanApiController extends Controller
                 // Hitung balance_time vs delivery_time (jika valid)
                 if ($plan->delivery_time) {
                     try {
-                        $deliveryTime = Carbon::createFromFormat('H:i', $plan->delivery_time);
-
-                        // Jika delivery < start → anggap hari berikutnya
+                        $deliveryTime = \Carbon\Carbon::createFromFormat('H:i', $plan->delivery_time);
                         if ($deliveryTime->lessThan($workingEnd)) {
                             $deliveryTime->addDay();
                         }
-
                         $balanceSeconds = $deliveryTime->diffInSeconds($workingEnd);
                         $balanceHour    = intdiv($balanceSeconds, 3600);
                         $balanceMinute  = intdiv($balanceSeconds % 3600, 60);
@@ -136,7 +134,6 @@ class ProductionPlanApiController extends Controller
             $alreadySetStartDp = false;
 
             if ($remainDp > 0) {
-                // Total kapasitas DP
                 $totalCapDp = 0;
                 foreach ($plans as $p) {
                     $totalCapDp += max(0, (int)$p->order_qty - (int)$p->direct_pulling_qty);
@@ -148,7 +145,7 @@ class ProductionPlanApiController extends Controller
                         'message'            => 'Direct pulling quantity exceeds total remaining capacity across plans',
                         'requested_addition' => $remainDp,
                         'total_capacity'     => $totalCapDp,
-                        'max_allowed'        => $totalCapDp, // agar caller tahu batasnya
+                        'max_allowed'        => $totalCapDp,
                     ], 422);
                 }
 
@@ -164,7 +161,6 @@ class ProductionPlanApiController extends Controller
                     $wasZeroBefore = ($current === 0);
                     $plan->direct_pulling_qty = $current + $take;
 
-                    // Set timestamps sekali saja ketika DP dari 0 -> >0 pada baris pertama yang kena
                     if ($wasZeroBefore && !$alreadySetStartDp && $take > 0) {
                         $setStartOnce($plan);
                         $alreadySetStartDp = true;
@@ -179,7 +175,6 @@ class ProductionPlanApiController extends Controller
             // === 2) Distribusi STOCK CHUTE ===
             $remainSc = $addSc;
             if ($remainSc > 0) {
-                // Total kapasitas SC
                 $totalCapSc = 0;
                 foreach ($plans as $p) {
                     $totalCapSc += max(0, (int)$p->order_qty - (int)$p->stock_chute_qty);
@@ -220,6 +215,11 @@ class ProductionPlanApiController extends Controller
                 ->orderBy('delivery_time')->orderBy('id')
                 ->get();
 
+            // === TRIGGER SSE SETELAH COMMIT (tick) ===
+            DB::afterCommit(function () use ($planDate) {
+                Cache::increment('dp_update_tick:' . $planDate);
+            });
+
             return response()->json([
                 'success' => true,
                 'message' => 'Distributed update applied',
@@ -228,5 +228,4 @@ class ProductionPlanApiController extends Controller
             ]);
         });
     }
-
 }
