@@ -416,13 +416,22 @@
             const group = card.dataset.group;
             const boardUrl = makeUrl(BASE_BOARD, group);
             const planUrl = makeUrl(BASE_PLAN, group);
-            card.querySelector('.btn-board').setAttribute('href', boardUrl);
-            card.querySelector('.btn-plan').setAttribute('href', planUrl);
 
+            // set tombol Board (wajib ada)
+            const boardBtn = card.querySelector('.btn-board');
+            if (boardBtn) boardBtn.setAttribute('href', boardUrl);
+
+            // set tombol Plan (opsional — aman kalau tidak ada)
+            const planBtn = card.querySelector('.btn-plan');
+            if (planBtn) planBtn.setAttribute('href', planUrl);
+
+            // klik seluruh kartu -> ke Board
             card.addEventListener('click', (e) => {
-                if (e.target.closest('a')) return;
+                if (e.target.closest('a')) return; // kalau klik <a>, biarkan default
                 window.location.assign(boardUrl);
             });
+
+            // aksesibilitas: Enter/Space
             card.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
