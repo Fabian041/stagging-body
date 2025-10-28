@@ -272,40 +272,25 @@ class DashboardController extends Controller
         $todayISO = $selectedDate->toDateString();
         $stamp    = now()->format('H:i:s');
 
-        // === 1) Tentukan urutan LINE persis seperti halaman prodPlan ===
-        //     - Ambil dari $this->backNosByLine (order as-is)
-        //     - Filter prefix group (AS / MA)
+        // === Urutan LINE mengikuti konfigurasi prodPlan ($this->backNosByLine) ===
         $allLinesByConfig = collect(array_keys($this->backNosByLine ?? []))
             ->map(fn($s) => strtoupper(trim((string)$s)));
 
         $LINES = $allLinesByConfig
-            ->filter(function ($L) use ($group) {
-                return strtoupper($group) === 'MA'
-                    ? str_starts_with($L, 'MA')
-                    : str_starts_with($L, 'AS');
-            })
-            ->values()
-            ->all();
+            ->filter(fn($L) => strtoupper($group) === 'MA' ? str_starts_with($L, 'MA') : str_starts_with($L, 'AS'))
+            ->values()->all();
 
-        // Kalau belum ada konfigurasi sama sekali, fallback ke line yang ada di DB (tetap jaga group)
+        // Fallback: kalau config kosong, pakai line yang ada di DB (tetap filter per group)
         if (empty($LINES)) {
             $fallback = ProductionPlan::whereDate('plan_date', $todayISO)
-                ->select('line')
-                ->distinct()
-                ->pluck('line')
-                ->filter()
-                ->map(fn($s) => strtoupper(trim($s)))
-                ->values();
+                ->select('line')->distinct()->pluck('line')
+                ->filter()->map(fn($s) => strtoupper(trim($s)))->values();
 
-            $LINES = $fallback->filter(function ($L) use ($group) {
-                return strtoupper($group) === 'MA'
-                    ? str_starts_with($L, 'MA')
-                    : str_starts_with($L, 'AS');
-            })->values()->all();
+            $LINES = $fallback->filter(fn($L) => strtoupper($group) === 'MA' ? str_starts_with($L, 'MA') : str_starts_with($L, 'AS'))
+                            ->values()->all();
         }
 
-        // === 2) Ambil semua plan hari itu, hanya untuk LINE yang tampil, urut seperti prodPlan:
-        //     delivery_date → delivery_time → seq_no → id
+        // === Ambil plan hari itu untuk line yang tampil, urut ala prodPlan ===
         $items = ProductionPlan::whereDate('plan_date', $todayISO)
             ->when(!empty($LINES), fn($q) => $q->whereIn('line', $LINES))
             ->orderBy('delivery_date')
@@ -314,7 +299,11 @@ class DashboardController extends Controller
             ->orderBy('id')
             ->get();
 
-        // === 3) Kelompokkan item per line sesuai urutan LINES (urut dalam line sudah sesuai query di atas)
+        // Helper normalisasi
+        $normBack = fn($bn) => $this->normalizeBackNo($bn);   // D111 → CI12
+        $normDock = fn($dk) => $this->normalizeDock($dk);     // DOMESTIC → DOM; EXPORT → EXP
+
+        // === Kelompok per line (urut dalam line tetap sesuai query di atas)
         $byLine = [];
         foreach ($LINES as $L) $byLine[$L] = collect();
         foreach ($items as $it) {
@@ -322,30 +311,63 @@ class DashboardController extends Controller
             if (isset($byLine[$key])) $byLine[$key]->push($it);
         }
 
-        // === 4) Overlay virtual MA (kalau group MA), tidak mengubah urutan antar-line
+        // === Sort khusus CI12/D111: split C4–7 @6I → C8–3 @EXP → sisanya (tanpa geser backno lain)
+        $ci12Bucket = function ($row) use ($normBack, $normDock) {
+            $bn = $normBack($row->back_no ?? '');
+            if ($bn !== 'CI12') return 5; // non-CI12: tidak diutak-atik (suffix tinggi)
+            $dock  = $normDock($row->dock ?? null) ?: '';
+            $cycle = (int) ($row->cycle ?? 0);
+            $in47  = in_array($cycle, [4,5,6,7], true);
+            $in83  = in_array($cycle, [8,1,2,3], true);
+
+            // urutan: 6I C4–7 (bucket 0) → EXP C8–3 (bucket 1) → lainnya (bucket 2)
+            if ($dock === '6I'  && $in47) return 0;
+            if ($dock === 'EXP' && $in83) return 1;
+            return 2;
+        };
+
+        // Terapkan sort CI12 per line dengan MENJAGA urutan global via baseKey
+        foreach ($byLine as $k => $col) {
+            $byLine[$k] = $col->sortBy(function ($it) use ($ci12Bucket) {
+                $date = $it->delivery_date ?: '9999-12-31';
+                $time = $it->delivery_time ?: '99:99';
+                $seq  = (int)($it->seq_no ?? 999999);
+                $id   = (int)($it->id ?? 0);
+
+                // base key = urutan utama (prodPlan)
+                $baseKey = sprintf('%s|%s|%06d|%09d', $date, $time, $seq, $id);
+                // suffix = bucket CI12 (hanya mempengaruhi antar CI12)
+                $suffix  = sprintf('|%02d', $ci12Bucket($it));
+
+                return $baseKey . $suffix;
+            })->values();
+        }
+
+        // === Overlay virtual MA (kalau group MA) → pertahankan urutan ala prodPlan + aturan CI12
         if (strtoupper($group) === 'MA') {
             $this->applyMAOverlayInto($byLine, $selectedDate);
 
-            // Setelah disuntik virtual, pastikan urutan dalam line tetap "ala prodPlan":
-            // delivery_date → delivery_time → (virt seq jika ada) → seq_no → id
+            // re-sort setelah inject virtual agar patuh baseKey + bucket CI12
             foreach ($byLine as $k => $col) {
-                $byLine[$k] = $col->sortBy([
-                    ['delivery_date', 'asc'],
-                    ['delivery_time', 'asc'],
-                    [fn($it) => property_exists($it, '__virt_seq') ? (int)$it->__virt_seq : 9999, 'asc'],
-                    ['seq_no', 'asc'],
-                    ['id', 'asc'],
-                ])->values();
+                $byLine[$k] = $col->sortBy(function ($it) use ($ci12Bucket) {
+                    $date = $it->delivery_date ?? '9999-12-31';
+                    $time = $it->delivery_time ?? '99:99';
+                    $virt = property_exists($it, '__virt_seq') ? (int)$it->__virt_seq : 9999;
+                    $seq  = (int)($it->seq_no ?? 999999);
+                    $id   = (int)($it->id ?? 0);
+
+                    $baseKey = sprintf('%s|%s|%06d|%06d|%09d', $date, $time, $virt, $seq, $id);
+                    $suffix  = sprintf('|%02d', $ci12Bucket($it));
+                    return $baseKey . $suffix;
+                })->values();
             }
         }
 
-        // === 5) Ambil data KPI/progress per line (tetap)
+        // === Data KPI/progress tetap
         $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
 
-        // ===== helper builder satu line (tanpa ubah apa pun kecuali asumsi urutan rows) =====
+        // ===== Builder satu line (tidak diubah) =====
         $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped) {
-
-            // ------- Progress (kartu kiri) -------
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
@@ -365,12 +387,10 @@ class DashboardController extends Controller
 
             $rows = $rows->values();
 
-            // Total unik Back No (untuk KPI kecil kanan)
             $uniqBackNo = $rows->pluck('back_no')
                 ->filter(fn ($v) => filled($v))
                 ->map(fn ($v) => strtoupper(trim($v)))
-                ->unique()
-                ->count();
+                ->unique()->count();
 
             $isComplete = function ($it) {
                 $ord  = (int)($it->order_qty ?? 0);
@@ -378,7 +398,6 @@ class DashboardController extends Controller
                 return $ord <= 0 || $done >= $ord;
             };
 
-            // CURRENT = item pertama yg belum complete; jika semua complete ambil terakhir
             $currentIdx = null;
             foreach ($rows as $idx => $it) { if (!$isComplete($it)) { $currentIdx = $idx; break; } }
             $currentItem = $currentIdx !== null ? $rows[$currentIdx] : ($rows->last() ?: null);
@@ -395,13 +414,13 @@ class DashboardController extends Controller
                 'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
             ];
 
-            // NEXT candidates (setelah current, yang belum complete) — urut seperti prodPlan
+            // NEXT candidates (urutan sudah rapi via baseKey+bucket)
             $nextCandidates = collect();
             if ($currentIdx !== null) {
                 $nextCandidates = $rows->slice($currentIdx + 1)->filter(fn($it) => !$isComplete($it))->values();
             }
 
-            // ------- Agregasi NEXT (merge CI12/CI19 alias) -------
+            // Agregasi NEXT tetap pakai delivery_date|delivery_time sebagai sort kunci
             $norm = fn($s) => strtoupper(trim((string)$s));
             $unifyForMerge = function ($bn) use ($norm) {
                 $B = $norm($bn);
@@ -418,10 +437,9 @@ class DashboardController extends Controller
                 $merge = $isMergeTargetBN($bnU);
                 $rowOrderIdx = $idxCounter++;
 
-                // sort_key pakai delivery_date|delivery_time → lalu fallback id agar stabil
-                $delDate = $it->delivery_date ?: '9999-12-31';
-                $delTime = $it->delivery_time ?: '99:99';
-                $sortKey = "{$delDate}|{$delTime}|" . sprintf('%06d', $rowOrderIdx);
+                $date = $it->delivery_date ?: '9999-12-31';
+                $time = $it->delivery_time ?: '99:99';
+                $sortKey = "{$date}|{$time}|" . sprintf('%06d', $rowOrderIdx);
 
                 $key = $merge ? ('MERGE|'.$bnU) : ('ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey);
 
@@ -440,7 +458,6 @@ class DashboardController extends Controller
 
                 $groups[$key]['order_qty'] += (int)($it->order_qty ?? 0);
 
-                // jaga info terawal berdasarkan sort_key
                 if ($sortKey < ($groups[$key]['sort_key'] ?? '~~~~~')) {
                     $groups[$key]['sort_key']      = $sortKey;
                     $groups[$key]['delivery_time'] = $it->delivery_time ?: $groups[$key]['delivery_time'];
@@ -459,7 +476,12 @@ class DashboardController extends Controller
                 unset($g['__has6I']); return $g;
             }, $groups)))->sortBy('sort_key')->values();
 
-            // NEXT highlight + list
+            $nextHighlight = [
+                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
+                'delivery_time'=>'--','delivery_date'=>''
+            ];
+            $nextList = [];
+
             if ($aggregatedNext->isNotEmpty()) {
                 $first = $aggregatedNext->first();
                 $nextHighlight = [
@@ -478,12 +500,6 @@ class DashboardController extends Controller
                     'delivery_time' => $a['delivery_time'],
                     'delivery_date' => $a['delivery_date'],
                 ])->values()->all();
-            } else {
-                $nextHighlight = [
-                    'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
-                    'delivery_time'=>'--','delivery_date'=>''
-                ];
-                $nextList = [];
             }
 
             return [
@@ -496,13 +512,12 @@ class DashboardController extends Controller
                 'current'        => $current,
                 'nextHighlight'  => $nextHighlight,
                 'nextList'       => $nextList,
-
-                'daily'       => ['totalBackNo' => $uniqBackNo],
-                'totalBackNo' => $uniqBackNo,
+                'daily'          => ['totalBackNo' => $uniqBackNo],
+                'totalBackNo'    => $uniqBackNo,
             ];
         };
 
-        // === 6) Build semua line (urutan antar-line = urutan config prodPlan)
+        // Build
         $boards = [];
         foreach ($LINES as $L) {
             $boards[$L] = $buildBoardForLine($byLine[$L] ?? collect(), $L);
@@ -510,6 +525,7 @@ class DashboardController extends Controller
 
         return [$boards, $stamp, $LINES];
     }
+
 
     // --- Helpers alias & dock ---
     private function normalizeBackNo(?string $bn): string
