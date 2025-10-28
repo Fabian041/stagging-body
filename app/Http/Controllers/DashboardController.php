@@ -272,47 +272,77 @@ class DashboardController extends Controller
         $todayISO = $selectedDate->toDateString();
         $stamp    = now()->format('H:i:s');
 
-        // 1) Ambil semua plan hari itu, urut 100% mengikuti urutan database (id ASC)
+        // === 1) Tentukan urutan LINE persis seperti halaman prodPlan ===
+        //     - Ambil dari $this->backNosByLine (order as-is)
+        //     - Filter prefix group (AS / MA)
+        $allLinesByConfig = collect(array_keys($this->backNosByLine ?? []))
+            ->map(fn($s) => strtoupper(trim((string)$s)));
+
+        $LINES = $allLinesByConfig
+            ->filter(function ($L) use ($group) {
+                return strtoupper($group) === 'MA'
+                    ? str_starts_with($L, 'MA')
+                    : str_starts_with($L, 'AS');
+            })
+            ->values()
+            ->all();
+
+        // Kalau belum ada konfigurasi sama sekali, fallback ke line yang ada di DB (tetap jaga group)
+        if (empty($LINES)) {
+            $fallback = ProductionPlan::whereDate('plan_date', $todayISO)
+                ->select('line')
+                ->distinct()
+                ->pluck('line')
+                ->filter()
+                ->map(fn($s) => strtoupper(trim($s)))
+                ->values();
+
+            $LINES = $fallback->filter(function ($L) use ($group) {
+                return strtoupper($group) === 'MA'
+                    ? str_starts_with($L, 'MA')
+                    : str_starts_with($L, 'AS');
+            })->values()->all();
+        }
+
+        // === 2) Ambil semua plan hari itu, hanya untuk LINE yang tampil, urut seperti prodPlan:
+        //     delivery_date → delivery_time → seq_no → id
         $items = ProductionPlan::whereDate('plan_date', $todayISO)
+            ->when(!empty($LINES), fn($q) => $q->whereIn('line', $LINES))
+            ->orderBy('delivery_date')
+            ->orderBy('delivery_time')
+            ->orderBy('seq_no')
             ->orderBy('id')
             ->get();
 
-        // 2) Susun daftar line mengikuti urutan KEMUNCULAN pada data di atas (bukan list preferensi)
-        $allLines = $items->pluck('line')
-            ->filter()
-            ->map(fn($s) => strtoupper(trim($s)))
-            ->unique()       // unique() menjaga urutan kemunculan
-            ->values();
-
-        // 3) Filter per group (ASxxx / MAxxx)
-        $LINES = $allLines->filter(function ($L) use ($group) {
-            $L = (string) $L;
-            if (strtoupper($group) === 'MA') return str_starts_with($L, 'MA');
-            return str_starts_with($L, 'AS');
-        })->values()->all();
-
-        // 4) Kelompokkan item per line (urutan di dalam line juga tetap sesuai id ASC)
+        // === 3) Kelompokkan item per line sesuai urutan LINES (urut dalam line sudah sesuai query di atas)
         $byLine = [];
         foreach ($LINES as $L) $byLine[$L] = collect();
         foreach ($items as $it) {
             $key = strtoupper((string)($it->line ?? ''));
-            if (isset($byLine[$key])) {
-                // $items sudah id ASC, jadi push() mempertahankan urutan DB untuk tiap line
-                $byLine[$key]->push($it);
+            if (isset($byLine[$key])) $byLine[$key]->push($it);
+        }
+
+        // === 4) Overlay virtual MA (kalau group MA), tidak mengubah urutan antar-line
+        if (strtoupper($group) === 'MA') {
+            $this->applyMAOverlayInto($byLine, $selectedDate);
+
+            // Setelah disuntik virtual, pastikan urutan dalam line tetap "ala prodPlan":
+            // delivery_date → delivery_time → (virt seq jika ada) → seq_no → id
+            foreach ($byLine as $k => $col) {
+                $byLine[$k] = $col->sortBy([
+                    ['delivery_date', 'asc'],
+                    ['delivery_time', 'asc'],
+                    [fn($it) => property_exists($it, '__virt_seq') ? (int)$it->__virt_seq : 9999, 'asc'],
+                    ['seq_no', 'asc'],
+                    ['id', 'asc'],
+                ])->values();
             }
         }
 
-        // 5) Inject virtual order MA (opsional; hanya untuk line yang muncul di board)
-        if (strtoupper($group) === 'MA') {
-            $this->applyMAOverlayInto($byLine, $selectedDate);
-            // Catatan: applyMAOverlayInto sudah punya sorter internal untuk virtual items;
-            // tidak mengubah urutan antar-line (antar-line tetap mengikuti $LINES dari DB).
-        }
-
-        // 6) Data KPI/progress per line (tetap)
+        // === 5) Ambil data KPI/progress per line (tetap)
         $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
 
-        // ===== Helper builder satu line =====
+        // ===== helper builder satu line (tanpa ubah apa pun kecuali asumsi urutan rows) =====
         $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped) {
 
             // ------- Progress (kartu kiri) -------
@@ -342,7 +372,6 @@ class DashboardController extends Controller
                 ->unique()
                 ->count();
 
-            // Helper complete
             $isComplete = function ($it) {
                 $ord  = (int)($it->order_qty ?? 0);
                 $done = (int)($it->direct_pulling_qty ?? 0) + (int)($it->stock_chute_qty ?? 0);
@@ -366,7 +395,7 @@ class DashboardController extends Controller
                 'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
             ];
 
-            // NEXT candidates (setelah current, yang belum complete) — urut sesuai DB (id ASC)
+            // NEXT candidates (setelah current, yang belum complete) — urut seperti prodPlan
             $nextCandidates = collect();
             if ($currentIdx !== null) {
                 $nextCandidates = $rows->slice($currentIdx + 1)->filter(fn($it) => !$isComplete($it))->values();
@@ -387,10 +416,14 @@ class DashboardController extends Controller
             foreach ($nextCandidates as $it) {
                 $bnU   = $unifyForMerge($it->back_no);
                 $merge = $isMergeTargetBN($bnU);
-                $rowOrderIdx = $idxCounter++; // menjaga urutan DB
+                $rowOrderIdx = $idxCounter++;
 
-                $uniqueRowKey = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.($it->working_start ?? '').'|'.$rowOrderIdx;
-                $key = $merge ? ('MERGE|'.$bnU) : $uniqueRowKey;
+                // sort_key pakai delivery_date|delivery_time → lalu fallback id agar stabil
+                $delDate = $it->delivery_date ?: '9999-12-31';
+                $delTime = $it->delivery_time ?: '99:99';
+                $sortKey = "{$delDate}|{$delTime}|" . sprintf('%06d', $rowOrderIdx);
+
+                $key = $merge ? ('MERGE|'.$bnU) : ('ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey);
 
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
@@ -400,18 +433,16 @@ class DashboardController extends Controller
                         'order_qty'     => 0,
                         'delivery_time' => $it->delivery_time ?: '--',
                         'delivery_date' => $it->delivery_date ?: '',
-                        'sort_key'      => sprintf('%06d', $rowOrderIdx), // simple: urut kemunculan DB
+                        'sort_key'      => $sortKey,
                         '__has6I'       => ($norm($it->dock) === '6I'),
                     ];
                 }
 
                 $groups[$key]['order_qty'] += (int)($it->order_qty ?? 0);
 
-                // karena targetnya urutan DB, sort_key cukup jaga idx terkecil
-                $sk  = $groups[$key]['sort_key'] ?? '999999';
-                $cur = sprintf('%06d', $rowOrderIdx);
-                if ($cur < $sk) {
-                    $groups[$key]['sort_key']      = $cur;
+                // jaga info terawal berdasarkan sort_key
+                if ($sortKey < ($groups[$key]['sort_key'] ?? '~~~~~')) {
+                    $groups[$key]['sort_key']      = $sortKey;
                     $groups[$key]['delivery_time'] = $it->delivery_time ?: $groups[$key]['delivery_time'];
                     $groups[$key]['delivery_date'] = $it->delivery_date ?: $groups[$key]['delivery_date'];
                     $groups[$key]['customer']      = $it->customer ?? $groups[$key]['customer'];
@@ -471,7 +502,7 @@ class DashboardController extends Controller
             ];
         };
 
-        // 7) Build semua line di group (urutan $LINES sudah mengikuti DB)
+        // === 6) Build semua line (urutan antar-line = urutan config prodPlan)
         $boards = [];
         foreach ($LINES as $L) {
             $boards[$L] = $buildBoardForLine($byLine[$L] ?? collect(), $L);
