@@ -17,6 +17,7 @@ class ProductionPlanApiController extends Controller
      * - Cari by plan_date (default: hari ini) + back_no (termasuk ekivalensi).
      * - dn_number opsional; jika dikirim maka ikut difilter, kalau tidak dikirim diabaikan.
      * - Tanpa fallback tanggal (strict di plan_date).
+     * - Urutan proses setelah filter: sesuai urutan di database (id ASC).
      */
     public function updateQty(Request $request)
     {
@@ -76,9 +77,8 @@ class ProductionPlanApiController extends Controller
                 $plansQ->where('dn_number', $dn);
             }
 
-            // Urutkan agar "paling atas" duluan
+            // === URUTAN: sesuai urutan di database -> id ASC ===
             $plans = $plansQ
-                ->orderBy('delivery_time')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
@@ -129,7 +129,7 @@ class ProductionPlanApiController extends Controller
                 }
             };
 
-            // === 1) Distribusi DIRECT PULLING ===
+            // === 1) Distribusi DIRECT PULLING (greedy by id ASC) ===
             $remainDp          = $addDp;
             $alreadySetStartDp = false;
 
@@ -172,7 +172,7 @@ class ProductionPlanApiController extends Controller
                 }
             }
 
-            // === 2) Distribusi STOCK CHUTE ===
+            // === 2) Distribusi STOCK CHUTE (greedy by id ASC) ===
             $remainSc = $addSc;
             if ($remainSc > 0) {
                 $totalCapSc = 0;
@@ -212,7 +212,8 @@ class ProductionPlanApiController extends Controller
                 ->whereDate('plan_date', $planDate)
                 ->whereIn('back_no', $backNosToCheck)
                 ->when(!is_null($dn) && $dn !== '', fn($q) => $q->where('dn_number', $dn))
-                ->orderBy('delivery_time')->orderBy('id')
+                // === URUTAN RESPON: id ASC supaya konsisten dengan proses ===
+                ->orderBy('id')
                 ->get();
 
             // === TRIGGER SSE SETELAH COMMIT (tick) ===
