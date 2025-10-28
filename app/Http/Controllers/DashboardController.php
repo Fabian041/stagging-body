@@ -312,18 +312,17 @@ class DashboardController extends Controller
         }
 
         // === Sort khusus CI12/D111: split C4–7 @6I → C8–3 @EXP → sisanya (tanpa geser backno lain)
-        $ci12Bucket = function ($row) use ($normBack, $normDock) {
+        $ci12Bucket = function ($row) use ($normBack) {
             $bn = $normBack($row->back_no ?? '');
-            if ($bn !== 'CI12') return 5; // non-CI12: tidak diutak-atik (suffix tinggi)
-            $dock  = $normDock($row->dock ?? null) ?: '';
+            if ($bn !== 'CI12') return 5;
+            $dock  = strtoupper(trim((string)($row->dock ?? '')));
             $cycle = (int) ($row->cycle ?? 0);
             $in47  = in_array($cycle, [4,5,6,7], true);
             $in83  = in_array($cycle, [8,1,2,3], true);
 
-            // urutan: 6I C4–7 (bucket 0) → EXP C8–3 (bucket 1) → lainnya (bucket 2)
-            if ($dock === '6I'  && $in47) return 0;
-            if ($dock === 'EXP' && $in83) return 1;
-            return 2;
+            if ($dock === '6I'  && $in47) return 0; // C4–7 @ 6I → duluan
+            if ($dock === 'EXP' && $in83) return 1; // C8–3 @ EXP → sesudahnya
+            return 2;                                 // CI12 lain
         };
 
         // Terapkan sort CI12 per line dengan MENJAGA urutan global via baseKey
@@ -432,6 +431,7 @@ class DashboardController extends Controller
 
             $groups = [];
             $idxCounter = 0;
+            $rawDock = fn($s) => strtoupper(trim((string)$s));
             foreach ($nextCandidates as $it) {
                 $bnU   = $unifyForMerge($it->back_no);
                 $merge = $isMergeTargetBN($bnU);
@@ -441,7 +441,13 @@ class DashboardController extends Controller
                 $time = $it->delivery_time ?: '99:99';
                 $sortKey = "{$date}|{$time}|" . sprintf('%06d', $rowOrderIdx);
 
-                $key = $merge ? ('MERGE|'.$bnU) : ('ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey);
+                $DCK = $rawDock($it->dock ?? '');
+                    if ($merge && $DCK === '6I') {
+                        // gabung per (tanggal|jam|BN) khusus 6I (sesuai perilaku client-side)
+                        $key = 'MERGE6I|'.$bnU.'|'.$date.'|'.$time;
+                    } else {
+                        $key = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey;
+                    }
 
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
@@ -542,9 +548,11 @@ class DashboardController extends Controller
     private function normalizeDock(?string $dock): ?string
     {
         $d = strtoupper(trim((string)$dock));
+        if ($d === '') return null;
         if (in_array($d, ['DOM','DOMESTIC'], true)) return 'DOM';
         if (in_array($d, ['EXP','EXPORT'], true))   return 'EXP';
-        return null;
+        // Penting: biarkan kode dock lain apa adanya (mis. 6I, 6G, 6H, dll)
+        return $d;
     }
 
     /**
