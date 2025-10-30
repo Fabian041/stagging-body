@@ -284,7 +284,6 @@
             font-weight: 900
         }
 
-        /* Theme icon button */
         .btn-theme {
             width: 46px;
             height: 46px;
@@ -321,11 +320,12 @@
 </head>
 
 @php
-    // ==== GROUP & LINES (server side) ====
-    $group = strtoupper(request('group', 'AS')); // 'AS' or 'MA'
-    $selectedDate = request('date', $selectedDate ?? now()->format('Y-m-d'));
-    $nowStr = \Carbon\Carbon::parse($selectedDate)->format('l, j F Y');
-    $lines = $group === 'MA' ? array_map(fn($i) => sprintf('MA%03d', $i), range(1, 8)) : ['AS003', 'AS004'];
+    // ==== gunakan variabel dari controller ====
+    $group = strtoupper($group ?? request('group', 'AS')); // 'AS' or 'MA'
+    $selectedDate = $selectedDate ?? request('date', now()->format('Y-m-d'));
+    $nowStr = \Carbon\Carbon::parse($selectedDate)->translatedFormat('l, j F Y');
+    // PENTING: JANGAN override $lines — biarkan dari controller (sudah dibangun via buildBoardsForDate_)
+    // $lines = $lines ?? [];
 @endphp
 
 <body>
@@ -592,7 +592,6 @@
 
         /* ==== Alias Back No (robust) ==== */
         function buildAliasMap() {
-            // base map dua arah (fallback)
             var base = {
                 D111: 'CI12',
                 CI12: 'CI12',
@@ -612,10 +611,7 @@
                 var V = String(custom[k] || '').trim().toUpperCase();
                 if (K) normCustom[K] = V || K;
             }
-            // custom override base
-            for (var c in normCustom) {
-                base[c] = normCustom[c];
-            }
+            for (var c in normCustom) base[c] = normCustom[c];
             return base;
         }
 
@@ -719,7 +715,8 @@
                 var nx = payload.nextHighlight || null;
                 var nl = Array.isArray(payload.nextList) ? payload.nextList.slice() : [];
 
-                var groups = new Map(); // key -> { sum, rep, unified }
+                var groups = new Map();
+
                 function add(row) {
                     var k = key6I(lineKey, row);
                     if (!k) return null;
@@ -739,7 +736,6 @@
                     groups.set(k, rec);
                     return k;
                 }
-
                 var nxKey = nx ? add(nx) : null;
                 nl.forEach(add);
 
@@ -787,14 +783,12 @@
                 if (el) el.textContent = v;
             }
 
-            // Update DOM per line
             function updateLine(lineKey, payload) {
                 payload = apply6IMerge(lineKey, payload ? Object.assign({}, payload) : payload);
 
                 var tab = document.querySelector('[data-line="' + lineKey + '"]');
                 if (!tab) return;
 
-                // Progress
                 var pg = payload.progress || {};
                 var pgOrder = +pg.order || 0;
                 var pgActual = +pg.actual || 0;
@@ -806,7 +800,6 @@
                 var pgBar = tab.querySelector('[data-role="prog-bar"]');
                 if (pgBar) pgBar.style.width = pgPct + '%';
 
-                // Current
                 var cur = payload.current || {};
                 var cOrder = +cur.order_qty || 0;
                 var cDone = (+cur.dp || 0) + (+cur.sc || 0);
@@ -833,7 +826,6 @@
                 if (cBar) cBar.style.width = cPct + '%';
                 setTxt(tab, '[data-role="curr-pct"]', cPct + '%');
 
-                // Next highlight
                 var nx = payload.nextHighlight || {};
                 setTxt(tab, '[data-role="next-backno"]', unifyAlias(nx.back_no) || '—');
                 setTxt(tab, '[data-role="next-customer"]', nx.customer || '—');
@@ -842,7 +834,6 @@
                 setTxt(tab, '[data-role="next-date"]', nx.delivery_date || '');
                 setTxt(tab, '[data-role="next-order"]', (+nx.order_qty || 0).toLocaleString('id-ID'));
 
-                // Next list
                 var listWrap = tab.querySelector('[data-role="next-list"]');
                 if (listWrap) {
                     listWrap.innerHTML = '';
@@ -871,7 +862,6 @@
                     }
                 }
 
-                // TOTAL BACK NO (unified)
                 var totalBN = Number((payload.daily && payload.daily.totalBackNo) ?? payload.totalBackNo ?? 0);
                 if (!totalBN) {
                     var seen = new Set();
@@ -890,10 +880,16 @@
                 var elTotal = tab.querySelector('[data-role="prog-total-bn"]');
                 if (elTotal) elTotal.textContent = totalBN.toLocaleString('id-ID');
 
-                // final pass alias
                 applyBacknoAlias(tab);
             }
 
+            function debounce(fn, wait) {
+                var t = null;
+                return function() {
+                    clearTimeout(t);
+                    t = setTimeout(fn.bind(this, ...arguments), wait);
+                };
+            }
             var refreshBoard = debounce(function() {
                 var url = '/dashboard/production/board/state?date=' + encodeURIComponent(dateISO) + '&group=' +
                     encodeURIComponent(GROUP);
@@ -908,10 +904,9 @@
                         LINES.forEach(function(L) {
                             if (boards[L]) updateLine(L, boards[L]);
                         });
-                        log('refreshed');
                     })
                     .catch(function(err) {
-                        log('refresh error', err);
+                        /* silent */
                     });
             }, 350);
 
@@ -919,30 +914,25 @@
             try {
                 es = new EventSource('/stream/direct-pulling-updates?date=' + encodeURIComponent(dateISO));
                 es.onopen = function() {
-                    log('open');
                     refreshBoard();
                 };
-                es.onmessage = function(e) {
-                    log('message', e.data);
+                es.onmessage = function() {
                     refreshBoard();
                 };
                 ['connected', 'refetching', 'refetched', 'directPullingUpdate', 'ping'].forEach(function(name) {
-                    es.addEventListener(name, function(e) {
-                        log(name, e.data);
+                    es.addEventListener(name, function() {
                         refreshBoard();
                     });
                 });
-                es.onerror = function(e) {
-                    log('error', e);
+                es.onerror = function() {
+                    /* silent */
                 };
                 window.addEventListener('beforeunload', function() {
                     try {
                         es && es.close();
                     } catch (_) {}
                 });
-            } catch (e) {
-                log('EventSource construct fail', e);
-            }
+            } catch (e) {}
 
             setInterval(refreshBoard, 15000);
             document.addEventListener('visibilitychange', function() {
@@ -970,14 +960,12 @@
                 function momentum() {
                     stopMomentum();
                     var v = vel;
-
-                    function step() {
+                    (function step() {
                         if (Math.abs(v) < 0.1) return;
                         sc.scrollLeft -= v;
                         v *= 0.95;
                         raf = requestAnimationFrame(step);
-                    }
-                    step();
+                    })();
                 }
                 sc.addEventListener('pointerdown', function(e) {
                     if (e.button !== undefined && e.button !== 0) return;
