@@ -549,10 +549,10 @@ class DashboardController extends Controller
     {
         $d = strtoupper(trim((string)$dock));
         if ($d === '') return null;
-        if (in_array($d, ['DOM','DOMESTIC'], true)) return 'DOM';
-        if (in_array($d, ['EXP','EXPORT'], true))   return 'EXP';
-        // Penting: biarkan kode dock lain apa adanya (mis. 6I, 6G, 6H, dll)
-        return $d;
+
+        if ($d === 'NR') return 'NR';            // hanya NR
+        if (in_array($d, ['EXP','EXPORT'], true)) return 'EXP'; // dan EXP/EXPORT
+        return $d; // 6I, 6G, 6H, ADM, dll tetap apa adanya
     }
 
     /**
