@@ -272,22 +272,45 @@ class DashboardController extends Controller
         $todayISO = $selectedDate->toDateString();
         $stamp    = now()->format('H:i:s');
 
-        // === Urutan LINE mengikuti konfigurasi prodPlan ($this->backNosByLine) ===
-        $allLinesByConfig = collect(array_keys($this->backNosByLine ?? []))
+        // === Kumpulkan kandidat line dari CONFIG & dari DB (UNION) ===
+        $cfgLines = collect(array_keys($this->backNosByLine ?? []))
             ->map(fn($s) => strtoupper(trim((string)$s)));
 
-        $LINES = $allLinesByConfig
-            ->filter(fn($L) => strtoupper($group) === 'MA' ? str_starts_with($L, 'MA') : str_starts_with($L, 'AS'))
-            ->values()->all();
+        $dbLines = ProductionPlan::whereDate('plan_date', $todayISO)
+            ->select('line')->distinct()->pluck('line')
+            ->filter()
+            ->map(fn($s) => strtoupper(trim((string)$s)));
 
-        // Fallback: kalau config kosong, pakai line yang ada di DB (tetap filter per group)
+        // UNION lalu filter sesuai group (MA atau AS), urut natural (prefix|angka 3 digit)
+        $LINES = $cfgLines->merge($dbLines)
+            ->unique()
+            ->filter(fn($L) => strtoupper($group) === 'MA'
+                ? str_starts_with($L, 'MA')
+                : str_starts_with($L, 'AS'))
+            ->sortBy(function ($L) {
+                $prefix = substr($L, 0, 2);
+                $num    = (int) preg_replace('/^\D+/', '', $L);
+                return sprintf('%s|%03d', $prefix, $num);
+            })
+            ->values()
+            ->all();
+
+        // Jika (sangat jarang) tetap kosong, fallback DB murni
         if (empty($LINES)) {
             $fallback = ProductionPlan::whereDate('plan_date', $todayISO)
                 ->select('line')->distinct()->pluck('line')
                 ->filter()->map(fn($s) => strtoupper(trim($s)))->values();
 
-            $LINES = $fallback->filter(fn($L) => strtoupper($group) === 'MA' ? str_starts_with($L, 'MA') : str_starts_with($L, 'AS'))
-                            ->values()->all();
+            $LINES = $fallback->filter(fn($L) => strtoupper($group) === 'MA'
+                    ? str_starts_with($L, 'MA')
+                    : str_starts_with($L, 'AS'))
+                ->sortBy(function ($L) {
+                    $prefix = substr($L, 0, 2);
+                    $num    = (int) preg_replace('/^\D+/', '', $L);
+                    return sprintf('%s|%03d', $prefix, $num);
+                })
+                ->values()
+                ->all();
         }
 
         // === Ambil plan hari itu untuk line yang tampil, urut ala prodPlan ===
@@ -301,7 +324,7 @@ class DashboardController extends Controller
 
         // Helper normalisasi
         $normBack = fn($bn) => $this->normalizeBackNo($bn);   // D111 → CI12
-        $normDock = fn($dk) => $this->normalizeDock($dk);     // DOMESTIC → DOM; EXPORT → EXP
+        $normDock = fn($dk) => $this->normalizeDock($dk);     // DOM/DOMESTIC → NR; EXPORT → EXP
 
         // === Kelompok per line (urut dalam line tetap sesuai query di atas)
         $byLine = [];
@@ -322,7 +345,7 @@ class DashboardController extends Controller
 
             if ($dock === '6I'  && $in47) return 0; // C4–7 @ 6I → duluan
             if ($dock === 'EXP' && $in83) return 1; // C8–3 @ EXP → sesudahnya
-            return 2;                                 // CI12 lain
+            return 2;                                // CI12 lain
         };
 
         // Terapkan sort CI12 per line dengan MENJAGA urutan global via baseKey
@@ -333,11 +356,8 @@ class DashboardController extends Controller
                 $seq  = (int)($it->seq_no ?? 999999);
                 $id   = (int)($it->id ?? 0);
 
-                // base key = urutan utama (prodPlan)
                 $baseKey = sprintf('%s|%s|%06d|%09d', $date, $time, $seq, $id);
-                // suffix = bucket CI12 (hanya mempengaruhi antar CI12)
                 $suffix  = sprintf('|%02d', $ci12Bucket($it));
-
                 return $baseKey . $suffix;
             })->values();
         }
@@ -346,7 +366,6 @@ class DashboardController extends Controller
         if (strtoupper($group) === 'MA') {
             $this->applyMAOverlayInto($byLine, $selectedDate);
 
-            // re-sort setelah inject virtual agar patuh baseKey + bucket CI12
             foreach ($byLine as $k => $col) {
                 $byLine[$k] = $col->sortBy(function ($it) use ($ci12Bucket) {
                     $date = $it->delivery_date ?? '9999-12-31';
@@ -413,13 +432,11 @@ class DashboardController extends Controller
                 'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
             ];
 
-            // NEXT candidates (urutan sudah rapi via baseKey+bucket)
             $nextCandidates = collect();
             if ($currentIdx !== null) {
                 $nextCandidates = $rows->slice($currentIdx + 1)->filter(fn($it) => !$isComplete($it))->values();
             }
 
-            // Agregasi NEXT tetap pakai delivery_date|delivery_time sebagai sort kunci
             $norm = fn($s) => strtoupper(trim((string)$s));
             $unifyForMerge = function ($bn) use ($norm) {
                 $B = $norm($bn);
@@ -442,12 +459,11 @@ class DashboardController extends Controller
                 $sortKey = "{$date}|{$time}|" . sprintf('%06d', $rowOrderIdx);
 
                 $DCK = $rawDock($it->dock ?? '');
-                    if ($merge && $DCK === '6I') {
-                        // gabung per (tanggal|jam|BN) khusus 6I (sesuai perilaku client-side)
-                        $key = 'MERGE6I|'.$bnU.'|'.$date.'|'.$time;
-                    } else {
-                        $key = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey;
-                    }
+                if ($merge && $DCK === '6I') {
+                    $key = 'MERGE6I|'.$bnU.'|'.$date.'|'.$time;
+                } else {
+                    $key = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey;
+                }
 
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
@@ -531,7 +547,6 @@ class DashboardController extends Controller
 
         return [$boards, $stamp, $LINES];
     }
-
 
     // --- Helpers alias & dock ---
     private function normalizeBackNo(?string $bn): string
