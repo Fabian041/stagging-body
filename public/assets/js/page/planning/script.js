@@ -1078,9 +1078,12 @@ class ProductionPlanSSEClient {
             ) {
                 this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
                 this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty, 'stock-chute', item.order_qty);
-                this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, item.actual_start, 'time');
-                this.updateQuantity(`${idSel(item.id)}[data-type="end"]`, item.end, 'time');
-                this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, item.balance, 'time');
+
+                const actualStartVal = (item.actual_working_start ?? item.actual_start ?? '--');
+                const balanceVal     = (item.balance_time ?? item.balance ?? '--');
+
+                this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, actualStartVal, 'time');
+                this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, balanceVal, 'time');
             }
         });
 
