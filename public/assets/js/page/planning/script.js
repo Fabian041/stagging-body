@@ -233,12 +233,8 @@ class ProductionPlanSSEClient {
         return isNaN(raw) ? $u.int(el.textContent || '0') : raw;
     }
 
-    _getDP(row) {
-        return $u.int(row?.querySelector('[data-type="direct-pulling"]')?.textContent);
-    }
-    _getSC(row) {
-        return $u.int(row?.querySelector('[data-type="stock-chute"]')?.textContent);
-    }
+    _getDP(row) { return $u.int(row?.querySelector('[data-type="direct-pulling"]')?.textContent); }
+    _getSC(row) { return $u.int(row?.querySelector('[data-type="stock-chute"]')?.textContent); }
 
     _getId(row) {
         const el = row?.querySelector('[data-type="direct-pulling"]') || row?.querySelector('[data-type="stock-chute"]');
@@ -287,231 +283,115 @@ class ProductionPlanSSEClient {
         });
     }
 
-    // >>> PATCH: helpers + merger khusus 6I (CI18/D403)
-
-    // Hanya back no ini yang digabung
+    /* ====== 6I (CI18/D403) helpers & merger ====== */
     _isSpecial6IBackNo(bn) {
-    const b = String(bn || '').trim().toUpperCase();
-    return b === 'CI18' || b === 'D403';
+        const b = String(bn || '').trim().toUpperCase();
+        return b === 'CI18' || b === 'D403';
     }
     _isDock6I(row) {
-    const t = (this._cell(row,'Dock')?.textContent || '').trim().toUpperCase();
-    return t === '6I';
+        const t = (this._cell(row,'Dock')?.textContent || '').trim().toUpperCase();
+        return t === '6I';
     }
     _getDeliveryTime(row) {
-    return (this._cell(row,'Delivery Time')?.textContent || '').trim(); // "HH:mm"
+        return (this._cell(row,'Delivery Time')?.textContent || '').trim(); // "HH:mm"
     }
     _getDeliveryDateISO(row) {
-    const md = (this._cell(row,'Delivery Date')?.textContent || '').trim(); // "M/D"
-    const curISO = this.getCurrentDate?.() || $u.getCurrentISO();
-    return $u.mdToISO(md, curISO) || curISO; // "YYYY-MM-DD"
+        // tabel pakai "M/D" → konversi ke ISO pakai current date sebagai tahun
+        const md = (this._cell(row,'Delivery Date')?.textContent || '').trim();
+        const curISO = this.getCurrentDate?.() || $u.getCurrentISO();
+        return $u.mdToISO(md, curISO) || curISO;
     }
-    // Kunci grup: YYYY-MM-DD|HH:mm|BACK_NO (menit ikut)
     _key6I_minute(row) {
-    const iso = this._getDeliveryDateISO(row);
-    const tm  = this._getDeliveryTime(row);     // HH:mm
-    const bn  = this._getBackNo(row);           // upper, sudah ikut alias kalau ada
-    return `${iso}|${tm}|${bn}`;
+        const iso = this._getDeliveryDateISO(row);
+        const tm  = this._getDeliveryTime(row);
+        const bn  = this._getBackNo(row);
+        return `${iso}|${tm}|${bn}`;
     }
 
-    // Hitung ulang total host dari semua anggota; sembunyikan anggota selain host
     _apply6IHostTotals(hostRow, memberRows) {
-    if (!hostRow || !memberRows?.length) return;
+        if (!hostRow || !memberRows?.length) return;
 
-    let totOrder = 0, totDP = 0, totSC = 0;
-    memberRows.forEach(r => {
-        totOrder += this._getOrder(r);
-        totDP    += this._getDP(r);
-        totSC    += this._getSC(r);
-    });
+        let totOrder = 0, totDP = 0, totSC = 0;
+        memberRows.forEach(r => {
+            totOrder += this._getOrder(r);
+            totDP    += this._getDP(r);
+            totSC    += this._getSC(r);
+        });
 
-    // Order (dataset + tampilan)
-    const tdOrder = this._cell(hostRow,'Order');
-    const flip    = tdOrder?.querySelector('.flip') || tdOrder;
-    if (flip){
-        flip.dataset.orderRaw = String(totOrder);
-        flip.textContent = Number(totOrder).toLocaleString('id-ID');
+        // Order (dataset + tampilan)
+        const tdOrder = this._cell(hostRow,'Order');
+        const flip    = tdOrder?.querySelector('.flip') || tdOrder;
+        if (flip){
+            flip.dataset.orderRaw = String(totOrder);
+            flip.textContent = Number(totOrder).toLocaleString('id-ID');
+        }
+        // DP & SC host
+        const dpEl = hostRow.querySelector('[data-type="direct-pulling"]');
+        if (dpEl) dpEl.textContent = String(totDP);
+        const scEl = hostRow.querySelector('[data-type="stock-chute"]');
+        if (scEl) scEl.textContent = String(totSC);
+
+        // Progress bar host
+        this.updateRowProgress(hostRow);
+
+        // Sembunyikan anggota non-host (tetap di DOM agar SSE tetap update)
+        memberRows.forEach(r => { if (r !== hostRow) r.style.display = 'none'; });
     }
-    // DP & SC host
-    const dpEl = hostRow.querySelector('[data-type="direct-pulling"]');
-    if (dpEl) dpEl.textContent = String(totDP);
-    const scEl = hostRow.querySelector('[data-type="stock-chute"]');
-    if (scEl) scEl.textContent = String(totSC);
 
-    // Progress bar host (Running Qty & Progress)
-    this.updateRowProgress(hostRow);
-
-    // Sembunyikan anggota non-host (tetap di DOM agar SSE tetap update)
-    memberRows.forEach(r => { if (r !== hostRow) r.style.display = 'none'; });
-    }
-
-    // Bangun grup 6I khusus CI18/D403 lalu collapse tampilannya
     _build6IGroups(container) {
-    const tbody = container?.querySelector('tbody');
-    if (!tbody) return;
+        const tbody = container?.querySelector('tbody');
+        if (!tbody) return;
 
-    const localByMember = new Map();
-    const localByGroup  = new Map();
+        const localByMember = new Map();
+        const localByGroup  = new Map();
 
-    const rows = Array.from(tbody.querySelectorAll('tr'))
-        .filter(tr => tr.style.display !== 'none'
-                && tr.getAttribute('data-summary-row') !== '1'
-                && this._isDock6I(tr));
+        const rows = Array.from(tbody.querySelectorAll('tr'))
+            .filter(tr => tr.style.display !== 'none'
+                    && tr.getAttribute('data-summary-row') !== '1'
+                    && this._isDock6I(tr));
 
-    rows.forEach(row => {
-        const bn = this._getBackNo(row);
-        if (!this._isSpecial6IBackNo(bn)) return; // hanya CI18/D403
+        rows.forEach(row => {
+            const bn = this._getBackNo(row);
+            if (!this._isSpecial6IBackNo(bn)) return;
 
-        const key = this._key6I_minute(row); // YYYY-MM-DD|HH:mm|BACK_NO
-        const id  = this._getId(row);
-        if (!key) return;
+            const key = this._key6I_minute(row);
+            const id  = this._getId(row);
+            if (!key) return;
 
-        let rec = localByGroup.get(key);
-        if (!rec) {
-        rec = { host: row, members: new Set([row]) };
-        localByGroup.set(key, rec);
-        } else {
-        rec.members.add(row);
-        }
-        if (id) localByMember.set(String(id), key);
-    });
+            let rec = localByGroup.get(key);
+            if (!rec) {
+                rec = { host: row, members: new Set([row]) };
+                localByGroup.set(key, rec);
+            } else {
+                rec.members.add(row);
+            }
+            if (id) localByMember.set(String(id), key);
+        });
 
-    // Gabungkan ke index global
-    this.g6i.byGroup  = new Map([...this.g6i.byGroup, ...localByGroup]);
-    this.g6i.byMember = new Map([...this.g6i.byMember, ...localByMember]);
+        // Gabungkan ke index global
+        this.g6i.byGroup  = new Map([...this.g6i.byGroup, ...localByGroup]);
+        this.g6i.byMember = new Map([...this.g6i.byMember, ...localByMember]);
 
-    // Terapkan agregasi & hide anggota non-host
-    localByGroup.forEach(({host, members}) => {
-        this._apply6IHostTotals(host, Array.from(members));
-    });
+        // Terapkan agregasi & hide anggota non-host
+        localByGroup.forEach(({host, members}) => {
+            this._apply6IHostTotals(host, Array.from(members));
+        });
 
-    this.recalcRowspans(container);
+        this.recalcRowspans(container);
     }
 
-    // Ketika ada update DN member, refresh host grupnya
     _refresh6IHostByMemberId(memberId) {
-    const key = this.g6i.byMember.get(String(memberId));
-    if (!key) return;
-    const rec = this.g6i.byGroup.get(key);
-    if (!rec) return;
+        const key = this.g6i.byMember.get(String(memberId));
+        if (!key) return;
+        const rec = this.g6i.byGroup.get(key);
+        if (!rec) return;
 
-    const host = rec.host;
-    const members = Array.from(rec.members).filter(Boolean);
-    if (!host || !members.length) return;
+        const host = rec.host;
+        const members = Array.from(rec.members).filter(Boolean);
+        if (!host || !members.length) return;
 
-    this._apply6IHostTotals(host, members);
+        this._apply6IHostTotals(host, members);
     }
-
-    
-    // ---- Helpers khusus 6I merge ----
-    _isDock6I(row){
-    const t = (this._cell(row,'Dock')?.textContent || '').trim().toUpperCase();
-    return t === '6I';
-    }
-    _getDeliveryTime(row){
-    return (this._cell(row,'Delivery Time')?.textContent || '').trim(); // "HH:mm"
-    }
-    _getDeliveryDateISO(row){
-    // tabel pakai "M/D" → konversi ke ISO pakai current date sebagai tahun
-    const md = (this._cell(row,'Delivery Date')?.textContent || '').trim();
-    const curISO = this.getCurrentDate?.() || $u.getCurrentISO();
-    return $u.mdToISO(md, curISO) || curISO;
-    }
-    _key6I(row){
-    const iso = this._getDeliveryDateISO(row);
-    const tm  = this._getDeliveryTime(row);
-    const bn  = this._getBackNo(row);
-    return `${iso}|${tm}|${bn}`; // sama seperti logic BE (tgl|HH:mm|back_no)
-    }
-
-    // Kumpulkan semua row 6I → buat grup dan host
-    _build6IGroups(container){
-    const tbody = container?.querySelector('tbody');
-    if (!tbody) return;
-
-    // reset index untuk container ini
-    // (biarkan global map tetap, kita bakal overwrite entry yang terlihat)
-    const localByMember = new Map();
-    const localByGroup  = new Map();
-
-    const rows = Array.from(tbody.querySelectorAll('tr'))
-        .filter(tr => tr.style.display !== 'none' && tr.getAttribute('data-summary-row') !== '1' && this._isDock6I(tr));
-
-    rows.forEach(row => {
-        const key = this._key6I(row);
-        const id  = this._getId(row);
-        if (!key) return;    
-
-        let rec = localByGroup.get(key);
-        if (!rec) {
-        rec = { host: row, members: new Set([row]) };
-        localByGroup.set(key, rec);
-        } else {
-        rec.members.add(row);
-        }
-        localByMember.set(id, key);
-    });
-
-    // simpan ke index global
-    // NB: satu halaman punya dua container (AS003/AS004), map global boleh berisi gabungan keduanya
-    this.g6i.byGroup  = new Map([...this.g6i.byGroup, ...localByGroup]);
-    this.g6i.byMember = new Map([...this.g6i.byMember, ...localByMember]);
-
-    // terapkan collapse visual
-    localByGroup.forEach(({host, members}, key) => {
-        // hitung total & sembunyikan non-host
-        this._apply6IHostTotals(host, Array.from(members));
-    });
-
-    this.recalcRowspans(container);
-    }
-
-    // Hitung ulang total host dari daftar anggota (host termasuk di dalamnya)
-    _apply6IHostTotals(hostRow, memberRows){
-    if (!hostRow || !memberRows?.length) return;
-
-    // jumlahkan Order/DP/SC dari semua anggota (termasuk host)
-    let totOrder = 0, totDP = 0, totSC = 0;
-    memberRows.forEach(r => {
-        totOrder += this._getOrder(r);
-        totDP    += this._getDP(r);
-        totSC    += this._getSC(r);
-    });
-
-    // set Order host (dataset & tampilan)
-    const tdOrder = this._cell(hostRow,'Order');
-    const flip    = tdOrder?.querySelector('.flip') || tdOrder;
-    if (flip){
-        flip.dataset.orderRaw = String(totOrder);
-        flip.textContent = Number(totOrder).toLocaleString('id-ID');
-    }
-    // set DP & SC host
-    const dpEl = hostRow.querySelector('[data-type="direct-pulling"]');
-    if (dpEl) dpEl.textContent = String(totDP);
-    const scEl = hostRow.querySelector('[data-type="stock-chute"]');
-    if (scEl) scEl.textContent = String(totSC);
-
-    // progress bar pada host
-    this.updateRowProgress(hostRow);
-
-    // sembunyikan anggota selain host (tetap di DOM supaya SSE bisa update angkanya)
-    memberRows.forEach(r => { if (r !== hostRow) r.style.display = 'none'; });
-    }
-
-    // Recompute host ketika ada DN (member) berubah
-    _refresh6IHostByMemberId(memberId){
-    const key = this.g6i.byMember.get(String(memberId));
-    if (!key) return;
-    const rec = this.g6i.byGroup.get(key);
-    if (!rec) return;
-
-    const host = rec.host;
-    const members = Array.from(rec.members).filter(Boolean);
-    if (!host || !members.length) return;
-
-    this._apply6IHostTotals(host, members);
-    }
-
 
     _indexByLabel(td) {
         const lbl = ProductionPlanSSEClient.normLabel(td?.getAttribute('data-label'));
@@ -648,10 +528,7 @@ class ProductionPlanSSEClient {
         return summary;
     }
 
-
-    _normalize(s) {
-        return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase();
-    }
+    _normalize(s) { return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
     _cellText(row, label) {
         const td = this._cell(row, label);
         const el = td?.querySelector('.flip') || td;
@@ -769,11 +646,7 @@ class ProductionPlanSSEClient {
         return result;
     }
 
-    /* ===== Summary Row builder (DISESUAIKAN dgn header baru) =====
-       - Kolom: Customer | Dock | Cycle | Back No | Order | Running Qty | Cycle Time | ... | Progress | Delivery Time | Delivery Date | Balance Time
-       - Running Qty menampilkan DP; menyimpan DP & SC sebagai span tersembunyi.
-       - Progress = DP / Order.
-    */
+    /* ===== Summary Row builder ===== */
     _createSummaryRow({ label, totals, customerText = '--' }) {
         const tr = document.createElement('tr');
         tr.className = 'fw-bold';
@@ -847,11 +720,9 @@ class ProductionPlanSSEClient {
         if (scSpan)  scSpan.textContent  = sc;
         if (orderFlip) orderFlip.textContent = order.toLocaleString('id-ID');
 
-        // Running Qty bar
         const runBar = summary.row.querySelector('[data-label="Running Qty"] .bar > i');
         if (runBar) runBar.style.width = pctDP + '%';
 
-        // Progress = DP/Order
         if (totalBar) totalBar.style.width = pctDP + '%';
         if (totalPct) totalPct.textContent = pctDP + '%';
     }
@@ -1039,6 +910,7 @@ class ProductionPlanSSEClient {
         if (this.eventSource) this.eventSource.close();
         setTimeout(() => this.connect(), 1500);
     }
+
     setupErrorHandling() {
         window.addEventListener('beforeunload', () => {
             try { this.eventSource?.close(); } catch {}
@@ -1059,7 +931,7 @@ class ProductionPlanSSEClient {
                     const newOD = (item.order_qty ?? prev.order) | 0;
 
                     const changed = (newDP !== prev.dp) || (newSC !== prev.sc) || (newOD !== prev.order);
-                    if (!changed) return;  // <— skip kalau tidak ada perubahan
+                    if (!changed) return;
 
                     s.totals.dp    += (newDP - prev.dp);
                     s.totals.sc    += (newSC - prev.sc);
@@ -1072,18 +944,37 @@ class ProductionPlanSSEClient {
 
             // update row DOM kalau ada
             const idSel = id => `[data-item-id="${id}"]`;
-            if (
+            const hasRow =
                 document.querySelector(`${idSel(item.id)}[data-type="direct-pulling"]`) ||
-                document.querySelector(`${idSel(item.id)}[data-type="stock-chute"]`)
-            ) {
-                this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`, item.direct_pulling_qty, 'direct-pulling', item.order_qty);
-                this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`, item.stock_chute_qty, 'stock-chute', item.order_qty);
+                document.querySelector(`${idSel(item.id)}[data-type="stock-chute"]`);
 
-                const actualStartVal = (item.actual_working_start ?? item.actual_start ?? '--');
-                const balanceVal     = (item.balance_time ?? item.balance ?? '--');
+            if (hasRow) {
+                this.updateQuantity(`${idSel(item.id)}[data-type="direct-pulling"]`,
+                    item.direct_pulling_qty, 'direct-pulling', item.order_qty);
+                this.updateQuantity(`${idSel(item.id)}[data-type="stock-chute"]`,
+                    item.stock_chute_qty, 'stock-chute', item.order_qty);
 
-                this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`, actualStartVal, 'time');
-                this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`, balanceVal, 'time');
+                // === PATCH: waktu hanya diupdate jika payload memang membawa key-nya ===
+                const hasActual =
+                    Object.prototype.hasOwnProperty.call(item, 'actual_working_start') ||
+                    Object.prototype.hasOwnProperty.call(item, 'actual_start');
+
+                if (hasActual) {
+                    const actualStartVal = (item.actual_working_start ?? item.actual_start);
+                    this.updateQuantity(`${idSel(item.id)}[data-type="actual_start"]`,
+                        actualStartVal, 'time');
+                }
+
+                const hasBalance =
+                    Object.prototype.hasOwnProperty.call(item, 'balance_time') ||
+                    Object.prototype.hasOwnProperty.call(item, 'balance');
+
+                if (hasBalance) {
+                    const balanceVal = (item.balance_time ?? item.balance);
+                    this.updateQuantity(`${idSel(item.id)}[data-type="balance"]`,
+                        balanceVal, 'time');
+                }
+                // === END PATCH ===
             }
         });
 
@@ -1095,7 +986,7 @@ class ProductionPlanSSEClient {
                 const sumRow = s?.row;
                 if (!sumRow) return;
                 const lineKey = sumRow.closest('[data-toggle-table]')?.getAttribute('data-toggle-table');
-                const shelf = lineKey && this.shelves?.[lineKey];   
+                const shelf = lineKey && this.shelves?.[lineKey];
                 if (shelf) shelf.upsertFromRow(sumRow);
             });
         }
@@ -1115,16 +1006,20 @@ class ProductionPlanSSEClient {
         this.recalcRowspans(this.AS004);
     }
 
-
     updateQuantity(selector, newValue, type, targetQty = null) {
         const els = document.querySelectorAll(selector);
         if (!els.length) return;
 
         els.forEach(el => {
+            // === PATCH: untuk tipe 'time', jangan overwrite kalau undefined (tidak dikirim BE)
+            if (type === 'time' && newValue === undefined) return;
+
             const cur = (el.textContent || '').trim();
             if (cur === String(newValue)) return; // no-op
 
-            el.textContent = newValue ?? '';
+            // tulis nilai; jika null → kosongkan
+            el.textContent = (newValue ?? '');
+
             const td  = el.closest('td');
             const row = td?.parentElement;
 
@@ -1155,8 +1050,7 @@ class ProductionPlanSSEClient {
 
             if (row && (type === 'direct-pulling' || type === 'stock-chute')) {
                 this.triggerHighlight(row, type);
-                // SELALU sync Running Qty & Progress di baris ini
-                this.updateRowProgress(row);
+                this.updateRowProgress(row); // sync RUN & PROGRESS
             }
 
             const f = td?.querySelector('.flip');
@@ -1241,15 +1135,14 @@ class ProductionPlanSSEClient {
         const runCell = this._cell(row, 'Running Qty');
         if (runCell){
             const runPct = Math.min(100, Math.round((dp / Math.max(1, order)) * 100));
-            // bar
-            runCell.querySelector('.qty-progress .bar > i')?.style && 
-            (runCell.querySelector('.qty-progress .bar > i').style.width = runPct + '%');
-            // angka tampil (ambil yang paling aman di struktur kamu)
-            const runVal = runCell.querySelector('[data-running-val]') 
-                        || runCell.querySelector('.val .flip') 
+            runCell.querySelector('.qty-progress .bar > i')?.style &&
+                (runCell.querySelector('.qty-progress .bar > i').style.width = runPct + '%');
+
+            const runVal = runCell.querySelector('[data-running-val]')
+                        || runCell.querySelector('.val .flip')
                         || runCell.querySelector('.flip');
             if (runVal) runVal.textContent = dp;
-            // title/tooltip
+
             const wrap = runCell.querySelector('.qty-progress') || runCell;
             wrap.title = `RUN ${dp} / ${order}`;
         }
@@ -1264,7 +1157,6 @@ class ProductionPlanSSEClient {
             if (tPct) tPct.textContent = totalPct + '%';
         }
     }
-
 
     _restoreOriginalOrder(tbody) {
         const orig = this.originalOrder.get(tbody);
