@@ -20,8 +20,8 @@
                             <span>Receiving</span>
                         </a>
                     </li>
-                    <li class="{{ request()->is('dashboard.prodPlan') ? 'active' : '' }}">
-                        <a class="nav-link" href="{{ route('dashboard.prodPlan') }}">
+                    <li class="{{ request()->is('board.landing') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('board.landing') }}">
                             <i class="fas fa-calendar-alt"></i>
                             <span>Production Plan</span>
                         </a>

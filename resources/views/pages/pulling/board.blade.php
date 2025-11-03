@@ -316,6 +316,38 @@
         html[data-theme="dark"] .btn-theme .icon-moon {
             display: block
         }
+
+        .btn-glass-back {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            height: 42px;
+            padding: .45rem .9rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid var(--tile-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: inherit;
+            text-decoration: none;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+        }
+
+        .btn-glass-back:hover {
+            border-color: color-mix(in oklab, var(--curr-accent) 40%, var(--tile-border))
+        }
+
+        .btn-glass-back .ico {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 18px
+        }
+
+        @media (max-width:576px) {
+            .btn-back-label {
+                display: none
+            }
+        }
     </style>
 </head>
 
@@ -334,6 +366,14 @@
         <!-- HEADER -->
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex align-items-center gap-2">
+                <a href="{{ route('board.landing') }}" class="btn-glass-back" id="btnBack" title="Back (Alt+←)">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span class="btn-back-label">Back</span>
+                </a>
+
                 <span class="badge date-pill time-pill"><span id="rt-hms">00:00:00</span></span>
                 <span class="badge date-pill">Group: <strong class="ms-1">{{ $group }}</strong></span>
             </div>
