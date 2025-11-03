@@ -308,6 +308,41 @@
             outline: 2px solid var(--ring);
             outline-offset: 3px
         }
+
+        .btn-glass-back {
+            display: inline-flex;
+            align-items: center;
+            gap: .55rem;
+            height: 46px;
+            padding: .6rem .95rem;
+            border-radius: 14px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            color: inherit;
+            text-decoration: none;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+
+        .btn-glass-back:hover {
+            border-color: var(--ring);
+            background: var(--tile)
+        }
+
+        .btn-glass-back .ico {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 18px
+        }
+
+        @media(max-width:576px) {
+            .btn-back-label {
+                display: none
+            }
+        }
     </style>
 </head>
 
@@ -322,10 +357,20 @@
 
     <div class="wrap">
         <header class="topbar">
-            <div class="brand">
-                <h1>Production</h1>
-                <div class="sub">Choose Area</div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="{{ route('dashboard.index') }}" class="btn-glass-back" id="btnBack" title="Back (Alt+←)">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span class="btn-back-label">Back</span>
+                </a>
+                <div class="brand">
+                    <h1>Production</h1>
+                    <div class="sub">Choose Area</div>
+                </div>
             </div>
+
             <div class="tools">
                 <div class="pill">
                     <span>Date</span>
@@ -349,6 +394,7 @@
                 </button>
             </div>
         </header>
+
 
         <main class="grid">
             <!-- AS -->
