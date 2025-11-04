@@ -823,8 +823,107 @@
                 if (el) el.textContent = v;
             }
 
+            // --- helper angka aman
+            function toInt(v, d = 0) {
+                v = parseInt(v, 10);
+                return isNaN(v) ? d : v;
+            }
+
+            // --- parse "HH:mm" ⇒ menit sejak 00:00 (untuk sort)
+            function timeToMin(hhmm) {
+                var m = String(hhmm || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+                if (!m) return 24 * 60 + 59; // taruh paling belakang jika tak valid
+                return toInt(m[1]) * 60 + toInt(m[2]);
+            }
+
+            // --- tanggal "M/D" ⇒ "YYYY-MM-DD" (sudah ada mdToISO di board, reuse)
+            // gunakan mdToISO(md, refISO) yang sudah didefinisikan di atas
+
+            // --- baca siklus jika payload nextList menyertakan "cycle" (opsional)
+            function getCycle(row) {
+                var c = row && row.cycle;
+                if (c == null) return null;
+                var n = parseInt(String(c).match(/\d+/)?.[0] || '', 10);
+                return isNaN(n) ? null : (((n - 1) % 8) + 1);
+            }
+
+            // --- normalisasi dock
+            function normDock(v) {
+                return String(v || '').trim().toUpperCase();
+            }
+
+            // --- skor prioritas back number (meniru logika prodplan secara ringkas)
+            function backnoPriority(lineKey, row) {
+                var bn = String(row?.back_no || '').trim().toUpperCase();
+                bn = aliasBackNo(bn, buildAliasMap()); // konsisten dengan alias (D111→CI12, D500→CI19, D403→CI18)
+                var dock = normDock(row?.dock);
+                var cyc = getCycle(row); // bisa null kalau BE belum kirim
+
+                var base = 100;
+
+                // Prioritas khusus per line:
+                if (lineKey === 'AS003') { // fokus CI12
+                    if (bn === 'CI12') base = 10;
+                    // kalau cycle tersedia, pecah CI12 (C4–7) lebih dulu seperti di prodplan
+                    if (bn === 'CI12' && cyc != null) {
+                        if (cyc >= 4 && cyc <= 7) base = 5; // CI12 (C4–7) paling atas
+                        else base = 12; // CI12 (C8–3) setelahnya
+                    }
+                    // (opsional) CI18 sedikit diprioritaskan dibanding lain
+                    if (bn === 'CI18' && base === 100) base = 20;
+                } else if (lineKey === 'AS004') { // fokus CI19
+                    if (bn === 'CI19') base = 10;
+                    if (bn === 'CI18' && base === 100) base = 20; // optional
+                }
+
+                // STR biasanya ditempatkan belakang dibanding non-STR
+                if (dock === 'STR') base += 15;
+
+                // tie-breaker: waktu & tanggal
+                var tMin = timeToMin(row?.delivery_time);
+                var dISO = mdToISO(row?.delivery_date, (new Date()).toISOString().slice(0, 10));
+                // YYYY-MM-DD ⇒ angka sederhana untuk banding
+                var dKey = dISO && /^\d{4}-\d{2}-\d{2}$/.test(dISO) ? dISO : '9999-12-31';
+
+                return {
+                    base,
+                    tMin,
+                    dKey,
+                    bn
+                };
+            }
+
+            // --- comparator
+            function cmpBackno(lineKey, a, b) {
+                var A = backnoPriority(lineKey, a),
+                    B = backnoPriority(lineKey, b);
+                if (A.base !== B.base) return A.base - B.base;
+                if (A.tMin !== B.tMin) return A.tMin - B.tMin;
+                if (A.dKey !== B.dKey) return (A.dKey < B.dKey ? -1 : 1);
+                // terakhir, leksikal Back No
+                return (A.bn < B.bn ? -1 : (A.bn > B.bn ? 1 : 0));
+            }
+
+            // --- re-order payload.nextHighlight & payload.nextList sesuai aturan di atas
+            function reorderNextPayload(lineKey, payload) {
+                var nx = payload?.nextHighlight || null;
+                var nl = Array.isArray(payload?.nextList) ? payload.nextList.slice() : [];
+                var arr = [];
+                if (nx && (nx.back_no || nx.order_qty || nx.dock)) arr.push(nx);
+                arr.push(...nl);
+
+                if (!arr.length) return payload;
+
+                arr.sort((x, y) => cmpBackno(lineKey, x, y));
+
+                payload.nextHighlight = arr[0] || {};
+                payload.nextList = arr.slice(1);
+                return payload;
+            }
+
             function updateLine(lineKey, payload) {
                 payload = apply6IMerge(lineKey, payload ? Object.assign({}, payload) : payload);
+                payload = reorderNextPayload(lineKey, payload);
 
                 var tab = document.querySelector('[data-line="' + lineKey + '"]');
                 if (!tab) return;
