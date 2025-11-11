@@ -629,7 +629,26 @@
             tick();
             setInterval(tick, 1000);
         })();
+    </script>
 
+    <!-- ====== GROUP AWARE BACK-NO TRANSFORM (CI -> CH for MA) ====== -->
+    <script>
+        // Expose group dari Blade → JS
+        window.__BOARD_GROUP = @json($group || 'AS');
+
+        function isMAGroup() {
+            return /^MA/i.test(String(window.__BOARD_GROUP || ''));
+        }
+
+        // Hanya mengganti prefix "CI" (diikuti angka) menjadi "CH" untuk group MA
+        function transformBackNoForGroup(bn) {
+            var B = String(bn || '').trim().toUpperCase();
+            if (!isMAGroup()) return B;
+            return B.replace(/^CI(?=\d)/, 'CH');
+        }
+    </script>
+
+    <script>
         /* ==== Alias Back No (robust) ==== */
         function buildAliasMap() {
             var base = {
@@ -655,9 +674,11 @@
             return base;
         }
 
+        // === UPDATED: apply group-transform (CI->CH) for MA after aliasing
         function aliasBackNo(raw, map) {
             var B = String(raw || '').trim().toUpperCase();
-            return map[B] || B;
+            var aliased = (map && map[B]) ? map[B] : B;
+            return transformBackNoForGroup(aliased);
         }
 
         function applyBacknoAlias(root) {
@@ -923,14 +944,13 @@
                 applyBacknoAlias(tab);
             }
 
-            function debounce(fn, wait) {
+            var refreshBoard = (function debounce(fn, wait) {
                 var t = null;
                 return function() {
                     clearTimeout(t);
                     t = setTimeout(fn.bind(this, ...arguments), wait);
                 };
-            }
-            var refreshBoard = debounce(function() {
+            })(function() {
                 var url = '/dashboard/production/board/state?date=' + encodeURIComponent(dateISO) + '&group=' +
                     encodeURIComponent(GROUP);
                 fetch(url, {
