@@ -295,7 +295,7 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
-        // Jika (sangat jarang) tetap kosong, fallback DB murni
+        // Jika kosong, fallback DB murni
         if (empty($LINES)) {
             $fallback = ProductionPlan::whereDate('plan_date', $todayISO)
                 ->select('line')->distinct()->pluck('line')
@@ -325,8 +325,9 @@ class DashboardController extends Controller
         // Helper normalisasi
         $normBack = fn($bn) => $this->normalizeBackNo($bn);   // D111 → CI12
         $normDock = fn($dk) => $this->normalizeDock($dk);     // DOM/DOMESTIC → NR; EXPORT → EXP
+        $present  = fn($bn) => $this->presentBackNoForGroup($bn, strtoupper($group)); // <<— NEW
 
-        // === Kelompok per line (urut dalam line tetap sesuai query di atas)
+        // === Kelompok per line
         $byLine = [];
         foreach ($LINES as $L) $byLine[$L] = collect();
         foreach ($items as $it) {
@@ -334,7 +335,7 @@ class DashboardController extends Controller
             if (isset($byLine[$key])) $byLine[$key]->push($it);
         }
 
-        // === Sort khusus CI12/D111: split C4–7 @6I → C8–3 @EXP → sisanya (tanpa geser backno lain)
+        // === Sort khusus CI12/D111: split C4–7 @6I → C8–3 @EXP → sisanya
         $ci12Bucket = function ($row) use ($normBack) {
             $bn = $normBack($row->back_no ?? '');
             if ($bn !== 'CI12') return 5;
@@ -343,12 +344,12 @@ class DashboardController extends Controller
             $in47  = in_array($cycle, [4,5,6,7], true);
             $in83  = in_array($cycle, [8,1,2,3], true);
 
-            if ($dock === '6I'  && $in47) return 0; // C4–7 @ 6I → duluan
-            if ($dock === 'EXP' && $in83) return 1; // C8–3 @ EXP → sesudahnya
-            return 2;                                // CI12 lain
+            if ($dock === '6I'  && $in47) return 0; // C4–7 @ 6I
+            if ($dock === 'EXP' && $in83) return 1; // C8–3 @ EXP
+            return 2;
         };
 
-        // Terapkan sort CI12 per line dengan MENJAGA urutan global via baseKey
+        // Terapkan sort CI12 per line dengan menjaga urutan global via baseKey
         foreach ($byLine as $k => $col) {
             $byLine[$k] = $col->sortBy(function ($it) use ($ci12Bucket) {
                 $date = $it->delivery_date ?: '9999-12-31';
@@ -362,7 +363,7 @@ class DashboardController extends Controller
             })->values();
         }
 
-        // === Overlay virtual MA (kalau group MA) → pertahankan urutan ala prodPlan + aturan CI12
+        // === Overlay virtual MA (kalau group MA)
         if (strtoupper($group) === 'MA') {
             $this->applyMAOverlayInto($byLine, $selectedDate);
 
@@ -384,8 +385,8 @@ class DashboardController extends Controller
         // === Data KPI/progress tetap
         $grouped = $this->getGroupedData($this->backNosByLine, $selectedDate);
 
-        // ===== Builder satu line (tidak diubah) =====
-        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped) {
+        // ===== Builder satu line =====
+        $buildBoardForLine = function (\Illuminate\Support\Collection $rows, string $lineKey) use ($grouped, $present, $normBack) {
             $g    = $grouped[$lineKey] ?? [];
             $mQty = (int)($g['morning_shift_qty']    ?? 0);
             $mAct = (int)($g['morning_shift_actual'] ?? 0);
@@ -405,10 +406,12 @@ class DashboardController extends Controller
 
             $rows = $rows->values();
 
+            // Hitung uniq berdasarkan PRESENTED back_no (setelah CI->CH untuk MA)
             $uniqBackNo = $rows->pluck('back_no')
                 ->filter(fn ($v) => filled($v))
-                ->map(fn ($v) => strtoupper(trim($v)))
-                ->unique()->count();
+                ->map(fn ($v) => $present($normBack($v)))   // <<— penting
+                ->unique()
+                ->count();
 
             $isComplete = function ($it) {
                 $ord  = (int)($it->order_qty ?? 0);
@@ -421,7 +424,8 @@ class DashboardController extends Controller
             $currentItem = $currentIdx !== null ? $rows[$currentIdx] : ($rows->last() ?: null);
 
             $current = $currentItem ? [
-                'back_no'   => $currentItem->back_no,
+                // tampilkan back_no yang sudah di-present (CI->CH jika MA)
+                'back_no'   => $present($normBack($currentItem->back_no)),
                 'customer'  => $currentItem->customer,
                 'dock'      => $currentItem->dock,
                 'order_qty' => (int)($currentItem->order_qty ?? 0),
@@ -438,11 +442,9 @@ class DashboardController extends Controller
             }
 
             $norm = fn($s) => strtoupper(trim((string)$s));
-            $unifyForMerge = function ($bn) use ($norm) {
-                $B = $norm($bn);
-                if ($B === 'D111') return 'CI12';
-                if ($B === 'D500') return 'CI19';
-                return $B;
+            $unifyForMerge = function ($bn) use ($normBack) {
+                // Samakan “keluarga” CI12 / CI19 dari alias (D111→CI12, D500→CI19)
+                return $normBack($bn);
             };
             $isMergeTargetBN = fn($bnU) => in_array($bnU, ['CI12','CI19'], true);
 
@@ -459,11 +461,9 @@ class DashboardController extends Controller
                 $sortKey = "{$date}|{$time}|" . sprintf('%06d', $rowOrderIdx);
 
                 $DCK = $rawDock($it->dock ?? '');
-                if ($merge && $DCK === '6I') {
-                    $key = 'MERGE6I|'.$bnU.'|'.$date.'|'.$time;
-                } else {
-                    $key = 'ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey;
-                }
+                $key = $merge && $DCK === '6I'
+                    ? ('MERGE6I|'.$bnU.'|'.$date.'|'.$time)
+                    : ('ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey);
 
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
@@ -507,7 +507,8 @@ class DashboardController extends Controller
             if ($aggregatedNext->isNotEmpty()) {
                 $first = $aggregatedNext->first();
                 $nextHighlight = [
-                    'back_no'       => $first['back_no'],
+                    // present back_no terlebih dahulu
+                    'back_no'       => $present($first['back_no']),
                     'customer'      => $first['customer'],
                     'dock'          => $first['dock'],
                     'order_qty'     => $first['order_qty'],
@@ -515,7 +516,7 @@ class DashboardController extends Controller
                     'delivery_date' => $first['delivery_date'],
                 ];
                 $nextList = $aggregatedNext->slice(1, 20)->map(fn($a) => [
-                    'back_no'       => $a['back_no'],
+                    'back_no'       => $present($a['back_no']),
                     'customer'      => $a['customer'],
                     'dock'          => $a['dock'],
                     'order_qty'     => $a['order_qty'],
@@ -546,6 +547,17 @@ class DashboardController extends Controller
         }
 
         return [$boards, $stamp, $LINES];
+    }
+
+    // Tambahkan helper ini di dalam controller (private function)
+    private function presentBackNoForGroup(?string $bn, string $group): string
+    {
+        $B = strtoupper(trim((string) $bn));
+        if ($group === 'MA') {
+            // Ganti CI + digit menjadi CH + digit, contoh CI12 → CH12
+            $B = preg_replace('/^CI(?=\d)/', 'CH', $B);
+        }
+        return $B;
     }
 
     // --- Helpers alias & dock ---
