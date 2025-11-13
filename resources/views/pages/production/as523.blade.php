@@ -143,7 +143,8 @@
     let line = '';
     var timerId;
     var timerActive = false;
-    var endTime; // Time when the timer is supposed to end
+    var endTime;
+    var barcode = ""; // buffer global untuk #code
 
     function notMatchSound() {
         document.getElementById("not-match-sound").play();
@@ -410,11 +411,11 @@
             }
         });
 
-        // MODAL CONFIRMATION HANDLER (fix)
+        // MODAL CONFIRMATION (biarin pakai keydown biar bisa ketik normal)
         $('#input-confirmation').on('keydown', function(e) {
-            const key = (typeof e.key !== 'undefined' && e.key !== null)
-                ? e.key
-                : String.fromCharCode(e.which || e.keyCode || 0);
+            const key = (typeof e.key !== 'undefined' && e.key !== null) ?
+                e.key :
+                String.fromCharCode(e.which || e.keyCode || 0);
 
             const isEnter =
                 key === 'Enter' ||
@@ -422,11 +423,9 @@
                 e.keyCode === 13;
 
             if (!isEnter) {
-                // biarkan karakter masuk ke input
                 return;
             }
 
-            // khusus Enter kita handle
             e.preventDefault();
 
             const barcodecomplete = $(this).val().trim();
@@ -482,14 +481,12 @@
 <script>
     $(document).ready(function() {
         (function() {
-            // ====== CONFIG / HELPERS ======
             const CSRF = "{{ csrf_token() }}";
             const CMD = {
                 regular: "{{ url('/production') }}",
                 logout: "{{ url('/logout') }}"
             };
 
-            // cache selector
             const $statusHdr = $('.status-card-header');
             const $status = $('.status-card');
             const $txtStatus = $('#status');
@@ -498,7 +495,7 @@
             const $totPart = $('#total-part');
             const $pis = $('#pis');
 
-            function setStatus(state) { // 'ok' | 'ng' | 'idle'
+            function setStatus(state) {
                 const map = {
                     ok: ['card-success', 'bg-success', 'OK'],
                     ng: ['card-danger', 'bg-danger', 'NG'],
@@ -547,11 +544,34 @@
                 };
             }
 
-            const KANBAN_FORMATS = [
-                { len: 230, internal: [41, 19], seri: [123, 4], back: [100, 4], pcs: [196, 1] },
-                { len: 220, internal: [35, 12], seri: [130, 4], back: [100, 4], pcs: [196, 1] },
-                { len: 241, internal: [35, 12], seri: [127, 4], back: [100, 4], pcs: [196, 1] },
-                { len: 218, internal: [41, 16], seri: [123, 4], back: [100, 4], pcs: [196, 1] },
+            const KANBAN_FORMATS = [{
+                    len: 230,
+                    internal: [41, 19],
+                    seri: [123, 4],
+                    back: [100, 4],
+                    pcs: [196, 1]
+                },
+                {
+                    len: 220,
+                    internal: [35, 12],
+                    seri: [130, 4],
+                    back: [100, 4],
+                    pcs: [196, 1]
+                },
+                {
+                    len: 241,
+                    internal: [35, 12],
+                    seri: [127, 4],
+                    back: [100, 4],
+                    pcs: [196, 1]
+                },
+                {
+                    len: 218,
+                    internal: [41, 16],
+                    seri: [123, 4],
+                    back: [100, 4],
+                    pcs: [196, 1]
+                },
             ];
 
             function parseKanban(s) {
@@ -571,71 +591,53 @@
                 $totPart.text(partCounter);
             }
 
-            // ====== SCAN HANDLER ======
-            let buffer = "",
-                lastScanVal = "",
-                lastScanAt = 0;
+            // ==== SCAN HANDLER pakai keypress ====
+            $('#code').keypress(function(e) {
+                e.preventDefault();
+                var code = (e.keyCode ? e.keyCode : e.which);
 
-            $('#code').on('keydown', function(e) {
-                const key = (typeof e.key !== 'undefined' && e.key !== null)
-                    ? e.key
-                    : String.fromCharCode(e.which || e.keyCode || 0);
+                if (code === 13) { // ENTER
+                    const barcodecomplete = barcode.trim();
+                    barcode = "";
 
-                if (key && key.length === 1) {
-                    buffer += key;
-                }
+                    if (!barcodecomplete) return;
 
-                const isEnter =
-                    key === 'Enter' ||
-                    e.which === 13 ||
-                    e.keyCode === 13;
-
-                if (isEnter) {
-                    e.preventDefault();
-
-                    const now = Date.now();
-                    const barcode = buffer.trim();
-                    buffer = "";
-
-                    if (barcode && barcode === lastScanVal && (now - lastScanAt) < 250) return;
-                    lastScanVal = barcode;
-                    lastScanAt = now;
-
-                    if (!barcode) return;
-
-                    // ---- Quick commands
-                    if (barcode === 'regular') {
+                    // QUICK COMMANDS
+                    if (barcodecomplete === 'regular') {
                         window.location.replace(CMD.regular);
                         return;
                     }
-                    if (barcode === 'logout') {
+                    if (barcodecomplete === 'logout' || barcodecomplete.length === 13) {
                         window.location.replace(CMD.logout);
                         return;
                     }
 
-                    // ---- 1) Dandori board
-                    if (barcode.endsWith('dandori')) {
-                        LS.set('dandori_board', barcode.replace(/-dandori$/, ''));
-                        notif('success', 'Berhasil scan dandori board!');
+                    // 1) DANDORI BOARD
+                    if (barcodecomplete.endsWith('dandori')) {
+                        LS.set('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
+                        LS.set('production_start_time', new Date().toLocaleString('sv-SE'));
+
+                        notif("success", 'Berhasil scan dandori board!');
                         setStatus('ok');
                         return;
                     }
 
+                    // WAJIB SUDAH PUNYA DANDORI
                     if (!LS.get('dandori_board')) {
                         dandoriSound();
-                        notif('error', 'Scan dandori board terlebih dahulu!');
+                        notif("error", 'Scan dandori board terlebih dahulu!');
                         LS.set('dandori_error', 'true');
                         setStatus('ng');
-                        sendErrorLog('Belum scan dandori board');
+                        sendErrorLog("Belum scan dandori board");
                         return;
                     }
 
-                    // ---- 2) Master/Model
-                    if (barcode.endsWith('model')) {
-                        const model = barcode.replace(/-model$/, '');
+                    // 2) MASTER / MODEL
+                    if (barcodecomplete.endsWith('model')) {
+                        const model = barcodecomplete.replace(/-model$/, "");
                         if (model !== LS.get('dandori_board')) {
                             masterDandoriSound();
-                            notif('error', 'Master sample tidak sesuai dengan dandori board!');
+                            notif("error", 'Master sample tidak sesuai dengan dandori board!');
                             LS.set('master_dandori_error', 'true');
                             setStatus('ng');
                             sendErrorLog('Master != Dandori', LS.get('dandori_board'), model);
@@ -643,8 +645,8 @@
                         }
 
                         api(`{{ url('pulling/internal-check') }}/${model}`, 'GET', {
-                            _token: CSRF
-                        })
+                                _token: CSRF
+                            })
                             .done(dp => {
                                 if (dp.status !== 'success') {
                                     notif('error', dp.message);
@@ -654,7 +656,8 @@
                                 LS.mset({
                                     target: dp.target,
                                     model: dp.partNumber,
-                                    back_number: dp.backNumber || dp.back_no || dp.backNum || dp.back || '',
+                                    back_number: dp.backNumber || dp.back_no || dp
+                                        .backNum || dp.back || '',
                                     photo: dp.photo,
                                     line: dp.line,
                                     actual_scan: 0,
@@ -662,10 +665,14 @@
                                     part_counter: 0
                                 });
 
-                                $('.model-card-header').removeClass('card-secondary').addClass('card-info');
-                                $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-                                $('.total-scan-card-header, .total-part-card-header').removeClass('card-secondary').addClass('card-success');
-                                $('.total-scan-card, .total-part-card').removeClass('bg-secondary').addClass('bg-success');
+                                $('.model-card-header').removeClass('card-secondary').addClass(
+                                    'card-info');
+                                $('.model-card').removeClass('bg-secondary').addClass(
+                                'bg-info');
+                                $('.total-scan-card-header, .total-part-card-header')
+                                    .removeClass('card-secondary').addClass('card-success');
+                                $('.total-scan-card, .total-part-card').removeClass(
+                                    'bg-secondary').addClass('bg-success');
 
                                 $modelTxt.text(LS.get('back_number') || dp.backNumber);
                                 updateTotals(0, getTarget(), 0);
@@ -682,13 +689,15 @@
                                     errConnection();
                                     return;
                                 }
-                                notif('error', xhr.responseJSON?.errors || 'Internal Server Error');
+                                notif('error', xhr.responseJSON?.errors ||
+                                    'Internal Server Error');
                             });
+
                         return;
                     }
 
-                    // ---- 3) Part 26 char (alfanumerik)
-                    if (barcode.length === 26) {
+                    // 3) PART 26 CHAR (alfanumerik)
+                    if (barcodecomplete.length === 26) {
                         const model = LS.get('model');
                         const dandori = LS.get('dandori_board');
                         const backNo = (LS.get('back_number') || '').toUpperCase();
@@ -710,8 +719,9 @@
                             return;
                         }
 
-                        const last4 = parsePart26(barcode).back4.toUpperCase();
+                        const last4 = parsePart26(barcodecomplete).back4.toUpperCase();
                         const tailBackNo = backNo.slice(-4);
+
                         if (last4 !== tailBackNo) {
                             wrongKanbanSound();
                             notif('error', 'Barcode part tidak sesuai dengan BACK NUMBER!');
@@ -720,12 +730,12 @@
                         }
 
                         api(`/production/part-scan`, 'POST', {
-                            _token: CSRF,
-                            line,
-                            model,
-                            dandori,
-                            barcode
-                        })
+                                _token: CSRF,
+                                line,
+                                model,
+                                dandori,
+                                barcode: barcodecomplete
+                            })
                             .done(res => {
                                 if (res.status === 'duplicate') {
                                     alreadyScanSound();
@@ -740,7 +750,8 @@
 
                                 const actual = parseInt(res.actual || 0, 10);
                                 const tgt = getTarget();
-                                const partCounter = parseInt(LS.get('part_counter') || '0', 10) + 1;
+                                const partCounter = parseInt(LS.get('part_counter') || '0',
+                                    10) + 1;
 
                                 LS.mset({
                                     actual_scan: actual,
@@ -750,7 +761,8 @@
                                 updateTotals(actual, tgt, partCounter);
                                 setStatus('ok');
                                 if (actual >= tgt) notif('success',
-                                    'Target part tercapai. Silakan scan KANBAN untuk close batch.');
+                                    'Target part tercapai. Silakan scan KANBAN untuk close batch.'
+                                    );
                             })
                             .fail(xhr => {
                                 if (xhr.status === 0) {
@@ -759,14 +771,15 @@
                                     return;
                                 }
                                 wrongKanbanSound();
-                                notif('error', xhr.responseJSON?.message || 'Internal Server Error');
+                                notif('error', xhr.responseJSON?.message ||
+                                    'Internal Server Error');
                             });
 
                         return;
                     }
 
-                    // ---- 4) KANBAN
-                    const k = parseKanban(barcode);
+                    // 4) KANBAN
+                    const k = parseKanban(barcodecomplete);
                     if (!k) {
                         wrongKanbanSound();
                         notif('error', 'Format barcode tidak dikenali');
@@ -775,10 +788,12 @@
                     }
 
                     if (LS.get('model') && LS.get('dandori_board')) {
-                        if (LS.get('model') === k.internal && LS.get('dandori_board') === k.internal) {
+                        if (LS.get('model') === k.internal && LS.get('dandori_board') === k
+                            .internal) {
                             const line = LS.get('line');
                             const target = getTarget();
                             const actual = parseInt(LS.get('actual_scan') || '0', 10);
+
                             if (!line) {
                                 notif('error', 'Line belum di-set');
                                 return;
@@ -791,25 +806,26 @@
                             }
 
                             api(`{{ url('production/store/') }}`, 'GET', {
-                                _token: CSRF,
-                                partNumber: k.internal,
-                                seri: k.seri
-                            })
+                                    _token: CSRF,
+                                    partNumber: k.internal,
+                                    seri: k.seri
+                                })
                                 .done(data => {
                                     if (data.status === 'success') {
 
                                         api(`/production/part-scan/assign-kanban`, 'POST', {
-                                            _token: CSRF,
-                                            line,
-                                            model: LS.get('model'),
-                                            internal: k.internal,
-                                            seri: k.seri,
-                                            limit: target
-                                        })
+                                                _token: CSRF,
+                                                line,
+                                                model: LS.get('model'),
+                                                internal: k.internal,
+                                                seri: k.seri,
+                                                limit: target
+                                            })
                                             .done(res => {
                                                 if (res.status !== 'ok') {
                                                     wrongKanbanSound();
-                                                    notif('error', res.message || 'Gagal assign kanban');
+                                                    notif('error', res.message ||
+                                                        'Gagal assign kanban');
                                                     return;
                                                 }
 
@@ -832,14 +848,16 @@
                                                     return;
                                                 }
                                                 wrongKanbanSound();
-                                                notif('error', xhr.responseJSON?.message || 'Assign kanban gagal');
+                                                notif('error', xhr.responseJSON?.message ||
+                                                    'Assign kanban gagal');
                                             });
 
                                     } else if (data.status === 'kanbanExist') {
                                         alreadyScanSound();
                                         notif('error', data.message);
                                         LS.set('kanban_exist_error', 'true');
-                                        sendErrorLog('Seri Kanban sudah discan!', LS.get('dandori_board'), k.internal);
+                                        sendErrorLog('Seri Kanban sudah discan!', LS.get(
+                                            'dandori_board'), k.internal);
                                     } else {
                                         wrongKanbanSound();
                                         notif('error', data.message || 'Gagal simpan KANBAN');
@@ -859,9 +877,14 @@
                             notif('error', 'Kanban tidak sesuai!');
                             LS.set('error', 'true');
                             setStatus('ng');
-                            sendErrorLog('Kanban tidak sesuai!', LS.get('dandori_board'), k.internal);
+                            sendErrorLog('Kanban tidak sesuai!', LS.get('dandori_board'), k
+                                .internal);
                         }
                     }
+
+                } else {
+                    // kumpulin karakter scanner
+                    barcode = barcode + String.fromCharCode(code);
                 }
             });
         })();
