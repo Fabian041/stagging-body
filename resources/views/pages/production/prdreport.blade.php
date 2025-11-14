@@ -803,20 +803,20 @@
         var code = $('#code');
         let total = 0;
 
-        $('#code').keypress(function(e) {
+        $('#code').on('keypress', async function(e) {
             e.preventDefault();
             var code = (e.keyCode ? e.keyCode : e.which);
-            let internal;
-            let backNum;
-            let seri;
-            let pcs;
-            let proceedWithAjax = true; // Flag to control AJAX execution
+            var internal;
+            var backNum;
+            var seri;
+            var pcs;
+            var proceedWithAjax = true; // Flag to control AJAX execution
             if (code == 13) // Enter key hit 
             {
                 barcodecomplete = barcode;
                 barcode = "";
 
-
+                console.log('Scanned Code:', barcodecomplete, barcodecomplete.length);
                 if (barcodecomplete == "AS523") {
                     window.location.replace("{{ url('/production/as523') }}");
                     return;
@@ -866,15 +866,72 @@
                     backNum = barcodecomplete.substr(100, 4);
                     pcs = barcodecomplete.substr(196, 1);
 
+                } else if (barcodecomplete.length >= 100 && barcodecomplete.length <= 180) {
+                    console.log('if');
+                    // request api to get internal from part number
+                    const qr = barcodecomplete.trim();
+                    const parts = qr.split(';');
+                    const partNumber = parts[4]?.split('-').slice(0, 2).join('-') || 'UNKNOWN';
+                    try {
+                        await $.ajax({
+                            url: '/production/api-get-internal/' + partNumber,
+                            method: 'GET',
+                            contentType: 'application/json',
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function (data) {
+                                    var internal = data.data.internal_part.part_number;
+                                    localStorage.setItem('internal', data.data.internal_part.part_number);
+                                    var seri = 'noseri';
+                                    var backNum = data.data.internal_part.back_number;
+                                    var pcs = data.data.qty_per_kanban;
+                            },
+                            error: function () {
+                                
+                            }
+                        });
+                    }  catch (err) {
+                        console.error(err);
+                        $('#status').text('Gagal memeriksa kode.');
+                    }
+                } else if(barcodecomplete.length == 80){
+                    console.log('masuk 80');
+                    const qr = barcodecomplete.trim();
+                    const parts = qr.split('|');
+                    const partNumber = parts[3] || 'UNKNOWN';
+
+                    try {
+                        await $.ajax({
+                            url: '/production/api-get-internal/' + partNumber,
+                            method: 'GET',
+                            contentType: 'application/json',
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function (data) {
+                                    var internal = data.data.internal_part.part_number;
+                                    localStorage.setItem('internal', data.data.internal_part.part_number);
+                                    var seri = 'noseri';
+                                    var backNum = data.data.internal_part.back_number;
+                                    var pcs = data.data.qty_per_kanban;
+                            },
+                            error: function () {
+                                
+                            }
+                        });
+                    }  catch (err) {
+                        console.error(err);
+                        $('#status').text('Gagal memeriksa kode.');
+                    }
                 }
 
                 let scanCounter;
                 let partCounter;
                 let model;
-
+                console.log(internal);
                 // new rule
                 if (barcodecomplete.endsWith('dandori')) {
-                    console.log('scan dandori board');
                     // set item
                     localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
                     localStorage.setItem('production_start_time', new Date().toLocaleString('sv-SE'));
@@ -930,10 +987,8 @@
                     model = barcodecomplete.replace(/-model$/, "");
                     let now = Date.now();
                     if (model == localStorage.getItem('dandori_board')) {
-
                         localStorage.setItem('scan_timer_start', Date.now()); // MULAI timer dari master sample
                         localStorage.removeItem('last_kanban_time'); // Reset agar hitungan pertama benar
-                        
                         $.ajax({
                             type: 'GET',
                             url: "{{ url('pulling/internal-check') }}" + '/' + model,
@@ -1043,7 +1098,14 @@
 
 
                 // check if model is set in local storage
+
                 if (localStorage.getItem('model') && localStorage.getItem('dandori_board')) {
+                    if (!internal) {
+                        console.log('t', internal);
+                        internal = localStorage.getItem('internal');
+                    }
+
+                        console.log('m',internal);
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
@@ -1080,6 +1142,7 @@
                                     partCounter = parseInt(partCounter);
                                     partCounter += parseInt(data.qty);
                                     localStorage.setItem('part_counter', partCounter);
+                                    localStorage.removeItem('internal');
 
                                     // display total scan
                                     $('.total-scan-card-header').removeClass(

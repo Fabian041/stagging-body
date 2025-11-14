@@ -106,6 +106,68 @@
     .glass-tile .spinner-border {
         color: rgba(255, 255, 255, .92);
     }
+
+/* Kotak Quantity rapi */
+.qbox{
+  background-color:#03b1fc;
+  border-radius:4px;
+  padding:.65rem .85rem;
+  min-height:3rem;
+}
+
+/* Indicator kotak kecil di kanan */
+.indicator{
+  width:60px; height:30px; border-radius:10%;
+  background:#ffc107; /* default warning */
+}
+
+/* ===== Slide Toggle (tetap sama seperti versi animasi) ===== */
+.direct-toggle { display:inline-flex; align-items:center; height:38px; user-select:none; }
+.direct-toggle__input{ position:absolute; opacity:0; pointer-events:none; }
+.direct-toggle__track{
+  --track-w: 140px; --track-h: 36px; --pad: 4px; --thumb: 28px;
+  position:relative; width:var(--track-w); height:var(--track-h);
+  border-radius:calc(var(--track-h)/2);
+  background:linear-gradient(180deg,#e6ecf2,#d8e0e7);
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.06);
+  cursor:pointer; overflow:hidden; display:inline-flex; align-items:center; justify-content:space-between;
+  padding:0 var(--pad); transition:background-color .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.direct-toggle__thumb{
+  position:absolute; top:50%; left:var(--pad);
+  width:var(--thumb); height:var(--thumb);
+  transform:translateY(-50%); border-radius:999px; background:#fff;
+  box-shadow: 0 6px 14px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
+  transition: transform .25s ease, width .18s ease, background-color .25s ease, box-shadow .25s ease;
+}
+.direct-toggle__label{
+  font-size:12px; font-weight:600; letter-spacing:.2px; color:#637085; z-index:1; transition:color .25s ease, opacity .25s ease;
+  pointer-events:none; user-select:none;
+}
+.direct-toggle__label--off{ margin-left:calc(var(--thumb) + .5rem); opacity:1; }
+.direct-toggle__label--on{  margin-right:calc(var(--thumb) + .5rem); opacity:.55; }
+.direct-toggle__track:active .direct-toggle__thumb{ width:calc(var(--thumb) + 8px); }
+.direct-toggle__input:focus + .direct-toggle__track{ outline:3px solid rgba(3,177,252,.25); outline-offset:2px; }
+
+/* State: ON */
+.direct-toggle__input:checked + .direct-toggle__track{
+  background:linear-gradient(180deg,#2fb7ff,#03b1fc);
+  border-color:rgba(3,177,252,.35);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.25), 0 4px 14px rgba(3,177,252,.35);
+}
+.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__thumb{
+  transform:translate(calc(var(--track-w) - var(--thumb) - var(--pad) - var(--pad)), -50%) !important;
+  background:#fff; box-shadow: 0 8px 18px rgba(3,177,252,.35), inset 0 1px 0 rgba(255,255,255,.95);
+}
+.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__label--off{ opacity:.55; color:#eaf7ff; }
+.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__label--on{  opacity:1;    color:#fff; }
+
+/* Responsif kecil: track diperkecil di layar sempit */
+@media (max-width: 480px){
+  .direct-toggle__track{ --track-w: 80px; }
+}
+
 </style>
 
 @section('main')
@@ -116,7 +178,7 @@
                     <div class="shadow hero bg-white text-dark" style="padding: 1.5rem; height: 100%;">
                         <div class="hero-inner">
                             <div class="row">
-                                <div class="col-6">
+                                <div class="col-5">
                                     <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
                                 </div>
                                 <div class="col-2 ml-4">
@@ -162,22 +224,36 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mt-2">
-                                <div class="col-12" style="padding-right: 0px">
-                                    <div
-                                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
-                                        <small class="badge badge-dark"
-                                            style="color:#ffffff; display:inline; border-radius:4px !important;">Quantity</small>
-                                        <h5 style="color: #ffffff; display:inline; padding-left:4.5rem">
-                                            <span id="qty-display">-</span>
+                            <div class="row mt-2 align-items-center">
+                                <!-- Kiri: Quantity + Indicator -->
+                                <div class="col-8">
+                                    <div class="d-flex align-items-center justify-content-between qbox">
+                                    <div class="d-flex align-items-center">
+                                        <small class="badge badge-dark mr-3" style="border-radius:4px !important;">Quantity</small>
+                                        <h5 class="mb-0 text-white">
+                                        <span id="qty-display">-</span>
                                         </h5>
-                                        <div class="bg-warning"
-                                            style="display:inline-block; margin-left:260px; margin-top:-25px; border-radius:10%; width: 60px; height:30px"
-                                            id="indicator">
-                                        </div>
+                                    </div>
+
+                                    <!-- Indicator tetap id yang sama -->
+                                    <div id="indicator" class="indicator"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Kanan: Toggle Direct -->
+                                <div class="col-4 mt-2 mt-md-0">
+                                    <div class="d-flex justify-content-md-end justify-content-start">
+                                    <div class="direct-toggle">
+                                        <input type="checkbox" id="directToggle" class="direct-toggle__input" />
+                                        <label for="directToggle" class="direct-toggle__track" aria-label="Direct Mode (Single Scan)">
+                                        <span class="direct-toggle__thumb" aria-hidden="true"></span>
+                                        <span class="direct-toggle__label direct-toggle__label--off">Direct</span>
+                                        </label>
+                                    </div>
                                     </div>
                                 </div>
                             </div>
+
                             <div class="skid-display"></div>
                             <div class="row mt-2">
                                 <div class="col-6" style="padding-right: 0px">
@@ -207,9 +283,19 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-12" style="padding: 15px; padding-right: 0px">
-                                    <input style="height: 2.4rem; width: 100%; background-color: white; border-radius: 4px;"
-                                        height=60 id="code" class="form-control" name="code" required
-                                        autocomplete="off" readonly>
+                                    <input
+                                        style="height: 2.4rem; width: 100%; background-color: white; border-radius: 4px;"
+                                        height="60"
+                                        id="code"
+                                        class="form-control"
+                                        name="code"
+                                        required
+                                        autocomplete="off"
+                                        autocapitalize="off"
+                                        autocorrect="off"
+                                        spellcheck="false"
+                                        inputmode="none"
+                                        />
                                 </div>
                             </div>
                             <div class="row">
@@ -368,6 +454,11 @@
     let partNumber;
     let loadingListItem = [];
     let loadinglistDetail = [];
+    const inFlightLL = new Set();
+    // flag selesai: tandai LL yang SUDAH beres proses agar tidak bisa discan lagi
+    const doneKey = (ll) => `ll_done_${ll}`;
+    const isLLDone = (ll) => (localStorage.getItem(doneKey(ll)) === '1');
+    const markLLDone = (ll) => { try { localStorage.setItem(doneKey(ll), '1'); } catch(e){} };
 
     function okSound() {
         var sound = document.getElementById("ok-sound");
@@ -485,6 +576,193 @@
         // Return a default value if no manifest is found
         return manifest;
     }
+
+    const KEY_DIRECT_MODE = 'directMode'; // 'on' | 'off'
+
+    function setDirectMode(on) {
+        try { localStorage.setItem(KEY_DIRECT_MODE, on ? 'on' : 'off'); } catch(e) {}
+    }
+
+    function isDirectOn() {
+        try { return (localStorage.getItem(KEY_DIRECT_MODE) || 'off') === 'on'; } catch(e) { return false; }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('directToggle');
+        if (!toggle) return;
+        toggle.checked = isDirectOn();
+        toggle.addEventListener('change', () => {
+            setDirectMode(toggle.checked);
+            // feedback kecil
+            if (typeof notif === 'function') notif(toggle.checked ? 'success' : 'info', `Direct ${toggle.checked?'ON':'OFF'}`);
+            setTimeout(()=> $('#code').focus(), 200);
+        });
+    });
+
+    const STORE_NAME = 'loadingList';
+
+    function openDBEnsureStore(dbName, storeName){
+        return new Promise((resolve, reject)=>{
+            const req = indexedDB.open(dbName);
+            req.onerror = ()=> reject(new Error(`Gagal buka DB "${dbName}"`));
+            req.onsuccess = (ev)=>{
+            const db = ev.target.result;
+            if (db.objectStoreNames.contains(storeName)) return resolve(db);
+            const nextVersion = (db.version || 1) + 1;
+            db.close();
+            const req2 = indexedDB.open(dbName, nextVersion);
+            req2.onupgradeneeded = (e)=>{
+                const db2 = e.target.result;
+                if (!db2.objectStoreNames.contains(storeName)) db2.createObjectStore(storeName);
+            };
+            req2.onsuccess = (e)=> resolve(e.target.result);
+            req2.onerror  = ()=> reject(new Error(`Upgrade DB gagal buat store "${storeName}"`));
+            };
+        });
+    }
+
+    function getPartRecordFromIDB(customerPart){
+        return new Promise(async (resolve, reject)=>{
+            try{
+            const dbName = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber');
+            if (!dbName) return reject(new Error('DB belum siap, scan Loading List dulu.'));
+            const db = await openDBEnsureStore(dbName, STORE_NAME);
+            const tx = db.transaction([STORE_NAME], 'readonly');
+            const st = tx.objectStore(STORE_NAME);
+            const g  = st.get(customerPart);
+            g.onsuccess = ()=>{ const rec = g.result; db.close(); rec ? resolve(rec) : reject(new Error(`Part "${customerPart}" tidak ada`)); };
+            g.onerror   = (e)=>{ db.close(); reject(e?.target?.error || new Error('Gagal ambil record')); };
+            }catch(err){ reject(err); }
+        });
+    }
+
+    async function directSingleScan(customerPart) {
+        try {
+            // safety: hanya jalan jika Direct ON
+            if ((localStorage.getItem('directMode') || 'off') !== 'on') return;
+
+            const dbName = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber');
+            if (!dbName) throw new Error('DB belum siap. Scan Loading List dulu.');
+
+            // 1) Ambil record dari IDB → butuh internal & loading_list_number
+            const rec = await new Promise((resolve, reject)=>{
+            const req = indexedDB.open(dbName);
+            req.onerror = ()=> reject(new Error(`Gagal buka DB ${dbName}`));
+            req.onsuccess = (ev)=>{
+                const db = ev.target.result;
+                if(!db.objectStoreNames.contains(STORE_NAME)){
+                const names = Array.from(db.objectStoreNames || []);
+                db.close();
+                return reject(new Error(`Store "${STORE_NAME}" tidak ada. Tersedia: ${names.join(', ')}`));
+                }
+                const tx = db.transaction([STORE_NAME], 'readonly');
+                const st = tx.objectStore(STORE_NAME);
+                const g = st.get(customerPart);
+                g.onsuccess = ()=>{ const r = g.result; db.close(); r ? resolve(r) : reject(new Error(`Part "${customerPart}" tidak ada di IDB`)); };
+                g.onerror   = (e)=>{ db.close(); reject(e?.target?.error || new Error('Gagal ambil record')); };
+            };
+            });
+
+            const internalPart = String(rec.internal||'').trim();
+            const loadingList  = rec.loading_list_number;
+            if (!internalPart || !loadingList) throw new Error('Mapping internal/LL tidak ditemukan');
+
+            // 2) Panggil backend untuk increment actual_kanban_qty (single scan)
+            const res = await $.ajax({
+            type: 'GET',
+            dataType: 'json',
+            url: "{{ route('kanban.scanned') }}",
+            data: { loadingList, internalPart, customerPart }
+            });
+            if (!res || res.status !== 'success') throw new Error(res?.message || 'Store gagal');
+
+            // 3) Update IDB lokal: push placeholder ke array seri agar counter lokal naik
+            await new Promise((resolve, reject)=>{
+            const req = indexedDB.open(dbName);
+            req.onerror = ()=> reject(new Error(`Gagal buka DB ${dbName}`));
+            req.onsuccess = (ev)=>{
+                const db = ev.target.result;
+                const tx = db.transaction([STORE_NAME], 'readwrite');
+                const st = tx.objectStore(STORE_NAME);
+                const g = st.get(customerPart);
+                g.onsuccess = ()=>{
+                const data = g.result;
+                if (!data) { db.close(); return reject(new Error('Record hilang di IDB')); }
+                if (!Array.isArray(data.seri)) data.seri = [];
+                if (data.seri.length >= (data.total_qty || 0)) { db.close(); return reject(new Error('Part sudah complete')); }
+                data.seri.push(`AUTO-DIRECT-${Date.now()}`);
+                const p = st.put(data, customerPart);
+                p.onsuccess = ()=>{ db.close(); resolve(); };
+                p.onerror   = (e)=>{ db.close(); reject(e?.target?.error || new Error('Gagal simpan IDB')); };
+                };
+                g.onerror = (e)=>{ db.close(); reject(e?.target?.error || new Error('Gagal ambil record')); };
+            };
+            });
+
+            // 4) Update UI minimal (qty naik, indikator hijau, bersihkan panel customer)
+            try {
+            // Ambil ulang rec untuk hitung panjang terbaru (opsional, boleh perkiraan +1)
+            const req2 = indexedDB.open(dbName);
+            req2.onsuccess = (ev)=>{
+                const db2 = ev.target.result;
+                const tx2 = db2.transaction([STORE_NAME], 'readonly');
+                const st2 = tx2.objectStore(STORE_NAME);
+                const g2  = st2.get(customerPart);
+                g2.onsuccess = ()=>{
+                const latest = g2.result || rec;
+                const nowLen = (latest?.seri?.length || (rec?.seri?.length||0) + 1);
+                $('#qty-display').text(`${nowLen}/${latest?.total_qty ?? rec.total_qty}`);
+                if (typeof successIndicator==='function') successIndicator();
+                if (typeof tmminSuccessIndicator==='function') tmminSuccessIndicator();
+                if (typeof okSound==='function') okSound();
+                $('#cust-display').text('-');
+                localStorage.removeItem('customerPart');
+                if (typeof pullingQuantity==='function') pullingQuantity();
+                db2.close();
+                };
+            };
+            } catch(_) {}
+        } catch(err) {
+            if (typeof notif==='function') notif('error', err?.message || String(err)); else alert(err?.message || err);
+            if (typeof errorIndicator==='function') errorIndicator();
+            setTimeout(()=> $('#code').focus(), 400);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('directToggle');
+
+        // helper: fokuskan #code dan taruh caret di akhir
+        const focusCode = () => {
+            const el = document.getElementById('code');
+            if (!el) return;
+            el.focus();
+            try {
+            const len = el.value ? el.value.length : 0;
+            el.setSelectionRange(len, len);
+            } catch (_) {}
+        };
+
+        if (toggle) {
+            // sinkronisasi awal (kalau kamu pakai localStorage)
+            if (typeof setDirectMode === 'function') setDirectMode(toggle.checked);
+
+            // saat toggle berubah → simpan mode + fokus ke #code
+            toggle.addEventListener('change', () => {
+            if (typeof setDirectMode === 'function') setDirectMode(toggle.checked);
+            // beri sedikit jeda agar animasi selesai, lalu fokus
+            setTimeout(focusCode, 150);
+            });
+
+            // bila label diklik cepat, tetap re-fokus setelah mouseup
+            const track = document.querySelector('label.direct-toggle__track[for="directToggle"]');
+            if (track) {
+            track.addEventListener('mouseup', () => setTimeout(focusCode, 0));
+            track.addEventListener('keyup',  (e) => { if (e.key === 'Enter' || e.key === ' ') setTimeout(focusCode, 0); });
+            }
+        }
+        });
+
 
     function initApp() {
         // check solve status
@@ -956,7 +1234,6 @@
 
     $(document).ready(function() {
         initApp();
-
         $('#code').focus();
 
         $("#refreshTokenBtn").click(function() {
@@ -999,6 +1276,28 @@
                 try {
                     const loadingList = this.getLoadingListNumber();
                     const loadingListNumber = inputValue.substr(0, 11) + ' A';
+
+                    // kalau sudah “done”, jangan lanjut
+                    if (isLLDone(loadingListNumber)) {
+                    this.showError('Loading list ini sudah diproses.');
+                    return;
+                    }
+
+                    // jika sedang diproses paralel → tolak
+                    if (inFlightLL.has(loadingListNumber)) {
+                    this.showError('Loading list ini sedang diproses...');
+                    return;
+                    }
+                    inFlightLL.add(loadingListNumber);
+
+                    // kalau sudah ada di localStorage (header sudah tersimpan) → tolak
+                    if (this.getLoadingListNumber().includes(loadingListNumber)) {
+                    this.showError('Loading list sudah discan!', () => {
+                        if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                    });
+                    inFlightLL.delete(loadingListNumber);
+                    return;
+                    }
 
                     // early return tanpa spinner
                     if (loadingList.includes(loadingListNumber)) {
@@ -1084,11 +1383,17 @@
                     this.setLoadingMessage('Finalisasi...');
                     await this.performAdditionalProcessing(data);
 
+                    markLLDone(loadingListNumber);
+                    inFlightLL.delete(loadingListNumber);
+
                 } catch (error) {
                     console.error('Error processing loading list:', error);
                     this.showError('Gagal memproses loading list');
                 } finally {
                     // fokus input akan dipanggil di finally processLoadingList (luar)
+                    inFlightLL.delete(loadingListNumber);
+                    this.hideLoading();
+                    this?.focusCodeInput?.();
                 }
             }
 
@@ -2000,6 +2305,91 @@
             });
         }
 
+        class ScannerInput {
+            constructor(selector, onScan, { gapMs = 40, acceptTab = true } = {}) {
+                this.$el = $(selector);
+                this.onScan = onScan;
+                this.buffer = '';
+                this.timer = null;
+                this.gapMs = gapMs;
+                this.acceptTab = acceptTab;
+
+                // Jangan biarkan nilai menumpuk di input (biar selalu “kosong” secara visual)
+                this.$el.val('');
+
+                // 1) Kumpulkan karakter via 'input' (IME / Zebra / OS manapun)
+                this.$el.on('input', (e) => {
+                const v = e.target.value || '';
+                if (!v) return;
+                this.buffer += v;
+                // kosongkan field supaya tidak bertambah panjang
+                e.target.value = '';
+                this._restartTimer();
+                });
+
+                // 2) Enter/TAB via keydown (DataWedge bisa diset suffix ENTER/TAB)
+                this.$el.on('keydown', (e) => {
+                // ENTER → proses langsung
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this._flush();
+                }
+                // TAB (opsional) → proses langsung
+                else if (this.acceptTab && e.key === 'Tab') {
+                    e.preventDefault();
+                    this._flush();
+                } else {
+                    // untuk zebra kadang kirim keyCode 229 (IME) → abaikan, biarkan 'input' yang bekerja
+                }
+                });
+
+                // 3) Paste fallback (kalau user tempel string)
+                this.$el.on('paste', (e) => {
+                const text = (e.originalEvent.clipboardData || window.clipboardData)?.getData('text') || '';
+                if (text) {
+                    this.buffer += text;
+                    this._flushSoon();
+                }
+                });
+
+                // Aksesibilitas: fokus kembali jika blur
+                this.$el.on('blur', () => {
+                // setTimeout(() => this.focus(), 0);
+                });
+            }
+
+            _restartTimer() {
+                clearTimeout(this.timer);
+                // Jika scanner tidak mengirim suffix (ENTER/TAB),
+                // kita finalize setelah jeda antarkarakter (inter-char gap).
+                this.timer = setTimeout(() => this._flush(), this.gapMs);
+            }
+
+            _flushSoon() {
+                clearTimeout(this.timer);
+                this.timer = setTimeout(() => this._flush(), 0);
+            }
+
+            _flush() {
+                clearTimeout(this.timer);
+                if (!this.buffer) return;
+                const code = this.buffer;
+                this.buffer = '';
+                try { this.onScan(code); } catch (e) { console.error(e); }
+                this.focus();
+            }
+
+            focus() {
+                const el = this.$el.get(0);
+                if (!el) return;
+                el.focus();
+                try {
+                // taruh caret di akhir (meski field kita kosong)
+                el.setSelectionRange(el.value.length, el.value.length);
+                } catch (_) {}
+            }
+        }
+
         class BarcodeScanner {
             constructor() {
                 this.barcode = "";
@@ -2130,13 +2520,20 @@
             }
 
             init() {
-                $('#code').on('keypress', (e) => this.handleKeyPress(e));
+                this.scannerInput = new ScannerInput('#code', (scanned) => {
+                    this.processBarcode(scanned); // panggil fungsi lama milikmu
+                }, {
+                    gapMs: 40,      // jeda finalize jika tidak ada suffix
+                    acceptTab: true // jika DataWedge pakai TAB sebagai suffix
+                });
+
+                // fokuskan saat mulai
+                // this.scannerInput.focus();
             }
 
             handleKeyPress(e) {
                 e.preventDefault();
                 const keyCode = e.keyCode || e.which;
-
                 if (keyCode === 13) { // Enter key
                     this.processBarcode(this.barcode);
                     this.barcode = "";
@@ -2666,7 +3063,9 @@
                 } else if (code.length === 14) {
                     processed = code.substr(0, 11);
                 }
+                
                 processed = processed.trim().replace(/-/g, '').toUpperCase();
+                console.log('Processed TB INA kanban code:', processed);
                 this.processCustomerSpecificKanban(processed, 'TB INA');
             }
 
@@ -2676,6 +3075,7 @@
             }
 
             processCustomerSpecificKanban(code, customerType) {
+                console.log(`Processing ${customerType} kanban:`, code);
                 const databaseName = this.getCurrentPDS();
 
                 if (!databaseName) {
@@ -2849,9 +3249,82 @@
             }
         }
 
+        (function(){
+            if (!window.BarcodeScanner) return;
+            const proto = BarcodeScanner.prototype;
+
+            if (typeof proto.updateKanbanDisplay === 'function') {
+                const _orig = proto.updateKanbanDisplay;
+                proto.updateKanbanDisplay = function(record, customerCode, originalCode=null) {
+                const ret = _orig.call(this, record, customerCode, originalCode);
+
+                if (isDirectOn()) {
+                    const customerPart = String(record?.customer || '').trim();
+                    if (customerPart) {
+                    getPartRecordFromIDB(customerPart)
+                        .then(rec => {
+                        console.log('[DIRECT] IDB OK:', {
+                            loading_list_number: rec.loading_list_number,
+                            internal: rec.internal,
+                            total_qty: rec.total_qty,
+                            seri_len: rec.seri?.length
+                        });
+                        })
+                        .catch(err => {
+                        console.warn('[DIRECT] IDB error:', err?.message || err);
+                        });
+                    }
+                }
+                return ret;
+                };
+            }
+        })();
+
+
         // Initialize the barcode scanner
         $(document).ready(() => {
             const scanner = new BarcodeScanner();
+            // HOOK INSTANCE: panggil single-scan saat Direct ON
+        const _origUpdate = scanner.updateKanbanDisplay.bind(scanner);
+        scanner.updateKanbanDisplay = function(record, customerCode, originalCode = null){
+            // TRACE (biar tetap kelihatan di console)
+            console.log('[TRACE] updateKanbanDisplay CALLED (Direct will try single-scan if ON)', {
+            directOn: (localStorage.getItem('directMode')||'off'),
+            customer: record?.customer,
+            len_seri: record?.seri?.length,
+            total: record?.total_qty
+            });
+
+            // jalankan logika asli (update UI customer panel, set localStorage.customerPart, dll.)
+            const ret = _origUpdate(record, customerCode, originalCode);
+
+            // kalau Direct ON → jalankan single-scan
+            if ((localStorage.getItem('directMode')||'off') === 'on') {
+            const customerPart = String(record?.customer || '').trim();
+            if (customerPart) directSingleScan(customerPart);
+            } else {
+            console.log('[TRACE] Direct OFF – tidak single-scan.');
+            }
+
+            return ret;
+        };
+
+        (function(){
+        const proto = BarcodeScanner.prototype;
+        if (typeof proto.handleKanbanBarcode === 'function') {
+            const _orig = proto.handleKanbanBarcode;
+            BarcodeScanner.prototype.handleKanbanBarcode = function(code){
+                if ((localStorage.getItem('directMode')||'off') === 'on') {
+                    if (typeof notif==='function') notif('error', 'Direct ON: scan internal diabaikan.');
+                    setTimeout(()=> $('#code').focus(), 200);
+                    return; // stop flow internal
+                }
+                return _orig.call(this, code);
+                };
+            }
+        })();
+
+            
             scanner.init();
         });
     });

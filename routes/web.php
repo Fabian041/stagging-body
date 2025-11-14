@@ -140,6 +140,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
         Route::get('/store', [ProductionController::class, 'store'])->name('production.store');
         Route::get('/store2', [ProductionController::class, 'store2'])->name('production.store2'); // prd report
+        Route::get('/api-get-internal/{custPart}', [ProductionController::class, 'getInternalPart'])->name('getInternalPart');
         Route::post('/adjust', [ProductionController::class, 'adjust'])->name('production.adjust');
         Route::get('/api-list-stop/{line}/{category}', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
