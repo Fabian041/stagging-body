@@ -23,7 +23,7 @@
                     <div class="shadow pt-4 card card-secondary total-scan-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Total Scan</h5>
+                            <h5 class="text-center text-dark">Scan Progress</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0 / 0</h1>
