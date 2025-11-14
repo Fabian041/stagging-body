@@ -669,6 +669,8 @@
                                     return;
                                 }
 
+                                console.log(dp);
+
                                 // === UPDATE: ambil target dengan fallback aman ===
                                 var rawTarget = dp.target;
                                 if (rawTarget === undefined || rawTarget === null) {
