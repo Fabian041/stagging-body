@@ -201,37 +201,39 @@
         });
     }
 
+    // ====== LOOP FIXED: selalu jalan setiap 2 detik ======
     function loopNotMatchSound() {
         if (localStorage.getItem('error') === 'true') {
             wrongKanbanSound();
             showModalConfirmation();
-            setTimeout(loopNotMatchSound, 2000);
         }
+        setTimeout(loopNotMatchSound, 2000);
     }
 
     function loopDandoriSound() {
         if (localStorage.getItem('dandori_error') === 'true') {
             dandoriSound();
             showModalConfirmation();
-            setTimeout(loopDandoriSound, 2000);
         }
+        setTimeout(loopDandoriSound, 2000);
     }
 
     function loopMasterDandoriSound() {
         if (localStorage.getItem('master_dandori_error') === 'true') {
             masterDandoriSound();
             showModalConfirmation();
-            setTimeout(loopMasterDandoriSound, 2000);
         }
+        setTimeout(loopMasterDandoriSound, 2000);
     }
 
     function loopAlreadyScanSound() {
         if (localStorage.getItem('kanban_exist_error') === 'true') {
             alreadyScanSound();
             showModalConfirmation();
-            setTimeout(loopAlreadyScanSound, 2000);
         }
+        setTimeout(loopAlreadyScanSound, 2000);
     }
+    // ==========================
 
     let hasNotified = false;
 
@@ -411,7 +413,7 @@
             }
         });
 
-        // MODAL CONFIRMATION (biarin pakai keydown biar bisa ketik normal)
+        // MODAL CONFIRMATION (pakai keydown untuk Enter)
         $('#input-confirmation').on('keydown', function(e) {
             const key = (typeof e.key !== 'undefined' && e.key !== null) ?
                 e.key :
@@ -668,7 +670,7 @@
                                 $('.model-card-header').removeClass('card-secondary').addClass(
                                     'card-info');
                                 $('.model-card').removeClass('bg-secondary').addClass(
-                                'bg-info');
+                                    'bg-info');
                                 $('.total-scan-card-header, .total-part-card-header')
                                     .removeClass('card-secondary').addClass('card-success');
                                 $('.total-scan-card, .total-part-card').removeClass(
@@ -762,7 +764,7 @@
                                 setStatus('ok');
                                 if (actual >= tgt) notif('success',
                                     'Target part tercapai. Silakan scan KANBAN untuk close batch.'
-                                    );
+                                );
                             })
                             .fail(xhr => {
                                 if (xhr.status === 0) {
