@@ -824,7 +824,7 @@ class PullingController extends Controller
             'status' => 'success',
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
-            'target' => $internal,
+            'target' => $internal->customerPart->qty_per_kanban,
             'line' => $lineProd->name,
             'photo' => $internal->photo,
         ];
