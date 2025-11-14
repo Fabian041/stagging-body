@@ -795,7 +795,7 @@ class PullingController extends Controller
     public function internalCheck($internal, $isinternal = 0)
     {
         // check internal 
-        $internal = InternalPart::select('part_number', 'back_number', 'photo', 'line_id')->where('part_number', $internal)->first();
+        $internal = InternalPart::with('customerPart')->where('part_number', $internal)->first();
         $lineProd = Line::select('name')->where('id', $internal->line_id)->first();
 
         if ($isinternal == 0) {
@@ -824,7 +824,7 @@ class PullingController extends Controller
             'status' => 'success',
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
-            'target' => $internal->customerPart->qty_per_kanban ?? 0,
+            'target' => $internal->customerPart->qty_per_kanban,
             'line' => $lineProd->name,
             'photo' => $internal->photo,
         ];

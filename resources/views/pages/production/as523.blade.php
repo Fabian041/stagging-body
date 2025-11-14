@@ -23,7 +23,7 @@
                     <div class="shadow pt-4 card card-secondary total-scan-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Total Scan</h5>
+                            <h5 class="text-center text-dark">Scan Progress</h5>
                             <div class="bg-secondary m-auto shadow total-scan-card"
                                 style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
                                 <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="total-scan">0 / 0</h1>
@@ -255,15 +255,18 @@
             );
         }
 
-        if (totalScan || totalPart) {
+        // === UPDATE: tampilkan total scan dengan target yang tersimpan ===
+        if (totalScan !== null || totalPart !== null) {
+            const tgt = (typeof getTarget === 'function') ? getTarget() : 0;
+
             $('.total-scan-card-header').removeClass('card-secondary').addClass('card-success');
             $('.total-scan-card').removeClass('bg-secondary').addClass('bg-success');
 
             $('.total-part-card-header').removeClass('card-secondary').addClass('card-success');
             $('.total-part-card').removeClass('bg-secondary').addClass('bg-success');
 
-            $('#total-scan').text(totalScan);
-            $('#total-part').text(totalPart);
+            $('#total-scan').text(`${totalScan || 0} / ${tgt}`);
+            $('#total-part').text(totalPart || 0);
         }
 
         loopNotMatchSound();
@@ -526,8 +529,11 @@
                 mset: obj => Object.keys(obj).forEach(k => localStorage.setItem(k, String(obj[k]))),
             };
 
+            // === UPDATE: getTarget aman (tidak NaN) ===
             function getTarget() {
-                return parseInt(LS.get('target') || '0', 10);
+                var raw = LS.get('target');
+                var t = parseInt(raw, 10);
+                return isNaN(t) ? 0 : t;
             }
 
             function api(url, method, data) {
@@ -659,17 +665,47 @@
                             })
                             .done(dp => {
                                 if (dp.status !== 'success') {
-                                    notif('error', dp.message);
+                                    notif('error', dp.message || 'Internal check gagal');
                                     return;
                                 }
 
+                                console.log(dp);
+
+                                // === UPDATE: ambil target dengan fallback aman ===
+                                var rawTarget = dp.target;
+                                if (rawTarget === undefined || rawTarget === null) {
+                                    if (dp.Target !== undefined && dp.Target !== null) {
+                                        rawTarget = dp.Target;
+                                    } else if (dp.target_qty !== undefined && dp.target_qty !==
+                                        null) {
+                                        rawTarget = dp.target_qty;
+                                    } else if (dp.data && dp.data.target !== undefined && dp
+                                        .data.target !== null) {
+                                        rawTarget = dp.data.target;
+                                    } else if (dp.data && dp.data.target_qty !== undefined && dp
+                                        .data.target_qty !== null) {
+                                        rawTarget = dp.data.target_qty;
+                                    } else {
+                                        rawTarget = 0;
+                                    }
+                                }
+
+                                var tgt = parseInt(rawTarget, 10);
+                                if (isNaN(tgt)) tgt = 0;
+
+                                var partNumber = dp.partNumber || (dp.data && dp.data
+                                    .partNumber) || '';
+                                var backNumber = dp.backNumber || dp.back_no || dp.backNum || dp
+                                    .back || (dp.data && dp.data.backNumber) || '';
+                                var photo = dp.photo || (dp.data && dp.data.photo) || '';
+                                var lineVal = dp.line || (dp.data && dp.data.line) || '';
+
                                 LS.mset({
-                                    target: dp.target,
-                                    model: dp.partNumber,
-                                    back_number: dp.backNumber || dp.back_no || dp
-                                        .backNum || dp.back || '',
-                                    photo: dp.photo,
-                                    line: dp.line,
+                                    target: tgt,
+                                    model: partNumber,
+                                    back_number: backNumber,
+                                    photo: photo,
+                                    line: lineVal,
                                     actual_scan: 0,
                                     scan_counter: 0,
                                     part_counter: 0
@@ -684,13 +720,13 @@
                                 $('.total-scan-card, .total-part-card').removeClass(
                                     'bg-secondary').addClass('bg-success');
 
-                                $modelTxt.text(LS.get('back_number') || dp.backNumber);
-                                updateTotals(0, getTarget(), 0);
+                                $modelTxt.text(backNumber || '-');
+                                updateTotals(0, tgt, 0);
                                 $pis.html(
                                     `<img src="{{ asset('assets/img/pis/${dp.photo}') }}" alt="PIS" class="rounded" height="700">`
                                 );
 
-                                initApp();
+                                // initApp() DIHILANGKAN supaya tidak override total-scan lagi
                                 setStatus('ok');
                             })
                             .fail(xhr => {
