@@ -145,6 +145,7 @@
     var timerActive = false;
     var endTime;
     var barcode = ""; // buffer global untuk #code
+    var isConfirmationShown = false; // kontrol modal konfirmasi
 
     function notMatchSound() {
         document.getElementById("not-match-sound").play();
@@ -186,22 +187,23 @@
         document.getElementById("wrong-kanban-sound").play();
     }
 
+    // Modal konfirmasi: kasih jeda setelah notif dulu baru muncul modal + fokus
     function showModalConfirmation() {
-        $('#modalConfirmation').on('shown.bs.modal', function() {
-            $('#input-confirmation').focus();
-        });
-        $('#modalConfirmation').modal('show');
+        if (isConfirmationShown) return; // jangan buka berulang-ulang
 
-        $(document).on('click', function() {
-            if ($('#modalConfirmation').hasClass('show')) {
-                $('#input-confirmation').focus();
-            } else {
-                $('#code').focus();
-            }
-        });
+        isConfirmationShown = true;
+
+        // jeda 3.5 detik (notif 3 detik, lalu modal muncul)
+        setTimeout(function() {
+            $('#modalConfirmation')
+                .one('shown.bs.modal', function() {
+                    $('#input-confirmation').focus();
+                })
+                .modal('show');
+        }, 3500);
     }
 
-    // ====== LOOP FIXED: selalu jalan setiap 2 detik ======
+    // ====== LOOP: selalu jalan tiap 2 detik, tapi modalnya diatur oleh showModalConfirmation() ======
     function loopNotMatchSound() {
         if (localStorage.getItem('error') === 'true') {
             wrongKanbanSound();
@@ -233,7 +235,6 @@
         }
         setTimeout(loopAlreadyScanSound, 2000);
     }
-    // ==========================
 
     let hasNotified = false;
 
@@ -285,6 +286,7 @@
         $('#notifModal').modal('show');
         setTimeout(() => {
             $('#notifModal').modal('hide');
+            // fokus sementara ke code, nanti saat modalConfirmation muncul, fokus pindah ke input-confirmation
             $('#code').focus();
         }, 3000);
     }
@@ -411,6 +413,12 @@
             if (!$('#modalConfirmation').hasClass('show')) {
                 $('#code').focus();
             }
+        });
+
+        // reset flag + fokus balik saat modal konfirmasi ditutup
+        $('#modalConfirmation').on('hidden.bs.modal', function() {
+            isConfirmationShown = false;
+            $('#code').focus();
         });
 
         // MODAL CONFIRMATION (pakai keydown untuk Enter)
