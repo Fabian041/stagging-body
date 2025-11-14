@@ -451,7 +451,7 @@
                 forgetSound();
 
                 setTimeout(() => {
-                    //window.location.reload();
+                    window.location.reload();
                 }, 1500);
             }
         }, 1000);
@@ -755,14 +755,14 @@
                         $('#modalConfirmation').modal('hide');
                         notif('error', `NPK ${barcodecomplete} tidak memiliki hak akses`);
                         setTimeout(() => {
-                            //window.location.reload();
+                            window.location.reload();
                         }, 1500);
                     }
                 } else {
                     $('#modalConfirmation').modal('hide');
                     notif('error', 'Scan barcode NPK');
                     setTimeout(() => {
-                        //window.location.reload();
+                        window.location.reload();
                     }, 1500);
                 }
             } else {
@@ -788,7 +788,7 @@
                     localStorage.removeItem('production_start_time');
                     localStorage.clear();
                     setInterval(() => {
-                        //window.location.reload();
+                        window.location.reload();
                     }, 2000);
                 },
                 error: function () {
@@ -978,7 +978,7 @@
                     sendErrorLog("Belum scan dandori board");
 
                     setTimeout(() => {
-                        //window.location.reload();
+                        window.location.reload();
                     }, 2000);
                     return;
                 }
@@ -1090,7 +1090,7 @@
                             .getItem('dandori_board'), model);
 
                         setTimeout(() => {
-                            //window.location.reload();
+                            window.location.reload();
                         }, 2000);
                         return;
                     }
@@ -1209,7 +1209,7 @@
                                     localStorage.setItem('error', 'true');
 
                                     setTimeout(() => {
-                                        //window.location.reload();
+                                        window.location.reload();
                                     }, 1500);
                                 }
                                 return;
@@ -1247,7 +1247,7 @@
                             .getItem('dandori_board'), internal.trim());
 
                         setTimeout(() => {
-                            //window.location.reload();
+                            window.location.reload();
                         }, 2000);
                         return;
                     }
