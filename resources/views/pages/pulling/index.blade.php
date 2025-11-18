@@ -454,6 +454,7 @@
     let partNumber;
     let loadingListItem = [];
     let loadinglistDetail = [];
+    var loadingListNumber = [];
     const inFlightLL = new Set();
     // flag selesai: tandai LL yang SUDAH beres proses agar tidak bisa discan lagi
     const doneKey = (ll) => `ll_done_${ll}`;
@@ -553,7 +554,7 @@
 
     // retrieve the loading list number from localStorage
     function getLoadingListNumber() {
-        let loadingListNumber = [];
+        
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key.startsWith("ll_")) {
@@ -1572,7 +1573,7 @@
                                 success: (response) => {
                                     console.log('Detail stored:',
                                         response.status, response
-                                        .data);
+                                        .message);
                                     resolve(response);
                                 },
                                 error: (xhr) => {
