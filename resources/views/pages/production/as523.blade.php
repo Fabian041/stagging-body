@@ -766,15 +766,28 @@
                         }
 
                         const last4 = parsePart26(barcodecomplete).back4.toUpperCase();
-                        const tailBackNo = backNo.slice(-4);
+                        const prefixBackNo = backNo.slice(0, 2); // 2 huruf awal SP, KP, dst.
 
-                        if (last4 !== tailBackNo) {
+                        // RULE BARU
+                        // KMOU => SP
+                        // KMOT => KP
+                        const RULES = {
+                            KMOU: 'SP',
+                            KMOT: 'KP'
+                        };
+
+                        const expectedPrefix = RULES[last4];
+                        const isValid = expectedPrefix && expectedPrefix === prefixBackNo;
+
+                        // Jika tidak valid → error
+                        if (!isValid) {
                             wrongKanbanSound();
                             notif('error', 'Barcode part tidak sesuai dengan BACK NUMBER!');
                             setStatus('ng');
                             return;
                         }
 
+                        // Lolos validasi → lanjut simpan
                         api(`/production/part-scan`, 'POST', {
                                 _token: CSRF,
                                 line,
@@ -804,11 +817,15 @@
                                     scan_counter: actual,
                                     part_counter: partCounter
                                 });
+
                                 updateTotals(actual, tgt, partCounter);
                                 setStatus('ok');
-                                if (actual >= tgt) notif('success',
-                                    'Target part tercapai. Silakan scan KANBAN untuk close batch.'
-                                );
+
+                                if (actual >= tgt) {
+                                    notif('success',
+                                        'Target part tercapai. Silakan scan KANBAN untuk close batch.'
+                                        );
+                                }
                             })
                             .fail(xhr => {
                                 if (xhr.status === 0) {
@@ -823,6 +840,7 @@
 
                         return;
                     }
+
 
                     // 4) KANBAN
                     const k = parseKanban(barcodecomplete);
