@@ -742,6 +742,8 @@
                         return;
                     }
 
+                    notif('success', barcodecomplete.length);
+
                     // 3) PART 26 CHAR (alfanumerik)
                     if (barcodecomplete.length === 26) {
                         const model = LS.get('model');
@@ -824,7 +826,7 @@
                                 if (actual >= tgt) {
                                     notif('success',
                                         'Target part tercapai. Silakan scan KANBAN untuk close batch.'
-                                        );
+                                    );
                                 }
                             })
                             .fail(xhr => {
