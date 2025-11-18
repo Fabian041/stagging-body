@@ -408,7 +408,7 @@
                 <div class="mt-5">
                     <div class="actions">
                         <a class="btn-ghost btn-board" href="#">Open Board</a>
-                        <a class="btn-ghost btn-planCan I get that? Boy. Yeah. I. Mother, I am. I am. It's far. OK. Every year we've got a piece of a big boy. The one that. Hi. " href="#">Open Plan</a>
+                        <a class="btn-ghost btn-plan" href="#">Open Plan</a>
                     </div>
                 </div>
             </section>
