@@ -743,6 +743,7 @@
                     }
 
                     notif('success', barcodecomplete.length);
+                    return;
 
                     // 3) PART 26 CHAR (alfanumerik)
                     if (barcodecomplete.length === 26) {
