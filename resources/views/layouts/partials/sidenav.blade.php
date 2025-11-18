@@ -14,12 +14,6 @@
                 class="nav-item dropdown {{ request()->is('dashboard.receiving') || request()->is('loading-list') || request()->is('loading-list/*') ? 'active' : '' }}">
                 <a href="#" class="nav-link has-dropdown"><i class="fas fa-warehouse"></i> <span>PPIC</span></a>
                 <ul class="dropdown-menu">
-                    <li class="{{ request()->is('dashboard.receiving') ? 'active' : '' }}">
-                        <a class="nav-link" href="{{ route('dashboard.receiving') }}">
-                            <i class="fas fa-inbox"></i>
-                            <span>Receiving</span>
-                        </a>
-                    </li>
                     <li class="{{ request()->is('board.landing') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('board.landing') }}">
                             <i class="fas fa-calendar-alt"></i>
