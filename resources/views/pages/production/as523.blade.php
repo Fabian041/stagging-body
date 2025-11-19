@@ -556,7 +556,7 @@
                     yearYY: s.slice(16, 18),
                     shift: s.slice(18, 19),
                     shoot: s.slice(19, 22),
-                    back4: s.slice(22, 26)
+                    back4: s.slice(23, 27)
                 };
             }
 
