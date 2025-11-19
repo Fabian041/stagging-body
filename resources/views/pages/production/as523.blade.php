@@ -582,7 +582,7 @@
                     pcs: [196, 1]
                 },
                 {
-                    len: 218,
+                    len: 219,
                     internal: [41, 16],
                     seri: [123, 4],
                     back: [100, 4],
@@ -844,8 +844,6 @@
 
                     // 4) KANBAN
                     const k = parseKanban(barcodecomplete);
-                    notif('error', barcodecomplete.length);
-                    return;
                     if (!k) {
                         wrongKanbanSound();
                         notif('error', 'Format barcode tidak dikenali');
