@@ -769,6 +769,7 @@
 
                         const last4 = parsePart26(barcodecomplete).back4.toUpperCase();
                         const prefixBackNo = backNo.slice(0, 2); // 2 huruf awal SP, KP, dst.
+                        notif(last4, prefixBackNo);
 
                         // RULE BARU
                         // KMOU => SP
