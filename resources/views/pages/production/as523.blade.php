@@ -845,6 +845,7 @@
                     // 4) KANBAN
                     const k = parseKanban(barcodecomplete);
                     notif('error', k);
+                    return;
                     if (!k) {
                         wrongKanbanSound();
                         notif('error', 'Format barcode tidak dikenali');
