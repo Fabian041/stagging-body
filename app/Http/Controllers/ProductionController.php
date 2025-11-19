@@ -802,9 +802,9 @@ class ProductionController extends Controller
             ->whereDate('scan_date', $today)
             ->exists();
 
-        if ($exists) {
-            return response()->json(['status' => 'duplicate']);
-        }
+        // if ($exists) {
+        //     return response()->json(['status' => 'duplicate']);
+        // }
 
         ScannedPart::create([
             'line'          => $line,

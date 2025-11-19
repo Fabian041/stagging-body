@@ -742,8 +742,6 @@
                         return;
                     }
 
-                    notif('success', barcodecomplete.length);
-
                     // 3) PART 26 CHAR (alfanumerik)
                     if (barcodecomplete.length === 27) {
                         const model = LS.get('model');
