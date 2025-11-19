@@ -844,7 +844,7 @@
 
                     // 4) KANBAN
                     const k = parseKanban(barcodecomplete);
-                    notif('error', barcodecomplete.length());
+                    notif('error', barcodecomplete.length);
                     return;
                     if (!k) {
                         wrongKanbanSound();
@@ -866,7 +866,8 @@
                             }
 
                             if (actual < target) {
-                                notif('error', `Belum mencapai target (${actual} / ${target})`);
+                                notif('error',
+                                    `Belum mencapai target (${actual} / ${target})`);
                                 setStatus('ng');
                                 return;
                             }
@@ -879,14 +880,15 @@
                                 .done(data => {
                                     if (data.status === 'success') {
 
-                                        api(`/production/part-scan/assign-kanban`, 'POST', {
-                                                _token: CSRF,
-                                                line,
-                                                model: LS.get('model'),
-                                                internal: k.internal,
-                                                seri: k.seri,
-                                                limit: target
-                                            })
+                                        api(`/production/part-scan/assign-kanban`,
+                                                'POST', {
+                                                    _token: CSRF,
+                                                    line,
+                                                    model: LS.get('model'),
+                                                    internal: k.internal,
+                                                    seri: k.seri,
+                                                    limit: target
+                                                })
                                             .done(res => {
                                                 if (res.status !== 'ok') {
                                                     wrongKanbanSound();
@@ -909,12 +911,14 @@
                                             })
                                             .fail(xhr => {
                                                 if (xhr.status === 0) {
-                                                    notif('error', 'Connection Error');
+                                                    notif('error',
+                                                        'Connection Error');
                                                     errConnection();
                                                     return;
                                                 }
                                                 wrongKanbanSound();
-                                                notif('error', xhr.responseJSON?.message ||
+                                                notif('error', xhr.responseJSON
+                                                    ?.message ||
                                                     'Assign kanban gagal');
                                             });
 
@@ -922,11 +926,13 @@
                                         alreadyScanSound();
                                         notif('error', data.message);
                                         LS.set('kanban_exist_error', 'true');
-                                        sendErrorLog('Seri Kanban sudah discan!', LS.get(
-                                            'dandori_board'), k.internal);
+                                        sendErrorLog('Seri Kanban sudah discan!', LS
+                                            .get(
+                                                'dandori_board'), k.internal);
                                     } else {
                                         wrongKanbanSound();
-                                        notif('error', data.message || 'Gagal simpan KANBAN');
+                                        notif('error', data.message ||
+                                            'Gagal simpan KANBAN');
                                         LS.set('error', 'true');
                                     }
                                 })
