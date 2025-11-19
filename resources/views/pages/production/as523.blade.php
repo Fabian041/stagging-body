@@ -781,7 +781,7 @@
 
                         const expectedPrefix = RULES[last4];
 
-                        notif('success', prefixBackNo);
+                        notif('success', expectedPrefix);
                         return;
                         const isValid = expectedPrefix && expectedPrefix === prefixBackNo;
 
