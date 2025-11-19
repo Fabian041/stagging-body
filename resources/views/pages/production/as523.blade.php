@@ -844,7 +844,7 @@
 
                     // 4) KANBAN
                     const k = parseKanban(barcodecomplete);
-                    notif('error', k);
+                    notif('error', barcodecomplete);
                     return;
                     if (!k) {
                         wrongKanbanSound();
