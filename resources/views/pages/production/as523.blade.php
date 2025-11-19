@@ -743,10 +743,9 @@
                     }
 
                     notif('success', barcodecomplete.length);
-                    return;
 
                     // 3) PART 26 CHAR (alfanumerik)
-                    if (barcodecomplete.length === 26) {
+                    if (barcodecomplete.length === 27) {
                         const model = LS.get('model');
                         const dandori = LS.get('dandori_board');
                         const backNo = (LS.get('back_number') || '').toUpperCase();
