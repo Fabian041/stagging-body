@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
 use DateTime;
 use Carbon\Carbon;
-
 use Monolog\Logger;
+
 use App\Models\Line;
 use App\Models\Part;
 use App\Models\Kanban;
+use App\Models\Customer;
 use App\Models\Mutation;
 use App\Models\Injection;
 use PhpMqtt\ClientBuilder;
@@ -785,7 +785,7 @@ class ProductionController extends Controller
         $r->validate([
             'line'    => ['required', 'string', 'max:32'],
             'model'   => ['required', 'string', 'max:128'],
-            'barcode' => ['required', 'string', 'size:26'], // alfanumerik
+            'barcode' => ['required', 'string', 'size:27'], // alfanumerik
             'dandori' => ['nullable', 'string', 'max:128'],
         ]);
 
