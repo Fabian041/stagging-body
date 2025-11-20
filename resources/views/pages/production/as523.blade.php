@@ -585,7 +585,7 @@
                     len: 219,
                     internal: [42, 19],
                     back: [100, 5],
-                    seri: [123, 4],
+                    seri: [124, 5],
                     pcs: [196, 1]
                 },
             ];
@@ -868,9 +868,6 @@
                                 setStatus('ng');
                                 return;
                             }
-
-                            notif('success', k.seri);
-                            return;
 
                             api(`{{ url('production/store/') }}`, 'GET', {
                                     _token: CSRF,
