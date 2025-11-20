@@ -851,12 +851,8 @@
                         return;
                     }
 
-                    notif('success', LS.get('dandori_board').trim());
-                    return;
-
                     if (LS.get('model') && LS.get('dandori_board')) {
-                        if (LS.get('model') === k.internal && LS.get('dandori_board').trim === k
-                            .internal) {
+                        if (LS.get('model') === k.internal) {
                             const line = LS.get('line');
                             const target = getTarget();
                             const actual = parseInt(LS.get('actual_scan') || '0', 10);
