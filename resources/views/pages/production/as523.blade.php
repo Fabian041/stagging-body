@@ -851,7 +851,7 @@
                         return;
                     }
 
-                    notif('success', LS.get('dandori_board').trim);
+                    notif('success', LS.get('dandori_board').trim());
                     return;
 
                     if (LS.get('model') && LS.get('dandori_board')) {
