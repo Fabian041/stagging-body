@@ -851,6 +851,9 @@
                         return;
                     }
 
+                    notif('success', k.internal);
+                    return;
+
                     if (LS.get('model') && LS.get('dandori_board')) {
                         if (LS.get('model') === k.internal && LS.get('dandori_board') === k
                             .internal) {
