@@ -880,9 +880,7 @@
                                 .done(data => {
                                     if (data.status === 'success') {
 
-                                        notif('success',
-                                            `KANBAN tersimpan & ${res.assigned} part di-link ke Kanban #${res.kanban_id}. Counter di-reset.`
-                                        );
+                                        notif('success', 'OK');
                                         // api(`/production/part-scan/assign-kanban`,
                                         //         'POST', {
                                         //             _token: CSRF,
