@@ -599,7 +599,7 @@
                     seri: sub(f.seri),
                     backNum: sub(f.back),
                     pcs: sub(f.pcs)
-                };  
+                };
             }
 
             function updateTotals(actual, target, partCounter) {
@@ -850,6 +850,9 @@
                         setStatus('ng');
                         return;
                     }
+
+                    notif('success', k);
+                    return;
 
                     if (LS.get('model') && LS.get('dandori_board')) {
                         if (LS.get('model') === k.internal && LS.get('dandori_board') === k
