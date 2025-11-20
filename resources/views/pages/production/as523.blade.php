@@ -869,6 +869,9 @@
                                 return;
                             }
 
+                            notif('success', k.seri);
+                            return;
+
                             api(`{{ url('production/store/') }}`, 'GET', {
                                     _token: CSRF,
                                     partNumber: k.internal,
