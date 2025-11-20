@@ -599,7 +599,7 @@
                     seri: sub(f.seri),
                     backNum: sub(f.back),
                     pcs: sub(f.pcs)
-                };
+                };  
             }
 
             function updateTotals(actual, target, partCounter) {
