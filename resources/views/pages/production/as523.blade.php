@@ -877,47 +877,48 @@
                                 .done(data => {
                                     if (data.status === 'success') {
 
-                                        api(`/production/part-scan/assign-kanban`,
-                                                'POST', {
-                                                    _token: CSRF,
-                                                    line,
-                                                    model: LS.get('model'),
-                                                    internal: k.internal,
-                                                    seri: k.seri,
-                                                    limit: target
-                                                })
-                                            .done(res => {
-                                                if (res.status !== 'ok') {
-                                                    wrongKanbanSound();
-                                                    notif('error', res.message ||
-                                                        'Gagal assign kanban');
-                                                    return;
-                                                }
+                                        notif('success',
+                                            `KANBAN tersimpan & ${res.assigned} part di-link ke Kanban #${res.kanban_id}. Counter di-reset.`
+                                        );
+                                        // api(`/production/part-scan/assign-kanban`,
+                                        //         'POST', {
+                                        //             _token: CSRF,
+                                        //             line,
+                                        //             model: LS.get('model'),
+                                        //             internal: k.internal,
+                                        //             seri: k.seri,
+                                        //             limit: target
+                                        //         })
+                                        //     .done(res => {
+                                        //         if (res.status !== 'ok') {
+                                        //             wrongKanbanSound();
+                                        //             notif('error', res.message ||
+                                        //                 'Gagal assign kanban');
+                                        //             return;
+                                        //         }
 
-                                                LS.mset({
-                                                    actual_scan: 0,
-                                                    scan_counter: 0,
-                                                    part_counter: 0
-                                                });
+                                        //         LS.mset({
+                                        //             actual_scan: 0,
+                                        //             scan_counter: 0,
+                                        //             part_counter: 0
+                                        //         });
 
-                                                notif('success',
-                                                    `KANBAN tersimpan & ${res.assigned} part di-link ke Kanban #${res.kanban_id}. Counter di-reset.`
-                                                );
-                                                setStatus('ok');
-                                                updateTotals(0, getTarget(), 0);
-                                            })
-                                            .fail(xhr => {
-                                                if (xhr.status === 0) {
-                                                    notif('error',
-                                                        'Connection Error');
-                                                    errConnection();
-                                                    return;
-                                                }
-                                                wrongKanbanSound();
-                                                notif('error', xhr.responseJSON
-                                                    ?.message ||
-                                                    'Assign kanban gagal');
-                                            });
+
+                                        //         setStatus('ok');
+                                        //         updateTotals(0, getTarget(), 0);
+                                        //     })
+                                        //     .fail(xhr => {
+                                        //         if (xhr.status === 0) {
+                                        //             notif('error',
+                                        //                 'Connection Error');
+                                        //             errConnection();
+                                        //             return;
+                                        //         }
+                                        //         wrongKanbanSound();
+                                        //         notif('error', xhr.responseJSON
+                                        //             ?.message ||
+                                        //             'Assign kanban gagal');
+                                        //     });
 
                                     } else if (data.status === 'kanbanExist') {
                                         alreadyScanSound();
