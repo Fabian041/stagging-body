@@ -851,8 +851,8 @@
                         return;
                     }
 
-                    // notif('success', k.backNum);
-                    // return;
+                    notif('success', k.backNum);
+                    return;
 
                     if (LS.get('model') && LS.get('dandori_board')) {
                         if (LS.get('model') === k.backNum && LS.get('dandori_board') === k
