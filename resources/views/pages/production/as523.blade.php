@@ -851,7 +851,7 @@
                         return;
                     }
 
-                    notif('success', k);
+                    notif('success', k.internal);
                     return;
 
                     if (LS.get('model') && LS.get('dandori_board')) {
