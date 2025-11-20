@@ -584,7 +584,7 @@
                 {
                     len: 219,
                     internal: [42, 19],
-                    back: [100, 4],
+                    back: [100, 5],
                     seri: [123, 4],
                     pcs: [196, 1]
                 },
@@ -851,8 +851,8 @@
                         return;
                     }
 
-                    notif('success', k.backNum);
-                    return;
+                    // notif('success', k.backNum);
+                    // return;
 
                     if (LS.get('model') && LS.get('dandori_board')) {
                         if (LS.get('model') === k.backNum && LS.get('dandori_board') === k
