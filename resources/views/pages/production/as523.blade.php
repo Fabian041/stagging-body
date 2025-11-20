@@ -851,11 +851,11 @@
                         return;
                     }
 
-                    notif('success', LS.get('model'));
+                    notif('success', LS.get('model') == k.internal);
                     return;
 
                     if (LS.get('model') && LS.get('dandori_board')) {
-                        if (LS.get('model') === k.backNum && LS.get('dandori_board') === k
+                        if (LS.get('model') === k.internal && LS.get('dandori_board') === k
                             .internal) {
                             const line = LS.get('line');
                             const target = getTarget();
