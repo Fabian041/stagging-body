@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Providers\RouteServiceProvider;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\NidecController;
+use App\Http\Controllers\StockController;
 use App\Http\Controllers\PullingController;
 use App\Http\Controllers\ErrorLogController;
 use App\Http\Controllers\ManifestController;
@@ -69,6 +70,10 @@ Route::post('/refresh-token', function () {
 
 // authenticated user
 Route::middleware(['auth'])->group(function () {
+
+    Route::get('/stock-dashboard', [StockController::class, 'index'])->name('stocks.dashboard');
+    Route::get('/api/stocks/mock', [StockController::class, 'mockData']);
+    Route::get('/api/stocks/mock/{line}', [StockController::class, 'mockLineData']);
 
     Route::prefix('nidec')->group(function () {
         Route::get('/', [NidecController::class, 'index'])->name('nidec.index');
