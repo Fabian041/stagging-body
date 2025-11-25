@@ -144,6 +144,10 @@
         <source src={{ asset('assets/sounds/wrongKanban.mp3') }} type="audio/mpeg">
         <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
+
+    <form id="logout-form" action="{{ route('logout.auth') }}" method="POST" style="display: none;">
+        @csrf
+    </form>
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
@@ -511,7 +515,7 @@
             let seri;
             let pcs;
             let proceedWithAjax = true; // Flag to control AJAX execution
-            if (code == 13) // Enter key hit 
+            if (code == 13) // Enter key hit
             {
                 barcodecomplete = barcode;
                 barcode = "";
@@ -527,7 +531,10 @@
                 }
 
                 if (barcodecomplete == "logout") {
-                    window.location.replace("{{ url('/logout') }}");
+                    let form = document.getElementById('logout-form');
+                    if (form) {
+                        form.submit();
+                    }
                     return;
                 }
 

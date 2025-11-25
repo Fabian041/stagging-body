@@ -17,10 +17,9 @@
                         <div class="card-body">
                             <form method="POST" action="{{ route('login.auth') }}" class="needs-validation">
                                 @csrf
-                                @method('POST')
                                 <div class="form-group">
                                     <label for="npk">NPK</label>
-                                    <input id="npk" type="string"
+                                    <input id="npk" type="text"
                                         class="form-control @error('npk') is-invalid @enderror" name="npk"
                                         tabindex="1" required autofocus autocomplete="off">
                                     @error('npk')
@@ -48,7 +47,9 @@
                                     <div class="custom-control custom-checkbox">
                                         <input type="checkbox" name="remember" class="custom-control-input" tabindex="3"
                                             id="remember-me">
-                                        <label class="custom-control-label" for="remember-me">Remember Me</label>
+                                        <label class="custom-control-label" for="remember-me">
+                                            Remember Me
+                                        </label>
                                     </div>
                                 </div>
 
@@ -61,6 +62,7 @@
                             </form>
                         </div>
                     </div>
+
                     <div class="mt-3 text-muted text-center">
                         Don't have an account? <a href="{{ route('register.index') }}">Create One</a>
                     </div>
@@ -85,25 +87,23 @@
         }
 
         $(document).ready(function() {
-
             $('#npk').focus();
 
             $("#npk").keypress(function(e) {
-                if (e.keyCode == 124) {
+                if (e.keyCode === 124) {
                     e.preventDefault();
                     $("#password").focus();
                 }
             });
-
         });
 
         function notif(type, message) {
-            if (type == 'error') {
+            if (type === 'error') {
                 iziToast.error({
                     title: 'Error!  ' + message,
                     position: 'topCenter'
                 });
-            } else if (type == 'success') {
+            } else if (type === 'success') {
                 iziToast.success({
                     title: 'Success! ' + message,
                     position: 'topCenter'

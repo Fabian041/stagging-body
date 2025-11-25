@@ -32,12 +32,11 @@ use App\Http\Controllers\DirectPullingSSEController;
 
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
-
     Route::get('/', [LoginController::class, 'index'])->name('login.index');
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
+
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
-
 
     Route::get('dashboard/receiving', [DashboardController::class, 'receivingDashboard'])->name('dashboard.receiving');
     Route::get('dashboard/receiving/getData', [DashboardController::class, 'getReceivingData'])->name('dashboard.receiving.getData');
@@ -78,7 +77,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [NidecController::class, 'index'])->name('nidec.index');
     });
 
-    Route::get('/logout', [LoginController::class, 'logout'])->name('logout.auth');
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
 
     // kanban
     Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');
