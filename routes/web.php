@@ -33,8 +33,7 @@ use App\Http\Controllers\DirectPullingSSEController;
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
 
-    // Route::get('/', [LoginController::class, 'index'])->name('login');
-    Route::get('/login', [LoginController::class, 'index'])->name('login.index');
+    Route::get('/', [LoginController::class, 'index'])->name('login.index');
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
     Route::post('/register-store', [RegisterController::class, 'store'])->name('register.store');
