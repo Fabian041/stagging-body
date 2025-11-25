@@ -323,7 +323,9 @@
             });
         }
         // Initialize DataTable for the first tab
-        $('#stocks-{{ $lines[0]->line }}').DataTable();
+        @if (count($lines))
+            $('#stocks-{{ $lines[0]->line }}').DataTable();
+        @endif
 
         // Initialize DataTable on tab show event
         $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
