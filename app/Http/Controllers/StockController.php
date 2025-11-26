@@ -100,7 +100,7 @@ class StockController extends Controller
         ];
 
         $baseData = $baseValues[$line] ?? ['stock' => 2000, 'min' => 1000, 'max' => 3000];
-        $stock = $this->randomizeStock($baseData['stock']);
+        $stock = $this->randomizeStockSmall($baseData['stock']);
         
         return response()->json([
             'name' => $line,
@@ -113,11 +113,14 @@ class StockController extends Controller
         ]);
     }
 
-    private function randomizeStock($baseValue)
+    private function randomizeStockSmall($baseValue)
     {
-        // Randomly adjust stock by ±30 units (smaller range for more realistic changes)
-        $variation = rand(-30, 30);
-        return max(0, $baseValue + $variation); // Ensure stock doesn't go negative
+        // Smaller variation: -3 to +3 for more subtle changes
+        $variation = rand(-3, 3);
+        $newStock = $baseValue + $variation;
+        
+        // Ensure stock stays within reasonable bounds (not going negative or too high)
+        return max(100, min($newStock, $baseValue * 2));
     }
 
     private function randomTrend()

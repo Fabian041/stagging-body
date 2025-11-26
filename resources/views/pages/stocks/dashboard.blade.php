@@ -7,6 +7,7 @@
     <title>Production Stock Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Your existing CSS remains the same */
         :root {
             --primary: #00d4aa;
             --primary-dark: #00b894;
@@ -36,25 +37,22 @@
             color: var(--text);
             min-height: 100vh;
             padding: 16px;
-            line-height: 1.5;
-            /* REMOVED: overflow: hidden */
+            line-height: 1.4;
         }
 
         .dashboard {
             max-width: 100%;
-            min-height: 100vh;
             margin: 0 auto;
             display: flex;
             flex-direction: column;
             gap: 16px;
         }
 
-        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 20px;
+            padding: 16px 24px;
             background: var(--bg-card);
             backdrop-filter: blur(20px);
             border-radius: var(--radius);
@@ -64,39 +62,62 @@
         }
 
         .header-content h1 {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 2px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--primary);
         }
 
         .header-content .subtitle {
             color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 0.95rem;
+            font-weight: 500;
         }
 
         .header-status {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
         }
 
         .status-indicator {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            background: rgba(0, 212, 170, 0.1);
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(0, 212, 170, 0.15);
             border-radius: 16px;
             border: 1px solid rgba(0, 212, 170, 0.3);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            font-weight: 600;
         }
 
         .status-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: var(--primary);
             animation: pulse 2s infinite;
+            /* Add these for the enhanced animation */
+            animation: statusPulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.7);
+        }
+
+        @keyframes statusPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.7);
+            }
+
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 0 4px rgba(0, 212, 170, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 212, 170, 0);
+            }
         }
 
         @keyframes pulse {
@@ -104,29 +125,35 @@
             0%,
             100% {
                 opacity: 1;
+                transform: scale(1);
             }
 
             50% {
-                opacity: 0.5;
+                opacity: 0.7;
+                transform: scale(1.1);
             }
         }
 
-        /* Main Content Grid */
+        .datetime {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
         .main-content {
             display: grid;
             grid-template-columns: 1fr 380px;
             gap: 16px;
-            flex: 1;
-            min-height: 600px;
-            /* Minimum height instead of fixed */
         }
 
-        /* Production Lines */
         .production-lines {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
-            height: 100%;
         }
 
         .line-section {
@@ -134,50 +161,47 @@
             backdrop-filter: blur(20px);
             border-radius: var(--radius);
             border: 1px solid var(--border);
-            padding: 16px;
+            padding: 20px;
             box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
-            min-height: 400px;
-            /* Minimum height for sections */
         }
 
         .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
         }
 
         .section-title {
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 1.1rem;
+            font-weight: 700;
             color: var(--primary);
         }
 
         .line-count {
             background: var(--secondary);
-            padding: 3px 6px;
+            padding: 6px 12px;
             border-radius: 10px;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
             color: var(--text-muted);
         }
 
         .lines-grid {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            overflow-y: auto;
-            flex: 1;
-            padding-right: 4px;
+            gap: 12px;
             max-height: 500px;
-            /* Maximum height with scroll */
+            overflow-y: auto;
+            padding-right: 4px;
+            /* Remove scroll-behavior since we're handling it with JS */
         }
 
-        /* Custom scrollbar */
         .lines-grid::-webkit-scrollbar {
             width: 6px;
         }
@@ -188,50 +212,56 @@
         }
 
         .lines-grid::-webkit-scrollbar-thumb {
-            background: var(--primary);
+            background: rgba(0, 212, 170, 0.3);
             border-radius: 3px;
+            transition: background 0.2s ease;
         }
 
         .lines-grid::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-dark);
+            background: rgba(0, 212, 170, 0.6);
         }
 
         .line-card {
             display: grid;
             grid-template-columns: 1fr auto auto;
+            grid-template-rows: auto auto auto;
             align-items: center;
-            gap: 8px;
-            padding: 12px;
+            gap: 10px;
+            padding: 16px;
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
+            border-radius: 10px;
             border: 1px solid transparent;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             cursor: pointer;
             position: relative;
+            min-height: 130px;
             flex-shrink: 0;
-            /* Prevent cards from shrinking */
         }
 
         .line-card:hover {
             background: rgba(255, 255, 255, 0.08);
             border-color: var(--border);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
         }
 
         .line-card.updating {
-            animation: highlight 1s ease;
+            animation: highlight 1.5s ease;
         }
 
         .line-card.danger {
-            border-left: 3px solid var(--danger);
+            border-left: 4px solid var(--danger);
+            background: rgba(231, 76, 60, 0.05);
         }
 
         .line-card.warning {
-            border-left: 3px solid var(--warning);
+            border-left: 4px solid var(--warning);
+            background: rgba(253, 203, 110, 0.05);
         }
 
         @keyframes highlight {
             0% {
-                background: rgba(0, 212, 170, 0.2);
+                background: rgba(0, 212, 170, 0.15);
             }
 
             100% {
@@ -241,147 +271,167 @@
 
         .line-name {
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            color: var(--text);
         }
 
         .stock-value {
-            font-size: 1.1rem;
+            font-size: 1.4rem;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             transition: all 0.3s ease;
+            color: var(--text);
         }
 
         .trend {
             display: flex;
             align-items: center;
-            gap: 4px;
-            font-size: 0.8rem;
-            padding: 3px 6px;
+            gap: 6px;
+            font-size: 0.9rem;
+            padding: 6px 10px;
             border-radius: 6px;
+            font-weight: 600;
         }
 
         .trend.up {
             color: var(--primary);
-            background: rgba(0, 212, 170, 0.1);
+            background: rgba(0, 212, 170, 0.12);
+            border: 1px solid rgba(0, 212, 170, 0.2);
         }
 
         .trend.down {
             color: var(--danger);
-            background: rgba(231, 76, 60, 0.1);
+            background: rgba(231, 76, 60, 0.12);
+            border: 1px solid rgba(231, 76, 60, 0.2);
         }
 
         .stock-range {
             grid-column: 1 / -1;
-            margin-top: 6px;
+            margin-top: 10px;
         }
 
         .range-bar {
-            height: 4px;
+            height: 6px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
+            border-radius: 3px;
             position: relative;
-            overflow: hidden;
-            margin-bottom: 4px;
+            overflow: visible;
+            margin-bottom: 6px;
         }
 
         .range-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--danger), var(--warning), var(--primary));
-            border-radius: 2px;
+            border-radius: 3px;
             transition: all 0.5s ease;
         }
 
         .range-labels {
             display: flex;
             justify-content: space-between;
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
+            font-weight: 500;
         }
 
         .range-min,
         .range-max {
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .range-current {
             position: absolute;
-            top: -14px;
+            top: -24px;
             transform: translateX(-50%);
-            font-size: 0.65rem;
+            font-size: 0.8rem;
             font-weight: 600;
             color: var(--text);
             background: var(--secondary);
-            padding: 1px 4px;
-            border-radius: 3px;
+            padding: 4px 8px;
+            border-radius: 4px;
             white-space: nowrap;
+            border: 1px solid var(--border);
         }
 
         .line-meta {
             grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
-            font-size: 0.7rem;
+            align-items: center;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-top: 6px;
+            margin-top: 8px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .utilization {
             font-weight: 600;
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .utilization.low {
             color: var(--danger);
+            background: rgba(231, 76, 60, 0.1);
         }
 
         .utilization.medium {
             color: var(--warning);
+            background: rgba(253, 203, 110, 0.1);
         }
 
         .utilization.high {
             color: var(--primary);
+            background: rgba(0, 212, 170, 0.1);
         }
 
-        /* Charts Panel */
+        .updated-time {
+            font-weight: 500;
+            color: var(--text);
+        }
+
         .charts-panel {
             background: var(--bg-card);
             backdrop-filter: blur(20px);
             border-radius: var(--radius);
             border: 1px solid var(--border);
-            padding: 16px;
+            padding: 20px;
             box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
-            min-height: 400px;
         }
 
         .chart-header {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             flex-shrink: 0;
         }
 
         .chart-title {
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 1.1rem;
+            font-weight: 700;
             margin-bottom: 6px;
+            color: var(--primary);
         }
 
         .chart-subtitle {
             color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
         }
 
         .chart-container {
             flex: 1;
-            min-height: 200px;
+            min-height: 250px;
             position: relative;
         }
 
-        /* KPI Cards */
         .kpi-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-top: 16px;
+            margin-top: 20px;
             flex-shrink: 0;
         }
 
@@ -391,74 +441,40 @@
             border-radius: var(--radius);
             padding: 16px;
             border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .kpi-label {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: var(--text-muted);
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            font-weight: 600;
         }
 
         .kpi-value {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             font-weight: 700;
             color: var(--primary);
         }
 
         .kpi-subtext {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1600px) {
-            .main-content {
-                grid-template-columns: 1fr 350px;
-            }
-
-            .production-lines {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        @media (max-width: 1440px) {
-            .main-content {
-                grid-template-columns: 1fr 320px;
-            }
-
-            .line-card {
-                grid-template-columns: 1fr auto;
-            }
-
-            .trend {
-                grid-column: 2;
-                grid-row: 1;
-            }
-        }
-
-        @media (max-width: 1366px) {
-            .main-content {
-                grid-template-columns: 1fr 300px;
-            }
-
-            .production-lines {
-                gap: 12px;
-            }
-
-            .line-section {
-                padding: 12px;
-            }
-
-            .lines-grid {
-                max-height: 450px;
-            }
+            margin-top: 4px;
+            font-weight: 500;
         }
 
         @media (max-width: 1280px) {
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto auto;
+                gap: 20px;
             }
 
             .production-lines {
@@ -467,29 +483,14 @@
 
             .charts-panel {
                 order: 2;
-                min-height: 300px;
-            }
-
-            .lines-grid {
-                max-height: none;
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 12px;
+                min-height: 400px;
             }
         }
 
         @media (max-width: 1024px) {
             .production-lines {
                 grid-template-columns: 1fr;
-                gap: 16px;
-            }
-
-            .lines-grid {
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            }
-
-            .line-card {
-                min-width: 0;
+                gap: 20px;
             }
         }
 
@@ -498,67 +499,24 @@
                 padding: 12px;
             }
 
+            .dashboard {
+                height: auto;
+                min-height: 100vh;
+            }
+
             .header {
                 flex-direction: column;
-                gap: 10px;
+                gap: 12px;
                 text-align: center;
-                padding: 12px;
+                padding: 16px;
             }
 
             .header-content h1 {
-                font-size: 1.2rem;
+                font-size: 1.4rem;
             }
 
             .kpi-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .lines-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .main-content {
-                min-height: auto;
-            }
-        }
-
-        /* High DPI Optimizations */
-        @media (min-width: 1920px) {
-            .dashboard {
-                max-width: 1800px;
-            }
-
-            .main-content {
-                grid-template-columns: 1fr 420px;
-            }
-
-            .line-section {
-                padding: 20px;
-            }
-
-            .lines-grid {
-                gap: 12px;
-                max-height: 600px;
-            }
-
-            .line-card {
-                padding: 16px;
-            }
-        }
-
-        /* Ensure body can scroll if content overflows */
-        @media (max-height: 800px) {
-            .dashboard {
-                min-height: auto;
-                height: auto;
-            }
-
-            .main-content {
-                min-height: auto;
-            }
-
-            .lines-grid {
-                max-height: 300px;
             }
         }
     </style>
@@ -589,7 +547,7 @@
                 <div class="line-section">
                     <div class="section-header">
                         <h2 class="section-title">Die Casting</h2>
-                        <span class="line-count">{{ count($lines['die_casting']) }} lines</span>
+                        <span class="line-count">{{ count($lines['die_casting']) }} Products</span>
                     </div>
                     <div class="lines-grid" id="die-casting-lines">
                         @foreach ($lines['die_casting'] as $line)
@@ -630,7 +588,7 @@
                                     <span class="utilization {{ $line['utilization_class'] }}">
                                         {{ $line['utilization_percent'] }}% utilized
                                     </span>
-                                    <span>Updated: {{ $line['updated']->format('H:i:s') }}</span>
+                                    <span class="updated-time">Updated: {{ $line['updated']->format('H:i:s') }}</span>
                                 </div>
                             </div>
                         @endforeach
@@ -641,7 +599,7 @@
                 <div class="line-section">
                     <div class="section-header">
                         <h2 class="section-title">Machining</h2>
-                        <span class="line-count">{{ count($lines['machining']) }} lines</span>
+                        <span class="line-count">{{ count($lines['machining']) }} Products</span>
                     </div>
                     <div class="lines-grid" id="machining-lines">
                         @foreach ($lines['machining'] as $line)
@@ -682,7 +640,7 @@
                                     <span class="utilization {{ $line['utilization_class'] }}">
                                         {{ $line['utilization_percent'] }}% utilized
                                     </span>
-                                    <span>Updated: {{ $line['updated']->format('H:i:s') }}</span>
+                                    <span class="updated-time">Updated: {{ $line['updated']->format('H:i:s') }}</span>
                                 </div>
                             </div>
                         @endforeach
@@ -693,7 +651,7 @@
                 <div class="line-section">
                     <div class="section-header">
                         <h2 class="section-title">Assembling</h2>
-                        <span class="line-count">{{ count($lines['assembling']) }} lines</span>
+                        <span class="line-count">{{ count($lines['assembling']) }} Products</span>
                     </div>
                     <div class="lines-grid" id="assembling-lines">
                         @foreach ($lines['assembling'] as $line)
@@ -734,7 +692,7 @@
                                     <span class="utilization {{ $line['utilization_class'] }}">
                                         {{ $line['utilization_percent'] }}% utilized
                                     </span>
-                                    <span>Updated: {{ $line['updated']->format('H:i:s') }}</span>
+                                    <span class="updated-time">Updated: {{ $line['updated']->format('H:i:s') }}</span>
                                 </div>
                             </div>
                         @endforeach
@@ -758,6 +716,7 @@
                         <div class="kpi-value" id="total-lines">
                             {{ count($lines['die_casting']) + count($lines['machining']) + count($lines['assembling']) }}
                         </div>
+                        <div class="kpi-subtext">Production Lines Monitoring</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Avg Utilization</div>
@@ -776,7 +735,7 @@
                             @endphp
                             {{ $avgUtilization }}%
                         </div>
-                        <div class="kpi-subtext">Across all production lines</div>
+                        <div class="kpi-subtext">Across All Production Lines</div>
                     </div>
                 </div>
             </div>
@@ -816,14 +775,158 @@
             return 'high';
         }
 
+        // Ultra-smooth continuous scrolling
+        class SmoothAutoScroller {
+            constructor(container) {
+                this.container = container;
+                this.scrollSpeed = 3.5; // Increased from 0.3 to 1.5 for more noticeable scrolling
+                this.isScrolling = true;
+                this.userInteracted = false;
+                this.animationId = null;
+                this.scrollDirection = 1; // 1 for down, -1 for up
+                this.init();
+            }
+
+            init() {
+                // Start continuous scrolling
+                this.startContinuousScroll();
+
+                // User interaction handling
+                this.container.addEventListener('mouseenter', () => {
+                    this.userInteracted = true;
+                    this.stopContinuousScroll();
+                });
+
+                this.container.addEventListener('mouseleave', () => {
+                    this.userInteracted = false;
+                    // Wait a bit before resuming
+                    setTimeout(() => {
+                        if (!this.userInteracted) {
+                            this.startContinuousScroll();
+                        }
+                    }, 2000);
+                });
+
+                this.container.addEventListener('scroll', () => {
+                    if (!this.userInteracted) {
+                        this.userInteracted = true;
+                        this.stopContinuousScroll();
+                    }
+                });
+
+                // Auto-resume after user inactivity
+                let scrollTimeout;
+                this.container.addEventListener('scroll', () => {
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        this.userInteracted = false;
+                        this.startContinuousScroll();
+                    }, 3000); // Reduced from 8000 to 3000 (3 seconds)
+                });
+            }
+
+            startContinuousScroll() {
+                if (this.animationId || this.userInteracted) return;
+
+                console.log('Starting continuous scroll for:', this.container.id);
+
+                let lastTime = null;
+
+                const scroll = (currentTime) => {
+                    if (!this.isScrolling || this.userInteracted) {
+                        console.log('Stopping scroll due to user interaction');
+                        return;
+                    }
+
+                    // Calculate time delta for frame-rate independent scrolling
+                    if (!lastTime) lastTime = currentTime;
+                    const deltaTime = currentTime - lastTime;
+                    lastTime = currentTime;
+
+                    const currentScroll = this.container.scrollTop;
+                    const maxScroll = this.container.scrollHeight - this.container.clientHeight;
+
+                    // Change direction if at boundaries
+                    if (currentScroll >= maxScroll - 5) {
+                        this.scrollDirection = -1; // Scroll up
+                    } else if (currentScroll <= 5) {
+                        this.scrollDirection = 1; // Scroll down
+                    }
+
+                    // Frame-rate independent scrolling (pixels per millisecond)
+                    const scrollAmount = (this.scrollSpeed * deltaTime) / 16.67; // Normalize to 60fps
+
+                    // Calculate new scroll position
+                    let newScroll = currentScroll + (scrollAmount * this.scrollDirection);
+
+                    // Ensure we stay within bounds
+                    newScroll = Math.max(0, Math.min(maxScroll, newScroll));
+
+                    // Apply the scroll
+                    this.container.scrollTop = newScroll;
+
+                    // Continue animation
+                    this.animationId = requestAnimationFrame(scroll);
+                };
+
+                this.isScrolling = true;
+                this.animationId = requestAnimationFrame(scroll);
+            }
+
+            stopContinuousScroll() {
+                this.isScrolling = false;
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+            }
+
+            // Method to temporarily speed up for manual updates
+            speedUpTemporarily() {
+                const originalSpeed = this.scrollSpeed;
+                this.scrollSpeed = 1.0; // Faster speed
+
+                setTimeout(() => {
+                    this.scrollSpeed = originalSpeed;
+                }, 1000);
+            }
+        }
+
         // Initialize chart
         const ctx = document.getElementById('stockChart').getContext('2d');
 
-        // Prepare initial data
+        // Prepare initial data - include ALL lines
         const allLines = [
-            ...@json($lines['die_casting']),
-            ...@json($lines['machining']),
-            ...@json($lines['assembling'])
+            @foreach ($lines['die_casting'] as $line)
+                {
+                    name: '{{ $line['name'] }}',
+                    stock: {{ $line['stock'] }},
+                    min_stock: {{ $line['min_stock'] }},
+                    max_stock: {{ $line['max_stock'] }},
+                    trend: '{{ $line['trend'] }}',
+                    utilization_percent: {{ $line['utilization_percent'] }}
+                },
+            @endforeach
+            @foreach ($lines['machining'] as $line)
+                {
+                    name: '{{ $line['name'] }}',
+                    stock: {{ $line['stock'] }},
+                    min_stock: {{ $line['min_stock'] }},
+                    max_stock: {{ $line['max_stock'] }},
+                    trend: '{{ $line['trend'] }}',
+                    utilization_percent: {{ $line['utilization_percent'] }}
+                },
+            @endforeach
+            @foreach ($lines['assembling'] as $line)
+                {
+                    name: '{{ $line['name'] }}',
+                    stock: {{ $line['stock'] }},
+                    min_stock: {{ $line['min_stock'] }},
+                    max_stock: {{ $line['max_stock'] }},
+                    trend: '{{ $line['trend'] }}',
+                    utilization_percent: {{ $line['utilization_percent'] }}
+                },
+            @endforeach
         ];
 
         const stockChart = new Chart(ctx, {
@@ -878,8 +981,7 @@
                             color: 'rgba(255, 255, 255, 0.1)'
                         },
                         ticks: {
-                            color: 'rgba(255, 255, 255, 0.7)',
-                            maxTicksLimit: 6
+                            color: 'rgba(255, 255, 255, 0.7)'
                         }
                     },
                     x: {
@@ -888,10 +990,7 @@
                         },
                         ticks: {
                             color: 'rgba(255, 255, 255, 0.7)',
-                            maxRotation: 45,
-                            font: {
-                                size: 10
-                            }
+                            maxRotation: 45
                         }
                     }
                 }
@@ -908,21 +1007,26 @@
             }
 
             startUpdates() {
-                // Update a random line every 2-5 seconds for more realistic individual updates
+                console.log('Starting real-time updates...');
+
+                // Update a random line every 3-8 seconds for more realistic updates
                 setInterval(() => {
                     this.addToUpdateQueue();
-                }, Math.random() * 3000 + 2000);
+                }, Math.random() * 5000 + 3000); // 3-8 seconds
 
-                // Process update queue
+                // Process update queue more frequently
                 setInterval(() => {
                     this.processQueue();
                 }, 1000);
             }
 
             addToUpdateQueue() {
+                if (this.updateQueue.length >= 3) return; // Limit queue size
+
                 const randomLine = this.lines[Math.floor(Math.random() * this.lines.length)];
                 if (!this.updateQueue.includes(randomLine)) {
                     this.updateQueue.push(randomLine);
+                    console.log(`Added ${randomLine} to update queue`);
                 }
             }
 
@@ -936,30 +1040,48 @@
                     await this.updateLine(lineToUpdate);
                 } catch (error) {
                     console.error('Error updating line:', error);
+                    // Don't add back to queue on error to avoid infinite loops
                 }
 
                 this.isUpdating = false;
             }
 
             async updateLine(lineName) {
-                const response = await fetch(`/api/stocks/mock/${lineName}`);
-                const data = await response.json();
+                console.log(`Updating line: ${lineName}`);
 
-                this.updateLineCard(data);
-                this.updateChart(data);
-                this.updateKPIs();
+                try {
+                    const response = await fetch(`/api/stocks/mock/${lineName}`);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('Received data:', data);
+
+                    this.updateLineCard(data);
+                    this.updateChart(data);
+                    this.updateKPIs();
+
+                } catch (error) {
+                    console.error('Failed to update line:', error);
+                    throw error;
+                }
             }
 
             updateLineCard(data) {
                 const card = document.querySelector(`[data-line="${data.name}"]`);
-                if (!card) return;
+                if (!card) {
+                    console.warn(`Card for line ${data.name} not found`);
+                    return;
+                }
 
                 // Add updating animation
                 card.classList.add('updating');
 
                 const stockValue = card.querySelector('.stock-value');
                 const trend = card.querySelector('.trend');
-                const updatedTime = card.querySelector('.line-meta span:last-child');
+                const updatedTime = card.querySelector('.updated-time');
                 const rangeFill = card.querySelector('.range-fill');
                 const rangeCurrent = card.querySelector('.range-current');
                 const utilization = card.querySelector('.utilization');
@@ -968,22 +1090,20 @@
                 const utilizationPercent = ((data.stock - data.min_stock) / (data.max_stock - data.min_stock)) * 100;
                 const fillWidth = Math.min(Math.max(utilizationPercent, 0), 100);
 
-                // Animate stock value
-                this.animateValue(
-                    stockValue,
-                    parseInt(stockValue.textContent.replace(/,/g, '')),
-                    data.stock,
-                    500
-                );
+                // Update stock value with animation
+                const currentStock = parseInt(stockValue.textContent.replace(/,/g, ''));
+                this.animateValue(stockValue, currentStock, data.stock, 500);
 
                 // Update trend
                 trend.className = `trend ${data.trend}`;
                 trend.innerHTML = data.trend === 'up' ? '↗' : '↘';
 
                 // Update range visualization
-                rangeFill.style.width = `${fillWidth}%`;
-                rangeCurrent.style.left = `${fillWidth}%`;
-                rangeCurrent.textContent = data.stock.toLocaleString();
+                setTimeout(() => {
+                    rangeFill.style.width = `${fillWidth}%`;
+                    rangeCurrent.style.left = `${fillWidth}%`;
+                    rangeCurrent.textContent = data.stock.toLocaleString();
+                }, 250);
 
                 // Update utilization
                 utilization.textContent = `${Math.round(utilizationPercent)}% utilized`;
@@ -992,11 +1112,11 @@
 
                 // Update card status
                 card.className = `line-card ${getStockStatusClass(data.stock, data.min_stock, data.max_stock)}`;
-                card.classList.add('updating');
 
                 // Update time
                 const now = new Date();
-                updatedTime.textContent = `Updated: ${now.toLocaleTimeString('en-US')}`;
+                updatedTime.textContent =
+                    `Updated: ${now.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', second: '2-digit'})}`;
 
                 // Remove animation after delay
                 setTimeout(() => {
@@ -1017,11 +1137,19 @@
             }
 
             updateKPIs() {
-                // Calculate average utilization
+                // Calculate average utilization from all utilization elements
                 const utilizations = Array.from(document.querySelectorAll('.utilization'))
-                    .map(el => parseInt(el.textContent));
-                const avgUtilization = Math.round(utilizations.reduce((a, b) => a + b, 0) / utilizations.length);
-                document.getElementById('avg-utilization').textContent = `${avgUtilization}%`;
+                    .map(el => {
+                        const text = el.textContent;
+                        const match = text.match(/(\d+)%/);
+                        return match ? parseInt(match[1]) : 0;
+                    })
+                    .filter(val => !isNaN(val));
+
+                if (utilizations.length > 0) {
+                    const avgUtilization = Math.round(utilizations.reduce((a, b) => a + b, 0) / utilizations.length);
+                    document.getElementById('avg-utilization').textContent = `${avgUtilization}%`;
+                }
             }
 
             animateValue(element, start, end, duration) {
@@ -1039,16 +1167,37 @@
             }
         }
 
-        // Initialize the updater
-        const stockUpdater = new StockUpdater();
+        // Initialize everything when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a bit for everything to render properly
+            setTimeout(() => {
+                // Initialize ultra-smooth auto-scrollers for each section
+                const dieCastingScroller = new SmoothAutoScroller(document.getElementById(
+                    'die-casting-lines'));
+                const machiningScroller = new SmoothAutoScroller(document.getElementById(
+                    'machining-lines'));
+                const assemblingScroller = new SmoothAutoScroller(document.getElementById(
+                    'assembling-lines'));
 
-        // Add click handlers for line cards
-        document.querySelectorAll('.line-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const lineName = this.getAttribute('data-line');
-                // Force an update for the clicked line
-                stockUpdater.updateQueue.unshift(lineName);
+                console.log('Auto-scrollers initialized');
+            }, 100); // 1 second delay to ensure DOM is fully ready
+
+            // Initialize stock updater
+            const stockUpdater = new StockUpdater();
+
+            // Add click handlers for line cards
+            document.querySelectorAll('.line-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const lineName = this.getAttribute('data-line');
+                    console.log(`Manual update requested for: ${lineName}`);
+                    // Force an update for the clicked line
+                    if (!stockUpdater.updateQueue.includes(lineName)) {
+                        stockUpdater.updateQueue.unshift(lineName);
+                    }
+                });
             });
+
+            console.log('Dashboard initialized with ultra-smooth continuous scrolling');
         });
     </script>
 </body>
