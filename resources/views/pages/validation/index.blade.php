@@ -179,10 +179,13 @@
     }
 
     function showModalConfirmation() {
+        $('#input-confirmation').text('');
         $('#modalConfirmation').on('shown.bs.modal', function() {
             $('#input-confirmation').focus();
         })
-        $('#modalConfirmation').modal('show');
+        setTimeout(() => {
+            $('#modalConfirmation').modal('show');
+        }, 1500);
 
         $(document).on('click', function() {
             $('#input-confirmation').focus();
@@ -193,7 +196,7 @@
         if (localStorage.getItem('error') === 'true') {
             wrongKanbanSound(); // Putar suara
             showModalConfirmation();
-            setTimeout(loopNotMatchSound, 2000); // Loop setiap 2 detik
+            setTimeout(loopNotMatchSound, 1000); // Loop setiap 2 detik
         }
     }
 
@@ -201,7 +204,7 @@
         if (localStorage.getItem('dandori_error') === 'true') {
             dandoriSound(); // Putar suara
             showModalConfirmation();
-            setTimeout(loopDandoriSound, 2000); // Loop setiap 2 detik
+            setTimeout(loopDandoriSound, 1000); // Loop setiap 2 detik
         }
     }
 
@@ -209,7 +212,7 @@
         if (localStorage.getItem('master_dandori_error') === 'true') {
             masterDandoriSound(); // Putar suara
             showModalConfirmation();
-            setTimeout(loopMasterDandoriSound, 2000); // Loop setiap 2 detik
+            setTimeout(loopMasterDandoriSound, 1000); // Loop setiap 2 detik
         }
     }
 
@@ -219,6 +222,7 @@
         let totalScan = localStorage.getItem('scan_counter');
         let totalPart = localStorage.getItem('part_counter');
         let photo = localStorage.getItem('photo');
+
         updateScanProgress();
         if (model || photo) {
             // display model  running
@@ -269,11 +273,22 @@
         setTimeout(() => {
             modal.modal('hide');
             $('#code').focus();
-        }, 2000);
+        }, 1000);
     }
 
 
     $(document).ready(function() {
+
+        if ($('#modalConfirmation').hasClass('show')) {
+            $('#input-confirmation').text('');
+            $('#input-confirmation').focus();
+        }
+        
+        if (localStorage.getItem('error') == 'true') {
+            showModalConfirmation();
+
+        }
+
         $(document).on('click', function() {
             $('#code').focus();
         })
@@ -348,6 +363,8 @@
                     okSound();
                 } else {
                     notif('error', 'Tidak ditemukan pasangan painting');
+                    localStorage.setItem('error', 'true');
+                    loopNotMatchSound(); // mulai looping bunyi + modal konfirmasi
                     wrongKanbanSound();
                 }
             } catch (error) {
@@ -398,8 +415,10 @@
             updateScanProgress();
         } else {
             notif('error', 'Part tidak sesuai pasangan');
+            localStorage.setItem('error', 'true');
             notMatchSound();
-            // showModalConfirmation();
+            showModalConfirmation();
+            
             return;
         }
 
@@ -413,31 +432,49 @@
         }
     }
 
-    $('#input-confirmation').on('input',function(e) {
-        var barcodecomplete = $(this).val();
-        if (barcodecomplete.length === 6) {
-            if (barcodecomplete == '000448' || barcodecomplete == '002484' || barcodecomplete ==
-                '000040' || barcodecomplete == '000504') {
-                localStorage.removeItem('error');
-                localStorage.removeItem('dandori_error');
-                localStorage.removeItem('kanban_exist_error');
-                localStorage.removeItem('master_dandori_error');
-                $('#modalConfirmation').modal('hide');
-                notif('success', 'Selamat melanjutkan!');
+    // Pakai event input (lebih cocok untuk barcode scanner)
+    $(document).on('input', '#input-confirmation', function () {
+        var barcodecomplete = $(this).val().trim();
 
-                setInterval(() => {
-                    $('#code').focus();
-                }, 1000);
-            } else {
-                $('#modalConfirmation').modal('hide');
-                notif('error', `NPK ${barcodecomplete} tidak memiliki hak akses`);
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }
+        // ⚠️ Jangan lakukan apa-apa sebelum 6 digit
+        if (barcodecomplete.length < 6) {
+            return;
+        }
+
+        // Kalau scanner ngirim lebih dari 6 char (misal ada ENTER), ambil 6 digit pertama saja
+        if (barcodecomplete.length > 6) {
+            barcodecomplete = barcodecomplete.substring(0, 6);
+            $(this).val(barcodecomplete); // sync ke input
+            console.log('Trimmed NPK:', barcodecomplete);
+        }
+
+        // ✅ Cek NPK
+        if (
+            barcodecomplete === '000448' ||
+            barcodecomplete === '002484' ||
+            barcodecomplete === '000040' ||
+            barcodecomplete === '000504'
+        ) {
+            // Bersihkan status error
+            localStorage.removeItem('error');
+            localStorage.removeItem('dandori_error');
+            localStorage.removeItem('kanban_exist_error');
+            localStorage.removeItem('master_dandori_error');
+
+            $('#modalConfirmation').modal('hide');
+            notif('success', 'Selamat melanjutkan!!! ulangi proses scan dari awal');
+            resetScanState();
+
+            setTimeout(() => {
+                $('#input-confirmation').val('');
+            }, 100);
+            
+            setTimeout(() => {
+                $('#code').focus();
+            }, 500);
         } else {
             $('#modalConfirmation').modal('hide');
-            notif('error', 'Scan barcode NPK');
+            notif('error', `NPK ${barcodecomplete} tidak memiliki hak akses`);
             setTimeout(() => {
                 window.location.reload();
             }, 1500);
