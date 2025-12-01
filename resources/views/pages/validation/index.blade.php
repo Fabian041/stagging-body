@@ -7,8 +7,16 @@
 
                 <div class="col-lg-12 col-sm-12">
 
+                    
+                    <button class="btn btn-danger mr-5" onclick="resetScanState()">Reset Scan</button>
+                    <form id="logout-form" action="{{ route('logout.auth') }}" method="POST" style="display: none;">
+                        @csrf
+                    </form>
 
-                    <button class="btn btn-danger" onclick="resetScanState()">Reset Scan</button>
+                    <a href="#" class="btn btn-secondary"
+                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                        Logout
+                    </a>
 
                         <input id="code" type="text" class="form-control" name="code" tabindex="1"
                             placeholder="scan part..." required autofocus autocomplete="off" style="opacity: 0; width: 1px; height: 1px;">

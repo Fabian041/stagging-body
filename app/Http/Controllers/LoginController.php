@@ -56,7 +56,6 @@ class LoginController extends Controller
 
                 return redirect()->route('pulling.index');
             } else if (auth()->user()->role == 'mh') {
-
                 return redirect()->route('validation.index');
             } else if (auth()->user()->role == 'direct') {
 
