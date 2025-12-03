@@ -497,10 +497,27 @@
 
 
     function extractPartNumber(barcode) {
-        const regex = /\b\d{7}-\d{5}-[A-Z0-9]{3}\b/;
+        // Tangkap 3 bagian: depan (6/7 digit), tengah (5 digit), belakang (3 char)
+        const regex = /(\d{6,7})-(\d{5})-([A-Z0-9]{3})/;
         const match = barcode.match(regex);
-        console.log("Extracted part number:", match[0].slice(1));
-        return match ? match[0].slice(1) : null;
+
+        if (!match) {
+            console.log("Part number not found in barcode:", barcode);
+            return null;
+        }
+
+        let first = match[1];   // 6 atau 7 digit pertama
+        const middle = match[2]; // 5 digit tengah
+        const last = match[3];   // 3 char terakhir
+
+        // Jika 7 digit dan diawali 0 → buang 0 depan
+        if (first.length === 7 && first.startsWith('0')) {
+            first = first.slice(1);
+        }
+
+        const partNumber = `${first}-${middle}-${last}`;
+        console.log("Extracted part number:", partNumber);
+        return partNumber;
     }
 
     function extractModel(barcode) {
