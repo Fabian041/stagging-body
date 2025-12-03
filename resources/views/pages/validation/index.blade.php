@@ -286,7 +286,7 @@
 
 
     $(document).ready(function() {
-
+        initApp(); 
         if ($('#modalConfirmation').hasClass('show')) {
             $('#input-confirmation').text('');
             $('#input-confirmation').focus();
@@ -321,53 +321,42 @@
         const scannedPart = extractPartNumber(barcode);
         const scannedModel = extractModel(barcode);
 
-        // Cek apakah scan pertama (assy)
-        if (!localStorage.getItem('assy_part_number')) {
+        if (!scannedPart) {
+            notif('error', 'Barcode tidak valid / part number tidak terbaca');
+            notMatchSound();
+            return;
+        }
+
+        const expectedAssy = localStorage.getItem('assy_part_number');
+        const expectedPainting = localStorage.getItem('expected_painting');
+
+        // =============== SCAN PERTAMA: ASSY ===============
+        if (!expectedAssy) {
             const assyPart = scannedPart;
-            const assyModel = scannedModel;
 
             try {
                 const res = await fetch(`/validation/kanban/pairing?part=${assyPart}`);
                 const data = await res.json();
 
                 if (data.success) {
-                    // Hitung rasio berdasarkan KPK
-                    const qtyAssy = parseInt(data.qty_assy);
-                    const qtyPainting = parseInt(data.qty_painting);
+                    const qtyAssy = parseInt(data.qty_assy, 10);       // master: berapa assy
+                    const qtyPainting = parseInt(data.qty_painting, 10); // master: berapa painting
 
-                    function gcd(a, b) {
-                        return b === 0 ? a : gcd(b, a % b);
-                    }
-                    function lcm(a, b) {
-                        return (a * b) / gcd(a, b);
-                    }
-
-                    let ratioAssy = 1;
-                    let ratioPainting = 1;
-
-                    if (qtyAssy > qtyPainting) {
-                        ratioAssy = qtyAssy / qtyPainting;
-                        ratioPainting = 1;
-                    } else {
-                        ratioPainting = qtyPainting / qtyAssy;
-                        ratioAssy = 1;
-                    }
-
-                    // Simpan ke localStorage
+                    // Simpan master & info pairing
                     localStorage.setItem('assy_part_number', assyPart);
                     localStorage.setItem('expected_painting', data.painting);
                     localStorage.setItem('model_painting', data.model_painting);
                     localStorage.setItem('model_assy', data.model_assy);
                     localStorage.setItem('qty_assy', qtyAssy);
                     localStorage.setItem('qty_painting', qtyPainting);
-                    localStorage.setItem('ratio_assy', ratioAssy);
-                    localStorage.setItem('ratio_painting', ratioPainting);
-                    localStorage.setItem('scan_count_assy', 1); // ini scan pertama
-                    localStorage.setItem('scan_count_painting', 0);
+
+                    // Batch dimulai: 1 assy pertama sudah discan
+                    localStorage.setItem('scan_count_assy', '1');
+                    localStorage.setItem('scan_count_painting', '0');
 
                     $('#total-scan').text(0);
                     updateScanProgress();
-                    notif('success', 'Scan assy pertama berhasil');
+                    notif('success', 'Scan assy pertama berhasil (batch mode)');
                     okSound();
                 } else {
                     notif('error', 'Tidak ditemukan pasangan painting');
@@ -383,62 +372,79 @@
             return; // keluar dari fungsi karena scan pertama
         }
 
-        // Scan berikutnya
-        const expectedPainting = localStorage.getItem('expected_painting');
-        const expectedAssy = localStorage.getItem('assy_part_number');
+        // =============== SCAN BERIKUTNYA (BATCH MODE) ===============
+        let countAssy = parseInt(localStorage.getItem('scan_count_assy') || '0', 10);
+        let countPainting = parseInt(localStorage.getItem('scan_count_painting') || '0', 10);
 
-        let countAssy = parseInt(localStorage.getItem('scan_count_assy') || 0);
-        let countPainting = parseInt(localStorage.getItem('scan_count_painting') || 0);
-        const ratioAssy = parseInt(localStorage.getItem('ratio_assy'));
-        const ratioPainting = parseInt(localStorage.getItem('ratio_painting'));
+        const qtyAssyMaster = parseInt(localStorage.getItem('qty_assy') || '1', 10);
+        const qtyPaintingMaster = parseInt(localStorage.getItem('qty_painting') || '0', 10);
 
-        // Logika scan assy/painting
+        // Hitung target painting berdasarkan batch assy saat ini:
+        // contoh:
+        // - master: 1 assy = 2 painting  → target = countAssy * 2 / 1
+        // - master: 2 assy = 1 painting  → target = countAssy * 1 / 2
+        let targetPainting = Math.floor(countAssy * qtyPaintingMaster / qtyAssyMaster);
+
+        // ===== SCAN ASSY (TAMBAH BATCH) =====
         if (scannedPart === expectedAssy) {
-            if (countAssy >= ratioAssy) {
-                notif('error', 'Jumlah assy sudah cukup');
-                fullfilled();
+            countAssy++;
+            localStorage.setItem('scan_count_assy', String(countAssy));
+
+            // update target painting
+            targetPainting = Math.floor(countAssy * qtyPaintingMaster / qtyAssyMaster);
+
+            updateScanProgress();
+            notif('success', `Assy ke-${countAssy} berhasil discan (batch)`);
+            okSound();
+            return;
+        }
+
+        // ===== SCAN PAINTING =====
+        if (scannedPart === expectedPainting) {
+            if (countAssy === 0) {
+                notif('error', 'Scan kanban assy dulu sebelum painting');
+                notMatchSound();
                 return;
             }
 
-            countAssy++;
-            localStorage.setItem('scan_count_assy', countAssy);
-            updateScanProgress();
-            notif('success', `Assy ke-${countAssy} berhasil`);
-        } else if (scannedPart === expectedPainting) {
-            if (countAssy < ratioAssy) {
-                notif('error', 'Scan assy dulu sampai cukup');
+            // hitung ulang target (kalau assy batch sebelumnya sudah nambah)
+            targetPainting = Math.floor(countAssy * qtyPaintingMaster / qtyAssyMaster);
+
+            if (targetPainting === 0) {
+                notif('error', 'Batch belum terbentuk, scan assy lagi');
+                notMatchSound();
                 return;
             }
-            if (countPainting >= ratioPainting) {
-                notif('error', 'Jumlah painting sudah cukup');
+
+            if (countPainting >= targetPainting) {
+                notif('error', 'Jumlah kanban painting sudah cukup untuk batch ini');
                 fullfilled();
                 return;
             }
 
             countPainting++;
-            localStorage.setItem('scan_count_painting', countPainting);
+            localStorage.setItem('scan_count_painting', String(countPainting));
             $('#total-scan').text(countPainting);
             notif('success', `Painting ke-${countPainting} berhasil`);
             okSound();
             updateScanProgress();
-        } else {
-            notif('error', 'Part tidak sesuai pasangan');
-            localStorage.setItem('error', 'true');
-            notMatchSound();
-            showModalConfirmation();
-            
+
+            // ✅ Kalau batch sudah lengkap → pairing selesai, reset untuk batch berikutnya
+            if (countPainting === targetPainting) {
+                notif('success', '✅ Pairing batch selesai!');
+                resetScanState();
+            }
+
             return;
         }
 
-        // ✅ Cek pairing selesai
-        if (countAssy === ratioAssy && countPainting === ratioPainting) {
-            notif('success', '✅ Pairing selesai!');
-            localStorage.clear();
-            $('#model_assy').text('-');
-            $('#model_painting').text('-');
-            resetScanState();
-        }
+        // ===== PART TIDAK SESUAI =====
+        notif('error', 'Part tidak sesuai pasangan');
+        localStorage.setItem('error', 'true');
+        notMatchSound();
+        showModalConfirmation();
     }
+
 
     // Pakai event input (lebih cocok untuk barcode scanner)
     $(document).on('input', '#input-confirmation', function () {
@@ -471,7 +477,7 @@
 
             $('#modalConfirmation').modal('hide');
             notif('success', 'Selamat melanjutkan!!! ulangi proses scan dari awal');
-            resetScanState();
+            // resetScanState();
 
             setTimeout(() => {
                 $('#input-confirmation').val('');
@@ -533,27 +539,49 @@
     }
 
     function updateScanProgress() {
-        const countAssy = parseInt(localStorage.getItem('scan_count_assy') || 0);
-        const countPainting = parseInt(localStorage.getItem('scan_count_painting') || 0);
-        const ratioAssy = parseInt(localStorage.getItem('ratio_assy') || 0);
-        const ratioPainting = parseInt(localStorage.getItem('ratio_painting') || 0);
+        const countAssy = parseInt(localStorage.getItem('scan_count_assy') || '0', 10);
+        const countPainting = parseInt(localStorage.getItem('scan_count_painting') || '0', 10);
+        const qtyAssyMaster = parseInt(localStorage.getItem('qty_assy') || '1', 10);
+        const qtyPaintingMaster = parseInt(localStorage.getItem('qty_painting') || '0', 10);
         const modelAssy = localStorage.getItem('model_assy') || '-';
         const modelPainting = localStorage.getItem('model_painting') || '-';
 
-        const progressTextAssy = `${modelAssy} (${countAssy}/${ratioAssy})`;
-        const progressTextPainting = `${modelPainting} (${countPainting}/${ratioPainting})`;
+        const targetPainting = Math.floor(countAssy * qtyPaintingMaster / qtyAssyMaster);
+
+        // Teks kartu Assy → tunjukkan jumlah assy yang sudah discan
+        const progressTextAssy = `${modelAssy} (${countAssy})`;
+
+        // Teks kartu Painting → tunjukkan progress batch
+        let progressTextPainting = modelPainting;
+        if (targetPainting > 0) {
+            progressTextPainting += ` (${countPainting}/${targetPainting})`;
+        } else {
+            progressTextPainting += ` (waiting assy...)`;
+        }
+
         $('#model_assy').text(progressTextAssy);
         $('#model_painting').text(progressTextPainting);
 
-        if (countAssy >= ratioAssy) {
-            $('.model-card-header').removeClass('card-secondary').addClass('card-success');
-            $('.model-card').removeClass('bg-secondary').addClass('bg-success');
+        // Warna indikasi kartu
+        if (countAssy > 0) {
+            $('.model-card-header').removeClass('card-secondary').addClass('card-info');
+            $('.model-card').removeClass('bg-secondary').addClass('bg-info');
+        } else {
+            $('.model-card-header').removeClass('card-info card-success').addClass('card-secondary');
+            $('.model-card').removeClass('bg-info bg-success').addClass('bg-secondary');
         }
 
-        if (countPainting >= ratioPainting) {
+        if (targetPainting > 0 && countPainting === targetPainting) {
             $('.total-scan-card-header').removeClass('card-secondary').addClass('card-success');
             $('.total-scan-card').removeClass('bg-secondary').addClass('bg-success');
+        } else if (targetPainting > 0 && countPainting > 0) {
+            $('.total-scan-card-header').removeClass('card-secondary').addClass('card-info');
+            $('.total-scan-card').removeClass('bg-secondary').addClass('bg-info');
+        } else {
+            $('.total-scan-card-header').removeClass('card-info card-success').addClass('card-secondary');
+            $('.total-scan-card').removeClass('bg-info bg-success').addClass('bg-secondary');
         }
     }
+
 
 </script>
