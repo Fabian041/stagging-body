@@ -880,58 +880,68 @@
                                 .done(data => {
                                     if (data.status === 'success') {
 
-                                        notif('success', 'OK');
-                                        // api(`/production/part-scan/assign-kanban`,
-                                        //         'POST', {
-                                        //             _token: CSRF,
-                                        //             line,
-                                        //             model: LS.get('model'),
-                                        //             internal: k.internal,
-                                        //             seri: k.seri,
-                                        //             limit: target
-                                        //         })
-                                        //     .done(res => {
-                                        //         if (res.status !== 'ok') {
-                                        //             wrongKanbanSound();
-                                        //             notif('error', res.message ||
-                                        //                 'Gagal assign kanban');
-                                        //             return;
-                                        //         }
+                                        // 1) assign semua part scan (batch aktif) ke kanban ini
+                                        api(`/production/part-scan/assign-kanban`, 'POST', {
+                                                _token: CSRF,
+                                                line: line,
+                                                model: LS.get('model'),
+                                                internal: k.internal,
+                                                seri: k.seri,
+                                                limit: target
+                                            })
+                                            .done(res => {
+                                                if (res.status !== 'ok') {
+                                                    wrongKanbanSound();
+                                                    notif('error', res.message ||
+                                                        'Gagal assign kanban');
+                                                    return;
+                                                }
 
-                                        //         LS.mset({
-                                        //             actual_scan: 0,
-                                        //             scan_counter: 0,
-                                        //             part_counter: 0
-                                        //         });
+                                                // 2) RESET qty local (browser)
+                                                LS.mset({
+                                                    actual_scan: 0,
+                                                    scan_counter: 0,
+                                                    part_counter: 0
+                                                });
 
+                                                // optional: bersihin error flags biar gak bunyi loop
+                                                localStorage.removeItem('error');
+                                                localStorage.removeItem(
+                                                    'kanban_exist_error');
+                                                localStorage.removeItem('dandori_error');
+                                                localStorage.removeItem(
+                                                    'master_dandori_error');
 
-                                        //         setStatus('ok');
-                                        //         updateTotals(0, getTarget(), 0);
-                                        //     })
-                                        //     .fail(xhr => {
-                                        //         if (xhr.status === 0) {
-                                        //             notif('error',
-                                        //                 'Connection Error');
-                                        //             errConnection();
-                                        //             return;
-                                        //         }
-                                        //         wrongKanbanSound();
-                                        //         notif('error', xhr.responseJSON
-                                        //             ?.message ||
-                                        //             'Assign kanban gagal');
-                                        //     });
+                                                setStatus('ok');
+                                                updateTotals(0, getTarget(), 0);
+
+                                                // optional: reset timer
+                                                pauseTimer();
+
+                                                notif('success',
+                                                    `OK - Batch closed (${res.assigned || 0} pcs)`
+                                                );
+                                            })
+                                            .fail(xhr => {
+                                                if (xhr.status === 0) {
+                                                    notif('error', 'Connection Error');
+                                                    errConnection();
+                                                    return;
+                                                }
+                                                wrongKanbanSound();
+                                                notif('error', xhr.responseJSON?.message ||
+                                                    'Assign kanban gagal');
+                                            });
 
                                     } else if (data.status === 'kanbanExist') {
                                         alreadyScanSound();
                                         notif('error', data.message);
                                         LS.set('kanban_exist_error', 'true');
-                                        sendErrorLog('Seri Kanban sudah discan!', LS
-                                            .get(
-                                                'dandori_board'), k.internal);
+                                        sendErrorLog('Seri Kanban sudah discan!', LS.get(
+                                            'dandori_board'), k.internal);
                                     } else {
                                         wrongKanbanSound();
-                                        notif('error', data.message ||
-                                            'Gagal simpan KANBAN');
+                                        notif('error', data.message || 'Gagal simpan KANBAN');
                                         LS.set('error', 'true');
                                     }
                                 })
