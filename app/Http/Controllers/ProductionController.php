@@ -854,7 +854,7 @@ class ProductionController extends Controller
 
         // 2) cari kanban berdasarkan internal_part_id + seri
         $kanban = Kanban::where('internal_part_id', $internalPart->id)
-            ->where('seri', $r->seri)
+            ->where('serial_number', $r->seri)
             ->latest('id')
             ->first();
 
