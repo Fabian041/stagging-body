@@ -843,7 +843,7 @@ class ProductionController extends Controller
 
         // 1) ambil internal_part_id dari string internal yang dikirim FE
         // sesuaikan kolom pencarian: umumnya "internal" / "part_number" / "code" tergantung tabelmu
-        $internalPart = InternalPart::where('internal', $r->internal)->first();
+        $internalPart = InternalPart::where('part_number', $r->internal)->first();
 
         if (!$internalPart) {
             return response()->json([
