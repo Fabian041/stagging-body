@@ -869,8 +869,8 @@
                                 return;
                             }
 
-                            notif('success', k.internal);
-                            return;
+                            // notif('success', k.internal);
+                            // return;
 
                             api(`{{ url('production/store/') }}`, 'GET', {
                                     _token: CSRF,

@@ -836,13 +836,24 @@ class ProductionController extends Controller
         $r->validate([
             'line'     => ['required', 'string', 'max:32'],
             'model'    => ['required', 'string', 'max:128'],
-            'internal' => ['required', 'string'],      // k.internal dari barcode KANBAN
+            'internal' => ['required', 'string'],      // k.internal (string)
             'seri'     => ['required', 'string', 'max:10'],
             'limit'    => ['nullable', 'integer', 'min:1'],
         ]);
 
-        // Cari kanban terkait
-        $kanban = \App\Models\Kanban::where('internal', $r->internal)
+        // 1) ambil internal_part_id dari string internal yang dikirim FE
+        // sesuaikan kolom pencarian: umumnya "internal" / "part_number" / "code" tergantung tabelmu
+        $internalPart = InternalPart::where('internal', $r->internal)->first();
+
+        if (!$internalPart) {
+            return response()->json([
+                'status'  => 'not_found',
+                'message' => 'Internal part tidak ditemukan.'
+            ], 422);
+        }
+
+        // 2) cari kanban berdasarkan internal_part_id + seri
+        $kanban = Kanban::where('internal_part_id', $internalPart->id)
             ->where('seri', $r->seri)
             ->latest('id')
             ->first();
@@ -854,9 +865,9 @@ class ProductionController extends Controller
             ], 422);
         }
 
-        $today = \Carbon\Carbon::today();
+        $today = Carbon::today();
 
-        // Ambil unassigned IDs untuk batch aktif (line + model + hari ini)
+        // 3) ambil scanned part yang masih aktif (belum punya kanban_id)
         $baseQuery = ScannedPart::where('line', $r->line)
             ->where('model', $r->model)
             ->whereDate('scan_date', $today)
@@ -869,13 +880,13 @@ class ProductionController extends Controller
 
         if ($ids->isEmpty()) {
             return response()->json([
-                'status'     => 'ok',
-                'assigned'   => 0,
-                'kanban_id'  => $kanban->id,
+                'status'    => 'ok',
+                'assigned'  => 0,
+                'kanban_id' => $kanban->id,
             ]);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($ids, $kanban) {
+        DB::transaction(function () use ($ids, $kanban) {
             ScannedPart::whereIn('id', $ids)->update(['kanban_id' => $kanban->id]);
         });
 
