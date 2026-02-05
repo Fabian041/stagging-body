@@ -1127,8 +1127,8 @@
 
                 // 4) KANBAN SCAN (hanya boleh kalau target tercapai)
                 const k = parseKanbanFromCode1(barcodecomplete);
-                // notif('info', barcodecomplete.length);
-                // return;
+                notif('info', k.seri);
+                return;
 
                 // (tetap support branch code1 yang panjangnya 100-180 atau 80 untuk lookup internal)
                 // tapi itu sebetulnya kanban/QR lain - kita biarkan jalan seperti code1: set LS.internal via api-get-internal
@@ -1185,8 +1185,6 @@
                 if (!internal) internal = (LS.get('internal') || '').trim();
 
                 if (modelLS !== internal.trim() || dandoriLS !== internal.trim()) {
-                    // notif('error', dandoriLS);
-                    // return;
                     notif('error', 'Kanban tidak sesuai!');
                     wrongKanbanSound();
 
