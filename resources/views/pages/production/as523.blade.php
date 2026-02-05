@@ -1223,7 +1223,7 @@
                 // 4a) simpan produksi (gunakan store2 dari code1 supaya tetap jalan logic existing)
                 $.ajax({
                     type: 'get',
-                    url: "{{ url('production/store2/') }}",
+                    url: "{{ url('production/store/') }}",
                     _token: "{{ csrf_token() }}",
                     data: {
                         partNumber: internal.trim(),
