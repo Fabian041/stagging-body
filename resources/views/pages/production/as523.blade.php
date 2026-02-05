@@ -826,6 +826,10 @@
                     const cleaned = barcodecomplete
                         .replace(/-dandori$/i, '')
                         .replace(/[\u00A0\u200B-\u200D\uFEFF]/g, '') // buang NBSP & zero-width
+                        .replace(/^[\s\u00A0\u200B-\u200D\uFEFF]+/,
+                            '') // buang whitespace di depan (super)
+                        .replace(/[\s\u00A0\u200B-\u200D\uFEFF]+$/,
+                            '') // buang whitespace di belakang (super)
                         .trim();
 
                     localStorage.setItem('dandori_board', cleaned);
