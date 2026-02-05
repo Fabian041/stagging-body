@@ -492,7 +492,7 @@
             backNum = barcodecomplete.substr(100, 4);
             pcs = barcodecomplete.substr(196, 1);
 
-        } else if (barcodecomplete.length == 218) {
+        } else if (barcodecomplete.length == 219) {
             internal = barcodecomplete.substr(41, 16);
             seri = barcodecomplete.substr(123, 4);
             backNum = barcodecomplete.substr(100, 4);
@@ -1116,8 +1116,8 @@
 
                 // 4) KANBAN SCAN (hanya boleh kalau target tercapai)
                 const k = parseKanbanFromCode1(barcodecomplete);
-                notif('info', barcodecomplete.length);
-                return;
+                // notif('info', barcodecomplete.length);
+                // return;
 
                 // (tetap support branch code1 yang panjangnya 100-180 atau 80 untuk lookup internal)
                 // tapi itu sebetulnya kanban/QR lain - kita biarkan jalan seperti code1: set LS.internal via api-get-internal
