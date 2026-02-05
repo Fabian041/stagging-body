@@ -494,7 +494,7 @@
 
         } else if (barcodecomplete.length == 219) {
             internal = barcodecomplete.substr(42, 17);
-            seri = barcodecomplete.substr(123, 4);
+            seri = barcodecomplete.substr(124, 4);
             backNum = barcodecomplete.substr(100, 4);
             pcs = barcodecomplete.substr(196, 1);
         }
