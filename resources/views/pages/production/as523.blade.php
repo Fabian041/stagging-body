@@ -823,8 +823,12 @@
 
                 // 1) DANDORI
                 if (barcodecomplete.endsWith('dandori')) {
-                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, "")
-                        .trim());
+                    const cleaned = barcodecomplete
+                        .replace(/-dandori$/i, '')
+                        .replace(/[\u00A0\u200B-\u200D\uFEFF]/g, '') // buang NBSP & zero-width
+                        .trim();
+
+                    localStorage.setItem('dandori_board', cleaned);
                     // lock start time produksi hanya saat dandori (sesuai kebutuhan kamu sebelumnya)
                     localStorage.setItem('production_start_time', new Date().toLocaleString(
                         'sv-SE'));
