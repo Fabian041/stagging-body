@@ -1116,7 +1116,7 @@
 
                 // 4) KANBAN SCAN (hanya boleh kalau target tercapai)
                 const k = parseKanbanFromCode1(barcodecomplete);
-                notif('info', k);
+                notif('info', barcodecomplete);
                 return;
 
                 // (tetap support branch code1 yang panjangnya 100-180 atau 80 untuk lookup internal)
