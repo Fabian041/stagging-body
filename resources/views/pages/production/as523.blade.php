@@ -1175,6 +1175,7 @@
 
                 if (modelLS !== internal.trim() || dandoriLS !== internal.trim()) {
                     notif('error', internal.trim());
+                    return;
                     notif('error', 'Kanban tidak sesuai!');
                     wrongKanbanSound();
 
