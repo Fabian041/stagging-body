@@ -823,7 +823,8 @@
 
                 // 1) DANDORI
                 if (barcodecomplete.endsWith('dandori')) {
-                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
+                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, "")
+                        .trim());
                     // lock start time produksi hanya saat dandori (sesuai kebutuhan kamu sebelumnya)
                     localStorage.setItem('production_start_time', new Date().toLocaleString(
                         'sv-SE'));
@@ -1174,8 +1175,8 @@
                 if (!internal) internal = (LS.get('internal') || '').trim();
 
                 if (modelLS !== internal.trim() || dandoriLS !== internal.trim()) {
-                    notif('error', dandoriLS);
-                    return;
+                    // notif('error', dandoriLS);
+                    // return;
                     notif('error', 'Kanban tidak sesuai!');
                     wrongKanbanSound();
 
