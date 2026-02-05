@@ -871,7 +871,7 @@
 
                 // 2) MASTER / MODEL
                 if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
-                    const model = barcodecomplete..replace(/-model$/i, '')
+                    const model = barcodecomplete.replace(/-model$/i, '')
                         .replace(/^\p{C}+/gu, '') // buang semua control/format di DEPAN
                         .replace(/\p{C}+/gu, '') // (opsional) buang control/format di SEMUA posisi
                         .trim();
