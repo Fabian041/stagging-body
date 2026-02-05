@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Pagination\LengthAwarePaginator;
+use App\Exports\MutationMultiSheetExport;
+
 
 class DashboardController extends Controller
 {
@@ -74,6 +76,50 @@ class DashboardController extends Controller
         return view('pages.dashboard', [
             'lines' => $lines,
         ]);
+    }
+
+    public function exportMutation()
+    {
+        $tz = 'Asia/Jakarta';
+
+        $date = request('date');
+        $from = request('from');
+        $to   = request('to');
+
+        // Resolve range
+        if ($date) {
+            $start = Carbon::parse($date, $tz)->startOfDay();
+            $end   = Carbon::parse($date, $tz)->endOfDay();
+        } else {
+            // default: hari ini kalau kosong semua
+            $start = $from ? Carbon::parse($from, $tz)->startOfDay() : Carbon::now($tz)->startOfDay();
+            $end   = $to   ? Carbon::parse($to, $tz)->endOfDay()     : Carbon::now($tz)->endOfDay();
+        }
+
+        // Ambil data mutasi
+        $rows = DB::table('mutations')
+            ->join('internal_parts', 'internal_parts.id', '=', 'mutations.internal_part_id')
+            ->join('lines', 'lines.id', '=', 'internal_parts.line_id')
+            ->select(
+                'lines.name as line_name',
+                'internal_parts.back_number',
+                'mutations.serial_number',
+                'mutations.qty',
+                'mutations.type',
+                DB::raw("DATE_FORMAT(mutations.date, '%Y-%m-%d %H:%i:%s') as mutation_date")
+            )
+            ->whereBetween('mutations.date', [$start->toDateTimeString(), $end->toDateTimeString()])
+            ->orderBy('lines.name')
+            ->orderBy('mutations.date')
+            ->orderBy('internal_parts.back_number')
+            ->get();
+
+        $filename = 'Mutation_' . $start->format('Ymd') . '_' . $end->format('Ymd') . '.xlsx';
+
+        return Excel::download(
+            new MutationMultiSheetExport($rows),
+            $filename
+        );
     }
 
     public function prodResult(Request $request)
@@ -169,7 +215,7 @@ class DashboardController extends Controller
         $lastUpdate = ProductionPlan::where('plan_date', $today->format('Y-m-d'))->max('updated_at');
 
         // === NEW: cek signature MSSQL ===
-        $sigKey  = 'pulling:sig:'.$selectedDate->format('Ymd');
+        $sigKey  = 'pulling:sig:' . $selectedDate->format('Ymd');
         $allBackNos = collect($this->backNosByLine)->flatten()->unique()->values();
         $curSig  = $this->externalSignature($selectedDate, $allBackNos); // pakai default excluded
         $prevSig = Cache::get($sigKey);
@@ -200,8 +246,8 @@ class DashboardController extends Controller
                 $messageType = 'success';
             } catch (\Exception $e) {
                 DB::rollBack();
-                \Log::error('Production data processing failed: '.$e->getMessage());
-                $message = 'Failed to update data: '.$e->getMessage();
+                \Log::error('Production data processing failed: ' . $e->getMessage());
+                $message = 'Failed to update data: ' . $e->getMessage();
                 $messageType = 'error';
             }
         } else {
@@ -302,8 +348,8 @@ class DashboardController extends Controller
                 ->filter()->map(fn($s) => strtoupper(trim($s)))->values();
 
             $LINES = $fallback->filter(fn($L) => strtoupper($group) === 'MA'
-                    ? str_starts_with($L, 'MA')
-                    : str_starts_with($L, 'AS'))
+                ? str_starts_with($L, 'MA')
+                : str_starts_with($L, 'AS'))
                 ->sortBy(function ($L) {
                     $prefix = substr($L, 0, 2);
                     $num    = (int) preg_replace('/^\D+/', '', $L);
@@ -341,8 +387,8 @@ class DashboardController extends Controller
             if ($bn !== 'CI12') return 5;
             $dock  = strtoupper(trim((string)($row->dock ?? '')));
             $cycle = (int) ($row->cycle ?? 0);
-            $in47  = in_array($cycle, [4,5,6,7], true);
-            $in83  = in_array($cycle, [8,1,2,3], true);
+            $in47  = in_array($cycle, [4, 5, 6, 7], true);
+            $in83  = in_array($cycle, [8, 1, 2, 3], true);
 
             if ($dock === '6I'  && $in47) return 0; // C4–7 @ 6I
             if ($dock === 'EXP' && $in83) return 1; // C8–3 @ EXP
@@ -396,20 +442,25 @@ class DashboardController extends Controller
             if ($rows->count() > 0 && ($mQty + $nQty) === 0) {
                 $mQty = (int) $rows->sum('order_qty');
                 $mAct = (int) $rows->sum(fn($i) => (int)($i->direct_pulling_qty ?? 0));
-                $nQty = 0; $nAct = 0;
+                $nQty = 0;
+                $nAct = 0;
             }
 
             $nowMin = (int) now()->format('H') * 60 + (int) now()->format('i');
             [$shiftLabel, $orderQty, $actualQty, $status] = $this->resolveShiftProgress(
-                $nowMin, $mQty, $mAct, $nQty, $nAct
+                $nowMin,
+                $mQty,
+                $mAct,
+                $nQty,
+                $nAct
             );
 
             $rows = $rows->values();
 
             // Hitung uniq berdasarkan PRESENTED back_no (setelah CI->CH untuk MA)
             $uniqBackNo = $rows->pluck('back_no')
-                ->filter(fn ($v) => filled($v))
-                ->map(fn ($v) => $present($normBack($v)))   // <<— penting
+                ->filter(fn($v) => filled($v))
+                ->map(fn($v) => $present($normBack($v)))   // <<— penting
                 ->unique()
                 ->count();
 
@@ -420,7 +471,12 @@ class DashboardController extends Controller
             };
 
             $currentIdx = null;
-            foreach ($rows as $idx => $it) { if (!$isComplete($it)) { $currentIdx = $idx; break; } }
+            foreach ($rows as $idx => $it) {
+                if (!$isComplete($it)) {
+                    $currentIdx = $idx;
+                    break;
+                }
+            }
             $currentItem = $currentIdx !== null ? $rows[$currentIdx] : ($rows->last() ?: null);
 
             $current = $currentItem ? [
@@ -433,7 +489,13 @@ class DashboardController extends Controller
                 'sc'        => (int)($currentItem->stock_chute_qty ?? 0),
                 'start'     => $currentItem->working_start ?: '--',
             ] : [
-                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,'dp'=>0,'sc'=>0,'start'=>'--'
+                'back_no' => '—',
+                'customer' => '—',
+                'dock' => '—',
+                'order_qty' => 0,
+                'dp' => 0,
+                'sc' => 0,
+                'start' => '--'
             ];
 
             $nextCandidates = collect();
@@ -446,7 +508,7 @@ class DashboardController extends Controller
                 // Samakan “keluarga” CI12 / CI19 dari alias (D111→CI12, D500→CI19)
                 return $normBack($bn);
             };
-            $isMergeTargetBN = fn($bnU) => in_array($bnU, ['CI12','CI19'], true);
+            $isMergeTargetBN = fn($bnU) => in_array($bnU, ['CI12', 'CI19'], true);
 
             $groups = [];
             $idxCounter = 0;
@@ -462,8 +524,8 @@ class DashboardController extends Controller
 
                 $DCK = $rawDock($it->dock ?? '');
                 $key = $merge && $DCK === '6I'
-                    ? ('MERGE6I|'.$bnU.'|'.$date.'|'.$time)
-                    : ('ROW|'.($it->dn_number ?? '').'|'.($it->cycle ?? '').'|'.($it->back_no ?? '').'|'.$sortKey);
+                    ? ('MERGE6I|' . $bnU . '|' . $date . '|' . $time)
+                    : ('ROW|' . ($it->dn_number ?? '') . '|' . ($it->cycle ?? '') . '|' . ($it->back_no ?? '') . '|' . $sortKey);
 
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
@@ -495,12 +557,17 @@ class DashboardController extends Controller
             }
 
             $aggregatedNext = collect(array_values(array_map(function ($g) {
-                unset($g['__has6I']); return $g;
+                unset($g['__has6I']);
+                return $g;
             }, $groups)))->sortBy('sort_key')->values();
 
             $nextHighlight = [
-                'back_no'=>'—','customer'=>'—','dock'=>'—','order_qty'=>0,
-                'delivery_time'=>'--','delivery_date'=>''
+                'back_no' => '—',
+                'customer' => '—',
+                'dock' => '—',
+                'order_qty' => 0,
+                'delivery_time' => '--',
+                'delivery_date' => ''
             ];
             $nextList = [];
 
@@ -578,7 +645,7 @@ class DashboardController extends Controller
         if ($d === '') return null;
 
         if ($d === 'NR') return 'NR';            // hanya NR
-        if (in_array($d, ['EXP','EXPORT'], true)) return 'EXP'; // dan EXP/EXPORT
+        if (in_array($d, ['EXP', 'EXPORT'], true)) return 'EXP'; // dan EXP/EXPORT
         return $d; // 6I, 6G, 6H, ADM, dll tetap apa adanya
     }
 
@@ -609,7 +676,7 @@ class DashboardController extends Controller
 
             $dock = $this->normalizeDock($r->dock);
             if ($dock) {
-                $key = $bn.'|'.$dock;
+                $key = $bn . '|' . $dock;
                 $byDock[$key] = ($byDock[$key] ?? 0) + $ord;
             }
         }
@@ -635,7 +702,7 @@ class DashboardController extends Controller
             $hint = $this->normalizeDock($row->dock_hint); // DOM/EXP/null
 
             $base = $hint
-                ? ($sum['byDock'][$bn.'|'.$hint] ?? 0)
+                ? ($sum['byDock'][$bn . '|' . $hint] ?? 0)
                 : ($sum['total'][$bn]            ?? 0);
 
             $qty = (int) ceil($base * $factor);
@@ -719,7 +786,7 @@ class DashboardController extends Controller
                 $hasStart = filled($it->working_start);
                 $seq      = property_exists($it, '__virt_seq') ? (int)$it->__virt_seq : 999;
                 // prioritas: punya start (0), tidak (1) → seq → dn_number sebagai tie-breaker
-                return ($hasStart ? 0 : 1).'|'.sprintf('%03d', $seq).'|'.($it->dn_number ?? 'ZZZ');
+                return ($hasStart ? 0 : 1) . '|' . sprintf('%03d', $seq) . '|' . ($it->dn_number ?? 'ZZZ');
             })->values();
         }
     }
@@ -733,10 +800,10 @@ class DashboardController extends Controller
         $nextISO   = $today->copy()->addDay()->toDateString();
 
         // Window (menit)
-        $MORNING_START = 12*60;          // 12:00
-        $MORNING_END   = 22*60 + 57;     // 22:57
-        $NIGHT_START   = 22*60 + 59;     // 22:59
-        $NIGHT_END     =  9*60 + 35;     // 09:35
+        $MORNING_START = 12 * 60;          // 12:00
+        $MORNING_END   = 22 * 60 + 57;     // 22:57
+        $NIGHT_START   = 22 * 60 + 59;     // 22:59
+        $NIGHT_END     =  9 * 60 + 35;     // 09:35
 
         $toMin = function ($t) {
             if (!$t) return null;
@@ -768,7 +835,7 @@ class DashboardController extends Controller
                 // Fallback: pakai working time (menit)
                 $sm = $toMin($item->working_start ?? null);
                 $em = $toMin($item->working_end   ?? null);
-                $in = function($min) use ($MORNING_START, $MORNING_END) {
+                $in = function ($min) use ($MORNING_START, $MORNING_END) {
                     return $min !== null && $min >= $MORNING_START && $min <= $MORNING_END;
                 };
                 return $in($sm) || $in($em);
@@ -787,7 +854,7 @@ class DashboardController extends Controller
                 // Fallback: pakai working time (menit) – melintasi tengah malam
                 $sm = $toMin($item->working_start ?? null);
                 $em = $toMin($item->working_end   ?? null);
-                $in = function($min) use ($NIGHT_START, $NIGHT_END) {
+                $in = function ($min) use ($NIGHT_START, $NIGHT_END) {
                     return $min !== null && ($min >= $NIGHT_START || $min <= $NIGHT_END);
                 };
                 return $in($sm) || $in($em);
@@ -826,23 +893,28 @@ class DashboardController extends Controller
      */
     private function resolveShiftProgress(int $nowMin, int $mQty, int $mAct, int $nQty, int $nAct): array
     {
-        $MORNING_START = 12*60;          // 720
-        $MORNING_END   = 22*60 + 57;     // 1377
-        $NIGHT_START   = 22*60 + 59;     // 1379
-        $NIGHT_END     =  9*60 + 35;     // 575
+        $MORNING_START = 12 * 60;          // 720
+        $MORNING_END   = 22 * 60 + 57;     // 1377
+        $NIGHT_START   = 22 * 60 + 59;     // 1379
+        $NIGHT_END     =  9 * 60 + 35;     // 575
 
         // default: pilih shift yang “berlaku” sekarang; kalau di gap, anggap Morning
-        $label = 'Morning'; $order = $mQty; $actual = $mAct;
-        $elapsed = 0; $duration = max(1, $MORNING_END - $MORNING_START); // 657
+        $label = 'Morning';
+        $order = $mQty;
+        $actual = $mAct;
+        $elapsed = 0;
+        $duration = max(1, $MORNING_END - $MORNING_START); // 657
 
         if ($nowMin >= $MORNING_START && $nowMin <= $MORNING_END) {
             $label = 'Morning';
-            $order = $mQty; $actual = $mAct;
+            $order = $mQty;
+            $actual = $mAct;
             $elapsed = $nowMin - $MORNING_START;
             $duration = max(1, $MORNING_END - $MORNING_START);
         } elseif ($nowMin >= $NIGHT_START || $nowMin <= $NIGHT_END) {
             $label = 'Night';
-            $order = $nQty; $actual = $nAct;
+            $order = $nQty;
+            $actual = $nAct;
             // durasi night melewati tengah malam
             $duration = (1440 - $NIGHT_START) + $NIGHT_END; // 61 + 575 = 636
             $elapsed  = ($nowMin >= $NIGHT_START)
@@ -855,8 +927,8 @@ class DashboardController extends Controller
             return [$label, 0, 0, 'S1'];
         }
 
-        $ratio    = $actual / max(1,$order);
-        $expected = min(1, $elapsed / max(1,$duration)); // linear expectation
+        $ratio    = $actual / max(1, $order);
+        $expected = min(1, $elapsed / max(1, $duration)); // linear expectation
         $status   = 'S1';
 
         if ($ratio == 0 && $elapsed > 60) {
