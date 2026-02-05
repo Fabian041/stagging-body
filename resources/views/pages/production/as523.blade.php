@@ -825,12 +825,10 @@
                 if (barcodecomplete.endsWith('dandori')) {
                     const cleaned = barcodecomplete
                         .replace(/-dandori$/i, '')
-                        .replace(/[\u00A0\u200B-\u200D\uFEFF]/g, '') // buang NBSP & zero-width
-                        .replace(/^[\s\u00A0\u200B-\u200D\uFEFF]+/,
-                            '') // buang whitespace di depan (super)
-                        .replace(/[\s\u00A0\u200B-\u200D\uFEFF]+$/,
-                            '') // buang whitespace di belakang (super)
+                        .replace(/^\p{C}+/gu, '') // buang semua control/format di DEPAN
+                        .replace(/\p{C}+/gu, '') // (opsional) buang control/format di SEMUA posisi
                         .trim();
+
 
                     localStorage.setItem('dandori_board', cleaned);
                     // lock start time produksi hanya saat dandori (sesuai kebutuhan kamu sebelumnya)
