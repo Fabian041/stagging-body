@@ -357,7 +357,7 @@
             $('.model-card').removeClass('bg-secondary').addClass('bg-info');
             $('#model').text(backNumber)
             $('#pis').html(
-            `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="600">`);
+                `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="600">`);
         }
 
         // total scan sekarang progress actual/target (flow code2)
@@ -836,7 +836,7 @@
 
                     setTimeout(() => {
                         $('.status-card').removeClass('bg-success').addClass(
-                        'bg-secondary');
+                            'bg-secondary');
                         $('#status').text('-');
                     }, 2000);
 
@@ -1007,7 +1007,7 @@
                         fullfilledSound();
                         notif('error',
                             `Target sudah tercapai (${actualNow} / ${tgt}). Scan KANBAN untuk close batch.`
-                            );
+                        );
                         return;
                     }
 
@@ -1096,7 +1096,7 @@
                                 fullfilledSound();
                                 notif('success',
                                     `Target tercapai (${actual} / ${target}). Silakan scan KANBAN untuk close batch.`
-                                    );
+                                );
                             }
                         },
                         error: function(xhr) {
@@ -1116,6 +1116,7 @@
 
                 // 4) KANBAN SCAN (hanya boleh kalau target tercapai)
                 const k = parseKanbanFromCode1(barcodecomplete);
+                notif('info', k);
 
                 // (tetap support branch code1 yang panjangnya 100-180 atau 80 untuk lookup internal)
                 // tapi itu sebetulnya kanban/QR lain - kita biarkan jalan seperti code1: set LS.internal via api-get-internal
@@ -1255,7 +1256,7 @@
                                     localStorage.removeItem(
                                         'kanban_exist_error');
                                     localStorage.removeItem(
-                                    'dandori_error');
+                                        'dandori_error');
                                     localStorage.removeItem(
                                         'master_dandori_error');
                                     localStorage.removeItem('internal');
@@ -1282,7 +1283,7 @@
 
                                     notif('success',
                                         `OK - Batch closed (${res.assigned || tgt || 0} pcs)`
-                                        );
+                                    );
                                 },
                                 error: function(xhr) {
                                     if (xhr.status == 0) {
