@@ -356,27 +356,26 @@ class LoadingListController extends Controller
 
     public function getLoadingListDetail(LoadingList $loadingList)
     {
-        // header time (sesuai SQL kamu)
+        // window waktu dari HEADER loading list (sesuai query SQL kamu)
         $headerStart = $loadingList->created_at;
         $headerEnd   = $loadingList->updated_at;
 
-        // Eager load untuk menghindari N+1
-        $input = LoadingListDetail::with([
-            'customerPart.internalPart'
-        ])->where('loading_list_id', $loadingList->id)->get();
+        $input = LoadingListDetail::with(['customerPart.internalPart'])
+            ->where('loading_list_id', $loadingList->id)
+            ->get();
 
         return DataTables::of($input)
             ->addColumn('part_name', function ($row) {
                 return optional($row->customerPart->internalPart)->part_name ?? '-';
             })
             ->addColumn('cust_partno', function ($row) {
-                return '<span class="customerPart">' . optional($row->customerPart)->part_number . '</span>';
+                return '<span class="customerPart">' . (optional($row->customerPart)->part_number ?? '-') . '</span>';
             })
             ->addColumn('int_partno', function ($row) {
                 return optional($row->customerPart->internalPart)->part_number ?? '-';
             })
             ->addColumn('cust_backno', function ($row) {
-                return '<span class="backNumber">' . optional($row->customerPart)->back_number . '</span>';
+                return '<span class="backNumber">' . (optional($row->customerPart)->back_number ?? '-') . '</span>';
             })
             ->addColumn('int_backno', function ($row) {
                 return optional($row->customerPart->internalPart)->back_number ?? '-';
@@ -387,18 +386,16 @@ class LoadingListController extends Controller
             ->addColumn('actual_kbn_qty', function ($row) {
                 return '<span class="actual">' . $row->actual_kanban_qty . '</span>
                     <input id="editActual" class="form-control editActual" type="number"
-                    value="' . $row->actual_kanban_qty . '" data-width="100"
-                    style="border-radius:6px; display:none">';
+                        value="' . $row->actual_kanban_qty . '" data-width="100"
+                        style="border-radius:6px; display:none">';
             })
-
-            // ✅ pulling date pakai header updated_at (biar konsisten)
             ->addColumn('pulling_date', function ($row) use ($loadingList) {
                 return $loadingList->updated_at != $loadingList->created_at
                     ? $loadingList->updated_at->format('Y-m-d H:i')
                     : '<span class="text-danger">N/A</span>';
             })
 
-            // ✅ serial_number: ambil checkout dalam window header (tanpa "date like")
+            // ✅ Serial number: ambil checkout di window header (tanpa LIKE date)
             ->addColumn('serial_number', function ($row) use ($headerStart, $headerEnd) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
@@ -409,8 +406,7 @@ class LoadingListController extends Controller
                 $serials = Mutation::query()
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'checkout')
-                    ->where('created_at', '>', $headerStart)
-                    ->where('created_at', '<', $headerEnd)
+                    ->whereBetween('created_at', [$headerStart, $headerEnd]) // inclusive
                     ->orderBy('created_at', 'asc')
                     ->pluck('serial_number')
                     ->toArray();
@@ -420,8 +416,8 @@ class LoadingListController extends Controller
                     : '<span class="text-danger">N/A</span>';
             })
 
-            // ✅ prod_date: SESUAI SQL kamu -> supply dalam window header, internal_part_id = X
-            //    jangan difilter by serialNumbers, biar 19 row keluar semua
+            // ✅ Prod date: SESUAI SQL asli (supply, window created_at header, internal_part_id)
+            //    Tampilkan SEMUA row (misal 19 row)
             ->addColumn('prod_date', function ($row) use ($headerStart, $headerEnd) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
@@ -429,22 +425,20 @@ class LoadingListController extends Controller
                     return '<span class="text-danger">N/A</span>';
                 }
 
-                $data = Mutation::query()
+                $mutations = Mutation::query()
                     ->select('serial_number', 'type', 'qty', 'date', 'created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'supply')
-                    ->where('created_at', '>', $headerStart)
-                    ->where('created_at', '<', $headerEnd)
+                    ->whereBetween('created_at', [$headerStart, $headerEnd]) // inclusive
                     ->orderBy('created_at', 'asc')
                     ->get();
 
-                if ($data->isEmpty()) {
+                if ($mutations->isEmpty()) {
                     return '<span class="text-danger">N/A</span>';
                 }
 
-                // tampilkan SEMUA row (misal 19 row)
                 $lines = [];
-                foreach ($data as $m) {
+                foreach ($mutations as $m) {
                     $lines[] = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
                 }
 
@@ -463,7 +457,7 @@ class LoadingListController extends Controller
                 'edit',
                 'pulling_date',
                 'serial_number',
-                'prod_date'
+                'prod_date',
             ])
             ->toJson();
     }
