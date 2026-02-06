@@ -374,7 +374,7 @@ class LoadingListController extends Controller
                 return '<span class="backNumber">' . (optional($row->customerPart)->back_number ?? '-') . '</span>';
             })
             ->addColumn('int_backno', function ($row) {
-                return optional($row->customerPart.internalPart)->back_number ?? '-';
+                return optional($row->customerPart->internalPart)->back_number ?? '-';
             })
             ->addColumn('kbn_qty', function ($row) {
                 return $row->kanban_qty;
@@ -386,7 +386,7 @@ class LoadingListController extends Controller
                         style="border-radius:6px; display:none">';
             })
 
-            // ✅ Pulling Date dari MUTATIONS type=checkout (window per detail)
+            // ✅ Pulling Date = mutations type checkout (window per detail)
             ->addColumn('pulling_date', function ($row) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
@@ -397,7 +397,6 @@ class LoadingListController extends Controller
                 $start = $row->created_at;
                 $end   = $row->updated_at;
 
-                // kalau belum ada update / window tidak valid
                 if (!$start || !$end || $start->equalTo($end)) {
                     return '<span class="text-danger">N/A</span>';
                 }
@@ -405,7 +404,7 @@ class LoadingListController extends Controller
                 $mutations = Mutation::query()
                     ->select('serial_number', 'qty', 'date', 'created_at')
                     ->where('internal_part_id', $internalPartId)
-                    ->where('type', 'checkout') // <-- bedanya cuma ini
+                    ->where('type', 'checkout')
                     ->whereBetween('created_at', [$start, $end])
                     ->orderBy('created_at', 'asc')
                     ->get();
@@ -422,7 +421,7 @@ class LoadingListController extends Controller
                 return implode('<br>', $lines);
             })
 
-            // ✅ Production Date dari MUTATIONS type=supply (window per detail)
+            // ✅ Production Date = mutations type supply (window per detail)
             ->addColumn('prod_date', function ($row) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
@@ -472,6 +471,8 @@ class LoadingListController extends Controller
             ])
             ->toJson();
     }
+
+
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
