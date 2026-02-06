@@ -58,7 +58,7 @@ class LoadingListController extends Controller
                 ->withSum('detail as total_kanban', 'kanban_qty')
                 ->withSum('detail as actual_kanban', 'actual_kanban_qty')
                 ->latest()
-                ->take(500)
+                ->take(1000)
                 ->get()
                 ->groupBy('pds_number')
                 ->map(function ($loadingLists, $pdsNumber) {
@@ -414,7 +414,7 @@ class LoadingListController extends Controller
             })
             ->addColumn('prod_date', function ($loadingList) {
                 $internalPartId = optional($loadingList->customerPart->internalPart)->id;
-                $serialNumbers = $loadingList->temp_serial_numbers ?? [];
+                $serialNumbers  = $loadingList->temp_serial_numbers ?? [];
 
                 if (!$internalPartId || empty($serialNumbers)) {
                     return '<span class="text-danger">N/A</span>';
@@ -425,17 +425,26 @@ class LoadingListController extends Controller
                     ->where('type', 'supply')
                     ->whereIn('serial_number', $serialNumbers)
                     ->where('date', '<=', $loadingList->updated_at)
+                    ->orderBy('serial_number', 'asc')
                     ->orderBy('date', 'asc')
-                    ->get();
+                    ->get()
+                    ->groupBy('serial_number');
 
-                $serialDates = $data->pluck('date', 'serial_number')->toArray();
+                $lines = [];
+                foreach ($serialNumbers as $serial) {
+                    $rows = $data->get($serial, collect());
 
-                $output = array_map(function ($serial) use ($serialDates) {
-                    $date = $serialDates[$serial] ?? 'N/A';
-                    return "[$serial] - [$date]";
-                }, $serialNumbers);
+                    if ($rows->isEmpty()) {
+                        $lines[] = "[$serial] - [N/A]";
+                        continue;
+                    }
 
-                return implode('<br>', $output);
+                    foreach ($rows as $row) {
+                        $lines[] = "[$serial] - [{$row->date}]";
+                    }
+                }
+
+                return implode('<br>', $lines);
             })
             ->addColumn('edit', function ($row) {
                 return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
