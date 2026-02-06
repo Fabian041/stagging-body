@@ -356,7 +356,6 @@ class LoadingListController extends Controller
 
     public function getLoadingListDetail(LoadingList $loadingList)
     {
-        // Eager load: detail + relasi part
         $input = LoadingListDetail::with(['customerPart.internalPart'])
             ->where('loading_list_id', $loadingList->id)
             ->get();
@@ -375,7 +374,7 @@ class LoadingListController extends Controller
                 return '<span class="backNumber">' . (optional($row->customerPart)->back_number ?? '-') . '</span>';
             })
             ->addColumn('int_backno', function ($row) {
-                return optional($row->customerPart->internalPart)->back_number ?? '-';
+                return optional($row->customerPart.internalPart)->back_number ?? '-';
             })
             ->addColumn('kbn_qty', function ($row) {
                 return $row->kanban_qty;
@@ -387,14 +386,43 @@ class LoadingListController extends Controller
                         style="border-radius:6px; display:none">';
             })
 
-            // ✅ Pulling date pakai waktu detail (bukan header)
+            // ✅ Pulling Date dari MUTATIONS type=checkout (window per detail)
             ->addColumn('pulling_date', function ($row) {
-                return $row->updated_at != $row->created_at
-                    ? $row->updated_at->format('Y-m-d H:i')
-                    : '<span class="text-danger">N/A</span>';
+                $internalPartId = optional($row->customerPart->internalPart)->id;
+
+                if (!$internalPartId) {
+                    return '<span class="text-danger">N/A</span>';
+                }
+
+                $start = $row->created_at;
+                $end   = $row->updated_at;
+
+                // kalau belum ada update / window tidak valid
+                if (!$start || !$end || $start->equalTo($end)) {
+                    return '<span class="text-danger">N/A</span>';
+                }
+
+                $mutations = Mutation::query()
+                    ->select('serial_number', 'qty', 'date', 'created_at')
+                    ->where('internal_part_id', $internalPartId)
+                    ->where('type', 'checkout') // <-- bedanya cuma ini
+                    ->whereBetween('created_at', [$start, $end])
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                if ($mutations->isEmpty()) {
+                    return '<span class="text-danger">N/A</span>';
+                }
+
+                $lines = [];
+                foreach ($mutations as $m) {
+                    $lines[] = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
+                }
+
+                return implode('<br>', $lines);
             })
 
-            // ✅ Production Date pakai window detail (row created_at -> row updated_at)
+            // ✅ Production Date dari MUTATIONS type=supply (window per detail)
             ->addColumn('prod_date', function ($row) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
@@ -405,7 +433,6 @@ class LoadingListController extends Controller
                 $start = $row->created_at;
                 $end   = $row->updated_at;
 
-                // kalau belum pernah update (window tidak valid), tampilkan N/A
                 if (!$start || !$end || $start->equalTo($end)) {
                     return '<span class="text-danger">N/A</span>';
                 }
@@ -414,7 +441,7 @@ class LoadingListController extends Controller
                     ->select('serial_number', 'qty', 'date', 'created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'supply')
-                    ->whereBetween('created_at', [$start, $end]) // inclusive
+                    ->whereBetween('created_at', [$start, $end])
                     ->orderBy('created_at', 'asc')
                     ->get();
 
@@ -435,7 +462,6 @@ class LoadingListController extends Controller
                     <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
                     <button class="btn btn-icon btn-danger cancel" style="display: none"><i class="fas fa-times"></i></button>';
             })
-
             ->rawColumns([
                 'cust_partno',
                 'cust_backno',
@@ -446,7 +472,6 @@ class LoadingListController extends Controller
             ])
             ->toJson();
     }
-
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
