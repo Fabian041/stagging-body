@@ -356,11 +356,7 @@ class LoadingListController extends Controller
 
     public function getLoadingListDetail(LoadingList $loadingList)
     {
-        // Window waktu dari HEADER loading list (sesuai SQL asli kamu)
-        $start = $loadingList->created_at;
-        $end   = $loadingList->updated_at;
-
-        // Eager load untuk menghindari N+1
+        // Eager load: detail + relasi part
         $input = LoadingListDetail::with(['customerPart.internalPart'])
             ->where('loading_list_id', $loadingList->id)
             ->get();
@@ -387,36 +383,43 @@ class LoadingListController extends Controller
             ->addColumn('actual_kbn_qty', function ($row) {
                 return '<span class="actual">' . $row->actual_kanban_qty . '</span>
                     <input id="editActual" class="form-control editActual" type="number"
-                    value="' . $row->actual_kanban_qty . '" data-width="100"
-                    style="border-radius:6px; display:none">';
+                        value="' . $row->actual_kanban_qty . '" data-width="100"
+                        style="border-radius:6px; display:none">';
             })
 
-            // Pulling date pakai HEADER loading list (lebih konsisten)
-            ->addColumn('pulling_date', function ($row) use ($loadingList) {
-                return $loadingList->updated_at != $loadingList->created_at
-                    ? $loadingList->updated_at->format('Y-m-d H:i')
+            // ✅ Pulling date pakai waktu detail (bukan header)
+            ->addColumn('pulling_date', function ($row) {
+                return $row->updated_at != $row->created_at
+                    ? $row->updated_at->format('Y-m-d H:i')
                     : '<span class="text-danger">N/A</span>';
             })
 
-            // ✅ Production Date (ambil semua supply dalam window created_at sesuai SQL)
-            ->addColumn('prod_date', function ($row) use ($start, $end) {
+            // ✅ Production Date pakai window detail (row created_at -> row updated_at)
+            ->addColumn('prod_date', function ($row) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
                 if (!$internalPartId) {
-                    return '<span class="text-danger">N/A (no internal part)</span>';
+                    return '<span class="text-danger">N/A</span>';
+                }
+
+                $start = $row->created_at;
+                $end   = $row->updated_at;
+
+                // kalau belum pernah update (window tidak valid), tampilkan N/A
+                if (!$start || !$end || $start->equalTo($end)) {
+                    return '<span class="text-danger">N/A</span>';
                 }
 
                 $mutations = Mutation::query()
-                    ->select('serial_number', 'type', 'qty', 'date', 'created_at')
+                    ->select('serial_number', 'qty', 'date', 'created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'supply')
-                    ->whereBetween('created_at', [$start, $end]) // tes 1: created_at
+                    ->whereBetween('created_at', [$start, $end]) // inclusive
                     ->orderBy('created_at', 'asc')
                     ->get();
 
-                // DEBUG VIEW
                 if ($mutations->isEmpty()) {
-                    return "IPID={$internalPartId}<br>WIN={$start} → {$end}<br><span class='text-danger'>COUNT=0</span>";
+                    return '<span class="text-danger">N/A</span>';
                 }
 
                 $lines = [];
@@ -424,13 +427,15 @@ class LoadingListController extends Controller
                     $lines[] = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
                 }
 
-                return "IPID={$internalPartId}<br>WIN={$start} → {$end}<br>COUNT={$mutations->count()}<hr>" . implode('<br>', $lines);
+                return implode('<br>', $lines);
             })
+
             ->addColumn('edit', function ($row) {
                 return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
                     <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
                     <button class="btn btn-icon btn-danger cancel" style="display: none"><i class="fas fa-times"></i></button>';
             })
+
             ->rawColumns([
                 'cust_partno',
                 'cust_backno',
@@ -441,6 +446,7 @@ class LoadingListController extends Controller
             ])
             ->toJson();
     }
+
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
