@@ -420,34 +420,30 @@ class LoadingListController extends Controller
                     return '<span class="text-danger">N/A</span>';
                 }
 
-                // ambil mutations sesuai window created_at loading list
-                $data = Mutation::query()
-                    ->select('serial_number', 'type', 'qty', 'date', 'created_at')
+                $data = Mutation::select('serial_number', 'type', 'qty', 'date', 'created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'supply')
                     ->whereIn('serial_number', $serialNumbers)
-                    ->where('created_at', '>', $loadingList->created_at)
-                    ->where('created_at', '<', $loadingList->updated_at)
+                    ->where('created_at', '>', $loadingList->created_at)   // sesuai SQL kamu
+                    ->where('created_at', '<', $loadingList->updated_at)   // sesuai SQL kamu
                     ->orderBy('serial_number', 'asc')
-                    ->orderBy('created_at', 'asc') // urut sesuai event insert
+                    ->orderBy('created_at', 'asc')
                     ->get()
                     ->groupBy('serial_number');
 
-                // kalau kamu butuh back_number (sesuai SQL SELECT)
-                $backNumber = optional($loadingList->customerPart->internalPart)->back_number ?? 'N/A';
-
                 $lines = [];
+
                 foreach ($serialNumbers as $serial) {
                     $rows = $data->get($serial, collect());
 
                     if ($rows->isEmpty()) {
-                        $lines[] = "[$backNumber] - [$serial] - [N/A]";
+                        $lines[] = "[$serial] - [N/A]";
                         continue;
                     }
 
                     foreach ($rows as $row) {
-                        // kamu bisa pilih tampilkan date atau created_at
-                        $lines[] = "[$backNumber] - [$serial] - [{$row->date}] (qty: {$row->qty})";
+                        // semua row akan tampil (misal 19 row)
+                        $lines[] = "[$serial] - [{$row->date}] (qty: {$row->qty})";
                     }
                 }
 
