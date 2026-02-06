@@ -403,35 +403,29 @@ class LoadingListController extends Controller
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
                 if (!$internalPartId) {
-                    return '<span class="text-danger">N/A</span>';
+                    return '<span class="text-danger">N/A (no internal part)</span>';
                 }
 
-                // sesuai query asli:
-                // WHERE mutations.created_at > start AND < end
-                // AND internal_parts.id = internalPartId
-                // AND mutations.type = 'supply'
                 $mutations = Mutation::query()
                     ->select('serial_number', 'type', 'qty', 'date', 'created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'supply')
-                    ->where('created_at', '>', $start)
-                    ->where('created_at', '<', $end)
+                    ->whereBetween('created_at', [$start, $end]) // tes 1: created_at
                     ->orderBy('created_at', 'asc')
                     ->get();
 
+                // DEBUG VIEW
                 if ($mutations->isEmpty()) {
-                    return '<span class="text-danger">N/A</span>';
+                    return "IPID={$internalPartId}<br>WIN={$start} → {$end}<br><span class='text-danger'>COUNT=0</span>";
                 }
 
-                // tampilkan semua row (bukan 1 doang)
                 $lines = [];
                 foreach ($mutations as $m) {
                     $lines[] = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
                 }
 
-                return implode('<br>', $lines);
+                return "IPID={$internalPartId}<br>WIN={$start} → {$end}<br>COUNT={$mutations->count()}<hr>" . implode('<br>', $lines);
             })
-
             ->addColumn('edit', function ($row) {
                 return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
                     <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
@@ -447,7 +441,6 @@ class LoadingListController extends Controller
             ])
             ->toJson();
     }
-
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
