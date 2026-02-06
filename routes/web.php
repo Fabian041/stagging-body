@@ -96,8 +96,10 @@ Route::middleware(['auth'])->group(function () {
 
     // dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
-    Route::prefix('dashboard')->group(function () {
 
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/stock/export', [DashboardController::class, 'exportStock'])->name('dashboard.stock.export');
+        Route::get('/mutation/export', [DashboardController::class, 'exportMutation'])->name('dashboard.mutation.export');
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
 
         Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
