@@ -109,6 +109,7 @@ class DashboardController extends Controller
                 DB::raw("DATE_FORMAT(mutations.date, '%Y-%m-%d %H:%i:%s') as mutation_date")
             )
             ->whereBetween('mutations.date', [$start->toDateTimeString(), $end->toDateTimeString()])
+            ->where('mutations.type', 'supply')
             ->orderBy('lines.name')
             ->orderBy('mutations.date')
             ->orderBy('internal_parts.back_number')

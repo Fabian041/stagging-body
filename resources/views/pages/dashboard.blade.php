@@ -28,9 +28,9 @@
                             </li>
                         @endforeach
                     </ul>
-                    <button class="btn btn-lg btn-success" data-toggle="modal" data-target="#exportMutationModal">
+                    {{-- <button class="btn btn-lg btn-success" data-toggle="modal" data-target="#exportMutationModal">
                         Export Mutasi
-                    </button>
+                    </button> --}}
 
                     <div class="tab-content" id="myTabContent2">
                         @foreach ($lines as $line)

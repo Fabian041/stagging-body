@@ -21,6 +21,9 @@
                             </li>
                         @endforeach
                     </ul>
+                    <button class="btn btn-lg btn-success" data-toggle="modal" data-target="#exportMutationModal">
+                        Export Production Result
+                    </button>
 
                     {{-- Filter Tanggal --}}
                     <form method="GET" action="{{ route('dashboard.prodResult') }}" class="mb-3 mt-5">
@@ -177,8 +180,42 @@
             </div>
         </div>
     </div>
-@endsection
 
+    
+@endsection
+<div class="modal fade" tabindex="-1" role="dialog" id="exportMutationModal">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form action="{{ route('dashboard.mutation.export') }}" method="GET">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Export Mutasi (Filter Tanggal)</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+
+                    <div class="modal-body mt-3">
+                        <div class="form-group">
+                            <label>Dari Tanggal</label>
+                            <input type="date" class="form-control" name="from"
+                                value="{{ now()->format('Y-m-d') }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Sampai Tanggal</label>
+                            <input type="date" class="form-control" name="to"
+                                value="{{ now()->format('Y-m-d') }}" required>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Download Excel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {{-- mqtt --}}
 <script src="{{ asset('assets/js/jquery-3.6.3.min.js') }}"></script>
 <script src="{{ asset('assets/js/apexcharts.js') }}"></script>
