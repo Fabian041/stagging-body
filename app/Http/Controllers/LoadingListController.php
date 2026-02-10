@@ -436,26 +436,44 @@ class LoadingListController extends Controller
                     return '<span class="text-danger">N/A</span>';
                 }
 
-                $mutations = Mutation::query()
-                    ->select('serial_number', 'qty', 'date', 'created_at')
+                // 1) Ambil daftar checkout (pulling) di window detail -> ini sumber serial + waktu checkout
+                $checkouts = Mutation::query()
+                    ->select('serial_number', 'date', 'qty', 'created_at')
                     ->where('internal_part_id', $internalPartId)
-                    ->where('type', 'supply')
+                    ->where('type', 'checkout')
                     ->whereBetween('created_at', [$start, $end])
                     ->orderBy('created_at', 'asc')
                     ->get();
 
-                if ($mutations->isEmpty()) {
+                if ($checkouts->isEmpty()) {
                     return '<span class="text-danger">N/A</span>';
                 }
 
                 $lines = [];
-                foreach ($mutations as $m) {
-                    $lines[] = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
+
+                foreach ($checkouts as $co) {
+                    $serial = $co->serial_number;
+
+                    // 2) Cari supply TERAKHIR sebelum waktu checkout tsb (serial harus sama)
+                    $supply = Mutation::query()
+                        ->select('serial_number', 'date', 'qty', 'created_at')
+                        ->where('internal_part_id', $internalPartId)
+                        ->where('type', 'supply')
+                        ->where('serial_number', $serial)
+                        ->where('created_at', '<', $co->created_at) // sebelum pulling
+                        ->orderBy('created_at', 'desc')             // paling dekat sebelum pulling
+                        ->first();
+
+                    if (!$supply) {
+                        $lines[] = "[{$serial}] - [N/A]";
+                        continue;
+                    }
+
+                    $lines[] = "[{$serial}] - [{$supply->date}] (qty: {$supply->qty})";
                 }
 
                 return implode('<br>', $lines);
             })
-
             ->addColumn('edit', function ($row) {
                 return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
                     <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
@@ -471,8 +489,6 @@ class LoadingListController extends Controller
             ])
             ->toJson();
     }
-
-
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
