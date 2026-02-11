@@ -297,13 +297,9 @@
 
                         return `
                             <div class="d-flex flex-column align-items-center" style="gap:6px;">
-                                <button class="btn btn-outline-primary btn-sm btn-compare" type="button">
+                                <button class="btn btn-outline-danger btn-sm btn-compare" type="button">
                                     Compare Kanban
                                 </button>
-                                <div class="d-flex" style="gap:6px;">
-                                    <span class="badge badge-info">${pullCount} pull</span>
-                                    <span class="badge badge-dark">${prodCount} prod</span>
-                                </div>
                             </div>
                         `;
                     }
