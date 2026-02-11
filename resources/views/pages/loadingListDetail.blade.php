@@ -54,8 +54,8 @@
                 <thead>
                     <tr>
                         <th class="text-center" style="width:140px;">Action</th>
-                        <th class="text-center">Pulling Date</th>
-                        <th class="text-center">Production Date</th>
+                        {{-- <th class="text-center">Pulling Date</th>
+                        <th class="text-center">Production Date</th> --}}
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
@@ -284,12 +284,12 @@
                         `;
                     }
                 },
-                {
-                    data: 'pulling_date'
-                },
-                {
-                    data: 'prod_date'
-                },
+                // {
+                //     data: 'pulling_date'
+                // },
+                // {
+                //     data: 'prod_date'
+                // },
                 {
                     data: 'cust_partno'
                 },
