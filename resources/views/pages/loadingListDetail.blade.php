@@ -280,10 +280,6 @@
                                 <button class="btn btn-outline-primary btn-sm btn-compare" type="button">
                                     Compare
                                 </button>
-                                <div class="d-flex" style="gap:6px;">
-                                    <span class="badge badge-info">${pullCount} pull</span>
-                                    <span class="badge badge-dark">${prodCount} prod</span>
-                                </div>
                                 <button class="btn btn-info btn-sm details" type="button">Details</button>
                             </div>
                         `;
