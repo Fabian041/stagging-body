@@ -10,33 +10,33 @@
                     <div class="row mt-5 mb-4 m-auto">
                         <div class="col-6">
                             <ul class="list-group list-group-flush">
-                                <li class="list-group-item text-dark" style="font-weight: 700">
-                                    Loading List No. <p class="text-right" style="display: inline;">:
-                                        {{ $loadingListDetail->number }}</p>
+                                <li class="list-group-item text-dark" style="font-weight: 700">Loading
+                                    List No. <p class="text-right" style="display: inline;">
+                                        : {{ $loadingListDetail->number }}</p>
                                 </li>
-                                <li class="list-group-item text-dark" style="font-weight: 700">
-                                    PDS Number <p class="text-right" style="display: inline;">:
-                                        {{ $loadingListDetail->pds_number }}</p>
+                                <li class="list-group-item text-dark" style="font-weight: 700">PDS Number <p
+                                        class="text-right" style="display: inline;">
+                                        : {{ $loadingListDetail->pds_number }}</p>
                                 </li>
-                                <li class="list-group-item text-dark" style="font-weight: 700">
-                                    Customer <p class="text-right" style="display: inline;">:
-                                        {{ $loadingListDetail->name }}</p>
+                                <li class="list-group-item text-dark" style="font-weight: 700">Customer <p
+                                        class="text-right" style="display: inline;">
+                                        : {{ $loadingListDetail->name }}</p>
                                 </li>
                             </ul>
                         </div>
                         <div class="col-6">
                             <ul class="list-group list-group-flush">
-                                <li class="list-group-item text-dark" style="font-weight: 700">
-                                    Delivery Date <p class="text-right" style="display: inline;">:
-                                        {{ $loadingListDetail->delivery_date }}</p>
+                                <li class="list-group-item text-dark" style="font-weight: 700">Delivery Date <p
+                                        class="text-right" style="display: inline;">
+                                        : {{ $loadingListDetail->delivery_date }}</p>
                                 </li>
-                                <li class="list-group-item text-dark" style="font-weight: 700">
-                                    Shipping Date <p class="text-right" style="display: inline;">:
-                                        {{ $loadingListDetail->shipping_date }}</p>
+                                <li class="list-group-item text-dark" style="font-weight: 700">Shipping Date <p
+                                        class="text-right" style="display: inline;">
+                                        : {{ $loadingListDetail->shipping_date }}</p>
                                 </li>
-                                <li class="list-group-item text-dark" style="font-weight: 700">
-                                    Cycle <p class="text-right" style="display: inline;">:
-                                        {{ $loadingListDetail->cycle }}</p>
+                                <li class="list-group-item text-dark" style="font-weight: 700">Cycle <p class="text-right"
+                                        style="display: inline;">
+                                        : {{ $loadingListDetail->cycle }}</p>
                                 </li>
                             </ul>
                         </div>
@@ -50,12 +50,12 @@
     <div class="card card-danger mt-3 shadow" style="border-radius:10px">
         <div class="card-body">
             <h5 class="card-title mt-3 text-dark text-center">DETAILS</h5>
-
             <table class="table table-responsive-lg" id="loadingList" style="width: 100%">
                 <thead>
                     <tr>
-                        <th class="text-center"></th>
-                        <th class="text-center">Serial Detail</th>
+                        <th class="text-center" style="width:140px;">Action</th>
+                        <th class="text-center">Pulling Date</th>
+                        <th class="text-center">Production Date</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
@@ -70,7 +70,7 @@
         </div>
     </div>
 
-    {{-- ONE MODAL: Compare Pulling vs Production --}}
+    {{-- MODAL COMPARE --}}
     <div class="modal fade" id="compareModal" tabindex="-1" role="dialog" aria-labelledby="compareModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-xl" role="document" style="max-width: 1100px;">
@@ -89,7 +89,7 @@
                         <div class="d-flex" style="gap:10px; min-width: 320px;">
                             <input type="text" id="compareSearch" class="form-control"
                                 placeholder="Cari serial / tanggal / qty...">
-                            <select id="compareFilter" class="form-control" style="max-width: 200px;">
+                            <select id="compareFilter" class="form-control" style="max-width: 220px;">
                                 <option value="all">All</option>
                                 <option value="match">Match</option>
                                 <option value="missing_prod">Missing Production</option>
@@ -105,7 +105,7 @@
                             <thead class="thead-light" style="position: sticky; top: 0; z-index: 2;">
                                 <tr>
                                     <th style="width: 60px;" class="text-center">#</th>
-                                    <th style="width: 180px;">Serial</th>
+                                    <th style="width: 200px;">Serial</th>
                                     <th>Production</th>
                                     <th>Pulling</th>
                                     <th style="width: 170px;" class="text-center">Status</th>
@@ -116,8 +116,8 @@
                     </div>
 
                     <div class="mt-2 small text-muted">
-                        Tips: Missing Production = serial ada di checkout, tapi supply sebelumnya tidak ketemu (atau parsing
-                        beda format).
+                        Note: “Missing Production” artinya serial ada di pulling (checkout), tapi supply sebelumnya tidak
+                        ketemu.
                     </div>
                 </div>
 
@@ -130,7 +130,7 @@
     </div>
 @endsection
 
-{{-- deps --}}
+{{-- mqtt --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
     integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
@@ -147,68 +147,59 @@
             }
         };
 
-        /**
-         * Normalize HTML/string to plain text lines:
-         * - decode escaped <br>
-         * - convert <br>, <br/>, <br /> to newline
-         * - strip any HTML tags (<span>, <div>, etc)
-         * - trim
-         */
-        function normalizeText(html) {
-            if (!html) return '';
+        // ====== Compare helpers (robust) ======
+        function decodeEscapedBr(s) {
+            return String(s || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+        }
 
-            let s = String(html);
+        function toLines(html) {
+            if (!html) return [];
+            let s = decodeEscapedBr(html);
 
-            // decode escaped <br>
-            s = s.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
-
-            // convert any <br> variants to newline
+            // convert <br>, <br/>, <br /> to \n
             s = s.replace(/<br\s*\/?>/gi, '\n');
 
-            // strip all html tags
+            // remove tags (optional) but keep text
             s = s.replace(/<[^>]*>/g, '');
 
-            // normalize spaces/newlines
             s = s.replace(/\r/g, '').trim();
-
-            return s;
-        }
-
-        function splitLines(html) {
-            const s = normalizeText(html);
             if (!s) return [];
-            if (s.toUpperCase().includes('N/A')) return [];
-            return s.split('\n').map(x => x.trim()).filter(Boolean);
+
+            // if the whole text is N/A
+            if (s.toUpperCase() === 'N/A' || s.toUpperCase().includes('N/A')) {
+                // IMPORTANT: jangan auto kosong kalau ada serial lain + N/A,
+                // jadi kita filter line yang betul-betul N/A saja
+            }
+
+            return s.split('\n')
+                .map(x => x.trim())
+                .filter(x => x && x.toUpperCase() !== 'N/A');
         }
 
-        // serial = bracket pertama yang muncul di line, gak harus di awal
         function extractSerial(line) {
-            const m = line.match(/\[([^\]]+)\]/);
+            const m = String(line).match(/\[([^\]]+)\]/);
             return m ? m[1].trim() : null;
         }
 
-        // parse into Map(serial -> [lines...]) keep ALL duplicates
-        function parseToMapMulti(html) {
+        // keep ALL lines per serial (duplikat jangan ilang)
+        function mapSerialToLines(html) {
             const map = new Map();
-            const lines = splitLines(html);
-
+            const lines = toLines(html);
             lines.forEach(line => {
                 const serial = extractSerial(line);
                 if (!serial) return;
-
                 if (!map.has(serial)) map.set(serial, []);
                 map.get(serial).push(line);
             });
-
             return map;
         }
 
         function countItems(html) {
-            return splitLines(html).length;
+            return toLines(html).length;
         }
 
-        // Build compare rows
-        let compareData = []; // [{serial, prodLines[], pullLines[], status}]
+        let compareData = [];
+
         function rebuildCompareRows(filterText = '', filterMode = 'all') {
             const q = (filterText || '').toLowerCase();
             const tbody = $('#compareTbody');
@@ -216,7 +207,7 @@
 
             let shown = 0;
 
-            compareData.forEach((item) => {
+            compareData.forEach(item => {
                 const prodText = (item.prodLines || []).join(' ');
                 const pullText = (item.pullLines || []).join(' ');
                 const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
@@ -266,7 +257,7 @@
             $('#compareMeta').text(`Shown: ${shown} / Total serial: ${compareData.length}`);
         }
 
-        // DataTable
+        // ====== DataTable (tetap seperti lama) ======
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
@@ -277,35 +268,32 @@
             },
             columns: [{
                     data: null,
-                    className: 'details-control',
-                    orderable: false,
-                    searchable: false,
-                    defaultContent: '<button class="btn btn-info btn-sm details">Details</button>'
-                },
-                {
-                    data: null,
                     orderable: false,
                     searchable: false,
                     render: function(data, type, row) {
+                        // tombol compare + tombol details (yang lama)
                         const pullCount = countItems(row.pulling_date);
                         const prodCount = countItems(row.prod_date);
 
-                        const pullBadge = pullCount ?
-                            `<span class="badge badge-info">${pullCount} pull</span>` :
-                            `<span class="badge badge-secondary">0 pull</span>`;
-                        const prodBadge = prodCount ?
-                            `<span class="badge badge-dark">${prodCount} prod</span>` :
-                            `<span class="badge badge-secondary">0 prod</span>`;
-
                         return `
                             <div class="d-flex flex-column align-items-center" style="gap:6px;">
-                                <div class="d-flex" style="gap:6px;">${prodBadge} ${pullBadge}</div>
-                                <button type="button" class="btn btn-sm btn-outline-primary btn-compare">
-                                    Compare Kanban
+                                <button class="btn btn-outline-primary btn-sm btn-compare" type="button">
+                                    Compare
                                 </button>
+                                <div class="d-flex" style="gap:6px;">
+                                    <span class="badge badge-info">${pullCount} pull</span>
+                                    <span class="badge badge-dark">${prodCount} prod</span>
+                                </div>
+                                <button class="btn btn-info btn-sm details" type="button">Details</button>
                             </div>
                         `;
                     }
+                },
+                {
+                    data: 'pulling_date'
+                },
+                {
+                    data: 'prod_date'
                 },
                 {
                     data: 'cust_partno'
@@ -337,16 +325,14 @@
             ],
         });
 
-        // Compare button
+        // ====== Compare click ======
         $(document).on('click', '.btn-compare', function() {
             const tr = $(this).closest('tr');
             const row = table.row(tr).data();
 
-            // IMPORTANT: use improved parsing (handles <br/>, spans, etc)
-            const pullMap = parseToMapMulti(row.pulling_date);
-            const prodMap = parseToMapMulti(row.prod_date);
+            const pullMap = mapSerialToLines(row.pulling_date);
+            const prodMap = mapSerialToLines(row.prod_date);
 
-            // union serials
             const serialSet = new Set([...pullMap.keys(), ...prodMap.keys()]);
             const serials = Array.from(serialSet).sort();
 
@@ -381,7 +367,7 @@
             rebuildCompareRows($('#compareSearch').val(), $(this).val());
         });
 
-        // Existing Details Row (EDCL) (tetap dari kode lama kamu)
+        // ====== Details (EDCL) tetap seperti lama ======
         $(document).on('click', '.details', function() {
             let tr = $(this).closest('tr');
             let row = table.row(tr);
@@ -460,7 +446,78 @@
             `;
         }
 
-        // notif helper (butuh iziToast existing di project kamu)
+        // cancel manifest
+        $(document).on('click', '.cancel-manifest', function() {
+            let tr = $(this).closest('tr');
+            let rowData = {
+                id: tr.find('td:eq(0)').text().trim()
+            };
+
+            fetch(`/edcl/cancel/${rowData.id}`, requestOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status == 'success') {
+                        notif('success', data.message);
+                        table.ajax.reload(null, false);
+                    } else if (data.status == 'error') {
+                        notif('error', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.log(error.message);
+                    notif('error', error);
+                });
+        });
+
+        // edit/save/cancel actual (tetap seperti lama)
+        $(document).on('click', '#loadingList .edit', function() {
+            $(this).closest('tr').find('.actual').hide();
+            $(this).closest('tr').find('.editActual').show();
+            $(this).closest('tr').find('.save').css({
+                display: 'inline'
+            });
+            $(this).closest('tr').find('.cancel').show({
+                display: 'inline'
+            });
+            $(this).closest('tr').find('.edit').hide();
+        });
+
+        $(document).on('click', '#loadingList .save', function() {
+            let customerPart = $(this).closest('tr').find('.customerPart').html();
+            let backNumber = $(this).closest('tr').find('.backNumber').html();
+            if (backNumber == '') backNumber = 'null';
+
+            let newActual = $(this).closest('tr').find('.editActual').val();
+
+            fetch(`/loading-list/edit/${loadingList}/${customerPart}/${backNumber}/${newActual}`,
+                    requestOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status == 'success') {
+                        notif('success', data.message);
+                        $(this).closest('tr').find('.editActual').hide();
+                        $(this).closest('tr').find('.save').hide();
+                        $(this).closest('tr').find('.cancel').hide();
+                        $(this).closest('tr').find('.edit').show();
+                        table.ajax.reload(null, false);
+                    } else if (data.status == 'error') {
+                        notif('error', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.log(error.message);
+                    notif('error', error);
+                });
+        });
+
+        $(document).on('click', '#loadingList .cancel', function() {
+            $(this).closest('tr').find('.actual').show();
+            $(this).closest('tr').find('.editActual').hide();
+            $(this).closest('tr').find('.save').hide();
+            $(this).closest('tr').find('.cancel').hide();
+            $(this).closest('tr').find('.edit').show();
+        });
+
         function notif(type, message) {
             if (type == 'error') {
                 iziToast.error({
