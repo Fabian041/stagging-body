@@ -69,66 +69,65 @@
             </table>
         </div>
     </div>
-
-    {{-- MODAL COMPARE --}}
-    <div class="modal fade" id="compareModal" tabindex="-1" role="dialog" aria-labelledby="compareModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-xl" role="document" style="max-width: 1100px;">
-            <div class="modal-content" style="border-radius:12px;">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="compareModalLabel">Compare Pulling vs Production</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
-                        <div class="text-muted small" id="compareMeta"></div>
-
-                        <div class="d-flex" style="gap:10px; min-width: 320px;">
-                            <input type="text" id="compareSearch" class="form-control"
-                                placeholder="Cari serial / tanggal / qty...">
-                            <select id="compareFilter" class="form-control" style="max-width: 220px;">
-                                <option value="all">All</option>
-                                <option value="match">Match</option>
-                                <option value="missing_prod">Missing Production</option>
-                                <option value="missing_pull">Missing Pulling</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <hr>
-
-                    <div style="max-height: 520px; overflow:auto; border:1px solid #eee; border-radius:10px;">
-                        <table class="table table-sm mb-0">
-                            <thead class="thead-light" style="position: sticky; top: 0; z-index: 2;">
-                                <tr>
-                                    <th style="width: 60px;" class="text-center">#</th>
-                                    <th style="width: 200px;">Serial</th>
-                                    <th>Production</th>
-                                    <th>Pulling</th>
-                                    <th style="width: 170px;" class="text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="compareTbody"></tbody>
-                        </table>
-                    </div>
-
-                    <div class="mt-2 small text-muted">
-                        Note: “Missing Production” artinya serial ada di pulling (checkout), tapi supply sebelumnya tidak
-                        ketemu.
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                </div>
-
+@endsection
+{{-- MODAL COMPARE --}}
+<div class="modal fade" id="compareModal" tabindex="-1" role="dialog" aria-labelledby="compareModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document" style="max-width: 1100px;">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header">
+                <h5 class="modal-title" id="compareModalLabel">Compare Pulling vs Production</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
+
+            <div class="modal-body">
+                <div class="d-flex flex-wrap align-items-center justify-content-between" style="gap:10px;">
+                    <div class="text-muted small" id="compareMeta"></div>
+
+                    <div class="d-flex" style="gap:10px; min-width: 320px;">
+                        <input type="text" id="compareSearch" class="form-control"
+                            placeholder="Cari serial / tanggal / qty...">
+                        <select id="compareFilter" class="form-control" style="max-width: 220px;">
+                            <option value="all">All</option>
+                            <option value="match">Match</option>
+                            <option value="missing_prod">Missing Production</option>
+                            <option value="missing_pull">Missing Pulling</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div style="max-height: 520px; overflow:auto; border:1px solid #eee; border-radius:10px;">
+                    <table class="table table-sm mb-0">
+                        <thead class="thead-light" style="position: sticky; top: 0; z-index: 2;">
+                            <tr>
+                                <th style="width: 60px;" class="text-center">#</th>
+                                <th style="width: 200px;">Serial</th>
+                                <th>Production</th>
+                                <th>Pulling</th>
+                                <th style="width: 170px;" class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compareTbody"></tbody>
+                    </table>
+                </div>
+
+                <div class="mt-2 small text-muted">
+                    Note: “Missing Production” artinya serial ada di pulling (checkout), tapi supply sebelumnya tidak
+                    ketemu.
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+
         </div>
     </div>
-@endsection
+</div>
 
 {{-- mqtt --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
