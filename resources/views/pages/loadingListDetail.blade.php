@@ -146,7 +146,6 @@
             }
         };
 
-        // ===== Compare helpers (keep all duplicate lines per serial) =====
         function decodeEscapedBr(s) {
             return String(s || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
         }
@@ -158,28 +157,59 @@
             s = s.replace(/<[^>]*>/g, '');
             s = s.replace(/\r/g, '').trim();
             if (!s) return [];
-            return s.split('\n').map(x => x.trim()).filter(x => x && x.toUpperCase() !== 'N/A');
+            return s.split('\n')
+                .map(x => x.trim())
+                .filter(x => x && x.toUpperCase() !== 'N/A');
+        }
+
+        // ✅ filter serial "mask" seperti xxxx / xxx / ***** / ----
+        function isMaskedSerial(serial) {
+            if (!serial) return true;
+            const s = String(serial).trim().toLowerCase();
+
+            // exact common masks
+            if (['xxxx', 'xxx', 'xx', 'x', '*****', '****', '***', '**', '*', '----', '---', '--', '-']
+                .includes(s)) {
+                return true;
+            }
+
+            // all same char (x or * or -) and length >= 2
+            if (/^(x{2,}|\*{2,}|\-{2,})$/i.test(s)) return true;
+
+            return false;
         }
 
         function extractSerial(line) {
             const m = String(line).match(/\[([^\]]+)\]/);
-            return m ? m[1].trim() : null;
+            const serial = m ? m[1].trim() : null;
+            if (!serial) return null;
+            if (isMaskedSerial(serial)) return null; // ✅ buang yang xxxx
+            return serial;
         }
 
         function mapSerialToLines(html) {
             const map = new Map();
             const lines = toLines(html);
+
             lines.forEach(line => {
                 const serial = extractSerial(line);
-                if (!serial) return;
+                if (!serial) return; // ✅ otomatis skip line xxxx
                 if (!map.has(serial)) map.set(serial, []);
                 map.get(serial).push(line);
             });
+
             return map;
         }
 
         function countItems(html) {
-            return toLines(html).length;
+            // count juga harus ikut filter serial xxxx
+            const lines = toLines(html);
+            let c = 0;
+            lines.forEach(l => {
+                const serial = extractSerial(l);
+                if (serial) c++;
+            });
+            return c;
         }
 
         let compareData = [];
@@ -250,17 +280,13 @@
                 url: `{{ url('dashboard/getLoadingListDetail') }}` + '/' + loadingList,
                 dataType: 'json',
             },
-            columns: [
-                // 1) EDCL (Details)
-                {
+            columns: [{
                     data: null,
                     className: 'details-control',
                     orderable: false,
                     searchable: false,
                     defaultContent: '<button class="btn btn-info btn-sm details">Details</button>'
                 },
-
-                // 2) Kanban Details (Compare modal)
                 {
                     data: null,
                     orderable: false,
@@ -272,7 +298,7 @@
                         return `
                             <div class="d-flex flex-column align-items-center" style="gap:6px;">
                                 <button class="btn btn-outline-primary btn-sm btn-compare" type="button">
-                                    Compare
+                                    Compare Kanban
                                 </button>
                                 <div class="d-flex" style="gap:6px;">
                                     <span class="badge badge-info">${pullCount} pull</span>
@@ -282,8 +308,6 @@
                         `;
                     }
                 },
-
-                // other columns (tetap sama)
                 {
                     data: 'cust_partno'
                 },
@@ -322,6 +346,7 @@
             const pullMap = mapSerialToLines(row.pulling_date);
             const prodMap = mapSerialToLines(row.prod_date);
 
+            // ✅ union serial tapi yang xxxx sudah kebuang di extractSerial()
             const serialSet = new Set([...pullMap.keys(), ...prodMap.keys()]);
             const serials = Array.from(serialSet).sort();
 
@@ -434,78 +459,6 @@
                 </table>
             `;
         }
-
-        // cancel manifest
-        $(document).on('click', '.cancel-manifest', function() {
-            let tr = $(this).closest('tr');
-            let rowData = {
-                id: tr.find('td:eq(0)').text().trim()
-            };
-
-            fetch(`/edcl/cancel/${rowData.id}`, requestOptions)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status == 'success') {
-                        notif('success', data.message);
-                        table.ajax.reload(null, false);
-                    } else if (data.status == 'error') {
-                        notif('error', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.log(error.message);
-                    notif('error', error);
-                });
-        });
-
-        // edit/save/cancel actual (tetap sama)
-        $(document).on('click', '#loadingList .edit', function() {
-            $(this).closest('tr').find('.actual').hide();
-            $(this).closest('tr').find('.editActual').show();
-            $(this).closest('tr').find('.save').css({
-                display: 'inline'
-            });
-            $(this).closest('tr').find('.cancel').show({
-                display: 'inline'
-            });
-            $(this).closest('tr').find('.edit').hide();
-        });
-
-        $(document).on('click', '#loadingList .save', function() {
-            let customerPart = $(this).closest('tr').find('.customerPart').html();
-            let backNumber = $(this).closest('tr').find('.backNumber').html();
-            if (backNumber == '') backNumber = 'null';
-
-            let newActual = $(this).closest('tr').find('.editActual').val();
-
-            fetch(`/loading-list/edit/${loadingList}/${customerPart}/${backNumber}/${newActual}`,
-                    requestOptions)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status == 'success') {
-                        notif('success', data.message);
-                        $(this).closest('tr').find('.editActual').hide();
-                        $(this).closest('tr').find('.save').hide();
-                        $(this).closest('tr').find('.cancel').hide();
-                        $(this).closest('tr').find('.edit').show();
-                        table.ajax.reload(null, false);
-                    } else if (data.status == 'error') {
-                        notif('error', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.log(error.message);
-                    notif('error', error);
-                });
-        });
-
-        $(document).on('click', '#loadingList .cancel', function() {
-            $(this).closest('tr').find('.actual').show();
-            $(this).closest('tr').find('.editActual').hide();
-            $(this).closest('tr').find('.save').hide();
-            $(this).closest('tr').find('.cancel').hide();
-            $(this).closest('tr').find('.edit').show();
-        });
 
         function notif(type, message) {
             if (type == 'error') {
