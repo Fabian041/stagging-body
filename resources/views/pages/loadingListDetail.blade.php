@@ -50,19 +50,19 @@
     <div class="card card-danger mt-3 shadow" style="border-radius:10px">
         <div class="card-body">
             <h5 class="card-title mt-3 text-dark text-center">DETAILS</h5>
+
             <table class="table table-responsive-lg" id="loadingList" style="width: 100%">
                 <thead>
                     <tr>
-                        <th class="text-center" style="width:140px;">Action</th>
-                        {{-- <th class="text-center">Pulling Date</th>
-                        <th class="text-center">Production Date</th> --}}
+                        <th class="text-center" style="width:140px;">EDCL</th>
+                        <th class="text-center" style="width:210px;">Kanban Details</th>
                         <th class="text-center">Customer Part No.</th>
                         <th class="text-center">Internal Part No.</th>
                         <th class="text-center">Customer Back No.</th>
                         <th class="text-center">Internal Back No.</th>
                         <th class="text-center">Kanban Qty</th>
                         <th class="text-center">Total Scan</th>
-                        <th class="text-center"></th>
+                        <th class="text-center" style="width:120px;"></th>
                     </tr>
                 </thead>
                 <tbody class="text-center"></tbody>
@@ -146,7 +146,7 @@
             }
         };
 
-        // ====== Compare helpers (robust) ======
+        // ===== Compare helpers (keep all duplicate lines per serial) =====
         function decodeEscapedBr(s) {
             return String(s || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
         }
@@ -154,25 +154,11 @@
         function toLines(html) {
             if (!html) return [];
             let s = decodeEscapedBr(html);
-
-            // convert <br>, <br/>, <br /> to \n
             s = s.replace(/<br\s*\/?>/gi, '\n');
-
-            // remove tags (optional) but keep text
             s = s.replace(/<[^>]*>/g, '');
-
             s = s.replace(/\r/g, '').trim();
             if (!s) return [];
-
-            // if the whole text is N/A
-            if (s.toUpperCase() === 'N/A' || s.toUpperCase().includes('N/A')) {
-                // IMPORTANT: jangan auto kosong kalau ada serial lain + N/A,
-                // jadi kita filter line yang betul-betul N/A saja
-            }
-
-            return s.split('\n')
-                .map(x => x.trim())
-                .filter(x => x && x.toUpperCase() !== 'N/A');
+            return s.split('\n').map(x => x.trim()).filter(x => x && x.toUpperCase() !== 'N/A');
         }
 
         function extractSerial(line) {
@@ -180,7 +166,6 @@
             return m ? m[1].trim() : null;
         }
 
-        // keep ALL lines per serial (duplikat jangan ilang)
         function mapSerialToLines(html) {
             const map = new Map();
             const lines = toLines(html);
@@ -256,7 +241,7 @@
             $('#compareMeta').text(`Shown: ${shown} / Total serial: ${compareData.length}`);
         }
 
-        // ====== DataTable (tetap seperti lama) ======
+        // ===== DataTable (tanpa kolom pulling/prod) =====
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
@@ -265,12 +250,22 @@
                 url: `{{ url('dashboard/getLoadingListDetail') }}` + '/' + loadingList,
                 dataType: 'json',
             },
-            columns: [{
+            columns: [
+                // 1) EDCL (Details)
+                {
+                    data: null,
+                    className: 'details-control',
+                    orderable: false,
+                    searchable: false,
+                    defaultContent: '<button class="btn btn-info btn-sm details">Details</button>'
+                },
+
+                // 2) Kanban Details (Compare modal)
+                {
                     data: null,
                     orderable: false,
                     searchable: false,
                     render: function(data, type, row) {
-                        // tombol compare + tombol details (yang lama)
                         const pullCount = countItems(row.pulling_date);
                         const prodCount = countItems(row.prod_date);
 
@@ -279,17 +274,16 @@
                                 <button class="btn btn-outline-primary btn-sm btn-compare" type="button">
                                     Compare
                                 </button>
-                                <button class="btn btn-info btn-sm details" type="button">Details</button>
+                                <div class="d-flex" style="gap:6px;">
+                                    <span class="badge badge-info">${pullCount} pull</span>
+                                    <span class="badge badge-dark">${prodCount} prod</span>
+                                </div>
                             </div>
                         `;
                     }
                 },
-                // {
-                //     data: 'pulling_date'
-                // },
-                // {
-                //     data: 'prod_date'
-                // },
+
+                // other columns (tetap sama)
                 {
                     data: 'cust_partno'
                 },
@@ -320,7 +314,7 @@
             ],
         });
 
-        // ====== Compare click ======
+        // ===== Compare click =====
         $(document).on('click', '.btn-compare', function() {
             const tr = $(this).closest('tr');
             const row = table.row(tr).data();
@@ -362,7 +356,7 @@
             rebuildCompareRows($('#compareSearch').val(), $(this).val());
         });
 
-        // ====== Details (EDCL) tetap seperti lama ======
+        // ===== Details Row (EDCL) tetap seperti lama =====
         $(document).on('click', '.details', function() {
             let tr = $(this).closest('tr');
             let row = table.row(tr);
@@ -464,7 +458,7 @@
                 });
         });
 
-        // edit/save/cancel actual (tetap seperti lama)
+        // edit/save/cancel actual (tetap sama)
         $(document).on('click', '#loadingList .edit', function() {
             $(this).closest('tr').find('.actual').hide();
             $(this).closest('tr').find('.editActual').show();
