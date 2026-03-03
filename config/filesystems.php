@@ -56,6 +56,14 @@ return [
             'throw' => false,
         ],
 
+        'pis' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/pis'),
+            'url' => env('APP_URL').'/storage/pis',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+
     ],
 
     /*

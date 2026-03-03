@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
-    <title>BELLA</title>
+    <title>BODY</title>
 
     <!-- General CSS Files -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -25,6 +25,57 @@
     <!-- Template CSS -->
     <link rel="stylesheet" href={{ asset('assets/css/style.css') }}>
     <link rel="stylesheet" href={{ asset('assets/css/components.css') }}>
+    
+    <style>
+        .section {
+            padding: 0.5rem !important;
+        }
+        .main-content {
+            padding: 0.25rem !important;
+        }
+        .main-wrapper {
+            padding: 0.25rem !important;
+        }
+        body {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Prevent auto-scroll behavior */
+        html {
+            scroll-behavior: auto !important;
+        }
+        
+        /* Prevent scroll to focused elements */
+        input:focus, select:focus, textarea:focus {
+            scroll-margin: 0 !important;
+        }
+        
+        /* Override any smooth scroll */
+        * {
+            scroll-behavior: auto !important;
+        }
+
+        .main-content {
+            padding-bottom: 0 !important;
+            margin-bottom: 0 !important;
+            min-height: auto !important;
+        }
+
+        .section {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+        .card {
+            margin-bottom: 0.5rem !important;
+        }
+
+        .main-wrapper {
+            min-height: auto !important;
+        }
+
+    </style>
     <!-- Start GA -->
     <!-- /END GA -->
 </head>
@@ -32,14 +83,6 @@
 <body class="sidebar-mini">
     <div id="app">
         <div class="main-wrapper main-wrapper-1">
-            <div class="navbar-bg"></div>
-
-            {{-- navbar --}}
-            @include('layouts.partials.nav')
-
-            {{-- sidenav --}}
-            @include('layouts.partials.sidenav')
-
             <!-- Main Content -->
             <div class="main-content">
                 <section class="section">
@@ -48,14 +91,7 @@
 
                 </section>
             </div>
-            <footer class="main-footer">
-                <div class="footer-left">
-                    Copyright &copy; ITD 2023
-                </div>
-                <div class="footer-right">
-
-                </div>
-            </footer>
+     
         </div>
     </div>
 
