@@ -56,6 +56,11 @@ class ProductionController extends Controller
         return view('pages.production.as523');
     }
 
+    public function pc2b()
+    {
+        return view('pages.production.pc2b');
+    }
+
     /**
      * Show the form for creating a new resource.
      *
