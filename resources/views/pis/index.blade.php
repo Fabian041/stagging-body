@@ -203,9 +203,13 @@
                 return;
             }
 
-            // Normalisasi: hapus semua karakter selain huruf & angka, dan jadikan uppercase
+            // Normalisasi nama file:
+            // - trim
+            // - uppercase
+            // - hanya mengizinkan A–Z, 0–9, dan tanda hubung (-)
             var custUpper = custRaw.toUpperCase();
-            var custNormalized = custUpper.replace(/[^A-Z0-9]/g, '');
+            var custSanitized = custUpper.replace(/[^A-Z0-9-]/g, '');
+            var custNoDash = custSanitized.replace(/-/g, '');
 
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
             var dock = ($('#dock_type').val() || 'OTHER').toUpperCase();
@@ -217,27 +221,21 @@
                 }
             };
 
-            // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG (uppercase, raw dan hasil normalisasi)
-            add(custUpper + '-' + type + '-' + dock + '.JPG');
-            if (custNormalized && custNormalized !== custUpper) {
-                add(custNormalized + '-' + type + '-' + dock + '.JPG');
+            // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG
+            if (custSanitized) {
+                add(custSanitized + '-' + type + '-' + dock + '.JPG');
+            }
+            if (custNoDash && custNoDash !== custSanitized) {
+                add(custNoDash + '-' + type + '-' + dock + '.JPG');
             }
 
-            // Tambahan: dukung variasi ekstensi dan nama file lama
-            ['JPG', 'JPEG', 'PNG', 'jpg', 'jpeg', 'png'].forEach(function (ext) {
-                add(custUpper + '-' + type + '-' + dock + '.' + ext);
-                if (custNormalized && custNormalized !== custUpper) {
-                    add(custNormalized + '-' + type + '-' + dock + '.' + ext);
-                }
-            });
-
-            // Fallback: gunakan hanya PART_CUST.ext (raw & normalized)
-            ['png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'].forEach(function (ext) {
-                add(custUpper + '.' + ext);
-                if (custNormalized && custNormalized !== custUpper) {
-                    add(custNormalized + '.' + ext);
-                }
-            });
+            // Fallback tambahan: hanya [PART_CUST].JPG
+            if (custSanitized) {
+                add(custSanitized + '.JPG');
+            }
+            if (custNoDash && custNoDash !== custSanitized) {
+                add(custNoDash + '.JPG');
+            }
 
             var idx = 0;
 
@@ -321,6 +319,9 @@
         var pendingScanBarcode = null;
         var pendingScanDisplayBarcode = null;
         var jpConfirmBarcode = '';
+        // Part yang sudah "dimulai" (scan kanban/label) dalam sesi loading list saat ini saja.
+        // Di-reset setiap kali loading list di-scan; interlock "part belum terpenuhi" hanya memakai ini.
+        var partsStartedInCurrentSession = [];
 
         function getDailyCounterKey() {
             var d = new Date();
@@ -368,6 +369,39 @@
             var str = ('' + s).trim();
             if (str.length <= 1) return str;
             return str.substring(0, str.length - 1);
+        }
+
+        // Ekstrak Part No Customer dari string kanban berdasarkan loading list aktif.
+        // Hanya mengembalikan nilai yang benar-benar sama dengan part_number_cust di loading list.
+        function extractCustomerPartFromKanban(kanbanStr) {
+            if (!kanbanStr) return '';
+            var upper = kanbanStr.toUpperCase();
+
+            // Pecah string kanban menjadi token berdasarkan spasi/tab
+            var tokens = upper.split(/\s+/).filter(function(t) { return t && t.trim().length > 0; });
+            if (!tokens.length) return '';
+
+            var bestMatch = '';
+            var bestLen = -1;
+
+            try {
+                (loadingListItems || []).forEach(function(item) {
+                    var cust = (item.part_number_cust || '').toString().toUpperCase().trim();
+                    if (!cust) return;
+                    for (var i = 0; i < tokens.length; i++) {
+                        // Token harus sama persis dengan part_number_cust (ignore case)
+                        if (tokens[i] === cust && cust.length > bestLen) {
+                            bestLen = cust.length;
+                            bestMatch = cust;
+                        }
+                    }
+                });
+            } catch (e) {
+                // Abaikan error
+            }
+
+            // Jika tidak ada yang match persis dengan part_number_cust di loading list, anggap tidak valid
+            return bestMatch || '';
         }
 
         function updateStepIndicator() {
@@ -436,7 +470,10 @@
                 $('#part_number_loading').show();
 
                 function doStageAction() {
-                    if (stage === 1 || stage === 3) {
+                    // Tampilkan hanya hasil scan loading list di input Part Number.
+                    // Untuk scan kanban (stage 2) dan label (stage 3), nilai input akan
+                    // di-set spesifik oleh fungsi proses masing-masing (bukan seluruh string scan).
+                    if (stage === 1) {
                         $('#detail_no').val(displayBarcode);
                     }
                     if (stage === 1) {
@@ -527,16 +564,25 @@
         function resetPisState() {
             stage = 1;
             loadingListItems = [];
+            partsStartedInCurrentSession = [];
             currentLoadingListNumber = '';
             lastScannedKanban = '';
             currentPreviewItem = null;
             lastScannedLabel = '';
+            lastScannedLabelTime = 0;
+            barcode = '';
+            pendingJpAction = null;
+            pendingScanBarcode = null;
+            pendingScanDisplayBarcode = null;
+            jpConfirmBarcode = '';
+            $('#modalPisJpConfirmation').modal('hide');
+            $('#part_number_loading').hide();
             updateStepIndicator();
             renderLoadingList();
             updateCounter();
             $('#detail_no').val('');
             clearPreviewImage();
-            $('#alert').removeClass('alert-danger alert-warning').addClass('alert-success');
+            $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
             $('#alert-header').html('<i class="fas fa-check-circle"></i> Ready');
             $('#alert-body').text('Silahkan Scan Loading List untuk memulai');
         }
@@ -551,10 +597,15 @@
 
         // Stage 2: Scan kanban — simpan data untuk validasi label (label harus terkandung di data kanban)
         function processKanbanScan(barcode) {
-            var raw = cleanBarcode(barcode || '');
-            
+            // Simpan string asli dari scanner (biasanya sangat panjang)
+            var fullKanbanRaw = cleanBarcode(barcode || '');
+            // Hanya ambil bagian Part No Customer yang relevan dengan loading list aktif
+            var extractedPart = extractCustomerPartFromKanban(fullKanbanRaw);
+            // raw = nilai yang akan dipakai untuk semua proses selanjutnya (hanya part no customer)
+            var raw = extractedPart || fullKanbanRaw;
+
             if (!raw) {
-                $('#alert').removeClass('alert-success').addClass('alert-warning');
+                $('#status-container').removeClass('alert-success').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Kanban Kosong');
                 $('#alert-body').text('Data kanban tidak valid.');
                 $(window).scrollTop(_savedScrollTop);
@@ -584,7 +635,7 @@
 
             if (isAlreadyFinished) {
                 // Tampilkan Alert Error
-                $('#alert').removeClass('alert-success alert-primary').addClass('alert-danger');
+                $('#status-container').removeClass('alert-success alert-primary').addClass('alert-danger');
                 $('#alert-header').html('<i class="fas fa-ban"></i> Kanban Sudah Terpenuhi');
                 $('#alert-body').text('Part "' + matchedPartName + '" sudah mencapai target (Sisa: 0). Silahkan scan Kanban untuk part lain yang belum selesai.');
                 
@@ -604,10 +655,21 @@
                     partsInThisKanban.push(it);
                 }
             }
+            // Cari part lain yang SUDAH MULAI di-scan dalam SESI LOADING LIST SAAT INI saja (bukan dari loading list sebelumnya).
+            // Part dianggap "dimulai" hanya jika sudah ada scan kanban/label untuk part itu SETELAH loading list terakhir di-scan.
+            // Ini mencegah interlock muncul ketika user scan loading list dulu lalu scan kanban (konteks baru).
+            function getPartKey(it) { return (it.part_number_cust || it.part_number_int || '').toString().trim(); }
+            function isPartStartedInSession(item) {
+                var key = getPartKey(item);
+                return key && partsStartedInCurrentSession.indexOf(key) !== -1;
+            }
             var otherPartUnfinished = [];
             for (var u = 0; u < loadingListItems.length; u++) {
                 var itemU = loadingListItems[u];
-                if ((itemU.remaining || 0) <= 0) continue;
+                var alreadyStarted = isPartStartedInSession(itemU);
+                var stillRemaining = (itemU.remaining || 0) > 0;
+                if (!alreadyStarted || !stillRemaining) continue;
+
                 var isInKanban = false;
                 for (var v = 0; v < partsInThisKanban.length; v++) {
                     if (partsInThisKanban[v] === itemU) { isInKanban = true; break; }
@@ -616,7 +678,7 @@
             }
             if (otherPartUnfinished.length > 0) {
                 var partNames = otherPartUnfinished.map(function(i) { return i.part_number_cust || i.part_number_int; }).join(', ');
-                $('#alert').removeClass('alert-success alert-primary').addClass('alert-danger');
+                $('#status-container').removeClass('alert-success alert-primary').addClass('alert-danger');
                 $('#alert-header').html('<i class="fas fa-lock"></i> Interlock: Masih Ada Part Belum Selesai');
                 $('#alert-body').text('Part lain belum selesai packing: ' + partNames + '. Silahkan hubungi JP/Leader untuk pindah part.');
 
@@ -627,7 +689,8 @@
                     data: {
                         message: 'Interlock: Pindah part sebelum selesai',
                         expected: partNames,
-                        scanned: raw
+                        // simpan hanya Part No Customer hasil ekstraksi, bukan seluruh isi string kanban
+                        scanned: extractedPart || raw
                     }
                 });
 
@@ -635,9 +698,13 @@
                 var kanbanRawToApply = raw;
                 showJpConfirmationThen(function() {
                     lastScannedKanban = kanbanRawToApply;
+                    partsInThisKanban.forEach(function(p) {
+                        var k = getPartKey(p);
+                        if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
+                    });
                     stage = 3;
                     updateStepIndicator();
-                    $('#alert').removeClass('alert-danger').addClass('alert-success');
+                    $('#status-container').removeClass('alert-danger').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK (setelah verifikasi)');
                     $('#alert-body').text('Kanban diterima. Silahkan scan LABEL PART.');
                     $(window).scrollTop(_savedScrollTop);
@@ -646,12 +713,17 @@
             }
             // --- END LOGIKA VALIDASI ---
 
-            // JIKA LOLOS VALIDASI (Sisa Qty masih > 0):
+            // JIKA LOLOS VALIDASI (Sisa Qty masih > 0): tandai part dalam kanban ini sebagai "dimulai" dalam sesi ini
+            partsInThisKanban.forEach(function(p) {
+                var k = getPartKey(p);
+                if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
+            });
+            // Simpan ke state interlock hanya bagian Part No Customer yang sudah diproses
             lastScannedKanban = raw;
             stage = 3;
             updateStepIndicator();
 
-            $('#alert').removeClass('alert-danger alert-warning').addClass('alert-success');
+            $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
             $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK');
             $('#alert-body').text('Kanban diterima. Silahkan scan LABEL PART.');
             
@@ -665,6 +737,23 @@
             var cleanLabel = raw.split(/\s{2,}/)[0].trim();
             var matched = null;
 
+            // Helper: ambil part number customer (kombinasi angka + huruf, mis. 8281074820WBY) dari string kanban
+            function extractPartFromKanban(kanbanStr) {
+                if (!kanbanStr) return '';
+                var upper = kanbanStr.toUpperCase();
+                var matches = upper.match(/[A-Z0-9]{8,16}/g);
+                if (!matches || !matches.length) return '';
+                // Filter hanya token yang mengandung huruf (bukan murni angka, supaya tidak ambil tanggal / qty)
+                var withLetters = matches.filter(function (t) {
+                    return /[A-Z]/.test(t) && /\d/.test(t);
+                });
+                if (withLetters.length) {
+                    return withLetters[withLetters.length - 1]; // ambil kandidat terakhir yang ada hurufnya
+                }
+                // Fallback: pakai token terakhir apa adanya
+                return matches[matches.length - 1];
+            }
+
             // 1. Validasi: Apakah part ada di dalam Kanban?
             var kanbanUpper = (lastScannedKanban || '').toUpperCase();
             var rawUpper = raw.toUpperCase();
@@ -674,7 +763,7 @@
 
             // INTERLOCK (1): Scan kanban Part A lalu scan label Part B yang tidak sesuai — wajib verifikasi JP/Leader
             if (!lastScannedKanban || !existsInKanban) {
-                $('#alert').removeClass('alert-success').addClass('alert-danger');
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
                 $('#alert-header').html('<i class="fas fa-lock"></i> Interlock: Label Tidak Sesuai Kanban');
                 $('#alert-body').text('Label "' + (cleanLabel || raw) + '" tidak sesuai kanban. Proses dihentikan. Hubungi JP/Leader untuk verifikasi.');
 
@@ -684,7 +773,8 @@
                     type: 'GET',
                     data: {
                         message: 'Interlock: Label tidak sesuai Kanban',
-                        expected: lastScannedKanban || '',
+                        // Simpan hanya part number customer dari kanban, bukan seluruh string panjang
+                        expected: extractPartFromKanban(lastScannedKanban) || '',
                         scanned: cleanLabel || raw
                     }
                 });
@@ -695,7 +785,7 @@
                     stage = 2;
                     lastScannedKanban = '';
                     updateStepIndicator();
-                    $('#alert').removeClass('alert-danger').addClass('alert-success');
+                    $('#status-container').removeClass('alert-danger').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Interlock dibuka');
                     $('#alert-body').text('Verifikasi berhasil. Silakan scan kanban kembali.');
                     $('#detail_no').val('');
@@ -707,7 +797,7 @@
             var now = Date.now();
             if (raw && raw === lastScannedLabel && (now - lastScannedLabelTime) < LABEL_SAME_DELAY_MS) {
                 var sisaWaktu = Math.ceil((LABEL_SAME_DELAY_MS - (now - lastScannedLabelTime)) / 1000);
-                $('#alert').removeClass('alert-success alert-danger').addClass('alert-warning');
+                $('#status-container').removeClass('alert-success alert-danger').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-clock"></i> Label sama');
                 $('#alert-body').text('Label ini baru saja di-scan. Tunggu ' + sisaWaktu + ' detik lagi.');
                 $(window).scrollTop(_savedScrollTop);
@@ -754,6 +844,10 @@
                 lastScannedLabel = raw;
                 lastScannedLabelTime = Date.now();
 
+                // Tandai part ini sebagai "dimulai" dalam sesi loading list saat ini (untuk evaluasi interlock)
+                var partKey = (matched.part_number_cust || matched.part_number_int || '').toString().trim();
+                if (partKey && partsStartedInCurrentSession.indexOf(partKey) === -1) partsStartedInCurrentSession.push(partKey);
+
                 // Decrement Quantity
                 matched.remaining = (matched.remaining != null ? matched.remaining : matched.total_qty || 0) - 1;
                 if (matched.remaining < 0) matched.remaining = 0;
@@ -794,14 +888,14 @@
                 if (matched.remaining > 0) {
                     // MASIH ADA SISA: Tetap di Stage 3 (Tunggu scan box part selanjutnya)
                     stage = 3; 
-                    $('#alert').removeClass('alert-danger alert-warning').addClass('alert-success');
+                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
                     $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' Berhasil di-scan. Sisa: ' + matched.remaining + ' box.');
                 } else {
                     // SUDAH HABIS: Kembali ke Stage 2 (Harus scan kanban baru untuk part lain)
                     stage = 2;
                     lastScannedKanban = ''; // Reset kanban agar user wajib scan kanban baru
-                    $('#alert').removeClass('alert-danger alert-warning').addClass('alert-success');
+                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
                     $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
                 }
@@ -823,7 +917,7 @@
                 }
             } else {
                 // JIKA TIDAK ADA YANG COCOK DI LOADING LIST
-                $('#alert').removeClass('alert-success').addClass('alert-warning');
+                $('#status-container').removeClass('alert-success').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Tidak Cocok');
                 $('#alert-body').text('Part "' + cleanLabel + '" tidak ada dalam daftar loading list atau qty sudah terpenuhi.');
                 // Restore scroll position untuk kasus ini
@@ -854,7 +948,7 @@
                     // Jika setelah parsing token tetap tidak ada, jangan lanjut ke scan
                     if (!token) {
                         $('#part_number_loading').hide();
-                        $('#alert').removeClass('alert-success').addClass('alert-danger');
+                        $('#status-container').removeClass('alert-success').addClass('alert-danger');
                         $('#alert-header').html('<i class="icon fa fa-warning"></i> Error Login');
                         $('#alert-body').text('Gagal login ke DEA: token tidak ditemukan pada respons.');
                         return;
@@ -865,7 +959,7 @@
                 },
                 error: function(xhr, status, error) {
                     $('#part_number_loading').hide();
-                    $('#alert').removeClass('alert-success').addClass('alert-danger');
+                    $('#status-container').removeClass('alert-success').addClass('alert-danger');
                     $('#alert-header').html('<i class="icon fa fa-warning"></i> Error Login');
                     $('#alert-body').text('Gagal login: ' + xhr.statusText);
                 }
@@ -882,6 +976,8 @@
             var loadingListNumberForApi = loadingListNumberForDB + ' A';
 
             function applyLoadingListState(name, items, fromExisting) {
+                // Scan loading list = konteks baru: reset part yang "dimulai" untuk evaluasi interlock
+                partsStartedInCurrentSession = [];
                 loadingListItems = items.map(function(it) {
                     var total = (it.total_qty != null ? it.total_qty : (it.total_kanban_qty != null ? it.total_kanban_qty : 0));
                     var remaining = (it.remaining != null ? it.remaining : Math.max(0, total - (it.actual_kanban_qty || 0)));
@@ -905,7 +1001,7 @@
                 $('#detail_no').val(displayBarcode);
                 $(window).scrollTop(_savedScrollTop);
                 $('#part_number_loading').hide();
-                $('#alert').removeClass('alert-danger alert-warning').addClass('alert-success');
+                $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                 $('#alert-header').html('<i class="icon fa fa-check"></i> Loading List Ditemukan');
                 $('#alert-body').text(
                     fromExisting
@@ -916,6 +1012,7 @@
 
             function failLoadingList(message) {
                 loadingListItems = [];
+                partsStartedInCurrentSession = [];
                 stage = 1;
                 lastScannedKanban = '';
                 updateStepIndicator();
@@ -926,7 +1023,7 @@
                 currentPreviewItem = null;
                 clearPreviewImage();
                 $('#part_number_loading').hide();
-                $('#alert').removeClass('alert-success').addClass('alert-danger');
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
                 $('#alert-header').html('<i class="icon fa fa-warning"></i> ' + (message ? 'Loading List Tidak Ditemukan' : 'Error Pemindaian'));
                 $('#alert-body').text(message || 'Gagal memindai loading list.');
             }

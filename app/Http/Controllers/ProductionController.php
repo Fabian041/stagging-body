@@ -790,7 +790,7 @@ class ProductionController extends Controller
         $r->validate([
             'line'    => ['required', 'string', 'max:32'],
             'model'   => ['required', 'string', 'max:128'],
-            'barcode' => ['required', 'string', 'size:27'], // alfanumerik
+            'barcode' => ['required', 'string'],
             'dandori' => ['nullable', 'string', 'max:128'],
         ]);
 

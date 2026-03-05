@@ -385,7 +385,7 @@
                                                 <th>Scan Time</th>
                                                 <th>Customer Part No</th>
                                                 <th>Internal Part No</th>
-                                                <th>Kanban Qty</th>
+                                                <th>Qty</th>
                                                 <th>Total Scan</th>
                                                 <th style="min-width:140px">Progress</th>
                                             </tr>

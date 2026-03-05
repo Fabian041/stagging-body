@@ -23,6 +23,26 @@ use Carbon\Carbon;
 class PisController extends Controller
 {
     /**
+     * Normalisasi nama dasar file gambar PIS berdasarkan part number customer, jenis, dan dock.
+     * Contoh:
+     *   cust = "82810-74820-WBY", kind = "OEM", dock = "OTHER"
+     *   → "8281074820WBY-OEM-OTHER" (tanda hubung di dalam part number dihapus terlebih dahulu).
+     */
+    private function buildPisImageBaseName(string $custPart, string $kind, string $dock): string
+    {
+        $cust = strtoupper(trim($custPart));
+        $kind = strtoupper(trim($kind));
+        $dock = strtoupper(trim($dock));
+
+        // Hanya izinkan A–Z, 0–9, dan '-' pada input mentah
+        $custSanitized = preg_replace('/[^A-Z0-9\-]/', '', $cust);
+        // Hapus semua '-' dari part number customer sebelum dijadikan nama file
+        $custNoDash = str_replace('-', '', $custSanitized);
+
+        return $custNoDash . '-' . $kind . '-' . $dock;
+    }
+
+    /**
      * UI-ONLY PREVIEW MODE (no DB/models).
      * Dummy data provider for all PIS screens.
      */
@@ -44,7 +64,7 @@ class PisController extends Controller
             $o->qty_kanban = $qty;
             $o->part_kind = $kind;
             $o->part_dock = $dock;
-            $o->img_path = $custPart . '-' . $kind . '-' . $dock . '.JPG';
+            $o->img_path = $this->buildPisImageBaseName($custPart, $kind, $dock) . '.JPG';
             $o->validasi = ($id % 2 === 0) ? 'Ada' : 'Belum Ada';
             return $o;
         };
@@ -266,7 +286,7 @@ class PisController extends Controller
             // Get last scans
             $lastScans = PisMutation::getLastScans($aviPart->part_number, 5);
 
-            // Build image path with normalization & fallback
+            // Build image path dengan normalisasi dan hanya untuk file JPEG (.JPG)
             $custRaw = (string) $aviPart->part_number_customer;
             $typeRaw = (string) $aviPart->part_kind;
             $dockRaw = (string) $aviPart->part_dock;
@@ -275,41 +295,38 @@ class PisController extends Controller
             $typeUpper = strtoupper(trim($typeRaw));
             $dockUpper = strtoupper(trim($dockRaw));
 
-            // Normalisasi: hapus semua karakter selain huruf & angka pada part_number_cust
-            $custNormalized = preg_replace('/[^A-Z0-9]/', '', $custUpper);
+            // Izinkan hanya A–Z, 0–9, dan tanda hubung (-) pada part_number_customer
+            $custSanitized = preg_replace('/[^A-Z0-9\-]/', '', $custUpper);
+            $custNoDash = str_replace('-', '', $custSanitized);
 
-            $candidates = [];
-            $addCandidate = function (string $fileName) use (&$candidates) {
-                if ($fileName !== '' && !in_array($fileName, $candidates, true)) {
-                    $candidates[] = $fileName;
+            $baseCandidates = [];
+            $addBase = function (string $base) use (&$baseCandidates) {
+                if ($base !== '' && !in_array($base, $baseCandidates, true)) {
+                    $baseCandidates[] = $base;
                 }
             };
 
-            // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG (uppercase, raw & normalized)
-            $addCandidate($custUpper . '-' . $typeUpper . '-' . $dockUpper . '.JPG');
-            if ($custNormalized !== '' && $custNormalized !== $custUpper) {
-                $addCandidate($custNormalized . '-' . $typeUpper . '-' . $dockUpper . '.JPG');
+            // Pola utama: [PART_CUST]-[TYPE]-[DOCK]
+            if ($custSanitized !== '') {
+                $addBase($custSanitized . '-' . $typeUpper . '-' . $dockUpper);
             }
-
-            // Tambahan: dukung variasi ekstensi jika ada file lama
-            foreach (['JPG', 'JPEG', 'PNG', 'jpg', 'jpeg', 'png'] as $ext) {
-                $addCandidate($custUpper . '-' . $typeUpper . '-' . $dockUpper . '.' . $ext);
-                if ($custNormalized !== '' && $custNormalized !== $custUpper) {
-                    $addCandidate($custNormalized . '-' . $typeUpper . '-' . $dockUpper . '.' . $ext);
-                }
+            if ($custNoDash !== '' && $custNoDash !== $custSanitized) {
+                $addBase($custNoDash . '-' . $typeUpper . '-' . $dockUpper);
             }
 
             // Fallback: hanya part number tanpa type/dock
-            foreach (['png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'] as $ext) {
-                $addCandidate($custUpper . '.' . $ext);
-                if ($custNormalized !== '' && $custNormalized !== $custUpper) {
-                    $addCandidate($custNormalized . '.' . $ext);
-                }
+            if ($custSanitized !== '') {
+                $addBase($custSanitized);
+            }
+            if ($custNoDash !== '' && $custNoDash !== $custSanitized) {
+                $addBase($custNoDash);
             }
 
+            // Hanya cari file dengan ekstensi .JPG (JPEG saja, tidak PNG/dll)
             $disk = Storage::disk('pis');
             $resolvedFile = null;
-            foreach ($candidates as $fileName) {
+            foreach ($baseCandidates as $base) {
+                $fileName = $base . '.JPG';
                 if ($disk->exists($fileName)) {
                     $resolvedFile = $fileName;
                     break;
@@ -426,7 +443,13 @@ class PisController extends Controller
             
             // Transform data to match view expectations
             $part_piss = $part_piss->map(function ($item) {
-                $item->img_path = $item->part_number_customer . '-' . $item->part_kind . '-' . $item->part_dock . '.JPG';
+                // Nama file standar: hapus '-' dari part number customer sebelum dijadikan nama file
+                $baseName = $this->buildPisImageBaseName(
+                    $item->part_number_customer ?? '',
+                    $item->part_kind ?? '',
+                    $item->part_dock ?? ''
+                );
+                $item->img_path = $baseName . '.JPG';
                 $item->validasi = Storage::disk('pis')->exists($item->img_path) ? 'Ada' : 'Belum Ada';
                 return $item;
             });
@@ -473,8 +496,12 @@ class PisController extends Controller
             // Convert to collection for view compatibility
             $part_piss = collect([$pis]);
             
-            // Add img_path for view compatibility
-            $pis->img_path = $pis->part_number_customer . '-' . $pis->part_kind . '-' . $pis->part_dock . '.JPG';
+            // Add img_path for view compatibility (mengikuti pola penyimpanan file tanpa '-' di part number)
+            $pis->img_path = $this->buildPisImageBaseName(
+                $pis->part_number_customer ?? '',
+                $pis->part_kind ?? '',
+                $pis->part_dock ?? ''
+            ) . '.JPG';
             
             // Ensure it's iterable (Collection or array)
             if (!$part_piss instanceof \Illuminate\Support\Collection && !is_array($part_piss)) {
@@ -544,7 +571,10 @@ class PisController extends Controller
             // Upload image if provided
             if ($request->hasFile('part_picture')) {
                 $file = $request->file('part_picture');
-                $filesName = $part_number_customer . '-' . $type . '-' . $dock . '.JPG';
+
+                // Nama file standar: hapus '-' dari part number customer sebelum dijadikan nama file
+                $baseName = $this->buildPisImageBaseName($part_number_customer, $type, $dock);
+                $filesName = $baseName . '.JPG';
                 
                 // Ensure directory exists
                 $directory = storage_path('app/public/pis');
@@ -552,10 +582,13 @@ class PisController extends Controller
                     File::makeDirectory($directory, 0755, true);
                 }
                 
-                // Delete old file if exists
-                $filesName = strtoupper($filesName);
+                // Delete old file jika ada (baik nama baru maupun nama lama yang masih pakai '-')
                 if (Storage::disk('pis')->exists($filesName)) {
                     Storage::disk('pis')->delete($filesName);
+                }
+                $legacyName = strtoupper($part_number_customer . '-' . $type . '-' . $dock . '.JPG');
+                if ($legacyName !== $filesName && Storage::disk('pis')->exists($legacyName)) {
+                    Storage::disk('pis')->delete($legacyName);
                 }
                 
                 // Upload new file - use putFileAs for better handling
@@ -626,7 +659,12 @@ class PisController extends Controller
             
             // Transform data to match view expectations
             $part_piss = $part_piss->map(function ($item) {
-                $item->img_path = $item->part_number_customer . '-' . $item->part_kind . '-' . $item->part_dock . '.JPG';
+                $baseName = $this->buildPisImageBaseName(
+                    $item->part_number_customer ?? '',
+                    $item->part_kind ?? '',
+                    $item->part_dock ?? ''
+                );
+                $item->img_path = $baseName . '.JPG';
                 $item->validasi = Storage::disk('pis')->exists($item->img_path) ? 'Ada' : 'Belum Ada';
                 return $item;
             });
@@ -1215,7 +1253,10 @@ class PisController extends Controller
             // Upload image
             if ($request->hasFile('pis_picture')) {
                 $file = $request->file('pis_picture');
-                $fileName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
+
+                // Nama file standar dengan part number customer tanpa '-'
+                $baseName = $this->buildPisImageBaseName($part_number_customer, $part_kind, $part_dock);
+                $fileName = $baseName . '.JPG';
                 
                 // Ensure directory exists
                 $directory = storage_path('app/public/pis');
@@ -1223,9 +1264,13 @@ class PisController extends Controller
                     \File::makeDirectory($directory, 0755, true);
                 }
                 
-                // Delete old file if exists
+                // Delete old file if exists (baru & legacy)
                 if (Storage::disk('pis')->exists($fileName)) {
                     Storage::disk('pis')->delete($fileName);
+                }
+                $legacyName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
+                if ($legacyName !== $fileName && Storage::disk('pis')->exists($legacyName)) {
+                    Storage::disk('pis')->delete($legacyName);
                 }
                 
                 // Store new file - use putFileAs for better handling
@@ -1321,7 +1366,10 @@ class PisController extends Controller
             // Upload image
             if ($request->hasFile('pis_picture')) {
                 $file = $request->file('pis_picture');
-                $fileName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
+
+                // Nama file standar dengan part number customer tanpa '-'
+                $baseName = $this->buildPisImageBaseName($part_number_customer, $part_kind, $part_dock);
+                $fileName = $baseName . '.JPG';
                 
                 // Ensure directory exists
                 $directory = storage_path('app/public/pis');
@@ -1329,9 +1377,13 @@ class PisController extends Controller
                     \File::makeDirectory($directory, 0755, true);
                 }
                 
-                // Delete old file if exists
+                // Delete old file if exists (baru & legacy)
                 if (Storage::disk('pis')->exists($fileName)) {
                     Storage::disk('pis')->delete($fileName);
+                }
+                $legacyName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
+                if ($legacyName !== $fileName && Storage::disk('pis')->exists($legacyName)) {
+                    Storage::disk('pis')->delete($legacyName);
                 }
                 
                 // Store new file - use putFileAs for better handling
@@ -1420,10 +1472,18 @@ class PisController extends Controller
             $user = Auth::user();
             $pis = PisPart::findOrFail($id);
             
-            // Delete associated image if exists
-            $imgPath = $pis->part_number_customer . '-' . $pis->part_kind . '-' . $pis->part_dock . '.JPG';
-            if (Storage::disk('pis')->exists($imgPath)) {
-                Storage::disk('pis')->delete($imgPath);
+            // Delete associated image if exists (nama baru & nama legacy)
+            $newImg = $this->buildPisImageBaseName(
+                $pis->part_number_customer ?? '',
+                $pis->part_kind ?? '',
+                $pis->part_dock ?? ''
+            ) . '.JPG';
+            $legacyImg = strtoupper(($pis->part_number_customer ?? '') . '-' . ($pis->part_kind ?? '') . '-' . ($pis->part_dock ?? '') . '.JPG');
+
+            foreach ([$newImg, $legacyImg] as $imgPath) {
+                if ($imgPath && Storage::disk('pis')->exists($imgPath)) {
+                    Storage::disk('pis')->delete($imgPath);
+                }
             }
             
             // Delete record

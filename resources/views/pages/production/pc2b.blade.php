@@ -96,180 +96,181 @@
     </audio>
 @endsection
 
-<script src="{{ asset('assets/js/jquery.min.js') }}"></script>
-
+@section('custom-script')
 <script>
     (function() {
-        const CSRF = "{{ csrf_token() }}";
+        document.addEventListener('DOMContentLoaded', function() {
+            const CSRF = "{{ csrf_token() }}";
 
-        const $master = $('#master');
-        const $partR = $('#part-right');
-        const $partL = $('#part-left');
+            // Dua kode master tetap: trigger awal tanpa API/DB. Part aktual: 423125-10360 (RH), 423126-10360 (LH).
+            const MASTER_RH = '423125-10360-MASTER';
+            const MASTER_LH = '423126-10360-MASTER';
+            const VALID_MASTERS = [MASTER_RH, MASTER_LH];
+            const PART_IMAGE_URL = "{{ asset('storage/pis/pc2b_part.JPG') }}";
 
-        const $pis = $('#pis');
-        const $modelTxt = $('#model');
+            var $ = window.jQuery;
+            if (! $) {
+                console.error('jQuery still not available on pc2b after DOMContentLoaded');
+                return;
+            }
 
-        const $statusHdr = $('.status-card-header');
-        const $status = $('.status-card');
-        const $txtStatus = $('#status');
+            const $master = $('#master');
+            const $partR = $('#part-right');
+            const $partL = $('#part-left');
 
-        const $lastR = $('#last-right');
-        const $lastL = $('#last-left');
+            const $pis = $('#pis');
+            const $modelTxt = $('#model');
 
-        const LS = {
-            get: k => localStorage.getItem(k),
-            set: (k, v) => localStorage.setItem(k, String(v)),
-            mset: obj => Object.keys(obj).forEach(k => localStorage.setItem(k, String(obj[k]))),
-            del: k => localStorage.removeItem(k),
-        };
+            const $statusHdr = $('.status-card-header');
+            const $status = $('.status-card');
+            const $txtStatus = $('#status');
 
-        function okSound() {
-            document.getElementById("ok-sound").play();
-        }
+            const $lastR = $('#last-right');
+            const $lastL = $('#last-left');
 
-        function wrongSound() {
-            document.getElementById("wrong-kanban-sound").play();
-        }
-
-        function errConnection() {
-            document.getElementById("error-connection").play();
-        }
-
-        function notif(color, text) {
-            $('#notif').text(text);
-            $('#divNotif').css("background-color", color === "error" ? "#FF2A00" : "#32a852");
-            $('#notifModal').modal('show');
-            setTimeout(() => {
-                $('#notifModal').modal('hide');
-            }, 1800);
-        }
-
-        function setStatus(state) {
-            const map = {
-                ok: ['card-success', 'bg-success', 'OK'],
-                ng: ['card-danger', 'bg-danger', 'NG'],
-                idle: ['card-secondary', 'bg-secondary', '-']
+            const LS = {
+                get: k => localStorage.getItem(k),
+                set: (k, v) => localStorage.setItem(k, String(v)),
+                mset: obj => Object.keys(obj).forEach(k => localStorage.setItem(k, String(obj[k]))),
+                del: k => localStorage.removeItem(k),
             };
-            const [hdrCls, bgCls, txt] = map[state] || map.idle;
-            $statusHdr.removeClass('card-secondary card-success card-danger').addClass(hdrCls);
-            $status.removeClass('bg-secondary bg-success bg-danger').addClass(bgCls);
-            $txtStatus.text(txt);
-            if (state !== 'idle') {
-                setTimeout(() => setStatus('idle'), state === 'ok' ? 700 : 1200);
-            }
-        }
 
-        function api(url, method, data) {
-            return $.ajax({
-                url,
-                method,
-                dataType: 'json',
-                data
-            });
-        }
-
-        function enablePartInputs(enabled) {
-            $partR.prop('disabled', !enabled);
-            $partL.prop('disabled', !enabled);
-        }
-
-        function expectedSide() {
-            return LS.get('pc2b_expected_side') || 'R';
-        }
-
-        function setExpectedSide(side) {
-            LS.set('pc2b_expected_side', side);
-        }
-
-        function focusExpected() {
-            if (!LS.get('model')) {
-                $master.focus();
-                return;
-            }
-            if (expectedSide() === 'R') $partR.focus();
-            else $partL.focus();
-        }
-
-        function showPis(photo) {
-            if (!photo) {
-                $pis.html(`<h2 class="text-center text-dark">Ready to scan !!</h2>`);
-                return;
-            }
-            $pis.html(
-                `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="700">`
-            );
-        }
-
-        function initFromStorage() {
-            const back = LS.get('back_number');
-            const photo = LS.get('photo');
-            const lastR = LS.get('pc2b_last_right') || '-';
-            const lastL = LS.get('pc2b_last_left') || '-';
-
-            if (back || photo) {
-                $('.model-card-header').removeClass('card-secondary').addClass('card-info');
-                $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-                $modelTxt.text(back || '-');
-                showPis(photo);
-                enablePartInputs(true);
-            } else {
-                enablePartInputs(false);
+            function okSound() {
+                document.getElementById("ok-sound").play();
             }
 
-            $lastR.text(lastR);
-            $lastL.text(lastL);
-
-            focusExpected();
-        }
-
-        function parseMasterInput(s) {
-            const t = (s || '').trim();
-            if (!t) return null;
-            if (t.endsWith('model')) {
-                return t.replace(/-model$/, '');
+            function wrongSound() {
+                document.getElementById("wrong-kanban-sound").play();
             }
-            return t;
-        }
 
-        function handleMasterScan(raw) {
-            const modelCode = parseMasterInput(raw);
-            if (!modelCode) return;
+            function errConnection() {
+                document.getElementById("error-connection").play();
+            }
 
-            api(`{{ url('pulling/internal-check') }}/${modelCode}`, 'GET', {
-                    _token: CSRF
-                })
-                .done(dp => {
-                    if (dp.status !== 'success') {
-                        wrongSound();
-                        notif('error', dp.message || 'Master sample tidak valid');
-                        setStatus('ng');
-                        $master.val('');
-                        $master.focus();
-                        return;
-                    }
+            function notif(color, text) {
+                $('#notif').text(text);
+                $('#divNotif').css("background-color", color === "error" ? "#FF2A00" : "#32a852");
+                $('#notifModal').modal('show');
+                setTimeout(() => {
+                    $('#notifModal').modal('hide');
+                }, 1800);
+            }
 
-                    const partNumber = dp.partNumber || (dp.data && dp.data.partNumber) || '';
-                    const backNumber = dp.backNumber || dp.back_no || dp.backNum || dp.back || (dp.data && dp.data.backNumber) ||
-                        '';
-                    const photo = dp.photo || (dp.data && dp.data.photo) || '';
-                    const lineVal = dp.line || (dp.data && dp.data.line) || '';
+            function setStatus(state) {
+                const map = {
+                    ok: ['card-success', 'bg-success', 'OK'],
+                    ng: ['card-danger', 'bg-danger', 'NG'],
+                    idle: ['card-secondary', 'bg-secondary', '-']
+                };
+                const [hdrCls, bgCls, txt] = map[state] || map.idle;
+                $statusHdr.removeClass('card-secondary card-success card-danger').addClass(hdrCls);
+                $status.removeClass('bg-secondary bg-success bg-danger').addClass(bgCls);
+                $txtStatus.text(txt);
+                if (state !== 'idle') {
+                    setTimeout(() => setStatus('idle'), state === 'ok' ? 700 : 1200);
+                }
+            }
 
-                    if (!partNumber || !lineVal) {
-                        wrongSound();
-                        notif('error', 'Data master sample belum lengkap (model/line).');
-                        setStatus('ng');
-                        return;
-                    }
+            function api(url, method, data) {
+                return $.ajax({
+                    url,
+                    method,
+                    dataType: 'json',
+                    data
+                });
+            }
 
+            function enablePartInputs(enabled) {
+                $partR.prop('disabled', !enabled);
+                $partL.prop('disabled', !enabled);
+            }
+
+            function expectedSide() {
+                return LS.get('pc2b_expected_side') || 'R';
+            }
+
+            function setExpectedSide(side) {
+                LS.set('pc2b_expected_side', side);
+            }
+
+            function focusExpected() {
+                if (!LS.get('model')) {
+                    $master.focus();
+                    return;
+                }
+                if (expectedSide() === 'R') $partR.focus();
+                else $partL.focus();
+            }
+
+            function showPis(photo) {
+                if (!photo) {
+                    $pis.html(`<h2 class="text-center text-dark">Ready to scan !!</h2>`);
+                    return;
+                }
+                $pis.html(
+                    `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="700">`
+                );
+            }
+
+            /** Gambar part dari storage (symlink) — tanpa API/DB */
+            function showPisFromStorage() {
+                const url = PART_IMAGE_URL;
+                $pis.html(
+                    `<img src="${url}" alt="Part PC2B" class="rounded" height="700" onerror="this.parentElement.innerHTML='<h2 class=\\"text-center text-dark\\">Ready to scan !!</h2>';">`
+                );
+            }
+
+            function initFromStorage() {
+                const back = LS.get('back_number');
+                const photo = LS.get('photo');
+                const masterScanned = LS.get('pc2b_master_scanned');
+                const lastR = LS.get('pc2b_last_right') || '-';
+                const lastL = LS.get('pc2b_last_left') || '-';
+
+                if (back || photo) {
+                    $('.model-card-header').removeClass('card-secondary').addClass('card-info');
+                    $('.model-card').removeClass('bg-secondary').addClass('bg-info');
+                    $modelTxt.text(back || '-');
+                    showPis(photo);
+                    enablePartInputs(true);
+                } else if (masterScanned) {
+                    $('.model-card-header').removeClass('card-secondary').addClass('card-info');
+                    $('.model-card').removeClass('bg-secondary').addClass('bg-info');
+                    $modelTxt.text('PC2B');
+                    showPisFromStorage();
+                    enablePartInputs(true);
+                } else {
+                    enablePartInputs(false);
+                }
+
+                $lastR.text(lastR);
+                $lastL.text(lastL);
+
+                focusExpected();
+            }
+
+            /** Cek apakah input adalah salah satu dari dua kode master tetap (trigger saja, tanpa API/DB). */
+            function isLocalMaster(code) {
+                const t = (code || '').trim();
+                return t === MASTER_RH || t === MASTER_LH;
+            }
+
+            function handleMasterScan(raw) {
+                const v = (raw || '').trim();
+                console.log('PC2B handleMasterScan raw:', v);
+
+                if (!v) return;
+
+                if (isLocalMaster(v)) {
+                    // Hanya trigger lokal: tidak ada API, tidak ada simpan ke DB
                     LS.mset({
-                        model: partNumber,
-                        back_number: backNumber,
-                        photo: photo,
-                        line: lineVal,
+                        pc2b_master_scanned: '1',
+                        model: 'PC2B',
+                        line: 'PC2B',
                         pc2b_expected_side: 'R',
                     });
-
-                    // reset per master
+                    LS.del('back_number');
+                    LS.del('photo');
                     LS.del('pc2b_last_right');
                     LS.del('pc2b_last_left');
                     $lastR.text('-');
@@ -277,158 +278,140 @@
 
                     $('.model-card-header').removeClass('card-secondary').addClass('card-info');
                     $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-                    $modelTxt.text(backNumber || '-');
-                    showPis(photo);
-
+                    $modelTxt.text('PC2B');
+                    showPisFromStorage();
                     enablePartInputs(true);
+
                     okSound();
-                    notif('success', 'Master sample OK. Lanjut scan part KANAN.');
+                    notif('success', 'Master OK. Lanjut scan part KANAN (423125-10360).');
                     setStatus('ok');
 
                     $master.val('');
                     $partR.val('');
                     $partL.val('');
                     $partR.focus();
-                })
-                .fail(xhr => {
-                    if (xhr.status === 0) {
-                        notif('error', 'Connection Error');
-                        errConnection();
-                        return;
-                    }
-                    notif('error', xhr.responseJSON?.errors || 'Internal Server Error');
-                    wrongSound();
-                });
-        }
+                    return;
+                }
 
-        function handlePartScan(side, rawBarcode) {
-            const barcode = (rawBarcode || '').trim();
-            const exp = expectedSide();
-
-            if (!LS.get('model') || !LS.get('line')) {
                 wrongSound();
-                notif('error', 'Scan master sample dulu.');
+                notif('error', 'Gunakan 423125-10360-MASTER atau 423126-10360-MASTER.');
                 setStatus('ng');
-                enablePartInputs(false);
+                $master.val('');
                 $master.focus();
-                return;
             }
 
-            if (side !== exp) {
-                wrongSound();
-                notif('error', `Urutan salah. Sekarang harus scan part ${exp === 'R' ? 'KANAN' : 'KIRI'}.`);
-                setStatus('ng');
-                focusExpected();
-                return;
-            }
+            function handlePartScan(side, rawBarcode) {
+                const barcode = (rawBarcode || '').trim();
+                const exp = expectedSide();
 
-            if (barcode.length !== 27) {
-                wrongSound();
-                notif('error', 'Barcode part harus 27 karakter.');
-                setStatus('ng');
-                focusExpected();
-                return;
-            }
-
-            const line = LS.get('line');
-            const model = LS.get('model');
-            const dandori = LS.get('dandori_board') || '';
-
-            api(`/production/part-scan`, 'POST', {
-                    _token: CSRF,
-                    line,
-                    model,
-                    dandori,
-                    barcode
-                })
-                .done(res => {
-                    if (res.status && res.status !== 'ok') {
-                        wrongSound();
-                        notif('error', res.message || 'Gagal simpan scan part');
-                        setStatus('ng');
-                        focusExpected();
-                        return;
-                    }
-
-                    if (side === 'R') {
-                        LS.set('pc2b_last_right', barcode);
-                        $lastR.text(barcode);
-                        setExpectedSide('L');
-                        $partR.val('');
-                        okSound();
-                        notif('success', 'Scan part kanan OK. Lanjut part kiri.');
-                        setStatus('ok');
-                        $partL.focus();
-                    } else {
-                        LS.set('pc2b_last_left', barcode);
-                        $lastL.text(barcode);
-                        setExpectedSide('R');
-                        $partL.val('');
-                        okSound();
-                        notif('success', 'Scan part kiri OK. Lanjut part kanan.');
-                        setStatus('ok');
-                        $partR.focus();
-                    }
-                })
-                .fail(xhr => {
-                    if (xhr.status === 0) {
-                        notif('error', 'Connection Error');
-                        errConnection();
-                        return;
-                    }
+                if (!LS.get('model') || !LS.get('line')) {
                     wrongSound();
-                    notif('error', xhr.responseJSON?.errors || 'Internal Server Error');
+                    notif('error', 'Scan master sample dulu.');
+                    setStatus('ng');
+                    enablePartInputs(false);
+                    $master.focus();
+                    return;
+                }
+
+                if (side !== exp) {
+                    wrongSound();
+                    notif('error', `Urutan salah. Sekarang harus scan part ${exp === 'R' ? 'KANAN' : 'KIRI'}.`);
                     setStatus('ng');
                     focusExpected();
-                });
-        }
+                    return;
+                }
 
-        $(document).ready(function() {
+                // Validasi nilai barcode
+                const validRH = '423125-10360';
+                const validLH = '423126-10360';
+                const expectedValue = side === 'R' ? validRH : validLH;
+
+                if (barcode !== expectedValue) {
+                    wrongSound();
+                    notif('error', `Barcode salah. Harus ${expectedValue}, bukan ${barcode}`);
+                    setStatus('ng');
+                    focusExpected();
+                    return;
+                }
+
+                // just local validation; do not send to server
+                if (side === 'R') {
+                    LS.set('pc2b_last_right', barcode);
+                    $lastR.text(barcode);
+                    setExpectedSide('L');
+                    $partR.val('');
+                    okSound();
+                    notif('success', 'Scan part kanan OK. Lanjut part kiri.');
+                    setStatus('ok');
+                    $partL.focus();
+                } else {
+                    LS.set('pc2b_last_left', barcode);
+                    $lastL.text(barcode);
+                    setExpectedSide('R');
+                    $partL.val('');
+                    okSound();
+                    notif('success', 'Scan part kiri OK. Lanjut part kanan.');
+                    setStatus('ok');
+                    // after completing both sides we require master scan again
+                    $partR.focus();
+                }
+            }
+
+            console.log('PC2B script initialized, $master length =', $master.length);
             initFromStorage();
 
-            document.getElementById('fullscreenBtn').addEventListener('click', function() {
+            // Fullscreen button
+            $('#fullscreenBtn').on('click', function() {
+                const docEl = document.documentElement;
                 if (!document.fullscreenElement) {
-                    if (document.documentElement.requestFullscreen) {
-                        document.documentElement.requestFullscreen();
-                    } else if (document.documentElement.mozRequestFullScreen) {
-                        document.documentElement.mozRequestFullScreen();
-                    } else if (document.documentElement.webkitRequestFullscreen) {
-                        document.documentElement.webkitRequestFullscreen();
-                    } else if (document.documentElement.msRequestFullscreen) {
-                        document.documentElement.msRequestFullscreen();
-                    }
+                    if (docEl.requestFullscreen) docEl.requestFullscreen();
+                    else if (docEl.mozRequestFullScreen) docEl.mozRequestFullScreen();
+                    else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+                    else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
                 } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    } else if (document.documentElement.mozCancelFullScreen) {
-                        document.documentElement.mozCancelFullScreen();
-                    } else if (document.documentElement.webkitExitFullscreen) {
-                        document.documentElement.webkitExitFullscreen();
-                    } else if (document.documentElement.msExitFullscreen) {
-                        document.documentElement.msExitFullscreen();
-                    }
+                    if (document.exitFullscreen) document.exitFullscreen();
+                    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                    else if (document.msExitFullscreen) document.msExitFullscreen();
                 }
             });
 
+            // Fokuskan ke field yang diharapkan pada setiap klik
             $(document).on('click', function() {
                 focusExpected();
             });
 
+            // Tombol release
             $('#release').on('click', function() {
                 localStorage.clear();
                 window.location.reload();
             });
 
+            // Tombol stop
             $('#stop').on('click', function() {
                 const model = LS.get('model');
-                if (!model) {
+                const localOnly = LS.get('pc2b_master_scanned');
+                if (!model && !localOnly) {
                     wrongSound();
                     notif('error', 'Belum ada master sample / model running.');
                     setStatus('ng');
                     $master.focus();
                     return;
                 }
-
+                // Mode master lokal (tanpa API/DB): cukup clear state dan reload
+                if (localOnly || model === 'PC2B') {
+                    localStorage.removeItem('pc2b_master_scanned');
+                    localStorage.removeItem('model');
+                    localStorage.removeItem('line');
+                    localStorage.removeItem('pc2b_expected_side');
+                    localStorage.removeItem('pc2b_last_right');
+                    localStorage.removeItem('pc2b_last_left');
+                    okSound();
+                    notif('success', 'Stop. State lokal direset.');
+                    setStatus('ok');
+                    setTimeout(function() { window.location.reload(); }, 800);
+                    return;
+                }
                 $.ajax({
                         url: `/production/api-stop`,
                         method: 'POST',
@@ -464,25 +447,36 @@
                     });
             });
 
+            // EVENT SCAN MASTER SAMPLE – langsung di field #master
             $master.on('keydown', function(e) {
                 const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
                 if (!isEnter) return;
                 e.preventDefault();
-                handleMasterScan($master.val());
+                const v = $(this).val();
+                console.log('PC2B master keydown Enter, value:', v);
+                handleMasterScan(v);
             });
 
+            $master.on('change', function() {
+                const v = $(this).val();
+                if (!v) return;
+                console.log('PC2B master change, value:', v);
+                handleMasterScan(v);
+            });
+
+            // Event untuk part kanan/kiri
             $partR.on('keydown', function(e) {
                 const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
                 if (!isEnter) return;
                 e.preventDefault();
-                handlePartScan('R', $partR.val());
+                handlePartScan('R', $(this).val());
             });
 
             $partL.on('keydown', function(e) {
                 const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
                 if (!isEnter) return;
                 e.preventDefault();
-                handlePartScan('L', $partL.val());
+                handlePartScan('L', $(this).val());
             });
         });
     })();
