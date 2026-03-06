@@ -62,6 +62,62 @@ class ProductionController extends Controller
     }
 
     /**
+     * Simpan scan kanban PC2B ke tabel mutations.
+     * Dipanggil setelah parse barcode kanban (part_number + serial_number).
+     *
+     * @param  \Illuminate\Http\Request  $request  part_number, serial_number, side (R|L)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storePc2bKanbanScan(Request $request)
+    {
+        $request->validate([
+            'part_number'   => ['required', 'string', 'max:64'],
+            'serial_number' => ['required', 'string', 'max:32'],
+            'side'          => ['required', 'string', 'in:R,L'],
+        ]);
+
+        $partNumber   = $request->part_number;
+        $serialNumber = $request->serial_number;
+        $side         = $request->side;
+
+        $internalPart = InternalPart::where('part_number', $partNumber)->first();
+        if (!$internalPart) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part number tidak ditemukan di internal_parts.',
+            ], 422);
+        }
+
+        $customerPart = CustomerPart::where('internal_part_id', $internalPart->id)->first();
+        $qty          = $customerPart && $customerPart->qty_per_kanban !== null
+            ? (int) $customerPart->qty_per_kanban
+            : 1;
+
+        $type = $side === 'R' ? 'pc2b_kanan' : 'pc2b_kiri';
+
+        try {
+            Mutation::create([
+                'internal_part_id' => $internalPart->id,
+                'serial_number'   => $serialNumber,
+                'qty'             => $qty,
+                'type'            => $type,
+                'npk'             => auth()->user()->npk ?? 'SYS',
+                'date'            => Carbon::now()->format('Y-m-d H:i:s'),
+            ]);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => $side === 'R' ? 'Scan kanban kanan berhasil disimpan.' : 'Scan kanban kiri berhasil disimpan.',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan mutation: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Show the form for creating a new resource.
      *
      * @return \Illuminate\Http\Response

@@ -55,16 +55,16 @@
                     </button>
 
                     <div class="card card-warning py-4 shadow mb-2" style="padding: 1rem; border-radius:8px">
-                        <label style="font-weight:800" class="text-center text-dark">Scan Part (Kanan)</label>
+                        <label style="font-weight:800" class="text-center text-dark">Scan Kanban (Kanan)</label>
                         <input id="part-right" type="text" class="form-control" name="part-right" tabindex="2"
-                            placeholder="scan part kanan..." autocomplete="off" disabled>
+                            placeholder="scan kanban kanan..." autocomplete="off" disabled>
                         <small class="text-muted">Last: <span id="last-right">-</span></small>
                     </div>
 
                     <div class="card card-warning py-4 shadow mb-2" style="padding: 1rem; border-radius:8px">
-                        <label style="font-weight:800" class="text-center text-dark">Scan Part (Kiri)</label>
+                        <label style="font-weight:800" class="text-center text-dark">Scan Kanban (Kiri)</label>
                         <input id="part-left" type="text" class="form-control" name="part-left" tabindex="3"
-                            placeholder="scan part kiri..." autocomplete="off" disabled>
+                            placeholder="scan kanban kiri..." autocomplete="off" disabled>
                         <small class="text-muted">Last: <span id="last-left">-</span></small>
                     </div>
                 </div>
@@ -107,6 +107,9 @@
             const MASTER_LH = '423126-10360-MASTER';
             const VALID_MASTERS = [MASTER_RH, MASTER_LH];
             const PART_IMAGE_URL = "{{ asset('storage/pis/pc2b_part.JPG') }}";
+            const EXPECTED_PART_RIGHT = '423125-10550';
+            const EXPECTED_PART_LEFT  = '423126-10330';
+            const PC2B_SCAN_KANBAN_URL = "{{ route('production.pc2b.scan-kanban') }}";
 
             var $ = window.jQuery;
             if (! $) {
@@ -232,7 +235,7 @@
                     $('.model-card').removeClass('bg-secondary').addClass('bg-info');
                     $modelTxt.text(back || '-');
                     showPis(photo);
-                    enablePartInputs(true);
+                    enablePartInputs(true); 
                 } else if (masterScanned) {
                     $('.model-card-header').removeClass('card-secondary').addClass('card-info');
                     $('.model-card').removeClass('bg-secondary').addClass('bg-info');
@@ -247,6 +250,27 @@
                 $lastL.text(lastL);
 
                 focusExpected();
+            }
+
+            /**
+             * Parse barcode kanban full (format: ... 423125-10550 ... MM0P 0000050000000000000030 ...).
+             * Part number: 423125-10550.
+             * Serial number: diambil dari blok panjang setelah MM0P/MM0Q (0000050000000000000030),
+             *   yaitu 4 karakter pada posisi index 2–5 -> "0005".
+             */
+            function parseKanbanBarcode(raw) {
+                const s = (raw || '').trim();
+                if (!s) return null;
+                const partMatch = s.match(/\d{5,6}-\d{4,5}/);
+                if (!partMatch) return null;
+                const part_number = partMatch[0];
+                const mm0Block = s.match(/MM0[PQ]\s+(\d+)/);
+                let serial_number = '0000';
+                if (mm0Block && mm0Block[1].length >= 6) {
+                    const block = mm0Block[1];
+                    serial_number = block.substring(2, 6);
+                }
+                return { part_number, serial_number };
             }
 
             /** Cek apakah input adalah salah satu dari dua kode master tetap (trigger saja, tanpa API/DB). */
@@ -283,13 +307,13 @@
                     enablePartInputs(true);
 
                     okSound();
-                    notif('success', 'Master OK. Lanjut scan part KANAN (423125-10360).');
+                    notif('success', 'Master OK. Lanjut scan kanban KANAN (' + EXPECTED_PART_RIGHT + ').');
                     setStatus('ok');
 
                     $master.val('');
                     $partR.val('');
                     $partL.val('');
-                    $partR.focus();
+                    setTimeout(function() { $partR[0].focus(); }, 1850);
                     return;
                 }
 
@@ -301,7 +325,6 @@
             }
 
             function handlePartScan(side, rawBarcode) {
-                const barcode = (rawBarcode || '').trim();
                 const exp = expectedSide();
 
                 if (!LS.get('model') || !LS.get('line')) {
@@ -315,46 +338,83 @@
 
                 if (side !== exp) {
                     wrongSound();
-                    notif('error', `Urutan salah. Sekarang harus scan part ${exp === 'R' ? 'KANAN' : 'KIRI'}.`);
+                    notif('error', `Urutan salah. Sekarang harus scan kanban ${exp === 'R' ? 'KANAN' : 'KIRI'}.`);
                     setStatus('ng');
                     focusExpected();
                     return;
                 }
 
-                // Validasi nilai barcode
-                const validRH = '423125-10360';
-                const validLH = '423126-10360';
-                const expectedValue = side === 'R' ? validRH : validLH;
-
-                if (barcode !== expectedValue) {
+                const parsed = parseKanbanBarcode(rawBarcode);
+                if (!parsed) {
                     wrongSound();
-                    notif('error', `Barcode salah. Harus ${expectedValue}, bukan ${barcode}`);
+                    notif('error', 'Format barcode kanban tidak valid. Harus ada part number (contoh: 423125-10550) dan serial.');
                     setStatus('ng');
                     focusExpected();
                     return;
                 }
 
-                // just local validation; do not send to server
-                if (side === 'R') {
-                    LS.set('pc2b_last_right', barcode);
-                    $lastR.text(barcode);
-                    setExpectedSide('L');
-                    $partR.val('');
-                    okSound();
-                    notif('success', 'Scan part kanan OK. Lanjut part kiri.');
-                    setStatus('ok');
-                    $partL.focus();
-                } else {
-                    LS.set('pc2b_last_left', barcode);
-                    $lastL.text(barcode);
-                    setExpectedSide('R');
-                    $partL.val('');
-                    okSound();
-                    notif('success', 'Scan part kiri OK. Lanjut part kanan.');
-                    setStatus('ok');
-                    // after completing both sides we require master scan again
-                    $partR.focus();
+                const expectedPart = side === 'R' ? EXPECTED_PART_RIGHT : EXPECTED_PART_LEFT;
+                if (parsed.part_number !== expectedPart) {
+                    wrongSound();
+                    notif('error', `Part number salah. Harus ${expectedPart}, dapat: ${parsed.part_number}`);
+                    setStatus('ng');
+                    focusExpected();
+                    return;
                 }
+
+                $.ajax({
+                    url: PC2B_SCAN_KANBAN_URL,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    dataType: 'json',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                    data: JSON.stringify({
+                        part_number: parsed.part_number,
+                        serial_number: parsed.serial_number,
+                        side: side
+                    })
+                })
+                .done(function(res) {
+                    if (res.status !== 'success') {
+                        wrongSound();
+                        notif('error', res.message || 'Gagal menyimpan scan.');
+                        setStatus('ng');
+                        focusExpected();
+                        return;
+                    }
+                    const displayText = parsed.part_number + ' / ' + parsed.serial_number;
+                    if (side === 'R') {
+                        LS.set('pc2b_last_right', displayText);
+                        $lastR.text(displayText);
+                        setExpectedSide('L');
+                        $partR.val('');
+                        okSound();
+                        notif('success', 'Scan kanban kanan OK. Lanjut kanban kiri.');
+                        setStatus('ok');
+                        setTimeout(function() { $partL[0].focus(); }, 1850);
+                    } else {
+                        LS.set('pc2b_last_left', displayText);
+                        $lastL.text(displayText);
+                        setExpectedSide('R');
+                        $partL.val('');
+                        okSound();
+                        notif('success', 'Scan kanban kiri OK. Lanjut kanban kanan.');
+                        setStatus('ok');
+                        setTimeout(function() { $partR[0].focus(); }, 1850);
+                    }
+                })
+                .fail(function(xhr) {
+                    if (xhr.status === 0) {
+                        notif('error', 'Connection Error');
+                        errConnection();
+                    } else {
+                        const msg = xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.errors);
+                        wrongSound();
+                        notif('error', msg || 'Gagal menyimpan mutation.');
+                    }
+                    setStatus('ng');
+                    focusExpected();
+                });
             }
 
             console.log('PC2B script initialized, $master length =', $master.length);
@@ -481,3 +541,4 @@
         });
     })();
 </script>
+

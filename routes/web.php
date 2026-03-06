@@ -199,6 +199,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api-list-stop/{line}/{category}', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
         Route::post('/api-stop', [ProductionController::class, 'inboundStop']);
+        Route::post('/pc2b/scan-kanban', [ProductionController::class, 'storePc2bKanbanScan'])
+            ->name('production.pc2b.scan-kanban');
 
         Route::post('/part-scan', [ProductionController::class, 'storePartScan'])
             ->name('production.part-scan');
