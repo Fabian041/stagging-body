@@ -70,6 +70,7 @@
         </div>
     </div>
 @endsection
+
 {{-- MODAL COMPARE --}}
 <div class="modal fade" id="compareModal" tabindex="-1" role="dialog" aria-labelledby="compareModalLabel"
     aria-hidden="true">
@@ -109,6 +110,7 @@
                                 <th>Production</th>
                                 <th>Pulling</th>
                                 <th style="width: 170px;" class="text-center">Status</th>
+                                <th style="width: 110px;" class="text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody id="compareTbody"></tbody>
@@ -146,73 +148,79 @@
             }
         };
 
+        // ============================
+        // Helpers parse controller HTML
+        // ============================
         function decodeEscapedBr(s) {
             return String(s || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
-        }
-
-        function toLines(html) {
-            if (!html) return [];
-            let s = decodeEscapedBr(html);
-            s = s.replace(/<br\s*\/?>/gi, '\n');
-            s = s.replace(/<[^>]*>/g, '');
-            s = s.replace(/\r/g, '').trim();
-            if (!s) return [];
-            return s.split('\n')
-                .map(x => x.trim())
-                .filter(x => x && x.toUpperCase() !== 'N/A');
         }
 
         // ✅ filter serial "mask" seperti xxxx / xxx / ***** / ----
         function isMaskedSerial(serial) {
             if (!serial) return true;
             const s = String(serial).trim().toLowerCase();
-
-            // exact common masks
             if (['xxxx', 'xxx', 'xx', 'x', '*****', '****', '***', '**', '*', '----', '---', '--', '-']
-                .includes(s)) {
-                return true;
-            }
-
-            // all same char (x or * or -) and length >= 2
+                .includes(s)) return true;
             if (/^(x{2,}|\*{2,}|\-{2,})$/i.test(s)) return true;
-
             return false;
         }
 
-        function extractSerial(line) {
-            const m = String(line).match(/\[([^\]]+)\]/);
+        function extractSerialFromText(text) {
+            const m = String(text).match(/\[([^\]]+)\]/);
             const serial = m ? m[1].trim() : null;
             if (!serial) return null;
-            if (isMaskedSerial(serial)) return null; // ✅ buang yang xxxx
+            if (isMaskedSerial(serial)) return null;
             return serial;
         }
 
-        function mapSerialToLines(html) {
-            const map = new Map();
-            const lines = toLines(html);
+        /**
+         * Parse HTML pulling/prod yang berisi:
+         * <span class="mline" data-mid="123">[SERIAL] - [DATE] (qty: X)</span><br>...
+         * Return: [{mid, serial, text}]
+         */
+        function parseMutationHtml(html) {
+            if (!html) return [];
+            const s = decodeEscapedBr(html);
 
-            lines.forEach(line => {
-                const serial = extractSerial(line);
-                if (!serial) return; // ✅ otomatis skip line xxxx
-                if (!map.has(serial)) map.set(serial, []);
-                map.get(serial).push(line);
+            const tmp = document.createElement('div');
+            tmp.innerHTML = s;
+
+            const nodes = tmp.querySelectorAll('span.mline');
+            const arr = [];
+            nodes.forEach(n => {
+                const mid = n.getAttribute('data-mid') || '';
+                const text = (n.textContent || '').trim();
+                if (!text || text.toUpperCase() === 'N/A') return;
+
+                const serial = extractSerialFromText(text);
+                if (!serial) return; // skip xxxx
+
+                arr.push({
+                    mid,
+                    serial,
+                    text
+                });
             });
 
+            return arr;
+        }
+
+        function groupBySerial(items) {
+            const map = new Map();
+            items.forEach(it => {
+                if (!map.has(it.serial)) map.set(it.serial, []);
+                map.get(it.serial).push(it);
+            });
             return map;
         }
 
-        function countItems(html) {
-            // count juga harus ikut filter serial xxxx
-            const lines = toLines(html);
-            let c = 0;
-            lines.forEach(l => {
-                const serial = extractSerial(l);
-                if (serial) c++;
-            });
-            return c;
-        }
-
+        // ============================
+        // Compare Context + Data
+        // ============================
         let compareData = [];
+        let compareCtx = {
+            detailId: null
+        };
 
         function rebuildCompareRows(filterText = '', filterMode = 'all') {
             const q = (filterText || '').toLowerCase();
@@ -222,8 +230,8 @@
             let shown = 0;
 
             compareData.forEach(item => {
-                const prodText = (item.prodLines || []).join(' ');
-                const pullText = (item.pullLines || []).join(' ');
+                const prodText = (item.prodItems || []).map(x => x.text).join(' ');
+                const pullText = (item.pullItems || []).map(x => x.text).join(' ');
                 const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
 
                 if (q && !joined.includes(q)) return;
@@ -239,17 +247,38 @@
                 const statusLabel = item.status === 'MATCH' ? 'Match' :
                     (item.status === 'MISSING_PROD' ? 'Missing Production' : 'Missing Pulling');
 
-                const prodHtml = (item.prodLines && item.prodLines.length) ?
-                    item.prodLines.map(l =>
-                        `<div class="py-1" style="border-bottom:1px dashed #eee;">${l}</div>`).join(
-                        '') :
+                const prodHtml = (item.prodItems && item.prodItems.length) ?
+                    item.prodItems.map(x =>
+                        `<div class="py-1" style="border-bottom:1px dashed #eee;">
+            ${x.text}
+         </div>`
+                    ).join('') :
                     '<span class="text-danger">N/A</span>';
 
-                const pullHtml = (item.pullLines && item.pullLines.length) ?
-                    item.pullLines.map(l =>
-                        `<div class="py-1" style="border-bottom:1px dashed #eee;">${l}</div>`).join(
-                        '') :
+                // ✅ Pulling kolom: HANYA TEXT (tanpa tombol)
+                const pullHtml = (item.pullItems && item.pullItems.length) ?
+                    item.pullItems.map(x =>
+                        `<div class="py-1" style="border-bottom:1px dashed #eee;">
+            ${x.text}
+         </div>`
+                    ).join('') :
                     '<span class="text-danger">N/A</span>';
+
+                // ✅ Action kolom: tombol delete per pulling mutation (stack)
+                const actionHtml = (item.pullItems && item.pullItems.length) ?
+                    item.pullItems.map(x => {
+                        if (!x.mid) return `<div class="py-1" style="border-bottom:1px dashed #eee;">
+                                <button class="btn btn-secondary btn-sm" disabled>Delete</button>
+                            </div>`;
+                        return `<div class="py-1" style="border-bottom:1px dashed #eee;">
+                    <button class="btn btn-danger btn-sm btn-del-pulling-mutation"
+                        data-mid="${x.mid}"
+                        data-serial="${item.serial}">
+                        Delete
+                    </button>
+                </div>`;
+                    }).join('') :
+                    '';
 
                 tbody.append(`
                     <tr>
@@ -260,18 +289,21 @@
                         <td>${prodHtml}</td>
                         <td>${pullHtml}</td>
                         <td class="text-center"><span class="badge badge-${badge}">${statusLabel}</span></td>
+                        <td class="text-center">${actionHtml}</td>
                     </tr>
                 `);
             });
 
             if (shown === 0) {
-                tbody.html(`<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada data.</td></tr>`);
+                tbody.html(`<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada data.</td></tr>`);
             }
 
             $('#compareMeta').text(`Shown: ${shown} / Total serial: ${compareData.length}`);
         }
 
-        // ===== DataTable (tanpa kolom pulling/prod) =====
+        // ============================
+        // DataTable main list
+        // ============================
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
@@ -292,9 +324,6 @@
                     orderable: false,
                     searchable: false,
                     render: function(data, type, row) {
-                        const pullCount = countItems(row.pulling_date);
-                        const prodCount = countItems(row.prod_date);
-
                         return `
                             <div class="d-flex flex-column align-items-center" style="gap:6px;">
                                 <button class="btn btn-outline-danger btn-sm btn-compare" type="button">
@@ -334,30 +363,37 @@
             ],
         });
 
-        // ===== Compare click =====
+        // ============================
+        // Compare click: build modal data
+        // ============================
         $(document).on('click', '.btn-compare', function() {
             const tr = $(this).closest('tr');
             const row = table.row(tr).data();
 
-            const pullMap = mapSerialToLines(row.pulling_date);
-            const prodMap = mapSerialToLines(row.prod_date);
+            // ✅ simpan LoadingListDetail id
+            compareCtx.detailId = row.id;
 
-            // ✅ union serial tapi yang xxxx sudah kebuang di extractSerial()
+            const pullItems = parseMutationHtml(row.pulling_date);
+            const prodItems = parseMutationHtml(row.prod_date);
+
+            const pullMap = groupBySerial(pullItems);
+            const prodMap = groupBySerial(prodItems);
+
             const serialSet = new Set([...pullMap.keys(), ...prodMap.keys()]);
             const serials = Array.from(serialSet).sort();
 
             compareData = serials.map(serial => {
-                const pullLines = pullMap.get(serial) || [];
-                const prodLines = prodMap.get(serial) || [];
+                const pullItems = pullMap.get(serial) || [];
+                const prodItems = prodMap.get(serial) || [];
 
                 let status = 'MATCH';
-                if (pullLines.length && !prodLines.length) status = 'MISSING_PROD';
-                else if (prodLines.length && !pullLines.length) status = 'MISSING_PULL';
+                if (pullItems.length && !prodItems.length) status = 'MISSING_PROD';
+                else if (prodItems.length && !pullItems.length) status = 'MISSING_PULL';
 
                 return {
                     serial,
-                    prodLines,
-                    pullLines,
+                    prodItems,
+                    pullItems,
                     status
                 };
             });
@@ -377,7 +413,65 @@
             rebuildCompareRows($('#compareSearch').val(), $(this).val());
         });
 
-        // ===== Details Row (EDCL) tetap seperti lama =====
+        // ============================
+        // ✅ Delete per mutation (1 record checkout)
+        // ============================
+        $(document).on('click', '.btn-del-pulling-mutation', function() {
+            const mid = $(this).data('mid');
+            const serial = $(this).data('serial');
+
+            if (!mid) return;
+
+            if (!compareCtx.detailId) {
+                notif('error', 'Detail ID tidak ditemukan.');
+                return;
+            }
+
+            if (!confirm(`Hapus 1 data pulling (mutation_id=${mid}) untuk serial ${serial}?`)) return;
+
+            $.ajax({
+                url: `/loading-list-detail/${compareCtx.detailId}/pulling-mutation/${mid}`,
+                type: 'DELETE',
+                data: {
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function(res) {
+                    if (res.status === 'success') {
+                        // ✅ hapus 1 mutation ini saja
+                        compareData.forEach(cd => {
+                            if (cd.serial === serial) {
+                                cd.pullItems = (cd.pullItems || []).filter(x =>
+                                    String(x.mid) !== String(mid));
+
+                                if (cd.pullItems.length && !cd.prodItems.length) cd
+                                    .status = 'MISSING_PROD';
+                                else if (cd.prodItems.length && !cd.pullItems
+                                    .length) cd.status = 'MISSING_PULL';
+                                else cd.status = 'MATCH';
+                            }
+                        });
+
+                        rebuildCompareRows($('#compareSearch').val(), $('#compareFilter')
+                            .val());
+                        table.ajax.reload(null, false);
+
+                        notif('success', res.message || 'Deleted');
+                    } else {
+                        notif('error', res.message || 'Gagal delete');
+                    }
+                },
+                error: function(xhr) {
+                    let msg = 'Gagal delete';
+                    if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON
+                        .message;
+                    notif('error', msg);
+                }
+            });
+        });
+
+        // ============================
+        // Details Row (EDCL) tetap seperti lama
+        // ============================
         $(document).on('click', '.details', function() {
             let tr = $(this).closest('tr');
             let row = table.row(tr);

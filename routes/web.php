@@ -86,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
     // loading list
     Route::get('/kanban/scanned', [LoadingListController::class, 'kanbanScanned'])->name('kanban.scanned');
     Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
+    Route::delete('/loading-list-detail/{detail}/pulling-mutation/{mutation}', [LoadingListController::class, 'deletePullingMutation']);
     Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
     Route::prefix('loading-list')->group(function () {
         Route::get('/edit/{loadingList}/{customerPart}/{backNumber}/{newActual}', [LoadingListController::class, 'editLoadingListDetail'])->name('loadingListDetail.edit');

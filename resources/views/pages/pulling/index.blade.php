@@ -2032,7 +2032,7 @@
         var code = $('#code');
         let total = 0;
 
-        function checkInternalAndCustomer(database, cursor, internal, primaryKey, seri) {
+        function    checkInternalAndCustomer(database, cursor, internal, primaryKey, seri) {
             let loadingList = cursor['loading_list_number'];
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];

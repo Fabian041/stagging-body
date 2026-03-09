@@ -385,91 +385,80 @@ class LoadingListController extends Controller
                         value="' . $row->actual_kanban_qty . '" data-width="100"
                         style="border-radius:6px; display:none">';
             })
-
-            // ✅ Pulling Date = mutations type checkout (window per detail)
+            // ✅ Pulling Date = mutations type checkout (window per detail) + bawa mutation_id
             ->addColumn('pulling_date', function ($row) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
-                if (!$internalPartId) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+                if (!$internalPartId) return '<span class="text-danger">N/A</span>';
 
                 $start = $row->created_at;
                 $end   = $row->updated_at;
 
-                if (!$start || !$end || $start->equalTo($end)) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+                if (!$start || !$end || $start->equalTo($end)) return '<span class="text-danger">N/A</span>';
 
                 $mutations = Mutation::query()
-                    ->select('serial_number', 'qty', 'date', 'created_at')
+                    ->select('id','serial_number','qty','date','created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'checkout')
                     ->whereBetween('created_at', [$start, $end])
                     ->orderBy('created_at', 'asc')
                     ->get();
 
-                if ($mutations->isEmpty()) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+                if ($mutations->isEmpty()) return '<span class="text-danger">N/A</span>';
 
                 $lines = [];
                 foreach ($mutations as $m) {
-                    $lines[] = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
+                    // ⚠️ span ini penting: data-mid dipakai JS untuk delete per mutation
+                    $text = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
+                    $lines[] = '<span class="mline" data-mid="'.$m->id.'">'.e($text).'</span>';
                 }
 
                 return implode('<br>', $lines);
             })
 
-            // ✅ Production Date = mutations type supply (window per detail)
+            // ✅ Production Date = supply terakhir sebelum pulling (serial sama) + bawa supply_id jika ada
             ->addColumn('prod_date', function ($row) {
                 $internalPartId = optional($row->customerPart->internalPart)->id;
 
-                if (!$internalPartId) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+                if (!$internalPartId) return '<span class="text-danger">N/A</span>';
 
                 $start = $row->created_at;
                 $end   = $row->updated_at;
 
-                if (!$start || !$end || $start->equalTo($end)) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+                if (!$start || !$end || $start->equalTo($end)) return '<span class="text-danger">N/A</span>';
 
-                // 1) Ambil daftar checkout (pulling) di window detail -> ini sumber serial + waktu checkout
                 $checkouts = Mutation::query()
-                    ->select('serial_number', 'date', 'qty', 'created_at')
+                    ->select('id','serial_number','date','qty','created_at')
                     ->where('internal_part_id', $internalPartId)
                     ->where('type', 'checkout')
                     ->whereBetween('created_at', [$start, $end])
                     ->orderBy('created_at', 'asc')
                     ->get();
 
-                if ($checkouts->isEmpty()) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+                if ($checkouts->isEmpty()) return '<span class="text-danger">N/A</span>';
 
                 $lines = [];
 
                 foreach ($checkouts as $co) {
                     $serial = $co->serial_number;
 
-                    // 2) Cari supply TERAKHIR sebelum waktu checkout tsb (serial harus sama)
                     $supply = Mutation::query()
-                        ->select('serial_number', 'date', 'qty', 'created_at')
+                        ->select('id','serial_number','date','qty','created_at')
                         ->where('internal_part_id', $internalPartId)
                         ->where('type', 'supply')
                         ->where('serial_number', $serial)
-                        ->where('created_at', '<', $co->created_at) // sebelum pulling
-                        ->orderBy('created_at', 'desc')             // paling dekat sebelum pulling
+                        ->where('created_at', '<', $co->created_at)
+                        ->orderBy('created_at', 'desc')
                         ->first();
 
                     if (!$supply) {
-                        $lines[] = "[{$serial}] - [N/A]";
+                        $text = "[{$serial}] - [N/A]";
+                        $lines[] = '<span class="mline" data-mid="">'.e($text).'</span>';
                         continue;
                     }
 
-                    $lines[] = "[{$serial}] - [{$supply->date}] (qty: {$supply->qty})";
+                    $text = "[{$serial}] - [{$supply->date}] (qty: {$supply->qty})";
+                    $lines[] = '<span class="mline" data-mid="'.$supply->id.'">'.e($text).'</span>';
                 }
 
                 return implode('<br>', $lines);
@@ -488,6 +477,53 @@ class LoadingListController extends Controller
                 'prod_date',
             ])
             ->toJson();
+    }
+
+    public function deletePullingMutation(LoadingListDetail $detail, Mutation $mutation)
+    {
+        $internalPartId = optional(optional($detail->customerPart)->internalPart)->id;
+        if (!$internalPartId) {
+            return response()->json(['status' => 'error', 'message' => 'Internal part tidak ditemukan.'], 404);
+        }
+
+        $start = $detail->created_at;
+        $end   = $detail->updated_at;
+
+        if (!$start || !$end || $start->equalTo($end)) {
+            return response()->json(['status' => 'error', 'message' => 'Window waktu detail tidak valid.'], 422);
+        }
+
+        // Validasi: hanya boleh hapus checkout pada internal_part + window ini
+        $isValid = $mutation->internal_part_id == $internalPartId
+            && $mutation->type === 'checkout'
+            && $mutation->created_at >= $start
+            && $mutation->created_at <= $end;
+
+        if (!$isValid) {
+            return response()->json(['status' => 'error', 'message' => 'Mutation tidak valid untuk dihapus.'], 403);
+        }
+
+        DB::transaction(function () use ($detail, $mutation) {
+            // delete 1 record mutation
+            $mutation->delete();
+
+            // ✅ setiap mutation = 1 scan, jadi -1
+            $current = (int)($detail->actual_kanban_qty ?? 0);
+            $newVal  = $current - 1;
+            if ($newVal < 0) $newVal = 0;
+
+            $detail->actual_kanban_qty = $newVal;
+            $detail->save();
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Berhasil hapus pulling mutation id: {$mutation->id} dan actual qty dikurangi 1.",
+            'data' => [
+                'detail_id' => $detail->id,
+                'actual_kanban_qty' => (int)$detail->fresh()->actual_kanban_qty,
+            ]
+        ]);
     }
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
