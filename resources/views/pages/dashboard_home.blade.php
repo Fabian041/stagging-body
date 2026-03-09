@@ -1,10 +1,10 @@
-@extends('layouts.root.main')
+@extends('layouts.root.dashboard')
 
 @section('main')
     <div class="section-header">
         <h1>Dashboard</h1>
         <div class="section-header-breadcrumb">
-            <span class="text-muted">Selamat datang di Bella PPIC & Production dashboard. Pilih area di bawah untuk mulai bekerja.</span>
+            <span class="text-muted">Selamat datang di Bella dashboard. Pilih area di bawah untuk mulai bekerja.</span>
         </div>
     </div>
 
