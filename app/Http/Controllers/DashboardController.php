@@ -28,10 +28,18 @@ class DashboardController extends Controller
     use prodPlanOps;
     public function index()
     {
+        // Landing dashboard: jangan langsung menampilkan "Body Plant Stock Monitoring"
+        return view('pages.dashboard_home');
+    }
 
+    /**
+     * Halaman Production Stock (sebelumnya ada di index()).
+     */
+    public function productionStock()
+    {
         $lines = [];
 
-        // get all current qty of all internal parts 
+        // get all current qty of all internal parts
         $data = DB::table('internal_parts')
             ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')

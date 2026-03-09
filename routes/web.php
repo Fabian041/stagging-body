@@ -18,6 +18,7 @@ use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
+use App\Http\Controllers\PisController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,9 +31,12 @@ use App\Http\Controllers\DirectPullingSSEController;
 |
 */
 
+// Root route - require authentication
+Route::middleware(['auth'])->get('/', [DashboardController::class, 'index'])->name('home');
+
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {
-    Route::get('/', [LoginController::class, 'index'])->name('login.index');
+    Route::get('/login', [LoginController::class, 'index'])->name('login.index');
     Route::post('/login-auth', [LoginController::class, 'authenticate'])->name('login.auth');
 
     Route::get('/register', [RegisterController::class, 'index'])->name('register.index');
@@ -43,11 +47,54 @@ Route::middleware(['guest'])->group(function () {
     Route::get('dashboard/receiving/detail', [DashboardController::class, 'showModal'])->name('dashboard.receiving.detail');
 });
 
-// stream SSE
-Route::get('/stream/direct-pulling-updates', [DirectPullingSSEController::class, 'streamDirectPullingUpdates'])
+// stream SSE - require authentication
+Route::middleware(['auth'])->get('/stream/direct-pulling-updates', [DirectPullingSSEController::class, 'streamDirectPullingUpdates'])
     ->name('sse.direct-pulling-updates');
 
-Route::post('/refresh-token', function () {
+// PIS Routes - require authentication
+Route::middleware(['auth'])->prefix('pis')->group(function () {
+    // Scanning Pages
+    Route::get('/', [PisController::class, 'index'])->name('pis.index');
+    Route::get('/packing', [PisController::class, 'packing'])->name('pis.packing');
+    Route::get('/loading-list', [PisController::class, 'loadingList'])->name('pis.loadingList');
+
+    // Core Scanning API
+    Route::get('/getAjaxImage/{image}/{type}/{dock}', [PisController::class, 'getAjaxImage'])->name('pis.getAjaxImage');
+
+    // Master Data Management
+    Route::get('/master', [PisController::class, 'PisMasterView'])->name('pis.master');
+    Route::get('/preview/{img}', [PisController::class, 'PisPreview'])->name('pis.preview');
+    Route::post('/search', [PisController::class, 'PisSearch'])->name('pis.search');
+    Route::get('/validasi', [PisController::class, 'validasi'])->name('pis.validasi');
+
+    // CRUD Operations
+    Route::get('/edit/{id}', [PisController::class, 'UpdatePis'])->name('pis.edit');
+    Route::post('/update/{id}', [PisController::class, 'UpdatePisProses'])->name('pis.update');
+    Route::get('/delete/{id}', [PisController::class, 'destroy'])->name('pis.delete');
+    
+    // Add/Update PIS Data
+    Route::post('/addpis', [PisController::class, 'addpis'])->name('pis.addpis');
+    Route::post('/addpart', [PisController::class, 'addpart'])->name('pis.addpart');
+    Route::post('/updatepis', [PisController::class, 'UpdatePisProses'])->name('pis.updatepis');
+});
+
+// Additional PIS Routes - require authentication
+Route::middleware(['auth'])->group(function () {
+    Route::get('/getajaxpartPis', [PisController::class, 'GetAjaxPartPis'])->name('pis.getAjaxPartPis');
+    // Backward-compatible alias used by some legacy views
+    Route::get('/getajaxpart', [PisController::class, 'GetAjaxPartPis']);
+    
+    // PIS Scan routes
+    Route::get('/pis/scan-list', [PisController::class, 'scanList'])->name('pis.scanList');
+    Route::post('/pis/save-scan', [PisController::class, 'savePisScan'])->name('pis.saveScan');
+    Route::post('/pis/update-scan-detail', [PisController::class, 'updatePisScanDetail'])->name('pis.updateScanDetail');
+    Route::post('/pis/get-loading-list-data', [PisController::class, 'getLoadingListData'])->name('pis.getLoadingListData');
+    Route::get('/pis/get-scan-list', [PisController::class, 'getPisScanList'])->name('pis.getScanList');
+    Route::get('/pis/get-scan-details', [PisController::class, 'getPisScanDetails'])->name('pis.getScanDetails');
+    Route::get('/pis/get-scans-by-pds', [PisController::class, 'getPisScansByPds'])->name('pis.getScansByPds');
+});
+
+Route::middleware(['auth'])->post('/refresh-token', function () {
     if (Auth::check()) {
         $response = Http::timeout(30)->withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
             'npk' => Auth::user()->npk,
@@ -101,6 +148,9 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard')->group(function () {
         Route::get('/stock/export', [DashboardController::class, 'exportStock'])->name('dashboard.stock.export');
         Route::get('/mutation/export', [DashboardController::class, 'exportMutation'])->name('dashboard.mutation.export');
+        // Production stock monitoring (sebelumnya ada di /dashboard)
+        Route::get('/production/stock', [DashboardController::class, 'productionStock'])->name('dashboard.productionStock');
+
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
 
         Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
@@ -137,6 +187,7 @@ Route::middleware(['auth'])->group(function () {
     // production
     Route::get('/production', [ProductionController::class, 'index'])->name('production.index');
     Route::get('/production/prdreport', [ProductionController::class, 'indexprdreport'])->name('production.indexprdreport');
+    Route::get('/pc2b', [ProductionController::class, 'pc2b'])->name('pc2b.index');
     Route::prefix('production')->group(function () {
         Route::get('/current-scan-count/{line}', [ProductionController::class, 'getCurrentScanCount']);
         Route::post('/reset-scan-count/{line}', [ProductionController::class, 'resetScanCount']);
@@ -151,6 +202,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api-list-stop/{line}/{category}', [ProductionController::class, 'getListStop']);
         Route::post('/api-insert-stop', [ProductionController::class, 'insertStop']);
         Route::post('/api-stop', [ProductionController::class, 'inboundStop']);
+        Route::post('/pc2b/scan-kanban', [ProductionController::class, 'storePc2bKanbanScan'])
+            ->name('production.pc2b.scan-kanban');
 
         Route::post('/part-scan', [ProductionController::class, 'storePartScan'])
             ->name('production.part-scan');
@@ -210,4 +263,10 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('/test', [ProductionController::class, 'test'])->name('test');
+    
+    // PIS Dashboard Routes
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/viewDashboardMutation', [PisController::class, 'viewDashboardMutation'])->name('dashboard.viewDashboardMutation');
+        Route::get('/getAjaxMutation', [PisController::class, 'getAjaxMutation'])->name('dashboard.getAjaxMutation');
+    });
 });
