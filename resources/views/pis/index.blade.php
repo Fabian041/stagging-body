@@ -66,7 +66,7 @@
                                 </div>
                                  <div class="row mt-2 no-gutters">
                                     <div class="col">
-                                        <button type="button" class="btn btn-sm btn-outline-danger" id="pis-btn-delay" style="border-radius: 16px; width: 100% ;">
+                                        <button type="button" class="btn btn-lg btn-outline-danger" id="pis-btn-delay" style="border-radius: 50px; width: 100%; height: 70px; font-size: 1.5rem;">
                                             <i class="fas fa-pause-circle"></i> Delay
                                         </button>
                                     </div>
@@ -136,7 +136,7 @@
                             <div class="card border mt-2" style="border-radius: 12px;">
                                 <div class="card-header py-1"><strong>Dock</strong></div>
                                 <div class="card-body p-0">
-                                    <div id="dock" class="form-group mb-0" style="height: 380px; overflow-y: auto; padding: 8px;">
+                                    <div id="dock" class="form-group mb-0" style="height: 410px; overflow-y: auto; padding: 8px;">
                                         <!-- List Dock buttons stay same -->
                                         <button value="OTHER" type="button" class="btn btn-block btn-primary" onclick="func_change_dock(this);">OTHER</button>
                                         <button value="43" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">43</button>
@@ -358,8 +358,11 @@
                 .trim();
             // Beberapa scanner kadang mengirim karakter tambahan di awalan
             // (misalnya simbol/non-alfanumerik) yang membuat nomor bergeser.
-            // Buang semua karakter non-alfanumerik di depan sebelum dipakai.
             str = str.replace(/^[^A-Za-z0-9]+/, '');
+            // Beberapa scanner mengirim prefix 'z'/'Z' di awal (mis. dari Code 128 / config scanner)
+            // yang menyebabkan lookup gagal. Buang awalan z/Z yang diikuti angka (bukan part number).
+            // Contoh: z12345678901 → 12345678901 (loading list), z8281074820 → 8281074820
+            if (/^[zZ]\d/.test(str)) str = str.replace(/^[zZ]+/, '');
             return str;
         }
 
