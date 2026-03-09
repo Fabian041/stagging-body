@@ -794,10 +794,24 @@ class PullingController extends Controller
 
     public function internalCheck($internal, $isinternal = 0)
     {
-        // cek internal part berdasarkan part_number
+        // check internal 
         $internal = InternalPart::with('customerPart')->where('part_number', $internal)->first();
+        $lineProd = Line::select('name')->where('id', $internal->line_id)->first();
 
-        // jika tidak ditemukan, balikan response error terkontrol (bukan 500)
+        if ($isinternal == 0) {
+            DB::beginTransaction();
+            // insert into mutation table
+            Mutation::create([
+                'internal_part_id' => $internal->id,
+                'serial_number' => 'XXXX',
+                'type' => 'checkout',
+                'qty' => 0,
+                'npk' => auth()->user()->npk,
+                'date' => Carbon::now()->format('Y-m-d H:i:s')
+            ]);
+
+            DB::commit();
+        }
         if (!$internal) {
             return [
                 'status' => 'error',
@@ -805,30 +819,14 @@ class PullingController extends Controller
             ];
         }
 
-        // ambil line berdasarkan line_id internal part
-        $lineProd = Line::select('name')->where('id', $internal->line_id)->first();
-
-        // jika dipanggil dari luar (bukan pure internal check), catat mutation dummy
-        if ($isinternal == 0) {
-            DB::beginTransaction();
-            Mutation::create([
-                'internal_part_id' => $internal->id,
-                'serial_number'   => 'XXXX',
-                'type'            => 'checkout',
-                'qty'             => 0,
-                'npk'             => auth()->user()->npk,
-                'date'            => Carbon::now()->format('Y-m-d H:i:s')
-            ]);
-            DB::commit();
-        }
 
         return [
-            'status'     => 'success',
+            'status' => 'success',
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
-            'target'     => optional($internal->customerPart)->qty_per_kanban,
-            'line'       => optional($lineProd)->name,
-            'photo'      => $internal->photo,
+            'target' => $internal->customerPart->qty_per_kanban,
+            'line' => $lineProd->name,
+            'photo' => $internal->photo,
         ];
     }
 
