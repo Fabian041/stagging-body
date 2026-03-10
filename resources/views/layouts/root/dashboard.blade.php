@@ -25,6 +25,11 @@
     <!-- Template CSS -->
     <link rel="stylesheet" href={{ asset('assets/css/style.css') }}>
     <link rel="stylesheet" href={{ asset('assets/css/components.css') }}>
+    <style>
+        /* Dashboard layout tanpa sidebar - main content full width ke kiri */
+        .main-content { padding-left: 30px !important; }
+        .main-footer { padding-left: 30px !important; }
+    </style>
     <!-- Start GA -->
     <!-- /END GA -->
 </head>
@@ -34,6 +39,8 @@
         <div class="main-wrapper main-wrapper-1">
             <div class="navbar-bg"></div>
 
+            {{-- navbar (nama user & logout) --}}
+            @include('layouts.partials.nav', ['hideSidebarToggle' => true])
 
             <!-- Main Content -->
             <div class="main-content">

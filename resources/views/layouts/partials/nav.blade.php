@@ -1,10 +1,12 @@
 <nav class="navbar navbar-expand-lg main-navbar">
     <ul class="navbar-nav mr-auto mt-2">
-        <li>
-            <a href="#" data-toggle="sidebar" class="nav-link nav-link-lg ">
-                <i class="fas fa-bars"></i>
-            </a>
-        </li>
+        @if(empty($hideSidebarToggle))
+            <li>
+                <a href="#" data-toggle="sidebar" class="nav-link nav-link-lg ">
+                    <i class="fas fa-bars"></i>
+                </a>
+            </li>
+        @endif
     </ul>
 
     <ul class="navbar-nav navbar-right">
