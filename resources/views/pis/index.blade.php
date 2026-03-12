@@ -352,6 +352,30 @@
         // Di-reset setiap kali loading list di-scan; interlock "part belum terpenuhi" hanya memakai ini.
         var partsStartedInCurrentSession = [];
 
+        // Saat interlock dibuka dan user pindah kanban/part, kita perlu memastikan
+        // state part sebelumnya tidak menghalangi proses berikutnya.
+        function resetActiveKanbanContext() {
+            lastScannedKanban = '';
+            lastScannedLabel = '';
+            lastScannedLabelTime = 0;
+            clearSameLabelCountdown();
+            currentPreviewItem = null;
+            clearPreviewImage();
+            $('#detail_no').val('');
+        }
+
+        function getPartKeyForSession(it) {
+            return (it && (it.part_number_cust || it.part_number_int) || '').toString().trim();
+        }
+
+        function setSessionStartedPartsFromKanban(partsInThisKanban) {
+            partsStartedInCurrentSession = [];
+            (partsInThisKanban || []).forEach(function(p) {
+                var k = getPartKeyForSession(p);
+                if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
+            });
+        }
+
         function getDailyCounterKey() {
             var d = new Date();
             var m = (d.getMonth() + 1); var day = d.getDate();
@@ -731,11 +755,11 @@
                 $(window).scrollTop(_savedScrollTop);
                 var kanbanRawToApply = raw;
                 showJpConfirmationThen(function() {
+                    // Interlock dibuka → anggap kanban ini sebagai konteks aktif BARU.
+                    // Jangan biarkan state part sebelumnya memaksa user menyelesaikan part lama.
+                    resetActiveKanbanContext();
                     lastScannedKanban = kanbanRawToApply;
-                    partsInThisKanban.forEach(function(p) {
-                        var k = getPartKey(p);
-                        if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
-                    });
+                    setSessionStartedPartsFromKanban(partsInThisKanban);
                     stage = 3;
                     updateStepIndicator();
                     $('#status-container').removeClass('alert-danger').addClass('alert-success');
@@ -820,12 +844,14 @@
                 $('#part_number_loading').hide();
                 showJpConfirmationThen(function() {
                     stage = 2;
-                    lastScannedKanban = '';
+                    // Interlock dibuka → reset konteks agar scan kanban berikutnya dianggap kanban aktif baru,
+                    // tanpa dipengaruhi state part/kanban sebelumnya.
+                    resetActiveKanbanContext();
+                    partsStartedInCurrentSession = [];
                     updateStepIndicator();
                     $('#status-container').removeClass('alert-danger').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Interlock dibuka');
                     $('#alert-body').text('Verifikasi berhasil. Silakan scan kanban kembali.');
-                    $('#detail_no').val('');
                 });
                 return;
             }

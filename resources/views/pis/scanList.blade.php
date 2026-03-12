@@ -142,6 +142,28 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-3 col-12 mb-2">
+                        <label class="mb-1" style="font-size:12px; font-weight:600;">Start Date</label>
+                        <input id="filterStartDate" type="date" class="form-control">
+                    </div>
+                    <div class="col-md-3 col-12 mb-2">
+                        <label class="mb-1" style="font-size:12px; font-weight:600;">End Date</label>
+                        <input id="filterEndDate" type="date" class="form-control">
+                    </div>
+                    <div class="col-md-6 col-12 mb-2 d-flex align-items-end" style="gap:10px; flex-wrap:wrap;">
+                        <button id="applyDateFilter" type="button" class="btn btn-primary">
+                            APPLY FILTER
+                        </button>
+                        <button id="resetDateFilter" type="button" class="btn btn-outline-secondary">
+                            CLEAR DATE
+                        </button>
+                        <button id="exportExcel" type="button" class="btn btn-success">
+                            DOWNLOAD EXCEL
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -204,6 +226,10 @@
             ajax: {
                 url: `{{ url('pis/get-scan-list') }}`,
                 dataType: 'json',
+                data: function(d) {
+                    d.start_date = $('#filterStartDate').val();
+                    d.end_date = $('#filterEndDate').val();
+                }
             },
             columns: [{
                     data: 'scan_time',
@@ -339,7 +365,8 @@
             
             // Debounce search for better performance
             searchTimeout = setTimeout(function() {
-                table.column(0).search(searchValue).draw();
+                // loading_list_number is column index 1
+                table.column(1).search(searchValue).draw();
                 onUserInteraction();
             }, 300);
         });
@@ -470,8 +497,31 @@
         $('#reset button').on('click', function() {
             $('#loadingListSearch').val('');
             clearTimeout(searchTimeout);
-            table.column(0).search('').draw();
+            table.column(1).search('').draw();
             onUserInteraction();
+        });
+
+        $('#applyDateFilter').on('click', function() {
+            table.draw();
+            onUserInteraction();
+        });
+
+        $('#resetDateFilter').on('click', function() {
+            $('#filterStartDate').val('');
+            $('#filterEndDate').val('');
+            table.draw();
+            onUserInteraction();
+        });
+
+        $('#exportExcel').on('click', function() {
+            const baseUrl = `{{ route('pis.scanListExport') }}`;
+            const startDate = $('#filterStartDate').val();
+            const endDate = $('#filterEndDate').val();
+            const params = new URLSearchParams();
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+            window.location.href = url;
         });
 
         $(window).on('beforeunload', function() {
