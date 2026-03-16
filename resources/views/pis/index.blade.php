@@ -1187,6 +1187,14 @@
             $('#pis-input-jp-confirm').focus();
         });
 
+        // Saat interlock, pastikan cursor tetap di field scan interlock (refocus jika kehilangan fokus)
+        $('#pis-input-jp-confirm').on('focusout', function() {
+            if ($('#modalPisJpConfirmation').hasClass('show')) {
+                var el = this;
+                setTimeout(function() { $(el).focus(); }, 50);
+            }
+        });
+
         $('#pis-input-jp-confirm').on('keypress', function(e) {
             var code = e.keyCode ? e.keyCode : e.which;
             if (code === 13) {
@@ -1202,13 +1210,18 @@
                     }
                     pendingJpAction = null;
                 } else {
+                    var $input = $(this);
+                    $input.val('');
                     Swal.fire({
                         title: 'NPK tidak memiliki akses',
                         text: npk.length === 6 ? 'NPK ' + npk + ' bukan JP/Leader.' : 'Scan barcode NPK (6 digit).',
                         icon: 'error',
                         confirmButtonText: 'OK'
+                    }).then(function() {
+                        if ($('#modalPisJpConfirmation').hasClass('show')) {
+                            $input.focus();
+                        }
                     });
-                    $(this).val('').focus();
                 }
             }
         });
