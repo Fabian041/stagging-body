@@ -11,24 +11,26 @@ class PreventBackHistory
     {
         $response = $next($request);
 
-        $cacheHeaders = [
+        $headers = [
             'Cache-Control' => 'no-cache, no-store, max-age=0, must-revalidate',
-            'Pragma'        => 'no-cache',
-            'Expires'       => 'Sat, 01 Jan 1990 00:00:00 GMT',
+            'Pragma' => 'no-cache',
+            'Expires' => 'Sat, 01 Jan 1990 00:00:00 GMT',
         ];
 
-        // Jika response file download (Excel, PDF, dll)
-        if ($response instanceof BinaryFileResponse) {
-            foreach ($cacheHeaders as $key => $val) {
-                $response->headers->set($key, $val);
-            }
-            return $response;
+        // Some response types (e.g. BinaryFileResponse for downloads) don't have header().
+        if (method_exists($response, 'header')) {
+            return $response
+                ->header('Cache-Control', $headers['Cache-Control'])
+                ->header('Pragma', $headers['Pragma'])
+                ->header('Expires', $headers['Expires']);
         }
 
-        // Response normal Laravel
-        return $response
-            ->header('Cache-Control', $cacheHeaders['Cache-Control'])
-            ->header('Pragma', $cacheHeaders['Pragma'])
-            ->header('Expires', $cacheHeaders['Expires']);
+        if (property_exists($response, 'headers') && $response->headers) {
+            foreach ($headers as $key => $value) {
+                $response->headers->set($key, $value);
+            }
+        }
+
+        return $response;
     }
 }

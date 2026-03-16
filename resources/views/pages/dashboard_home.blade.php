@@ -52,8 +52,8 @@
         <div class="col-12 col-md-6">
             <div class="card card-warning shadow-sm" style="border-radius: 12px;">
                 <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-qrcode mr-2"></i>PIS</h4>
-                    <p class="text-muted mb-4">Akses menu Scanning, Scan List, Packing, dan Master Data.</p>
+                    <h4 class="mb-2"><i class="fas fa-qrcode mr-2"></i>Packing - PIS</h4>
+                    <p class="text-muted mb-4">Akses menu Scanning, Scan List, dan Master Data.</p>
                     <div class="d-flex flex-wrap" style="gap: 10px;">
                         <a href="{{ route('pis.index') }}" class="btn btn-warning">
                             <i class="fas fa-barcode mr-1"></i> Scanning

@@ -14,6 +14,7 @@
                                     <option value="mh">Material Handling</option>
                                     <option value="prod">Production</option>
                                     <option value="ppic">PPIC</option>
+                                    <option value="Packing">Packing</option>
                                 </select>
                                 <div class="input-group-append" id="reset">
                                     <button class="btn btn-lg btn-danger" type="button">Filter</button>

@@ -30,8 +30,12 @@ class ErrorLogController extends Controller
 
     public function store(Request $request)
     {
-        // get user dept
-        $dept = auth()->user()->role ?? null;
+        // Area: khusus dari modul PIS selalu "Packing"
+        // Menu/modul lain tetap menggunakan dept user (role)
+        $area = (strtolower((string) $request->get('source')) === 'pis')
+            ? 'Packing'
+            : (auth()->user()->role ?? null);
+
         $message = $request->message ?? null;
         $expected = $request->expected ?? null;
         $scanned = $request->scanned ?? null;
@@ -55,14 +59,14 @@ class ErrorLogController extends Controller
 
             Log::info('ErrorLogController@store - start save error log', [
                 'user_id' => auth()->id(),
-                'user_role' => $dept,
+                'area' => $area,
                 'message' => $message,
                 'expected' => $expected,
                 'scanned' => $scanned,
             ]);
 
             ErrorLog::create([
-                'area' => $dept,
+                'area' => $area,
                 'message' => $message,
                 'expected' => $expected,
                 'scanned' => $scanned,

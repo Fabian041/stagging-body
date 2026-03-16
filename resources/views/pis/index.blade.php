@@ -311,6 +311,35 @@
         var lastScannedLabel = '';
         var lastScannedLabelTime = 0;
         var LABEL_SAME_DELAY_MS = 30 * 1000; // 30 detik
+        // Countdown UI untuk delay label yang sama (agar waktunya "bergerak")
+        var sameLabelCountdownTimer = null;
+
+        function clearSameLabelCountdown() {
+            if (sameLabelCountdownTimer) {
+                clearInterval(sameLabelCountdownTimer);
+                sameLabelCountdownTimer = null;
+            }
+        }
+
+        function startSameLabelCountdown() {
+            clearSameLabelCountdown();
+
+            // Update setiap 1 detik sampai cooldown habis
+            sameLabelCountdownTimer = setInterval(function () {
+                var now = Date.now();
+                var remainingMs = LABEL_SAME_DELAY_MS - (now - lastScannedLabelTime);
+                var remainingSec = Math.ceil(remainingMs / 1000);
+                if (remainingSec <= 0 || !lastScannedLabelTime) {
+                    clearSameLabelCountdown();
+                    // Opsional: ubah pesan saat sudah boleh scan lagi
+                    if ($('#status-container').hasClass('alert-warning') && $('#alert-header').text().indexOf('Label sama') !== -1) {
+                        $('#alert-body').text('Silakan scan lagi.');
+                    }
+                    return;
+                }
+                $('#same-label-remaining').text(String(remainingSec));
+            }, 1000);
+        }
         // Simpan posisi scroll sebelum aksi scan agar tampilan tidak loncat ke bawah setelah scan
         var _savedScrollTop = 0;
         // Interlock JP/Leader: NPK yang diizinkan (sumber: config/pis.php)
@@ -322,6 +351,30 @@
         // Part yang sudah "dimulai" (scan kanban/label) dalam sesi loading list saat ini saja.
         // Di-reset setiap kali loading list di-scan; interlock "part belum terpenuhi" hanya memakai ini.
         var partsStartedInCurrentSession = [];
+
+        // Saat interlock dibuka dan user pindah kanban/part, kita perlu memastikan
+        // state part sebelumnya tidak menghalangi proses berikutnya.
+        function resetActiveKanbanContext() {
+            lastScannedKanban = '';
+            lastScannedLabel = '';
+            lastScannedLabelTime = 0;
+            clearSameLabelCountdown();
+            currentPreviewItem = null;
+            clearPreviewImage();
+            $('#detail_no').val('');
+        }
+
+        function getPartKeyForSession(it) {
+            return (it && (it.part_number_cust || it.part_number_int) || '').toString().trim();
+        }
+
+        function setSessionStartedPartsFromKanban(partsInThisKanban) {
+            partsStartedInCurrentSession = [];
+            (partsInThisKanban || []).forEach(function(p) {
+                var k = getPartKeyForSession(p);
+                if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
+            });
+        }
 
         function getDailyCounterKey() {
             var d = new Date();
@@ -499,6 +552,7 @@
                                         url: '{{ url("error/store") }}',
                                         type: 'GET',
                                         data: {
+                                            source: 'pis',
                                             message: 'Interlock: Loading list baru sebelum selesai',
                                             expected: currentLoadingListNumber || '',
                                             scanned: displayBarcode
@@ -690,6 +744,7 @@
                     url: '{{ url("error/store") }}',
                     type: 'GET',
                     data: {
+                        source: 'pis',
                         message: 'Interlock: Pindah part sebelum selesai',
                         expected: partNames,
                         // simpan hanya Part No Customer hasil ekstraksi, bukan seluruh isi string kanban
@@ -700,11 +755,11 @@
                 $(window).scrollTop(_savedScrollTop);
                 var kanbanRawToApply = raw;
                 showJpConfirmationThen(function() {
+                    // Interlock dibuka → anggap kanban ini sebagai konteks aktif BARU.
+                    // Jangan biarkan state part sebelumnya memaksa user menyelesaikan part lama.
+                    resetActiveKanbanContext();
                     lastScannedKanban = kanbanRawToApply;
-                    partsInThisKanban.forEach(function(p) {
-                        var k = getPartKey(p);
-                        if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
-                    });
+                    setSessionStartedPartsFromKanban(partsInThisKanban);
                     stage = 3;
                     updateStepIndicator();
                     $('#status-container').removeClass('alert-danger').addClass('alert-success');
@@ -735,6 +790,8 @@
 
         function processPartScan(barcode, displayBarcode) {
             var raw = cleanBarcode(barcode || '');
+            // Bersihkan countdown lama bila ada (mencegah interval numpuk saat proses scan berjalan)
+            clearSameLabelCountdown();
 
             // --- LOGIKA PEMBERSIHAN BARCODE ---
             var cleanLabel = raw.split(/\s{2,}/)[0].trim();
@@ -775,6 +832,7 @@
                     url: '{{ url("error/store") }}',
                     type: 'GET',
                     data: {
+                        source: 'pis',
                         message: 'Interlock: Label tidak sesuai Kanban',
                         // Simpan hanya part number customer dari kanban, bukan seluruh string panjang
                         expected: extractPartFromKanban(lastScannedKanban) || '',
@@ -786,12 +844,14 @@
                 $('#part_number_loading').hide();
                 showJpConfirmationThen(function() {
                     stage = 2;
-                    lastScannedKanban = '';
+                    // Interlock dibuka → reset konteks agar scan kanban berikutnya dianggap kanban aktif baru,
+                    // tanpa dipengaruhi state part/kanban sebelumnya.
+                    resetActiveKanbanContext();
+                    partsStartedInCurrentSession = [];
                     updateStepIndicator();
                     $('#status-container').removeClass('alert-danger').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Interlock dibuka');
                     $('#alert-body').text('Verifikasi berhasil. Silakan scan kanban kembali.');
-                    $('#detail_no').val('');
                 });
                 return;
             }
@@ -802,7 +862,8 @@
                 var sisaWaktu = Math.ceil((LABEL_SAME_DELAY_MS - (now - lastScannedLabelTime)) / 1000);
                 $('#status-container').removeClass('alert-success alert-danger').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-clock"></i> Label sama');
-                $('#alert-body').text('Label ini baru saja di-scan. Tunggu ' + sisaWaktu + ' detik lagi.');
+                $('#alert-body').html('Label ini baru saja di-scan. Tunggu <b id="same-label-remaining">' + sisaWaktu + '</b> detik lagi.');
+                startSameLabelCountdown();
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
@@ -907,16 +968,17 @@
 
                 // Cek jika seluruh Loading List sudah selesai semua
                 if (isLoadingListComplete()) {
-                    stage = 1;
-                    currentLoadingListNumber = '';
-                    lastScannedKanban = '';
-                    updateStepIndicator();
                     Swal.fire({
                         title: 'Loading List Complete!',
                         text: 'Semua item dalam daftar telah terpenuhi.',
                         icon: 'success',
                         confirmButtonText: 'OK'
+                    }).then(function () {
+                        // Setelah user acknowledge, reset state agar scan berikutnya tidak dianggap
+                        // "scan loading list yang sama" / balik ke awal secara tidak sengaja.
+                        resetPisState();
                     });
+                    return;
                 }
             } else {
                 // JIKA TIDAK ADA YANG COCOK DI LOADING LIST
@@ -1125,6 +1187,14 @@
             $('#pis-input-jp-confirm').focus();
         });
 
+        // Saat interlock, pastikan cursor tetap di field scan interlock (refocus jika kehilangan fokus)
+        $('#pis-input-jp-confirm').on('focusout', function() {
+            if ($('#modalPisJpConfirmation').hasClass('show')) {
+                var el = this;
+                setTimeout(function() { $(el).focus(); }, 50);
+            }
+        });
+
         $('#pis-input-jp-confirm').on('keypress', function(e) {
             var code = e.keyCode ? e.keyCode : e.which;
             if (code === 13) {
@@ -1140,13 +1210,18 @@
                     }
                     pendingJpAction = null;
                 } else {
+                    var $input = $(this);
+                    $input.val('');
                     Swal.fire({
                         title: 'NPK tidak memiliki akses',
                         text: npk.length === 6 ? 'NPK ' + npk + ' bukan JP/Leader.' : 'Scan barcode NPK (6 digit).',
                         icon: 'error',
                         confirmButtonText: 'OK'
+                    }).then(function() {
+                        if ($('#modalPisJpConfirmation').hasClass('show')) {
+                            $input.focus();
+                        }
                     });
-                    $(this).val('').focus();
                 }
             }
         });

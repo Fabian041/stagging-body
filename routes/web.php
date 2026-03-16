@@ -92,6 +92,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pis/get-scan-list', [PisController::class, 'getPisScanList'])->name('pis.getScanList');
     Route::get('/pis/get-scan-details', [PisController::class, 'getPisScanDetails'])->name('pis.getScanDetails');
     Route::get('/pis/get-scans-by-pds', [PisController::class, 'getPisScansByPds'])->name('pis.getScansByPds');
+    Route::get('/pis/scan-list/export', [PisController::class, 'exportPisScanList'])->name('pis.scanListExport');
 });
 
 Route::middleware(['auth'])->post('/refresh-token', function () {

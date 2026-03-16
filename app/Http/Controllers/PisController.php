@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\PisScanListExport;
 use App\Models\PisPart;
 use App\Models\InternalPart;
 use App\Models\PisMutation;
@@ -1024,9 +1026,35 @@ class PisController extends Controller
     public function getPisScanList()
     {
         try {
+            $startDate = request()->query('start_date');
+            $endDate = request()->query('end_date');
+            $start = null;
+            $end = null;
+            try {
+                $start = $startDate ? Carbon::parse($startDate)->startOfDay() : null;
+            } catch (\Throwable $e) {
+                $start = null;
+            }
+            try {
+                $end = $endDate ? Carbon::parse($endDate)->endOfDay() : null;
+            } catch (\Throwable $e) {
+                $end = null;
+            }
+
             $scans = PisScan::with(['customer', 'details'])
+                ->when($start || $end, function ($q) use ($start, $end) {
+                    $q->whereHas('details', function ($dq) use ($start, $end) {
+                        if ($start && $end) {
+                            $dq->whereBetween('updated_at', [$start, $end]);
+                        } elseif ($start) {
+                            $dq->where('updated_at', '>=', $start);
+                        } elseif ($end) {
+                            $dq->where('updated_at', '<=', $end);
+                        }
+                    });
+                })
                 ->latest()
-                ->take(500)
+                ->take(2000)
                 ->get()
                 ->map(function ($scan) {
                     // Calculate totals from all details in this scan
@@ -1135,6 +1163,27 @@ class PisController extends Controller
                 'error' => 'Unable to load data: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Export PIS scan list to Excel (filtered by date range).
+     * Uses same "Scan Time" definition as list (latest detail updated_at).
+     */
+    public function exportPisScanList(Request $request)
+    {
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+
+        $filenameParts = ['pis-scan-list'];
+        if ($startDate) {
+            $filenameParts[] = $startDate;
+        }
+        if ($endDate) {
+            $filenameParts[] = $endDate;
+        }
+        $fileName = implode('_', $filenameParts) . '.xlsx';
+
+        return Excel::download(new PisScanListExport($startDate, $endDate), $fileName);
     }
 
     /**
