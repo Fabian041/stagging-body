@@ -258,6 +258,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/store', [ErrorLogController::class, 'store'])->name('error.store');
         Route::get('/log', [ErrorLogController::class, 'index'])->name('error.log');
         Route::get('/getErrorLogs', [ErrorLogController::class, 'getErrorLogs'])->name('error.getErrorLogs');
+        Route::get('/export', [ErrorLogController::class, 'export'])->name('error.export');
     });
 
     Route::get('/test', [ProductionController::class, 'test'])->name('test');

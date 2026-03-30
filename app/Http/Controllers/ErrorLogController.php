@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Models\ErrorLog;
+use App\Exports\ErrorLogsExport;
 use Illuminate\Http\Request;
 use Illuminate\Queue\NullQueue;
 use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ErrorLogController extends Controller
 {
@@ -21,11 +23,62 @@ class ErrorLogController extends Controller
 
     public function getErrorLogs(Request $request)
     {
+        $area = $request->get('area');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
-        $errorLogs = ErrorLog::get();
+        $query = ErrorLog::query()
+            ->when($area, function ($q) use ($area) {
+                $q->where('area', $area);
+            });
 
-        return DataTables::of($errorLogs)
+        if ($startDate || $endDate) {
+            try {
+                $start = $startDate ? Carbon::parse($startDate)->startOfDay() : null;
+            } catch (\Throwable $e) {
+                $start = null;
+            }
+            try {
+                $end = $endDate ? Carbon::parse($endDate)->endOfDay() : null;
+            } catch (\Throwable $e) {
+                $end = null;
+            }
+
+            $query->when($start || $end, function ($q) use ($start, $end) {
+                if ($start && $end) {
+                    $q->whereBetween('date', [$start, $end]);
+                } elseif ($start) {
+                    $q->where('date', '>=', $start);
+                } elseif ($end) {
+                    $q->where('date', '<=', $end);
+                }
+            });
+        }
+
+        return DataTables::of($query)
             ->make(true);
+    }
+
+    public function export(Request $request)
+    {
+        $area = $request->query('area');
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+
+        $filenameParts = ['error-logs'];
+        if ($area) {
+            $filenameParts[] = $area;
+        }
+        if ($startDate) {
+            $filenameParts[] = $startDate;
+        }
+        if ($endDate) {
+            $filenameParts[] = $endDate;
+        }
+        $filenameParts[] = Carbon::now()->format('Ymd_His');
+        $fileName = implode('_', $filenameParts) . '.xlsx';
+
+        return Excel::download(new ErrorLogsExport($area, $startDate, $endDate), $fileName);
     }
 
     public function store(Request $request)

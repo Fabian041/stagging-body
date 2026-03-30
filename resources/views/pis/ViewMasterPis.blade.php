@@ -213,16 +213,22 @@
                                   <label>Destination</label>
                                   <select class="form-control part_dock" name="part_dock[]">
                                     <option value="">-- Select Destination --</option>
+                                    <option value="OTHER">OTHER</option>
                                     <option value="43">43</option>
                                     <option value="53">53</option>
                                     <option value="1L">1L</option>
                                     <option value="1N">1N</option>
-                                    <option value="1S">1S</option>
+                                    <option value="S1">S1</option>
                                     <option value="6I">6I</option>
-                                    <option value="TAMTAM">TAMTAM</option>
-                                    <option value="TAMADM">TAMADM</option>
-                                    <option value="TAMHINO">TAMHINO</option>
-                                    <option value="OTHER">OTHER</option>
+                                    <option value="TAM-TAM">TAM-TAM</option>
+                                    <option value="TAM-ADM">TAM-ADM</option>
+                                    <option value="TAM-HINO">TAM-HINO</option>
+                                    <option value="ADM-AS">ADM-AS</option>
+                                    <option value="ADM-KP">ADM-KP</option>
+                                    <option value="YHA">YHA</option>
+                                    <option value="ADM">ADM</option>
+                                    <option value="TTI">TTI</option>
+                                    <option value="S1-TAM">S1-TAM</option>
                                   </select>
                                 </div>
 

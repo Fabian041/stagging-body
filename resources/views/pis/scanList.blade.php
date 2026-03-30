@@ -153,12 +153,12 @@
                         <input id="filterEndDate" type="date" class="form-control">
                     </div>
                     <div class="col-md-6 col-12 mb-2 d-flex align-items-end" style="gap:10px; flex-wrap:wrap;">
-                        <button id="applyDateFilter" type="button" class="btn btn-primary">
+                        <!-- <button id="applyDateFilter" type="button" class="btn btn-primary">
                             APPLY FILTER
-                        </button>
-                        <button id="resetDateFilter" type="button" class="btn btn-outline-secondary">
+                        </button> -->
+                        <!-- <button id="resetDateFilter" type="button" class="btn btn-outline-secondary">
                             CLEAR DATE
-                        </button>
+                        </button> -->
                         <button id="exportExcel" type="button" class="btn btn-success">
                             DOWNLOAD EXCEL
                         </button>
