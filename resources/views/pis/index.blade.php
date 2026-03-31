@@ -138,12 +138,16 @@
                                 <div class="card-body p-0">
                                     <div id="dock" class="form-group mb-0" style="height: 410px; overflow-y: auto; padding: 8px;">
                                         <!-- List Dock buttons stay same -->
-                                        <button value="OTHER" type="button" class="btn btn-block btn-primary" onclick="func_change_dock(this);">OTHER</button>
+                                        <button value="TMMIN SPD" type="button" class="btn btn-block btn-primary" onclick="func_change_dock(this);">TMMIN SPD</button>
+                                        <button value="TMMIN SPD-ADM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TMMIN SPD-ADM</button>
                                         <button value="43" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">43</button>
                                         <button value="53" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">53</button>
                                         <button value="1L" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">1L</button>
                                         <button value="1N" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">1N</button>
-                                        <button value="S1" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">S1</button>
+                                        <button value="HINO-SPD" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">HINO-SPD</button>
+                                        <button value="SIM-SPD" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">SIM-SPD</button>
+                                        <button value="MMKI" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">MMKI</button>
+                                        <button value="MMKI-SPD" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">MMKI-SPD</button>
                                         <button value="6I" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">6I</button>
                                         <button value="TAM-TAM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TAM-TAM</button>
                                         <button value="TAM-ADM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TAM-ADM</button>
@@ -153,7 +157,6 @@
                                         <button value="YHA" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">YHA</button>
                                         <button value="ADM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">ADM</button>
                                         <button value="TTI" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TTI</button>
-                                        <button value="S1-TAM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">S1-TAM</button>
                                         <input id="dock_type" value="OTHER" type="hidden">
                                     </div>
                                 </div>

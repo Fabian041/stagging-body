@@ -152,55 +152,34 @@
                                   </button>
                                 </div>
 
-                                <div class="form-group part_number_show">
+                                <div class="form-group part_number_aiia_group">
                                   <label>Part Number AIIA</label>
-                                  <select class="form-control select2 part_number" style="width: 100%;" name="part_number[]" tabindex="0">
-                                    <option value="" selected disabled>Choose Part Number</option>
-                                  </select>
+                                  <input type="text"
+                                         class="form-control part_number_aiia"
+                                         name="part_number_aiia[]"
+                                         placeholder="Part Number AIIA"
+                                         onkeyup="this.value = this.value.toUpperCase()"
+                                         autocomplete="off">
                                 </div>
 
-                                  <div class="form-group">
-                                    <label class="checkbox-inline manual-checkbox">
-                                      <input type="checkbox" class="manual-toggle" value="1">
-                                      <span>Manual Input</span>
-                                    </label>
-                                  </div>
-                                <div class="form-group div_hidden_part_no_aiia" style="display: none;">
-                                  <label>Part Number AIIA</label>
-                                  <input type="text" class="form-control hidden_part_no_aiia" name="hidden_part_no_aiia[]" placeholder="Part Number AIIA" onkeyup="this.value = this.value.toUpperCase()" autocomplete="off">
-                                </div>
-
-                                <div class="form-group div_hidden_part_name" style="display: none;">
-                                  <label>Part Name</label>
-                                  <input type="text" class="form-control hidden_part_name" name="hidden_part_name[]" placeholder="Part Name" autocomplete="off">
-                                </div>
-
-                                <div class="form-group">
+                                <div class="form-group part_number_customer_group">
                                   <label>Part Number Customer</label>
                                   <input type="text" class="form-control part_number_customer" name="part_number_customer[]" placeholder="Part Number Customer" onkeyup="this.value = this.value.toUpperCase()" autocomplete="off">
                                 </div>
 
-                                <div class="form-group">
+                                <div class="form-group back_number_group">
                                   <label>Back No</label>
                                   <input type="text" class="form-control back_number" name="back_number[]" placeholder="Back No" onkeyup="this.value = this.value.toUpperCase()" autocomplete="off">
                                 </div>
 
-                                <div class="form-group div_hidden_min" style="display: none;">
-                                  <label>Min Stock</label>
-                                  <input type="number" class="form-control min_stock" name="min_stock[]" placeholder="Min Stock" autocomplete="off">
-                                </div>
 
-                                <div class="form-group div_hidden_max" style="display: none;">
-                                  <label>Max Stock</label>
-                                  <input type="number" class="form-control max_stock" name="max_stock[]" placeholder="Max Stock" autocomplete="off">
-                                </div>
 
-                                <div class="form-group">
+                                <div class="form-group qty_group">
                                   <label>Qty</label>
                                   <input type="number" class="form-control qty_kanban" name="qty_kanban[]" placeholder="Qty" autocomplete="off">
                                 </div>
 
-                                <div class="form-group">
+                                <div class="form-group part_kind_group">
                                   <label>Type</label>
                                   <select class="form-control part_kind" name="part_kind[]">
                                     <option value="">-- Select Type --</option>
@@ -213,12 +192,16 @@
                                   <label>Destination</label>
                                   <select class="form-control part_dock" name="part_dock[]">
                                     <option value="">-- Select Destination --</option>
-                                    <option value="OTHER">OTHER</option>
+                                    <option value="TMMIN SPD">TMMIN SPD</option>
+                                    <option value="TMMIN SPD-ADM">TMMIN SPD-ADM</option>
                                     <option value="43">43</option>
                                     <option value="53">53</option>
                                     <option value="1L">1L</option>
                                     <option value="1N">1N</option>
-                                    <option value="S1">S1</option>
+                                    <option value="HINO-SPD">HINO-SPD</option>
+                                    <option value="SIM-SPD">SIM-SPD</option>
+                                    <option value="MMKI">MMKI</option>
+                                    <option value="MMKI-SPD">MMKI-SPD</option>
                                     <option value="6I">6I</option>
                                     <option value="TAM-TAM">TAM-TAM</option>
                                     <option value="TAM-ADM">TAM-ADM</option>
@@ -228,11 +211,10 @@
                                     <option value="YHA">YHA</option>
                                     <option value="ADM">ADM</option>
                                     <option value="TTI">TTI</option>
-                                    <option value="S1-TAM">S1-TAM</option>
                                   </select>
                                 </div>
 
-                                <div class="form-group">
+                                <div class="form-group pis_picture_group">
                                   <label>Picture (.JPG)</label>
                                   <input type="file" class="pis_picture" name="pis_picture[]" accept=".jpg,.jpeg,.png">
                                 </div>
@@ -447,6 +429,29 @@
     .pis-row > .form-group:nth-child(13) {
       grid-column: 1 / -1;
     }
+
+    /* Override grid placement for updated CREATE PIS fields (manual AIIA) */
+    .pis-row .part_number_aiia_group {
+      grid-column: 1 / -1 !important;
+    }
+    .pis-row .part_number_customer_group {
+      grid-column: 1 !important;
+    }
+    .pis-row .back_number_group {
+      grid-column: 2 !important;
+    }
+    .pis-row .qty_group {
+      grid-column: 1 !important;
+    }
+    .pis-row .part_kind_group {
+      grid-column: 2 !important;
+    }
+    .pis-row .part_dock_show {
+      grid-column: 1 / -1 !important;
+    }
+    .pis-row .pis_picture_group {
+      grid-column: 1 / -1 !important;
+    }
     
     /* Form group margin adjustment untuk grid */
     .pis-row .form-group {
@@ -549,123 +554,43 @@
 
   <script type="text/javascript">
   $(document).ready(function() {
-    // Init select2 for a single element
-    function initSelect2For($el) {
-      if (!$el.length) return;
-      if ($el.data('select2')) {
-        $el.select2('destroy');
-      }
-      // Unique ID prevents conflicts when multiple Select2 exist (baris 2, 3, dst)
-      $el.attr('id', 'part_number_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
-      $el.select2({
-        dropdownParent: $('#myModal .modal-body'),
-        placeholder: 'Type at least 2 characters to search...',
-        allowClear: true,
-        width: '100%',
-        ajax:{
-          url     : "{{url('/getajaxpartPis')}}",
-          dataType  : 'json',
-          delay   : 250,
-          data    : function(params){
-            return {
-              q     : params.term,
-              page  : params.page
-            };
-          },
-          processResults: function (data) {
-            return {
-              results: $.map(data, function (item) {
-                return {
-                  text: item.part_number,
-                  id: item.part_number
-                };
-              })
-            };
-          }
-        },
-        minimumResultsForSearch: Infinity,
-        cache : true,
-        minimumInputLength  : 2
-      }).on('select2:select', function (e) {
-        var data = e.params.data;
-        var $select = $(this);
-        if ($select.find("option[value='" + data.id + "']").length === 0) {
-          var newOption = new Option(data.text, data.id, true, true);
-          $select.append(newOption).trigger('change');
-        }
-        $select.val(data.id).trigger('change');
-      });
-    }
-
-    // Re-init all part_number Select2 in modal (called when modal opens)
-    function reinitAllPartNumberSelect2() {
-      $('#pisRowsContainer .pis-row').each(function() {
-        var $select = $(this).find('.part_number');
-        if ($select.length && $(this).find('.part_number_show').is(':visible')) {
-          initSelect2For($select);
-        }
-      });
-    }
-
-    // Add new row - DESTROY select2 before clone to avoid broken DOM
+    // Tambah baris baru (tanpa Select2 / dropdown pencarian)
     $('#addPisRow').on('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
 
       var $container = $('#pisRowsContainer');
-      var $lastRow = $container.find('.pis-row').last();
-      var newIndex = $container.find('.pis-row').length;
-      var $lastSelect = $lastRow.find('.part_number');
+      var $lastRow   = $container.find('.pis-row').last();
+      var newIndex   = $container.find('.pis-row').length;
 
-      // Tutup dropdown Select2 yang terbuka supaya tidak menutupi modal
-      if ($lastSelect.data('select2')) {
-        try { $lastSelect.select2('close'); } catch (err) {}
-      }
-
-      // Destroy Select2 on row to clone - returns clean <select> HTML
-      if ($lastSelect.data('select2')) {
-        $lastSelect.select2('destroy');
-      }
-
-      // Clone WITHOUT data/events - avoids cloning broken Select2 wrappers
+      // Clone row terakhir tanpa event/data
       var $newRow = $lastRow.clone(false);
 
       $newRow.attr('data-index', newIndex);
       $newRow.find('.row-number').text(newIndex + 1);
 
-      // Reset values
-      $newRow.find('input[type="text"], input[type="number"]').val('');
-      $newRow.find('input[type="file"]').val('');
-      $newRow.find('.part_number').empty().append('<option value="" selected disabled>Choose Part Number</option>');
+      // Reset nilai input di row baru
+      $newRow.find('input[type="text"], input[type="number"], input[type="file"]').val('');
       $newRow.find('.part_kind, .part_dock').val('');
-      $newRow.find('.manual-toggle').prop('checked', false);
-      $newRow.find('.div_hidden_part_no_aiia, .div_hidden_part_name, .div_hidden_min, .div_hidden_max').hide();
-      $newRow.find('.part_number_show').show();
 
       $container.append($newRow);
 
-      // Re-init Select2 on original row
-      initSelect2For($lastSelect);
-
-      // Init Select2 on new row
-      initSelect2For($newRow.find('.part_number'));
-
-      // Show remove buttons if more than 1 row
+      // Tampilkan tombol hapus jika baris > 1
       if ($container.find('.pis-row').length > 1) {
         $container.find('.pis-row .remove-row').show();
       }
 
-      // Scroll ke baris baru agar terlihat
+      // Scroll ke baris baru
       var $modalBody = $('#myModal .modal-body');
       $modalBody.animate({ scrollTop: $modalBody[0].scrollHeight }, 300);
     });
 
-    // Remove row
+    // Hapus baris
     $('#pisRowsContainer').on('click', '.remove-row', function() {
       var $container = $('#pisRowsContainer');
       $(this).closest('.pis-row').remove();
 
-      // Renumber and hide remove if only 1 left
+      // Renumber dan sembunyikan tombol hapus jika hanya 1 baris
       $container.find('.pis-row').each(function(idx) {
         $(this).attr('data-index', idx);
         $(this).find('.row-number').text(idx + 1);
@@ -676,43 +601,7 @@
       }
     });
 
-    // Manual input toggle per row
-    $('#pisRowsContainer').on('change', '.manual-toggle', function() {
-      var $row = $(this).closest('.pis-row');
-      var isChecked = $(this).is(':checked');
-      var $hiddenA = $row.find('.div_hidden_part_no_aiia');
-      var $hiddenB = $row.find('.div_hidden_part_name');
-      var $hiddenC = $row.find('.div_hidden_max');
-      var $hiddenD = $row.find('.div_hidden_min');
-      var $partNumberShow = $row.find('.part_number_show');
-      var $select = $row.find('.part_number');
-
-      if (isChecked) {
-        $hiddenA.show();
-        $hiddenB.show();
-        $hiddenC.show();
-        $hiddenD.show();
-        $partNumberShow.hide();
-        $select.val(null).trigger('change');
-        setTimeout(function() {
-          $row.find('.hidden_part_no_aiia').focus();
-        }, 100);
-      } else {
-        $hiddenA.hide();
-        $hiddenB.hide();
-        $hiddenC.hide();
-        $hiddenD.hide();
-        $partNumberShow.show();
-        $row.find('.hidden_part_no_aiia').val('');
-        $row.find('.hidden_part_name').val('');
-        $row.find('.min_stock').val('');
-        $row.find('.max_stock').val('');
-        // Re-init Select2 after switching back from manual - ensures field is clickable
-        initSelect2For($select);
-      }
-    });
-
-    // Handle form reset
+    // Reset form
     $('#pisForm').on('reset', function() {
       setTimeout(function() {
         var $container = $('#pisRowsContainer');
@@ -720,20 +609,13 @@
         var $first = $container.find('.pis-row').first();
         $first.attr('data-index', 0);
         $first.find('.row-number').text(1);
-        $first.find('.manual-toggle').prop('checked', false);
-        $first.find('.div_hidden_part_no_aiia, .div_hidden_part_name, .div_hidden_min, .div_hidden_max').hide();
-        $first.find('.part_number_show').show();
-        var $sel = $first.find('.part_number');
-        if ($sel.data('select2')) $sel.select2('destroy');
-        $sel.empty().append('<option value="" selected disabled>Choose Part Number</option>');
         $first.find('input[type="text"], input[type="number"], input[type="file"]').val('');
         $first.find('.part_kind, .part_dock').val('');
         $container.find('.remove-row').hide();
-        initSelect2For($sel);
       }, 10);
     });
 
-    // Reset form when modal is hidden
+    // Reset form saat modal ditutup
     $('#myModal').on('hidden.bs.modal', function () {
       $('#pisForm')[0].reset();
     });
@@ -751,8 +633,6 @@
       $('#myModal select').prop('disabled', false);
       $('#myModal textarea').prop('readonly', false).prop('disabled', false);
       $('#myModal .modal-dialog, #myModal .modal-content').css('pointer-events', 'auto');
-      // Re-init Select2 when modal is visible - fixes click/ focus issues
-      setTimeout(reinitAllPartNumberSelect2, 100);
     });
   });
   </script>
@@ -779,54 +659,20 @@
       }
 
       var $row = $($rows[currentIndex]);
-
-      var part_number_aiia     = $row.find('.hidden_part_no_aiia').val();
-      var part_number          = $row.find('.part_number').val();
-      if (!part_number && $row.find('.part_number').data('select2')) {
-        var select2Data = $row.find('.part_number').select2('data');
-        if (select2Data && select2Data.length > 0) {
-          part_number = select2Data[0].id;
-        }
-      }
+      var part_number_aiia    = $row.find('.part_number_aiia').val();
       var part_number_customer = $row.find('.part_number_customer').val();
       var part_kind            = $row.find('.part_kind').val();
       var part_dock            = $row.find('.part_dock').val();
-      var part_name            = $row.find('.hidden_part_name').val();
       var back_number          = $row.find('.back_number').val();
-      var min_stock            = $row.find('.min_stock').val();
-      var max_stock            = $row.find('.max_stock').val();
       var qty_kanban           = $row.find('.qty_kanban').val();
       var pis_pictureInput     = $row.find('.pis_picture')[0];
       var pis_picture          = pis_pictureInput && pis_pictureInput.files[0] ? pis_pictureInput.files[0] : null;
 
-      var isManual = $row.find('.manual-toggle').is(':checked');
-      // Fallback: when manual input is used, use typed AIIA as part_number
-      // so backend "save" path still receives required part_number.
-      if (isManual && !part_number && part_number_aiia) {
-        part_number = part_number_aiia;
-      }
+      // backend `addpis` butuh `part_number` (AIIA) - dari input manual.
+      var part_number          = part_number_aiia;
 
-      if (isManual) {
-        if (!part_number_aiia || !part_name) {
-          alert('Baris #' + (currentIndex + 1) + ' (Manual): isi Part Number AIIA dan Part Name.');
-          $saveBtn.prop('disabled', false).html(originalText);
-          return;
-        }
-        if (!min_stock || !max_stock) {
-          alert('Baris #' + (currentIndex + 1) + ' (Manual): isi Min Stock dan Max Stock.');
-          $saveBtn.prop('disabled', false).html(originalText);
-          return;
-        }
-      } else {
-        if (!part_number) {
-          alert('Baris #' + (currentIndex + 1) + ': pilih Part Number AIIA dari dropdown.');
-          $saveBtn.prop('disabled', false).html(originalText);
-          return;
-        }
-      }
-
-      if (!part_number_customer || !back_number || !qty_kanban || !pis_picture) {
-        alert('Baris #' + (currentIndex + 1) + ': lengkapi Part Number Customer, Back No, Qty dan Picture.');
+      if (!part_number_aiia || !part_number_customer || !back_number || !qty_kanban || !pis_picture) {
+        alert('Baris #' + (currentIndex + 1) + ': lengkapi Part Number AIIA, Part Number Customer, Back No, Qty dan Picture.');
         $saveBtn.prop('disabled', false).html(originalText);
         return;
       }
@@ -837,85 +683,43 @@
         return;
       }
 
+      var formData = new FormData();
+      var path = "{{ url('/pis/addpis') }}";
+
+      formData.append('part_number', part_number);
+      formData.append('part_number_customer', part_number_customer);
+      formData.append('back_number', back_number);
+      formData.append('part_kind', part_kind);
+      formData.append('part_dock', part_dock);
+      formData.append('qty_kanban', qty_kanban);
+      formData.append('pis_picture', pis_picture);
+      formData.append('_token', '{{ csrf_token() }}');
+
       $.ajax({
-        url: "{{url('/pis/validasi')}}",
-        type: "GET",
-        data: {
-          part_number_aiia: part_number_aiia,
-          part_number: part_number,
-          is_manual: isManual ? 1 : 0,
-          part_number_customer: part_number_customer,
-          part_kind: part_kind,
-          part_dock: part_dock,
-          back_number: back_number,
-          qty_kanban: qty_kanban,
-          part_name: part_name,
-          min_stock: min_stock,
-          max_stock: max_stock
+        url: path,
+        type: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(){
+          currentIndex++;
+          processNextRow();
         },
-        success: function(data){
-          var path = "";
-          var formData = new FormData();
-
-          if(data == "save"){
-            path = "{{ url('/pis/addpis') }}";
-            if (!part_number) {
-              alert('Baris #' + (currentIndex + 1) + ': Part Number AIIA kosong, silakan pilih ulang.');
-              $saveBtn.prop('disabled', false).html(originalText);
-              return;
-            }
-            formData.append('part_number', part_number);
-          } else if(data == "save1"){
-            path = "{{ url('/pis/addpart') }}";
-            formData.append('hidden_part_no_aiia', part_number_aiia);
-            formData.append('hidden_part_name', part_name);
-            formData.append('min_stock', min_stock);
-            formData.append('max_stock', max_stock);
-          } else {
-            alert('Baris #' + (currentIndex + 1) + ' gagal validasi: ' + data);
-            $saveBtn.prop('disabled', false).html(originalText);
-            return;
-          }
-
-          formData.append('part_number_customer', part_number_customer);
-          formData.append('back_number', back_number);
-          formData.append('part_kind', part_kind);
-          formData.append('part_dock', part_dock);
-          formData.append('qty_kanban', qty_kanban);
-          formData.append('pis_picture', pis_picture);
-          formData.append('_token', '{{ csrf_token() }}');
-
-          $.ajax({
-            url: path,
-            type: "POST",
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(){
-              currentIndex++;
-              processNextRow();
-            },
-            error: function(xhr){
-              var errorMsg = 'Error saving data';
-              if (xhr.responseJSON && xhr.responseJSON.message) {
-                errorMsg = xhr.responseJSON.message;
-              } else if (xhr.responseText) {
-                try {
-                  var parser = new DOMParser();
-                  var doc = parser.parseFromString(xhr.responseText, 'text/html');
-                  var errorElement = doc.querySelector('.alert-danger, .error');
-                  if (errorElement) {
-                    errorMsg = errorElement.textContent.trim();
-                  }
-                } catch (e) {}
+        error: function(xhr){
+          var errorMsg = 'Error saving data';
+          if (xhr.responseJSON && xhr.responseJSON.message) {
+            errorMsg = xhr.responseJSON.message;
+          } else if (xhr.responseText) {
+            try {
+              var parser = new DOMParser();
+              var doc = parser.parseFromString(xhr.responseText, 'text/html');
+              var errorElement = doc.querySelector('.alert-danger, .error');
+              if (errorElement) {
+                errorMsg = errorElement.textContent.trim();
               }
-              alert('Baris #' + (currentIndex + 1) + ' gagal disimpan: ' + errorMsg);
-              $saveBtn.prop('disabled', false).html(originalText);
-            }
-          });
-        },
-        error: function(){
-          alert('Baris #' + (currentIndex + 1) + ' gagal validasi ke server.');
+            } catch (e) {}
+          }
+          alert('Baris #' + (currentIndex + 1) + ' gagal disimpan: ' + errorMsg);
           $saveBtn.prop('disabled', false).html(originalText);
         }
       });

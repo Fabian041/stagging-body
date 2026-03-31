@@ -13,9 +13,9 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 class ErrorLogsExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize
 {
     public function __construct(
-        private readonly ?string $area = null,
-        private readonly ?string $startDate = null,
-        private readonly ?string $endDate = null,
+        private ?string $area = null,
+        private ?string $startDate = null,
+        private ?string $endDate = null,
     ) {
     }
 
