@@ -4,25 +4,45 @@
     <div class="row mt-3">
         <div class="col-md-12">
             <div class="card card-info shadow" style="padding: 40px;padding-top:60px; border-radius:16px">
-                <div class="row">
-                    <div class="col-12">
-                        <div class="form-group">
-                            <div class="input-group">
-                                <select class="custom-select" id="area">
-                                    <option selected disabled>-- Select Area --</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="mh">Material Handling</option>
-                                    <option value="prod">Production</option>
-                                    <option value="ppic">PPIC</option>
-                                    <option value="Packing">Packing</option>
-                                </select>
-                                <div class="input-group-append" id="reset">
-                                    <button class="btn btn-lg btn-danger" type="button">Filter</button>
+                <form>
+                    <div class="form-row align-items-end">
+                        <div class="col-lg-4 col-md-6 col-12">
+                            <div class="form-group mb-2">
+                                <label class="font-weight-bold">Area</label>
+                                <div class="input-group">
+                                    <select class="custom-select" id="area">
+                                        <option value="">-- Select Area --</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="mh">Material Handling</option>
+                                        <option value="prod">Production</option>
+                                        <option value="ppic">PPIC</option>
+                                        <option value="Packing">Packing</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
+                        <div class="col-lg-3 col-md-6 col-12">
+                            <div class="form-group mb-2">
+                                <label class="font-weight-bold">Start Date</label>
+                                <input type="date" id="start_date" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 col-12">
+                            <div class="form-group mb-2">
+                                <label class="font-weight-bold">End Date</label>
+                                <input type="date" id="end_date" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-6 col-12">
+                            <div class="form-group mb-2">
+                                <label class="d-block invisible">Export</label>
+                                <button id="export-error-log" class="btn btn-success btn-lg btn-block" type="button" style="height:38px;">
+                                    Export Excel
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     </div>
@@ -64,6 +84,11 @@
             ajax: {
                 url: `{{ url('error/getErrorLogs') }}`,
                 dataType: 'json',
+                data: function(d) {
+                    d.area = $('#area').val() || '';
+                    d.start_date = $('#start_date').val() || '';
+                    d.end_date = $('#end_date').val() || '';
+                }
             },
             columns: [{
                     data: 'area',
@@ -84,17 +109,29 @@
         });
 
 
-        $('#area').on('change', function() {
-            // get all filter values
-            let area = $('#area').val();
+        $('#area, #start_date, #end_date').on('change', function() {
+            table.draw();
+        });
 
+        $('#export-error-log').on('click', function() {
+            const area = $('#area').val() || '';
+            const params = new URLSearchParams();
             if (area) {
-                table.column(0).search(area);
-            } else {
-                table.column(0).search('');
+                params.append('area', area);
+            }
+            const startDate = $('#start_date').val() || '';
+            const endDate = $('#end_date').val() || '';
+            if (startDate) {
+                params.append('start_date', startDate);
+            }
+            if (endDate) {
+                params.append('end_date', endDate);
             }
 
-            table.draw();
-        })
+            const baseUrl = `{{ route('error.export') }}`;
+            const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+
+            window.location.href = url;
+        });
     });
 </script>

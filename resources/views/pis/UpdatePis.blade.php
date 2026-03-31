@@ -97,7 +97,6 @@
                                     <select class="form-control" id="part_kind" name="part_kind" required>
                                         <option value="">-- Select Type --</option>
                                         <option value="OEM" {{ (isset($part_pis->part_kind) && $part_pis->part_kind == 'OEM') ? 'selected' : '' }}>OEM</option>
-                                        <option value="GNP" {{ (isset($part_pis->part_kind) && $part_pis->part_kind == 'GNP') ? 'selected' : '' }}>GNP</option>
                                         <option value="DANDORY" {{ (isset($part_pis->part_kind) && $part_pis->part_kind == 'DANDORY') ? 'selected' : '' }}>DANDORY</option>
                                     </select>
                                 </div>
@@ -109,16 +108,22 @@
                                     </label>
                                     <select class="form-control" id="part_dock" name="part_dock" required>
                                         <option value="">-- Select Destination --</option>
+                                        <option value="OTHER" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'OTHER') ? 'selected' : '' }}>OTHER</option>
                                         <option value="43" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '43') ? 'selected' : '' }}>43</option>
                                         <option value="53" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '53') ? 'selected' : '' }}>53</option>
                                         <option value="1L" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '1L') ? 'selected' : '' }}>1L</option>
                                         <option value="1N" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '1N') ? 'selected' : '' }}>1N</option>
-                                        <option value="1S" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '1S') ? 'selected' : '' }}>1S</option>
+                                        <option value="S1" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['S1', '1S'])) ? 'selected' : '' }}>S1</option>
                                         <option value="6I" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '6I') ? 'selected' : '' }}>6I</option>
-                                        <option value="TAMTAM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TAMTAM') ? 'selected' : '' }}>TAMTAM</option>
-                                        <option value="TAMADM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TAMADM') ? 'selected' : '' }}>TAMADM</option>
-                                        <option value="TAMHINO" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TAMHINO') ? 'selected' : '' }}>TAMHINO</option>
-                                        <option value="OTHER" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'OTHER') ? 'selected' : '' }}>OTHER</option>
+                                        <option value="TAM-TAM" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['TAM-TAM', 'TAMTAM'])) ? 'selected' : '' }}>TAM-TAM</option>
+                                        <option value="TAM-ADM" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['TAM-ADM', 'TAMADM'])) ? 'selected' : '' }}>TAM-ADM</option>
+                                        <option value="TAM-HINO" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['TAM-HINO', 'TAMHINO'])) ? 'selected' : '' }}>TAM-HINO</option>
+                                        <option value="ADM-AS" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'ADM-AS') ? 'selected' : '' }}>ADM-AS</option>
+                                        <option value="ADM-KP" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'ADM-KP') ? 'selected' : '' }}>ADM-KP</option>
+                                        <option value="YHA" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'YHA') ? 'selected' : '' }}>YHA</option>
+                                        <option value="ADM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'ADM') ? 'selected' : '' }}>ADM</option>
+                                        <option value="TTI" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TTI') ? 'selected' : '' }}>TTI</option>
+                                        <option value="S1-TAM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'S1-TAM') ? 'selected' : '' }}>S1-TAM</option>
                                     </select>
                                 </div>
 
