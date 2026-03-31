@@ -800,6 +800,11 @@
       var pis_picture          = pis_pictureInput && pis_pictureInput.files[0] ? pis_pictureInput.files[0] : null;
 
       var isManual = $row.find('.manual-toggle').is(':checked');
+      // Fallback: when manual input is used, use typed AIIA as part_number
+      // so backend "save" path still receives required part_number.
+      if (isManual && !part_number && part_number_aiia) {
+        part_number = part_number_aiia;
+      }
 
       if (isManual) {
         if (!part_number_aiia || !part_name) {
@@ -838,6 +843,7 @@
         data: {
           part_number_aiia: part_number_aiia,
           part_number: part_number,
+          is_manual: isManual ? 1 : 0,
           part_number_customer: part_number_customer,
           part_kind: part_kind,
           part_dock: part_dock,
