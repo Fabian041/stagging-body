@@ -108,12 +108,16 @@
                                     </label>
                                     <select class="form-control" id="part_dock" name="part_dock" required>
                                         <option value="">-- Select Destination --</option>
-                                        <option value="OTHER" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'OTHER') ? 'selected' : '' }}>OTHER</option>
+                                        <option value="TMMIN SPD" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TMMIN SPD') ? 'selected' : '' }}>TMMIN SPD</option>
+                                        <option value="TMMIN SPD-ADM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TMMIN SPD-ADM') ? 'selected' : '' }}>TMMIN SPD-ADM</option>
                                         <option value="43" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '43') ? 'selected' : '' }}>43</option>
                                         <option value="53" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '53') ? 'selected' : '' }}>53</option>
                                         <option value="1L" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '1L') ? 'selected' : '' }}>1L</option>
                                         <option value="1N" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '1N') ? 'selected' : '' }}>1N</option>
-                                        <option value="S1" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['S1', '1S'])) ? 'selected' : '' }}>S1</option>
+                                        <option value="HINO-SPD" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'HINO-SPD') ? 'selected' : '' }}>HINO-SPD</option>
+                                        <option value="SIM-SPD" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'SIM-SPD') ? 'selected' : '' }}>SIM-SPD</option>
+                                        <option value="MMKI" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'MMKI') ? 'selected' : '' }}>MMKI</option>
+                                        <option value="MMKI-SPD" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'MMKI-SPD') ? 'selected' : '' }}>MMKI-SPD</option>
                                         <option value="6I" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == '6I') ? 'selected' : '' }}>6I</option>
                                         <option value="TAM-TAM" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['TAM-TAM', 'TAMTAM'])) ? 'selected' : '' }}>TAM-TAM</option>
                                         <option value="TAM-ADM" {{ (isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['TAM-ADM', 'TAMADM'])) ? 'selected' : '' }}>TAM-ADM</option>
@@ -123,7 +127,6 @@
                                         <option value="YHA" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'YHA') ? 'selected' : '' }}>YHA</option>
                                         <option value="ADM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'ADM') ? 'selected' : '' }}>ADM</option>
                                         <option value="TTI" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'TTI') ? 'selected' : '' }}>TTI</option>
-                                        <option value="S1-TAM" {{ (isset($part_pis->part_dock) && $part_pis->part_dock == 'S1-TAM') ? 'selected' : '' }}>S1-TAM</option>
                                     </select>
                                 </div>
 

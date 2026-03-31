@@ -13,8 +13,8 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 class PisScanListExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize
 {
     public function __construct(
-        private readonly ?string $startDate,
-        private readonly ?string $endDate
+        private ?string $startDate,
+        private ?string $endDate
     ) {}
 
     public function collection(): Collection
