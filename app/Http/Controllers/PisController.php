@@ -755,8 +755,14 @@ class PisController extends Controller
         $input = \Request::all();
         $part_number_aiia = $input['part_number_aiia'] ?? null;
         $part_number = $input['part_number'] ?? null;
+        $isManual = (string) ($input['is_manual'] ?? '0') === '1';
 
         try {
+            // Manual input should always use manual save flow.
+            if ($isManual) {
+                return "save1";
+            }
+
             // Check if part exists in internal_parts table (correct source)
             $partExists = false;
             if ($part_number_aiia) {
