@@ -229,6 +229,15 @@
                 data: function(d) {
                     d.start_date = $('#filterStartDate').val();
                     d.end_date = $('#filterEndDate').val();
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    // DataTables "Ajax error" is generic; dump the raw response for diagnosis.
+                    console.error('pisScanList ajax error', {
+                        status: xhr.status,
+                        textStatus: textStatus,
+                        errorThrown: errorThrown,
+                        responseText: xhr.responseText
+                    });
                 }
             },
             columns: [{

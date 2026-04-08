@@ -816,6 +816,39 @@ class PisController extends Controller
             ];
         })->values()->all();
 
+        // Saat user scan LL yang sudah pernah disimpan, kirim juga semua LL lain
+        // dengan PDS yang sama agar frontend bisa memuat satu grup PDS sekaligus.
+        $relatedLoadingLists = [];
+        if (!empty($pisScan->pds_number)) {
+            $relatedLoadingLists = PisScan::where('pds_number', $pisScan->pds_number)
+                ->with('details')
+                ->get()
+                ->map(function ($scan) {
+                    $relatedItems = $scan->details->map(function ($detail) {
+                        $target = (int) ($detail->target_qty ?? 0);
+                        $scanned = (int) ($detail->scanned_qty ?? 0);
+                        $remaining = (int) ($detail->remaining_qty ?? max(0, $target - $scanned));
+                        return [
+                            'part_number_int' => $detail->part_number_int,
+                            'part_number_cust' => $detail->part_number_cust,
+                            'total_qty' => $target,
+                            'total_kanban_qty' => $target,
+                            'actual_kanban_qty' => $scanned,
+                            'remaining' => $remaining,
+                        ];
+                    })->values()->all();
+
+                    return [
+                        'loading_list_number' => $scan->loading_list_number,
+                        'name' => $scan->loading_list_number,
+                        'pds_number' => $scan->pds_number,
+                        'items' => $relatedItems,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
         return response()->json([
             'exists' => true,
             'loading_list_number' => $pisScan->loading_list_number,
@@ -826,6 +859,7 @@ class PisController extends Controller
             'shipping_date' => $pisScan->shipping_date ? Carbon::parse($pisScan->shipping_date)->format('Y-m-d') : null,
             'customer_id' => $pisScan->customer_id,
             'items' => $items,
+            'related_loading_lists' => $relatedLoadingLists,
         ]);
     }
 
@@ -842,6 +876,17 @@ class PisController extends Controller
         // yang menyebabkan 11 digit pertama menjadi bergeser dan tidak match DB.
         // Buang semua karakter non-alfanumerik di bagian depan sebelum ambil 11 digit pertama.
         $raw = preg_replace('/^[^A-Za-z0-9]+/', '', $raw);
+
+        // Prefix z/Z sebelum C — LL 11 karakter diawali C (sama dengan cleanBarcode di PIS UI).
+        while (preg_match('/^[zZ]+C/i', $raw)) {
+            $raw = preg_replace('/^[zZ]+/i', '', $raw);
+        }
+        if (preg_match('/^[zZ]\d/', $raw)) {
+            $raw = preg_replace('/^[zZ]+/', '', $raw);
+        }
+        if (preg_match('/^C[A-Za-z0-9]{10}[zZ]+$/i', $raw)) {
+            $raw = substr($raw, 0, 11);
+        }
 
         // Ambil maksimal 11 karakter pertama (sesuai format loading list di DB)
         return substr($raw, 0, 11);
@@ -1086,7 +1131,7 @@ class PisController extends Controller
                         'total_target' => $totalTarget,
                         'total_scanned' => $totalScanned,
                         'scan_time' => $latestScanTime ? $latestScanTime->format('Y-m-d H:i') : '-',
-                        'scan' => $scan
+                        // Keep the row payload small; modal details are loaded separately via ajax.
                     ];
                 })
                 ->values();
@@ -1160,7 +1205,7 @@ class PisController extends Controller
                 ->rawColumns(['progress', 'status', 'loading_list_number'])
                 ->make(true);
                 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'draw' => request()->get('draw', 0),
                 'recordsTotal' => 0,
