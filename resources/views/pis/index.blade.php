@@ -1,11 +1,7 @@
 @extends('layouts.root.minimal')
 
 @section('main')
-    <div class="mb-2">
-        <button onclick="history.back()" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back
-        </button>
-    </div>
+
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm w-100" style="border-radius:12px;">
@@ -75,7 +71,7 @@
                         </div>
 
                         <div class="col-md-8">
-                            <div id="alert" class="alert alert-primary mb-1 shadow-sm py-1" style="border-radius:6px;">
+                            <div id="pis-step-flow" class="alert alert-primary mb-1 shadow-sm py-1" style="border-radius:6px;">
                                 <div class="d-flex justify-content-center align-items-center font-weight-bold"
                                     style="font-size:10px; white-space:nowrap;">
 
@@ -169,6 +165,12 @@
                                             <button type="button" class="btn btn-lg btn-success" id="pis-btn-confirm-packing" disabled style="border-radius: 40px; width: 100%; min-height: 54px; font-size: 1.07rem;">
                                                 <i class="fas fa-check-double"></i> Confirm Packing
                                             </button>
+                                        </div>
+                                        <div class="col-12 mb-2">
+                                            <div id="pis-same-label-countdown-wrap" class="alert alert-warning mb-0 py-2 px-2 text-center" style="display: none; font-size: 0.92rem;">
+                                                <i class="fas fa-hourglass-half"></i>
+                                                Cooldown scan label sama: <strong id="pis-same-label-countdown-seconds">30</strong> detik
+                                            </div>
                                         </div>
                                         <div class="col-12 mb-2">
                                             <div class="text-center small text-muted">
@@ -439,6 +441,16 @@
             }
         }
 
+        function hidePisSameLabelCooldownUi() {
+            $('#pis-same-label-countdown-wrap').hide();
+        }
+
+        function updateSameLabelCountdownSeconds(sec) {
+            var s = String(sec);
+            $('#same-label-remaining').text(s);
+            $('#pis-same-label-countdown-seconds').text(s);
+        }
+
         function startSameLabelCountdown() {
             clearSameLabelCountdown();
 
@@ -451,11 +463,13 @@
                     clearSameLabelCountdown();
                     // Opsional: ubah pesan saat sudah boleh scan lagi
                     if ($('#status-container').hasClass('alert-warning') && $('#alert-header').text().indexOf('Label sama') !== -1) {
+                        $('#pis-step-flow').show();
+                        hidePisSameLabelCooldownUi();
                         $('#alert-body').text('Silakan scan lagi.');
                     }
                     return;
                 }
-                $('#same-label-remaining').text(String(remainingSec));
+                updateSameLabelCountdownSeconds(remainingSec);
             }, 1000);
         }
         // Simpan posisi scroll sebelum aksi scan agar tampilan tidak loncat ke bawah setelah scan
@@ -479,6 +493,8 @@
             lastScannedLabel = '';
             lastScannedLabelTime = 0;
             clearSameLabelCountdown();
+            $('#pis-step-flow').show();
+            hidePisSameLabelCooldownUi();
             clearPendingLabelPacks();
             currentPreviewItem = null;
             clearPreviewImage();
@@ -993,6 +1009,8 @@
             jpConfirmBarcode = '';
             $('#modalPisJpConfirmation').modal('hide');
             $('#part_number_loading').hide();
+            $('#pis-step-flow').show();
+            hidePisSameLabelCooldownUi();
             updateStepIndicator();
             renderLoadingList();
             updateCounter();
@@ -1185,6 +1203,8 @@
             clearSameLabelCountdown();
 
             if (isLikelyPisLoadingListBarcode(raw)) {
+                $('#pis-step-flow').show();
+                hidePisSameLabelCooldownUi();
                 scanLoadingList(raw, stripLastTwoChars(raw));
                 $(window).scrollTop(_savedScrollTop);
                 $('#part_number_loading').hide();
@@ -1259,14 +1279,20 @@
             var now = Date.now();
             if (raw && raw === lastScannedLabel && (now - lastScannedLabelTime) < LABEL_SAME_DELAY_MS) {
                 var sisaWaktu = Math.ceil((LABEL_SAME_DELAY_MS - (now - lastScannedLabelTime)) / 1000);
+                $('#pis-step-flow').hide();
+                $('#pis-same-label-countdown-wrap').show();
                 $('#status-container').removeClass('alert-success alert-danger').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-clock"></i> Label sama');
                 $('#alert-body').html('Label ini baru saja di-scan. Tunggu <b id="same-label-remaining">' + sisaWaktu + '</b> detik lagi.');
+                updateSameLabelCountdownSeconds(sisaWaktu);
                 pisErrorSound();
                 startSameLabelCountdown();
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
+
+            $('#pis-step-flow').show();
+            hidePisSameLabelCooldownUi();
 
             // 3. PENCARIAN ITEM DI LOADING LIST (urutan LL di tabel; part sama di beberapa LL tanpa klik prioritas)
             var sortedItems = getSortedLoadingListItemsForMatch();
