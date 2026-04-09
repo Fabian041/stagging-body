@@ -1,11 +1,7 @@
 @extends('layouts.root.minimal')
 
 @section('main')
-    <div class="mb-2">
-        <button onclick="history.back()" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back
-        </button>
-    </div>
+
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm w-100" style="border-radius:12px;">
