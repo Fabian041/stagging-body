@@ -106,8 +106,8 @@
                                         <p class="mb-0 font-weight-bold" id="alert-body" style="font-size:1rem">Silahkan Scan Loading List untuk memulai</p>
                                     </div>
 
-                                    <div id="imageDiv" class="text-center bg-white border" style="min-height: 650px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                        <img id="previewImg" src="" alt="Part image" class="img-fluid" style="width: 100%; height: 100%; object-fit: contain; block; background: #f9f9f9; border-radius: 8px; display: none;" />
+                                    <div id="imageDiv" class="pis-preview-area text-center bg-white border" style="border-radius: 8px;">
+                                        <img id="previewImg" src="" alt="Part image" style="background: #f9f9f9; border-radius: 8px; display: none;" />
                                         <div id="previewPlaceholder" class="text-muted py-5">
                                             <i class="fas fa-image fa-5x mb-3" style="opacity: 0.2;"></i>
                                             <p class="mb-0">Gambar akan muncul otomatis jika label cocok</p>
@@ -133,26 +133,28 @@
                                 <div class="card-header py-1"><strong>Dock</strong></div>
                                 <div class="card-body p-0">
                                     <div id="dock" class="form-group mb-0" style="height: 350px; overflow-y: auto; padding: 8px;">
-                                        <!-- List Dock buttons stay same -->
-                                        <button value="TMMIN SPD" type="button" class="btn btn-block btn-primary" onclick="func_change_dock(this);">TMMIN SPD</button>
-                                        <button value="TMMIN SPD-ADM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TMMIN SPD-ADM</button>
-                                        <button value="43" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">43</button>
-                                        <button value="53" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">53</button>
-                                        <button value="1L" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">1L</button>
-                                        <button value="1N" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">1N</button>
-                                        <button value="HINO-SPD" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">HINO-SPD</button>
-                                        <button value="SIM-SPD" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">SIM-SPD</button>
-                                        <button value="MMKI" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">MMKI</button>
-                                        <button value="MMKI-SPD" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">MMKI-SPD</button>
-                                        <button value="6I" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">6I</button>
-                                        <button value="TAM-TAM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TAM-TAM</button>
-                                        <button value="TAM-ADM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TAM-ADM</button>
-                                        <button value="TAM-HINO" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TAM-HINO</button>
-                                        <button value="ADM-AS" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">ADM-AS</button>
-                                        <button value="ADM-KP" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">ADM-KP</button>
-                                        <button value="YHA" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">YHA</button>
-                                        <button value="ADM" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">ADM</button>
-                                        <button value="TTI" type="button" class="btn btn-block btn-default" onclick="func_change_dock(this);">TTI</button>
+                                        <!-- Dock dengan data-dandory="1" = tampil jika Type DANDORY -->
+                                        <button value="TMMIN SPD" type="button" data-dandory="1" class="btn btn-block btn-primary pis-dock-btn" onclick="func_change_dock(this);">TMMIN SPD</button>
+                                        <button value="TMMIN SPD-ADM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TMMIN SPD-ADM</button>
+                                        <button value="TMMIN-PBOD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TMMIN-PBOD</button>
+                                        <button value="43" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">43</button>
+                                        <button value="53" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">53</button>
+                                        <button value="1L" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">1L</button>
+                                        <button value="1N" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">1N</button>
+                                        <button value="HINO-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">HINO-SPD</button>
+                                        <button value="SIM-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">SIM-SPD</button>
+                                        <button value="TAM-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-SPD</button>
+                                        <button value="MMKI" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI</button>
+                                        <button value="MMKI-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-SPD</button>
+                                        <button value="6I" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">6I</button>
+                                        <button value="TAM-TAM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-TAM</button>
+                                        <button value="TAM-ADM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-ADM</button>
+                                        <button value="TAM-HINO" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-HINO</button>
+                                        <button value="ADM-AS" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">ADM-AS</button>
+                                        <button value="ADM-KP" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">ADM-KP</button>
+                                        <button value="YHA" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">YHA</button>
+                                        <button value="ADM" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">ADM</button>
+                                        <button value="TTI" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TTI</button>
                                         <input id="dock_type" value="OTHER" type="hidden">
                                     </div>
                                 </div>
@@ -202,6 +204,30 @@
         body.pis-interlock-open #modalPisJpConfirmation .modal-content {
             position: relative;
             z-index: 10000 !important;
+        }
+
+        /* Pratinjau gambar: container punya tinggi tetap (mengikuti viewport), gambar mengecil di dalam — bukan sebaliknya */
+        #imageDiv.pis-preview-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 260px;
+            height: min(650px, 72vh);
+            max-height: 650px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        #previewImg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            object-position: center;
+            flex: 0 1 auto;
+            min-width: 0;
+            min-height: 0;
         }
     </style>
 
@@ -340,12 +366,35 @@
             if (placeholder) placeholder.style.display = 'block';
         }
 
+        // Tampilkan dock sesuai Type: DANDORY hanya dock ber-data-dandory="1"
+        function pis_refresh_dock_for_delivery_type() {
+            var isDandory = ($('#delivery_type').val() || '').toUpperCase() === 'DANDORY';
+            var $btns = $('#dock').find('button.pis-dock-btn');
+            $btns.each(function () {
+                var $b = $(this);
+                var show = !isDandory || $b.attr('data-dandory') === '1';
+                $b.toggle(show);
+            });
+            if (!isDandory) {
+                return;
+            }
+            var currentVal = $('#dock_type').val();
+            var $visible = $btns.filter(':visible');
+            var match = $visible.filter(function () {
+                return $(this).attr('value') === currentVal;
+            });
+            if (!match.length && $visible.length) {
+                func_change_dock($visible[0]);
+            }
+        }
+
         // Fungsi untuk menangani perubahan pada delivery type
         function func_change_delivery(obj) {
             $('#delivery').find('button').removeClass('btn-primary');
             $('#delivery').find('button').addClass('btn-default');
             $(obj).addClass('btn-primary');
             $('#delivery_type').val(obj.value);
+            pis_refresh_dock_for_delivery_type();
             // Refresh gambar hanya jika sudah ada part yang tervalidasi (scan label = Part Number (Cust))
             if (currentPreviewItem) {
                 setPreviewImage(currentPreviewItem.part_number_int || '', currentPreviewItem.part_number_cust || '');
@@ -354,8 +403,8 @@
 
         // Fungsi untuk menangani perubahan pada dock type
         function func_change_dock(obj) {
-            $('#dock').find('button').removeClass('btn-primary');
-            $('#dock').find('button').addClass('btn-default');
+            $('#dock').find('button.pis-dock-btn').removeClass('btn-primary');
+            $('#dock').find('button.pis-dock-btn').addClass('btn-default');
             $(obj).addClass('btn-primary');
             $('#dock_type').val(obj.value);
             // Refresh gambar hanya jika sudah ada part yang tervalidasi (scan label = Part Number (Cust))
