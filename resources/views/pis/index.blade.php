@@ -4,31 +4,42 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm w-100" style="border-radius:12px;">
-                <div class="card-body p-4">
+            <div class="card shadow-sm w-100 pis-compact" style="border-radius:12px;">
+                <div class="card-body p-2">
                     <div class="row">
 
                         <div class="col-md-2">
                             <div class="card border" style="border-radius: 12px;">
-                                <div class="card-header py-1">
+                                <div class="p-2" style="padding-left: 10px;">
                                     <strong>Part Number</strong>
                                 </div>
-                                <div class="card-body">
+                                <div class="card-body py-1 px-2">
                                     <div id="part_number_loading" class="small text-muted mb-1" style="min-height: 1.25rem; display: none;">
                                         <i class="fas fa-spinner fa-spin"></i> Scanning...
                                     </div>
                                     <div class="form-group mb-0">
-                                        <input id="detail_no" class="form-control" name="detail_no" required tabindex="-1" placeholder="Hasil scan di sini">
+                                        <input id="detail_no" class="form-control" name="detail_no" required tabindex="-1" placeholder="Scan di sini">
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="card border mt-2" style="border-radius: 12px;">
-                                <div class="card-header py-1">
+                            <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;">
+                                    <strong>Counter</strong>
+                                </div>
+                                <div class="card-body p-0 d-flex flex-column align-items-center" style="height:60px;">
+                                    <div class="display-4 font-weight-bold" id="counter" style="font-size: 40px; line-height:1;">
+                                        0
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;">
                                     <strong>Loading List</strong>
                                 </div>
-                                <div class="card-body p-2">
-                                    <table class="table table-sm table-bordered mb-0 small" style="font-size: 0.8rem;">
+                                <div class="card-body p-2 pis-loading-list-scroll">
+                                    <table class="table table-sm table-bordered mb-0 small pis-loading-list-table" style="font-size: 0.8rem;">
                                         <thead>
                                             <tr>
                                                 <th>PN (Int)</th>
@@ -43,19 +54,8 @@
                                     </table>
                                 </div>
                             </div>
-
-                            <!-- Cari bagian ini di file Anda -->
-                            <div class="card border mt-2" style="border-radius: 12px;">
-                                <div class="card-header py-1">
-                                    <strong>Counter</strong>
-                                </div>
-                                <div class="card-body p-0 d-flex flex-column justify-content-center align-items-center" style="height:125px;">
-                                    <div class="display-4 font-weight-bold" id="counter" style="line-height: 1;">0</div>
-                                    <div class="text-muted small mt-1" id="sysdate" style="font-weight: 500;"></div>
-                                </div>
-                            </div>
-                            <div class="card border mt-2" style="border-radius: 12px;">
-                                <div class="card-header py-1">
+                            <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;">
                                     <strong>Action Delay</strong>
                                 </div>
                                 <div class="card-body p-2">
@@ -115,7 +115,7 @@
 
                         <div class="col-md-2">
                             <div class="card border" style="border-radius: 12px;">
-                                <div class="card-header py-1"><strong>Type</strong></div>
+                                <div class="p-2" style="padding-left: 20px;"><strong>Type</strong></div>
                                 <div class="card-body">
                                     <div id="delivery" class="form-group mb-0">
                                         <button id="btnOEM" value="OEM" type="button" class="btn btn-block btn-primary" onclick="func_change_delivery(this);">OEM</button>
@@ -125,8 +125,8 @@
                                 </div>
                             </div>
 
-                            <div class="card border mt-2" style="border-radius: 12px;">
-                                <div class="card-header py-1"><strong>Dock</strong></div>
+                            <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;"><strong>Dock</strong></div>
                                 <div class="card-body p-0">
                                     <div id="dock" class="form-group mb-0" style="height: 350px; overflow-y: auto; padding: 8px;">
                                         <!-- Dock dengan data-dandory="1" = tampil jika Type DANDORY -->
@@ -155,8 +155,8 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="card border mt-2" style="border-radius: 12px;">
-                                <div class="card-header py-1">
+                            <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;">
                                     <strong>Action Confirm Packing</strong>
                                 </div>
                                 <div class="card-body p-2">
@@ -164,13 +164,7 @@
                                         <div class="col-12 mb-1">
                                             <button type="button" class="btn btn-lg btn-success" id="pis-btn-confirm-packing" disabled style="border-radius: 40px; width: 100%; min-height: 54px; font-size: 1.07rem;">
                                                 <i class="fas fa-check-double"></i> Confirm Packing
-                                            </button>
-                                        </div>
-                                        <div class="col-12 mb-2">
-                                            <div id="pis-same-label-countdown-wrap" class="alert alert-warning mb-0 py-2 px-2 text-center" style="display: none; font-size: 0.92rem;">
-                                                <i class="fas fa-hourglass-half"></i>
-                                                Cooldown scan label sama: <strong id="pis-same-label-countdown-seconds">30</strong> detik
-                                            </div>
+                                        </button>
                                         </div>
                                         <div class="col-12 mb-2">
                                             <div class="text-center small text-muted">
@@ -185,6 +179,41 @@
         </div>
 
     <style>
+        /* PIS: compact spacing label-field (scoped) */
+        .pis-compact .form-group {
+            margin-bottom: 0.2rem;
+        }
+
+        .pis-compact label {
+            margin-bottom: 0.1rem;
+        }
+
+        .pis-compact .card-header {
+            padding-top: 0.25rem !important;
+            padding-bottom: 0.25rem !important;
+        }
+
+        /* Only affects card-body without Bootstrap padding utilities (p-*) */
+        .pis-compact .card-body:not(.p-0) {
+            padding: 0.35rem 0.55rem !important;
+        }
+
+        .pis-compact .form-control {
+            padding: 0.25rem 0.5rem !important;
+            min-height: 32px;
+            height: auto;
+            font-size: 0.95rem;
+        }
+
+        /* Rapatkan antar panel yang memakai .card.border.mt-* */
+        .pis-compact .card.border.mt-1 {
+            margin-top: 0.1rem !important;
+        }
+
+        .pis-compact .card.border.mt-2 {
+            margin-top: 0.1rem !important;
+        }
+
         /* Lock screen interlock: overlay di bawah modal, modal selalu paling atas */
         body.pis-interlock-open #modalPisJpConfirmation {
             z-index: 9999 !important;
@@ -230,6 +259,26 @@
             flex: 0 1 auto;
             min-width: 0;
             min-height: 0;
+        }
+
+        /* Loading List: batasi tinggi, aktifkan scroll jika item banyak */
+        .pis-loading-list-scroll {
+            max-height: 240px; /* ~5 baris data + header */
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        @media (max-width: 768px) {
+            .pis-loading-list-scroll {
+                max-height: 170px; /* ~3 baris data + header (mobile) */
+            }
+        }
+
+        .pis-loading-list-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #fff;
         }
     </style>
 
@@ -427,9 +476,10 @@
         var loadingListScanCount = 0;
         // Item yang terakhir tervalidasi untuk preview (hanya jika scan label = part_number_cust)
         var currentPreviewItem = null;
-        // Delay 30 detik untuk label yang sama: simpan label terakhir + waktu scan
+        // Cooldown scan label: mulai setiap label berhasil di-scan
         var lastScannedLabel = '';
         var lastScannedLabelTime = 0;
+        var lastLabelCooldownStartTime = 0;
         var LABEL_SAME_DELAY_MS = 30 * 1000; // 30 detik
         // Countdown UI untuk delay label yang sama (agar waktunya "bergerak")
         var sameLabelCountdownTimer = null;
@@ -442,35 +492,52 @@
         }
 
         function hidePisSameLabelCooldownUi() {
+            // Elemen countdown di Action Confirm Packing sudah dihapus
+            // Biarkan tetap aman jika kode lama memanggil hide().
             $('#pis-same-label-countdown-wrap').hide();
         }
 
         function updateSameLabelCountdownSeconds(sec) {
             var s = String(sec);
             $('#same-label-remaining').text(s);
-            $('#pis-same-label-countdown-seconds').text(s);
+        }
+
+        /** Selesai cooldown: hapus angka di UI dan tampilkan pesan scan lagi (semua varian status). */
+        function finishLabelCooldownUi() {
+            clearSameLabelCountdown();
+            hidePisSameLabelCooldownUi();
+            lastLabelCooldownStartTime = 0;
+            $('.pis-scan-cooldown-inline').remove();
+            var $container = $('#status-container');
+            var headerPlain = $('#alert-header').text();
+            if ($container.hasClass('alert-warning') && headerPlain.indexOf('Cooldown') !== -1) {
+                $('#alert-body').text('Silahkan scan kembali.');
+            } else if ($container.hasClass('alert-success')) {
+                $('.pis-scan-cooldown-done').remove();
+                $('#alert-body').append(' <span class="pis-scan-cooldown-done font-weight-bold">Silahkan scan kembali.</span>');
+            } else {
+                $('#alert-body').text('Silahkan scan kembali.');
+            }
+        }
+
+        function tickSameLabelCountdown() {
+            if (!lastLabelCooldownStartTime) return;
+            var now = Date.now();
+            var remainingMs = LABEL_SAME_DELAY_MS - (now - lastLabelCooldownStartTime);
+            if (remainingMs <= 0) {
+                finishLabelCooldownUi();
+                return;
+            }
+            var remainingSec = Math.ceil(remainingMs / 1000);
+            updateSameLabelCountdownSeconds(remainingSec);
         }
 
         function startSameLabelCountdown() {
             clearSameLabelCountdown();
-
-            // Update setiap 1 detik sampai cooldown habis
-            sameLabelCountdownTimer = setInterval(function () {
-                var now = Date.now();
-                var remainingMs = LABEL_SAME_DELAY_MS - (now - lastScannedLabelTime);
-                var remainingSec = Math.ceil(remainingMs / 1000);
-                if (remainingSec <= 0 || !lastScannedLabelTime) {
-                    clearSameLabelCountdown();
-                    // Opsional: ubah pesan saat sudah boleh scan lagi
-                    if ($('#status-container').hasClass('alert-warning') && $('#alert-header').text().indexOf('Label sama') !== -1) {
-                        $('#pis-step-flow').show();
-                        hidePisSameLabelCooldownUi();
-                        $('#alert-body').text('Silakan scan lagi.');
-                    }
-                    return;
-                }
-                updateSameLabelCountdownSeconds(remainingSec);
-            }, 1000);
+            tickSameLabelCountdown();
+            if (lastLabelCooldownStartTime) {
+                sameLabelCountdownTimer = setInterval(tickSameLabelCountdown, 1000);
+            }
         }
         // Simpan posisi scroll sebelum aksi scan agar tampilan tidak loncat ke bawah setelah scan
         var _savedScrollTop = 0;
@@ -492,6 +559,7 @@
             lastScannedKanban = '';
             lastScannedLabel = '';
             lastScannedLabelTime = 0;
+            lastLabelCooldownStartTime = 0;
             clearSameLabelCountdown();
             $('#pis-step-flow').show();
             hidePisSameLabelCooldownUi();
@@ -610,8 +678,8 @@
                 });
             }
 
+            // Jangan memicu cooldown di sini (ini proses "Confirm Packing", bukan scan label)
             lastScannedLabel = raw || lastScannedLabel;
-            lastScannedLabelTime = Date.now();
 
             return { matched: matched };
         }
@@ -735,6 +803,17 @@
             try { localStorage.setItem(getDailyCounterKey(), String(loadingListScanCount)); } catch (e) {}
         }
 
+        /** Dock MMKI-SPD: kasus khusus label fisik berbentuk BASE-001 sementara API/LL/kanban hanya BASE. */
+        function pisIsDockMmkiSpd() {
+            return ($('#dock_type').val() || '').toString().trim().toUpperCase() === 'MMKI-SPD';
+        }
+
+        /** Hanya untuk MMKI-SPD: buang suffix revisi/lot berupa - + angka di akhir (contoh 5716A714HC-001 → 5716A714HC). */
+        function pisMmkiSpdStripRevisionSuffix(s) {
+            if (!s) return '';
+            return ('' + s).toUpperCase().trim().replace(/-\d+$/, '');
+        }
+
         function cleanBarcode(s) {
             if (!s) return '';
             var str = ('' + s)
@@ -780,8 +859,12 @@
                     var cust = (item.part_number_cust || '').toString().toUpperCase().trim();
                     if (!cust) return;
                     for (var i = 0; i < tokens.length; i++) {
+                        var tok = tokens[i];
                         // Token harus sama persis dengan part_number_cust (ignore case)
-                        if (tokens[i] === cust && cust.length > bestLen) {
+                        var exact = tok === cust;
+                        // MMKI-SPD: token di kanban bisa BASE-001 sedangkan LL/API = BASE
+                        var mmkiAlias = pisIsDockMmkiSpd() && pisMmkiSpdStripRevisionSuffix(tok) === cust;
+                        if ((exact || mmkiAlias) && cust.length > bestLen) {
                             bestLen = cust.length;
                             bestMatch = cust;
                         }
@@ -1002,6 +1085,7 @@
             currentPreviewItem = null;
             lastScannedLabel = '';
             lastScannedLabelTime = 0;
+            lastLabelCooldownStartTime = 0;
             barcode = '';
             pendingJpAction = null;
             pendingScanBarcode = null;
@@ -1238,6 +1322,13 @@
             var cleanUpper = cleanLabel.toUpperCase();
 
             var existsInKanban = (kanbanUpper.indexOf(rawUpper) !== -1 || kanbanUpper.indexOf(cleanUpper) !== -1);
+            if (pisIsDockMmkiSpd()) {
+                var mmkiRawBase = pisMmkiSpdStripRevisionSuffix(rawUpper);
+                var mmkiCleanBase = pisMmkiSpdStripRevisionSuffix(cleanUpper);
+                existsInKanban = existsInKanban
+                    || (mmkiRawBase && kanbanUpper.indexOf(mmkiRawBase) !== -1)
+                    || (mmkiCleanBase && kanbanUpper.indexOf(mmkiCleanBase) !== -1);
+            }
 
             // INTERLOCK (1): Scan kanban Part A lalu scan label Part B yang tidak sesuai — wajib verifikasi JP/Leader
             if (!lastScannedKanban || !existsInKanban) {
@@ -1275,15 +1366,13 @@
                 return;
             }
 
-            // 2. Delay untuk label yang sama (Mencegah double scan tidak sengaja)
+            // 2. Cooldown 30 detik setelah scan label (mencegah scan beruntun terlalu cepat)
             var now = Date.now();
-            if (raw && raw === lastScannedLabel && (now - lastScannedLabelTime) < LABEL_SAME_DELAY_MS) {
-                var sisaWaktu = Math.ceil((LABEL_SAME_DELAY_MS - (now - lastScannedLabelTime)) / 1000);
-                $('#pis-step-flow').hide();
-                $('#pis-same-label-countdown-wrap').show();
+            if (lastLabelCooldownStartTime && (now - lastLabelCooldownStartTime) < LABEL_SAME_DELAY_MS) {
+                var sisaWaktu = Math.ceil((LABEL_SAME_DELAY_MS - (now - lastLabelCooldownStartTime)) / 1000);
                 $('#status-container').removeClass('alert-success alert-danger').addClass('alert-warning');
-                $('#alert-header').html('<i class="fas fa-clock"></i> Label sama');
-                $('#alert-body').html('Label ini baru saja di-scan. Tunggu <b id="same-label-remaining">' + sisaWaktu + '</b> detik lagi.');
+                $('#alert-header').html('<i class="fas fa-hourglass-half"></i> Cooldown');
+                $('#alert-body').html('Tunggu <b id="same-label-remaining">' + sisaWaktu + '</b> detik sebelum scan label lagi.');
                 updateSameLabelCountdownSeconds(sisaWaktu);
                 pisErrorSound();
                 startSameLabelCountdown();
@@ -1291,12 +1380,12 @@
                 return;
             }
 
-            $('#pis-step-flow').show();
             hidePisSameLabelCooldownUi();
 
             // 3. PENCARIAN ITEM DI LOADING LIST (urutan LL di tabel; part sama di beberapa LL tanpa klik prioritas)
             var sortedItems = getSortedLoadingListItemsForMatch();
             // Tahap A: Match Exact
+            var mmkiScanBase = pisIsDockMmkiSpd() ? pisMmkiSpdStripRevisionSuffix(cleanUpper) : '';
             for (var i = 0; i < sortedItems.length; i++) {
                 var item = sortedItems[i];
                 if ((item.remaining || 0) <= 0) continue;
@@ -1307,6 +1396,13 @@
                 if (pcust === raw || pcust === cleanLabel || pint === raw || pint === cleanLabel) {
                     matched = item;
                     break;
+                }
+                // MMKI-SPD: scan 5716A714HC-001 vs API/LL 5716A714HC
+                if (pisIsDockMmkiSpd() && mmkiScanBase) {
+                    if (pcust.toUpperCase() === mmkiScanBase || pint.toUpperCase() === mmkiScanBase) {
+                        matched = item;
+                        break;
+                    }
                 }
             }
 
@@ -1327,6 +1423,16 @@
                         matched = it;
                         break;
                     }
+                    if (pisIsDockMmkiSpd() && mmkiScanBase) {
+                        if (pcust2 && (mmkiScanBase === pcust2 || mmkiScanBase.indexOf(pcust2) !== -1 || pcust2.indexOf(mmkiScanBase) !== -1)) {
+                            matched = it;
+                            break;
+                        }
+                        if (pint2 && (mmkiScanBase === pint2 || mmkiScanBase.indexOf(pint2) !== -1 || pint2.indexOf(mmkiScanBase) !== -1)) {
+                            matched = it;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -1343,8 +1449,9 @@
                     return;
                 }
 
-                lastScannedLabel = raw;
                 lastScannedLabelTime = Date.now();
+                lastLabelCooldownStartTime = lastScannedLabelTime;
+                var initialCooldownSec = Math.ceil(LABEL_SAME_DELAY_MS / 1000);
 
                 var partKey = getPartSessionKey(matched);
                 if (partKey && partsStartedInCurrentSession.indexOf(partKey) === -1) partsStartedInCurrentSession.push(partKey);
@@ -1376,7 +1483,11 @@
                     stage = 3; 
                     $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                    $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' Berhasil di-scan. Sisa: ' + matched.remaining + ' box.');
+                    var baseMsg = (matched.part_number_cust || matched.part_number_int) + ' Berhasil di-scan. Sisa: ' + matched.remaining + ' box.';
+                    $('#alert-body').html(
+                        baseMsg +
+                        ' <span class="pis-scan-cooldown-inline">Cooldown scan label: <b id="same-label-remaining">' + initialCooldownSec + '</b> detik lagi.</span>'
+                    );
                     pisOkSound();
                 } else {
                     // SUDAH HABIS: Kembali ke Stage 2 (Harus scan kanban baru untuk part lain)
@@ -1384,9 +1495,15 @@
                     lastScannedKanban = ''; // Reset kanban agar user wajib scan kanban baru
                     $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                    $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                    $('#alert-body').html(
+                        'Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.' +
+                        ' <span class="pis-scan-cooldown-inline">Cooldown scan label: <b id="same-label-remaining">' + initialCooldownSec + '</b> detik lagi.</span>'
+                    );
                     pisOkSound();
                 }
+
+                // Mulai countdown setelah elemen #same-label-remaining sudah dibuat di #alert-body
+                startSameLabelCountdown();
 
                 updateStepIndicator();
 
