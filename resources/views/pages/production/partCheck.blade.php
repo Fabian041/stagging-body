@@ -111,7 +111,7 @@
     </div>
 @endsection
 
-@section('scripts')
+@section('custom-script')
     <script>
         $(document).ready(function() {
             $('#code').focus();
@@ -155,9 +155,6 @@
                 $('#result-scanned-at').text(data.scanned_at ?? '-');
                 $('#result-kanban-id').text(data.kanban_id ?? '-');
                 $('#result-created-at').text(data.created_at ?? '-');
-                $('#result-updated_at').text(data.updated_at ?? '-');
-
-                // perbaikan karena id html pakai result-updated-at
                 $('#result-updated-at').text(data.updated_at ?? '-');
 
                 $('#result-area').show();
@@ -175,6 +172,8 @@
                     return;
                 }
 
+                console.log('submit jalan:', barcode);
+
                 $.ajax({
                     url: "{{ route('dashboard.partCheckSubmit') }}",
                     type: "POST",
@@ -183,6 +182,8 @@
                         barcode: barcode
                     },
                     success: function(response) {
+                        console.log('success:', response);
+
                         if (response.status) {
                             showNotif('Data part ditemukan.', 'success');
                             fillResult(response.data);
@@ -193,6 +194,8 @@
                         $('#code').val('').focus();
                     },
                     error: function(xhr) {
+                        console.log('error:', xhr);
+
                         let message = 'Terjadi kesalahan.';
 
                         if (xhr.responseJSON && xhr.responseJSON.message) {
@@ -205,8 +208,8 @@
                 });
             }
 
-            $('#code').on('keypress', function(e) {
-                if (e.which === 13) {
+            $('#code').on('keydown', function(e) {
+                if (e.key === 'Enter' || e.which === 13) {
                     e.preventDefault();
                     submitBarcode();
                 }
