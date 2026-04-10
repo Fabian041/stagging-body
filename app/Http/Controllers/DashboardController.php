@@ -1205,4 +1205,9 @@ class DashboardController extends Controller
                 'serial_number' => $request->serial_number
             ]);
     }
+    
+    public function partCheck()
+    {
+        return view('pages.production.partCheck');
+    }
 }

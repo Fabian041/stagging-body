@@ -176,6 +176,9 @@ Route::middleware(['auth'])->group(function () {
         // check kanban
         Route::get('/kanban/check', [DashboardController::class, 'kbnCheck'])->name('dashboard.kbnCheck');
         Route::post('/kanban/check', [DashboardController::class, 'kbnCheckSubmit'])->name('dashboard.kbnCheckSubmit');
+        
+        Route::get('/part/check', [DashboardController::class, 'partCheck'])->name('dashboard.partCheck');
+        Route::post('/part/check', [DashboardController::class, 'partCheckSubmit'])->name('dashboard.partCheckSubmit');
     });
 
     // edcl
