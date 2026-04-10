@@ -1210,4 +1210,41 @@ class DashboardController extends Controller
     {
         return view('pages.production.partCheck');
     }
+
+    public function partCheckSubmit(Request $request)
+    {
+        $request->validate([
+            'barcode' => 'required|string',
+        ]);
+
+        $barcode = trim($request->barcode);
+
+        $part = ScannedPart::where('barcode', $barcode)
+            ->latest('scanned_at')
+            ->first();
+
+        if (!$part) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Barcode tidak ditemukan.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'id'            => $part->id,
+                'line'          => $part->line,
+                'model'         => $part->model,
+                'dandori_board' => $part->dandori_board,
+                'barcode'       => $part->barcode,
+                'last4'         => $part->last4,
+                'scan_date'     => $part->scan_date,
+                'scanned_at'    => $part->scanned_at,
+                'kanban_id'     => $part->kanban_id,
+                'created_at'    => $part->created_at,
+                'updated_at'    => $part->updated_at,
+            ]
+        ]);
+    }
 }
