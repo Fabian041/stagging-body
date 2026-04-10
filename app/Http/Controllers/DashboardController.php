@@ -2,25 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
-use App\Models\Customer;
-use App\Models\Supplier;
-use App\Imports\PartImport;
-use App\Models\Agstar\Ia31;
-use App\Traits\prodPlanOps;
-use App\Imports\StockImport;
-use App\Models\InternalPart;
-use Illuminate\Http\Request;
-use App\Models\ProductionPlan;
-use App\Imports\ManifestImport;
-use App\Models\ReceiveSchedule;
-use App\Models\LineStaticSequence;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Pagination\LengthAwarePaginator;
 use App\Exports\MutationMultiSheetExport;
+use App\Imports\ManifestImport;
+use App\Imports\PartImport;
+use App\Imports\StockImport;
+use App\Models\Agstar\Ia31;
+use App\Models\Customer;
+use App\Models\InternalPart;
+use App\Models\LineStaticSequence;
+use App\Models\ProductionPlan;
+use App\Models\ReceiveSchedule;
+use App\Models\ScannedPart;
+use App\Models\Supplier;
+use App\Traits\prodPlanOps;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 
 class DashboardController extends Controller
