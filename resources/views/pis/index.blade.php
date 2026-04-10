@@ -263,7 +263,7 @@
 
         /* Loading List: batasi tinggi, aktifkan scroll jika item banyak */
         .pis-loading-list-scroll {
-            max-height: 240px; /* ~5 baris data + header */
+            max-height: 336px; /* ~7 baris data + header */
             overflow-y: auto;
             overscroll-behavior: contain;
         }
@@ -480,7 +480,7 @@
         var lastScannedLabel = '';
         var lastScannedLabelTime = 0;
         var lastLabelCooldownStartTime = 0;
-        var LABEL_SAME_DELAY_MS = 30 * 1000; // 30 detik
+        var LABEL_SAME_DELAY_MS = 15 * 1000; // 15 detik
         // Countdown UI untuk delay label yang sama (agar waktunya "bergerak")
         var sameLabelCountdownTimer = null;
 
@@ -497,12 +497,7 @@
             $('#pis-same-label-countdown-wrap').hide();
         }
 
-        function updateSameLabelCountdownSeconds(sec) {
-            var s = String(sec);
-            $('#same-label-remaining').text(s);
-        }
-
-        /** Selesai cooldown: hapus angka di UI dan tampilkan pesan scan lagi (semua varian status). */
+        /** Selesai cooldown: tampilkan pesan scan lagi (tanpa angka countdown). */
         function finishLabelCooldownUi() {
             clearSameLabelCountdown();
             hidePisSameLabelCooldownUi();
@@ -526,10 +521,7 @@
             var remainingMs = LABEL_SAME_DELAY_MS - (now - lastLabelCooldownStartTime);
             if (remainingMs <= 0) {
                 finishLabelCooldownUi();
-                return;
             }
-            var remainingSec = Math.ceil(remainingMs / 1000);
-            updateSameLabelCountdownSeconds(remainingSec);
         }
 
         function startSameLabelCountdown() {
@@ -1366,14 +1358,12 @@
                 return;
             }
 
-            // 2. Cooldown 30 detik setelah scan label (mencegah scan beruntun terlalu cepat)
+            // 2. Cooldown 15 detik setelah scan label (mencegah scan beruntun terlalu cepat)
             var now = Date.now();
             if (lastLabelCooldownStartTime && (now - lastLabelCooldownStartTime) < LABEL_SAME_DELAY_MS) {
-                var sisaWaktu = Math.ceil((LABEL_SAME_DELAY_MS - (now - lastLabelCooldownStartTime)) / 1000);
                 $('#status-container').removeClass('alert-success alert-danger').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-hourglass-half"></i> Cooldown');
-                $('#alert-body').html('Tunggu <b id="same-label-remaining">' + sisaWaktu + '</b> detik sebelum scan label lagi.');
-                updateSameLabelCountdownSeconds(sisaWaktu);
+                $('#alert-body').text('Delay aktif. Mohon tunggu sebentar.');
                 pisErrorSound();
                 startSameLabelCountdown();
                 $(window).scrollTop(_savedScrollTop);
@@ -1451,7 +1441,6 @@
 
                 lastScannedLabelTime = Date.now();
                 lastLabelCooldownStartTime = lastScannedLabelTime;
-                var initialCooldownSec = Math.ceil(LABEL_SAME_DELAY_MS / 1000);
 
                 var partKey = getPartSessionKey(matched);
                 if (partKey && partsStartedInCurrentSession.indexOf(partKey) === -1) partsStartedInCurrentSession.push(partKey);
@@ -1483,11 +1472,7 @@
                     stage = 3; 
                     $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                    var baseMsg = (matched.part_number_cust || matched.part_number_int) + ' Berhasil di-scan. Sisa: ' + matched.remaining + ' box.';
-                    $('#alert-body').html(
-                        baseMsg +
-                        ' <span class="pis-scan-cooldown-inline">Cooldown scan label: <b id="same-label-remaining">' + initialCooldownSec + '</b> detik lagi.</span>'
-                    );
+                    $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' Berhasil di-scan. Sisa: ' + matched.remaining + ' box.');
                     pisOkSound();
                 } else {
                     // SUDAH HABIS: Kembali ke Stage 2 (Harus scan kanban baru untuk part lain)
@@ -1495,14 +1480,11 @@
                     lastScannedKanban = ''; // Reset kanban agar user wajib scan kanban baru
                     $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                     $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                    $('#alert-body').html(
-                        'Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.' +
-                        ' <span class="pis-scan-cooldown-inline">Cooldown scan label: <b id="same-label-remaining">' + initialCooldownSec + '</b> detik lagi.</span>'
-                    );
+                    $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
                     pisOkSound();
                 }
 
-                // Mulai countdown setelah elemen #same-label-remaining sudah dibuat di #alert-body
+                // Mulai countdown di background (tanpa menampilkan detik)
                 startSameLabelCountdown();
 
                 updateStepIndicator();
