@@ -42,7 +42,7 @@
                             <i class="fas fa-clipboard-list mr-1"></i> Check Kanban
                         </a>
                         <a href="{{ route('dashboard.partCheck') }}" class="btn btn-outline-info">
-                            <i class="fas fa-clipboard-list mr-1"></i> Check Part
+                            <i class="fas fa-check-square mr-1"></i> Check Part
                         </a>
                         <a href="{{ route('dashboard.prodResult') }}" class="btn btn-outline-info">
                             <i class="fas fa-chart-line mr-1"></i> Production Result
@@ -65,8 +65,8 @@
                             <i class="fas fa-list-alt mr-1"></i> Scan List
                         </a>
                         <!-- <a href="{{ route('pis.packing') }}" class="btn btn-outline-warning">
-                                        <i class="fas fa-box mr-1"></i> Packing
-                                    </a> -->
+                                                            <i class="fas fa-box mr-1"></i> Packing
+                                                        </a> -->
                         <a href="{{ route('pis.master') }}" class="btn btn-outline-warning">
                             <i class="fas fa-database mr-1"></i> Master Data
                         </a>
