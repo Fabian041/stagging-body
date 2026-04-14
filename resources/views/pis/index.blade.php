@@ -287,6 +287,14 @@
             box-sizing: border-box;
         }
 
+        #previewImg.pis-fit-contain {
+            object-fit: contain;
+        }
+
+        #previewImg.pis-fit-cover {
+            object-fit: cover;
+        }
+
         #previewPlaceholder {
             position: relative;
             z-index: 0;
@@ -415,11 +423,21 @@
 
             var idx = 0;
 
+            function setPreviewFitModeBySrc() {
+                if (!img || !img.src) return;
+                var srcUpper = img.src.toUpperCase();
+                // DANDORY board cenderung berisi detail sampai sisi tepi, jadi tampilkan utuh (atas-bawah fit).
+                var useContain = srcUpper.indexOf('-DANDORY-') !== -1;
+                img.classList.remove('pis-fit-contain', 'pis-fit-cover');
+                img.classList.add(useContain ? 'pis-fit-contain' : 'pis-fit-cover');
+            }
+
             function tryNext() {
                 if (idx >= candidates.length) {
                     // Jika semua kombinasi gagal, pakai gambar default sebagai fallback
                     img.onerror = null;
                     img.src = pisImageDefault;
+                    setPreviewFitModeBySrc();
                     img.style.display = 'block';
                     if (placeholder) placeholder.style.display = 'none';
                     if (typeof _savedScrollTop === 'number') window.scrollTo(0, _savedScrollTop);
@@ -427,6 +445,7 @@
                 }
 
                 img.src = candidates[idx++];
+                setPreviewFitModeBySrc();
                 img.style.display = 'block';
                 if (placeholder) placeholder.style.display = 'none';
             }
