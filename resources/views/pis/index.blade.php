@@ -253,9 +253,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 600px;
-            height: clamp(600px, 90vh, 1450px);
-            max-height: 1450px;
+            min-height: 760px;
+            height: clamp(760px, 94vh, 1750px);
+            max-height: 1750px;
             overflow: hidden;
             box-sizing: border-box;
             padding: 2px;
@@ -264,16 +264,16 @@
         /* Di monitor desktop, naikkan tinggi supaya area preview tidak tampak kecil. */
         @media (min-width: 1200px) {
             #imageDiv.pis-preview-area {
-                height: clamp(760px, 93vh, 1650px);
-                max-height: 1650px;
+                height: clamp(920px, 95vh, 1900px);
+                max-height: 1900px;
             }
         }
 
         /* Di monitor tinggi (mis. 1080p ke atas), gunakan porsi viewport lebih besar. */
         @media (min-height: 1000px) {
             #imageDiv.pis-preview-area {
-                height: clamp(820px, 95vh, 1800px);
-                max-height: 1800px;
+                height: clamp(1000px, 97vh, 2100px);
+                max-height: 2100px;
             }
         }
 
@@ -282,7 +282,7 @@
             inset: 0;
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover;
             object-position: center;
             box-sizing: border-box;
         }
@@ -1877,8 +1877,12 @@
             });
         }
 
+        function pisGetFullscreenElement() {
+            return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+        }
+
         function pisUpdateFullscreenButton() {
-            var isFullscreen = !!document.fullscreenElement;
+            var isFullscreen = !!pisGetFullscreenElement();
             var $btn = $('#pis-btn-fullscreen');
             if (!$btn.length) return;
             if (isFullscreen) {
@@ -1900,15 +1904,28 @@
             pisLastFullscreenToggleAt = now;
             pisFullscreenTransitionLock = true;
 
-            if (document.fullscreenElement) {
+            if (pisGetFullscreenElement()) {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                } else if (document.webkitCancelFullScreen) {
+                    document.webkitCancelFullScreen();
                 }
                 return;
             }
+
             var root = document.documentElement;
             if (root.requestFullscreen) {
                 root.requestFullscreen().catch(function () { });
+            } else if (root.webkitRequestFullscreen) {
+                root.webkitRequestFullscreen();
+            } else if (root.msRequestFullscreen) {
+                root.msRequestFullscreen();
+            } else if (root.webkitRequestFullScreen) {
+                root.webkitRequestFullScreen();
             }
         }
 
@@ -1921,7 +1938,22 @@
             pisToggleFullscreen();
         });
 
+        // Beberapa browser touchscreen/webview kurang konsisten pada event click.
+        $('#pis-btn-fullscreen').on('touchend pointerup', function(e) {
+            e.preventDefault();
+            $(this).blur();
+            pisToggleFullscreen();
+        });
+
         document.addEventListener('fullscreenchange', function() {
+            pisFullscreenTransitionLock = false;
+            pisUpdateFullscreenButton();
+        });
+        document.addEventListener('webkitfullscreenchange', function() {
+            pisFullscreenTransitionLock = false;
+            pisUpdateFullscreenButton();
+        });
+        document.addEventListener('MSFullscreenChange', function() {
             pisFullscreenTransitionLock = false;
             pisUpdateFullscreenButton();
         });
