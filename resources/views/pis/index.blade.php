@@ -80,7 +80,7 @@
                             </div>
                         </div>
 
-                        <div class="col-md-8">
+                        <div class="col-md-8 d-flex">
                             <div id="pis-step-flow" class="alert alert-primary mb-1 shadow-sm py-1" style="border-radius:6px;">
                                 <div class="d-flex justify-content-center align-items-center font-weight-bold"
                                     style="font-size:10px; white-space:nowrap;">
@@ -104,15 +104,15 @@
                                 </div>
 
                             </div>
-                            <div class="card border shadow-sm" style="border-radius: 12px;">
-                                <div class="card-body p-2">
+                            <div class="card border shadow-sm w-100 mb-0 pis-preview-card" style="border-radius: 12px;">
+                                <div class="card-body p-2 d-flex flex-column">
                                     <!-- PINDAHAN ALERT BODY ADA DI SINI -->
                                     <div id="status-container" class="alert alert-success text-center mb-2 py-2" style="font-size: 0.96rem;">
                                         <h5 class="alert-heading mb-1" id="alert-header" style="font-size:1.1rem"><i class="fas fa-check-circle"></i> Ready</h5>
                                         <p class="mb-0 font-weight-bold" id="alert-body" style="font-size:1rem">Silahkan Scan Loading List untuk memulai</p>
                                     </div>
 
-                                    <div id="imageDiv" class="pis-preview-area text-center bg-white border" style="border-radius: 8px;">
+                                    <div id="imageDiv" class="pis-preview-area text-center bg-white border flex-grow-1" style="border-radius: 8px;">
                                         <img id="previewImg" src="" alt="Part image" style="background: #f9f9f9; border-radius: 8px; display: none;" />
                                         <div id="previewPlaceholder" class="text-muted py-5">
                                             <i class="fas fa-image fa-5x mb-3" style="opacity: 0.2;"></i>
@@ -247,15 +247,22 @@
             z-index: 10000 !important;
         }
 
-        /* Pratinjau: container besar; gambar diskala utuh (contain), tanpa scroll dan tanpa terpotong */
+        .pis-preview-card {
+            min-height: 100%;
+        }
+
+        .pis-preview-card .card-body {
+            min-height: 100%;
+        }
+
+        /* Pratinjau: isi sisa tinggi card; gambar diskala utuh (contain), tanpa scroll dan tanpa terpotong */
         #imageDiv.pis-preview-area {
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 320px;
-            height: min(920px, 82vh);
-            max-height: 920px;
+            height: auto;
             overflow: hidden;
             box-sizing: border-box;
             padding: 2px;
