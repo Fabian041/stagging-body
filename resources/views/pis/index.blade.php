@@ -247,18 +247,34 @@
             z-index: 10000 !important;
         }
 
-        /* Pratinjau: container besar; gambar diskala utuh (contain), tanpa scroll dan tanpa terpotong */
+        /* Pratinjau: tinggi adaptif mengikuti monitor (terutama desktop/16:9). */
         #imageDiv.pis-preview-area {
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 320px;
-            height: min(920px, 82vh);
-            max-height: 920px;
+            min-height: 420px;
+            height: clamp(420px, 82vh, 1100px);
+            max-height: 1100px;
             overflow: hidden;
             box-sizing: border-box;
             padding: 2px;
+        }
+
+        /* Di monitor desktop, naikkan tinggi supaya area preview tidak tampak kecil. */
+        @media (min-width: 1200px) {
+            #imageDiv.pis-preview-area {
+                height: clamp(520px, 88vh, 1250px);
+                max-height: 1250px;
+            }
+        }
+
+        /* Di monitor tinggi (mis. 1080p ke atas), gunakan porsi viewport lebih besar. */
+        @media (min-height: 1000px) {
+            #imageDiv.pis-preview-area {
+                height: clamp(560px, 90vh, 1400px);
+                max-height: 1400px;
+            }
         }
 
         #previewImg {
