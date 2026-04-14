@@ -88,7 +88,7 @@
                                                         <td id="result-kanban-id"></td>
                                                     </tr>
                                                     <tr>
-                                                        <th>Serial</th>
+                                                        <th>Serial Kanban</th>
                                                         <td id="result-serial"></td>
                                                     </tr>
                                                     <tr>
