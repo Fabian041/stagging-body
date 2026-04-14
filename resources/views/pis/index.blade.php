@@ -68,6 +68,16 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;">
+                                    <strong>View</strong>
+                                </div>
+                                <div class="card-body p-2">
+                                    <button type="button" class="btn btn-lg btn-outline-primary" id="pis-btn-fullscreen" tabindex="-1" style="border-radius: 40px; width: 100%; min-height: 50px; font-size: 1.05rem;">
+                                        <i class="fas fa-expand"></i> Fullscreen
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="col-md-8">
@@ -237,28 +247,34 @@
             z-index: 10000 !important;
         }
 
-        /* Pratinjau gambar: container punya tinggi tetap (mengikuti viewport), gambar mengecil di dalam — bukan sebaliknya */
+        /* Pratinjau: container besar; gambar diskala utuh (contain), tanpa scroll dan tanpa terpotong */
         #imageDiv.pis-preview-area {
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 260px;
-            height: min(650px, 72vh);
-            max-height: 650px;
+            min-height: 320px;
+            height: min(920px, 82vh);
+            max-height: 920px;
             overflow: hidden;
             box-sizing: border-box;
+            padding: 2px;
         }
 
         #previewImg {
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
             object-position: center;
-            flex: 0 1 auto;
-            min-width: 0;
-            min-height: 0;
+            box-sizing: border-box;
+        }
+
+        #previewPlaceholder {
+            position: relative;
+            z-index: 0;
+            pointer-events: none;
         }
 
         /* Loading List: batasi tinggi, aktifkan scroll jika item banyak */
@@ -1845,8 +1861,53 @@
             });
         }
 
+        function pisUpdateFullscreenButton() {
+            var isFullscreen = !!document.fullscreenElement;
+            var $btn = $('#pis-btn-fullscreen');
+            if (!$btn.length) return;
+            if (isFullscreen) {
+                $btn.html('<i class="fas fa-compress"></i> Exit Fullscreen');
+            } else {
+                $btn.html('<i class="fas fa-expand"></i> Fullscreen');
+            }
+        }
+
+        var pisFullscreenTransitionLock = false;
+        var pisLastFullscreenToggleAt = 0;
+
+        function pisToggleFullscreen() {
+            if (pisFullscreenTransitionLock) return;
+
+            var now = Date.now();
+            // Scanner bisa mengirim Enter beruntun; cegah toggle fullscreen bolak-balik.
+            if (now - pisLastFullscreenToggleAt < 700) return;
+            pisLastFullscreenToggleAt = now;
+            pisFullscreenTransitionLock = true;
+
+            if (document.fullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+                return;
+            }
+            var root = document.documentElement;
+            if (root.requestFullscreen) {
+                root.requestFullscreen().catch(function () { });
+            }
+        }
+
         $('#pis-btn-delay').on('click', function() {
             resetPisState();
+        });
+
+        $('#pis-btn-fullscreen').on('click', function() {
+            $(this).blur();
+            pisToggleFullscreen();
+        });
+
+        document.addEventListener('fullscreenchange', function() {
+            pisFullscreenTransitionLock = false;
+            pisUpdateFullscreenButton();
         });
 
         $('#pis-btn-confirm-packing').on('click', function () {
@@ -1906,6 +1967,7 @@
             $('#detail_no').prop('readonly', true).blur();
             loadDailyCounter();
             updateStepIndicator();
+            pisUpdateFullscreenButton();
             
             // Nonaktifkan niceScroll yang mungkin menyebabkan auto-scroll
             if($.fn.niceScroll) {
