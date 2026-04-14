@@ -470,6 +470,90 @@
         });
 
         // ============================
+        // Edit / Save / Cancel Total Scan
+        // pakai controller lama: /loading-list/edit/{loadingList}/{customerPart}/{backNumber}/{newActual}
+        // ============================
+
+        $(document).on('click', '#loadingList .edit', function() {
+            const tr = $(this).closest('tr');
+
+            tr.find('.actual').hide();
+            tr.find('.editActual').show().focus().select();
+
+            tr.find('.save').css({
+                display: 'inline'
+            });
+            tr.find('.cancel').css({
+                display: 'inline'
+            });
+            tr.find('.edit').hide();
+        });
+
+        $(document).on('keydown', '#loadingList .editActual', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                $(this).closest('tr').find('.save').trigger('click');
+            }
+        });
+
+        $(document).on('click', '#loadingList .save', function() {
+            const btn = $(this);
+            const tr = btn.closest('tr');
+
+            let customerPart = $.trim(tr.find('.customerPart').text());
+            let backNumber = $.trim(tr.find('.backNumber').text());
+            let newActual = $.trim(tr.find('.editActual').val());
+
+            if (backNumber === '' || backNumber === '-' || backNumber.toLowerCase() === 'null') {
+                backNumber = 'null';
+            }
+
+            if (newActual === '' || isNaN(newActual) || parseInt(newActual) < 0) {
+                notif('error', 'Total Scan harus berupa angka valid');
+                tr.find('.editActual').focus();
+                return;
+            }
+
+            fetch(`/loading-list/edit/${loadingList}/${encodeURIComponent(customerPart)}/${encodeURIComponent(backNumber)}/${parseInt(newActual)}`,
+                    requestOptions)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status == 'success') {
+                        let newVal = parseInt(data.data);
+
+                        notif('success', data.message);
+
+                        tr.find('.actual').text(newVal).show();
+                        tr.find('.editActual').val(newVal).hide();
+
+                        tr.find('.save').hide();
+                        tr.find('.cancel').hide();
+                        tr.find('.edit').show();
+
+                        table.ajax.reload(null, false);
+                    } else if (data.status == 'error') {
+                        notif('error', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.log(error.message);
+                    notif('error', error);
+                });
+        });
+
+        $(document).on('click', '#loadingList .cancel', function() {
+            const tr = $(this).closest('tr');
+            const oldVal = $.trim(tr.find('.actual').text());
+
+            tr.find('.editActual').val(oldVal).hide();
+            tr.find('.actual').show();
+
+            tr.find('.save').hide();
+            tr.find('.cancel').hide();
+            tr.find('.edit').show();
+        });
+
+        // ============================
         // Details Row (EDCL) tetap seperti lama
         // ============================
         $(document).on('click', '.details', function() {
