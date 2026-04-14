@@ -22,4 +22,9 @@ class Kanban extends Model
     {
         return $this->hasMany(KanbanAfterProd::class, 'kanban_id');
     }
+
+    public function internalPart()
+    {
+        return $this->belongsTo(InternalPart::class, 'internal_part_id');
+    }
 }

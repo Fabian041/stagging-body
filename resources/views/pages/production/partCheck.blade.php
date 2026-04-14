@@ -88,12 +88,16 @@
                                                         <td id="result-kanban-id"></td>
                                                     </tr>
                                                     <tr>
-                                                        <th>Created At</th>
-                                                        <td id="result-created-at"></td>
+                                                        <th>Serial</th>
+                                                        <td id="result-serial"></td>
                                                     </tr>
                                                     <tr>
-                                                        <th>Updated At</th>
-                                                        <td id="result-updated-at"></td>
+                                                        <th>Back Number</th>
+                                                        <td id="result-back-number"></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Part Name</th>
+                                                        <td id="result-part-name"></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -140,8 +144,9 @@
                 $('#result-scan-date').text('');
                 $('#result-scanned-at').text('');
                 $('#result-kanban-id').text('');
-                $('#result-created-at').text('');
-                $('#result-updated-at').text('');
+                $('#result-serial').text('');
+                $('#result-back-number').text('');
+                $('#result-part-name').text('');
             }
 
             function fillResult(data) {
@@ -154,8 +159,9 @@
                 $('#result-scan-date').text(data.scan_date ?? '-');
                 $('#result-scanned-at').text(data.scanned_at ?? '-');
                 $('#result-kanban-id').text(data.kanban_id ?? '-');
-                $('#result-created-at').text(data.created_at ?? '-');
-                $('#result-updated-at').text(data.updated_at ?? '-');
+                $('#result-serial').text(data.serial ?? '-');
+                $('#result-back-number').text(data.back_number ?? '-');
+                $('#result-part-name').text(data.part_name ?? '-');
 
                 $('#result-area').show();
             }

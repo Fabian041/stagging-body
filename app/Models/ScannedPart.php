@@ -11,4 +11,9 @@ class ScannedPart extends Model
 
     protected $table = 'part_scans';
     protected $guarded = ['id'];
+
+    public function kanban()
+    {
+        return $this->belongsTo(Kanban::class, 'kanban_id');
+    }
 }

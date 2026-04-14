@@ -1220,7 +1220,8 @@ class DashboardController extends Controller
 
         $barcode = trim($request->barcode);
 
-        $part = ScannedPart::where('barcode', $barcode)
+        $part = ScannedPart::with(['kanban.internalPart'])
+            ->where('barcode', $barcode)
             ->latest('scanned_at')
             ->first();
 
@@ -1243,8 +1244,10 @@ class DashboardController extends Controller
                 'scan_date'     => $part->scan_date,
                 'scanned_at'    => $part->scanned_at,
                 'kanban_id'     => $part->kanban_id,
-                'created_at'    => $part->created_at,
-                'updated_at'    => $part->updated_at,
+
+                'serial'        => optional($part->kanban)->serial,
+                'back_number'   => optional(optional($part->kanban)->internalPart)->back_number,
+                'part_name'     => optional(optional($part->kanban)->internalPart)->part_name,
             ]
         ]);
     }
