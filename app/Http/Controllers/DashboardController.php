@@ -1245,7 +1245,7 @@ class DashboardController extends Controller
                 'scanned_at'    => $part->scanned_at,
                 'kanban_id'     => $part->kanban_id,
 
-                'serial'        => optional($part->kanban)->serial,
+                'serial'        => optional($part->kanban)->serial_number,
                 'back_number'   => optional(optional($part->kanban)->internalPart)->back_number,
                 'part_name'     => optional(optional($part->kanban)->internalPart)->part_name,
             ]
