@@ -253,9 +253,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 520px;
-            height: clamp(520px, 88vh, 1350px);
-            max-height: 1350px;
+            min-height: 600px;
+            height: clamp(600px, 90vh, 1450px);
+            max-height: 1450px;
             overflow: hidden;
             box-sizing: border-box;
             padding: 2px;
@@ -264,16 +264,16 @@
         /* Di monitor desktop, naikkan tinggi supaya area preview tidak tampak kecil. */
         @media (min-width: 1200px) {
             #imageDiv.pis-preview-area {
-                height: clamp(640px, 92vh, 1500px);
-                max-height: 1500px;
+                height: clamp(760px, 93vh, 1650px);
+                max-height: 1650px;
             }
         }
 
         /* Di monitor tinggi (mis. 1080p ke atas), gunakan porsi viewport lebih besar. */
         @media (min-height: 1000px) {
             #imageDiv.pis-preview-area {
-                height: clamp(700px, 94vh, 1700px);
-                max-height: 1700px;
+                height: clamp(820px, 95vh, 1800px);
+                max-height: 1800px;
             }
         }
 
