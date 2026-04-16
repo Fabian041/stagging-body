@@ -16,7 +16,7 @@
         }
 
         .delivery-dash {
-            font-size: 12px;
+            font-size: 14px;
             color: var(--dm-text);
         }
 
@@ -33,12 +33,12 @@
 
         .delivery-dash .nav-tabs .nav-link {
             padding: 6px 10px;
-            font-size: 12px;
+            font-size: 14px;
         }
 
         .delivery-dash .table {
             margin-bottom: 0;
-            font-size: 11px;
+            font-size: 13px;
         }
 
         .delivery-dash .table td,
@@ -58,14 +58,14 @@
             overflow: auto;
             border: 0.5px solid var(--dm-border);
             border-radius: 6px;
-            max-height: 72vh;
+            max-height: 86vh;
         }
 
         .gantt-table {
-            min-width: 1100px;
+            min-width: 1400px;
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
+            font-size: 13px;
             margin-bottom: 0;
         }
 
@@ -86,8 +86,8 @@
             left: 0;
             background: var(--dm-bg);
             z-index: 2;
-            min-width: 140px;
-            max-width: 200px;
+            min-width: 200px;
+            max-width: 260px;
             text-align: left;
             font-weight: 500;
         }
@@ -99,14 +99,14 @@
         .gantt-track-cell {
             position: relative;
             padding: 0 !important;
-            height: 34px;
+            height: 46px;
             vertical-align: middle;
             border: 0.5px solid var(--dm-border);
         }
 
         .gantt-track {
             position: relative;
-            height: 28px;
+            height: 40px;
             margin: 3px 4px;
             border-radius: 2px;
             background-color: transparent;
@@ -125,9 +125,9 @@
 
         .gantt-bar-wrap {
             position: absolute;
-            top: 2px;
+            top: 3px;
             min-width: 10px;
-            height: 24px;
+            height: 34px;
             box-sizing: border-box;
             cursor: pointer;
             z-index: 2;
@@ -266,7 +266,14 @@
                                 <div class="form-row align-items-end">
                                     <div class="col-md-3 mb-2">
                                         <label class="mb-1" style="font-size: 11px;">Nama cycle</label>
-                                        <input type="text" class="form-control form-control-sm" id="mcycleName" required maxlength="120" placeholder="Samakan dengan cycle di LL (mis. 1, 2, Cycle 1)">
+                        <select class="form-control form-control-sm" id="mcycleName" required>
+                            <option value="" selected disabled>Pilih cycle</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
                                     </div>
                                     <div class="col-md-2 mb-2">
                                         <label class="mb-1" style="font-size: 11px;">Waktu (referensi)</label>
@@ -742,7 +749,14 @@
                         return;
                     }
                     editMasterId = id;
-                    $('#mcycleName').val(row.cycle_name);
+                    // cycle dropdown: fallback jika data lama bukan 1-5
+                    if ($('#mcycleName option[value="' + row.cycle_name + '"]').length) {
+                        $('#mcycleName').val(row.cycle_name);
+                    } else {
+                        if ($('#mcycleName option[value=""]').length) {
+                            $('#mcycleName').val('');
+                        }
+                    }
                     $('#mcycleTime').val(row.time.length === 5 ? row.time : row.time.substring(0, 5));
                     $('#mcycleCustomerId').val(row.customer_id != null ? String(row.customer_id) : '');
                     $('#btnMasterSave').text('Update');
