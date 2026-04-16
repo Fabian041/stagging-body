@@ -224,6 +224,46 @@
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script>
     $(document).ready(function() {
+        function getFilterCustomer() {
+            const v = $('#customer').val();
+            return (v && v !== '-- Select customer --') ? v : '';
+        }
+
+        function getFilterCycle() {
+            const v = $('#cycle').val();
+            return (v && v !== '-- Select cycle --') ? v : '';
+        }
+
+        (function applyQueryStringFilters() {
+            const params = new URLSearchParams(window.location.search);
+            const customer = params.get('customer');
+            const cycle = params.get('cycle');
+            const deliveryDate = params.get('delivery_date');
+            if (customer) {
+                const $match = $('#customer option').filter(function() {
+                    return $(this).val() === customer;
+                });
+                if ($match.length) {
+                    $('#customer').val(customer);
+                }
+            }
+            if (cycle) {
+                let $opt = $('#cycle option').filter(function() {
+                    return $(this).val() === cycle;
+                });
+                if (!$opt.length) {
+                    $('#cycle').append($('<option>', {
+                        value: cycle,
+                        text: cycle
+                    }));
+                }
+                $('#cycle').val(cycle);
+            }
+            if (deliveryDate) {
+                $('#date').val(deliveryDate);
+            }
+        })();
+
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
@@ -231,6 +271,11 @@
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',
+                data: function(d) {
+                    d.customer = getFilterCustomer();
+                    d.cycle = getFilterCycle();
+                    d.delivery_date = $('#date').val() || '';
+                }
             },
             columns: [{
                     data: 'pds_number'

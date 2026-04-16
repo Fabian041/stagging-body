@@ -8,12 +8,15 @@ use App\Models\Customer;
 use App\Models\Mutation;
 use App\Models\SkidDetail;
 use App\Models\LoadingList;
+use App\Models\MasterCycle;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use Illuminate\Http\Request;
 use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -50,15 +53,51 @@ class LoadingListController extends Controller
 
 
     // Modified getLoadingList method that groups by pds_number
-    public function getLoadingList()
+    public function getLoadingList(Request $request)
     {
         try {
-            // Group loading lists by pds_number and aggregate the data
-            $groupedData = LoadingList::with(['customer'])
+            $baseQuery = LoadingList::with(['customer'])
                 ->withSum('detail as total_kanban', 'kanban_qty')
                 ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-                ->latest()
-                ->take(1000)
+                ->whereNotNull('customer_id')
+                ->latest();
+
+            // Filter from query string: ?customer=MMKI
+            if ($request->filled('customer')) {
+                $customerName = trim((string) $request->get('customer'));
+                $baseQuery->whereHas('customer', function ($q) use ($customerName) {
+                    $q->where('name', $customerName);
+                });
+            }
+
+            // Filter from query string: ?cycle=1 or ?cycle=Cycle 1
+            if ($request->filled('cycle')) {
+                $cycleRaw = trim((string) $request->get('cycle'));
+                $cycleNumber = null;
+                if (preg_match('/\d+/', $cycleRaw, $m)) {
+                    $cycleNumber = $m[0];
+                }
+
+                $baseQuery->where(function ($q) use ($cycleRaw, $cycleNumber) {
+                    $q->where('cycle', $cycleRaw);
+                    if ($cycleNumber !== null) {
+                        $q->orWhere('cycle', $cycleNumber)
+                          ->orWhere('cycle', 'Cycle '.$cycleNumber)
+                          ->orWhere('cycle', 'cycle '.$cycleNumber);
+                    }
+                });
+            }
+
+            // Filter from query string: ?delivery_date=2026-04-16 (optional)
+            if ($request->filled('delivery_date')) {
+                $start = Carbon::parse($request->get('delivery_date'))->startOfDay();
+                $end = (clone $start)->endOfDay();
+                $baseQuery->whereBetween('delivery_date', [$start, $end]);
+            }
+
+            // Group loading lists by pds_number and aggregate the data
+            $groupedData = $baseQuery
+                ->take(500)
                 ->get()
                 ->groupBy('pds_number')
                 ->map(function ($loadingLists, $pdsNumber) {
@@ -949,6 +988,770 @@ class LoadingListController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $skidData
+        ]);
+    }
+
+    /**
+     * Query loading list untuk dashboard delivery (filter sama untuk tabel & grafik).
+     */
+    private function deliveryDashboardFilteredQuery(Request $request)
+    {
+        $q = LoadingList::query()
+            ->with(['customer'])
+            ->withSum('detail as total_kanban', 'kanban_qty')
+            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+            ->whereNotNull('delivery_date');
+
+        if ($request->filled('cycle_filter')) {
+            $q->where('cycle', $request->cycle_filter);
+        }
+        if ($request->filled('customer_filter')) {
+            $q->whereHas('customer', function ($q2) use ($request) {
+                $q2->where('name', $request->customer_filter);
+            });
+        }
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $q->whereDate('delivery_date', '>=', $request->start_date)
+                ->whereDate('delivery_date', '<=', $request->end_date);
+        } elseif ($request->filled('start_date')) {
+            $q->whereDate('delivery_date', '>=', $request->start_date);
+        } elseif ($request->filled('end_date')) {
+            $q->whereDate('delivery_date', '<=', $request->end_date);
+        }
+
+        return $q;
+    }
+
+    /**
+     * Agregasi persentase selesai per cycle dari koleksi loading list.
+     *
+     * @param \Illuminate\Support\Collection<int, LoadingList> $loadingLists
+     * @return array<int, array<string, mixed>>
+     */
+    private function aggregateCyclesFromLoadingLists($loadingLists): array
+    {
+        $grouped = $loadingLists->groupBy(function (LoadingList $ll) {
+            $c = $ll->cycle;
+            if ($c === null || $c === '') {
+                return '_other';
+            }
+
+            return (string) (int) $c;
+        });
+
+        return $grouped->map(function ($items, $cycleKey) {
+            $total = $items->count();
+            $completed = $items->filter(function (LoadingList $ll) {
+                $tk = (int) ($ll->total_kanban ?? 0);
+                $ak = (int) ($ll->actual_kanban ?? 0);
+
+                return $tk > 0 && $ak >= $tk;
+            })->count();
+
+            $percentage = $total > 0 ? round(($completed / $total) * 100, 1) : 0.0;
+
+            if ($cycleKey === '_other') {
+                $label = 'Cycle (lainnya)';
+                $sort = 9999;
+            } else {
+                $n = (int) $cycleKey;
+                $label = 'Cycle ' . $n;
+                $sort = $n;
+            }
+
+            return [
+                'cycle_key' => $cycleKey,
+                'label' => $label,
+                'sort' => $sort,
+                'total_loading_lists' => $total,
+                'completed_loading_lists' => $completed,
+                'percentage' => $percentage,
+            ];
+        })->values()->sortBy('sort')->values()->all();
+    }
+
+    /**
+     * Grafik per cycle untuk filter saat ini (tanpa perlu baris / detail).
+     */
+    public function getDeliveryCycleChartByFilters(Request $request)
+    {
+        $rows = $this->deliveryDashboardFilteredQuery($request)
+            ->orderByDesc('delivery_date')
+            ->limit(8000)
+            ->get();
+
+        $cycles = $this->aggregateCyclesFromLoadingLists($rows);
+
+        return response()->json([
+            'cycles' => $cycles,
+            'meta' => [
+                'total_loading_lists' => $rows->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Bar chart grouped per Customer & per Cycle.
+     * - X axis: Cycle
+     * - Each dataset: one Customer
+     * - Bar color: <50% red, 50-99% yellow, 100% green
+     * - Percent = completed loading list count / total loading list count
+     */
+    public function getDeliveryCustomerCycleChartData(Request $request)
+    {
+        $rows = $this->deliveryDashboardFilteredQuery($request)
+            ->orderByDesc('delivery_date')
+            ->limit(8000)
+            ->get();
+
+        $normalizeCycleKey = function ($cycle) {
+            if ($cycle === null || $cycle === '') {
+                return '_other';
+            }
+            return (string) (int) $cycle;
+        };
+
+        $cycleKeys = $rows->map(function (LoadingList $ll) use ($normalizeCycleKey) {
+            return $normalizeCycleKey($ll->cycle);
+        })->unique()->values()->all();
+
+        $cycleMeta = collect($cycleKeys)->map(function ($cycleKey) {
+            if ($cycleKey === '_other') {
+                return [
+                    'cycle_key' => $cycleKey,
+                    'label' => 'Cycle (lainnya)',
+                    'sort' => 9999,
+                ];
+            }
+
+            $n = (int) $cycleKey;
+            return [
+                'cycle_key' => $cycleKey,
+                'label' => 'Cycle ' . $n,
+                'sort' => $n,
+            ];
+        })->sortBy('sort')->values()->all();
+
+        $byCustomerCycle = $rows->groupBy(function (LoadingList $ll) use ($normalizeCycleKey) {
+            $cid = (int) ($ll->customer_id ?? 0);
+            $ck = $normalizeCycleKey($ll->cycle);
+            return $cid . '|' . $ck;
+        });
+
+        $customersGrouped = $rows->groupBy(function (LoadingList $ll) {
+            return (int) ($ll->customer_id ?? 0);
+        });
+
+        $customersPayload = $customersGrouped->map(function ($items, $cid) use ($cycleMeta, $byCustomerCycle) {
+            $first = $items->first();
+            $customerName = optional($first?->customer)->name ?? '-';
+
+            $percentages = [];
+            $completedCounts = [];
+            $totalCounts = [];
+
+            foreach ($cycleMeta as $cycle) {
+                $key = (int) $cid . '|' . $cycle['cycle_key'];
+                $bucket = $byCustomerCycle->get($key, collect());
+
+                $total = $bucket->count();
+                $completed = $bucket->filter(function (LoadingList $ll) {
+                    $tk = (int) ($ll->total_kanban ?? 0);
+                    $ak = (int) ($ll->actual_kanban ?? 0);
+                    return $tk > 0 && $ak >= $tk;
+                })->count();
+
+                $percentage = $total > 0 ? round(($completed / $total) * 100, 1) : 0.0;
+
+                $percentages[] = $percentage;
+                $completedCounts[] = $completed;
+                $totalCounts[] = $total;
+            }
+
+            return [
+                'customer_id' => (int) $cid,
+                'customer_name' => $customerName,
+                'percentages' => $percentages,
+                'completed_loading_lists' => $completedCounts,
+                'total_loading_lists' => $totalCounts,
+            ];
+        })->sortBy('customer_name')->values()->all();
+
+        return response()->json([
+            'cycles' => $cycleMeta,
+            'customers' => $customersPayload,
+            'meta' => [
+                'total_loading_lists' => $rows->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Delivery dashboard: tabel ringkasan per Customer + Tanggal (agregat kanban sama seperti baris monitoring).
+     */
+    public function getDeliveryDashboardData(Request $request)
+    {
+        try {
+            $rows = $this->deliveryDashboardFilteredQuery($request)
+                ->orderByDesc('delivery_date')
+                ->limit(8000)
+                ->get();
+
+            $grouped = $rows->groupBy(function (LoadingList $ll) {
+                return $ll->customer_id . '|' . Carbon::parse($ll->delivery_date)->format('Y-m-d');
+            })->map(function ($loadingLists) {
+                $first = $loadingLists->first();
+                $cid = (int) $first->customer_id;
+                $dateStr = Carbon::parse($first->delivery_date)->format('Y-m-d');
+                $totalKanban = $loadingLists->sum('total_kanban');
+                $actualKanban = $loadingLists->sum('actual_kanban');
+                $rowId = 'cd-' . $cid . '-' . str_replace('-', '', $dateStr);
+
+                return (object) [
+                    'id' => $rowId,
+                    'customer_id' => $cid,
+                    'delivery_date_raw' => $dateStr,
+                    'customer' => $first->customer,
+                    'delivery_date' => $dateStr,
+                    'total_kanban' => $totalKanban,
+                    'actual_kanban' => $actualKanban,
+                ];
+            })->values();
+
+            return DataTables::of($grouped)
+                ->addColumn('customer', function ($group) {
+                    return optional($group->customer)->name ?? '-';
+                })
+                ->addColumn('delivery_date', function ($group) {
+                    return $group->delivery_date;
+                })
+                ->addColumn('progress', function ($group) {
+                    $totalKanban = $group->total_kanban ?? 0;
+                    $actualKanban = $group->actual_kanban ?? 0;
+                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
+
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $statusClass = 'lightgreen';
+                    } elseif ($actualKanban > 0) {
+                        $statusClass = 'orange';
+                    } else {
+                        $statusClass = 'red';
+                    }
+
+                    return '
+                        <div class="text-small font-weight-bold text-muted mb-1 text-center">'
+                            . $actualKanban . ' / ' . $totalKanban .
+                        '</div>
+                        <div class="progress" data-height="20" style="height: 18px;">
+                            <div class="progress-bar" role="progressbar"
+                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
+                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
+                                <small class="text-white font-weight-bold">' . $progressPercentage . '%</small>
+                            </div>
+                        </div>';
+                })
+                ->addColumn('loading_and_status', function ($group) {
+                    $buttonStyle = 'style="min-width: 120px; padding: 8px 12px; font-size: 13px; font-weight: 500; text-align: center; white-space: nowrap;"';
+
+                    $totalKanban = $group->total_kanban ?? 0;
+                    $actualKanban = $group->actual_kanban ?? 0;
+
+                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+                        $statusButton = '<button type="button" class="btn btn-success" ' . $buttonStyle . '>
+                                            <i class="fas fa-check mr-1"></i>
+                                            COMPLETE
+                                        </button>';
+                    } elseif ($actualKanban > 0) {
+                        $statusButton = '<button type="button" class="btn btn-outline-warning" ' . $buttonStyle . '>
+                                            IN PROGRESS
+                                        </button>';
+                    } else {
+                        $statusButton = '<button type="button" class="btn btn-outline-danger" ' . $buttonStyle . '>
+                                            INCOMPLETE
+                                        </button>';
+                    }
+
+                    return '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;">' . $statusButton . '</div>';
+                })
+                ->setRowId(function ($group) {
+                    return 'row-' . $group->id;
+                })
+                ->rawColumns(['loading_and_status', 'progress', 'customer'])
+                ->make(true);
+        } catch (\Exception $e) {
+            return response()->json([
+                'draw' => request()->get('draw', 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unable to load data: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Dashboard: progress per cycle (customer + delivery date), same data source as loading list monitoring.
+     */
+    public function dashboardDelivery()
+    {
+        return view('pages.dashboard_delivery', [
+            'customers' => Customer::query()->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function getMasterCycles()
+    {
+        $rows = MasterCycle::query()
+            ->with(['customer:id,name'])
+            ->orderBy('time')
+            ->orderBy('cycle_name')
+            ->get()
+            ->map(function (MasterCycle $m) {
+                return [
+                    'id' => $m->id,
+                    'customer_id' => $m->customer_id,
+                    'customer_name' => optional($m->customer)->name,
+                    'cycle_name' => $m->cycle_name,
+                    'time' => Carbon::parse($m->time)->format('H:i'),
+                ];
+            });
+
+        return response()->json(['data' => $rows]);
+    }
+
+    public function getMasterCycleOptions(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $loadingLists = LoadingList::query()
+            ->where('customer_id', $validated['customer_id'])
+            ->orderByDesc('created_at')
+            ->limit(1000)
+            ->get(['id', 'number', 'cycle', 'customer_id']);
+
+        $cycles = $loadingLists
+            ->pluck('cycle')
+            ->filter(fn ($c) => $c !== null && $c !== '')
+            ->map(fn ($c) => trim((string) $c))
+            ->unique()
+            ->sort()
+            ->values();
+
+        return response()->json([
+            'loading_lists' => $loadingLists->map(function (LoadingList $ll) {
+                return [
+                    'id' => $ll->id,
+                    'number' => $ll->number,
+                    'cycle' => $ll->cycle,
+                ];
+            }),
+            'cycles' => $cycles,
+        ]);
+    }
+
+    public function storeMasterCycle(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'cycle_name' => 'required|string|max:120',
+            'time' => 'required|date_format:H:i',
+        ]);
+
+        $validated['cycle_name'] = trim($validated['cycle_name']);
+
+        $exists = MasterCycle::query()
+            ->where('customer_id', $validated['customer_id'])
+            ->whereRaw('LOWER(cycle_name) = ?', [Str::lower($validated['cycle_name'])])
+            ->exists();
+        if ($exists) {
+            return response()->json([
+                'message' => 'Kombinasi customer dan cycle sudah ada.',
+            ], 422);
+        }
+
+        $row = MasterCycle::create($validated);
+
+        return response()->json([
+            'message' => 'Master cycle tersimpan.',
+            'data' => $row->load(['customer:id,name']),
+        ], 201);
+    }
+
+    public function updateMasterCycle(Request $request, MasterCycle $masterCycle)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'cycle_name' => 'required|string|max:120',
+            'time' => 'required|date_format:H:i',
+        ]);
+
+        $validated['cycle_name'] = trim($validated['cycle_name']);
+
+        $exists = MasterCycle::query()
+            ->where('customer_id', $validated['customer_id'])
+            ->whereRaw('LOWER(cycle_name) = ?', [Str::lower($validated['cycle_name'])])
+            ->where('id', '!=', $masterCycle->id)
+            ->exists();
+        if ($exists) {
+            return response()->json([
+                'message' => 'Kombinasi customer dan cycle sudah ada.',
+            ], 422);
+        }
+
+        $masterCycle->update($validated);
+
+        return response()->json([
+            'message' => 'Master cycle diperbarui.',
+            'data' => $masterCycle->fresh(['customer:id,name']),
+        ]);
+    }
+
+    public function destroyMasterCycle(MasterCycle $masterCycle)
+    {
+        $masterCycle->delete();
+
+        return response()->json(['message' => 'Master cycle dihapus.']);
+    }
+
+    /**
+     * Stacked bar chart: agregat loading list per customer + cycle.
+     * Mapping cycle bersifat per-row berdasarkan:
+     * 1) loading_lists.cycle ↔ master_cycles.cycle_name (customer yang sama),
+     * 2) jika tidak cocok, tetap pakai label cycle dari loading list tanpa fallback waktu terdekat.
+     * Filter tanggal menggunakan delivery_date agar sesuai tanggal kirim pada loading list.
+     */
+    public function getDeliveryStackedChartData(Request $request)
+    {
+        if ($request->input('date') === '') {
+            $request->merge(['date' => null]);
+        }
+        if ($request->input('delivery_date') === '') {
+            $request->merge(['delivery_date' => null]);
+        }
+        if ($request->input('customer_id') === '') {
+            $request->merge(['customer_id' => null]);
+        }
+        if ($request->input('customer') === '') {
+            $request->merge(['customer' => null]);
+        }
+        if ($request->input('cycle') === '') {
+            $request->merge(['cycle' => null]);
+        }
+
+        $validated = $request->validate([
+            'date' => 'nullable|date',
+            'delivery_date' => 'nullable|date',
+            'customer_id' => 'nullable|exists:customers,id',
+            'customer' => 'nullable|string',
+            'cycle' => 'nullable|string',
+        ]);
+
+        // Gunakan sumber data dan filter yang sama dengan getLoadingList.
+        $baseQuery = LoadingList::with(['customer'])
+            ->withSum('detail as total_kanban', 'kanban_qty')
+            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+            ->whereNotNull('customer_id')
+            ->latest();
+
+        if ($request->filled('customer')) {
+            $customerName = trim((string) $request->get('customer'));
+            $baseQuery->whereHas('customer', function ($q) use ($customerName) {
+                $q->where('name', $customerName);
+            });
+        }
+
+        if (! empty($validated['customer_id'] ?? null)) {
+            $baseQuery->where('customer_id', (int) $validated['customer_id']);
+        }
+
+        if ($request->filled('cycle')) {
+            $cycleRaw = trim((string) $request->get('cycle'));
+            $cycleNumber = null;
+            if (preg_match('/\d+/', $cycleRaw, $m)) {
+                $cycleNumber = $m[0];
+            }
+
+            $baseQuery->where(function ($q) use ($cycleRaw, $cycleNumber) {
+                $q->where('cycle', $cycleRaw);
+                if ($cycleNumber !== null) {
+                    $q->orWhere('cycle', $cycleNumber)
+                        ->orWhere('cycle', 'Cycle '.$cycleNumber)
+                        ->orWhere('cycle', 'cycle '.$cycleNumber);
+                }
+            });
+        }
+
+        $dateFilter = $validated['delivery_date'] ?? ($validated['date'] ?? null);
+        if (! empty($dateFilter)) {
+            $start = Carbon::parse($dateFilter)->startOfDay();
+            $end = (clone $start)->endOfDay();
+            $baseQuery->whereBetween('delivery_date', [$start, $end]);
+        }
+
+        $hasSpecificFilter = $request->filled('customer')
+            || ! empty($validated['customer_id'] ?? null)
+            || $request->filled('cycle')
+            || ! empty($dateFilter);
+
+        // Saat mode "Semua", jangan dibatasi agar hasil konsisten dengan data aktual.
+        $rowLimit = $hasSpecificFilter ? 50000 : null;
+
+        $rawLists = (clone $baseQuery)
+            ->when($rowLimit !== null, function ($q) use ($rowLimit) {
+                $q->take($rowLimit);
+            })
+            ->get();
+
+        $groupedData = $rawLists
+            ->groupBy('pds_number')
+            ->map(function ($loadingLists, $pdsNumber) {
+                /** @var LoadingList $firstLoadingList */
+                $firstLoadingList = $loadingLists->first();
+                $totalKanban = (int) $loadingLists->sum('total_kanban');
+                $actualKanban = (int) $loadingLists->sum('actual_kanban');
+                $cycle = $loadingLists->groupBy('cycle')->sortByDesc(function ($items) {
+                    return $items->count();
+                })->keys()->first();
+
+                return (object) [
+                    'id' => 'pds-'.$pdsNumber,
+                    'pds_number' => $pdsNumber,
+                    'customer' => $firstLoadingList->customer,
+                    'customer_id' => (int) $firstLoadingList->customer_id,
+                    'cycle' => $this->normalizeCycleNumber($cycle),
+                    'delivery_date' => $loadingLists->min('delivery_date'),
+                    'total_kanban' => $totalKanban,
+                    'actual_kanban' => $actualKanban,
+                    'is_complete' => $totalKanban > 0 && $actualKanban >= $totalKanban,
+                ];
+            })
+            ->values();
+
+        $masters = MasterCycle::query()
+            ->with(['customer:id,name'])
+            ->when(! empty($validated['customer_id'] ?? null), function ($q) use ($validated) {
+                $q->where('customer_id', (int) $validated['customer_id']);
+            })
+            ->orderBy('time')
+            ->orderBy('cycle_name')
+            ->get();
+
+        $masterMeta = $masters->map(function (MasterCycle $m) {
+            return [
+                'id' => $m->id,
+                'customer_id' => (int) $m->customer_id,
+                'cycle_name' => $this->normalizeCycleNumber($m->cycle_name),
+                'time' => Carbon::parse($m->time)->format('H:i'),
+            ];
+        });
+
+        $rows = $groupedData
+            ->groupBy(function ($pds) {
+                return $pds->customer_id.'|'.$pds->cycle;
+            })
+            ->map(function ($pdsGroup) use ($masterMeta) {
+                $first = $pdsGroup->first();
+                $master = $masterMeta->first(function (array $m) use ($first) {
+                    return $m['customer_id'] === (int) $first->customer_id
+                        && $m['cycle_name'] === (string) $first->cycle;
+                });
+
+                $llCount = $pdsGroup->count();
+                $completeCount = $pdsGroup->where('is_complete', true)->count();
+                $totalTarget = (int) $pdsGroup->sum('total_kanban');
+                $totalDone = (int) $pdsGroup->sum('actual_kanban');
+                $progressPct = $llCount > 0
+                    ? round(($completeCount / $llCount) * 100, 1)
+                    : 0.0;
+
+                return [
+                    'customer_id' => (int) $first->customer_id,
+                    'customer_name' => optional($first->customer)->name ?? '-',
+                    'master_cycle_id' => $master['id'] ?? null,
+                    'cycle_name' => (string) $first->cycle,
+                    'cycle_time' => $master['time'] ?? '06:00',
+                    'mapping_source' => $master ? 'master_cycle_name' : 'loading_list_only',
+                    'on_time' => $completeCount,
+                    'delay' => $llCount - $completeCount,
+                    'no_order' => $pdsGroup->filter(function ($p) {
+                        return (int) $p->total_kanban === 0;
+                    })->count(),
+                    'total_target' => $totalTarget,
+                    'total_done' => $totalDone,
+                    'll_count' => $llCount,
+                    'progress_pct_raw' => $progressPct,
+                    'progress_pct' => min(100.0, max(0.0, $progressPct)),
+                ];
+            })
+            ->sortBy([
+                ['customer_name', 'asc'],
+                ['cycle_time', 'asc'],
+            ])
+            ->values()
+            ->all();
+
+        $hint = null;
+        if ($groupedData->isEmpty()) {
+            $hint = 'Tidak ada loading list untuk filter ini. Samakan filter dengan halaman loading list.';
+        }
+
+        return response()->json([
+            'rows' => $rows,
+            'master_cycles' => $masters->map(function (MasterCycle $m) {
+                return [
+                    'id' => $m->id,
+                    'customer_id' => $m->customer_id,
+                    'customer_name' => optional($m->customer)->name,
+                    'cycle_name' => $m->cycle_name,
+                    'time' => Carbon::parse($m->time)->format('H:i'),
+                ];
+            }),
+            'meta' => [
+                'total_loading_lists' => $groupedData->count(),
+                'total_buckets' => count($rows),
+                'master_cycle_count' => $masters->count(),
+                'date_filter' => $dateFilter,
+                'row_limit' => $rowLimit,
+                'raw_rows_loaded' => $rawLists->count(),
+                'pds_grouped_count' => $groupedData->count(),
+                'customer_cycle_bucket_count' => count($rows),
+                'is_truncated' => $rowLimit !== null ? ($rawLists->count() >= $rowLimit) : false,
+                'hint' => $hint,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $masterMeta
+     * @return array{
+     *   bucket_key: string,
+     *   customer_cycle_key: string,
+     *   master_cycle_id: int|null,
+     *   cycle_name: string,
+     *   cycle_time: string,
+     *   mapping_source: string
+     * }
+     */
+    private function resolveCycleBucketForLoadingList($ll, $masterMeta): array
+    {
+        $cid = (int) $ll->customer_id;
+        $llCycleRaw = $ll->cycle;
+
+        $candidates = $masterMeta->filter(function (array $m) use ($cid) {
+            return $m['customer_id'] === $cid;
+        })->values();
+
+        $matchedByName = null;
+        foreach ($candidates as $m) {
+            if ($this->cycleLabelMatchesMaster($m['cycle_name'], $llCycleRaw)) {
+                $matchedByName = $m;
+
+                break;
+            }
+        }
+
+        if ($matchedByName !== null) {
+            $cycleKey = $cid.'_c_'.md5((string) $matchedByName['cycle_name']);
+            return [
+                'bucket_key' => $cycleKey,
+                'customer_cycle_key' => $cycleKey,
+                'master_cycle_id' => $matchedByName['id'],
+                'cycle_name' => $matchedByName['cycle_name'],
+                'cycle_time' => $matchedByName['time'],
+                'mapping_source' => 'master_cycle_name',
+            ];
+        }
+
+        $cycleLabel = ($llCycleRaw !== null && $llCycleRaw !== '') ? (string) $llCycleRaw : '(tanpa cycle)';
+        $vk = $cid.'_c_'.md5($cycleLabel);
+
+        return [
+            'bucket_key' => $vk,
+            'customer_cycle_key' => $vk,
+            'master_cycle_id' => null,
+            'cycle_name' => $cycleLabel,
+            'cycle_time' => '06:00',
+            'mapping_source' => 'loading_list_only',
+        ];
+    }
+
+    private function normalizeCycleNumber($cycle): string
+    {
+        $raw = trim((string) ($cycle ?? ''));
+        if ($raw === '') {
+            return '(tanpa cycle)';
+        }
+
+        if (preg_match('/\d+/', $raw, $m)) {
+            return (string) ((int) $m[0]);
+        }
+
+        return $raw;
+    }
+
+    private function cycleLabelMatchesMaster(string $masterCycleName, $loadingListCycle): bool
+    {
+        $ll = $loadingListCycle === null ? '' : trim((string) $loadingListCycle);
+        $m = trim($masterCycleName);
+
+        if ($ll === '' && $m === '') {
+            return true;
+        }
+        if ($ll !== '' && strcasecmp($m, $ll) === 0) {
+            return true;
+        }
+
+        $digitsLl = preg_replace('/\D/', '', $ll);
+        $digitsM = preg_replace('/\D/', '', $m);
+        if ($digitsLl !== '' && $digitsM !== '' && $digitsLl === $digitsM) {
+            return true;
+        }
+
+        $dn = preg_replace('/\s+/u', ' ', Str::lower($ll));
+        $mn = preg_replace('/\s+/u', ' ', Str::lower($m));
+
+        return $dn !== '' && $dn === $mn;
+    }
+
+    private function timeOfDayToMinutes($value): int
+    {
+        $c = Carbon::parse($value);
+
+        return ($c->hour * 60) + $c->minute;
+    }
+
+    /**
+     * JSON for bar chart: per-cycle completion = (jumlah LL selesai) / (total LL dalam cycle) × 100.
+     * Satu LL dianggap selesai jika total_kanban > 0 dan actual_kanban >= total_kanban (sama logika status COMPLETE di loading list).
+     */
+    public function getDeliveryCycleProgress(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'delivery_date' => 'required|date',
+        ]);
+
+        $start = Carbon::parse($validated['delivery_date'])->startOfDay();
+        $end = (clone $start)->endOfDay();
+
+        $loadingLists = LoadingList::query()
+            ->where('customer_id', $validated['customer_id'])
+            ->whereBetween('delivery_date', [$start, $end])
+            ->withSum('detail as total_kanban', 'kanban_qty')
+            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+            ->get();
+
+        $cycles = $this->aggregateCyclesFromLoadingLists($loadingLists);
+
+        return response()->json([
+            'cycles' => $cycles,
+            'meta' => [
+                'customer_id' => (int) $validated['customer_id'],
+                'delivery_date' => $start->toDateString(),
+                'total_rows' => $loadingLists->count(),
+            ],
         ]);
     }
 

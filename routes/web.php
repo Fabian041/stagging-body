@@ -160,6 +160,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/production/board/state', [DashboardController::class, 'prodBoardState']);
 
         // datatable
+        Route::get('/delivery', [LoadingListController::class, 'dashboardDelivery'])->name('dashboard.delivery');
+        Route::get('/delivery/data', [LoadingListController::class, 'getDeliveryDashboardData'])->name('dashboard.delivery.data');
+        Route::get('/delivery/chart-data', [LoadingListController::class, 'getDeliveryCycleChartByFilters'])->name('dashboard.delivery.chartData');
+        Route::get('/delivery/customer-cycle-chart', [LoadingListController::class, 'getDeliveryCustomerCycleChartData'])->name('dashboard.delivery.customerCycleChartData');
+        Route::get('/delivery/cycle-progress', [LoadingListController::class, 'getDeliveryCycleProgress'])->name('dashboard.delivery.cycleProgress');
+        Route::get('/delivery/stacked-chart', [LoadingListController::class, 'getDeliveryStackedChartData'])->name('dashboard.delivery.stackedChart');
+        Route::get('/delivery/master-cycles', [LoadingListController::class, 'getMasterCycles'])->name('dashboard.delivery.masterCycles.index');
+        Route::post('/delivery/master-cycles', [LoadingListController::class, 'storeMasterCycle'])->name('dashboard.delivery.masterCycles.store');
+        Route::put('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'updateMasterCycle'])->name('dashboard.delivery.masterCycles.update');
+        Route::delete('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'destroyMasterCycle'])->name('dashboard.delivery.masterCycles.destroy');
+
         Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');
         Route::get('/getLoadingListDetail/{loadingList}', [LoadingListController::class, 'getLoadingListDetail'])->name('dashboard.getLoadingListDetail');
 
