@@ -19,7 +19,7 @@
 
             {{-- PPIC Submenu --}}
             <li
-                class="nav-item dropdown {{ request()->is('dashboard/receiving*') || request()->is('dashboard/production/landing') || request()->is('loading-list') || request()->is('loading-list/*') || request()->is('pulling/manual') ? 'active' : '' }}">
+                class="nav-item dropdown {{ request()->is('dashboard/receiving*') || request()->is('dashboard/production/landing') || request()->is('dashboard/delivery') || request()->is('loading-list') || request()->is('loading-list/*') || request()->is('pulling/manual') ? 'active' : '' }}">
                 <a href="#" class="nav-link has-dropdown"><i class="fas fa-warehouse"></i> <span>PPIC</span></a>
                 <ul class="dropdown-menu">
                     <li class="{{ request()->is('dashboard/production/landing') ? 'active' : '' }}">
@@ -32,6 +32,12 @@
                         <a class="nav-link" href="{{ route('loadingList.index') }}">
                             <i class="fas fa-truck-loading"></i>
                             <span>Delivery</span>
+                        </a>
+                    </li>
+                    <li class="{{ request()->is('dashboard/delivery') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('dashboard.delivery') }}">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Daily Monitoring</span>
                         </a>
                     </li>
                     <li class="{{ request()->is('pulling/manual') ? 'active' : '' }}">
