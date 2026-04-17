@@ -1430,6 +1430,12 @@ class LoadingListController extends Controller
         if ($request->input('delivery_date') === '') {
             $request->merge(['delivery_date' => null]);
         }
+        if ($request->input('date_from') === '') {
+            $request->merge(['date_from' => null]);
+        }
+        if ($request->input('date_to') === '') {
+            $request->merge(['date_to' => null]);
+        }
         if ($request->input('customer_id') === '') {
             $request->merge(['customer_id' => null]);
         }
@@ -1443,6 +1449,8 @@ class LoadingListController extends Controller
         $validated = $request->validate([
             'date' => 'nullable|date',
             'delivery_date' => 'nullable|date',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
             'customer_id' => 'nullable|exists:customers,id',
             'customer' => 'nullable|string',
             'cycle' => 'nullable|string',
@@ -1483,16 +1491,39 @@ class LoadingListController extends Controller
             });
         }
 
+        $dateFrom = $validated['date_from'] ?? null;
+        $dateTo = $validated['date_to'] ?? null;
         $dateFilter = $validated['delivery_date'] ?? ($validated['date'] ?? null);
-        if (! empty($dateFilter)) {
-            $start = Carbon::parse($dateFilter)->startOfDay();
-            $end = (clone $start)->endOfDay();
-            $baseQuery->whereBetween('delivery_date', [$start, $end]);
+
+        // Backward compatible: jika range kosong, fallback ke filter single-date lama.
+        if (empty($dateFrom) && empty($dateTo) && ! empty($dateFilter)) {
+            $dateFrom = $dateFilter;
+            $dateTo = $dateFilter;
+        }
+
+        if (! empty($dateFrom) || ! empty($dateTo)) {
+            $start = ! empty($dateFrom) ? Carbon::parse($dateFrom)->startOfDay() : null;
+            $end = ! empty($dateTo) ? Carbon::parse($dateTo)->endOfDay() : null;
+
+            // Jika user terbalik isi from/to, tukar agar tetap valid sebagai rentang.
+            if ($start && $end && $start->gt($end)) {
+                [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+            }
+
+            if ($start && $end) {
+                $baseQuery->whereBetween('delivery_date', [$start, $end]);
+            } elseif ($start) {
+                $baseQuery->where('delivery_date', '>=', $start);
+            } elseif ($end) {
+                $baseQuery->where('delivery_date', '<=', $end);
+            }
         }
 
         $hasSpecificFilter = $request->filled('customer')
             || ! empty($validated['customer_id'] ?? null)
             || $request->filled('cycle')
+            || ! empty($dateFrom)
+            || ! empty($dateTo)
             || ! empty($dateFilter);
 
         // Saat mode "Semua", jangan dibatasi agar hasil konsisten dengan data aktual.

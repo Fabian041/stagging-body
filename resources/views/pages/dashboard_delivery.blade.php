@@ -153,6 +153,35 @@
             box-shadow: 0 0 2px rgba(255, 0, 0, 0.35);
         }
 
+        .gantt-window-fill {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background: color-mix(in srgb, var(--dm-pink) 55%, transparent);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .gantt-truck-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .gantt-truck-line {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            transform: translateX(-50%);
+            background: #6f42c1;
+            box-shadow: 0 0 2px rgba(111, 66, 193, 0.4);
+        }
+
         .gantt-now-label {
             position: absolute;
             left: 0;
@@ -161,6 +190,21 @@
             font-size: 9px;
             line-height: 1.2;
             background: #ff0000;
+            color: #fff;
+            padding: 1px 5px;
+            border-radius: 2px;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .gantt-truck-label {
+            position: absolute;
+            left: 0;
+            top: -15px;
+            transform: translateX(-50%);
+            font-size: 9px;
+            line-height: 1.2;
+            background: #6f42c1;
             color: #fff;
             padding: 1px 5px;
             border-radius: 2px;
@@ -238,8 +282,12 @@
                         <div class="tab-pane fade show active" id="pane-chart" role="tabpanel">
                             <form class="form-inline flex-wrap align-items-end mb-2" id="chartFilterForm" onsubmit="return false;" style="gap: 8px;">
                                 <div class="mb-2 mb-sm-0">
-                                    <label class="mb-0 mr-1 d-block" style="font-size: 11px;">Delivery date <span class="text-muted font-weight-normal">(kosong = semua)</span></label>
-                                    <input type="date" class="form-control form-control-sm" id="filterDate" name="date" title="Kosongkan untuk mengambil semua tanggal (maks. 10.000 baris)">
+                                    <label class="mb-0 mr-1 d-block" style="font-size: 11px;">Delivery date dari</label>
+                                    <input type="date" class="form-control form-control-sm" id="filterDateFrom" name="date_from" title="Tanggal awal delivery">
+                                </div>
+                                <div class="mb-2 mb-sm-0">
+                                    <label class="mb-0 mr-1 d-block" style="font-size: 11px;">sampai</label>
+                                    <input type="date" class="form-control form-control-sm" id="filterDateTo" name="date_to" title="Tanggal akhir delivery (kosong = tanggal awal)">
                                 </div>
                                 <div class="mb-2 mb-sm-0">
                                     <label class="mb-0 mr-1 d-block" style="font-size: 11px;">Customer</label>
@@ -408,15 +456,46 @@
                 return Math.max(0, Math.min(100, (fr / 24) * 100));
             }
 
+            function getTruckArrivalLeftPct() {
+                var d = new Date();
+                d.setHours(d.getHours() + 4);
+                var hour = d.getHours();
+                var minute = d.getMinutes();
+                var second = d.getSeconds();
+                var v = hour + minute / 60 + second / 3600;
+                if (v < 6) {
+                    v += 24;
+                }
+                var fr = v - 6;
+                return Math.max(0, Math.min(100, (fr / 24) * 100));
+            }
+
             function updateGanttNowMarkers() {
-                var pct = getNowLeftPct();
-                var lbl = new Date().toLocaleTimeString('id-ID', {
+                var nowPct = getNowLeftPct();
+                var truckPct = getTruckArrivalLeftPct();
+                var nowLbl = new Date().toLocaleTimeString('id-ID', {
                     hour: '2-digit',
                     minute: '2-digit',
                     second: '2-digit'
                 });
-                $('#ganttContainer .gantt-now-marker').css('left', pct + '%');
-                $('#ganttContainer .gantt-now-label').text(lbl);
+                var truckDate = new Date();
+                truckDate.setHours(truckDate.getHours() + 4);
+                var truckLbl = truckDate.toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                var fillLeft = Math.min(nowPct, truckPct);
+                var fillWidth = Math.abs(truckPct - nowPct);
+
+                $('#ganttContainer .gantt-now-marker').css('left', nowPct + '%');
+                $('#ganttContainer .gantt-now-label').text(nowLbl);
+                $('#ganttContainer .gantt-truck-marker').css('left', truckPct + '%');
+                $('#ganttContainer .gantt-truck-label').text('ETA Truck ' + truckLbl);
+                $('#ganttContainer .gantt-window-fill').css({
+                    left: fillLeft + '%',
+                    width: fillWidth + '%'
+                });
             }
 
             function timeToMinutes(t) {
@@ -544,10 +623,21 @@
                     minute: '2-digit',
                     second: '2-digit'
                 });
+                var truckPct = getTruckArrivalLeftPct();
+                var truckDate = new Date();
+                truckDate.setHours(truckDate.getHours() + 4);
+                var truckLbl = truckDate.toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                var fillLeft = Math.min(nowPct, truckPct);
+                var fillWidth = Math.abs(truckPct - nowPct);
 
                 chartCustomerOrder.forEach(function (cust, custIdx) {
                     html += '<tr><td class="gantt-sticky-col">' + escapeHtml(cust) + '</td>';
                     html += '<td class="gantt-track-cell" colspan="24"><div class="gantt-track">';
+                    html += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' + fillWidth + '%"></div>';
 
                     var buckets = chartMergedByCustTime.filter(function (m) {
                         return m.customer_name === cust;
@@ -564,12 +654,14 @@
                         var progressWidth = Math.max(0, Math.min(100, row.progress_pct || 0));
                         var barClass = progressWidth < 100 ? 'delay' : 'ontime';
                         var tip = buildGanttTooltip(row).replace(/"/g, '&quot;');
-                        var dateVal = $('#filterDate').val() || '';
+                        var dateFromVal = $('#filterDateFrom').val() || '';
+                        var dateToVal = $('#filterDateTo').val() || '';
                         var barTitle = tip + ' — Klik untuk buka Loading List';
                         html += '<div class="gantt-bar-wrap" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
-                        html += ' data-delivery-date="' + escapeAttr(dateVal) + '">';
+                        html += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
+                        html += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
                         html += '<div class="gantt-bar-stack">';
                         html += '<span class="gantt-seg ' + barClass + '" style="width:' + progressWidth + '%"></span>';
                         html += '</div></div>';
@@ -580,6 +672,11 @@
                         html += '<span class="gantt-now-label">' + escapeHtml(nowLbl) + '</span>';
                     }
                     html += '<div class="gantt-now-line"></div></div>';
+                    html += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
+                    if (custIdx === 0) {
+                        html += '<span class="gantt-truck-label">Kedatangan truk ' + escapeHtml(truckLbl) + '</span>';
+                    }
+                    html += '<div class="gantt-truck-line"></div></div>';
 
                     html += '</div></td></tr>';
                 });
@@ -596,7 +693,8 @@
                 e.stopPropagation();
                 var customer = $(this).attr('data-customer-name') || '';
                 var cycle = $(this).attr('data-cycle') || '';
-                var deliveryDate = $(this).attr('data-delivery-date') || '';
+                var deliveryDateFrom = $(this).attr('data-delivery-date-from') || '';
+                var deliveryDateTo = $(this).attr('data-delivery-date-to') || '';
                 var params = new URLSearchParams();
                 if (customer) {
                     params.set('customer', customer);
@@ -604,16 +702,24 @@
                 if (cycle) {
                     params.set('cycle', cycle);
                 }
-                if (deliveryDate) {
-                    params.set('delivery_date', deliveryDate);
+                if (deliveryDateFrom) {
+                    params.set('delivery_date_from', deliveryDateFrom);
+                    params.set('delivery_date', deliveryDateFrom);
+                }
+                if (deliveryDateTo) {
+                    params.set('delivery_date_to', deliveryDateTo);
                 }
                 var qs = params.toString();
                 window.location.href = loadingListUrl + (qs ? '?' + qs : '');
             });
 
             function loadStackedChart() {
+                var dateFrom = $('#filterDateFrom').val() || '';
+                var dateTo = $('#filterDateTo').val() || '';
                 var params = {
-                    date: $('#filterDate').val() || '',
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                    date: dateFrom,
                     customer_id: $('#filterCustomer').val() || ''
                 };
 
@@ -650,11 +756,13 @@
             }
 
             $('#btnReloadChart').on('click', loadStackedChart);
-            $('#filterDate, #filterCustomer').on('change', loadStackedChart);
+            $('#filterDateFrom, #filterDateTo, #filterCustomer').on('change', loadStackedChart);
 
             // Default ke tanggal hari ini agar tidak langsung menarik seluruh data historis.
-            if (!$('#filterDate').val()) {
-                $('#filterDate').val(new Date().toISOString().slice(0, 10));
+            if (!$('#filterDateFrom').val()) {
+                var today = new Date().toISOString().slice(0, 10);
+                $('#filterDateFrom').val(today);
+                $('#filterDateTo').val(today);
             }
 
             function renderMasterTable(rows) {
