@@ -12,14 +12,17 @@
         <div class="col-12 col-md-6">
             <div class="card card-primary shadow-sm" style="border-radius: 12px;">
                 <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-warehouse mr-2"></i>PPIC</h4>
-                    <p class="text-muted mb-4">Akses menu Production Plan, Delivery, dan Kanban Reset.</p>
+                    <h4 class="mb-2"><i class="fas fa-warehouse mr-2"></i>PPIC - Delivery</h4>
+                    <p class="text-muted mb-4">Akses menu Preparation Monitoring, Preparation Detail, dan Kanban Reset.</p>
                     <div class="d-flex flex-wrap" style="gap: 10px;">
-                        <a href="{{ route('board.landing') }}" class="btn btn-primary">
+                        <!-- <a href="{{ route('board.landing') }}" class="btn btn-primary">
                             <i class="fas fa-calendar-alt mr-1"></i> Production Plan
+                        </a> -->
+                        <a href="{{ route('dashboard.delivery') }}" class="btn btn-primary">
+                            <i class="fas fa-truck-loading mr-1"></i> Preparation Monitoring
                         </a>
                         <a href="{{ route('loadingList.index') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-truck-loading mr-1"></i> Delivery
+                            <i class="fas fa-truck-loading mr-1"></i> Preparation Detail 
                         </a>
                         <a href="{{ route('pulling.manual') }}" class="btn btn-outline-primary">
                             <i class="fas fa-sync-alt mr-1"></i> Kanban Reset
@@ -55,8 +58,8 @@
         <div class="col-12 col-md-6">
             <div class="card card-warning shadow-sm" style="border-radius: 12px;">
                 <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-qrcode mr-2"></i>Packing - PIS</h4>
-                    <p class="text-muted mb-4">Akses menu Scanning, Scan List, dan Master Data.</p>
+                    <h4 class="mb-2"><i class="fas fa-qrcode mr-2"></i>PPIC - Packing</h4>
+                    <p class="text-muted mb-4">Akses menu Scanning, Scan List, dan Master Data PIS.</p>
                     <div class="d-flex flex-wrap" style="gap: 10px;">
                         <a href="{{ route('pis.index') }}" class="btn btn-warning">
                             <i class="fas fa-barcode mr-1"></i> Scanning
