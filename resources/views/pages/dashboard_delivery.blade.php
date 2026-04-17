@@ -209,11 +209,14 @@
     <div class="row delivery-dash">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap">
-                    <div>
-                        <h3 class="mb-0" style="font-size: 32px;">Daily Monitoring Delivery</h3>
+                <div class="card-header py-2 d-flex align-items-center flex-wrap">
+                    <div class="flex-grow-1" aria-hidden="true"></div>
+                    <div class="text-center px-2">
+                        <h3 class="mb-0" style="font-size: 32px;">
+                            Daily Monitoring Delivery
+                        </h3>
                     </div>
-                    <div class="text-right mt-2 mt-md-0 pl-md-3">
+                    <div class="flex-grow-1 text-right mt-2 mt-md-0 pl-md-3">
                         <span class="text-muted d-block" style="font-size: 10px;">Waktu lokal</span>
                         <span id="deliveryDashLiveTime" class="font-weight-bold text-danger" style="font-size: 14px; font-variant-numeric: tabular-nums;">--:--:--</span>
                     </div>
@@ -221,7 +224,7 @@
                 <div class="card-body p-2">
                     <ul class="nav nav-tabs" role="tablist">
                         <li class="nav-item">
-                            <a class="nav-link active" data-toggle="tab" href="#pane-chart" role="tab">Gantt Chart</a>
+                            <a class="nav-link active" data-toggle="tab" href="#pane-chart" role="tab">Dashboard</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" data-toggle="tab" href="#pane-master" role="tab">Master Cycle</a>
@@ -264,22 +267,7 @@
                         <div class="tab-pane fade" id="pane-master" role="tabpanel">
                             <form id="masterCycleForm" class="mb-3">
                                 <div class="form-row align-items-end">
-                                    <div class="col-md-3 mb-2">
-                                        <label class="mb-1" style="font-size: 11px;">Nama cycle</label>
-                        <select class="form-control form-control-sm" id="mcycleName" required>
-                            <option value="" selected disabled>Pilih cycle</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                        </select>
-                                    </div>
-                                    <div class="col-md-2 mb-2">
-                                        <label class="mb-1" style="font-size: 11px;">Waktu (referensi)</label>
-                                        <input type="time" class="form-control form-control-sm" id="mcycleTime" required step="60">
-                                    </div>
-                                    <div class="col-md-4 mb-2">
+                                       <div class="col-md-4 mb-2">
                                         <label class="mb-1" style="font-size: 11px;">Customer</label>
                                         <select class="form-control form-control-sm" id="mcycleCustomerId" required>
                                             <option value="">Pilih customer</option>
@@ -287,6 +275,21 @@
                                                 <option value="{{ $c->id }}">{{ $c->name }}</option>
                                             @endforeach
                                         </select>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="mb-1" style="font-size: 11px;">Nama cycle</label>
+                                        <select class="form-control form-control-sm" id="mcycleName" required>
+                                            <option value="" selected disabled>Pilih cycle</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="mb-1" style="font-size: 11px;">Waktu (referensi)</label>
+                                        <input type="time" class="form-control form-control-sm" id="mcycleTime" required step="60">
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <button type="submit" class="btn btn-sm btn-success" id="btnMasterSave">Simpan</button>
