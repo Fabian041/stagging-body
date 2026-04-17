@@ -16,39 +16,16 @@
                     <p class="text-muted mb-4">Akses menu Preparation Monitoring, Preparation Detail, dan Kanban Reset.</p>
                     <div class="d-flex flex-wrap" style="gap: 10px;">
                         <!-- <a href="{{ route('board.landing') }}" class="btn btn-primary">
-                            <i class="fas fa-calendar-alt mr-1"></i> Production Plan
-                        </a> -->
+                                <i class="fas fa-calendar-alt mr-1"></i> Production Plan
+                            </a> -->
                         <a href="{{ route('dashboard.delivery') }}" class="btn btn-primary">
                             <i class="fas fa-truck-loading mr-1"></i> Preparation Monitoring
                         </a>
                         <a href="{{ route('loadingList.index') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-truck-loading mr-1"></i> Preparation Detail 
+                            <i class="fas fa-truck-loading mr-1"></i> Preparation Detail
                         </a>
                         <a href="{{ route('pulling.manual') }}" class="btn btn-outline-primary">
                             <i class="fas fa-sync-alt mr-1"></i> Kanban Reset
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-md-6">
-            <div class="card card-info shadow-sm" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-industry mr-2"></i>Production</h4>
-                    <p class="text-muted mb-4">Akses menu Production Stock, Check Kanban, dan Production Result.</p>
-                    <div class="d-flex flex-wrap" style="gap: 10px;">
-                        <a href="{{ route('dashboard.productionStock') }}" class="btn btn-info">
-                            <i class="fas fa-box mr-1"></i> Production Stock
-                        </a>
-                        <a href="{{ route('dashboard.kbnCheck') }}" class="btn btn-outline-info">
-                            <i class="fas fa-clipboard-list mr-1"></i> Check Kanban
-                        </a>
-                        <a href="{{ route('dashboard.partCheck') }}" class="btn btn-outline-info">
-                            <i class="fas fa-check-square mr-1"></i> Check Part
-                        </a>
-                        <a href="{{ route('dashboard.prodResult') }}" class="btn btn-outline-info">
-                            <i class="fas fa-chart-line mr-1"></i> Production Result
                         </a>
                     </div>
                 </div>
@@ -68,8 +45,8 @@
                             <i class="fas fa-list-alt mr-1"></i> Scan List
                         </a>
                         <!-- <a href="{{ route('pis.packing') }}" class="btn btn-outline-warning">
-                                                            <i class="fas fa-box mr-1"></i> Packing
-                                                        </a> -->
+                                                                <i class="fas fa-box mr-1"></i> Packing
+                                                            </a> -->
                         <a href="{{ route('pis.master') }}" class="btn btn-outline-warning">
                             <i class="fas fa-database mr-1"></i> Master Data
                         </a>
@@ -77,6 +54,28 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-12 col-md-6">
+            <div class="card card-info shadow-sm" style="border-radius: 12px;">
+                <div class="card-body">
+                    <h4 class="mb-2"><i class="fas fa-industry mr-2"></i>Production</h4>
+                    <p class="text-muted mb-4">Akses menu Production Stock, Check Kanban, dan Production Result.</p>
+                    <div class="d-flex flex-wrap" style="gap: 10px;">
+                        <a href="{{ route('dashboard.productionStock') }}" class="btn btn-info">
+                            <i class="fas fa-box mr-1"></i> Production Stock
+                        </a>
+                        <a href="{{ route('dashboard.kbnCheck') }}" class="btn btn-outline-info">
+                            <i class="fas fa-clipboard-list mr-1"></i> Check Kanban
+                        </a>
+                        <a href="{{ route('dashboard.prodResult') }}" class="btn btn-outline-info">
+                            <i class="fas fa-chart-line mr-1"></i> Production Result
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
 
         <div class="col-12 col-md-6">
             <div class="card card-danger shadow-sm" style="border-radius: 12px;">
