@@ -489,7 +489,7 @@
                 var fillWidth = Math.abs(truckPct - nowPct);
 
                 $('#ganttContainer .gantt-now-marker').css('left', nowPct + '%');
-                $('#ganttContainer .gantt-now-label').text(nowLbl);
+                $('#ganttContainer .gantt-now-label').text('Finish Preparation ' + nowLbl);
                 $('#ganttContainer .gantt-truck-marker').css('left', truckPct + '%');
                 $('#ganttContainer .gantt-truck-label').text('ETA Truck ' + truckLbl);
                 $('#ganttContainer .gantt-window-fill').css({
@@ -669,7 +669,7 @@
 
                     html += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
                     if (custIdx === 0) {
-                        html += '<span class="gantt-now-label">' + escapeHtml(nowLbl) + '</span>';
+                        html += '<span class="gantt-now-label">Finish Preparation ' + escapeHtml(nowLbl) + '</span>';
                     }
                     html += '<div class="gantt-now-line"></div></div>';
                     html += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
