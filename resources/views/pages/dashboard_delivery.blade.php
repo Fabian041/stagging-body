@@ -149,8 +149,8 @@
             bottom: 0;
             width: 2px;
             transform: translateX(-50%);
-            background:rgb(155, 0, 0);
-            box-shadow: 0 0 2px rgba(255, 0, 0, 0.35);
+            background:rgb(67, 53, 220);
+            box-shadow: 0 0 2px rgba(0, 17, 255, 0.45);
         }
 
         .gantt-window-fill {
@@ -178,8 +178,8 @@
             bottom: 0;
             width: 2px;
             transform: translateX(-50%);
-            background: #6f42c1;
-            box-shadow: 0 0 2px rgba(111, 66, 193, 0.4);
+            background:rgb(255, 0, 0);
+            box-shadow: 0 0 2px rgba(220, 53, 53, 0.45);
         }
 
         .gantt-now-label {
@@ -189,7 +189,7 @@
             transform: translateX(-50%);
             font-size: 9px;
             line-height: 1.2;
-            background: #ff0000;
+            background:rgb(59, 53, 220);
             color: #fff;
             padding: 1px 5px;
             border-radius: 2px;
@@ -204,7 +204,7 @@
             transform: translateX(-50%);
             font-size: 9px;
             line-height: 1.2;
-            background: #6f42c1;
+            background:rgb(220, 53, 53);
             color: #fff;
             padding: 1px 5px;
             border-radius: 2px;
@@ -489,9 +489,9 @@
                 var fillWidth = Math.abs(truckPct - nowPct);
 
                 $('#ganttContainer .gantt-now-marker').css('left', nowPct + '%');
-                $('#ganttContainer .gantt-now-label').text('Finish Preparation ' + nowLbl);
+                $('#ganttContainer .gantt-now-label').text('ETA TRUCK ' + nowLbl);
                 $('#ganttContainer .gantt-truck-marker').css('left', truckPct + '%');
-                $('#ganttContainer .gantt-truck-label').text('ETA Truck ' + truckLbl);
+                $('#ganttContainer .gantt-truck-label').text('Finish Preparation ' + truckLbl);
                 $('#ganttContainer .gantt-window-fill').css({
                     left: fillLeft + '%',
                     width: fillWidth + '%'
@@ -667,16 +667,16 @@
                         html += '</div></div>';
                     });
 
-                    html += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
-                    if (custIdx === 0) {
-                        html += '<span class="gantt-now-label">Finish Preparation ' + escapeHtml(nowLbl) + '</span>';
-                    }
-                    html += '<div class="gantt-now-line"></div></div>';
                     html += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
                     if (custIdx === 0) {
-                        html += '<span class="gantt-truck-label">Kedatangan truk ' + escapeHtml(truckLbl) + '</span>';
+                        html += '<span class="gantt-truck-label">Finish Preparation ' + escapeHtml(truckLbl) + '</span>';
                     }
                     html += '<div class="gantt-truck-line"></div></div>';
+                    html += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
+                    if (custIdx === 0) {
+                        html += '<span class="gantt-now-label">ETA TRUCK ' + escapeHtml(nowLbl) + '</span>';
+                    }
+                    html += '<div class="gantt-now-line"></div></div>';
 
                     html += '</div></td></tr>';
                 });
