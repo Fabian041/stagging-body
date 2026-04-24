@@ -91,6 +91,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/pis/get-loading-list-data', [PisController::class, 'getLoadingListData'])->name('pis.getLoadingListData');
     Route::get('/pis/get-scan-list', [PisController::class, 'getPisScanList'])->name('pis.getScanList');
     Route::get('/pis/get-scan-details', [PisController::class, 'getPisScanDetails'])->name('pis.getScanDetails');
+    // Route legacy (method belum dipakai / belum ada implementasinya). Simpan dulu agar tidak error 500.
+    // Jika perlu history scan per label, akan ditambahkan endpoint yang membaca `pis_scan_logs`.
+    // Route::get('/pis/get-scan-detail-history', [PisController::class, 'getPisScanDetailHistory'])->name('pis.getScanDetailHistory');
     Route::get('/pis/get-scans-by-pds', [PisController::class, 'getPisScansByPds'])->name('pis.getScansByPds');
     Route::get('/pis/scan-list/export', [PisController::class, 'exportPisScanList'])->name('pis.scanListExport');
 });
@@ -163,6 +166,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/delivery/customer-cycle-chart', [LoadingListController::class, 'getDeliveryCustomerCycleChartData'])->name('dashboard.delivery.customerCycleChartData');
         Route::get('/delivery/cycle-progress', [LoadingListController::class, 'getDeliveryCycleProgress'])->name('dashboard.delivery.cycleProgress');
         Route::get('/delivery/stacked-chart', [LoadingListController::class, 'getDeliveryStackedChartData'])->name('dashboard.delivery.stackedChart');
+        Route::post('/delivery/notify-unfinished', [LoadingListController::class, 'sendDeliveryUnfinishedWaNotification'])->name('dashboard.delivery.notifyUnfinished');
         Route::get('/delivery/master-cycles', [LoadingListController::class, 'getMasterCycles'])->name('dashboard.delivery.masterCycles.index');
         Route::post('/delivery/master-cycles', [LoadingListController::class, 'storeMasterCycle'])->name('dashboard.delivery.masterCycles.store');
         Route::put('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'updateMasterCycle'])->name('dashboard.delivery.masterCycles.update');

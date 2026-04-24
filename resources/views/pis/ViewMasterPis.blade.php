@@ -53,12 +53,12 @@
               <!-- /.box-body
             </div> -->
 
-        <div class="section-header">
+        <!-- <div class="section-header">
             <h1>Master Data PIS</h1>
             <div class="section-header-breadcrumb">
                 <span class="text-muted">Kelola master part PIS dengan database.</span>
             </div>
-        </div>
+        </div> -->
 
         <div class="row">
             <div class="col-12">

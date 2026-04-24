@@ -1,97 +1,123 @@
 @extends('layouts.root.dashboard')
 
 @section('main')
-    <div class="section-header">
-        <h1>Dashboard</h1>
-        <div class="section-header-breadcrumb">
-            <span class="text-muted">Selamat datang di Bella dashboard. Pilih area di bawah untuk mulai bekerja.</span>
+
+<style>
+.dashboard-card {
+    border-radius: 14px;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+}
+
+.icon-circle {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.gap-2 {
+    gap: 8px;
+}
+</style>
+
+<div class="section-header">
+    <h1>Dashboard</h1>
+    <div class="section-header-breadcrumb">
+        <span class="text-muted">
+            Selamat datang di Bella dashboard. Pilih area di bawah untuk mulai bekerja.
+        </span>
+    </div>
+</div>
+
+<div class="row">
+
+@php
+$menus = [
+    [
+        'title' => 'PPIC - Delivery',
+        'icon' => 'fa-warehouse',
+        'color' => 'primary',
+        'desc' => 'Preparation Monitoring, Preparation Detail, dan Kanban Reset.',
+        'buttons' => [
+            ['route' => 'dashboard.delivery', 'label' => 'Preparation Monitoring', 'icon' => 'fa-truck-loading', 'type' => 'solid'],
+            ['route' => 'loadingList.index', 'label' => 'Preparation Detail', 'icon' => 'fa-list', 'type' => 'outline'],
+            ['route' => 'pulling.manual', 'label' => 'Kanban Reset', 'icon' => 'fa-sync-alt', 'type' => 'outline'],
+        ]
+    ],
+    [
+        'title' => 'PPIC - Packing',
+        'icon' => 'fa-qrcode',
+        'color' => 'warning',
+        'desc' => 'Scanning, Scan List, dan Master Data PIS.',
+        'buttons' => [
+            ['route' => 'pis.index', 'label' => 'Scanning', 'icon' => 'fa-barcode', 'type' => 'solid'],
+            ['route' => 'pis.scanList', 'label' => 'Scan List', 'icon' => 'fa-list-alt', 'type' => 'outline'],
+            ['route' => 'pis.master', 'label' => 'Master Data', 'icon' => 'fa-database', 'type' => 'outline'],
+        ]
+    ],
+    [
+        'title' => 'Production',
+        'icon' => 'fa-industry',
+        'color' => 'info',
+        'desc' => 'Production Stock, Check Kanban, dan Production Result.',
+        'buttons' => [
+            ['route' => 'dashboard.productionStock', 'label' => 'Production Stock', 'icon' => 'fa-box', 'type' => 'solid'],
+            ['route' => 'dashboard.kbnCheck', 'label' => 'Check Kanban', 'icon' => 'fa-clipboard-list', 'type' => 'outline'],
+            ['route' => 'dashboard.prodResult', 'label' => 'Production Result', 'icon' => 'fa-chart-line', 'type' => 'outline'],
+        ]
+    ],
+    [
+        'title' => 'Evaluation',
+        'icon' => 'fa-exclamation-triangle',
+        'color' => 'danger',
+        'desc' => 'Melihat log error dari aplikasi.',
+        'buttons' => [
+            ['route' => 'error.log', 'label' => 'Error Log', 'icon' => 'fa-exclamation-circle', 'type' => 'solid'],
+        ]
+    ],
+];
+@endphp
+
+@foreach ($menus as $menu)
+<div class="col-12 col-md-6 mb-4">
+    <div class="card shadow-sm h-100 dashboard-card">
+        <div class="card-body">
+
+            <div class="d-flex align-items-center mb-3">
+                <div class="icon-circle bg-{{ $menu['color'] }} text-white mr-3">
+                    <i class="fas {{ $menu['icon'] }}"></i>
+                </div>
+                <h5 class="mb-0 font-weight-bold">{{ $menu['title'] }}</h5>
+            </div>
+
+            <p class="text-muted small mb-4">
+                {{ $menu['desc'] }}
+            </p>
+
+            <div class="d-flex flex-wrap gap-2">
+                @foreach ($menu['buttons'] as $btn)
+                    <a href="{{ route($btn['route']) }}"
+                       class="btn btn-{{ $btn['type'] == 'solid' ? $menu['color'] : 'outline-' . $menu['color'] }} btn-sm">
+                        <i class="fas {{ $btn['icon'] }} mr-1"></i>
+                        {{ $btn['label'] }}
+                    </a>
+                @endforeach
+            </div>
+
         </div>
     </div>
+</div>
+@endforeach
 
-    <div class="row">
-        <div class="col-12 col-md-6">
-            <div class="card card-primary shadow-sm" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-warehouse mr-2"></i>PPIC - Delivery</h4>
-                    <p class="text-muted mb-4">Akses menu Preparation Monitoring, Preparation Detail, dan Kanban Reset.</p>
-                    <div class="d-flex flex-wrap" style="gap: 10px;">
-                        <!-- <a href="{{ route('board.landing') }}" class="btn btn-primary">
-                            <i class="fas fa-calendar-alt mr-1"></i> Production Plan
-                        </a> -->
-                        <a href="{{ route('dashboard.delivery') }}" class="btn btn-primary">
-                            <i class="fas fa-truck-loading mr-1"></i> Preparation Monitoring
-                        </a>
-                        <a href="{{ route('loadingList.index') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-truck-loading mr-1"></i> Preparation Detail 
-                        </a>
-                        <a href="{{ route('pulling.manual') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-sync-alt mr-1"></i> Kanban Reset
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+</div>
 
-                <div class="col-12 col-md-6">
-            <div class="card card-warning shadow-sm" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-qrcode mr-2"></i>PPIC - Packing</h4>
-                    <p class="text-muted mb-4">Akses menu Scanning, Scan List, dan Master Data PIS.</p>
-                    <div class="d-flex flex-wrap" style="gap: 10px;">
-                        <a href="{{ route('pis.index') }}" class="btn btn-warning">
-                            <i class="fas fa-barcode mr-1"></i> Scanning
-                        </a>
-                        <a href="{{ route('pis.scanList') }}" class="btn btn-outline-warning">
-                            <i class="fas fa-list-alt mr-1"></i> Scan List
-                        </a>
-                        <!-- <a href="{{ route('pis.packing') }}" class="btn btn-outline-warning">
-                            <i class="fas fa-box mr-1"></i> Packing
-                        </a> -->
-                        <a href="{{ route('pis.master') }}" class="btn btn-outline-warning">
-                            <i class="fas fa-database mr-1"></i> Master Data
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-md-6">
-            <div class="card card-info shadow-sm" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h4 class="mb-2"><i class="fas fa-industry mr-2"></i>Production</h4>
-                    <p class="text-muted mb-4">Akses menu Production Stock, Check Kanban, dan Production Result.</p>
-                    <div class="d-flex flex-wrap" style="gap: 10px;">
-                        <a href="{{ route('dashboard.productionStock') }}" class="btn btn-info">
-                            <i class="fas fa-box mr-1"></i> Production Stock
-                        </a>
-                        <a href="{{ route('dashboard.kbnCheck') }}" class="btn btn-outline-info">
-                            <i class="fas fa-clipboard-list mr-1"></i> Check Kanban
-                        </a>
-                        <a href="{{ route('dashboard.prodResult') }}" class="btn btn-outline-info">
-                            <i class="fas fa-chart-line mr-1"></i> Production Result
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div class="col-12 col-md-6">
-            <div class="card card-danger shadow-sm" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h4 class="mb-2">
-                        <i class="fas fa-industry mr-2"></i>Evaluation
-                    </h4>
-                    <p class="text-muted mb-4">Akses menu Error Log untuk melihat log error dari aplikasi.</p>
-                    <div class="d-flex flex-wrap" style="gap: 10px;">
-                        <a href="{{ route('error.log') }}" class="btn btn-danger">
-                            <i class="fas fa-exclamation-circle mr-1"></i> Error Log
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 @endsection
-

@@ -13,6 +13,11 @@
             --dm-green: #C0DD97;
             --dm-complete:rgb(180, 255, 198); 
             --dm-pink: #F7C1C1;
+            /* Gantt scale: 24 jam (06:00–05:00), tampil awal 6 jam agar bar panjang & jelas */
+            --gantt-visible-hours: 6;
+            /* 100–150px per jam (default 120px) */
+            --gantt-hour-width: 120px;
+            --gantt-left-cols: 320px; /* 200 (Customer) + 120 (Type) */
         }
 
         .delivery-dash {
@@ -59,21 +64,26 @@
             border: 0.5px solid var(--dm-border);
             border-radius: 6px;
             max-height: 86vh;
+            /* Ikuti lebar container; scroll handle sisanya */
+            width: 100%;
+            max-width: 100%;
         }
 
         .gantt-table {
-            min-width: 1400px;
-            width: 100%;
+            /* Lebar total = kolom kiri + 24 jam */
+            min-width: calc(var(--gantt-left-cols) + (24 * var(--gantt-hour-width)));
+            width: auto;
             border-collapse: collapse;
             font-size: 13px;
             margin-bottom: 0;
+            table-layout: fixed;
         }
 
         .gantt-table thead th {
             position: sticky;
             top: 0;
             background: var(--dm-card);
-            z-index: 1;
+            z-index: 6;
             border: 0.5px solid var(--dm-border);
             padding: 3px 4px;
             font-weight: 600;
@@ -85,31 +95,68 @@
             position: sticky;
             left: 0;
             background: var(--dm-bg);
-            z-index: 2;
+            z-index: 5;
             min-width: 200px;
             max-width: 260px;
             text-align: left;
             font-weight: 500;
         }
 
+        .gantt-type-col {
+            position: sticky;
+            left: 200px;
+            z-index: 5;
+            min-width: 120px;
+            max-width: 120px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            background: var(--dm-bg);
+            color: var(--dm-muted);
+        }
+
+        /* Header + sticky columns harus di atas bar gantt */
+        .gantt-table thead th.gantt-sticky-col,
+        .gantt-table thead th.gantt-type-col {
+            z-index: 7;
+        }
+
+        .gantt-type-col.is-prep {
+            color: #5c7f2b;
+        }
+
+        .gantt-type-col.is-truck {
+            color: #b86f00;
+        }
+
         .gantt-time-col {
-            min-width: 38px;
+            width: var(--gantt-hour-width);
+            min-width: var(--gantt-hour-width);
         }
 
         .gantt-track-cell {
             position: relative;
             padding: 0 !important;
-            height: 46px;
+            /* Tinggi row ditambah supaya label marker tidak overlap bar */
+            height: 64px;
             vertical-align: middle;
             border: 0.5px solid var(--dm-border);
+            /* Biarkan label marker tampil penuh tanpa kepotong */
+            overflow: visible;
         }
 
         .gantt-track {
             position: relative;
             height: 40px;
-            margin: 3px 4px;
+            /* beri ruang di atas track untuk label */
+            margin: 18px 4px 6px 4px;
             border-radius: 2px;
             background-color: transparent;
+            /* label marker diposisikan di atas track */
+            overflow: visible;
             /* Garis vertikal 1px per jam — tidak hilang saat zoom out (bukan subpixel dari calc(... - 0.5px)). */
             background-image: linear-gradient(
                 to right,
@@ -118,7 +165,8 @@
                 transparent 1px,
                 transparent 100%
             );
-            background-size: calc(100% / 24);
+            /* 1 jam = 1 kolom tetap (sinkron dengan header) */
+            background-size: var(--gantt-hour-width) 100%;
             background-repeat: repeat;
             background-position: 0 0;
         }
@@ -131,6 +179,18 @@
             box-sizing: border-box;
             cursor: pointer;
             z-index: 2;
+        }
+
+        .gantt-bar-wrap.is-instant {
+            min-width: 2px;
+            width: 2px !important;
+        }
+
+        .gantt-bar-wrap.truck-pill {
+            top: 7px;
+            height: 26px;
+            width: 44px !important;
+            min-width: 44px;
         }
 
         .gantt-now-marker {
@@ -225,6 +285,8 @@
         .gantt-seg.ontime { background: var(--dm-complete); }
         .gantt-seg.delay { background: var(--dm-yellow); }
         .gantt-seg.empty { background: var(--dm-complete); }
+        .gantt-seg.truck { background: #f59e0b; }
+        .gantt-seg.truck-complete { background: var(--dm-blue); }
 
         .legend-row {
             display: flex;
@@ -247,6 +309,311 @@
             height: 14px;
             border: 0.5px solid var(--dm-border);
             border-radius: 2px;
+        }
+
+        /* Timeline card (referensi gantt horizontal, tema putih) */
+        .delivery-timeline-card {
+            background: #ffffff;
+            border: 1px solid #e8eaed;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+
+        .delivery-timeline-card .timeline-card-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eef0f3;
+            background: #ffffff;
+            align-items: center;
+        }
+
+        .delivery-timeline-card .timeline-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #1a1d21;
+        }
+
+        .delivery-timeline-card .timeline-menu-btn {
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            padding: 4px 8px;
+            border-radius: 6px;
+            line-height: 1;
+            font-size: 18px;
+        }
+
+        .delivery-timeline-card .timeline-menu-btn:hover {
+            background: #f3f4f6;
+            color: #1a1d21;
+        }
+
+        .delivery-timeline-card .gantt-wrap {
+            border: none;
+            border-radius: 0;
+            max-height: none;
+            background: #ffffff;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .delivery-timeline-card .gantt-layout {
+            display: flex;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .delivery-timeline-card .gantt-fixed-pane {
+            position: sticky;
+            left: 0;
+            z-index: 9;
+            flex: 0 0 var(--gantt-left-cols);
+            width: var(--gantt-left-cols);
+            max-width: var(--gantt-left-cols);
+            background: #ffffff;
+            border-right: 1px solid #eef0f3;
+        }
+
+        .delivery-timeline-card .gantt-timeline-pane {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .delivery-timeline-card .gantt-timeline-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+        }
+
+        .delivery-timeline-card .gantt-table {
+            background: #ffffff;
+        }
+
+        .delivery-timeline-card .gantt-fixed-table {
+            width: var(--gantt-left-cols);
+            min-width: var(--gantt-left-cols);
+            table-layout: fixed;
+            border-collapse: collapse;
+            margin-bottom: 0;
+            background: #ffffff;
+        }
+
+        .delivery-timeline-card .gantt-timeline-table {
+            min-width: calc(24 * var(--gantt-hour-width));
+            table-layout: fixed;
+            border-collapse: collapse;
+            margin-bottom: 0;
+            background: #ffffff;
+        }
+
+        .delivery-timeline-card .gantt-table thead th {
+            background: #ffffff;
+            border-color: #eef0f3;
+            color: #5c6370;
+            font-size: 11px;
+            font-weight: 600;
+            height: 28px;
+        }
+
+        .delivery-timeline-card .gantt-sticky-col,
+        .delivery-timeline-card .gantt-left-customer {
+            background: #ffffff;
+            border-color: #eef0f3;
+            color: #2f3542;
+            font-size: 12px;
+            padding: 8px 10px;
+            min-width: 200px;
+            max-width: 200px;
+            width: 200px;
+            font-weight: 500;
+        }
+
+        .delivery-timeline-card .gantt-type-col,
+        .delivery-timeline-card .gantt-left-type {
+            background: #ffffff;
+            border-color: #eef0f3;
+            font-size: 10px;
+            padding: 6px 4px;
+            min-width: 120px;
+            max-width: 120px;
+            width: 120px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            color: var(--dm-muted);
+        }
+
+        .delivery-timeline-card .gantt-left-cell {
+            height: 72px;
+            vertical-align: middle;
+            border: 1px solid #eef0f3;
+            background: #ffffff;
+        }
+
+        .delivery-timeline-card .gantt-left-type.is-prep {
+            color: #5c7f2b;
+        }
+
+        .delivery-timeline-card .gantt-left-type.is-truck {
+            color: #b86f00;
+        }
+
+        .delivery-timeline-card .gantt-track-cell {
+            border-color: #eef0f3;
+            height: 72px;
+        }
+
+        .delivery-timeline-card .gantt-track {
+            margin: 20px 8px 8px 8px;
+            height: 40px;
+            border-radius: 0;
+            background-color: transparent;
+            background-image: repeating-linear-gradient(
+                to right,
+                transparent 0,
+                transparent calc(var(--gantt-hour-width) - 1px),
+                rgba(0, 0, 0, 0) calc(var(--gantt-hour-width) - 1px),
+                #dde1e7 calc(var(--gantt-hour-width) - 1px),
+                #dde1e7 var(--gantt-hour-width),
+                transparent var(--gantt-hour-width)
+            );
+        }
+
+        .delivery-timeline-card .gantt-seg.gantt-trail {
+            background: #e8ecf1;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap {
+            top: 4px;
+            height: 36px;
+            min-width: 48px;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.truck-pill {
+            top: 9px;
+            height: 24px;
+            min-width: 42px;
+            width: 42px !important;
+        }
+
+        .delivery-timeline-card .gantt-bar-stack {
+            border: none;
+            border-radius: 6px;
+            overflow: hidden;
+            height: 36px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+            align-items: stretch;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.truck-pill .gantt-bar-stack {
+            border-radius: 4px;
+            height: 24px;
+        }
+
+        .delivery-timeline-card .gantt-seg.ontime:only-child {
+            border-radius: 6px;
+        }
+
+        .delivery-timeline-card .gantt-seg.delay:first-child {
+            border-radius: 6px 0 0 6px;
+        }
+
+        .delivery-timeline-card .gantt-seg.gantt-trail:last-child {
+            border-radius: 0 6px 6px 0;
+        }
+
+        .delivery-timeline-card .pill-meta {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            pointer-events: none;
+            z-index: 3;
+            padding-left: 6px;
+            max-width: 42%;
+        }
+
+        .delivery-timeline-card .pill-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            color: #2f3542;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+
+        .delivery-timeline-card .pill-pct { display: none; }
+
+        /* Responsif: di layar kecil, gunakan lebar container penuh (tetap bisa scroll) */
+        @media (max-width: 992px) {
+            :root {
+                --gantt-hour-width: 92px;
+            }
+            .gantt-wrap,
+            .delivery-timeline-card .gantt-wrap {
+                max-width: 100%;
+            }
+        }
+
+        .delivery-timeline-card .timeline-card-footer {
+            padding: 10px 16px 14px;
+            border-top: 1px solid #eef0f3;
+            background: #ffffff;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .delivery-timeline-card .legend-timeline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            font-size: 12px;
+            color: #2f3542;
+        }
+
+        .delivery-timeline-card .legend-timeline li {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .delivery-timeline-card .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .delivery-timeline-card .timeline-total {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1d21;
+            margin-left: auto;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .delivery-timeline-card .gantt-now-label,
+        .delivery-timeline-card .gantt-truck-label {
+            font-size: 8px;
+            padding: 2px 4px;
         }
     </style>
 
@@ -301,21 +668,46 @@
                                 <button type="button" class="btn btn-sm btn-primary mb-2 mb-sm-0" id="btnReloadChart">Muat ulang</button>
                             </form>
 
-                            <ul class="legend-row">
-                                <li><span class="legend-sq" style="background: var(--dm-complete);"></span> Progress 100%</li>
-                                <li><span class="legend-sq" style="background: var(--dm-yellow);"></span> Belum selesai (&lt; 100%)</li>
-                            </ul>
-
                             <div id="chartEmpty" class="alert alert-light border small mb-2 d-none" role="alert"></div>
-                            <div class="gantt-wrap" id="ganttWrap">
-                                <div id="ganttContainer"></div>
+
+                            <div class="delivery-timeline-card mb-2" id="deliveryTimelineCard">
+                                <div class="timeline-card-header d-flex justify-content-between align-items-center">
+                                    <h2 class="timeline-title">Timeline delivery</h2>
+                                    <button type="button" class="timeline-menu-btn" aria-label="Menu" title="Menu">&#8942;</button>
+                                </div>
+                                <div class="gantt-wrap" id="ganttWrap">
+                                    <div id="ganttContainer"></div>
+                                </div>
+                                <div class="timeline-card-footer d-flex justify-content-between align-items-center">
+                                    <ul class="legend-timeline">
+                                        <li>
+                                            <span class="legend-dot" style="background: var(--dm-complete);"></span>
+                                            Progress 100%
+                                        </li>
+                                        <li>
+                                            <span class="legend-dot" style="background: var(--dm-yellow);"></span>
+                                            Belum selesai (&lt; 100%)
+                                        </li>
+                                    </ul>
+                                    <div class="timeline-total" id="timelineTotalSum">Total: 0</div>
+                                </div>
                             </div>
                         </div>
 
                         <div class="tab-pane fade" id="pane-master" role="tabpanel">
+                            <div class="card border mb-3">
+                                <div class="card-body py-2">
+                                    <h6 class="mb-2" style="font-size: 12px;">Pengaturan rentang ETA TRUCK &amp; Finish Preparation</h6>
+                                    <button type="button" class="btn btn-sm btn-primary mb-2" id="btnOpenEtaSettingModal" data-toggle="modal" data-target="#etaWindowModal">
+                                        Setting Rentang
+                                    </button>
+                                    <small id="etaWindowInfo" class="text-muted d-block">Rentang default: ETA TRUCK 0 jam, Finish Preparation 4 jam.</small>
+                                </div>
+                            </div>
+
                             <form id="masterCycleForm" class="mb-3">
                                 <div class="form-row align-items-end">
-                                       <div class="col-md-4 mb-2">
+                                    <div class="col-md-3 mb-2">
                                         <label class="mb-1" style="font-size: 11px;">Customer</label>
                                         <select class="form-control form-control-sm" id="mcycleCustomerId" required>
                                             <option value="">Pilih customer</option>
@@ -324,7 +716,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="col-md-3 mb-2">
+                                    <div class="col-md-2 mb-2">
                                         <label class="mb-1" style="font-size: 11px;">Nama cycle</label>
                                         <select class="form-control form-control-sm" id="mcycleName" required>
                                             <option value="" selected disabled>Pilih cycle</option>
@@ -335,15 +727,24 @@
                                             <option value="5">5</option>
                                         </select>
                                     </div>
+                                    <div class="col-md-4 mb-2">
+                                        <label class="mb-1" style="font-size: 11px;">Waktu rentang prep (jam mulai)</label>
+                                        <div class="d-flex align-items-center">
+                                            <input type="time" class="form-control form-control-sm" id="mcyclePrepStart" required step="60">
+                                            <span class="mx-2 small text-muted">sampai</span>
+                                            <input type="time" class="form-control form-control-sm" id="mcyclePrepEnd" required step="60">
+                                        </div>
+                                    </div>
                                     <div class="col-md-2 mb-2">
-                                        <label class="mb-1" style="font-size: 11px;">Waktu (referensi)</label>
-                                        <input type="time" class="form-control form-control-sm" id="mcycleTime" required step="60">
+                                        <label class="mb-1" style="font-size: 11px;">Waktu ETA truck</label>
+                                        <input type="time" class="form-control form-control-sm" id="mcycleTruckTime" required step="60">
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <button type="submit" class="btn btn-sm btn-success" id="btnMasterSave">Simpan</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnMasterCancel">Batal edit</button>
                                     </div>
                                 </div>
+                                <p class="small text-muted mb-0">Field prep range dan ETA truck berdiri sendiri, tanpa asumsi otomatis.</p>
                             </form>
 
                             <div class="table-responsive mb-3">
@@ -353,7 +754,8 @@
                                             <th style="width: 40px;">No</th>
                                             <th>Customer</th>
                                             <th>Cycle</th>
-                                            <th>Waktu</th>
+                                            <th>Rentang prep</th>
+                                            <th>ETA truck</th>
                                             <th style="width: 130px;">Aksi</th>
                                         </tr>
                                     </thead>
@@ -403,7 +805,8 @@
                                 </tbody>
                             </table>
                             <p class="small mb-0">
-                                <strong>Master cycle</strong> menyetel <em>nama cycle</em> dan <em>waktu referensi (time)</em> per customer.
+                                <strong>Master cycle</strong> menyetel <em>nama cycle</em>, <em>waktu referensi prep</em>, dan opsional
+                                <em>waktu ETA truck</em> (beda dengan prep) per customer+ cycle.
                                 Data loading list memakai kolom <code>cycle</code> yang dicocokkan ke <code>cycle_name</code> master berdasarkan
                                 kombinasi <code>customer_id</code> + <code>cycle_name</code>.
                                 Scan time dipakai untuk filter data, bukan acuan penentuan cycle.
@@ -422,6 +825,7 @@
         $(function () {
             var stackedUrl = "{{ route('dashboard.delivery.stackedChart') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
+            var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
             var masterStore = "{{ route('dashboard.delivery.masterCycles.store') }}";
             var masterBase = "{{ url('/dashboard/delivery/master-cycles') }}";
@@ -433,6 +837,69 @@
             var chartCustomerOrder = [];
             var editMasterId = null;
             var ganttNowTimer = null;
+            var waNotifyTimer = null;
+            var ganttHourWindow = 24;
+            var ganttCols = 24;
+            var etaWindowStorageKey = 'delivery_eta_window_v2';
+            var waSentStorageKey = 'delivery_wa_unfinished_sent_v1';
+            var etaWindowSettings = {
+                eta_offset_hours: 0,
+                finish_offset_hours: 4
+            };
+
+            function normalizeOffsetHours(v, fallback) {
+                var n = parseInt(v, 10);
+                if (isNaN(n)) {
+                    return fallback;
+                }
+                if (n < -24) {
+                    return -24;
+                }
+                if (n > 24) {
+                    return 24;
+                }
+                return n;
+            }
+
+            function renderHourDropdownOptions(selector) {
+                var html = '';
+                for (var h = -24; h <= 24; h++) {
+                    var label = h + ' jam';
+                    if (h === 0) {
+                        label = '0 jam (saat ini)';
+                    }
+                    html += '<option value="' + h + '">' + label + '</option>';
+                }
+                $(selector).html(html);
+            }
+
+            function loadEtaWindowSettings() {
+                try {
+                    var raw = localStorage.getItem(etaWindowStorageKey);
+                    if (!raw) {
+                        return;
+                    }
+                    var parsed = JSON.parse(raw);
+                    etaWindowSettings.eta_offset_hours = normalizeOffsetHours(parsed.eta_offset_hours, 0);
+                    etaWindowSettings.finish_offset_hours = normalizeOffsetHours(parsed.finish_offset_hours, 4);
+                } catch (err) {
+                    etaWindowSettings.eta_offset_hours = 0;
+                    etaWindowSettings.finish_offset_hours = 4;
+                }
+            }
+
+            function saveEtaWindowSettings() {
+                localStorage.setItem(etaWindowStorageKey, JSON.stringify(etaWindowSettings));
+            }
+
+            function renderEtaWindowFormState() {
+                $('#etaOffsetHours').val(String(etaWindowSettings.eta_offset_hours));
+                $('#finishOffsetHours').val(String(etaWindowSettings.finish_offset_hours));
+                $('#etaWindowInfo').text(
+                    'Rentang aktif: ETA TRUCK ' + etaWindowSettings.eta_offset_hours +
+                    ' jam, Finish Preparation ' + etaWindowSettings.finish_offset_hours + ' jam.'
+                );
+            }
 
             function tickDeliveryHeaderClock() {
                 var lbl = new Date().toLocaleTimeString('id-ID', {
@@ -443,55 +910,58 @@
                 $('#deliveryDashLiveTime').text(lbl);
             }
 
-            function getNowLeftPct() {
+            function normalizeHour24(v) {
+                var n = parseInt(v, 10) || 0;
+                while (n < 0) {
+                    n += 24;
+                }
+                return n % 24;
+            }
+
+            function getTimelineStartHour() {
+                // Timeline selalu dari jam 06:00 sampai 05:00 esok hari.
+                return 6;
+            }
+
+            function getTimeOffsetLeftPct(offsetHours) {
                 var d = new Date();
+                d.setMinutes(d.getMinutes() + (offsetHours * 60));
                 var hour = d.getHours();
                 var minute = d.getMinutes();
                 var second = d.getSeconds();
+                var startHour = getTimelineStartHour();
                 var v = hour + minute / 60 + second / 3600;
-                if (v < 6) {
+                if (v < startHour) {
                     v += 24;
                 }
-                var fr = v - 6;
+                var fr = v - startHour;
                 return Math.max(0, Math.min(100, (fr / 24) * 100));
             }
 
+            function getNowLeftPct() {
+                return getTimeOffsetLeftPct(etaWindowSettings.eta_offset_hours);
+            }
+
             function getTruckArrivalLeftPct() {
-                var d = new Date();
-                d.setHours(d.getHours() + 4);
-                var hour = d.getHours();
-                var minute = d.getMinutes();
-                var second = d.getSeconds();
-                var v = hour + minute / 60 + second / 3600;
-                if (v < 6) {
-                    v += 24;
-                }
-                var fr = v - 6;
-                return Math.max(0, Math.min(100, (fr / 24) * 100));
+                return getTimeOffsetLeftPct(etaWindowSettings.finish_offset_hours);
             }
 
             function updateGanttNowMarkers() {
                 var nowPct = getNowLeftPct();
                 var truckPct = getTruckArrivalLeftPct();
-                var nowLbl = new Date().toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                var nowDate = new Date();
+                nowDate.setMinutes(nowDate.getMinutes() + (etaWindowSettings.eta_offset_hours * 60));
+                var nowLbl = formatClockDot(nowDate.toTimeString());
                 var truckDate = new Date();
-                truckDate.setHours(truckDate.getHours() + 4);
-                var truckLbl = truckDate.toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                truckDate.setMinutes(truckDate.getMinutes() + (etaWindowSettings.finish_offset_hours * 60));
+                var truckLbl = formatClockDot(truckDate.toTimeString());
                 var fillLeft = Math.min(nowPct, truckPct);
                 var fillWidth = Math.abs(truckPct - nowPct);
 
                 $('#ganttContainer .gantt-now-marker').css('left', nowPct + '%');
-                $('#ganttContainer .gantt-now-label').text('ETA TRUCK ' + nowLbl);
+                $('#ganttContainer .gantt-now-label').text('Finish Preparation ' + nowLbl);
                 $('#ganttContainer .gantt-truck-marker').css('left', truckPct + '%');
-                $('#ganttContainer .gantt-truck-label').text('Finish Preparation ' + truckLbl);
+                $('#ganttContainer .gantt-truck-label').text('ETA TRUCK ' + truckLbl);
                 $('#ganttContainer .gantt-window-fill').css({
                     left: fillLeft + '%',
                     width: fillWidth + '%'
@@ -504,14 +974,153 @@
             }
 
             function timeToFrac(t) {
-                var p = (t || '06:00').substring(0, 5).split(':');
+                var raw = String(t || '').trim();
+                if (!raw.length) {
+                    return null;
+                }
+                var p = raw.substring(0, 5).split(':');
                 var hour = parseInt(p[0], 10);
                 var minute = parseInt(p[1] || '0', 10);
+                if (isNaN(hour) || isNaN(minute)) {
+                    return null;
+                }
+                var startHour = getTimelineStartHour();
                 var v = hour + minute / 60;
-                if (v < 6) {
+                if (v < startHour) {
                     v += 24;
                 }
-                return v - 6;
+                return v - startHour;
+            }
+
+            function timeToWindowFrac(t) {
+                return timeToFrac(t);
+            }
+
+            function calcDurationHours(startClock, endClock) {
+                var s = timeToWindowFrac(startClock);
+                var e = timeToWindowFrac(endClock);
+                if (s === null || e === null) {
+                    return 1;
+                }
+                var diff = e - s;
+                if (diff <= 0) {
+                    diff += 24;
+                }
+                return Math.max(diff, (1 / 60));
+            }
+
+            function addHoursToClockTime(timeStr, hourOffset) {
+                var p = (timeStr || '00:00').substring(0, 5).split(':');
+                var h = parseInt(p[0] || '0', 10);
+                var m = parseInt(p[1] || '0', 10);
+                if (isNaN(h)) {
+                    h = 0;
+                }
+                if (isNaN(m)) {
+                    m = 0;
+                }
+                var base = new Date();
+                base.setHours(h, m, 0, 0);
+                base.setHours(base.getHours() + parseInt(hourOffset || 0, 10));
+                return String(base.getHours()).padStart(2, '0') + ':' + String(base.getMinutes()).padStart(2, '0');
+            }
+
+            function formatClockDot(timeStr) {
+                var t = String(timeStr || '').trim();
+                if (!t.length) {
+                    return '-';
+                }
+                return t.substring(0, 5).replace(':', '.');
+            }
+
+            function getWaSentMap() {
+                try {
+                    return JSON.parse(localStorage.getItem(waSentStorageKey) || '{}');
+                } catch (err) {
+                    return {};
+                }
+            }
+
+            function setWaSentMap(map) {
+                localStorage.setItem(waSentStorageKey, JSON.stringify(map));
+            }
+
+            function checkAndSendUnfinishedWaNotification() {
+                if (!chartMergedByCustTime.length) {
+                    return;
+                }
+
+                var now = new Date();
+                var currentClock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+                var currentFrac = timeToFrac(currentClock);
+                var dateFromVal = $('#filterDateFrom').val() || '';
+                var dateToVal = $('#filterDateTo').val() || '';
+                var sentMap = getWaSentMap();
+                var toNotify = [];
+                var sentKeyBucket = [];
+
+                chartMergedByCustTime.forEach(function (row) {
+                    var progress = parseFloat(row.progress_pct || 0);
+                    if (progress >= 100) {
+                        return;
+                    }
+                    if (!row.cycle_time || !String(row.cycle_time).trim().length) {
+                        return;
+                    }
+
+                    var finishClock = addHoursToClockTime(row.cycle_time, etaWindowSettings.finish_offset_hours);
+                    var finishFrac = timeToFrac(finishClock);
+                    if (finishFrac === null) {
+                        return;
+                    }
+                    if (currentFrac < finishFrac) {
+                        return;
+                    }
+
+                    var sentKey = [
+                        dateFromVal || '-',
+                        dateToVal || '-',
+                        row.customer_id || '-',
+                        row.cycle_name || '-',
+                        row.cycle_time || '-'
+                    ].join('|');
+                    if (sentMap[sentKey]) {
+                        return;
+                    }
+
+                    sentKeyBucket.push(sentKey);
+                    toNotify.push({
+                        customer_name: row.customer_name || '-',
+                        cycle_name: row.cycle_name || '-',
+                        cycle_time: row.cycle_time || '00:00',
+                        prep_end_time: row.prep_end_time || null,
+                        progress_pct: Math.round(progress * 10) / 10,
+                        total_done: parseInt(row.total_done || 0, 10),
+                        total_target: parseInt(row.total_target || 0, 10),
+                        ll_count: parseInt(row.ll_count || 0, 10)
+                    });
+                });
+
+                if (!toNotify.length) {
+                    return;
+                }
+
+                $.ajax({
+                    url: notifyUnfinishedUrl,
+                    method: 'POST',
+                    data: {
+                        _token: csrf,
+                        date_from: dateFromVal,
+                        date_to: dateToVal,
+                        finish_offset_hours: etaWindowSettings.finish_offset_hours,
+                        pending_rows: toNotify
+                    }
+                }).done(function () {
+                    sentKeyBucket.forEach(function (k) {
+                        sentMap[k] = true;
+                    });
+                    setWaSentMap(sentMap);
+                });
             }
 
             function slotLabels24() {
@@ -557,13 +1166,20 @@
              */
 
             function buildGanttTooltip(row) {
-                return [
-                    'Cycle: ' + row.cycle_name + ' @ ' + row.cycle_time,
+                var et = (row.truck_time != null && String(row.truck_time).length) ? String(row.truck_time).substring(0, 5) : '-';
+                var prep = (row.cycle_time != null && String(row.cycle_time).trim().length) ? String(row.cycle_time).substring(0, 5) : '-';
+                var prepEnd = (row.prep_end_time != null && String(row.prep_end_time).trim().length) ? String(row.prep_end_time).substring(0, 5) : '-';
+                if (prepEnd !== '-' && prep !== '-' && prepEnd === prep) {
+                    prepEnd = '-';
+                }
+                var lines = [
+                    'Cycle: ' + row.cycle_name + ' | Prep @ ' + prep + ' - ' + prepEnd + (et !== '-' ? ' | ETA truck @ ' + et : ''),
                     'Jumlah LL: ' + row.ll_count,
                     'Persentase progress: ' + row.progress_pct + '%',
                     'Target: ' + row.total_target,
                     'Done: ' + row.total_done
-                ].join(' | ');
+                ];
+                return lines.join(' | ');
             }
 
             function mergeRowsForCustomerTime(rows) {
@@ -575,6 +1191,8 @@
                             customer_id: r.customer_id,
                             customer_name: r.customer_name,
                             cycle_time: r.cycle_time,
+                            prep_end_time: (r.prep_end_time != null && String(r.prep_end_time).trim().length) ? r.prep_end_time : null,
+                            truck_time: (r.truck_time != null && r.truck_time !== '') ? r.truck_time : null,
                             cycle_name: r.cycle_name,
                             on_time: 0,
                             delay: 0,
@@ -603,6 +1221,13 @@
                 });
             }
 
+            function updateTimelineTotal() {
+                var sum = chartMergedByCustTime.reduce(function (acc, r) {
+                    return acc + (parseInt(r.total_done, 10) || 0);
+                }, 0);
+                $('#timelineTotalSum').text('Total: ' + sum);
+            }
+
             function renderGantt() {
                 if (ganttNowTimer) {
                     clearInterval(ganttNowTimer);
@@ -610,79 +1235,162 @@
                 }
 
                 var slots = slotLabels24();
-                var html = '<table class="gantt-table"><thead><tr>';
-                html += '<th class="gantt-sticky-col">Customer</th>';
+                var fixedHtml = '<table class="gantt-fixed-table"><thead><tr>';
+                fixedHtml += '<th class="gantt-left-customer">Customer</th>';
+                fixedHtml += '<th class="gantt-left-type">Type</th>';
+                fixedHtml += '</tr></thead><tbody>';
+
+                var timelineHtml = '<table class="gantt-timeline-table"><thead><tr>';
                 slots.forEach(function (s) {
-                    html += '<th class="gantt-time-col">' + s + '</th>';
+                    timelineHtml += '<th class="gantt-time-col">' + s + '</th>';
                 });
-                html += '</tr></thead><tbody>';
+                timelineHtml += '</tr></thead><tbody>';
 
                 var nowPct = getNowLeftPct();
-                var nowLbl = new Date().toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                var nowDate = new Date();
+                nowDate.setMinutes(nowDate.getMinutes() + (etaWindowSettings.eta_offset_hours * 60));
+                var nowLbl = formatClockDot(nowDate.toTimeString());
                 var truckPct = getTruckArrivalLeftPct();
                 var truckDate = new Date();
-                truckDate.setHours(truckDate.getHours() + 4);
-                var truckLbl = truckDate.toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                truckDate.setMinutes(truckDate.getMinutes() + (etaWindowSettings.finish_offset_hours * 60));
+                var truckLbl = formatClockDot(truckDate.toTimeString());
                 var fillLeft = Math.min(nowPct, truckPct);
                 var fillWidth = Math.abs(truckPct - nowPct);
 
                 chartCustomerOrder.forEach(function (cust, custIdx) {
-                    html += '<tr><td class="gantt-sticky-col">' + escapeHtml(cust) + '</td>';
-                    html += '<td class="gantt-track-cell" colspan="24"><div class="gantt-track">';
-                    html += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' + fillWidth + '%"></div>';
-
                     var buckets = chartMergedByCustTime.filter(function (m) {
                         return m.customer_name === cust;
                     });
                     buckets.sort(function (a, b) {
-                        return timeToFrac(a.cycle_time) - timeToFrac(b.cycle_time);
+                        var af = timeToFrac(a.cycle_time);
+                        var bf = timeToFrac(b.cycle_time);
+                        if (af === null && bf === null) {
+                            return String(a.cycle_name || '').localeCompare(String(b.cycle_name || ''));
+                        }
+                        if (af === null) {
+                            return 1;
+                        }
+                        if (bf === null) {
+                            return -1;
+                        }
+                        return af - bf;
                     });
 
+                    fixedHtml += '<tr>';
+                    fixedHtml += '<td class="gantt-left-customer gantt-left-cell">' + escapeHtml(cust) + '</td>';
+                    fixedHtml += '<td class="gantt-left-type gantt-left-cell is-prep">PREP</td>';
+                    fixedHtml += '</tr>';
+
+                    timelineHtml += '<tr>';
+                    timelineHtml += '<td class="gantt-track-cell" colspan="' + ganttCols + '"><div class="gantt-track">';
+                    timelineHtml += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' + fillWidth + '%"></div>';
+
                     buckets.forEach(function (row) {
-                        var start = timeToFrac(row.cycle_time);
-                        var durHours = 1;
-                        var leftPct = (start / 24) * 100;
-                        var widthPct = Math.max((durHours / 24) * 100, 0.8);
+                        var start = timeToWindowFrac(row.cycle_time);
+                        if (start === null) {
+                            return;
+                        }
+                        var prepStartClock = row.cycle_time;
+                        var prepEndClockRaw = (row.prep_end_time != null && String(row.prep_end_time).trim().length) ? String(row.prep_end_time) : null;
+                        var prepEndClock = prepEndClockRaw || prepStartClock;
+                        var durHours = calcDurationHours(row.cycle_time, prepEndClock);
+                        var leftPct = (start / ganttHourWindow) * 100;
+                        var hasPrepEndSetting = prepEndClockRaw !== null && prepEndClockRaw.substring(0, 5) !== String(prepStartClock || '').substring(0, 5);
+                        var isInstantPrep = !hasPrepEndSetting || durHours <= 0;
+                        var widthPct = isInstantPrep ? 0 : Math.max((durHours / ganttHourWindow) * 100, 0.8);
                         var progressWidth = Math.max(0, Math.min(100, row.progress_pct || 0));
                         var barClass = progressWidth < 100 ? 'delay' : 'ontime';
                         var tip = buildGanttTooltip(row).replace(/"/g, '&quot;');
                         var dateFromVal = $('#filterDateFrom').val() || '';
                         var dateToVal = $('#filterDateTo').val() || '';
                         var barTitle = tip + ' — Klik untuk buka Loading List';
-                        html += '<div class="gantt-bar-wrap" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
-                        html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
-                        html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
-                        html += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
-                        html += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
-                        html += '<div class="gantt-bar-stack">';
-                        html += '<span class="gantt-seg ' + barClass + '" style="width:' + progressWidth + '%"></span>';
-                        html += '</div></div>';
+                        var av = String(row.cycle_name != null ? row.cycle_name : '').trim();
+                        if (!av.length) {
+                            av = '?';
+                        }
+                        av = av.substring(0, 2).toUpperCase();
+                        timelineHtml += '<div class="gantt-bar-wrap' + (isInstantPrep ? ' is-instant' : '') + '" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
+                        timelineHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                        timelineHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                        timelineHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
+                        timelineHtml += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
+                        timelineHtml += '<div class="gantt-bar-stack">';
+                        if (progressWidth >= 100) {
+                            timelineHtml += '<span class="gantt-seg ontime" style="width:100%"></span>';
+                        } else {
+                            timelineHtml += '<span class="gantt-seg delay" style="width:' + progressWidth + '%"></span>';
+                            timelineHtml += '<span class="gantt-seg gantt-trail" style="width:' + (100 - progressWidth) + '%"></span>';
+                        }
+                        timelineHtml += '</div>';
+                        timelineHtml += '<span class="pill-meta"><span class="pill-avatar">' + escapeHtml(av) + '</span></span>';
+                        timelineHtml += '</div>';
                     });
 
-                    html += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
+                    timelineHtml += '</div>';
+                    timelineHtml += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
                     if (custIdx === 0) {
-                        html += '<span class="gantt-truck-label">Finish Preparation ' + escapeHtml(truckLbl) + '</span>';
+                        timelineHtml += '<span class="gantt-truck-label">ETA TRUCK ' + escapeHtml(truckLbl) + '</span>';
                     }
-                    html += '<div class="gantt-truck-line"></div></div>';
-                    html += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
+                    timelineHtml += '<div class="gantt-truck-line"></div></div>';
+                    timelineHtml += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
                     if (custIdx === 0) {
-                        html += '<span class="gantt-now-label">ETA TRUCK ' + escapeHtml(nowLbl) + '</span>';
+                        timelineHtml += '<span class="gantt-now-label">Finish Preparation ' + escapeHtml(nowLbl) + '</span>';
                     }
-                    html += '<div class="gantt-now-line"></div></div>';
+                    timelineHtml += '<div class="gantt-now-line"></div></div>';
+                    timelineHtml += '</td></tr>';
 
-                    html += '</div></td></tr>';
+                    fixedHtml += '<tr>';
+                    fixedHtml += '<td class="gantt-left-customer gantt-left-cell"></td>';
+                    fixedHtml += '<td class="gantt-left-type gantt-left-cell is-truck">ETA TRUCK</td>';
+                    fixedHtml += '</tr>';
+
+                    timelineHtml += '<tr>';
+                    timelineHtml += '<td class="gantt-track-cell" colspan="' + ganttCols + '"><div class="gantt-track">';
+                    buckets.forEach(function (row) {
+                        var truckAt = (row.truck_time != null && String(row.truck_time).length) ? row.truck_time : null;
+                        if (!truckAt) {
+                            return;
+                        }
+                        var truckStart = timeToWindowFrac(truckAt);
+                        if (truckStart === null) {
+                            return;
+                        }
+                        var truckLeftPct = (truckStart / ganttHourWindow) * 100;
+                        var truckComplete = (parseFloat(row.progress_pct || 0) >= 100);
+                        var truckSegClass = truckComplete ? 'truck-complete' : 'truck';
+                        var truckTitle = buildGanttTooltip(row).replace(/"/g, '&quot;') + ' — Klik untuk buka Loading List';
+                        var dateFromVal = $('#filterDateFrom').val() || '';
+                        var dateToVal = $('#filterDateTo').val() || '';
+                        var truckLabel = 'C' + escapeHtml(String(row.cycle_name || '?'));
+                        timelineHtml += '<div class="gantt-bar-wrap truck-pill" style="left:' + truckLeftPct + '%" title="' + truckTitle + '"';
+                        timelineHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                        timelineHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                        timelineHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
+                        timelineHtml += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
+                        timelineHtml += '<div class="gantt-bar-stack">';
+                        timelineHtml += '<span class="gantt-seg ' + truckSegClass + '" style="width:100%"></span>';
+                        timelineHtml += '</div>';
+                        timelineHtml += '<span class="pill-meta"><span class="pill-avatar">' + truckLabel + '</span></span>';
+                        timelineHtml += '</div>';
+                    });
+                    timelineHtml += '</div>';
+                    timelineHtml += '<div class="gantt-truck-marker" style="left:' + truckPct + '%"><div class="gantt-truck-line"></div></div>';
+                    timelineHtml += '<div class="gantt-now-marker" style="left:' + nowPct + '%"><div class="gantt-now-line"></div></div>';
+                    timelineHtml += '</td></tr>';
                 });
 
-                html += '</tbody></table>';
-                $('#ganttContainer').html(html);
+                fixedHtml += '</tbody></table>';
+                timelineHtml += '</tbody></table>';
+                $('#ganttContainer').html(
+                    '<div class="gantt-layout">' +
+                    '<div class="gantt-fixed-pane">' + fixedHtml + '</div>' +
+                    '<div class="gantt-timeline-pane">' +
+                    '<div class="gantt-timeline-scroll" id="ganttTimelineScroll">' + timelineHtml + '</div>' +
+                    '</div>' +
+                    '</div>'
+                );
+
+                updateTimelineTotal();
 
                 ganttNowTimer = setInterval(updateGanttNowMarkers, 1000);
                 updateGanttNowMarkers();
@@ -736,6 +1444,7 @@
                     if (!chartRows.length) {
                         var msg = hint || 'Tidak ada data delivery untuk filter ini.';
                         $('#chartEmpty').removeClass('d-none').text(msg);
+                        $('#timelineTotalSum').text('Total: 0');
                         return;
                     }
 
@@ -750,13 +1459,29 @@
                     });
 
                     renderGantt();
+                    checkAndSendUnfinishedWaNotification();
                 }).fail(function () {
                     $('#chartEmpty').removeClass('d-none').text('Gagal memuat Gantt.');
+                    $('#timelineTotalSum').text('Total: 0');
                 });
             }
 
             $('#btnReloadChart').on('click', loadStackedChart);
             $('#filterDateFrom, #filterDateTo, #filterCustomer').on('change', loadStackedChart);
+            $('#etaWindowModalForm').on('submit', function (e) {
+                e.preventDefault();
+                etaWindowSettings.eta_offset_hours = normalizeOffsetHours($('#etaOffsetHours').val(), 0);
+                etaWindowSettings.finish_offset_hours = normalizeOffsetHours($('#finishOffsetHours').val(), 4);
+                saveEtaWindowSettings();
+                renderEtaWindowFormState();
+                $('#etaWindowModal').modal('hide');
+                updateGanttNowMarkers();
+                alert('Pengaturan rentang ETA TRUCK dan Finish Preparation berhasil disimpan.');
+            });
+
+            $('#etaWindowModal').on('show.bs.modal', function () {
+                renderEtaWindowFormState();
+            });
 
             // Default ke tanggal hari ini agar tidak langsung menarik seluruh data historis.
             if (!$('#filterDateFrom').val()) {
@@ -769,17 +1494,25 @@
                 var $tb = $('#masterCycleTable tbody');
                 $tb.empty();
                 if (!rows.length) {
-                    $tb.append('<tr><td colspan="5" class="text-center text-muted">Belum ada master cycle.</td></tr>');
+                    $tb.append('<tr><td colspan="6" class="text-center text-muted">Belum ada master cycle.</td></tr>');
                     return;
                 }
                 rows.forEach(function (r, i) {
                     var cust = r.customer_name || (r.customer_id ? '#' + r.customer_id : '-');
+                    var prepStart = formatClockDot(r.time);
+                    var prepEnd = (r.prep_end_time && String(r.prep_end_time).length) ? formatClockDot(r.prep_end_time) : '-';
+                    if (prepEnd === prepStart) {
+                        prepEnd = '-';
+                    }
+                    var prepRangeDisp = prepStart + ' - ' + prepEnd;
+                    var truckDisp = (r.truck_time && String(r.truck_time).length) ? formatClockDot(r.truck_time) : '<span class="text-muted">-</span>';
                     $tb.append(
                         '<tr>' +
                         '<td>' + (i + 1) + '</td>' +
                         '<td>' + cust + '</td>' +
                         '<td>' + r.cycle_name + '</td>' +
-                        '<td>' + r.time + '</td>' +
+                        '<td>' + prepRangeDisp + '</td>' +
+                        '<td>' + truckDisp + '</td>' +
                         '<td>' +
                         '<button type="button" class="btn btn-sm btn-outline-primary py-0 btn-edit-master" data-id="' + r.id + '">Edit</button> ' +
                         '<button type="button" class="btn btn-sm btn-outline-danger py-0 btn-del-master" data-id="' + r.id + '">Hapus</button>' +
@@ -798,10 +1531,19 @@
 
             $('#masterCycleForm').on('submit', function (e) {
                 e.preventDefault();
+                var prepStart = ($('#mcyclePrepStart').val() || '').trim();
+                var prepEnd = ($('#mcyclePrepEnd').val() || '').trim();
+                var etaTruck = ($('#mcycleTruckTime').val() || '').trim();
+                if (!prepStart || !prepEnd || !etaTruck) {
+                    alert('Waktu preparation (mulai-selesai) dan ETA truck wajib diisi.');
+                    return;
+                }
                 var payload = {
                     _token: csrf,
                     cycle_name: $('#mcycleName').val().trim(),
-                    time: $('#mcycleTime').val(),
+                    time: prepStart,
+                    prep_end_time: prepEnd,
+                    truck_time: etaTruck,
                     customer_id: $('#mcycleCustomerId').val()
                 };
 
@@ -868,18 +1610,64 @@
                             $('#mcycleName').val('');
                         }
                     }
-                    $('#mcycleTime').val(row.time.length === 5 ? row.time : row.time.substring(0, 5));
+                    var prepStart = row.time.length === 5 ? row.time : row.time.substring(0, 5);
+                    var prepEnd = row.prep_end_time
+                        ? (row.prep_end_time.length === 5 ? row.prep_end_time : row.prep_end_time.substring(0, 5))
+                        : '';
+                    if (prepEnd === prepStart) {
+                        prepEnd = '';
+                    }
+                    var etaTruck = row.truck_time
+                        ? (row.truck_time.length === 5 ? row.truck_time : row.truck_time.substring(0, 5))
+                        : '';
+                    $('#mcyclePrepStart').val(prepStart);
+                    $('#mcyclePrepEnd').val(prepEnd);
+                    $('#mcycleTruckTime').val(etaTruck);
                     $('#mcycleCustomerId').val(row.customer_id != null ? String(row.customer_id) : '');
                     $('#btnMasterSave').text('Update');
                     $('#btnMasterCancel').removeClass('d-none');
                 });
             });
 
+            renderHourDropdownOptions('#etaOffsetHours');
+            renderHourDropdownOptions('#finishOffsetHours');
+            loadEtaWindowSettings();
+            renderEtaWindowFormState();
             fetchMasters();
             loadStackedChart();
+            waNotifyTimer = setInterval(checkAndSendUnfinishedWaNotification, 60000);
 
             tickDeliveryHeaderClock();
             setInterval(tickDeliveryHeaderClock, 1000);
         });
     </script>
+
+    <div class="modal fade" id="etaWindowModal" tabindex="-1" role="dialog" aria-labelledby="etaWindowModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <form id="etaWindowModalForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="etaWindowModalLabel">Setting Rentang</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="mb-1" style="font-size: 11px;">ETA TRUCK (jam dari sekarang)</label>
+                            <select class="form-control form-control-sm" id="etaOffsetHours" required></select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="mb-1" style="font-size: 11px;">Finish Preparation (jam dari sekarang)</label>
+                            <select class="form-control form-control-sm" id="finishOffsetHours" required></select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-sm btn-primary">Simpan rentang</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection

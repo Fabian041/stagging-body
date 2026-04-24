@@ -18,6 +18,7 @@ use App\Models\LoadingList;
 use App\Models\LoadingListDetail;
 use App\Models\PisScan;
 use App\Models\PisScanDetail;
+use App\Models\PisScanLog;
 use App\Models\Customer;
 use Carbon\Carbon;
 
@@ -1017,6 +1018,7 @@ class PisController extends Controller
             $loadingListNumber = $this->normalizeLoadingListNumber($request->input('loading_list_number', ''));
             $partNumberInt = $request->input('part_number_int');
             $partNumberCust = $request->input('part_number_cust');
+            $label = $request->input('label'); // raw label/barcode (optional)
 
             // Find the PIS scan (data from DB only — no API call)
             $pisScan = PisScan::where('loading_list_number', $loadingListNumber)->first();
@@ -1032,14 +1034,38 @@ class PisController extends Controller
             $scanDetail = PisScanDetail::where('pis_scan_id', $pisScan->id)
                 ->where('part_number_int', $partNumberInt)
                 ->where('part_number_cust', $partNumberCust)
+                ->lockForUpdate()
                 ->first();
 
-            if ($scanDetail) {
-                // Increment scanned quantity
-                $scanDetail->scanned_qty = ($scanDetail->scanned_qty ?? 0) + 1;
-                $scanDetail->remaining_qty = max(0, ($scanDetail->target_qty ?? 0) - $scanDetail->scanned_qty);
-                $scanDetail->save();
+            if (!$scanDetail) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'PIS scan detail not found'
+                ], 404);
             }
+
+            $targetQty = (int) ($scanDetail->target_qty ?? 0);
+            $currentScanned = (int) ($scanDetail->scanned_qty ?? 0);
+            if ($targetQty > 0 && $currentScanned >= $targetQty) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'TARGET_ALREADY_REACHED',
+                    'message' => 'Qty target part ini sudah terpenuhi. Lakukan Confirm Packing di UI sebelum scan berikutnya, atau refresh jika data tidak sinkron.',
+                ], 409);
+            }
+
+            // Log setiap aktivitas scan per label (tanpa duplikasi summary)
+            PisScanLog::create([
+                'pis_scan_detail_id' => $scanDetail->id,
+                'label' => $label,
+                'scan_time' => now(),
+            ]);
+
+            // Update agregat (summary) di tabel utama
+            $scanDetail->scanned_qty = ($scanDetail->scanned_qty ?? 0) + 1;
+            $scanDetail->remaining_qty = max(0, ($scanDetail->target_qty ?? 0) - $scanDetail->scanned_qty);
+            $scanDetail->save();
 
             DB::commit();
 
@@ -1250,7 +1276,12 @@ class PisController extends Controller
             }
 
             $pisScan = PisScan::where('loading_list_number', $loadingListNumber)
-                ->with(['customer', 'details'])
+                ->with([
+                    'customer',
+                    'details.logs' => function ($q) {
+                        $q->orderByDesc('scan_time')->orderByDesc('id');
+                    }
+                ])
                 ->first();
 
             if (!$pisScan) {
@@ -1259,7 +1290,22 @@ class PisController extends Controller
                 ], 404);
             }
 
-            $items = $pisScan->details->map(function ($detail) {
+            // Back number tidak tersimpan di scan list; ambil dari master `part_pis`
+            // dengan matching part_number_customer (case-insensitive).
+            $custPartNumbers = $pisScan->details
+                ->pluck('part_number_cust')
+                ->filter()
+                ->map(fn ($v) => strtoupper(trim((string) $v)))
+                ->unique()
+                ->values();
+
+            $backNumberByCustPart = PisPart::query()
+                ->whereIn('part_number_customer', $custPartNumbers)
+                ->pluck('back_number', 'part_number_customer')
+                ->mapWithKeys(fn ($back, $part) => [strtoupper(trim((string) $part)) => $back])
+                ->toArray();
+
+            $items = $pisScan->details->map(function ($detail) use ($backNumberByCustPart) {
                 // Calculate progress per item based on total_kanban_qty
                 // From API response: total_kanban_qty is the target for each item
                 // scanned_qty is how many have been scanned
@@ -1270,9 +1316,19 @@ class PisController extends Controller
                 // Status: 100% if scanned >= target
                 $isComplete = ($scannedKanban >= $targetKanban && $targetKanban > 0);
 
+                $custPartKey = strtoupper(trim((string) ($detail->part_number_cust ?? '')));
+                $backNumber = $custPartKey ? ($backNumberByCustPart[$custPartKey] ?? null) : null;
+                $scanLogs = $detail->logs->map(function ($log) {
+                    return [
+                        'label' => $log->label,
+                        'scan_time' => optional($log->scan_time)->format('Y-m-d H:i:s'),
+                    ];
+                })->values();
+
                 return [
                     'part_number_int'      => $detail->part_number_int,
                     'part_number_cust'     => $detail->part_number_cust,
+                    'back_number'          => $backNumber,
                     'target_qty'           => $targetKanban,
                     'scanned_qty'          => $scannedKanban,
                     'remaining_qty'        => $detail->remaining_qty ?? max(0, $targetKanban - $scannedKanban),
@@ -1280,6 +1336,7 @@ class PisController extends Controller
                     'is_complete'          => $isComplete,
                     // Waktu scan diambil dari updated_at detail (terakhir kali qty di-update)
                     'scanned_at'           => optional($detail->updated_at)->format('Y-m-d H:i'),
+                    'scan_logs'            => $scanLogs,
                 ];
             });
 

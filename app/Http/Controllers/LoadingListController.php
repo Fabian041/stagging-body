@@ -16,6 +16,7 @@ use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
 use Yajra\DataTables\Facades\DataTables;
@@ -1242,6 +1243,12 @@ class LoadingListController extends Controller
                     'customer_name' => optional($m->customer)->name,
                     'cycle_name' => $m->cycle_name,
                     'time' => Carbon::parse($m->time)->format('H:i'),
+                    'prep_end_time' => $m->prep_end_time
+                        ? Carbon::parse($m->prep_end_time)->format('H:i')
+                        : null,
+                    'truck_time' => $m->truck_time
+                        ? Carbon::parse($m->truck_time)->format('H:i')
+                        : null,
                 ];
             });
 
@@ -1286,10 +1293,11 @@ class LoadingListController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'cycle_name' => 'required|string|max:120',
             'time' => 'required|date_format:H:i',
+            'prep_end_time' => 'required|date_format:H:i',
+            'truck_time' => 'required|date_format:H:i',
         ]);
 
         $validated['cycle_name'] = trim($validated['cycle_name']);
-
         $exists = MasterCycle::query()
             ->where('customer_id', $validated['customer_id'])
             ->whereRaw('LOWER(cycle_name) = ?', [Str::lower($validated['cycle_name'])])
@@ -1314,10 +1322,11 @@ class LoadingListController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'cycle_name' => 'required|string|max:120',
             'time' => 'required|date_format:H:i',
+            'prep_end_time' => 'required|date_format:H:i',
+            'truck_time' => 'required|date_format:H:i',
         ]);
 
         $validated['cycle_name'] = trim($validated['cycle_name']);
-
         $exists = MasterCycle::query()
             ->where('customer_id', $validated['customer_id'])
             ->whereRaw('LOWER(cycle_name) = ?', [Str::lower($validated['cycle_name'])])
@@ -1504,6 +1513,12 @@ class LoadingListController extends Controller
                 'customer_id' => (int) $m->customer_id,
                 'cycle_name' => $this->normalizeCycleNumber($m->cycle_name),
                 'time' => Carbon::parse($m->time)->format('H:i'),
+                'prep_end_time' => $m->prep_end_time
+                    ? Carbon::parse($m->prep_end_time)->format('H:i')
+                    : null,
+                'truck_time' => $m->truck_time
+                    ? Carbon::parse($m->truck_time)->format('H:i')
+                    : null,
             ];
         });
 
@@ -1526,12 +1541,22 @@ class LoadingListController extends Controller
                     ? round(($completeCount / $llCount) * 100, 1)
                     : 0.0;
 
+                $cycleTime = $master ? ($master['time'] ?? '06:00') : '06:00';
+                $prepEndTime = ($master && isset($master['prep_end_time']) && $master['prep_end_time'] !== null)
+                    ? $master['prep_end_time']
+                    : $cycleTime;
+                $truckTime = ($master && isset($master['truck_time']) && $master['truck_time'] !== null)
+                    ? $master['truck_time']
+                    : null;
+
                 return [
                     'customer_id' => (int) $first->customer_id,
                     'customer_name' => optional($first->customer)->name ?? '-',
-                    'master_cycle_id' => $master['id'] ?? null,
+                    'master_cycle_id' => $master ? ($master['id'] ?? null) : null,
                     'cycle_name' => (string) $first->cycle,
-                    'cycle_time' => $master['time'] ?? '06:00',
+                    'cycle_time' => $cycleTime,
+                    'prep_end_time' => $prepEndTime,
+                    'truck_time' => $truckTime,
                     'mapping_source' => $master ? 'master_cycle_name' : 'loading_list_only',
                     'on_time' => $completeCount,
                     'delay' => $llCount - $completeCount,
@@ -1566,6 +1591,12 @@ class LoadingListController extends Controller
                     'customer_name' => optional($m->customer)->name,
                     'cycle_name' => $m->cycle_name,
                     'time' => Carbon::parse($m->time)->format('H:i'),
+                    'prep_end_time' => $m->prep_end_time
+                        ? Carbon::parse($m->prep_end_time)->format('H:i')
+                        : null,
+                    'truck_time' => $m->truck_time
+                        ? Carbon::parse($m->truck_time)->format('H:i')
+                        : null,
                 ];
             }),
             'meta' => [
@@ -1580,6 +1611,166 @@ class LoadingListController extends Controller
                 'is_truncated' => $rowLimit !== null ? ($rawLists->count() >= $rowLimit) : false,
                 'hint' => $hint,
             ],
+        ]);
+    }
+
+    public function sendDeliveryUnfinishedWaNotification(Request $request)
+    {
+        $validated = $request->validate([
+            'date_from' => 'nullable|string|max:20',
+            'date_to' => 'nullable|string|max:20',
+            'finish_offset_hours' => 'nullable|integer|min:-24|max:24',
+            'pending_rows' => 'required|array|min:1',
+            'pending_rows.*.customer_name' => 'required|string|max:255',
+            'pending_rows.*.cycle_name' => 'required|string|max:100',
+            'pending_rows.*.cycle_time' => 'nullable|string|max:20',
+            'pending_rows.*.prep_end_time' => 'nullable|string|max:20',
+            'pending_rows.*.progress_pct' => 'required|numeric|min:0|max:100',
+            'pending_rows.*.total_done' => 'nullable|numeric|min:0',
+            'pending_rows.*.total_target' => 'nullable|numeric|min:0',
+            'pending_rows.*.ll_count' => 'nullable|integer|min:0',
+        ]);
+
+        $toTimelineMinutes = function (?string $clock): ?int {
+            $raw = trim((string) ($clock ?? ''));
+            if ($raw === '' || !preg_match('/^\d{1,2}:\d{2}/', $raw)) {
+                return null;
+            }
+            [$h, $m] = array_pad(explode(':', substr($raw, 0, 5)), 2, '0');
+            $hour = (int) $h;
+            $minute = (int) $m;
+            if ($hour < 0 || $hour > 23 || $minute < 0 || $minute > 59) {
+                return null;
+            }
+            $total = ($hour * 60) + $minute;
+            $timelineStart = 6 * 60; // 06:00
+            if ($total < $timelineStart) {
+                $total += 24 * 60;
+            }
+            return $total;
+        };
+
+        $finishOffsetHours = (int) ($validated['finish_offset_hours'] ?? 4);
+        $finishMarker = Carbon::now()->addHours($finishOffsetHours)->format('H:i');
+        $finishMarkerMinutes = $toTimelineMinutes($finishMarker);
+
+        $pendingRows = collect($validated['pending_rows'])
+            ->filter(function (array $row) use ($toTimelineMinutes, $finishMarkerMinutes) {
+                $progress = (float) ($row['progress_pct'] ?? 0);
+                if ($progress >= 100) {
+                    return false;
+                }
+
+                if ($finishMarkerMinutes === null) {
+                    return false;
+                }
+
+                $prepStart = isset($row['cycle_time']) ? trim((string) $row['cycle_time']) : '';
+                $prepEnd = isset($row['prep_end_time']) ? trim((string) $row['prep_end_time']) : '';
+                $barEndClock = $prepEnd !== '' ? $prepEnd : $prepStart;
+                $barEndMinutes = $toTimelineMinutes($barEndClock);
+                if ($barEndMinutes === null) {
+                    return false;
+                }
+
+                // Kirim WA hanya jika ujung kanan bar PREP (masih delay) sudah lewat marker Finish Prep.
+                return $finishMarkerMinutes >= $barEndMinutes;
+            })
+            ->take(30)
+            ->values();
+
+        if ($pendingRows->isEmpty()) {
+            return response()->json([
+                'message' => 'Belum ada bar delay yang melewati garis Finish Preparation.',
+                'already_sent' => false,
+            ]);
+        }
+
+        $hashPayload = [
+            'date_from' => $validated['date_from'] ?? null,
+            'date_to' => $validated['date_to'] ?? null,
+            'finish_offset_hours' => $finishOffsetHours,
+            'rows' => $pendingRows->toArray(),
+        ];
+        $dedupeKey = 'delivery_wa_unfinished_'.md5(json_encode($hashPayload));
+        if (Cache::has($dedupeKey)) {
+            return response()->json([
+                'message' => 'Notifikasi untuk data yang sama sudah pernah dikirim.',
+                'already_sent' => true,
+            ]);
+        }
+
+        $token = env('FASTWA_API_KEY', '793D30579A77D4A0E12648872BFBB085');
+        $phone = env('FASTWA_PHONE', '085971684756');
+        $url = env('FASTWA_SEND_URL', 'https://app.fastwa.com/api/v1/4D9AF7CE224B91C9CE14FFDDB55D248D/send_text');
+
+        $period = trim((string) ($validated['date_from'] ?? ''));
+        if (!empty($validated['date_to']) && $validated['date_to'] !== $period) {
+            $period .= ' s/d '.trim((string) $validated['date_to']);
+        }
+        if ($period === '') {
+            $period = Carbon::now()->format('Y-m-d');
+        }
+
+        $lines = [];
+        $lines[] = 'Peringatan Dashboard Delivery';
+        $lines[] = 'Periode: '.$period;
+        $lines[] = 'Status: Melewati waktu Finish Preparation, progress masih < 100%';
+        $lines[] = '';
+        foreach ($pendingRows as $idx => $row) {
+            $lines[] = ($idx + 1).'. '.$row['customer_name'].' | Cycle '.$row['cycle_name'];
+            if (!empty($row['cycle_time'])) {
+                $lines[] = '   Time: '.$row['cycle_time'];
+            }
+            $lines[] = '   Progress: '.$row['progress_pct'].'% ('.$row['total_done'].' / '.$row['total_target'].')';
+            $lines[] = '   Jumlah LL: '.$row['ll_count'];
+        }
+        $message = implode("\n", $lines);
+
+        $postFields = http_build_query([
+            'api_key' => $token,
+            'phone' => $phone,
+            'message' => $message,
+        ]);
+
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => $postFields,
+        ]);
+        $response = curl_exec($curl);
+        $curlError = curl_error($curl);
+        $statusCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        if (!empty($curlError)) {
+            return response()->json([
+                'message' => 'Gagal kirim notifikasi WhatsApp.',
+                'error' => $curlError,
+            ], 500);
+        }
+
+        if ($statusCode >= 400) {
+            return response()->json([
+                'message' => 'FastWA mengembalikan error.',
+                'status_code' => $statusCode,
+                'response' => $response,
+            ], 502);
+        }
+
+        Cache::put($dedupeKey, true, now()->addMinutes(30));
+
+        return response()->json([
+            'message' => 'Notifikasi WhatsApp terkirim.',
+            'status_code' => $statusCode,
+            'response' => $response,
         ]);
     }
 

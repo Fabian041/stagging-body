@@ -18,7 +18,10 @@
                                         <i class="fas fa-spinner fa-spin"></i> Scanning...
                                     </div>
                                     <div class="form-group mb-0">
-                                        <input id="detail_no" class="form-control" name="detail_no" required tabindex="-1" placeholder="Scan di sini">
+                                        <input id="detail_no" class="form-control" name="detail_no" required tabindex="-1" placeholder="Scan di sini" aria-describedby="pis-pending-banner">
+                                    </div>
+                                    <div id="pis-pending-banner" class="alert alert-warning py-1 px-2 small mb-0 mt-1" style="display:none;" role="status">
+                                        <i class="fas fa-lock"></i> Wajib tekan <strong>Confirm Packing</strong> sebelum scan label berikutnya, kanban baru, atau loading list lain.
                                     </div>
                                 </div>
                             </div>
@@ -319,6 +322,12 @@
             top: 0;
             z-index: 1;
             background: #fff;
+        }
+
+        /* Interlock: ada label yang menunggu Confirm Packing */
+        body.pis-pending-confirm-pack #detail_no {
+            background-color: #fff3cd;
+            border-color: #ffc107;
         }
     </style>
 
@@ -663,21 +672,40 @@
             return true;
         }
 
-        function getPendingPackCountForPart(partInt, partCust, loadingListNumber) {
-            var a = (partInt || '').toString().trim();
-            var b = (partCust || '').toString().trim();
-            var ll = (loadingListNumber || '').toString().trim();
-            return pendingLabelPacks.filter(function (p) {
-                return (p.part_number_int || '').toString().trim() === a
-                    && (p.part_number_cust || '').toString().trim() === b
-                    && (p.loading_list_number || '').toString().trim() === ll;
-            }).length;
+        /** Interlock: satu label valid boleh antre; scan berikutnya baru setelah Confirm Packing. */
+        function pisHasPendingLabelPack() {
+            return pendingLabelPacks.length > 0;
+        }
+
+        var pisLastConfirmInterlockSwalAt = 0;
+        function showPisConfirmPackingInterlock(reason) {
+            var now = Date.now();
+            if (now - pisLastConfirmInterlockSwalAt < 2000) return;
+            pisLastConfirmInterlockSwalAt = now;
+            var text = reason === 'loading_list'
+                ? 'Selesaikan Confirm Packing untuk label yang sudah di-scan sebelum menambah atau mengganti loading list.'
+                : (reason === 'kanban'
+                    ? 'Selesaikan Confirm Packing sebelum scan kanban atau label lain.'
+                    : 'Tekan tombol Confirm Packing untuk menulis qty ke sistem. Scan label, kanban, maupun loading list lain diblok sampai konfirmasi selesai.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Menunggu Confirm Packing',
+                text: text,
+                confirmButtonText: 'OK'
+            });
         }
 
         function updatePendingPackingUI() {
             var n = pendingLabelPacks.length;
             $('#pis-pending-count').text(String(n));
             $('#pis-btn-confirm-packing').prop('disabled', n === 0);
+            if (n > 0) {
+                $('#pis-pending-banner').show();
+                $('body').addClass('pis-pending-confirm-pack');
+            } else {
+                $('#pis-pending-banner').hide();
+                $('body').removeClass('pis-pending-confirm-pack');
+            }
         }
 
         function clearPendingLabelPacks() {
@@ -716,7 +744,13 @@
                         _token: '{{ csrf_token() }}',
                         loading_list_number: llForUpdate,
                         part_number_int: matched.part_number_int || '',
-                        part_number_cust: matched.part_number_cust || ''
+                        part_number_cust: matched.part_number_cust || '',
+                        // simpan ke tabel log agar tiap scan bisa ditelusuri
+                        label: raw || ''
+                    },
+                    error: function (xhr) {
+                        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal menyimpan scan ke server.';
+                        Swal.fire({ icon: 'error', title: 'Confirm Packing', text: msg });
                     }
                 });
             }
@@ -1018,9 +1052,17 @@
                     // Untuk scan kanban (stage 2) dan label (stage 3), nilai input akan
                     // di-set spesifik oleh fungsi proses masing-masing (bukan seluruh string scan).
                     if (stage === 1) {
+                        if (pisHasPendingLabelPack()) {
+                            $('#part_number_loading').hide();
+                            $('#status-container').removeClass('alert-success').addClass('alert-warning');
+                            $('#alert-header').html('<i class="fas fa-lock"></i> Menunggu Confirm Packing');
+                            $('#alert-body').text('Selesaikan Confirm Packing untuk label yang sudah di-scan sebelum scan loading list lain.');
+                            pisErrorSound();
+                            showPisConfirmPackingInterlock('loading_list');
+                            barcode = '';
+                            return;
+                        }
                         $('#detail_no').val(displayBarcode);
-                    }
-                    if (stage === 1) {
                         // Interlock: jika ada loading list yang belum selesai, tanya dulu (Tunda / Lanjutkan + konfirmasi JP)
                         if (loadingListItems.length > 0 && !isLoadingListComplete()) {
                             $('#part_number_loading').hide();
@@ -1174,11 +1216,12 @@
 
         // Stage 2: Scan kanban — simpan data untuk validasi label (label harus terkandung di data kanban)
         function processKanbanScan(barcode) {
-            if (pendingLabelPacks.length > 0) {
+            if (pisHasPendingLabelPack()) {
                 $('#status-container').removeClass('alert-success').addClass('alert-warning');
-                $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Konfirmasi diperlukan');
+                $('#alert-header').html('<i class="fas fa-lock"></i> Menunggu Confirm Packing');
                 $('#alert-body').text('Ada label yang belum dikonfirmasi. Tekan Confirm Packing terlebih dahulu, lalu scan kanban baru.');
                 pisErrorSound();
+                showPisConfirmPackingInterlock('kanban');
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
@@ -1338,6 +1381,17 @@
                 return;
             }
 
+            if (pisHasPendingLabelPack()) {
+                $('#status-container').removeClass('alert-success').addClass('alert-warning');
+                $('#alert-header').html('<i class="fas fa-lock"></i> Menunggu Confirm Packing');
+                $('#alert-body').text('Tekan Confirm Packing sebelum scan label part berikutnya.');
+                pisErrorSound();
+                showPisConfirmPackingInterlock('label');
+                $(window).scrollTop(_savedScrollTop);
+                $('#part_number_loading').hide();
+                return;
+            }
+
             // --- LOGIKA PEMBERSIHAN BARCODE ---
             var cleanLabel = raw.split(/\s{2,}/)[0].trim();
             var matched = null;
@@ -1477,14 +1531,14 @@
                 }
             }
 
-            // 4. JIKA ITEM DITEMUKAN (MATCHED) — simpan ke antrean frontend; qty & counter setelah Confirm Packing
+            // 4. JIKA ITEM DITEMUKAN (MATCHED) — simpan ke antrean frontend (maks. 1 label sampai Confirm Packing)
             if (matched) {
-                var pendingForPart = getPendingPackCountForPart(matched.part_number_int, matched.part_number_cust, matched.loading_list_number);
                 var rem = (matched.remaining != null ? matched.remaining : matched.total_qty || 0);
-                if (pendingForPart + 1 > rem) {
+                var remNum = toQtyNumber(rem);
+                if (remNum < 1) {
                     $('#status-container').removeClass('alert-success').addClass('alert-warning');
-                    $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Melebihi sisa');
-                    $('#alert-body').text('Jumlah label (termasuk yang menunggu konfirmasi) melebihi sisa untuk part ini.');
+                    $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Qty penuh');
+                    $('#alert-body').text('Sisa qty untuk part ini sudah nol. Konfirmasi packing sebelumnya atau refresh data.');
                     pisErrorSound();
                     $(window).scrollTop(_savedScrollTop);
                     return;
@@ -1517,21 +1571,17 @@
                     clearPreviewImage();
                 }
 
-                // --- LOGIKA PERPINDAHAN STAGE BERDASARKAN SISA QUANTITY ---
-                if (matched.remaining > 0) {
-                    // MASIH ADA SISA: Tetap di Stage 3 (Tunggu scan box part selanjutnya)
-                    stage = 3; 
-                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+                // --- LOGIKA PERPINDAHAN STAGE: sisa ditampilkan setelah commit konfirmasi (remNum - 1) ---
+                var effAfterConfirm = Math.max(0, remNum - 1);
+                stage = 3;
+                $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+                if (effAfterConfirm > 0) {
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                    $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' Berhasil di-scan. Sisa: ' + matched.remaining + ' box.');
+                    $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' di-scan. Setelah Confirm Packing, sisa: ' + effAfterConfirm + ' box.');
                     pisOkSound();
                 } else {
-                    // SUDAH HABIS: Kembali ke Stage 2 (Harus scan kanban baru untuk part lain)
-                    stage = 2;
-                    lastScannedKanban = ''; // Reset kanban agar user wajib scan kanban baru
-                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
-                    $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                    $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                    $('#alert-header').html('<i class="fas fa-lock"></i> Label terakhir — wajib Confirm Packing');
+                    $('#alert-body').text('Ini kanban terakhir untuk part ini. Tekan Confirm Packing untuk menutup qty; scan label/kanban/loading list lain diblok sampai konfirmasi.');
                     pisOkSound();
                 }
 
@@ -1598,12 +1648,13 @@
         // 2) Jika belum ada → panggil API DEA, simpan ke DB, lalu tambahkan grup LL (boleh banyak LL per sesi; tabel per LL).
         // Part Number (detail_no) diisi dengan hasil scan barcode.
         function scanLoadingList(barcode, displayBarcode) {
-            if (pendingLabelPacks.length > 0) {
+            if (pisHasPendingLabelPack()) {
                 $('#part_number_loading').hide();
                 $('#status-container').removeClass('alert-success').addClass('alert-warning');
-                $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Konfirmasi diperlukan');
-                $('#alert-body').text('Tekan Confirm Packing terlebih dahulu sebelum menambah loading list.');
+                $('#alert-header').html('<i class="fas fa-lock"></i> Menunggu Confirm Packing');
+                $('#alert-body').text('Tekan Confirm Packing sebelum menambah atau mengganti loading list.');
                 pisErrorSound();
+                showPisConfirmPackingInterlock('loading_list');
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
