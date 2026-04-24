@@ -17,7 +17,10 @@
             --gantt-visible-hours: 6;
             /* 100–150px per jam (default 120px) */
             --gantt-hour-width: 120px;
-            --gantt-left-cols: 320px; /* 200 (Customer) + 120 (Type) */
+            --gantt-customer-col-width: 200px;
+            --gantt-type-col-width: 120px;
+            --gantt-left-cols: calc(var(--gantt-customer-col-width) + var(--gantt-type-col-width));
+            --gantt-slot-count: 24;
         }
 
         .delivery-dash {
@@ -361,115 +364,165 @@
             overflow: hidden;
         }
 
-        .delivery-timeline-card .gantt-layout {
-            display: flex;
-            width: 100%;
-            min-width: 0;
-        }
-
-        .delivery-timeline-card .gantt-fixed-pane {
-            position: sticky;
-            left: 0;
-            z-index: 9;
-            flex: 0 0 var(--gantt-left-cols);
-            width: var(--gantt-left-cols);
-            max-width: var(--gantt-left-cols);
-            background: #ffffff;
-            border-right: 1px solid #eef0f3;
-        }
-
-        .delivery-timeline-card .gantt-timeline-pane {
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        .delivery-timeline-card .gantt-timeline-scroll {
+        .delivery-timeline-card .gantt-grid-scroll {
             overflow-x: auto;
             overflow-y: hidden;
             width: 100%;
         }
 
-        .delivery-timeline-card .gantt-table {
+        .delivery-timeline-card .gantt-grid {
+            min-width: calc(var(--gantt-left-cols) + (var(--gantt-slot-count) * var(--gantt-hour-width)));
             background: #ffffff;
         }
 
-        .delivery-timeline-card .gantt-fixed-table {
-            width: var(--gantt-left-cols);
-            min-width: var(--gantt-left-cols);
-            table-layout: fixed;
-            border-collapse: collapse;
-            margin-bottom: 0;
+        .delivery-timeline-card .gantt-grid-row {
+            display: grid;
+            grid-template-columns:
+                var(--gantt-customer-col-width)
+                var(--gantt-type-col-width)
+                repeat(var(--gantt-slot-count), var(--gantt-hour-width));
+        }
+
+        .delivery-timeline-card .gantt-grid-cell {
+            border: 1px solid #eef0f3;
+            background: #ffffff;
+            box-sizing: border-box;
+        }
+
+        .delivery-timeline-card .gantt-grid-sticky-col {
+            position: sticky;
+            z-index: 8;
             background: #ffffff;
         }
 
-        .delivery-timeline-card .gantt-timeline-table {
-            min-width: calc(24 * var(--gantt-hour-width));
-            table-layout: fixed;
-            border-collapse: collapse;
-            margin-bottom: 0;
-            background: #ffffff;
+        .delivery-timeline-card .gantt-grid-sticky-customer {
+            left: 0;
+            z-index: 9;
         }
 
-        .delivery-timeline-card .gantt-table thead th {
+        .delivery-timeline-card .gantt-grid-sticky-type {
+            left: var(--gantt-customer-col-width);
+            z-index: 9;
+        }
+
+        .delivery-timeline-card .gantt-grid-header .gantt-grid-cell {
             background: #ffffff;
             border-color: #eef0f3;
             color: #5c6370;
             font-size: 11px;
             font-weight: 600;
             height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .delivery-timeline-card .gantt-sticky-col,
-        .delivery-timeline-card .gantt-left-customer {
+        .delivery-timeline-card .gantt-grid-customer {
             background: #ffffff;
             border-color: #eef0f3;
             color: #2f3542;
             font-size: 12px;
             padding: 8px 10px;
-            min-width: 200px;
-            max-width: 200px;
-            width: 200px;
+            width: var(--gantt-customer-col-width);
             font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
         }
 
-        .delivery-timeline-card .gantt-type-col,
-        .delivery-timeline-card .gantt-left-type {
+        .delivery-timeline-card .gantt-grid-type {
             background: #ffffff;
             border-color: #eef0f3;
             font-size: 10px;
             padding: 6px 4px;
-            min-width: 120px;
-            max-width: 120px;
-            width: 120px;
+            width: var(--gantt-type-col-width);
             text-align: center;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             font-weight: 600;
             color: var(--dm-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .delivery-timeline-card .gantt-left-cell {
-            height: 72px;
-            vertical-align: middle;
-            border: 1px solid #eef0f3;
-            background: #ffffff;
+        .delivery-timeline-card .gantt-grid-left-cell {
+            height: 136px;
         }
 
-        .delivery-timeline-card .gantt-left-type.is-prep {
+        .delivery-timeline-card .gantt-grid-type.is-prep {
             color: #5c7f2b;
         }
 
-        .delivery-timeline-card .gantt-left-type.is-truck {
+        .delivery-timeline-card .gantt-grid-type.is-truck {
             color: #b86f00;
         }
 
-        .delivery-timeline-card .gantt-track-cell {
+        .delivery-timeline-card .gantt-grid-type-split {
+            display: flex;
+            flex-direction: column;
+            justify-content: stretch;
+            align-items: stretch;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .delivery-timeline-card .gantt-grid-type-split .gantt-type-lane {
+            flex: 1 1 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .delivery-timeline-card .gantt-grid-type-split .gantt-type-lane + .gantt-type-lane {
+            border-top: 1px solid #eef0f3;
+        }
+
+        .delivery-timeline-card .gantt-grid-type-split .gantt-type-lane.is-prep {
+            color: #5c7f2b;
+        }
+
+        .delivery-timeline-card .gantt-grid-type-split .gantt-type-lane.is-truck {
+            color: #b86f00;
+        }
+
+        .delivery-timeline-card .gantt-grid-time {
+            width: var(--gantt-hour-width);
+            min-width: var(--gantt-hour-width);
+        }
+
+        .delivery-timeline-card .gantt-grid-track-cell {
+            grid-column: 3 / span 24;
             border-color: #eef0f3;
-            height: 72px;
+            height: 136px;
+            padding: 0;
+            position: relative;
+            overflow: visible;
+        }
+
+        .delivery-timeline-card .gantt-grid-track-split {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        .delivery-timeline-card .gantt-grid-track-lane {
+            position: relative;
+            flex: 1 1 50%;
+            overflow: visible;
+        }
+
+        .delivery-timeline-card .gantt-grid-track-lane + .gantt-grid-track-lane {
+            border-top: 1px solid #eef0f3;
         }
 
         .delivery-timeline-card .gantt-track {
-            margin: 20px 8px 8px 8px;
+            margin: 16px 0 6px 0;
             height: 40px;
             border-radius: 0;
             background-color: transparent;
@@ -482,6 +535,8 @@
                 #dde1e7 var(--gantt-hour-width),
                 transparent var(--gantt-hour-width)
             );
+            background-size: var(--gantt-hour-width) 100%;
+            background-position: 0 0;
         }
 
         .delivery-timeline-card .gantt-seg.gantt-trail {
@@ -725,6 +780,11 @@
                                             <option value="3">3</option>
                                             <option value="4">4</option>
                                             <option value="5">5</option>
+                                            <option value="6">6</option>
+                                            <option value="7">7</option>
+                                            <option value="8">8</option>
+                                            <option value="9">9</option>
+                                            <option value="10">10</option>
                                         </select>
                                     </div>
                                     <div class="col-md-4 mb-2">
@@ -1235,16 +1295,14 @@
                 }
 
                 var slots = slotLabels24();
-                var fixedHtml = '<table class="gantt-fixed-table"><thead><tr>';
-                fixedHtml += '<th class="gantt-left-customer">Customer</th>';
-                fixedHtml += '<th class="gantt-left-type">Type</th>';
-                fixedHtml += '</tr></thead><tbody>';
-
-                var timelineHtml = '<table class="gantt-timeline-table"><thead><tr>';
+                var gridHtml = '<div class="gantt-grid-scroll" id="ganttTimelineScroll"><div class="gantt-grid">';
+                gridHtml += '<div class="gantt-grid-row gantt-grid-header">';
+                gridHtml += '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-sticky-col gantt-grid-sticky-customer">Customer</div>';
+                gridHtml += '<div class="gantt-grid-cell gantt-grid-type gantt-grid-sticky-col gantt-grid-sticky-type">Type</div>';
                 slots.forEach(function (s) {
-                    timelineHtml += '<th class="gantt-time-col">' + s + '</th>';
+                    gridHtml += '<div class="gantt-grid-cell gantt-grid-time">' + s + '</div>';
                 });
-                timelineHtml += '</tr></thead><tbody>';
+                gridHtml += '</div>';
 
                 var nowPct = getNowLeftPct();
                 var nowDate = new Date();
@@ -1276,14 +1334,15 @@
                         return af - bf;
                     });
 
-                    fixedHtml += '<tr>';
-                    fixedHtml += '<td class="gantt-left-customer gantt-left-cell">' + escapeHtml(cust) + '</td>';
-                    fixedHtml += '<td class="gantt-left-type gantt-left-cell is-prep">PREP</td>';
-                    fixedHtml += '</tr>';
-
-                    timelineHtml += '<tr>';
-                    timelineHtml += '<td class="gantt-track-cell" colspan="' + ganttCols + '"><div class="gantt-track">';
-                    timelineHtml += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' + fillWidth + '%"></div>';
+                    gridHtml += '<div class="gantt-grid-row">';
+                    gridHtml += '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer">' + escapeHtml(cust) + '</div>';
+                    gridHtml += '<div class="gantt-grid-cell gantt-grid-type gantt-grid-left-cell gantt-grid-type-split gantt-grid-sticky-col gantt-grid-sticky-type">';
+                    gridHtml += '<div class="gantt-type-lane is-prep">PREP</div>';
+                    gridHtml += '<div class="gantt-type-lane is-truck">ETA TRUCK</div>';
+                    gridHtml += '</div>';
+                    gridHtml += '<div class="gantt-grid-cell gantt-grid-track-cell"><div class="gantt-grid-track-split">';
+                    gridHtml += '<div class="gantt-grid-track-lane"><div class="gantt-track">';
+                    gridHtml += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' + fillWidth + '%"></div>';
 
                     buckets.forEach(function (row) {
                         var start = timeToWindowFrac(row.cycle_time);
@@ -1308,44 +1367,37 @@
                         if (!av.length) {
                             av = '?';
                         }
-                        av = av.substring(0, 2).toUpperCase();
-                        timelineHtml += '<div class="gantt-bar-wrap' + (isInstantPrep ? ' is-instant' : '') + '" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
-                        timelineHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
-                        timelineHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
-                        timelineHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
-                        timelineHtml += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
-                        timelineHtml += '<div class="gantt-bar-stack">';
+                        av = 'C' + av.toUpperCase();
+                        gridHtml += '<div class="gantt-bar-wrap' + (isInstantPrep ? ' is-instant' : '') + '" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
+                        gridHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                        gridHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                        gridHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
+                        gridHtml += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
+                        gridHtml += '<div class="gantt-bar-stack">';
                         if (progressWidth >= 100) {
-                            timelineHtml += '<span class="gantt-seg ontime" style="width:100%"></span>';
+                            gridHtml += '<span class="gantt-seg ontime" style="width:100%"></span>';
                         } else {
-                            timelineHtml += '<span class="gantt-seg delay" style="width:' + progressWidth + '%"></span>';
-                            timelineHtml += '<span class="gantt-seg gantt-trail" style="width:' + (100 - progressWidth) + '%"></span>';
+                            gridHtml += '<span class="gantt-seg delay" style="width:' + progressWidth + '%"></span>';
+                            gridHtml += '<span class="gantt-seg gantt-trail" style="width:' + (100 - progressWidth) + '%"></span>';
                         }
-                        timelineHtml += '</div>';
-                        timelineHtml += '<span class="pill-meta"><span class="pill-avatar">' + escapeHtml(av) + '</span></span>';
-                        timelineHtml += '</div>';
+                        gridHtml += '</div>';
+                        gridHtml += '<span class="pill-meta"><span class="pill-avatar">' + escapeHtml(av) + '</span></span>';
+                        gridHtml += '</div>';
                     });
 
-                    timelineHtml += '</div>';
-                    timelineHtml += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
+                    gridHtml += '</div>';
+                    gridHtml += '<div class="gantt-truck-marker" style="left:' + truckPct + '%">';
                     if (custIdx === 0) {
-                        timelineHtml += '<span class="gantt-truck-label">ETA TRUCK ' + escapeHtml(truckLbl) + '</span>';
+                        gridHtml += '<span class="gantt-truck-label">ETA TRUCK ' + escapeHtml(truckLbl) + '</span>';
                     }
-                    timelineHtml += '<div class="gantt-truck-line"></div></div>';
-                    timelineHtml += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
+                    gridHtml += '<div class="gantt-truck-line"></div></div>';
+                    gridHtml += '<div class="gantt-now-marker" style="left:' + nowPct + '%">';
                     if (custIdx === 0) {
-                        timelineHtml += '<span class="gantt-now-label">Finish Preparation ' + escapeHtml(nowLbl) + '</span>';
+                        gridHtml += '<span class="gantt-now-label">Finish Preparation ' + escapeHtml(nowLbl) + '</span>';
                     }
-                    timelineHtml += '<div class="gantt-now-line"></div></div>';
-                    timelineHtml += '</td></tr>';
-
-                    fixedHtml += '<tr>';
-                    fixedHtml += '<td class="gantt-left-customer gantt-left-cell"></td>';
-                    fixedHtml += '<td class="gantt-left-type gantt-left-cell is-truck">ETA TRUCK</td>';
-                    fixedHtml += '</tr>';
-
-                    timelineHtml += '<tr>';
-                    timelineHtml += '<td class="gantt-track-cell" colspan="' + ganttCols + '"><div class="gantt-track">';
+                    gridHtml += '<div class="gantt-now-line"></div></div>';
+                    gridHtml += '</div></div>';
+                    gridHtml += '<div class="gantt-grid-track-lane"><div class="gantt-track">';
                     buckets.forEach(function (row) {
                         var truckAt = (row.truck_time != null && String(row.truck_time).length) ? row.truck_time : null;
                         if (!truckAt) {
@@ -1362,33 +1414,25 @@
                         var dateFromVal = $('#filterDateFrom').val() || '';
                         var dateToVal = $('#filterDateTo').val() || '';
                         var truckLabel = 'C' + escapeHtml(String(row.cycle_name || '?'));
-                        timelineHtml += '<div class="gantt-bar-wrap truck-pill" style="left:' + truckLeftPct + '%" title="' + truckTitle + '"';
-                        timelineHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
-                        timelineHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
-                        timelineHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
-                        timelineHtml += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
-                        timelineHtml += '<div class="gantt-bar-stack">';
-                        timelineHtml += '<span class="gantt-seg ' + truckSegClass + '" style="width:100%"></span>';
-                        timelineHtml += '</div>';
-                        timelineHtml += '<span class="pill-meta"><span class="pill-avatar">' + truckLabel + '</span></span>';
-                        timelineHtml += '</div>';
+                        gridHtml += '<div class="gantt-bar-wrap truck-pill" style="left:' + truckLeftPct + '%" title="' + truckTitle + '"';
+                        gridHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                        gridHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                        gridHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
+                        gridHtml += ' data-delivery-date-to="' + escapeAttr(dateToVal) + '">';
+                        gridHtml += '<div class="gantt-bar-stack">';
+                        gridHtml += '<span class="gantt-seg ' + truckSegClass + '" style="width:100%"></span>';
+                        gridHtml += '</div>';
+                        gridHtml += '<span class="pill-meta"><span class="pill-avatar">' + truckLabel + '</span></span>';
+                        gridHtml += '</div>';
                     });
-                    timelineHtml += '</div>';
-                    timelineHtml += '<div class="gantt-truck-marker" style="left:' + truckPct + '%"><div class="gantt-truck-line"></div></div>';
-                    timelineHtml += '<div class="gantt-now-marker" style="left:' + nowPct + '%"><div class="gantt-now-line"></div></div>';
-                    timelineHtml += '</td></tr>';
+                    gridHtml += '</div>';
+                    gridHtml += '<div class="gantt-truck-marker" style="left:' + truckPct + '%"><div class="gantt-truck-line"></div></div>';
+                    gridHtml += '<div class="gantt-now-marker" style="left:' + nowPct + '%"><div class="gantt-now-line"></div></div>';
+                    gridHtml += '</div></div></div>';
                 });
 
-                fixedHtml += '</tbody></table>';
-                timelineHtml += '</tbody></table>';
-                $('#ganttContainer').html(
-                    '<div class="gantt-layout">' +
-                    '<div class="gantt-fixed-pane">' + fixedHtml + '</div>' +
-                    '<div class="gantt-timeline-pane">' +
-                    '<div class="gantt-timeline-scroll" id="ganttTimelineScroll">' + timelineHtml + '</div>' +
-                    '</div>' +
-                    '</div>'
-                );
+                gridHtml += '</div></div>';
+                $('#ganttContainer').html(gridHtml);
 
                 updateTimelineTotal();
 

@@ -1291,7 +1291,13 @@ class PisController extends Controller
             }
 
             // Back number tidak tersimpan di scan list; ambil dari master `part_pis`
-            // dengan matching part_number_customer (case-insensitive).
+            // dengan matching part_number_customer yang toleran terhadap perbedaan format
+            // (huruf besar/kecil, spasi, strip, dan simbol lain).
+            $normalizePartKey = static function (?string $value): string {
+                $raw = strtoupper(trim((string) $value));
+                return preg_replace('/[^A-Z0-9]/', '', $raw) ?? '';
+            };
+
             $custPartNumbers = $pisScan->details
                 ->pluck('part_number_cust')
                 ->filter()
@@ -1299,11 +1305,25 @@ class PisController extends Controller
                 ->unique()
                 ->values();
 
-            $backNumberByCustPart = PisPart::query()
-                ->whereIn('part_number_customer', $custPartNumbers)
-                ->pluck('back_number', 'part_number_customer')
-                ->mapWithKeys(fn ($back, $part) => [strtoupper(trim((string) $part)) => $back])
-                ->toArray();
+            $pisParts = PisPart::query()
+                ->select('part_number_customer', 'back_number')
+                ->get();
+
+            $backNumberByCustPart = [];
+            $backNumberByNormalizedCustPart = [];
+
+            foreach ($pisParts as $pisPart) {
+                $masterPart = strtoupper(trim((string) ($pisPart->part_number_customer ?? '')));
+                $normalizedMasterPart = $normalizePartKey($masterPart);
+
+                if ($masterPart !== '') {
+                    $backNumberByCustPart[$masterPart] = $pisPart->back_number;
+                }
+
+                if ($normalizedMasterPart !== '') {
+                    $backNumberByNormalizedCustPart[$normalizedMasterPart] = $pisPart->back_number;
+                }
+            }
 
             $items = $pisScan->details->map(function ($detail) use ($backNumberByCustPart) {
                 // Calculate progress per item based on total_kanban_qty
@@ -1317,7 +1337,10 @@ class PisController extends Controller
                 $isComplete = ($scannedKanban >= $targetKanban && $targetKanban > 0);
 
                 $custPartKey = strtoupper(trim((string) ($detail->part_number_cust ?? '')));
-                $backNumber = $custPartKey ? ($backNumberByCustPart[$custPartKey] ?? null) : null;
+                $normalizedCustPartKey = $normalizePartKey($custPartKey);
+                $backNumber = $custPartKey
+                    ? ($backNumberByCustPart[$custPartKey] ?? ($backNumberByNormalizedCustPart[$normalizedCustPartKey] ?? null))
+                    : null;
                 $scanLogs = $detail->logs->map(function ($log) {
                     return [
                         'label' => $log->label,
