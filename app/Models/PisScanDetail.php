@@ -17,4 +17,9 @@ class PisScanDetail extends Model
     {
         return $this->belongsTo(PisScan::class);
     }
+
+    public function logs()
+    {
+        return $this->hasMany(PisScanLog::class, 'pis_scan_detail_id');
+    }
 }

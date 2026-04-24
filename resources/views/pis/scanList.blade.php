@@ -111,6 +111,81 @@
             content: ' ▲';
         }
 
+        .scan-log-details {
+            font-size: 12px;
+        }
+
+        .scan-log-details summary {
+            cursor: pointer;
+            color: #0d6efd;
+            font-weight: 600;
+            outline: none;
+            list-style: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border: 1px solid #dbe7ff;
+            background: #f4f8ff;
+            border-radius: 999px;
+        }
+
+        .scan-log-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .scan-log-details summary::after {
+            content: '▼';
+            font-size: 10px;
+            color: #6c757d;
+        }
+
+        .scan-log-details[open] summary::after {
+            content: '▲';
+        }
+
+        .scan-log-list {
+            max-height: 150px;
+            overflow: auto;
+            margin-top: 6px;
+            padding: 6px 8px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+        }
+
+        .scan-log-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 5px 0;
+            border-bottom: 1px dashed #e9ecef;
+        }
+
+        .scan-log-row:last-child {
+            border-bottom: none;
+        }
+
+        .scan-log-time {
+            font-size: 11px;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+
+        .scan-log-label {
+            font-size: 11px;
+            color: #343a40;
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .scan-log-empty {
+            font-size: 11px;
+            color: #6c757d;
+            text-align: center;
+            padding: 4px 0;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .btn-toolbar {
@@ -406,6 +481,12 @@
                 },
                 success: function(response) {
                     let detailHtml = '<div style="background: #ffffff;">';
+                    const escapeHtml = (value) => String(value ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
                     
                     if (response.items && response.items.length > 0) {
                         // Header info mirip loadingListDetail (ringkas)
@@ -420,10 +501,12 @@
                                             <tr class="text-center">
                                                 <th>Scan Time</th>
                                                 <th>Customer Part No</th>
+                                                <th style="width:110px;">Back No</th>
                                                 <th>Internal Part No</th>
                                                 <th>Qty</th>
                                                 <th>Total Scan</th>
                                                 <th style="min-width:140px">Progress</th>
+                                                <th style="min-width:180px;">Detail Scanned</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -444,10 +527,26 @@
                             }
 
                             const scanTimeDisplay = (item.scanned_qty > 0 && progressPercentage > 0) ? (item.scanned_at || '-') : '-';
+                            const scanLogs = Array.isArray(item.scan_logs) ? item.scan_logs : [];
+                            const logsCount = scanLogs.length;
+                            const logsListHtml = logsCount > 0
+                                ? scanLogs.map((log, idx) => `
+                                    <div class="scan-log-row">
+                                        <span class="scan-log-time">${escapeHtml(log.scan_time || '-')}</span>
+                                        <span class="scan-log-label">${escapeHtml(log.label || '-')}</span>
+                                    </div>
+                                `).join('')
+                                : `<div class="scan-log-empty">Belum ada log scan</div>`;
+
                             detailHtml += `
                                 <tr>
                                     <td class="text-center">${scanTimeDisplay}</td>
                                     <td class="text-center">${item.part_number_cust || '-'}</td>
+                                    <td class="text-center">
+                                        <span class="badge badge-light" style="border:1px solid #dee2e6; font-weight:600;">
+                                            ${item.back_number || '-'}
+                                        </span>
+                                    </td>
                                     <td class="text-center">${item.part_number_int || '-'}</td>
                                     <td class="text-center">${item.target_qty || 0}</td>
                                     <td class="text-center">${item.scanned_qty || 0}</td>
@@ -459,6 +558,16 @@
                                                 <small class="text-white font-weight-bold">${progressPercentage}%</small>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td>
+                                        <details class="scan-log-details">
+                                            <summary>
+                                                ${logsCount}x scan
+                                            </summary>
+                                            <div class="scan-log-list">
+                                                ${logsListHtml}
+                                            </div>
+                                        </details>
                                     </td>
                                 </tr>
                             `;

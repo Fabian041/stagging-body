@@ -13,6 +13,8 @@ class MasterCycle extends Model
         'customer_id',
         'cycle_name',
         'time',
+        'prep_end_time',
+        'truck_time',
     ];
 
     public function customer(): BelongsTo
