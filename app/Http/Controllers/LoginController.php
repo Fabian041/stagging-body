@@ -57,6 +57,8 @@ class LoginController extends Controller
                 return redirect()->route('pulling.index');
             } else if (auth()->user()->role == 'mh') {
                 return redirect()->route('validation.index');
+            } else if (auth()->user()->role == 'injection') {
+                return redirect()->route('pc2b.index');
             } else if (auth()->user()->role == 'direct') {
 
                 $response = Http::withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
