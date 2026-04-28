@@ -189,6 +189,17 @@
             width: 2px !important;
         }
 
+        .gantt-bar-wrap.is-overnight {
+            min-width: 28px;
+            width: 28px !important;
+        }
+
+        .gantt-bar-wrap.is-overnight .gantt-bar-stack {
+            border: 2px dashed #f39c12;
+            background: rgba(243, 156, 18, 0.12);
+            box-shadow: none;
+        }
+
         .gantt-bar-wrap.truck-pill {
             top: 7px;
             height: 26px;
@@ -390,19 +401,20 @@
         }
 
         .delivery-timeline-card .gantt-grid-sticky-col {
-            position: sticky;
-            z-index: 8;
+            /* Kolom kiri ikut scroll bersama timeline (tidak sticky). */
+            position: static;
+            z-index: auto;
             background: #ffffff;
         }
 
         .delivery-timeline-card .gantt-grid-sticky-customer {
-            left: 0;
-            z-index: 9;
+            left: auto;
+            z-index: auto;
         }
 
         .delivery-timeline-card .gantt-grid-sticky-type {
-            left: var(--gantt-customer-col-width);
-            z-index: 9;
+            left: auto;
+            z-index: auto;
         }
 
         .delivery-timeline-card .gantt-grid-header .gantt-grid-cell {
@@ -979,8 +991,8 @@
             }
 
             function getTimelineStartHour() {
-                // Timeline selalu dari jam 06:00 sampai 05:00 esok hari.
-                return 6;
+                // Gunakan window 00:00-23:59 agar jam dini hari tidak "melompat" ke ujung kanan.
+                return 0;
             }
 
             function getTimeOffsetLeftPct(offsetHours) {
@@ -999,11 +1011,13 @@
             }
 
             function getNowLeftPct() {
-                return getTimeOffsetLeftPct(etaWindowSettings.eta_offset_hours);
+                // Marker biru = Finish Preparation.
+                return getTimeOffsetLeftPct(etaWindowSettings.finish_offset_hours);
             }
 
             function getTruckArrivalLeftPct() {
-                return getTimeOffsetLeftPct(etaWindowSettings.finish_offset_hours);
+                // Marker merah = ETA TRUCK.
+                return getTimeOffsetLeftPct(etaWindowSettings.eta_offset_hours);
             }
 
             function updateGanttNowMarkers() {
@@ -1186,7 +1200,7 @@
             function slotLabels24() {
                 var a = [];
                 for (var i = 0; i < 24; i++) {
-                    var h = (6 + i) % 24;
+                    var h = (getTimelineStartHour() + i) % 24;
                     a.push(String(h).padStart(2, '0') + ':00');
                 }
                 return a;
@@ -1355,11 +1369,21 @@
                         var durHours = calcDurationHours(row.cycle_time, prepEndClock);
                         var leftPct = (start / ganttHourWindow) * 100;
                         var hasPrepEndSetting = prepEndClockRaw !== null && prepEndClockRaw.substring(0, 5) !== String(prepStartClock || '').substring(0, 5);
+                        var startMin = timeToMinutes(prepStartClock);
+                        var endMin = timeToMinutes(prepEndClock);
+                        var isOvernightPrep = hasPrepEndSetting && endMin < startMin;
                         var isInstantPrep = !hasPrepEndSetting || durHours <= 0;
                         var widthPct = isInstantPrep ? 0 : Math.max((durHours / ganttHourWindow) * 100, 0.8);
+                        if (isOvernightPrep) {
+                            // Untuk prep lintas hari, tampilkan indikator ringkas (tidak memanjang melewati timeline).
+                            widthPct = 0;
+                        }
                         var progressWidth = Math.max(0, Math.min(100, row.progress_pct || 0));
                         var barClass = progressWidth < 100 ? 'delay' : 'ontime';
                         var tip = buildGanttTooltip(row).replace(/"/g, '&quot;');
+                        if (isOvernightPrep) {
+                            tip += ' | Prep lintas hari: berlanjut ke hari berikutnya sampai ' + formatClockDot(prepEndClock);
+                        }
                         var dateFromVal = $('#filterDateFrom').val() || '';
                         var dateToVal = $('#filterDateTo').val() || '';
                         var barTitle = tip + ' — Klik untuk buka Loading List';
@@ -1368,7 +1392,13 @@
                             av = '?';
                         }
                         av = 'C' + av.toUpperCase();
-                        gridHtml += '<div class="gantt-bar-wrap' + (isInstantPrep ? ' is-instant' : '') + '" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
+                        var prepExtraClass = '';
+                        if (isOvernightPrep) {
+                            prepExtraClass += ' is-overnight';
+                        } else if (isInstantPrep) {
+                            prepExtraClass += ' is-instant';
+                        }
+                        gridHtml += '<div class="gantt-bar-wrap' + prepExtraClass + '" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' + barTitle + '"';
                         gridHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         gridHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
                         gridHtml += ' data-delivery-date-from="' + escapeAttr(dateFromVal) + '"';
@@ -1396,7 +1426,7 @@
                         gridHtml += '<span class="gantt-now-label">Finish Preparation ' + escapeHtml(nowLbl) + '</span>';
                     }
                     gridHtml += '<div class="gantt-now-line"></div></div>';
-                    gridHtml += '</div></div>';
+                    gridHtml += '</div>';
                     gridHtml += '<div class="gantt-grid-track-lane"><div class="gantt-track">';
                     buckets.forEach(function (row) {
                         var truckAt = (row.truck_time != null && String(row.truck_time).length) ? row.truck_time : null;

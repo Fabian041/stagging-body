@@ -1325,7 +1325,11 @@ class PisController extends Controller
                 }
             }
 
-            $items = $pisScan->details->map(function ($detail) use ($backNumberByCustPart) {
+            $items = $pisScan->details->map(function ($detail) use (
+                $backNumberByCustPart,
+                $backNumberByNormalizedCustPart,
+                $normalizePartKey
+            ) {
                 // Calculate progress per item based on total_kanban_qty
                 // From API response: total_kanban_qty is the target for each item
                 // scanned_qty is how many have been scanned
