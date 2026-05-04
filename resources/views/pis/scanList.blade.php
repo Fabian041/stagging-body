@@ -251,6 +251,8 @@
                         <tr>
                             <th class="text-center" style="width: 150px;">Scan Time</th>                            
                             <th class="text-center" style="width: 300px;">Loading List Number</th>
+                            <th class="text-center" style="width: 140px;">No PDS</th>
+                            <th class="text-center" style="width: 180px;">Customer</th>
                             <th class="text-center" style="width: 220px;">PIS Progress</th>
                             <th class="text-center">Status</th>
                         </tr>
@@ -322,6 +324,14 @@
                 },
                 {
                     data: 'loading_list_number',
+                },
+                {
+                    data: 'pds_number',
+                    className: 'text-center',
+                },
+                {
+                    data: 'customer_name',
+                    className: 'text-center',
                 },
                 {
                     data: 'progress',

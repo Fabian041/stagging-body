@@ -203,7 +203,7 @@
                                     <option value="MMKI">MMKI</option>
                                     <option value="MMKI-SPD">MMKI-SPD</option>
                                     <option value="6I">6I</option>
-                                    <option value="TAM-TAM">TAM-TAM</option>
+                                    <option value="TAM-TAM">TAM-SPD</option>
                                     <option value="TAM-ADM">TAM-ADM</option>
                                     <option value="TAM-HINO">TAM-HINO</option>
                                     <option value="ADM-AS">ADM-AS</option>
