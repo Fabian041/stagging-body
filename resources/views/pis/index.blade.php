@@ -156,7 +156,7 @@
                                         <button value="MMKI" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI</button>
                                         <button value="MMKI-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-SPD</button>
                                         <button value="6I" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">6I</button>
-                                        <button value="TAM-TAM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-TAM</button>
+                                        <button value="TAM-SPD" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-SPD</button>
                                         <button value="TAM-ADM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-ADM</button>
                                         <button value="TAM-HINO" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-HINO</button>
                                         <button value="ADM-AS" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">ADM-AS</button>
@@ -599,6 +599,7 @@
         var pendingScanBarcode = null;
         var pendingScanDisplayBarcode = null;
         var jpConfirmBarcode = '';
+        var PIS_INTERLOCK_STORAGE_KEY = 'pis_jp_interlock_active';
         // Part yang sudah "dimulai" (scan kanban/label) dalam sesi loading list saat ini saja.
         // Di-reset setiap kali loading list di-scan; interlock "part belum terpenuhi" hanya memakai ini.
         var partsStartedInCurrentSession = [];
@@ -675,6 +676,26 @@
         /** Interlock: satu label valid boleh antre; scan berikutnya baru setelah Confirm Packing. */
         function pisHasPendingLabelPack() {
             return pendingLabelPacks.length > 0;
+        }
+
+        function setPersistentInterlockState(isActive) {
+            try {
+                if (isActive) {
+                    localStorage.setItem(PIS_INTERLOCK_STORAGE_KEY, '1');
+                } else {
+                    localStorage.removeItem(PIS_INTERLOCK_STORAGE_KEY);
+                }
+            } catch (e) {
+                // Abaikan jika storage tidak tersedia; interlock tetap jalan selama sesi aktif.
+            }
+        }
+
+        function hasPersistentInterlockState() {
+            try {
+                return localStorage.getItem(PIS_INTERLOCK_STORAGE_KEY) === '1';
+            } catch (e) {
+                return false;
+            }
         }
 
         var pisLastConfirmInterlockSwalAt = 0;
@@ -1033,6 +1054,10 @@
         }
 
         $(document).keydown(function(e) {
+            if (hasPersistentInterlockState()) {
+                openInterlockModal();
+                return;
+            }
             if ($('#modalPisJpConfirmation').hasClass('show')) return;
             var code = e.keyCode || e.which;
             if (code == 13) {
@@ -1176,6 +1201,7 @@
             pendingScanBarcode = null;
             pendingScanDisplayBarcode = null;
             jpConfirmBarcode = '';
+            setPersistentInterlockState(false);
             $('#modalPisJpConfirmation').modal('hide');
             $('#part_number_loading').hide();
             $('#pis-step-flow').show();
@@ -1199,6 +1225,7 @@
                 $modal.appendTo('body');
             }
 
+            setPersistentInterlockState(true);
             $modal.modal({
                 backdrop: 'static',
                 keyboard: false,
@@ -2059,6 +2086,7 @@
                     npk = npk.slice(0, 6);
                 }
                 if (npk.length === 6 && PIS_JP_LEADER_NPKS.indexOf(npk) !== -1) {
+                    setPersistentInterlockState(false);
                     $('#modalPisJpConfirmation').modal('hide');
                     if (typeof pendingJpAction === 'function') {
                         pendingJpAction();
@@ -2097,6 +2125,14 @@
                 // Tidak melakukan scroll otomatis saat focus
                 e.preventDefault();
             });
+
+            if (hasPersistentInterlockState()) {
+                pendingJpAction = null;
+                $('#status-container').removeClass('alert-success').addClass('alert-warning');
+                $('#alert-header').html('<i class="fas fa-lock"></i> Interlock Aktif');
+                $('#alert-body').text('Interlock masih aktif. Silahkan scan barcode JP/Leader untuk melanjutkan.');
+                openInterlockModal();
+            }
         });
     </script>
 @endsection

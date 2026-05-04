@@ -1648,6 +1648,61 @@ class LoadingListController extends Controller
             ->values()
             ->all();
 
+        $weeklyPoints = $groupedData
+            ->groupBy(function ($pds) {
+                $date = $pds->delivery_date
+                    ? Carbon::parse($pds->delivery_date)->format('Y-m-d')
+                    : Carbon::now()->format('Y-m-d');
+                return $pds->customer_id.'|'.$date.'|'.$pds->cycle;
+            })
+            ->map(function ($bucket) use ($masterMeta) {
+                $first = $bucket->first();
+                $dateStr = $first->delivery_date
+                    ? Carbon::parse($first->delivery_date)->format('Y-m-d')
+                    : Carbon::now()->format('Y-m-d');
+
+                $master = $masterMeta->first(function (array $m) use ($first) {
+                    return $m['customer_id'] === (int) $first->customer_id
+                        && $m['cycle_name'] === (string) $first->cycle;
+                });
+
+                $prepStart = $master['time'] ?? '06:00';
+                $prepEnd = $master['prep_end_time'] ?? null;
+                $truckTime = $master['truck_time'] ?? null;
+
+                $start = Carbon::parse($dateStr.' '.$prepStart);
+                $end = $prepEnd ? Carbon::parse($dateStr.' '.$prepEnd) : $start->copy()->addMinutes(45);
+                if ($end->lessThanOrEqualTo($start)) {
+                    $end = $end->addDay();
+                }
+
+                $target = (int) $bucket->sum('total_kanban');
+                $done = (int) $bucket->sum('actual_kanban');
+                $progress = $target > 0 ? round(($done / $target) * 100, 1) : 0.0;
+
+                return [
+                    'customer_id' => (int) $first->customer_id,
+                    'customer_name' => optional($first->customer)->name ?? '-',
+                    'delivery_date' => $dateStr,
+                    'cycle_name' => (string) $first->cycle,
+                    'start_at' => $start->toIso8601String(),
+                    'end_at' => $end->toIso8601String(),
+                    'prep_time' => $prepStart,
+                    'prep_end_time' => $prepEnd,
+                    'truck_time' => $truckTime,
+                    'total_target' => $target,
+                    'total_done' => $done,
+                    'progress_pct' => min(100.0, max(0.0, $progress)),
+                    'is_complete' => $target > 0 && $done >= $target,
+                ];
+            })
+            ->sortBy([
+                ['customer_name', 'asc'],
+                ['start_at', 'asc'],
+            ])
+            ->values()
+            ->all();
+
         $hint = null;
         if ($groupedData->isEmpty()) {
             $hint = 'Tidak ada loading list untuk filter ini. Samakan filter dengan halaman loading list.';
@@ -1655,6 +1710,7 @@ class LoadingListController extends Controller
 
         return response()->json([
             'rows' => $rows,
+            'weekly_points' => $weeklyPoints,
             'master_cycles' => $masters->map(function (MasterCycle $m) {
                 return [
                     'id' => $m->id,

@@ -1154,6 +1154,8 @@ class PisController extends Controller
                     return (object) [
                         'id' => 'll-' . $scan->id,
                         'loading_list_number' => $scan->loading_list_number,
+                        'pds_number' => $scan->pds_number ?: '-',
+                        'customer_name' => $scan->customer?->name ?: '-',
                         'total_target' => $totalTarget,
                         'total_scanned' => $totalScanned,
                         'scan_time' => $latestScanTime ? $latestScanTime->format('Y-m-d H:i') : '-',
