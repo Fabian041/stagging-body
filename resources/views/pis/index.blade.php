@@ -673,6 +673,9 @@
             return true;
         }
 
+        /** True saat Confirm Packing sedang menunggu respons server (cegah double-submit). */
+        var pisConfirmPackingBusy = false;
+
         /** Interlock: satu label valid boleh antre; scan berikutnya baru setelah Confirm Packing. */
         function pisHasPendingLabelPack() {
             return pendingLabelPacks.length > 0;
@@ -719,7 +722,7 @@
         function updatePendingPackingUI() {
             var n = pendingLabelPacks.length;
             $('#pis-pending-count').text(String(n));
-            $('#pis-btn-confirm-packing').prop('disabled', n === 0);
+            $('#pis-btn-confirm-packing').prop('disabled', n === 0 || pisConfirmPackingBusy);
             if (n > 0) {
                 $('#pis-pending-banner').show();
                 $('body').addClass('pis-pending-confirm-pack');
@@ -742,108 +745,77 @@
         }
 
         /**
-         * Terapkan satu label yang sudah divalidasi ke qty, counter harian, dan API (satu langkah scan seperti sebelumnya).
-         * Mengembalikan object { matched } atau null jika gagal.
+         * Simpan satu konfirmasi ke server dulu; qty di UI disamakan dengan respons (hindari 76/76 di layar vs 75 di DB).
          */
-        function applyCommittedLabelPack(matched, raw) {
-            if (!matched || toQtyNumber(matched.remaining) <= 0) return null;
+        function commitLabelPackToServer(matched, raw, onSuccess, onError) {
+            var llForUpdate = (matched.loading_list_number || currentLoadingListNumber || '').toString().trim();
+            if (!llForUpdate) {
+                if (onError) onError('Nomor loading list tidak tersedia.');
+                return;
+            }
+            $.ajax({
+                url: '{{ url("pis/update-scan-detail") }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    loading_list_number: llForUpdate,
+                    part_number_int: matched.part_number_int || '',
+                    part_number_cust: matched.part_number_cust || '',
+                    label: raw || ''
+                },
+                success: function (resp) {
+                    if (resp && resp.status === 'success') {
+                        onSuccess(resp);
+                    } else {
+                        onError((resp && resp.message) ? resp.message : 'Respons server tidak valid.');
+                    }
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal menyimpan scan ke server.';
+                    onError(msg);
+                }
+            });
+        }
 
-            var remBase = matched.remaining != null ? matched.remaining : matched.total_qty || 0;
-            matched.remaining = toQtyNumber(remBase) - 1;
-            if (matched.remaining < 0) matched.remaining = 0;
-            matched.actual_kanban_qty = toQtyNumber(matched.actual_kanban_qty) + 1;
-
+        function applyServerCommitToMatchedItem(matched, resp, raw) {
+            matched.actual_kanban_qty = toQtyNumber(resp.scanned_qty);
+            matched.remaining = toQtyNumber(resp.remaining_qty);
             loadingListScanCount += 1;
             saveDailyCounter();
-
-            var llForUpdate = (matched.loading_list_number || currentLoadingListNumber || '').toString().trim();
-            if (llForUpdate) {
-                $.ajax({
-                    url: '{{ url("pis/update-scan-detail") }}',
-                    type: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        loading_list_number: llForUpdate,
-                        part_number_int: matched.part_number_int || '',
-                        part_number_cust: matched.part_number_cust || '',
-                        // simpan ke tabel log agar tiap scan bisa ditelusuri
-                        label: raw || ''
-                    },
-                    error: function (xhr) {
-                        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal menyimpan scan ke server.';
-                        Swal.fire({ icon: 'error', title: 'Confirm Packing', text: msg });
-                    }
-                });
-            }
-
-            // Jangan memicu cooldown di sini (ini proses "Confirm Packing", bukan scan label)
             lastScannedLabel = raw || lastScannedLabel;
-
             return { matched: matched };
         }
 
-        /**
-         * Setelah scan label valid: hanya antre di frontend sampai user menekan Confirm Packing.
-         */
-        function confirmPacking() {
-            if (!pendingLabelPacks.length) return;
-
-            var toApply = pendingLabelPacks.slice();
-            clearPendingLabelPacks();
-
-            var lastResult = null;
-            var lastAppliedPack = null;
-
-            for (var i = 0; i < toApply.length; i++) {
-                var pack = toApply[i];
-                var matchedItem = null;
-                var packLl = (pack.loading_list_number || '').toString().trim();
-                for (var j = 0; j < loadingListItems.length; j++) {
-                    var it = loadingListItems[j];
-                    if ((it.part_number_int || '').toString().trim() === (pack.part_number_int || '').toString().trim()
-                        && (it.part_number_cust || '').toString().trim() === (pack.part_number_cust || '').toString().trim()
-                        && (it.loading_list_number || '').toString().trim() === packLl) {
-                        matchedItem = it;
-                        break;
-                    }
-                }
-                if (!matchedItem) continue;
-
-                var res = applyCommittedLabelPack(matchedItem, pack.rawLabel);
-                if (!res) continue;
-                lastResult = res;
-                lastAppliedPack = pack;
-
-                if (res.matched.remaining > 0) {
-                    stage = 3;
-                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
-                    $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                    $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
-                } else {
-                    stage = 2;
-                    lastScannedKanban = '';
-                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
-                    $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                    $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
-                }
-                updateStepIndicator();
-
-                if (isLoadingListComplete()) {
-                    renderLoadingList();
-                    updateCounter();
-                    Swal.fire({
-                        title: 'Loading List Complete!',
-                        text: 'Semua item dalam daftar telah terpenuhi.',
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(function () {
-                        resetPisState();
-                    });
-                    $(window).scrollTop(_savedScrollTop);
-                    return;
+        function findMatchedItemForPack(pack) {
+            var packLl = (pack.loading_list_number || '').toString().trim();
+            for (var j = 0; j < loadingListItems.length; j++) {
+                var it = loadingListItems[j];
+                if ((it.part_number_int || '').toString().trim() === (pack.part_number_int || '').toString().trim()
+                    && (it.part_number_cust || '').toString().trim() === (pack.part_number_cust || '').toString().trim()
+                    && (it.loading_list_number || '').toString().trim() === packLl) {
+                    return it;
                 }
             }
+            return null;
+        }
 
+        function updateUiAfterOneCommit(res, pack) {
+            if (res.matched.remaining > 0) {
+                stage = 3;
+                $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+                $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
+                $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
+            } else {
+                stage = 2;
+                lastScannedKanban = '';
+                $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+                $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
+                $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+            }
+            updateStepIndicator();
+        }
+
+        function finalizeConfirmPackingPreview(lastResult, lastAppliedPack) {
             renderLoadingList();
             updateCounter();
 
@@ -864,6 +836,84 @@
             if (lastResult) {
                 $(window).scrollTop(_savedScrollTop);
             }
+        }
+
+        /**
+         * Setelah scan label valid: hanya antre di frontend sampai user menekan Confirm Packing.
+         */
+        function confirmPacking() {
+            if (!pendingLabelPacks.length || pisConfirmPackingBusy) return;
+
+            var toApply = pendingLabelPacks.slice();
+            pendingLabelPacks = [];
+            updatePendingPackingUI();
+
+            pisConfirmPackingBusy = true;
+            updatePendingPackingUI();
+
+            var lastResult = null;
+            var lastAppliedPack = null;
+
+            function restoreQueueFrom(failedIndex) {
+                pendingLabelPacks = toApply.slice(failedIndex);
+                updatePendingPackingUI();
+            }
+
+            function finishBusy() {
+                pisConfirmPackingBusy = false;
+                updatePendingPackingUI();
+            }
+
+            function processOne(i) {
+                if (i >= toApply.length) {
+                    finishBusy();
+                    clearPendingLabelPacks();
+                    finalizeConfirmPackingPreview(lastResult, lastAppliedPack);
+                    return;
+                }
+
+                var pack = toApply[i];
+                var matchedItem = findMatchedItemForPack(pack);
+                if (!matchedItem) {
+                    processOne(i + 1);
+                    return;
+                }
+                if (toQtyNumber(matchedItem.remaining) <= 0) {
+                    processOne(i + 1);
+                    return;
+                }
+
+                commitLabelPackToServer(matchedItem, pack.rawLabel, function (resp) {
+                    var res = applyServerCommitToMatchedItem(matchedItem, resp, pack.rawLabel);
+                    lastResult = res;
+                    lastAppliedPack = pack;
+                    updateUiAfterOneCommit(res, pack);
+
+                    if (isLoadingListComplete()) {
+                        renderLoadingList();
+                        updateCounter();
+                        finishBusy();
+                        Swal.fire({
+                            title: 'Loading List Complete!',
+                            text: 'Semua item dalam daftar telah terpenuhi.',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        }).then(function () {
+                            resetPisState();
+                        });
+                        $(window).scrollTop(_savedScrollTop);
+                        return;
+                    }
+
+                    processOne(i + 1);
+                }, function (msg) {
+                    finishBusy();
+                    restoreQueueFrom(i);
+                    Swal.fire({ icon: 'error', title: 'Confirm Packing', text: msg });
+                });
+            }
+
+            processOne(0);
         }
 
         function setSessionStartedPartsFromKanban(partsInThisKanban) {
@@ -1184,6 +1234,7 @@
         }
 
         function resetPisState() {
+            pisConfirmPackingBusy = false;
             stage = 1;
             pisLoadingListGroups = [];
             pisSessionPdsNumber = '';
