@@ -1524,10 +1524,16 @@ class LoadingListController extends Controller
 
         $rows = $groupedData
             ->groupBy(function ($pds) {
-                return $pds->customer_id.'|'.$pds->cycle;
+                $date = $pds->delivery_date
+                    ? Carbon::parse($pds->delivery_date)->format('Y-m-d')
+                    : Carbon::now()->format('Y-m-d');
+                return $pds->customer_id.'|'.$date.'|'.$pds->cycle;
             })
             ->map(function ($pdsGroup) use ($masterMeta) {
                 $first = $pdsGroup->first();
+                $dateStr = $first->delivery_date
+                    ? Carbon::parse($first->delivery_date)->format('Y-m-d')
+                    : Carbon::now()->format('Y-m-d');
                 $master = $masterMeta->first(function (array $m) use ($first) {
                     return $m['customer_id'] === (int) $first->customer_id
                         && $m['cycle_name'] === (string) $first->cycle;
@@ -1552,6 +1558,7 @@ class LoadingListController extends Controller
                 return [
                     'customer_id' => (int) $first->customer_id,
                     'customer_name' => optional($first->customer)->name ?? '-',
+                    'delivery_date' => $dateStr,
                     'master_cycle_id' => $master ? ($master['id'] ?? null) : null,
                     'cycle_name' => (string) $first->cycle,
                     'cycle_time' => $cycleTime,
@@ -1572,6 +1579,7 @@ class LoadingListController extends Controller
             })
             ->sortBy([
                 ['customer_name', 'asc'],
+                ['delivery_date', 'asc'],
                 ['cycle_time', 'asc'],
             ])
             ->values()
@@ -1677,6 +1685,7 @@ class LoadingListController extends Controller
             'date_to' => 'nullable|string|max:20',
             'finish_offset_hours' => 'nullable|integer|min:-24|max:24',
             'pending_rows' => 'required|array|min:1',
+            'pending_rows.*.customer_id' => 'nullable|integer|min:1',
             'pending_rows.*.customer_name' => 'required|string|max:255',
             'pending_rows.*.cycle_name' => 'required|string|max:100',
             'pending_rows.*.cycle_time' => 'nullable|string|max:20',
@@ -1780,6 +1789,18 @@ class LoadingListController extends Controller
             }
             $lines[] = '   Progress: '.$row['progress_pct'].'% ('.$row['total_done'].' / '.$row['total_target'].')';
             $lines[] = '   Jumlah LL: '.$row['ll_count'];
+
+            $partShortages = $this->resolveDeliveryPartShortages(
+                $row,
+                $validated['date_from'] ?? null,
+                $validated['date_to'] ?? null
+            );
+            if (!empty($partShortages)) {
+                $lines[] = '   Detail Part Kurang:';
+                foreach ($partShortages as $part) {
+                    $lines[] = '   - part_no: '.$part['part_no'].' | part_name: '.$part['part_name'].' | qty_kurang: '.$part['qty_kurang'];
+                }
+            }
         }
         $message = implode("\n", $lines);
 
@@ -1828,6 +1849,89 @@ class LoadingListController extends Controller
             'status_code' => $statusCode,
             'response' => $response,
         ]);
+    }
+
+    /**
+     * Ambil top part yang masih kurang untuk bucket customer+cycle pada periode filter.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<int, array{part_no: string, part_name: string, qty_kurang: int}>
+     */
+    private function resolveDeliveryPartShortages(array $row, ?string $dateFrom, ?string $dateTo): array
+    {
+        $customerId = isset($row['customer_id']) ? (int) $row['customer_id'] : 0;
+        if ($customerId <= 0) {
+            return [];
+        }
+
+        $cycleRaw = trim((string) ($row['cycle_name'] ?? ''));
+        if ($cycleRaw === '') {
+            return [];
+        }
+
+        $cycleNumber = null;
+        if (preg_match('/\d+/', $cycleRaw, $m)) {
+            $cycleNumber = (string) ((int) $m[0]);
+        }
+
+        $query = DB::table('loading_lists as ll')
+            ->join('loading_list_details as lld', 'lld.loading_list_id', '=', 'll.id')
+            ->leftJoin('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+            ->leftJoin('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
+            ->where('ll.customer_id', $customerId)
+            ->where(function ($q) use ($cycleRaw, $cycleNumber) {
+                $q->where('ll.cycle', $cycleRaw);
+                if ($cycleNumber !== null) {
+                    $q->orWhere('ll.cycle', $cycleNumber)
+                        ->orWhere('ll.cycle', 'Cycle '.$cycleNumber)
+                        ->orWhere('ll.cycle', 'cycle '.$cycleNumber);
+                }
+            });
+
+        if (!empty($dateFrom) || !empty($dateTo)) {
+            $start = !empty($dateFrom) ? Carbon::parse($dateFrom)->startOfDay() : null;
+            $end = !empty($dateTo) ? Carbon::parse($dateTo)->endOfDay() : null;
+            if ($start && $end && $start->gt($end)) {
+                [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+            }
+
+            if ($start && $end) {
+                $query->whereBetween('ll.delivery_date', [$start, $end]);
+            } elseif ($start) {
+                $query->where('ll.delivery_date', '>=', $start);
+            } elseif ($end) {
+                $query->where('ll.delivery_date', '<=', $end);
+            }
+        }
+
+        $rows = $query
+            ->selectRaw("
+                COALESCE(cp.part_number, '-') as part_no,
+                COALESCE(ip.part_name, '-') as part_name,
+                SUM(COALESCE(lld.kanban_qty, 0)) as total_target,
+                SUM(COALESCE(lld.actual_kanban_qty, 0)) as total_done
+            ")
+            ->groupBy('cp.part_number', 'ip.part_name')
+            ->get();
+
+        return collect($rows)
+            ->map(function ($part) {
+                $target = (int) ($part->total_target ?? 0);
+                $done = (int) ($part->total_done ?? 0);
+                $shortage = max(0, $target - $done);
+                return [
+                    'part_no' => (string) ($part->part_no ?? '-'),
+                    'part_name' => (string) ($part->part_name ?? '-'),
+                    'qty_kurang' => $shortage,
+                ];
+            })
+            ->filter(function (array $part) {
+                return $part['qty_kurang'] > 0;
+            })
+            ->sortByDesc('qty_kurang')
+            ->take(5)
+            ->values()
+            ->all();
     }
 
     /**

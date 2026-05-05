@@ -711,6 +711,29 @@
             padding: 12px 16px;
         }
 
+        .delivery-weekly-card .weekly-axis-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #5c6370;
+            margin: 0 0 8px 0;
+            letter-spacing: 0.02em;
+        }
+
+        .delivery-weekly-card .weekly-axis-header .col-customer {
+            min-width: 190px;
+        }
+
+        .delivery-weekly-card .weekly-axis-header .sep {
+            opacity: 0.6;
+        }
+
+        .delivery-weekly-card .weekly-axis-header .col-type {
+            min-width: 80px;
+        }
+
         .delivery-weekly-row + .delivery-weekly-row {
             margin-top: 10px;
             padding-top: 10px;
@@ -825,6 +848,11 @@
                                     <h2 class="weekly-title">Ringkasan mingguan delivery</h2>
                                 </div>
                                 <div class="weekly-card-body">
+                                    <div class="weekly-axis-header">
+                                        <span class="col-customer">Customer</span>
+                                        <span class="sep">|</span>
+                                        <span class="col-type">Type</span>
+                                    </div>
                                     <div id="weeklyGanttContainer"></div>
                                     <div class="delivery-weekly-note">Hover bar untuk melihat detail waktu tiap cycle.</div>
                                 </div>
@@ -1263,6 +1291,7 @@
 
                     sentKeyBucket.push(sentKey);
                     toNotify.push({
+                        customer_id: parseInt(row.customer_id || 0, 10),
                         customer_name: row.customer_name || '-',
                         cycle_name: row.cycle_name || '-',
                         cycle_time: row.cycle_time || '00:00',
@@ -1524,6 +1553,20 @@
                 }, 1000);
             }
 
+            function buildWeeklyDateTime(deliveryDate, clock) {
+                var datePart = String(deliveryDate || '').trim();
+                var timePart = String(clock || '').trim();
+                if (!datePart.length || !timePart.length) {
+                    return null;
+                }
+                var normalizedClock = timePart.substring(0, 5);
+                var dt = new Date(datePart + 'T' + normalizedClock + ':00');
+                if (isNaN(dt.getTime())) {
+                    return null;
+                }
+                return dt;
+            }
+
             function renderWeeklySummary() {
                 if (!chartWeeklyPoints.length) {
                     destroyWeeklyChart();
@@ -1531,15 +1574,19 @@
                 } else {
                     var dataPoints = [];
                     chartWeeklyPoints.forEach(function (row) {
-                        var startMs = new Date(row.start_at).getTime();
-                        var endMs = new Date(row.end_at).getTime();
-                        if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
-                            return;
-                        }
-                        var roundedPct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
                         var prepStart = row.prep_time ? String(row.prep_time).substring(0, 5) : '-';
                         var prepEnd = row.prep_end_time ? String(row.prep_end_time).substring(0, 5) : '-';
                         var truckTime = row.truck_time ? String(row.truck_time).substring(0, 5) : '-';
+                        var prepStartDt = buildWeeklyDateTime(row.delivery_date, prepStart);
+                        var prepEndDt = buildWeeklyDateTime(row.delivery_date, prepEnd);
+                        var truckDt = buildWeeklyDateTime(row.delivery_date, truckTime);
+                        var prepStartMs = prepStartDt ? prepStartDt.getTime() : NaN;
+                        var prepEndMs = prepEndDt ? prepEndDt.getTime() : NaN;
+                        var truckMs = truckDt ? truckDt.getTime() : NaN;
+                        if (isNaN(prepStartMs) && isNaN(truckMs)) {
+                            return;
+                        }
+                        var roundedPct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
                         var detailText = [
                             'Tanggal ' + (row.delivery_date || '-'),
                             'Cycle ' + (row.cycle_name || '-'),
@@ -1547,16 +1594,39 @@
                             'ETA ' + truckTime,
                             'Progress ' + roundedPct + '%'
                         ].join(' | ');
-                        dataPoints.push({
-                            x: row.customer_name || '-',
-                            y: [startMs, endMs],
-                            meta: {
-                                total_done: parseInt(row.total_done || 0, 10),
-                                total_target: parseInt(row.total_target || 0, 10),
-                                progress_pct: roundedPct,
-                                details_text: detailText
+                        if (!isNaN(prepStartMs)) {
+                            if (isNaN(prepEndMs)) {
+                                prepEndMs = prepStartMs + (30 * 60000);
                             }
-                        });
+                            if (prepEndMs <= prepStartMs) {
+                                prepEndMs += 24 * 60 * 60 * 1000;
+                            }
+                            dataPoints.push({
+                                x: (row.customer_name || '-') + ' | PREP',
+                                y: [prepStartMs, prepEndMs],
+                                meta: {
+                                    type: 'prep',
+                                    total_done: parseInt(row.total_done || 0, 10),
+                                    total_target: parseInt(row.total_target || 0, 10),
+                                    progress_pct: roundedPct,
+                                    details_text: detailText
+                                }
+                            });
+                        }
+                        if (!isNaN(truckMs)) {
+                            var truckEndMs = truckMs + (30 * 60000);
+                            dataPoints.push({
+                                x: (row.customer_name || '-') + ' | ETA TRUCK',
+                                y: [truckMs, truckEndMs],
+                                meta: {
+                                    type: 'truck',
+                                    total_done: parseInt(row.total_done || 0, 10),
+                                    total_target: parseInt(row.total_target || 0, 10),
+                                    progress_pct: roundedPct,
+                                    details_text: detailText
+                                }
+                            });
+                        }
                     });
 
                     destroyWeeklyChart();
@@ -1597,6 +1667,10 @@
                         },
                         colors: [function (ctx) {
                             var point = ctx.w.config.series[ctx.seriesIndex].data[ctx.dataPointIndex];
+                            if (point && point.meta && point.meta.type === 'truck') {
+                                var truckPct = parseFloat(point.meta.progress_pct || 0);
+                                return truckPct >= 100 ? '#B5D4F4' : '#f59e0b';
+                            }
                             var pct = point && point.meta ? parseFloat(point.meta.progress_pct || 0) : 0;
                             return pct >= 100 ? '#C0DD97' : 'hsl(58, 100%, 70%)';
                         }],
