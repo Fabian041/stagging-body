@@ -2,228 +2,682 @@
 
 @section('main')
     <style>
-        .loading-lists-group {
-            text-align: left;
+        /* ===== FILTER CARD ===== */
+        .bella-filter-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            padding: 28px 24px 20px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .loading-lists-group strong {
-            color: #2c3e50;
-            font-size: 12px;
+        .bella-filter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--navy), var(--sky));
+            border-radius: 16px 16px 0 0;
         }
 
-        .loading-lists-group span {
-            font-size: 11px;
-            line-height: 1.3;
-            display: block;
-            max-width: 200px;
-        }
-
-        .btn-toolbar {
-            justify-content: center;
+        .bella-filter-row {
+            display: flex;
+            gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
-        .btn-toolbar .btn-group {
-            margin-bottom: 5px;
+        .bella-filter-select,
+        .bella-filter-input {
+            height: 36px;
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 12.5px;
+            padding: 0 10px;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+            min-width: 160px;
         }
 
-        .progress-bar small {
-            font-size: 10px;
-            line-height: 1;
+        .bella-filter-select:focus,
+        .bella-filter-input:focus {
+            border-color: var(--sky);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
         }
 
-        .dropdown-menu .dropdown-item {
-            padding: 5px 15px;
+        /* ===== TABLE CARD ===== */
+        .bella-table-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .bella-table-card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .bella-table-card-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .bella-live-badge {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--sky);
+            color: #fff;
+            font-size: 9.5px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: .06em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .bella-live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #fff;
+            animation: live-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes live-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .3;
+            }
+        }
+
+        /* ===== DATATABLE OVERRIDES ===== */
+        /* Wrapper */
+        .bella-table-card .dataTables_wrapper {
+            padding: 0;
+        }
+
+        /* Top toolbar (length + search) */
+        .bella-table-card .dataTables_wrapper .dataTables_length,
+        .bella-table-card .dataTables_wrapper .dataTables_filter {
+            padding: 10px 16px;
             font-size: 12px;
+            color: var(--text-muted);
         }
 
-        .dropdown-menu .dropdown-item:hover {
-            background-color: #f8f9fa;
+        .bella-table-card .dataTables_wrapper .dataTables_length label,
+        .bella-table-card .dataTables_wrapper .dataTables_filter label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
         }
 
-        /* Accordion styles */
-        .accordion-card {
-            border: none;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 5px;
-            border-radius: 6px;
+        .bella-table-card .dataTables_wrapper .dataTables_length select,
+        .bella-table-card .dataTables_wrapper .dataTables_filter input {
+            height: 30px;
+            border: 1px solid var(--border) !important;
+            border-radius: 4px !important;
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 12px !important;
+            padding: 0 8px !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_filter input:focus {
+            border-color: var(--sky) !important;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10) !important;
+        }
+
+        /* Table itself */
+        #loadingList {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 12.5px !important;
+        }
+
+        #loadingList thead th {
+            text-align: center !important;
+            padding: 9px 12px !important;
+            color: var(--text-muted) !important;
+            font-size: 10.5px !important;
+            text-transform: uppercase !important;
+            letter-spacing: .05em !important;
+            font-weight: 700 !important;
+            background: var(--bg) !important;
+            border-bottom: 1px solid var(--border) !important;
+            border-top: none !important;
+            white-space: nowrap !important;
+        }
+
+        #loadingList tbody td {
+            text-align: center !important;
+            padding: 10px 12px !important;
+            border-bottom: 1px solid var(--border) !important;
+            vertical-align: middle !important;
+            color: var(--text) !important;
+        }
+
+        #loadingList tbody tr:last-child td {
+            border-bottom: none !important;
+        }
+
+        #loadingList tbody tr:hover td {
+            background: var(--bg) !important;
+        }
+
+        #loadingList tbody td:first-child {
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        /* Pagination */
+        .bella-table-card .dataTables_wrapper .dataTables_paginate {
+            padding: 10px 16px;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+            min-width: 30px !important;
+            height: 30px !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 4px !important;
+            background: var(--card) !important;
+            color: var(--text-muted) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            padding: 0 8px !important;
+            margin: 0 2px !important;
+            line-height: 28px !important;
+            transition: .15s !important;
+            box-shadow: none !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background: var(--primary) !important;
+            color: #fff !important;
+            border-color: var(--primary) !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+            opacity: .4 !important;
+            cursor: not-allowed !important;
+            background: var(--card) !important;
+            color: var(--text-muted) !important;
+        }
+
+        /* Info text */
+        .bella-table-card .dataTables_wrapper .dataTables_info {
+            padding: 10px 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Processing indicator */
+        .bella-table-card .dataTables_wrapper .dataTables_processing {
+            background: rgba(255, 255, 255, .9) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--r) !important;
+            color: var(--text-muted) !important;
+            font-size: 12px !important;
+            box-shadow: var(--shadow-md) !important;
+            padding: 10px 20px !important;
+        }
+
+        /* button-cell override */
+        .button-cell {
+            padding: 6px 8px !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+
+        .button-cell>div {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-content {
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            box-shadow: var(--shadow-md) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            overflow: hidden !important;
+        }
+
+        .modal-header {
+            background: var(--bg) !important;
+            border-bottom: 1px solid var(--border) !important;
+            padding: 14px 20px !important;
+        }
+
+        .modal-title {
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            color: var(--navy) !important;
+        }
+
+        .modal-title span {
+            color: var(--sky) !important;
+        }
+
+        .modal-header .close {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--card);
+            opacity: 1 !important;
+            color: var(--text-muted) !important;
+            font-size: 16px !important;
+            line-height: 26px;
+            padding: 0;
+            transition: .15s;
+        }
+
+        .modal-header .close:hover {
+            background: var(--danger-light) !important;
+            color: var(--danger) !important;
+            border-color: #fecaca !important;
+        }
+
+        .modal-body {
+            padding: 16px 20px !important;
+            background: var(--bg) !important;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border) !important;
+            padding: 12px 20px !important;
+            background: var(--card) !important;
+        }
+
+        /* ===== ACCORDION (inside modal) ===== */
+        .bella-acc-item {
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            margin-bottom: 8px;
+            overflow: hidden;
+            background: var(--card);
         }
 
         .accordion-header {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            padding: 8px 15px;
+            padding: 12px 16px;
+            background: var(--bg);
             cursor: pointer;
-            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background .15s;
+            border-bottom: 1px solid var(--border);
         }
 
         .accordion-header:hover {
-            background-color: #e9ecef;
+            background: #E8F0FB;
         }
 
-        .accordion-body {
-            padding: 10px 15px;
-            background-color: white;
+        .accordion-header.open {
+            background: #EEF2FF;
         }
 
-        .loading-list-item {
+        .acc-title-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .acc-meta-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .acc-kanban-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .acc-mini-prog {
+            width: 64px;
+            height: 6px;
+            background: #E2E8F0;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .acc-mini-prog-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width .3s ease;
+        }
+
+        .acc-chevron-icon {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform .2s;
+        }
+
+        .accordion-header.open .acc-chevron-icon {
+            transform: rotate(180deg);
+        }
+
+        .acc-body-content {
+            display: none;
+            padding: 20px;
+            background: var(--card);
+        }
+
+        .accordion-header.open+.acc-body-content {
+            display: block;
+        }
+
+        /* Info grid inside accordion */
+        .acc-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .acc-info-field label {
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-muted);
+            font-weight: 700;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .acc-info-field p {
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 500;
+            margin: 0;
+            word-break: break-word;
+        }
+
+        /* Progress bar inside accordion */
+        .acc-prog-section {
+            margin-bottom: 16px;
+        }
+
+        .acc-prog-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 12px;
-            margin-bottom: 5px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border-left: 4px solid #17a2b8;
+            margin-bottom: 6px;
         }
 
-        .loading-list-number {
-            font-weight: bold;
-            color: #2c3e50;
+        .acc-prog-label {
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-muted);
+            font-weight: 700;
         }
 
-        .loading-list-progress {
-            font-size: 11px;
-            color: #6c757d;
+        .acc-prog-pct {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
         }
 
-        .expand-btn {
-            background: linear-gradient(45deg, #007bff, #0056b3);
-            border: none;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.3s;
+        .acc-prog-bar {
+            height: 10px;
+            background: #E2E8F0;
+            border-radius: 99px;
+            overflow: hidden;
         }
 
-        .expand-btn:hover {
-            background: linear-gradient(45deg, #0056b3, #004085);
-            transform: translateY(-1px);
+        .acc-prog-bar-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width .5s ease;
         }
 
-        .expand-btn.collapsed::after {
-            content: ' ▼';
+        /* Empty / error states */
+        .acc-empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
         }
 
-        .expand-btn:not(.collapsed)::after {
-            content: ' ▲';
+        .acc-empty-state i {
+            font-size: 36px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: block;
         }
 
-        /* Responsive adjustments */
+        .acc-empty-state h6 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .acc-empty-state p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .acc-error-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--danger-light);
+            border: 1px solid #fecaca;
+            border-radius: var(--r);
+        }
+
+        .acc-error-state i {
+            font-size: 36px;
+            color: var(--danger);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .acc-error-state h6 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--danger);
+            margin-bottom: 6px;
+        }
+
+        .acc-error-state p {
+            font-size: 12px;
+            color: #991b1b;
+            margin: 0;
+        }
+
+        /* Loading spinner */
+        .bella-spinner-wrap {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .bella-spinner {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sky);
+            border-radius: 50%;
+            animation: bella-spin 1s linear infinite;
+        }
+
+        @keyframes bella-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .bella-spinner-wrap p {
+            margin-top: 12px;
+            font-size: 12.5px;
+            font-weight: 500;
+        }
+
         @media (max-width: 768px) {
-            .btn-toolbar {
+            .bella-filter-row {
                 flex-direction: column;
+                align-items: stretch;
             }
 
-            .btn-group {
+            .bella-filter-select,
+            .bella-filter-input {
+                min-width: 0;
                 width: 100%;
-                margin-bottom: 10px;
-            }
-
-            .loading-lists-group span {
-                max-width: 150px;
             }
         }
     </style>
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <div class="card card-info shadow" style="padding: 40px;padding-top:60px; border-radius:16px">
-                <div class="row">
-                    <div class="col-12">
-                        <div class="form-group">
-                            <div class="input-group">
-                                @isset($manifests)
-                                    <select class="select2 form-control select2-hidden-accessible"
-                                        style="width: 30%; height: 36px" data-select2-id="select2-data-1-ok7p" tabindex="-1"
-                                        aria-hidden="true" id="manifest">
-                                        <option data-select2-id="select2-data-3-mma1" disabled>-- Select manifest --</option>
-                                        @foreach ($manifests as $manifest)
-                                            <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
-                                        @endforeach
-                                    </select>
-                                @endisset()
-                                <select class="custom-select" id="cycle">
-                                    <option selected disabled>-- Select cycle --</option>
-                                    <option value="1">cycle 1</option>
-                                    <option value="2">cycle 2</option>
-                                    <option value="3">cycle 3</option>
-                                    <option value="4">cycle 4</option>
-                                    <option value="5">cycle 5</option>
-                                </select>
-                                @isset($customers)
-                                    <select class="custom-select" id="customer">
-                                        <option selected disabled>-- Select customer --</option>
-                                        @foreach ($customers as $customer)
-                                            <option value="{{ $customer->name }}">{{ $customer->name }}</option>
-                                        @endforeach
-                                    </select>
-                                @endisset()
-                                <input id="date" type="date" class="form-control" placeholder="Delivery date">
-                                <div class="input-group-append" id="reset">
-                                    <button class="btn btn-lg btn-danger" type="button">RESET</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
+    {{-- ===== FILTER CARD ===== --}}
+    <div class="bella-filter-card mt-3">
+        <div class="bella-filter-row">
+            @isset($manifests)
+                <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
+                    <option disabled selected>-- Select manifest --</option>
+                    @foreach ($manifests as $manifest)
+                        <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
+                    @endforeach
+                </select>
+            @endisset
+
+            <select class="bella-filter-select" id="cycle">
+                <option selected disabled>-- Select cycle --</option>
+                <option value="1">Cycle 1</option>
+                <option value="2">Cycle 2</option>
+                <option value="3">Cycle 3</option>
+                <option value="4">Cycle 4</option>
+                <option value="5">Cycle 5</option>
+            </select>
+
+            @isset($customers)
+                <select class="bella-filter-select" id="customer">
+                    <option selected disabled>-- Select customer --</option>
+                    @foreach ($customers as $customer)
+                        <option value="{{ $customer->name }}">{{ $customer->name }}</option>
+                    @endforeach
+                </select>
+            @endisset
+
+            <input id="date" type="date" class="bella-filter-input" placeholder="Delivery date">
+
+            <button class="act-btn danger" id="reset" type="button"
+                style="height:36px; padding: 0 16px; font-size: 12px; letter-spacing: .04em;">
+                <i class="fas fa-redo-alt" style="margin-right:5px;"></i> RESET
+            </button>
         </div>
     </div>
-    <div class="card card-danger mt-2 shadow" style="border-radius:10px">
-        <div class="card-body">
-            <h4 class="card-title mt-3 mb-3 text-dark text-center">DELIVERY MONITORING</h4>
-            <div class="table-responsive-lg">
-                <table class="table" id="loadingList" style="width: 100%">
-                    <thead>
-                        <tr>
-                            <th class="text-center">PDS Number</th>
-                            <th class="text-center">Customer</th>
-                            <th class="text-center">Cycle</th>
-                            <th class="text-center">Delivery Date</th>
-                            <th class="text-center">Pulling Progress</th>
-                            <th class="text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-center">
 
-                    </tbody>
-                </table>
-            </div>
+    {{-- ===== TABLE CARD ===== --}}
+    <div class="bella-table-card mt-2">
+        <div class="bella-table-card-header">
+            <span class="bella-table-card-title">Delivery Monitoring</span>
+            <span class="bella-live-badge">
+                <span class="bella-live-dot"></span> LIVE
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table bella-table" id="loadingList" style="width: 100%">
+                <thead>
+                    <tr>
+                        <th class="text-center">PDS Number</th>
+                        <th class="text-center">Customer</th>
+                        <th class="text-center">Cycle</th>
+                        <th class="text-center">Delivery Date</th>
+                        <th class="text-center">Pulling Progress</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center"></tbody>
+            </table>
         </div>
     </div>
 
 @endsection
-<!-- Loading Lists Accordion Modal -->
+
+{{-- ===== MODAL ===== --}}
 <div class="modal fade" id="loadingListModal" tabindex="-1" role="dialog" aria-labelledby="loadingListModalLabel">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="loadingListModalLabel">Loading Lists for PDS: <span
-                        id="modalPdsNumber"></span></h5>
+                <h5 class="modal-title" id="loadingListModalLabel">
+                    Loading Lists for PDS: <span id="modalPdsNumber"></span>
+                </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body" id="loadingListAccordion">
-                <!-- Accordion content will be loaded here -->
+                {{-- Accordion content loaded via AJAX --}}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="bella-btn bella-btn-secondary bella-btn-sm"
+                    data-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 
-{{-- mqtt --}}
+{{-- Scripts --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
     integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-<script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}></script>
-<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+<script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
 <script>
     $(document).ready(function() {
+
+        /* =========================================================
+         * HELPERS
+         * ======================================================= */
         function getFilterCustomer() {
             const v = $('#customer').val();
             return (v && v !== '-- Select customer --') ? v : '';
@@ -234,36 +688,35 @@
             return (v && v !== '-- Select cycle --') ? v : '';
         }
 
+        /* Apply query-string filters on load */
         (function applyQueryStringFilters() {
             const params = new URLSearchParams(window.location.search);
             const customer = params.get('customer');
             const cycle = params.get('cycle');
             const deliveryDate = params.get('delivery_date');
+
             if (customer) {
                 const $match = $('#customer option').filter(function() {
                     return $(this).val() === customer;
                 });
-                if ($match.length) {
-                    $('#customer').val(customer);
-                }
+                if ($match.length) $('#customer').val(customer);
             }
             if (cycle) {
                 let $opt = $('#cycle option').filter(function() {
                     return $(this).val() === cycle;
                 });
-                if (!$opt.length) {
-                    $('#cycle').append($('<option>', {
-                        value: cycle,
-                        text: cycle
-                    }));
-                }
+                if (!$opt.length) $('#cycle').append($('<option>', {
+                    value: cycle,
+                    text: cycle
+                }));
                 $('#cycle').val(cycle);
             }
-            if (deliveryDate) {
-                $('#date').val(deliveryDate);
-            }
+            if (deliveryDate) $('#date').val(deliveryDate);
         })();
 
+        /* =========================================================
+         * DATATABLE INIT
+         * ======================================================= */
         let table = $('#loadingList').DataTable({
             scrollX: false,
             processing: false,
@@ -281,7 +734,7 @@
                     data: 'pds_number'
                 },
                 {
-                    data: 'customer',
+                    data: 'customer'
                 },
                 {
                     data: 'cycle'
@@ -296,8 +749,8 @@
                     data: 'loading_and_status',
                     orderable: false,
                     searchable: false,
-                    className: 'button-cell', // Custom class name
-                    width: '280px' // Set fixed width for button column
+                    className: 'button-cell',
+                    width: '280px'
                 }
             ],
             order: [
@@ -307,17 +760,13 @@
                 [10, 25, 100],
                 [10, 25, 100]
             ],
-            // Enable state saving to remember pagination
             stateSave: true,
-            stateDuration: 60 * 60, // 1 hour
-            // Add these options for better state management
+            stateDuration: 60 * 60,
             pageResize: true,
             stateSaveParams: function(settings, data) {
-                // Save additional state info
                 data.scrollTop = $(window).scrollTop();
             },
             stateLoadParams: function(settings, data) {
-                // Restore scroll position
                 if (data.scrollTop) {
                     setTimeout(function() {
                         $(window).scrollTop(data.scrollTop);
@@ -326,37 +775,20 @@
             }
         });
 
-        // Add custom CSS to remove cell padding and center buttons
-        $('<style>')
-            .prop('type', 'text/css')
-            .html(`
-        .button-cell {
-            padding: 4px !important;
-            text-align: center !important;
-            vertical-align: middle !important;
-        }
-        .button-cell > div {
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-    `)
-            .appendTo('head');
-
+        /* =========================================================
+         * AUTO-REFRESH LOGIC
+         * ======================================================= */
         let autoRefreshInterval;
         let isUserInteracting = false;
         let lastInteractionTime = Date.now();
+        let lastDataHash = '';
+        let lastRecordCount = 0;
+        let lastPdsNumbers = [];
 
-        // Enhanced user interaction detection
         function onUserInteraction() {
             isUserInteracting = true;
             lastInteractionTime = Date.now();
-
-            // Stop auto-refresh temporarily when user is interacting
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-
-            // Resume auto-refresh after user stops interacting for 5 seconds
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             setTimeout(function() {
                 if (Date.now() - lastInteractionTime >= 5000) {
                     isUserInteracting = false;
@@ -365,47 +797,31 @@
             }, 5000);
         }
 
-        // Modified refresh function that preserves pagination state
         function refreshTableData() {
             if (isUserInteracting) return;
-
-            // Store current state before refresh
             const pageInfo = table.page.info();
-            const currentPage = pageInfo.page;
             const scrollTop = $(window).scrollTop();
-
-            // Store in sessionStorage as backup
             sessionStorage.setItem('tableState', JSON.stringify({
-                page: currentPage,
+                page: pageInfo.page,
                 scrollTop: scrollTop,
                 timestamp: Date.now()
             }));
-
-            // Use draw() instead of ajax.reload() to maintain server-side state
-            table.draw(false); // false = don't reset paging
-
-            // Restore scroll position after draw
+            table.draw(false);
             setTimeout(function() {
-                const savedState = JSON.parse(sessionStorage.getItem('tableState') || '{}');
-                if (savedState.scrollTop && Date.now() - savedState.timestamp < 1000) {
-                    $(window).scrollTop(savedState.scrollTop);
+                const saved = JSON.parse(sessionStorage.getItem('tableState') || '{}');
+                if (saved.scrollTop && Date.now() - saved.timestamp < 1000) {
+                    $(window).scrollTop(saved.scrollTop);
                 }
             }, 200);
         }
 
-        // Smart refresh function - only refresh if data has changed
-        let lastDataHash = '';
-        let lastRecordCount = 0;
-
         function smartRefresh() {
             if (isUserInteracting) return;
-
-            // Get current visible PDS numbers (if any)
             const visiblePdsNumbers = table.rows({
                     page: 'current'
                 }).data().toArray()
                 .map(row => row.pds_number)
-                .filter((v, i, a) => a.indexOf(v) === i); // Unique values
+                .filter((v, i, a) => a.indexOf(v) === i);
 
             $.ajax({
                 url: `{{ url('dashboard/checkLoadingListUpdates') }}`,
@@ -425,32 +841,26 @@
                         return;
                     }
 
-                    // More aggressive refresh if we suspect deletions
                     const countMismatch = response.totalRecords !== lastRecordCount;
-                    const forceRefresh = countMismatch ||
-                        (response.deletedCount && response.deletedCount > 0);
-
+                    const forceRefresh = countMismatch || (response.deletedCount && response
+                        .deletedCount > 0);
                     if (forceRefresh) {
                         lastRecordCount = response.totalRecords;
                         refreshTableData();
                         return;
                     }
 
-                    // Check if data has changed (existing records or count)
                     const dataChanged = (response.dataHash && response.dataHash !== lastDataHash) ||
                         (response.totalRecords !== lastRecordCount);
-
-                    // Additional check for new PDS numbers
                     const hasNewPds = response.latestPdsNumbers &&
-                        (!lastPdsNumbers ||
-                            response.latestPdsNumbers.some(pds => !lastPdsNumbers.includes(pds)));
+                        (!lastPdsNumbers || response.latestPdsNumbers.some(pds => !lastPdsNumbers
+                            .includes(pds)));
 
                     if (response.hasNewData) {
                         lastRecordCount = response.serverPdsCount;
                         lastPdsNumbers = response.serverLatestPds;
                         refreshTableData();
                     } else {
-                        // Still check for updates to existing rows
                         updateSpecificRows();
                     }
 
@@ -462,31 +872,23 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    // Fallback to regular refresh occasionally
-                    if (Math.random() < 0.1) {
-                        refreshTableData();
-                    }
+                    if (Math.random() < 0.1) refreshTableData();
                     console.warn('Smart refresh check failed:', status, error);
                 }
             });
         }
 
-        // Alternative approach: Manual row updates (most effective for real-time data)
         function updateSpecificRows() {
             if (isUserInteracting) return;
-
             const visibleData = table.rows({
                 page: 'current'
             }).data();
             const visibleIds = [];
-
             for (let i = 0; i < visibleData.length; i++) {
                 if (visibleData[i] && visibleData[i].id) {
-                    const cleanId = visibleData[i].id.replace('row-', '');
-                    visibleIds.push(cleanId);
+                    visibleIds.push(visibleData[i].id.replace('row-', ''));
                 }
             }
-
             if (visibleIds.length === 0) {
                 smartRefresh();
                 return;
@@ -501,35 +903,25 @@
                 },
                 dataType: 'json',
                 success: function(response) {
-                    // Handle deleted rows first
                     if (response.deletedRows && response.deletedRows.length > 0) {
-                        response.deletedRows.forEach(function(deletedRowId) {
-                            const row = table.row('#row-' + deletedRowId);
-                            if (row.any()) {
-                                row.remove().draw(false);
-                            }
+                        response.deletedRows.forEach(function(id) {
+                            const row = table.row('#row-' + id);
+                            if (row.any()) row.remove().draw(false);
                         });
                     }
-
-                    // Then handle updated rows
                     if (response.updatedRows && response.updatedRows.length > 0) {
                         response.updatedRows.forEach(function(updatedRow) {
                             const row = table.row('#row-' + updatedRow.id);
-
                             if (row.any()) {
                                 const rowData = row.data();
-
                                 if (updatedRow.progress) rowData.progress = updatedRow
                                     .progress;
                                 if (updatedRow.detail) rowData.loading_and_status =
                                     updatedRow.detail;
-
                                 row.data(rowData).draw(false);
                             }
                         });
                     }
-
-                    // If we had any deletions or updates, the table might need reordering
                     if ((response.deletedRows && response.deletedRows.length > 0) ||
                         (response.updatedRows && response.updatedRows.length > 0)) {
                         table.order([3, 'desc']).draw(false);
@@ -541,68 +933,49 @@
             });
         }
 
-        // Start auto-refresh function
         function startAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             let refreshCount = 0;
-
             autoRefreshInterval = setInterval(function() {
                 refreshCount++;
-
-                // Every 10 refreshes (30 seconds), do a full refresh regardless
                 if (refreshCount >= 10) {
                     refreshCount = 0;
                     refreshTableData();
                     return;
                 }
-
-                // Try specific row updates first (fastest)
                 if (typeof updateSpecificRows === 'function') {
                     updateSpecificRows();
                 } else {
                     smartRefresh();
                 }
-            }, 3000); // 3 seconds
+            }, 3000);
         }
 
-        // Enhanced event detection
-        $('#loadingList').on('page.dt', onUserInteraction);
-        $('#loadingList').on('length.dt', onUserInteraction);
-        $('#loadingList').on('order.dt', onUserInteraction);
-        $('#loadingList').on('search.dt', onUserInteraction);
+        /* =========================================================
+         * DATATABLE EVENT LISTENERS
+         * ======================================================= */
+        $('#loadingList').on('page.dt length.dt order.dt search.dt', onUserInteraction);
         $('#loadingList').on('click', 'th', onUserInteraction);
-
-        $(document).on('click', '.dataTables_paginate .paginate_button', function() {
-            onUserInteraction();
-        });
-
+        $(document).on('click', '.dataTables_paginate .paginate_button', onUserInteraction);
         $(document).on('change', '.dataTables_length select', onUserInteraction);
-        $('#loadingList').closest('.table-responsive-lg').on('scroll', onUserInteraction);
+        $('#loadingList').closest('.table-responsive').on('scroll', onUserInteraction);
         $('#manifest, #customer, #cycle, #date').on('change', onUserInteraction);
 
-        // Loading List Accordion Modal Handler
+        /* =========================================================
+         * MODAL: LOADING LISTS ACCORDION
+         * ======================================================= */
         $(document).on('click', '.show-loading-lists', function() {
             const pdsNumber = $(this).data('pds');
             $('#modalPdsNumber').text(pdsNumber);
 
-            // Show clean loading spinner
+            // Spinner
             $('#loadingListAccordion').html(`
-        <div style="text-align: center; padding: 40px 20px; color: #6c757d;">
-            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <p style="margin-top: 15px; font-size: 14px; font-weight: 500;">Loading data...</p>
-            <style>
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        </div>
-    `);
+                <div class="bella-spinner-wrap">
+                    <div class="bella-spinner"></div>
+                    <p>Loading data...</p>
+                </div>
+            `);
 
-            // Load loading lists for this PDS
             $.ajax({
                 url: `{{ url('dashboard/getLoadingListsByPds') }}`,
                 type: 'GET',
@@ -610,235 +983,168 @@
                     pds_number: pdsNumber
                 },
                 success: function(response) {
-                    let accordionHtml = '<div style="background: #ffffff;">';
+                    let html = '';
 
                     if (response.loading_lists && response.loading_lists.length > 0) {
-                        response.loading_lists.forEach(function(loadingList, index) {
-                            const collapseId = 'collapse' + index;
-                            const headingId = 'heading' + index;
+                        response.loading_lists.forEach(function(ll, index) {
+                            const collapseId = 'acc-collapse-' + index;
+                            const pct = ll.total_kanban > 0 ?
+                                Math.round((ll.actual_kanban / ll.total_kanban) *
+                                    100) : 0;
 
-                            // Calculate progress for individual loading list
-                            const progressPercentage = loadingList.total_kanban >
-                                0 ?
-                                Math.round((loadingList.actual_kanban / loadingList
-                                    .total_kanban) * 100) : 0;
-
-                            let statusColor = '';
-                            let statusText = '';
-                            let progressColor = '';
-
-                            if (loadingList.actual_kanban == loadingList
-                                .total_kanban && loadingList.total_kanban > 0) {
+                            let statusClass, statusText, progColor;
+                            if (ll.actual_kanban == ll.total_kanban && ll
+                                .total_kanban > 0) {
+                                statusClass = 'bella-badge bella-badge-green';
                                 statusText = 'Complete';
-                                statusColor = '#28a745';
-                                progressColor = '#28a745';
-                            } else if (loadingList.actual_kanban > 0) {
+                                progColor = 'var(--success)';
+                            } else if (ll.actual_kanban > 0) {
+                                statusClass = 'bella-badge bella-badge-amber';
                                 statusText = 'In Progress';
-                                statusColor = '#ffc107';
-                                progressColor = '#ffc107';
+                                progColor = 'var(--warning)';
                             } else {
+                                statusClass = 'bella-badge bella-badge-gray';
                                 statusText = 'Uncomplete';
-                                statusColor = '#6c757d';
-                                progressColor = '#6c757d';
+                                progColor = 'var(--text-muted)';
                             }
 
-                            accordionHtml += `
-                        <div style="border: 1px solid #e9ecef; margin-bottom: 8px; background: #ffffff;">
-                            <!-- Header -->
-                            <div style="padding: 16px 20px; background: ${index === 0 ? '#f8f9fa' : '#ffffff'}; border-bottom: 1px solid #e9ecef; cursor: pointer;" 
-                                 class="accordion-header" data-target="${collapseId}">
-                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                        <span style="font-weight: 600; font-size: 16px; color: #343a40;">${loadingList.number}</span>
-                                        <span style="background: ${statusColor}; color: white; padding: 4px 8px; font-size: 12px; font-weight: 500;">${statusText}</span>
+                            html += `
+                            <div class="bella-acc-item">
+                                <div class="accordion-header ${index === 0 ? 'open' : ''}" data-target="${collapseId}">
+                                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                        <span class="acc-title-text">${ll.number}</span>
+                                        <span class="${statusClass}">${statusText}</span>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                        <span style="font-size: 13px; color: #6c757d; font-weight: 500; white-space: nowrap;">${loadingList.actual_kanban} / ${loadingList.total_kanban}</span>
-                                        <div style="width: 60px; height: 8px; background: #e9ecef; position: relative; min-width: 40px;">
-                                            <div style="height: 100%; background: ${progressColor}; width: ${progressPercentage}%; transition: width 0.3s ease;"></div>
+                                    <div class="acc-meta-right">
+                                        <span class="acc-kanban-count">${ll.actual_kanban} / ${ll.total_kanban}</span>
+                                        <div class="acc-mini-prog">
+                                            <div class="acc-mini-prog-fill" style="width:${pct}%;background:${progColor};"></div>
                                         </div>
-                                        <span style="font-size: 18px; color: #6c757d; transform: rotate(0deg); transition: transform 0.3s ease;" class="toggle-icon">▼</span>
+                                        <i class="fas fa-chevron-down acc-chevron-icon"></i>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <!-- Content -->
-                            <div id="${collapseId}" style="display: ${index === 0 ? 'block' : 'none'}; padding: 0; background: #fafafa;">
-                                <div style="padding: 24px 20px;">
-                                    <!-- Info Grid -->
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                                <div class="acc-body-content" id="${collapseId}" style="${index === 0 ? 'display:block;' : ''}">
+                                    <div class="acc-info-grid">
                                         <div>
-                                            <div style="margin-bottom: 12px;">
-                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Loading List</span>
-                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; font-weight: 500; word-break: break-word;">${loadingList.number}</p>
+                                            <div class="acc-info-field" style="margin-bottom:10px;">
+                                                <label>Loading List</label>
+                                                <p>${ll.number}</p>
                                             </div>
-                                            <div style="margin-bottom: 12px;">
-                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Customer</span>
-                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.customer_name || 'Not specified'}</p>
+                                            <div class="acc-info-field" style="margin-bottom:10px;">
+                                                <label>Customer</label>
+                                                <p>${ll.customer_name || 'Not specified'}</p>
                                             </div>
-                                            <div>
-                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Cycle</span>
-                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.cycle || 'Not specified'}</p>
+                                            <div class="acc-info-field">
+                                                <label>Cycle</label>
+                                                <p>${ll.cycle || 'Not specified'}</p>
                                             </div>
                                         </div>
                                         <div>
-                                            <div style="margin-bottom: 12px;">
-                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Delivery Date</span>
-                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.delivery_date || 'Not specified'}</p>
+                                            <div class="acc-info-field" style="margin-bottom:10px;">
+                                                <label>Delivery Date</label>
+                                                <p>${ll.delivery_date || 'Not specified'}</p>
                                             </div>
-                                            <div style="margin-bottom: 12px;">
-                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Progress</span>
-                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; font-weight: 600;">${progressPercentage}%</p>
+                                            <div class="acc-info-field" style="margin-bottom:10px;">
+                                                <label>Progress</label>
+                                                <p style="color:var(--navy);font-weight:700;">${pct}%</p>
                                             </div>
-                                            <div>
-                                                <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Kanban Status</span>
-                                                <p style="margin: 4px 0 0 0; font-size: 14px; color: #343a40; word-break: break-word;">${loadingList.actual_kanban} of ${loadingList.total_kanban} completed</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Progress Bar -->
-                                    <div style="margin-bottom: 20px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                                            <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Overall Progress</span>
-                                            <span style="font-size: 14px; color: #343a40; font-weight: 600;">${progressPercentage}%</span>
-                                        </div>
-                                        <div style="width: 100%; height: 12px; background: #e9ecef; position: relative;">
-                                            <div style="height: 100%; background: ${progressColor}; width: ${progressPercentage}%; transition: width 0.5s ease; position: relative;">
-                                                <div style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: white; font-size: 10px; font-weight: 600;">${progressPercentage > 15 ? progressPercentage + '%' : ''}</div>
+                                            <div class="acc-info-field">
+                                                <label>Kanban Status</label>
+                                                <p>${ll.actual_kanban} of ${ll.total_kanban} completed</p>
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Action Button -->
-                                    <div style="text-align: right;">
-                                        <a href="/loading-list/${loadingList.id}" 
-                                           style="display: inline-flex; align-items: center; gap: 8px; background: #007bff; color: white; padding: 10px 16px; text-decoration: none; font-size: 14px; font-weight: 500; transition: background 0.2s ease; border-radius: 4px; width: auto; min-width: fit-content;"
-                                           onmouseover="this.style.background='#0056b3'" 
-                                           onmouseout="this.style.background='#007bff'">
-                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink: 0;">
-                                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                                            </svg>
-                                            <span style="white-space: nowrap;">View Details</span>
+                                    <div class="acc-prog-section">
+                                        <div class="acc-prog-header">
+                                            <span class="acc-prog-label">Overall Progress</span>
+                                            <span class="acc-prog-pct">${pct}%</span>
+                                        </div>
+                                        <div class="acc-prog-bar">
+                                            <div class="acc-prog-bar-fill" style="width:${pct}%;background:${progColor};"></div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right;margin-top:4px;">
+                                        <a href="/loading-list/${ll.id}" class="bella-btn bella-btn-primary bella-btn-sm">
+                                            <i class="fas fa-eye"></i> View Details
                                         </a>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    `;
+                            </div>`;
                         });
                     } else {
-                        accordionHtml += `
-                    <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border: 1px solid #e9ecef;">
-                        <svg width="48" height="48" fill="#6c757d" viewBox="0 0 16 16" style="margin-bottom: 16px;">
-                            <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                            <path d="M5 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                        <h5 style="color: #6c757d; font-weight: 500; margin-bottom: 8px;">No Loading Lists Found</h5>
-                        <p style="color: #6c757d; margin: 0; font-size: 14px;">There are no loading lists available for PDS number ${pdsNumber}.</p>
-                    </div>
-                `;
+                        html = `
+                        <div class="acc-empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <h6>No Loading Lists Found</h6>
+                            <p>There are no loading lists available for PDS number ${pdsNumber}.</p>
+                        </div>`;
                     }
 
-                    accordionHtml += '</div>';
+                    $('#loadingListAccordion').html(html);
 
-                    $('#loadingListAccordion').html(accordionHtml);
-
-                    // Add click event handlers for accordion after content is loaded
+                    // Accordion toggle
                     $(document).off('click', '.accordion-header').on('click',
                         '.accordion-header',
                         function() {
                             const targetId = $(this).data('target');
-                            const content = $('#' + targetId);
-                            const icon = $(this).find('.toggle-icon');
-                            const header = $(this);
-
-                            if (content.is(':visible')) {
-                                content.hide();
-                                icon.css('transform', 'rotate(0deg)');
-                                header.css('background', '#ffffff');
+                            const $body = $('#' + targetId);
+                            const isOpen = $(this).hasClass('open');
+                            if (isOpen) {
+                                $(this).removeClass('open');
+                                $body.hide();
                             } else {
-                                content.show();
-                                icon.css('transform', 'rotate(180deg)');
-                                header.css('background', '#f8f9fa');
+                                $(this).addClass('open');
+                                $body.show();
                             }
                         });
                 },
                 error: function() {
                     $('#loadingListAccordion').html(`
-                <div style="text-align: center; padding: 40px 20px; background: #fff5f5; border: 1px solid #fed7d7; color: #e53e3e;">
-                    <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16" style="margin-bottom: 16px;">
-                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                    </svg>
-                    <h5 style="font-weight: 500; margin-bottom: 8px;">Unable to Load Data</h5>
-                    <p style="margin: 0; font-size: 14px;">There was an error loading the loading lists. Please try again.</p>
-                </div>
-            `);
+                        <div class="acc-error-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h6>Unable to Load Data</h6>
+                            <p>There was an error loading the loading lists. Please try again.</p>
+                        </div>
+                    `);
                 }
             });
 
             $('#loadingListModal').modal('show');
         });
 
-        // Initial load
-        startAutoRefresh();
-
-        // Filter handlers
+        /* =========================================================
+         * FILTER HANDLERS
+         * ======================================================= */
         $('#manifest').on('change', function() {
-            let manifest = $('#manifest').val();
-            if (manifest) {
-                table.column(0).search(manifest);
-            } else {
-                table.column(0).search('');
-            }
-            table.draw();
+            table.column(0).search($(this).val() || '').draw();
         });
-
         $('#customer').on('change', function() {
-            let customer = $('#customer').val();
-            if (customer) {
-                table.column(1).search(customer);
-            } else {
-                table.column(1).search('');
-            }
-            table.draw();
+            table.column(1).search($(this).val() || '').draw();
         });
-
         $('#cycle').on('change', function() {
-            let cycle = $('#cycle').val();
-            if (cycle) {
-                table.column(2).search(cycle);
-            } else {
-                table.column(2).search('');
-            }
-            table.draw();
+            table.column(2).search($(this).val() || '').draw();
         });
-
         $('#date').on('change', function() {
-            let date = $('#date').val();
-            if (date) {
-                table.column(3).search(date);
-            } else {
-                table.column(3).search('');
-            }
-            table.draw();
+            table.column(3).search($(this).val() || '').draw();
         });
 
         $('#reset').on('click', function() {
             $('#cycle').val('-- Select cycle --').trigger('change');
             $('#customer').val('-- Select customer --').trigger('change');
-            $('#manifest').val('-- Select manifest --').trigger('change');
+            $('#manifest').val(null).trigger('change'); // select2 reset
             $('#date').val('').trigger('change');
             onUserInteraction();
         });
 
-        // Cleanup
+        /* =========================================================
+         * CLEANUP
+         * ======================================================= */
         $(window).on('beforeunload', function() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             sessionStorage.removeItem('tableState');
         });
+
+        /* Start auto-refresh */
+        startAutoRefresh();
     });
 </script>

@@ -2,12 +2,287 @@
 
 @section('main')
     <style>
+        /* ===== FILTER CARD ===== */
+        .bella-filter-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            padding: 28px 24px 20px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bella-filter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--navy), var(--sky));
+            border-radius: 16px 16px 0 0;
+        }
+
+        .bella-filter-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .bella-filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .bella-filter-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-muted);
+        }
+
+        .bella-filter-select,
+        .bella-filter-input {
+            height: 36px;
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 12.5px;
+            padding: 0 10px;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+            min-width: 160px;
+        }
+
+        .bella-filter-select:focus,
+        .bella-filter-input:focus {
+            border-color: var(--sky);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
+        }
+
+        /* ===== TABLE CARD ===== */
+        .bella-table-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .bella-table-card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .bella-table-card-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .bella-live-badge {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--sky);
+            color: #fff;
+            font-size: 9.5px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: .06em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .bella-live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #fff;
+            animation: live-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes live-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .3;
+            }
+        }
+
+        /* ===== DATATABLE OVERRIDES ===== */
+        .bella-table-card .dataTables_wrapper {
+            padding: 0;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_length,
+        .bella-table-card .dataTables_wrapper .dataTables_filter {
+            padding: 10px 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_length label,
+        .bella-table-card .dataTables_wrapper .dataTables_filter label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_length select,
+        .bella-table-card .dataTables_wrapper .dataTables_filter input {
+            height: 30px;
+            border: 1px solid var(--border) !important;
+            border-radius: 4px !important;
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 12px !important;
+            padding: 0 8px !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_filter input:focus {
+            border-color: var(--sky) !important;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10) !important;
+        }
+
+        /* Table itself */
+        #pisScanList {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 12.5px !important;
+        }
+
+        #pisScanList thead th {
+            text-align: center !important;
+            padding: 9px 12px !important;
+            color: var(--text-muted) !important;
+            font-size: 10.5px !important;
+            text-transform: uppercase !important;
+            letter-spacing: .05em !important;
+            font-weight: 700 !important;
+            background: var(--bg) !important;
+            border-bottom: 1px solid var(--border) !important;
+            border-top: none !important;
+            white-space: nowrap !important;
+        }
+
+        #pisScanList tbody td {
+            text-align: center !important;
+            padding: 10px 12px !important;
+            border-bottom: 1px solid var(--border) !important;
+            vertical-align: middle !important;
+            color: var(--text) !important;
+        }
+
+        #pisScanList tbody tr:last-child td {
+            border-bottom: none !important;
+        }
+
+        #pisScanList tbody tr:hover td {
+            background: var(--bg) !important;
+        }
+
+        /* Pagination */
+        .bella-table-card .dataTables_wrapper .dataTables_paginate {
+            padding: 10px 16px;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+            min-width: 30px !important;
+            height: 30px !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 4px !important;
+            background: var(--card) !important;
+            color: var(--text-muted) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            padding: 0 8px !important;
+            margin: 0 2px !important;
+            line-height: 28px !important;
+            transition: .15s !important;
+            box-shadow: none !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background: var(--primary) !important;
+            color: #fff !important;
+            border-color: var(--primary) !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+        .bella-table-card .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+            opacity: .4 !important;
+            cursor: not-allowed !important;
+            background: var(--card) !important;
+            color: var(--text-muted) !important;
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_info {
+            padding: 10px 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .bella-table-card .dataTables_wrapper .dataTables_processing {
+            background: rgba(255, 255, 255, .9) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--r) !important;
+            color: var(--text-muted) !important;
+            font-size: 12px !important;
+            box-shadow: var(--shadow-md) !important;
+            padding: 10px 20px !important;
+        }
+
+        .button-cell {
+            padding: 6px 8px !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+
+        .button-cell>div {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* ===== PIS SCAN GROUP (in table cell) ===== */
         .pis-scans-group {
             text-align: left;
         }
 
         .pis-scans-group strong {
-            color: #2c3e50;
+            color: var(--navy);
             font-size: 12px;
         }
 
@@ -16,118 +291,84 @@
             line-height: 1.3;
             display: block;
             max-width: 200px;
+            color: var(--text-muted);
         }
 
-        .btn-toolbar {
-            justify-content: center;
-            flex-wrap: wrap;
+        /* ===== MODAL ===== */
+        .modal-content {
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            box-shadow: var(--shadow-md) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            overflow: hidden !important;
         }
 
-        .btn-toolbar .btn-group {
-            margin-bottom: 5px;
+        .modal-header {
+            background: var(--bg) !important;
+            border-bottom: 1px solid var(--border) !important;
+            padding: 14px 20px !important;
         }
 
-        .progress-bar small {
-            font-size: 10px;
-            line-height: 1;
+        .modal-title {
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            color: var(--navy) !important;
         }
 
-        .dropdown-menu .dropdown-item {
-            padding: 5px 15px;
-            font-size: 12px;
+        .modal-title span {
+            color: var(--sky) !important;
         }
 
-        .dropdown-menu .dropdown-item:hover {
-            background-color: #f8f9fa;
+        .modal-header .close {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--card);
+            opacity: 1 !important;
+            color: var(--text-muted) !important;
+            font-size: 16px !important;
+            line-height: 26px;
+            padding: 0;
+            transition: .15s;
         }
 
-        /* Accordion styles */
-        .accordion-card {
-            border: none;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 5px;
-            border-radius: 6px;
+        .modal-header .close:hover {
+            background: var(--danger-light) !important;
+            color: var(--danger) !important;
+            border-color: #fecaca !important;
         }
 
-        .accordion-header {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            padding: 8px 15px;
-            cursor: pointer;
-            transition: background-color 0.2s;
+        .modal-body {
+            padding: 16px 20px !important;
+            background: var(--bg) !important;
         }
 
-        .accordion-header:hover {
-            background-color: #e9ecef;
+        .modal-footer {
+            border-top: 1px solid var(--border) !important;
+            padding: 12px 20px !important;
+            background: var(--card) !important;
         }
 
-        .accordion-body {
-            padding: 10px 15px;
-            background-color: white;
-        }
-
-        .pis-scan-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            margin-bottom: 5px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border-left: 4px solid #17a2b8;
-        }
-
-        .pis-scan-number {
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .pis-scan-progress {
-            font-size: 11px;
-            color: #6c757d;
-        }
-
-        .expand-btn {
-            background: linear-gradient(45deg, #007bff, #0056b3);
-            border: none;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .expand-btn:hover {
-            background: linear-gradient(45deg, #0056b3, #004085);
-            transform: translateY(-1px);
-        }
-
-        .expand-btn.collapsed::after {
-            content: ' ▼';
-        }
-
-        .expand-btn:not(.collapsed)::after {
-            content: ' ▲';
-        }
-
+        /* ===== SCAN LOG DETAILS (inside modal table) ===== */
         .scan-log-details {
             font-size: 12px;
         }
 
         .scan-log-details summary {
             cursor: pointer;
-            color: #0d6efd;
-            font-weight: 600;
+            color: var(--sky);
+            font-weight: 700;
             outline: none;
             list-style: none;
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 2px 8px;
-            border: 1px solid #dbe7ff;
-            background: #f4f8ff;
+            padding: 2px 10px;
+            border: 1px solid var(--border);
+            background: var(--bg);
             border-radius: 999px;
+            font-size: 11px;
         }
 
         .scan-log-details summary::-webkit-details-marker {
@@ -136,8 +377,8 @@
 
         .scan-log-details summary::after {
             content: '▼';
-            font-size: 10px;
-            color: #6c757d;
+            font-size: 9px;
+            color: var(--text-muted);
         }
 
         .scan-log-details[open] summary::after {
@@ -149,8 +390,8 @@
             overflow: auto;
             margin-top: 6px;
             padding: 6px 8px;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 6px;
         }
 
@@ -159,7 +400,7 @@
             justify-content: space-between;
             gap: 8px;
             padding: 5px 0;
-            border-bottom: 1px dashed #e9ecef;
+            border-bottom: 1px dashed var(--border);
         }
 
         .scan-log-row:last-child {
@@ -168,33 +409,177 @@
 
         .scan-log-time {
             font-size: 11px;
-            color: #6c757d;
+            color: var(--text-muted);
             white-space: nowrap;
         }
 
         .scan-log-label {
             font-size: 11px;
-            color: #343a40;
+            color: var(--text);
             text-align: right;
             word-break: break-all;
         }
 
         .scan-log-empty {
             font-size: 11px;
-            color: #6c757d;
+            color: var(--text-muted);
             text-align: center;
             padding: 4px 0;
         }
 
-        /* Responsive adjustments */
+        /* ===== SPINNER ===== */
+        .bella-spinner-wrap {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .bella-spinner {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--sky);
+            border-radius: 50%;
+            animation: bella-spin 1s linear infinite;
+        }
+
+        @keyframes bella-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .bella-spinner-wrap p {
+            margin-top: 12px;
+            font-size: 12.5px;
+            font-weight: 500;
+        }
+
+        /* ===== EMPTY / ERROR STATES ===== */
+        .acc-empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+        }
+
+        .acc-empty-state i {
+            font-size: 36px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .acc-empty-state h6 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .acc-empty-state p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .acc-error-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--danger-light);
+            border: 1px solid #fecaca;
+            border-radius: var(--r);
+        }
+
+        .acc-error-state i {
+            font-size: 36px;
+            color: var(--danger);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .acc-error-state h6 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--danger);
+            margin-bottom: 6px;
+        }
+
+        .acc-error-state p {
+            font-size: 12px;
+            color: #991b1b;
+            margin: 0;
+        }
+
+        /* ===== MODAL INNER TABLE ===== */
+        .modal-inner-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .modal-inner-table thead th {
+            text-align: center;
+            padding: 8px 10px;
+            color: var(--text-muted);
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            font-weight: 700;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .modal-inner-table tbody td {
+            text-align: center;
+            padding: 9px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text);
+        }
+
+        .modal-inner-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .modal-inner-table tbody tr:hover td {
+            background: var(--bg);
+        }
+
+        /* progress bar inside modal table */
+        .bella-prog-bar {
+            height: 14px;
+            background: #E2E8F0;
+            border-radius: 99px;
+            overflow: hidden;
+            min-width: 90px;
+        }
+
+        .bella-prog-bar-fill {
+            height: 100%;
+            border-radius: 99px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+            color: #fff;
+            transition: width .4s ease;
+        }
+
         @media (max-width: 768px) {
-            .btn-toolbar {
+            .bella-filter-row {
                 flex-direction: column;
+                align-items: stretch;
             }
 
-            .btn-group {
+            .bella-filter-select,
+            .bella-filter-input {
+                min-width: 0;
                 width: 100%;
-                margin-bottom: 10px;
             }
 
             .pis-scans-group span {
@@ -202,100 +587,105 @@
             }
         }
     </style>
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <div class="card card-info shadow" style="padding: 40px;padding-top:60px; border-radius:16px">
-                <div class="row">
-                    <div class="col-12">
-                        <div class="form-group">
-                            <div class="input-group">
-                                <input id="loadingListSearch" type="text" class="form-control" placeholder="Search Loading List Number...">
-                                <div class="input-group-append" id="reset">
-                                    <button class="btn btn-lg btn-danger" type="button">RESET</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="row mt-3">
-                    <div class="col-md-3 col-12 mb-2">
-                        <label class="mb-1" style="font-size:12px; font-weight:600;">Start Date</label>
-                        <input id="filterStartDate" type="date" class="form-control">
-                    </div>
-                    <div class="col-md-3 col-12 mb-2">
-                        <label class="mb-1" style="font-size:12px; font-weight:600;">End Date</label>
-                        <input id="filterEndDate" type="date" class="form-control">
-                    </div>
-                    <div class="col-md-6 col-12 mb-2 d-flex align-items-end" style="gap:10px; flex-wrap:wrap;">
-                        <!-- <button id="applyDateFilter" type="button" class="btn btn-primary">
-                            APPLY FILTER
-                        </button> -->
-                        <!-- <button id="resetDateFilter" type="button" class="btn btn-outline-secondary">
-                            CLEAR DATE
-                        </button> -->
-                        <button id="exportExcel" type="button" class="btn btn-success">
-                            DOWNLOAD EXCEL
-                        </button>
-                    </div>
+    {{-- ===== FILTER CARD ===== --}}
+    <div class="bella-filter-card mt-3">
+        <div class="bella-filter-row">
+            <div class="bella-filter-group" style="flex:1; min-width:200px;">
+                <span class="bella-filter-label">Loading List Number</span>
+                <div style="display:flex; gap:0;">
+                    <input id="loadingListSearch" type="text" class="bella-filter-input"
+                        placeholder="Search loading list number..."
+                        style="border-radius: var(--r-sm) 0 0 var(--r-sm); flex:1; min-width:0;">
+                    <button id="resetSearch" type="button" class="act-btn danger"
+                        style="height:36px; padding:0 14px; font-size:12px; border-radius:0 var(--r-sm) var(--r-sm) 0; letter-spacing:.04em;">
+                        RESET
+                    </button>
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="card card-danger mt-2 shadow" style="border-radius:10px">
-        <div class="card-body">
-            <h4 class="card-title mt-3 mb-3 text-dark text-center">PIS SCAN MONITORING</h4>
-            <div class="table-responsive-lg">
-                <table class="table" id="pisScanList" style="width: 100%">
-                    <thead>
-                        <tr>
-                            <th class="text-center" style="width: 150px;">Scan Time</th>                            
-                            <th class="text-center" style="width: 300px;">Loading List Number</th>
-                            <th class="text-center" style="width: 140px;">No PDS</th>
-                            <th class="text-center" style="width: 180px;">Customer</th>
-                            <th class="text-center" style="width: 220px;">PIS Progress</th>
-                            <th class="text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-center">
 
-                    </tbody>
-                </table>
+            <div class="bella-filter-group">
+                <span class="bella-filter-label">Start Date</span>
+                <input id="filterStartDate" type="date" class="bella-filter-input">
+            </div>
+
+            <div class="bella-filter-group">
+                <span class="bella-filter-label">End Date</span>
+                <input id="filterEndDate" type="date" class="bella-filter-input">
+            </div>
+
+            <div class="bella-filter-group" style="justify-content:flex-end;">
+                <span class="bella-filter-label">&nbsp;</span>
+                <button id="exportExcel" type="button" class="act-btn success"
+                    style="height:36px; padding:0 16px; font-size:12px; letter-spacing:.04em;">
+                    <i class="fas fa-file-excel" style="margin-right:5px;"></i> DOWNLOAD EXCEL
+                </button>
             </div>
         </div>
     </div>
 
+    {{-- ===== TABLE CARD ===== --}}
+    <div class="bella-table-card mt-2">
+        <div class="bella-table-card-header">
+            <span class="bella-table-card-title">PIS Scan Monitoring</span>
+            <span class="bella-live-badge">
+                <span class="bella-live-dot"></span> LIVE
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table bella-table" id="pisScanList" style="width: 100%">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width:150px;">Scan Time</th>
+                        <th class="text-center" style="width:300px;">Loading List Number</th>
+                        <th class="text-center" style="width:140px;">No PDS</th>
+                        <th class="text-center" style="width:180px;">Customer</th>
+                        <th class="text-center" style="width:220px;">PIS Progress</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center"></tbody>
+            </table>
+        </div>
+    </div>
 @endsection
 
-<!-- PIS Scan Detail Modal -->
+{{-- ===== MODAL PIS SCAN DETAIL ===== --}}
 <div class="modal fade" id="pisScanDetailModal" tabindex="-1" role="dialog" aria-labelledby="pisScanDetailModalLabel">
-    <div class="modal-dialog modal-lg" role="document" style="max-width: 85%;">
+    <div class="modal-dialog modal-lg" role="document" style="max-width:85%;">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="pisScanDetailModalLabel">PIS Scan Details: <span
-                        id="modalLoadingListNumber"></span></h5>
+                <h5 class="modal-title" id="pisScanDetailModalLabel">
+                    PIS Scan Details: <span id="modalLoadingListNumber"></span>
+                </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body" id="pisScanDetailContent">
-                <!-- Detail content will be loaded here -->
+                {{-- Content loaded via AJAX --}}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="act-btn secondary bella-btn-sm" data-dismiss="modal"
+                    style="height:32px; padding:0 16px; font-size:12px;">
+                    Close
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-{{-- mqtt --}}
+{{-- Scripts --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
 <script src="https://code.jquery.com/jquery-3.6.3.min.js"
     integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-<script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}></script>
+<script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+
 <script>
     $(document).ready(function() {
+
         let table = $('#pisScanList').DataTable({
             scrollX: false,
             processing: false,
@@ -308,33 +698,31 @@
                     d.end_date = $('#filterEndDate').val();
                 },
                 error: function(xhr, textStatus, errorThrown) {
-                    // DataTables "Ajax error" is generic; dump the raw response for diagnosis.
                     console.error('pisScanList ajax error', {
                         status: xhr.status,
-                        textStatus: textStatus,
-                        errorThrown: errorThrown,
+                        textStatus,
+                        errorThrown,
                         responseText: xhr.responseText
                     });
                 }
             },
             columns: [{
                     data: 'scan_time',
-                    className: 'text-center',
-                    
+                    className: 'text-center'
                 },
                 {
-                    data: 'loading_list_number',
+                    data: 'loading_list_number'
                 },
                 {
                     data: 'pds_number',
-                    className: 'text-center',
+                    className: 'text-center'
                 },
                 {
                     data: 'customer_name',
-                    className: 'text-center',
+                    className: 'text-center'
                 },
                 {
-                    data: 'progress',
+                    data: 'progress'
                 },
                 {
                     data: 'status',
@@ -366,21 +754,7 @@
             }
         });
 
-        $('<style>')
-            .prop('type', 'text/css')
-            .html(`
-        .button-cell {
-            padding: 4px !important;
-            text-align: center !important;
-            vertical-align: middle !important;
-        }
-        .button-cell > div {
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-    `)
-            .appendTo('head');
-
+        /* ── Auto-refresh ── */
         let autoRefreshInterval;
         let isUserInteracting = false;
         let lastInteractionTime = Date.now();
@@ -388,11 +762,7 @@
         function onUserInteraction() {
             isUserInteracting = true;
             lastInteractionTime = Date.now();
-
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             setTimeout(function() {
                 if (Date.now() - lastInteractionTime >= 5000) {
                     isUserInteracting = false;
@@ -403,83 +773,79 @@
 
         function refreshTableData() {
             if (isUserInteracting) return;
-
             const pageInfo = table.page.info();
-            const currentPage = pageInfo.page;
             const scrollTop = $(window).scrollTop();
-
             sessionStorage.setItem('tableState', JSON.stringify({
-                page: currentPage,
-                scrollTop: scrollTop,
+                page: pageInfo.page,
+                scrollTop,
                 timestamp: Date.now()
             }));
-
             table.draw(false);
-
             setTimeout(function() {
-                const savedState = JSON.parse(sessionStorage.getItem('tableState') || '{}');
-                if (savedState.scrollTop && Date.now() - savedState.timestamp < 1000) {
-                    $(window).scrollTop(savedState.scrollTop);
+                const saved = JSON.parse(sessionStorage.getItem('tableState') || '{}');
+                if (saved.scrollTop && Date.now() - saved.timestamp < 1000) {
+                    $(window).scrollTop(saved.scrollTop);
                 }
             }, 200);
         }
 
         function startAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             autoRefreshInterval = setInterval(function() {
-                if (!isUserInteracting) {
-                    refreshTableData();
-                }
+                if (!isUserInteracting) refreshTableData();
             }, 3000);
         }
 
-        $('#pisScanList').on('page.dt', onUserInteraction);
-        $('#pisScanList').on('length.dt', onUserInteraction);
-        $('#pisScanList').on('order.dt', onUserInteraction);
-        $('#pisScanList').on('search.dt', onUserInteraction);
+        $('#pisScanList').on('page.dt length.dt order.dt search.dt', onUserInteraction);
         $('#pisScanList').on('click', 'th', onUserInteraction);
-
-        $(document).on('click', '.dataTables_paginate .paginate_button', function() {
-            onUserInteraction();
-        });
-
+        $(document).on('click', '.dataTables_paginate .paginate_button', onUserInteraction);
         $(document).on('change', '.dataTables_length select', onUserInteraction);
-        $('#pisScanList').closest('.table-responsive-lg').on('scroll', onUserInteraction);
-        
-        // Search filter for loading list number
+        $('#pisScanList').closest('.table-responsive').on('scroll', onUserInteraction);
+
+        /* ── Search debounce ── */
         let searchTimeout;
         $('#loadingListSearch').on('keyup input', function() {
-            const searchValue = $(this).val();
-            
-            // Clear previous timeout
             clearTimeout(searchTimeout);
-            
-            // Debounce search for better performance
             searchTimeout = setTimeout(function() {
-                // loading_list_number is column index 1
-                table.column(1).search(searchValue).draw();
+                table.column(1).search($('#loadingListSearch').val()).draw();
                 onUserInteraction();
             }, 300);
         });
 
-        // PIS Scan Detail Modal Handler
+        /* ── Reset search ── */
+        $('#resetSearch').on('click', function() {
+            $('#loadingListSearch').val('');
+            clearTimeout(searchTimeout);
+            table.column(1).search('').draw();
+            onUserInteraction();
+        });
+
+        /* ── Date filters ── */
+        $('#filterStartDate, #filterEndDate').on('change', function() {
+            table.draw();
+            onUserInteraction();
+        });
+
+        /* ── Export Excel ── */
+        $('#exportExcel').on('click', function() {
+            const baseUrl = `{{ route('pis.scanListExport') }}`;
+            const params = new URLSearchParams();
+            const startDate = $('#filterStartDate').val();
+            const endDate = $('#filterEndDate').val();
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            window.location.href = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+        });
+
+        /* ── PIS Scan Detail Modal ── */
         $(document).on('click', '.show-pis-detail', function() {
             const loadingListNumber = $(this).data('loading-list');
             $('#modalLoadingListNumber').text(loadingListNumber);
 
             $('#pisScanDetailContent').html(`
-                <div style="text-align: center; padding: 40px 20px; color: #6c757d;">
-                    <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                    <p style="margin-top: 15px; font-size: 14px; font-weight: 500;">Loading data...</p>
-                    <style>
-                        @keyframes spin {
-                            0% { transform: rotate(0deg); }
-                            100% { transform: rotate(360deg); }
-                        }
-                    </style>
+                <div class="bella-spinner-wrap">
+                    <div class="bella-spinner"></div>
+                    <p>Loading data...</p>
                 </div>
             `);
 
@@ -490,173 +856,113 @@
                     loading_list_number: loadingListNumber
                 },
                 success: function(response) {
-                    let detailHtml = '<div style="background: #ffffff;">';
                     const escapeHtml = (value) => String(value ?? '')
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/"/g, '&quot;')
+                        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
                         .replace(/'/g, '&#039;');
-                    
+
+                    let detailHtml = '';
+
                     if (response.items && response.items.length > 0) {
-                        // Header info mirip loadingListDetail (ringkas)
                         detailHtml += `
-                        <div class="card border-0 mt-3 shadow-sm" style="border-radius:14px">
-                           
-
-                            <div class="card-body p-3">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
-                                        <thead class="table-light">
-                                            <tr class="text-center">
-                                                <th>Scan Time</th>
-                                                <th>Customer Part No</th>
-                                                <th style="width:110px;">Back No</th>
-                                                <th>Internal Part No</th>
-                                                <th>Qty</th>
-                                                <th>Total Scan</th>
-                                                <th style="min-width:140px">Progress</th>
-                                                <th style="min-width:180px;">Detail Scanned</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                        `;
-
+                        <div class="table-responsive">
+                            <table class="modal-inner-table">
+                                <thead>
+                                    <tr>
+                                        <th>Scan Time</th>
+                                        <th>Customer Part No</th>
+                                        <th style="width:110px;">Back No</th>
+                                        <th>Internal Part No</th>
+                                        <th>Qty</th>
+                                        <th>Total Scan</th>
+                                        <th style="min-width:140px;">Progress</th>
+                                        <th style="min-width:180px;">Detail Scanned</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
 
                         response.items.forEach(function(item) {
-                            const progressPercentage = item.progress_percentage || 0;
+                            const pct = item.progress_percentage || 0;
                             const isComplete = item.is_complete || false;
-                            
-                            let statusClass = '';
-                            if (isComplete) {
-                                statusClass = 'bg-success';
-                            } else if (item.scanned_qty > 0) {
-                                statusClass = 'bg-warning';
-                            } else {
-                                statusClass = 'bg-secondary';
-                            }
 
-                            const scanTimeDisplay = (item.scanned_qty > 0 && progressPercentage > 0) ? (item.scanned_at || '-') : '-';
-                            const scanLogs = Array.isArray(item.scan_logs) ? item.scan_logs : [];
+                            let progColor;
+                            if (isComplete) progColor = 'var(--success)';
+                            else if (item.scanned_qty > 0) progColor =
+                                'var(--warning)';
+                            else progColor = 'var(--text-muted)';
+
+                            const scanTimeDisplay = (item.scanned_qty > 0 && pct >
+                                0) ? (item.scanned_at || '-') : '-';
+                            const scanLogs = Array.isArray(item.scan_logs) ? item
+                                .scan_logs : [];
                             const logsCount = scanLogs.length;
-                            const logsListHtml = logsCount > 0
-                                ? scanLogs.map((log, idx) => `
+                            const logsListHtml = logsCount > 0 ?
+                                scanLogs.map(log => `
                                     <div class="scan-log-row">
                                         <span class="scan-log-time">${escapeHtml(log.scan_time || '-')}</span>
                                         <span class="scan-log-label">${escapeHtml(log.label || '-')}</span>
-                                    </div>
-                                `).join('')
-                                : `<div class="scan-log-empty">Belum ada log scan</div>`;
+                                    </div>`).join('') :
+                                `<div class="scan-log-empty">Belum ada log scan</div>`;
 
                             detailHtml += `
                                 <tr>
-                                    <td class="text-center">${scanTimeDisplay}</td>
-                                    <td class="text-center">${item.part_number_cust || '-'}</td>
-                                    <td class="text-center">
-                                        <span class="badge badge-light" style="border:1px solid #dee2e6; font-weight:600;">
-                                            ${item.back_number || '-'}
+                                    <td>${escapeHtml(scanTimeDisplay)}</td>
+                                    <td>${escapeHtml(item.part_number_cust || '-')}</td>
+                                    <td>
+                                        <span class="bella-badge" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-weight:600;">
+                                            ${escapeHtml(item.back_number || '-')}
                                         </span>
                                     </td>
-                                    <td class="text-center">${item.part_number_int || '-'}</td>
-                                    <td class="text-center">${item.target_qty || 0}</td>
-                                    <td class="text-center">${item.scanned_qty || 0}</td>
-                                    <td class="text-center" style="min-width:150px;">
-                                        <div class="progress" data-height="16" style="height:16px;">
-                                            <div class="progress-bar ${statusClass}" role="progressbar"
-                                                style="width:${progressPercentage}%;"
-                                                aria-valuenow="${progressPercentage}" aria-valuemin="0" aria-valuemax="100">
-                                                <small class="text-white font-weight-bold">${progressPercentage}%</small>
+                                    <td>${escapeHtml(item.part_number_int || '-')}</td>
+                                    <td>${item.target_qty  || 0}</td>
+                                    <td>${item.scanned_qty || 0}</td>
+                                    <td>
+                                        <div class="bella-prog-bar">
+                                            <div class="bella-prog-bar-fill" style="width:${pct}%;background:${progColor};">
+                                                ${pct}%
                                             </div>
                                         </div>
                                     </td>
                                     <td>
                                         <details class="scan-log-details">
-                                            <summary>
-                                                ${logsCount}x scan
-                                            </summary>
-                                            <div class="scan-log-list">
-                                                ${logsListHtml}
-                                            </div>
+                                            <summary>${logsCount}x scan</summary>
+                                            <div class="scan-log-list">${logsListHtml}</div>
                                         </details>
                                     </td>
-                                </tr>
-                            `;
+                                </tr>`;
                         });
 
-                        detailHtml += `
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
+                        detailHtml += `</tbody></table></div>`;
                     } else {
-                        detailHtml += `
-                            <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
-                                <svg width="48" height="48" fill="#6c757d" viewBox="0 0 16 16" style="margin-bottom: 16px;">
-                                    <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                                    <path d="M5 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                                </svg>
-                                <h5 style="color: #6c757d; font-weight: 500; margin-bottom: 8px;">No Items Found</h5>
-                                <p style="color: #6c757d; margin: 0; font-size: 14px;">There are no items available for this loading list.</p>
-                            </div>
-                        `;
+                        detailHtml = `
+                        <div class="acc-empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <h6>No Items Found</h6>
+                            <p>There are no items available for this loading list.</p>
+                        </div>`;
                     }
 
-                    detailHtml += '</div>';
                     $('#pisScanDetailContent').html(detailHtml);
                 },
-                error: function(xhr) {
+                error: function() {
                     $('#pisScanDetailContent').html(`
-                        <div style="text-align: center; padding: 40px 20px; background: #fff5f5; border: 1px solid #fed7d7; color: #e53e3e; border-radius: 8px;">
-                            <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16" style="margin-bottom: 16px;">
-                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                            </svg>
-                            <h5 style="font-weight: 500; margin-bottom: 8px;">Unable to Load Data</h5>
-                            <p style="margin: 0; font-size: 14px;">There was an error loading the scan details. Please try again.</p>
-                        </div>
-                    `);
+                        <div class="acc-error-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h6>Unable to Load Data</h6>
+                            <p>There was an error loading the scan details. Please try again.</p>
+                        </div>`);
                 }
             });
 
             $('#pisScanDetailModal').modal('show');
         });
 
-        $('#reset button').on('click', function() {
-            $('#loadingListSearch').val('');
-            clearTimeout(searchTimeout);
-            table.column(1).search('').draw();
-            onUserInteraction();
-        });
-
-        $('#applyDateFilter').on('click', function() {
-            table.draw();
-            onUserInteraction();
-        });
-
-        $('#resetDateFilter').on('click', function() {
-            $('#filterStartDate').val('');
-            $('#filterEndDate').val('');
-            table.draw();
-            onUserInteraction();
-        });
-
-        $('#exportExcel').on('click', function() {
-            const baseUrl = `{{ route('pis.scanListExport') }}`;
-            const startDate = $('#filterStartDate').val();
-            const endDate = $('#filterEndDate').val();
-            const params = new URLSearchParams();
-            if (startDate) params.append('start_date', startDate);
-            if (endDate) params.append('end_date', endDate);
-            const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
-            window.location.href = url;
-        });
-
+        /* ── Cleanup ── */
         $(window).on('beforeunload', function() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             sessionStorage.removeItem('tableState');
         });
+
+        startAutoRefresh();
     });
 </script>

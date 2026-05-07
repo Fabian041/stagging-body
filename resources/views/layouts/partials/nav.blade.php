@@ -1,52 +1,82 @@
-<nav class="navbar navbar-expand-lg main-navbar">
-    <ul class="navbar-nav mr-auto mt-2">
-        @if(empty($hideSidebarToggle))
-            <li>
-                <a href="#" data-toggle="sidebar" class="nav-link nav-link-lg ">
-                    <i class="fas fa-bars"></i>
-                </a>
-            </li>
-        @endif
-    </ul>
+<div id="topbar">
 
-    <ul class="navbar-nav navbar-right">
-        <li class="dropdown">
-            <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
-                <div class="d-sm-none d-lg-inline-block">
-                    Hi, {{ auth()->check() ? auth()->user()->name : 'Guest' }}
-                </div>
-            </a>
-            <div class="dropdown-menu dropdown-menu-right">
-                <div class="dropdown-title">
-                    {{ auth()->check() ? auth()->user()->name : 'Guest' }}, {{ auth()->check() ? 'Logged in' : 'Not logged in' }}
-                    @if(auth()->check())
-                    <div class="small text-muted mt-1">
-                        Role: {{ auth()->user()->role ?? '-' }}
+    {{-- ===== LEFT: mobile toggle + page title ===== --}}
+    <div class="tb-left">
+        {{-- Mobile hamburger --}}
+        <button id="mobile-menu-btn" class="tb-icon-btn d-lg-none" style="border:none;flex-shrink:0;" title="Open menu">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        {{-- Page title (rendered by each page via @section or just static) --}}
+        <div class="d-none d-md-block">
+            <div class="tb-page-title">{{ $pageTitle ?? 'Dashboard' }}</div>
+            @if (!empty($pageSubtitle))
+                <div class="tb-page-sub">{{ $pageSubtitle }}</div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ===== RIGHT: search + actions ===== --}}
+    <div class="tb-right">
+
+        {{-- Search --}}
+        <div class="tb-search d-none d-md-flex">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Quick search...">
+        </div>
+
+        {{-- Notifications --}}
+        <div class="tb-icon-btn" title="Notifications" style="position:relative;">
+            <i class="fas fa-bell"></i>
+            <span class="tb-notif-dot"></span>
+        </div>
+
+        {{-- Settings --}}
+        <a href="features-settings.html" class="tb-icon-btn" title="Settings">
+            <i class="fas fa-cog"></i>
+        </a>
+
+        <div class="tb-divider"></div>
+
+        {{-- User pill + dropdown --}}
+        <div class="tb-user-pill">
+            <div class="tb-user-pill-av">
+                {{ auth()->check() ? strtoupper(substr(auth()->user()->name, 0, 2)) : 'GS' }}
+            </div>
+            <span class="tb-user-pill-name d-none d-sm-inline">
+                {{ auth()->check() ? auth()->user()->name : 'Guest' }}
+            </span>
+            <i class="fas fa-chevron-down tb-pill-chevron d-none d-sm-inline"></i>
+
+            {{-- Dropdown --}}
+            <div class="tb-user-dropdown">
+                <div class="tb-dd-header">
+                    <div class="tb-dd-name">{{ auth()->check() ? auth()->user()->name : 'Guest' }}</div>
+                    <div class="tb-dd-role">{{ auth()->check() ? auth()->user()->role ?? 'User' : 'Not logged in' }}
                     </div>
-                    @endif
-                    
                 </div>
-                @if(auth()->check())
-                <a href="features-profile.html" class="dropdown-item has-icon">
-                    <i class="far fa-user"></i> Profile
-                </a>
-                <a href="features-settings.html" class="dropdown-item has-icon">
-                    <i class="fas fa-cog"></i> Settings
-                </a>
-                <div class="dropdown-divider"></div>
 
-                <form action="{{ route('logout.auth') }}" method="POST">
-                    @csrf
-                    <button type="submit" class="dropdown-item text-danger" id="logout">
-                        <i class="fas fa-sign-out-alt me-2"></i> Logout
-                    </button>
-                </form>
+                @if (auth()->check())
+                    <a href="features-profile.html" class="tb-dd-item">
+                        <i class="far fa-user"></i> Profile
+                    </a>
+                    <a href="features-settings.html" class="tb-dd-item">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
+                    <div class="tb-dd-divider"></div>
+                    <form action="{{ route('logout.auth') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="tb-dd-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </form>
                 @else
-                <a href="{{ route('login.index') }}" class="dropdown-item has-icon">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </a>
+                    <a href="{{ route('login.index') }}" class="tb-dd-item">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
                 @endif
             </div>
-        </li>
-    </ul>
-</nav>
+        </div>
+
+    </div>
+</div>
