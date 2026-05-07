@@ -9,7 +9,7 @@
 
         {{-- Page title (rendered by each page via @section or just static) --}}
         <div class="d-none d-md-block">
-            <div class="tb-page-title">{{ $pageTitle ?? 'Dashboard' }}</div>
+            {{-- <div class="tb-page-title">{{ $pageTitle ?? 'Dashboard' }}</div> --}}
             @if (!empty($pageSubtitle))
                 <div class="tb-page-sub">{{ $pageSubtitle }}</div>
             @endif
