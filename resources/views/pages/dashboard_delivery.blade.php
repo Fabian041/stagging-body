@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-             * BELLA DESIGN SYSTEM — Shell overrides for this page
-             * =================================================== */
+                 * BELLA DESIGN SYSTEM — Shell overrides for this page
+                 * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -350,8 +350,8 @@
         }
 
         /* ====================================================
-             * GANTT CHART — kept exactly as original, do not touch
-             * ==================================================== */
+                 * GANTT CHART — kept exactly as original, do not touch
+                 * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -1678,7 +1678,7 @@
                 if (!rows.length) {
                     $tb.append(
                         '<tr><td colspan="6" class="text-center" style="color:var(--text-muted);padding:20px;">Belum ada master cycle.</td></tr>'
-                        );
+                    );
                     return;
                 }
                 rows.forEach(function(r, i) {
@@ -1818,37 +1818,60 @@
             /* ── Gantt / chart functions (unchanged) ── */
             /* All original Gantt rendering functions are preserved below */
 
-            function detectDashboardViewMode() {
-                var from = $('#filterDateFrom').val() || '';
-                var to = $('#filterDateTo').val() || '';
-                if (!from || from === to) {
-                    return 'daily';
+            function getDayRangeInclusive(fromDate, toDate) {
+                var from = String(fromDate || '').trim();
+                var to = String(toDate || '').trim();
+                if (!from.length && !to.length) {
+                    return 0;
                 }
-                var d1 = new Date(from),
-                    d2 = new Date(to);
-                var diff = (d2 - d1) / (1000 * 60 * 60 * 24);
-                return diff > 1 ? 'weekly' : 'daily';
+                if (!to.length) {
+                    to = from;
+                }
+                if (!from.length) {
+                    from = to;
+                }
+                var dFrom = new Date(from + 'T00:00:00');
+                var dTo = new Date(to + 'T00:00:00');
+                if (isNaN(dFrom.getTime()) || isNaN(dTo.getTime())) {
+                    return 0;
+                }
+                var minMs = Math.min(dFrom.getTime(), dTo.getTime());
+                var maxMs = Math.max(dFrom.getTime(), dTo.getTime());
+                return Math.floor((maxMs - minMs) / 86400000) + 1;
+            }
+
+            function detectDashboardViewMode() {
+                var daySpan = getDayRangeInclusive($('#filterDateFrom').val(), $('#filterDateTo').val());
+                return daySpan <= 1 ? 'daily' : 'weekly';
             }
 
             function applyDashboardViewMode(mode) {
                 dashboardViewMode = mode;
-                if (mode === 'daily') {
-                    $('#deliveryTimelineCard').removeClass('d-none');
-                    $('#deliveryWeeklyCard').addClass('d-none');
-                    renderGantt();
-                } else {
-                    $('#deliveryTimelineCard').addClass('d-none');
-                    $('#deliveryWeeklyCard').removeClass('d-none');
-                    renderWeeklySummary();
-                }
+                var isDaily = mode === 'daily';
+                $('#deliveryTimelineCard').toggleClass('d-none', !isDaily);
+                $('#deliveryWeeklyCard').toggleClass('d-none', isDaily);
+                $('.timeline-title').text(isDaily ? 'Timeline delivery' : 'Timeline delivery (ringkas)');
             }
 
             function updateTimelineTotal() {
-                var total = 0;
-                chartMergedByCustTime.forEach(function(r) {
-                    total += parseInt(r.total_target || 0, 10);
-                });
-                $('#timelineTotalSum').text('Total: ' + total);
+                var sum = chartMergedByCustTime.reduce(function(acc, r) {
+                    return acc + (parseInt(r.total_done, 10) || 0);
+                }, 0);
+                $('#timelineTotalSum').text('Total: ' + sum);
+            }
+
+            function buildWeeklyTooltip(details) {
+                if (!details.length) {
+                    return 'Tidak ada detail cycle.';
+                }
+                return details.map(function(d) {
+                    return [
+                        'Cycle ' + d.cycle_name,
+                        'Prep ' + d.prep_start + (d.prep_end !== '-' ? ' - ' + d.prep_end : ''),
+                        'ETA ' + d.truck_time,
+                        'Progress ' + d.progress_pct + '%'
+                    ].join(' | ');
+                }).join(' || ');
             }
 
             function destroyWeeklyChart() {
@@ -1861,6 +1884,86 @@
                     weeklyChartInstance = null;
                 }
                 $('#weeklyGanttContainer').empty();
+            }
+
+            function buildWeeklyDailyAnnotations(startDateMs, endDateMs) {
+                var out = [];
+                if (!startDateMs || !endDateMs) {
+                    return out;
+                }
+                var cursor = new Date(startDateMs);
+                cursor.setHours(0, 0, 0, 0);
+                var limit = new Date(endDateMs);
+                limit.setHours(23, 59, 59, 999);
+
+                while (cursor.getTime() <= limit.getTime()) {
+                    out.push({
+                        x: cursor.getTime(),
+                        borderColor: '#d9dde3',
+                        strokeDashArray: 4,
+                        label: {
+                            text: cursor.toLocaleDateString('id-ID', {
+                                weekday: 'short',
+                                day: '2-digit',
+                                month: 'short'
+                            }),
+                            style: {
+                                color: '#555',
+                                background: '#f8f9fa',
+                                fontSize: '10px'
+                            }
+                        }
+                    });
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                return out;
+            }
+
+            function buildWeeklyNowAnnotation() {
+                return {
+                    x: Date.now(),
+                    borderColor: '#FF0000',
+                    strokeDashArray: 0,
+                    label: {
+                        text: 'Now ' + new Date().toLocaleTimeString('id-ID'),
+                        style: {
+                            color: '#fff',
+                            background: '#FF0000',
+                            fontSize: '10px'
+                        }
+                    }
+                };
+            }
+
+            function startWeeklyNowTicker(dailyAnnotations) {
+                if (weeklyNowTimer) {
+                    clearInterval(weeklyNowTimer);
+                    weeklyNowTimer = null;
+                }
+                weeklyNowTimer = setInterval(function() {
+                    if (!weeklyChartInstance) {
+                        return;
+                    }
+                    weeklyChartInstance.updateOptions({
+                        annotations: {
+                            xaxis: [buildWeeklyNowAnnotation()].concat(dailyAnnotations || [])
+                        }
+                    }, false, false);
+                }, 1000);
+            }
+
+            function buildWeeklyDateTime(deliveryDate, clock) {
+                var datePart = String(deliveryDate || '').trim();
+                var timePart = String(clock || '').trim();
+                if (!datePart.length || !timePart.length) {
+                    return null;
+                }
+                var normalizedClock = timePart.substring(0, 5);
+                var dt = new Date(datePart + 'T' + normalizedClock + ':00');
+                if (isNaN(dt.getTime())) {
+                    return null;
+                }
+                return dt;
             }
 
             function mergeRowsForCustomerTime(rows) {
@@ -1944,7 +2047,7 @@
                     '<div class="gantt-grid-cell gantt-grid-sticky-col gantt-grid-sticky-type" style="font-weight:700;display:flex;align-items:center;justify-content:center;">Type</div>';
                 labels.forEach(function(lbl) {
                     gridHtml += '<div class="gantt-grid-cell gantt-grid-time">' + escapeHtml(lbl) +
-                    '</div>';
+                        '</div>';
                 });
                 gridHtml += '</div>';
                 /* Data rows */
@@ -1995,7 +2098,7 @@
                         gridHtml += ' data-delivery-date-from="' + escapeAttr($('#filterDateFrom')
                             .val() || '') + '"';
                         gridHtml += ' data-delivery-date-to="' + escapeAttr($('#filterDateTo')
-                        .val() || '') + '">';
+                            .val() || '') + '">';
                         gridHtml += '<div class="gantt-bar-stack">';
                         if (progressWidth >= 100) {
                             gridHtml += '<span class="gantt-seg ontime" style="width:100%"></span>';
@@ -2049,7 +2152,7 @@
                         gridHtml += ' data-delivery-date-from="' + escapeAttr($('#filterDateFrom')
                             .val() || '') + '"';
                         gridHtml += ' data-delivery-date-to="' + escapeAttr($('#filterDateTo')
-                        .val() || '') + '">';
+                            .val() || '') + '">';
                         gridHtml += '<div class="gantt-bar-stack"><span class="gantt-seg ' +
                             truckSegClass + '" style="width:100%"></span></div>';
                         gridHtml += '<span class="pill-meta"><span class="pill-avatar">' +
@@ -2097,35 +2200,165 @@
             });
 
             function renderWeeklySummary() {
-                destroyWeeklyChart();
-                var $container = $('#weeklyGanttContainer');
-                $container.empty();
                 if (!chartWeeklyPoints.length) {
-                    $container.html(
-                        '<p style="font-size:12px;color:var(--text-muted);">Tidak ada data mingguan.</p>');
-                    return;
+                    destroyWeeklyChart();
+                    $('#weeklyGanttContainer').html(
+                        '<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
+                } else {
+                    var dataPoints = [];
+                    chartWeeklyPoints.forEach(function(row) {
+                        var prepStart = row.prep_time ? String(row.prep_time).substring(0, 5) : '-';
+                        var prepEnd = row.prep_end_time ? String(row.prep_end_time).substring(0, 5) : '-';
+                        var truckTime = row.truck_time ? String(row.truck_time).substring(0, 5) : '-';
+                        var prepStartDt = buildWeeklyDateTime(row.delivery_date, prepStart);
+                        var prepEndDt = buildWeeklyDateTime(row.delivery_date, prepEnd);
+                        var truckDt = buildWeeklyDateTime(row.delivery_date, truckTime);
+                        var prepStartMs = prepStartDt ? prepStartDt.getTime() : NaN;
+                        var prepEndMs = prepEndDt ? prepEndDt.getTime() : NaN;
+                        var truckMs = truckDt ? truckDt.getTime() : NaN;
+                        if (isNaN(prepStartMs) && isNaN(truckMs)) {
+                            return;
+                        }
+                        var roundedPct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
+                        var detailText = [
+                            'Tanggal ' + (row.delivery_date || '-'),
+                            'Cycle ' + (row.cycle_name || '-'),
+                            'Prep ' + prepStart + (prepEnd !== '-' ? ' - ' + prepEnd : ''),
+                            'ETA ' + truckTime,
+                            'Progress ' + roundedPct + '%'
+                        ].join(' | ');
+                        if (!isNaN(prepStartMs)) {
+                            if (isNaN(prepEndMs)) {
+                                prepEndMs = prepStartMs + (30 * 60000);
+                            }
+                            if (prepEndMs <= prepStartMs) {
+                                prepEndMs += 24 * 60 * 60 * 1000;
+                            }
+                            dataPoints.push({
+                                x: (row.customer_name || '-') + ' | PREP',
+                                y: [prepStartMs, prepEndMs],
+                                meta: {
+                                    type: 'prep',
+                                    total_done: parseInt(row.total_done || 0, 10),
+                                    total_target: parseInt(row.total_target || 0, 10),
+                                    progress_pct: roundedPct,
+                                    details_text: detailText
+                                }
+                            });
+                        }
+                        if (!isNaN(truckMs)) {
+                            var truckEndMs = truckMs + (30 * 60000);
+                            dataPoints.push({
+                                x: (row.customer_name || '-') + ' | ETA TRUCK',
+                                y: [truckMs, truckEndMs],
+                                meta: {
+                                    type: 'truck',
+                                    total_done: parseInt(row.total_done || 0, 10),
+                                    total_target: parseInt(row.total_target || 0, 10),
+                                    progress_pct: roundedPct,
+                                    details_text: detailText
+                                }
+                            });
+                        }
+                    });
+
+                    destroyWeeklyChart();
+                    var dateFrom = $('#filterDateFrom').val() || '';
+                    var dateTo = $('#filterDateTo').val() || dateFrom;
+                    var startDateMs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
+                    var endDateMs = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null;
+                    var options = {
+                        chart: {
+                            type: 'rangeBar',
+                            height: Math.max(460, Math.min(980, dataPoints.length * 30)),
+                            toolbar: {
+                                show: false,
+                                tools: {
+                                    download: false,
+                                    selection: false,
+                                    zoom: false,
+                                    zoomin: false,
+                                    zoomout: false,
+                                    pan: false,
+                                    reset: false
+                                }
+                            },
+                            zoom: {
+                                enabled: false
+                            },
+                            selection: {
+                                enabled: false
+                            }
+                        },
+                        plotOptions: {
+                            bar: {
+                                horizontal: true,
+                                barHeight: '52%',
+                                distributed: false,
+                                rangeBarGroupRows: true
+                            }
+                        },
+                        colors: [function(ctx) {
+                            var point = ctx.w.config.series[ctx.seriesIndex].data[ctx.dataPointIndex];
+                            if (point && point.meta && point.meta.type === 'truck') {
+                                var truckPct = parseFloat(point.meta.progress_pct || 0);
+                                return truckPct >= 100 ? '#B5D4F4' : '#f59e0b';
+                            }
+                            var pct = point && point.meta ? parseFloat(point.meta.progress_pct || 0) :
+                                0;
+                            return pct >= 100 ? '#C0DD97' : 'hsl(58, 100%, 70%)';
+                        }],
+                        series: [{
+                            name: 'Progress',
+                            data: dataPoints
+                        }],
+                        xaxis: {
+                            type: 'datetime',
+                            min: startDateMs || undefined,
+                            max: endDateMs || undefined,
+                            labels: {
+                                datetimeUTC: false
+                            }
+                        },
+                        yaxis: {
+                            labels: {
+                                maxWidth: 260
+                            }
+                        },
+                        dataLabels: {
+                            enabled: false
+                        },
+                        tooltip: {
+                            custom: function(ctx) {
+                                var point = ctx.w.config.series[ctx.seriesIndex].data[ctx.dataPointIndex];
+                                var meta = point.meta || {};
+                                return '<div class="px-2 py-1 text-sm">' +
+                                    '<strong>' + escapeHtml(point.x) + '</strong><br/>' +
+                                    'Done: ' + (meta.total_done || 0) + ' / ' + (meta.total_target || 0) +
+                                    '<br/>' +
+                                    escapeHtml(meta.details_text || '-') +
+                                    '</div>';
+                            }
+                        },
+                        grid: {
+                            borderColor: '#eef0f3'
+                        },
+                        annotations: {
+                            xaxis: (function() {
+                                var daily = buildWeeklyDailyAnnotations(startDateMs, endDateMs);
+                                return [buildWeeklyNowAnnotation()].concat(daily);
+                            })()
+                        },
+                        legend: {
+                            show: false
+                        }
+                    };
+                    weeklyChartInstance = new ApexCharts(document.querySelector('#weeklyGanttContainer'), options);
+                    weeklyChartInstance.render().then(function() {
+                        startWeeklyNowTicker(buildWeeklyDailyAnnotations(startDateMs, endDateMs));
+                    });
                 }
-                var html = '';
-                chartWeeklyPoints.forEach(function(row) {
-                    var pct = Math.min(100, Math.max(0, parseFloat(row.progress_pct || 0)));
-                    var done = parseInt(row.total_done || 0, 10);
-                    var tgt = parseInt(row.total_target || 0, 10);
-                    var barColor = pct >= 100 ? 'var(--dm-complete)' : (pct > 0 ? 'var(--dm-yellow)' :
-                        '#e2e8f0');
-                    html += '<div class="delivery-weekly-row">';
-                    html += '<div class="delivery-weekly-meta">';
-                    html += '<span style="font-weight:600;font-size:12px;color:var(--navy);">' + escapeHtml(
-                            row.customer_name || '-') + ' · C' + escapeHtml(String(row.cycle_name || '?')) +
-                        '</span>';
-                    html += '<span style="font-size:11px;color:var(--text-muted);">' + done + ' / ' + tgt +
-                        '</span>';
-                    html += '</div>';
-                    html +=
-                        '<div class="delivery-weekly-progress"><div class="progress-bar" role="progressbar" style="width:' +
-                        pct + '%;background:' + barColor + ';">' + Math.round(pct) + '%</div></div>';
-                    html += '</div>';
-                });
-                $container.html(html);
+                updateTimelineTotal();
             }
 
             function loadStackedChart() {
@@ -2147,7 +2380,7 @@
                 $.get(stackedUrl, params, function(res) {
                     chartRows = res.rows || [];
                     chartWeeklyPoints = res.weekly_points || [];
-                    applyDashboardViewMode(detectDashboardViewMode());
+                    var viewMode = detectDashboardViewMode();
                     var hint = (res.meta && res.meta.hint) ? res.meta.hint : '';
                     if (!chartRows.length) {
                         var msg = hint || 'Tidak ada data delivery untuk filter ini.';
@@ -2163,6 +2396,7 @@
                     chartCustomerOrder = Object.keys(custSet).sort(function(a, b) {
                         return a.localeCompare(b);
                     });
+                    applyDashboardViewMode(viewMode);
                     if (dashboardViewMode === 'daily') {
                         renderGantt();
                     } else {
