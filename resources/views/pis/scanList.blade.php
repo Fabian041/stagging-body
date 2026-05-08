@@ -637,11 +637,11 @@
             <table class="table bella-table" id="pisScanList" style="width: 100%">
                 <thead>
                     <tr>
-                        <th class="text-center" style="width:150px;">Scan Time</th>
-                        <th class="text-center" style="width:300px;">Loading List Number</th>
-                        <th class="text-center" style="width:140px;">No PDS</th>
-                        <th class="text-center" style="width:180px;">Customer</th>
-                        <th class="text-center" style="width:220px;">PIS Progress</th>
+                        <th class="text-center">Scan Time</th>
+                        <th class="text-center">Loading List Number</th>
+                        <th class="text-center">No PDS</th>
+                        <th class="text-center">Customer</th>
+                        <th class="text-center">PIS Progress</th>
                         <th class="text-center">Status</th>
                     </tr>
                 </thead>
