@@ -1,42 +1,444 @@
 @extends('layouts.root.auth')
 
 @section('main')
-    <div class="main-section">
-        <div class="mx-5 my-2">
-            <div class="row">
+    <style>
+        /* ===== PAIRING SCAN - MATCH MASTER PIS STYLE ===== */
+        :root {
+            --primary: #294795;
+            --navy: #294795;
+            --sky: #0097D8;
+            --blue: #0070B7;
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --shadow: 0 10px 28px rgba(15, 23, 42, .08);
+            --shadow-md: 0 18px 45px rgba(15, 23, 42, .14);
+            --r: 8px;
+            --danger-light: #fee2e2;
+            --danger: #dc2626;
+        }
 
-                <div class="col-lg-12 col-sm-12">
+        .pairing-page {
+            min-height: calc(100vh - 24px);
+            padding: 18px;
+            background:
+                radial-gradient(circle at top left, rgba(0, 151, 216, .10), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(41, 71, 149, .10), transparent 26%),
+                var(--bg);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
 
-                    
-                    <button class="btn btn-danger mr-5" onclick="resetScanState()">Reset Scan</button>
+        .bella-table-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .bella-table-card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            position: relative;
+        }
+
+        .bella-table-card-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .bella-table-card-subtitle {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .scan-action-right {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .act-btn {
+            border: 1px solid transparent;
+            border-radius: 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-weight: 700;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            line-height: 1;
+            transition: .15s;
+            text-decoration: none !important;
+            cursor: pointer;
+            height: 34px;
+            padding: 0 14px;
+            font-size: 12px;
+            letter-spacing: .04em;
+        }
+
+        .act-btn.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff !important;
+        }
+
+        .act-btn.danger {
+            background: #dc2626;
+            border-color: #dc2626;
+            color: #fff !important;
+        }
+
+        .act-btn.secondary {
+            background: var(--card);
+            border-color: var(--border);
+            color: var(--text-muted) !important;
+        }
+
+        .act-btn:hover {
+            filter: brightness(.97);
+            transform: translateY(-1px);
+        }
+
+        .pairing-body {
+            padding: 18px 20px 20px;
+            background: var(--bg);
+        }
+
+        .scan-info-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .scan-mini-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 12px 14px;
+            min-height: 72px;
+        }
+
+        .scan-mini-card label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .scan-mini-card span {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--navy);
+        }
+
+        .scan-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .kanban-status-card {
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+            box-shadow: var(--shadow) !important;
+            background: var(--card) !important;
+            overflow: hidden;
+            min-height: 250px;
+            margin: 0 !important;
+            transition: border-color .15s, box-shadow .15s, transform .15s;
+        }
+
+        .kanban-status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md) !important;
+        }
+
+        .kanban-status-card.card-secondary {
+            border-color: var(--border) !important;
+        }
+
+        .kanban-status-card.card-info {
+            border-color: rgba(0, 151, 216, .35) !important;
+        }
+
+        .kanban-status-card.card-success {
+            border-color: rgba(22, 163, 74, .35) !important;
+        }
+
+        .kanban-status-card .hero-inner {
+            padding: 16px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .scan-card-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .scan-card-title h5 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .scan-card-title small {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .scan-card-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(41, 71, 149, .08);
+            color: var(--primary);
+        }
+
+        .scan-display-card {
+            flex: 1;
+            min-height: 150px;
+            width: 100% !important;
+            border-radius: 10px !important;
+            padding: 22px 14px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: linear-gradient(135deg, #94a3b8, #64748b) !important;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), var(--shadow) !important;
+        }
+
+        .scan-display-card.bg-secondary {
+            background: linear-gradient(135deg, #94a3b8, #64748b) !important;
+        }
+
+        .scan-display-card.bg-info {
+            background: linear-gradient(135deg, var(--sky), var(--blue)) !important;
+        }
+
+        .scan-display-card.bg-success {
+            background: linear-gradient(135deg, #22c55e, #15803d) !important;
+        }
+
+        .scan-display-card h3 {
+            margin: 0;
+            color: #fff !important;
+            font-size: clamp(2.3rem, 5vw, 4.6rem) !important;
+            line-height: 1.1;
+            font-weight: 900;
+            letter-spacing: .02em;
+            word-break: break-word;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, .18);
+        }
+
+        .hidden-scanner-input {
+            position: fixed;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+            border: 0;
+            pointer-events: none;
+        }
+
+        /* ===== MODAL STYLE MATCH VIEW MASTER PIS ===== */
+        .modal-content {
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            box-shadow: var(--shadow-md) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            overflow: hidden !important;
+        }
+
+        .modal-header {
+            background: var(--bg) !important;
+            border-bottom: 1px solid var(--border) !important;
+            padding: 14px 20px !important;
+        }
+
+        .modal-title {
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            color: var(--navy) !important;
+        }
+
+        .modal-body {
+            padding: 16px 20px !important;
+            background: var(--bg) !important;
+        }
+
+        .modal-body .form-control {
+            height: 34px;
+            border: 1px solid var(--border) !important;
+            border-radius: 5px !important;
+            background: var(--card) !important;
+            color: var(--text) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 12.5px !important;
+            box-shadow: none !important;
+        }
+
+        .modal-body .form-control:focus {
+            border-color: var(--sky) !important;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10) !important;
+        }
+
+        #notifModal .modal-content {
+            border: none !important;
+            color: #fff;
+        }
+
+        #notifModal .modal-body {
+            background: transparent !important;
+            padding: 24px !important;
+        }
+
+        #notif {
+            color: #fff;
+            font-size: 22px !important;
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+
+        .confirmation-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 99px;
+            background: #fee2e2;
+            color: #dc2626;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        @media (max-width: 992px) {
+
+            .scan-grid,
+            .scan-info-strip {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .pairing-page {
+                padding: 12px;
+            }
+
+            .bella-table-card-header,
+            .scan-action-right {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .act-btn {
+                width: 100%;
+            }
+
+            .pairing-body {
+                padding: 14px;
+            }
+        }
+    </style>
+
+    <div class="pairing-page">
+        <div class="bella-table-card">
+            <div class="bella-table-card-header">
+                <div>
+                    <span class="bella-table-card-title"><i class="fas fa-barcode mr-2"></i>Kanban Pairing Scan</span>
+                    <div class="bella-table-card-subtitle">Scan kanban assembly dan painting sesuai master pairing.</div>
+                </div>
+                <div class="scan-action-right">
+                    <button type="button" class="act-btn danger" onclick="resetScanState()">
+                        <i class="fas fa-redo-alt"></i> Reset Scan
+                    </button>
                     <form id="logout-form" action="{{ route('logout.auth') }}" method="POST" style="display: none;">
                         @csrf
                     </form>
-
-                    <a href="#" class="btn btn-secondary"
-                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                        Logout
+                    <a href="#" class="act-btn secondary"
+                        onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                        <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
+                </div>
+            </div>
 
-                        <input id="code" type="text" class="form-control" name="code" tabindex="1"
-                            placeholder="scan part..." required autofocus autocomplete="off" style="opacity: 0; width: 1px; height: 1px;">
-                    <div class="shadow pt-4 card card-secondary model-card-header"
-                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
+            <div class="pairing-body">
+                <input id="code" type="text" class="form-control hidden-scanner-input" name="code" tabindex="1"
+                    placeholder="scan part..." required autofocus autocomplete="off">
+
+                <div class="scan-info-strip">
+                    <div class="scan-mini-card">
+                        <label>Mode</label>
+                        <span>Batch Pairing</span>
+                    </div>
+                    <div class="scan-mini-card">
+                        <label>Total Assembly</label>
+                        <span id="total-part">0</span>
+                    </div>
+                    <div class="scan-mini-card">
+                        <label>Total Painting</label>
+                        <span id="total-scan">0</span>
+                    </div>
+                </div>
+
+                <div class="scan-grid">
+                    <div class="card card-secondary kanban-status-card model-card-header">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Kanban Assembly</h5>
-                            <div class="bg-secondary m-auto shadow model-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 30px 0">
-                                <h3 class="text-center" style="color:#ffffff; font-size:3rem" id="model_assy">-</h3>
+                            <div class="scan-card-title">
+                                <div>
+                                    <h5>Kanban Assembly</h5>
+                                    <small>Scan kanban assembly terlebih dahulu</small>
+                                </div>
+                                <span class="scan-card-icon"><i class="fas fa-cubes"></i></span>
+                            </div>
+                            <div class="bg-secondary m-auto shadow model-card scan-display-card">
+                                <h3 id="model_assy">-</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="shadow pt-4 card card-secondary total-scan-card-header"
-                        style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
+
+                    <div class="card card-secondary kanban-status-card total-scan-card-header">
                         <div class="hero-inner">
-                            <h5 class="text-center text-dark">Kanban Painting</h5>
-                            <div class="bg-secondary m-auto shadow total-scan-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 30px 0">
-                                <h3 class="text-center" style="color:#ffffff; font-size:3rem" id="model_painting">-</h3>
+                            <div class="scan-card-title">
+                                <div>
+                                    <h5>Kanban Painting</h5>
+                                    <small>Progress painting mengikuti rasio master</small>
+                                </div>
+                                <span class="scan-card-icon"><i class="fas fa-spray-can"></i></span>
+                            </div>
+                            <div class="bg-secondary m-auto shadow total-scan-card scan-display-card">
+                                <h3 id="model_painting">-</h3>
                             </div>
                         </div>
                     </div>
@@ -49,9 +451,9 @@
     <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content" id="divNotif" style="border-radius: 12px !important;">
+            <div class="modal-content" id="divNotif">
                 <div class="modal-body text-center">
-                    <span style="color: white; font-size: 30pt" id="notif"> Error!</span>
+                    <span id="notif">Error!</span>
                 </div>
             </div>
         </div>
@@ -63,14 +465,15 @@
         data-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header justify-content-center">
+                    <h5 class="modal-title"><b>JP or Leader Confirmation</b></h5>
                 </div>
-                <div class="modal-body">
-                    <h5 class="text-center"><b>JP or Leader Confirmation</b></h5>
-                    <p class="text-center" style="color: red">*hubungi JP atau Leader</p><br>
-                    <input type="text" class="form-control" id="input-confirmation" placeholder="scan barcode..."
-                        autocomplete="off" autofocus>
-                    <br>
+                <div class="modal-body text-center">
+                    <div class="confirmation-note mb-3">
+                        <i class="fas fa-exclamation-triangle"></i> Hubungi JP atau Leader
+                    </div>
+                    <input type="text" class="form-control text-center" id="input-confirmation"
+                        placeholder="scan barcode..." autocomplete="off" autofocus>
                 </div>
             </div>
         </div>
@@ -79,48 +482,38 @@
 
     <audio id="not-match-sound">
         <source src={{ asset('assets/sounds/notMatch.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="full-filled">
         <source src={{ asset('assets/sounds/fullfilled.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="already-scan-sound">
         <source src={{ asset('assets/sounds/already-scan.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="forget-sound">
         <source src={{ asset('assets/sounds/forget.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="match-sound">
         <source src={{ asset('assets/sounds/match.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 
     <audio id="ok-sound">
         <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="error-connection">
         <source src={{ asset('assets/sounds/errConnection.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="dandori-ng-sound">
         <source src={{ asset('assets/sounds/dandori_error.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="master-dandori-ng-sound">
         <source src={{ asset('assets/sounds/master_dandori_error.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
     <audio id="wrong-kanban-sound">
         <source src={{ asset('assets/sounds/wrongKanban.mp3') }} type="audio/mpeg">
-        <!-- Add additional <source> elements for other audio formats if needed -->
     </audio>
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
@@ -286,12 +679,12 @@
 
 
     $(document).ready(function() {
-        initApp(); 
+        initApp();
         if ($('#modalConfirmation').hasClass('show')) {
             $('#input-confirmation').text('');
             $('#input-confirmation').focus();
         }
-        
+
         if (localStorage.getItem('error') == 'true') {
             showModalConfirmation();
 
@@ -308,7 +701,7 @@
 
         let scanTimeout;
 
-        $('#code').on('input', function () {
+        $('#code').on('input', function() {
             const val = $(this).val();
             if (val.length == 230) {
                 handleScan(val.trim());
@@ -339,7 +732,7 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    const qtyAssy = parseInt(data.qty_assy, 10);       // master: berapa assy
+                    const qtyAssy = parseInt(data.qty_assy, 10); // master: berapa assy
                     const qtyPainting = parseInt(data.qty_painting, 10); // master: berapa painting
 
                     // Simpan master & info pairing
@@ -447,7 +840,7 @@
 
 
     // Pakai event input (lebih cocok untuk barcode scanner)
-    $(document).on('input', '#input-confirmation', function () {
+    $(document).on('input', '#input-confirmation', function() {
         var barcodecomplete = $(this).val().trim();
 
         // ⚠️ Jangan lakukan apa-apa sebelum 6 digit
@@ -482,7 +875,7 @@
             setTimeout(() => {
                 $('#input-confirmation').val('');
             }, 100);
-            
+
             setTimeout(() => {
                 $('#code').focus();
             }, 500);
@@ -506,9 +899,9 @@
             return null;
         }
 
-        let first = match[1];   // 6 atau 7 digit pertama
+        let first = match[1]; // 6 atau 7 digit pertama
         const middle = match[2]; // 5 digit tengah
-        const last = match[3];   // 3 char terakhir
+        const last = match[3]; // 3 char terakhir
 
         // Jika 7 digit dan diawali 0 → buang 0 depan
         if (first.length === 7 && first.startsWith('0')) {
@@ -599,6 +992,4 @@
             $('.total-scan-card').removeClass('bg-info bg-success').addClass('bg-secondary');
         }
     }
-
-
 </script>
