@@ -325,13 +325,96 @@
             background: #fbfdff;
         }
 
-        .detail-panel-title {
+        .detail-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .detail-panel-title {
+            margin-bottom: 0;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: .06em;
             color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 24px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: #eef2ff;
+            border: 1px solid #dbe3ff;
+            color: var(--primary);
+            font-size: 10.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            white-space: nowrap;
+        }
+
+        .detail-tools {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .detail-search-wrap {
+            position: relative;
+            min-width: 260px;
+        }
+
+        .detail-search-wrap i {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 11px;
+            pointer-events: none;
+        }
+
+        .detail-search-input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid var(--border) !important;
+            border-radius: 6px !important;
+            background: var(--card) !important;
+            color: var(--text) !important;
+            padding: 0 12px 0 30px !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 12px !important;
+            font-weight: 600;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .detail-search-input:focus {
+            border-color: var(--sky) !important;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10) !important;
+            background: #fff !important;
+        }
+
+        .detail-empty-filter {
+            display: none;
+            padding: 18px 12px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            background: var(--card);
+            border-top: 1px solid var(--border);
         }
 
         .detail-table-wrap {
@@ -339,6 +422,26 @@
             border-radius: 7px;
             overflow: hidden;
             background: var(--card);
+        }
+
+        .detail-scroll-box {
+            max-height: 285px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .detail-scroll-box::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .detail-scroll-box::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+
+        .detail-scroll-box::-webkit-scrollbar-track {
+            background: #f1f5f9;
         }
 
         .detail-table {
@@ -358,6 +461,9 @@
             letter-spacing: .05em;
             text-align: center !important;
             white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 2;
         }
 
         .detail-table tbody td {
@@ -521,6 +627,16 @@
                 white-space: nowrap;
             }
 
+            .detail-panel-head,
+            .detail-tools,
+            .detail-search-wrap {
+                width: 100%;
+            }
+
+            .detail-scroll-box {
+                max-height: 240px;
+            }
+
             .bella-table-card-body {
                 padding: 14px;
             }
@@ -617,26 +733,45 @@
                                                     <div id="collapse-all-{{ $line->line }}-{{ $loop->iteration }}"
                                                         class="collapse">
                                                         <div class="detail-panel">
-                                                            <div class="detail-panel-title">Production Detail</div>
-                                                            <div class="table-responsive detail-table-wrap">
-                                                                <table class="detail-table">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th>Serial Number</th>
-                                                                            <th>Qty</th>
-                                                                            <th>Date</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        @foreach ($item['details'] as $detail)
+                                                            <div class="detail-panel-head">
+                                                                <div class="detail-panel-title">
+                                                                    <i class="fas fa-list-ul"></i>
+                                                                    Production Detail
+                                                                    <span
+                                                                        class="detail-count-badge">{{ count($item['details']) }}
+                                                                        Serial</span>
+                                                                </div>
+                                                                <div class="detail-tools">
+                                                                    <div class="detail-search-wrap">
+                                                                        <i class="fas fa-search"></i>
+                                                                        <input type="text" class="detail-search-input"
+                                                                            placeholder="Search serial number / date...">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="detail-table-wrap">
+                                                                <div class="detail-scroll-box">
+                                                                    <table class="detail-table">
+                                                                        <thead>
                                                                             <tr>
-                                                                                <td>{{ $detail['serial_number'] }}</td>
-                                                                                <td>{{ $detail['qty'] }}</td>
-                                                                                <td>{{ $detail['date'] }}</td>
+                                                                                <th>Serial Number</th>
+                                                                                <th>Qty</th>
+                                                                                <th>Date</th>
                                                                             </tr>
-                                                                        @endforeach
-                                                                    </tbody>
-                                                                </table>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach ($item['details'] as $detail)
+                                                                                <tr class="detail-data-row">
+                                                                                    <td>{{ $detail['serial_number'] }}</td>
+                                                                                    <td>{{ $detail['qty'] }}</td>
+                                                                                    <td>{{ $detail['date'] }}</td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                                <div class="detail-empty-filter">No matching serial number
+                                                                    found.</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -689,26 +824,45 @@
                                                     <div id="collapse-{{ $line->line }}-line-{{ $loop->iteration }}"
                                                         class="collapse">
                                                         <div class="detail-panel">
-                                                            <div class="detail-panel-title">Production Detail</div>
-                                                            <div class="table-responsive detail-table-wrap">
-                                                                <table class="detail-table">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th>Serial Number</th>
-                                                                            <th>Qty</th>
-                                                                            <th>Date</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        @foreach ($item['details'] as $detail)
+                                                            <div class="detail-panel-head">
+                                                                <div class="detail-panel-title">
+                                                                    <i class="fas fa-list-ul"></i>
+                                                                    Production Detail
+                                                                    <span
+                                                                        class="detail-count-badge">{{ count($item['details']) }}
+                                                                        Serial</span>
+                                                                </div>
+                                                                <div class="detail-tools">
+                                                                    <div class="detail-search-wrap">
+                                                                        <i class="fas fa-search"></i>
+                                                                        <input type="text" class="detail-search-input"
+                                                                            placeholder="Search serial number / date...">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="detail-table-wrap">
+                                                                <div class="detail-scroll-box">
+                                                                    <table class="detail-table">
+                                                                        <thead>
                                                                             <tr>
-                                                                                <td>{{ $detail['serial_number'] }}</td>
-                                                                                <td>{{ $detail['qty'] }}</td>
-                                                                                <td>{{ $detail['date'] }}</td>
+                                                                                <th>Serial Number</th>
+                                                                                <th>Qty</th>
+                                                                                <th>Date</th>
                                                                             </tr>
-                                                                        @endforeach
-                                                                    </tbody>
-                                                                </table>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach ($item['details'] as $detail)
+                                                                                <tr class="detail-data-row">
+                                                                                    <td>{{ $detail['serial_number'] }}</td>
+                                                                                    <td>{{ $detail['qty'] }}</td>
+                                                                                    <td>{{ $detail['date'] }}</td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                                <div class="detail-empty-filter">No matching serial number
+                                                                    found.</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -716,7 +870,8 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="4" class="empty-row">No production result data available for
+                                                <td colspan="4" class="empty-row">No production result data available
+                                                    for
                                                     this line.</td>
                                             </tr>
                                         @endforelse
@@ -787,6 +942,28 @@
                     position: 'bottomRight'
                 });
             }
+
+            $(document).on('input', '.detail-search-input', function() {
+                const keyword = ($(this).val() || '').toLowerCase().trim();
+                const detailPanel = $(this).closest('.detail-panel');
+                const rows = detailPanel.find('.detail-data-row');
+                let visibleRows = 0;
+
+                rows.each(function() {
+                    const rowText = $(this).text().toLowerCase();
+                    const isMatch = !keyword || rowText.indexOf(keyword) !== -1;
+                    $(this).toggle(isMatch);
+                    if (isMatch) {
+                        visibleRows++;
+                    }
+                });
+
+                detailPanel.find('.detail-empty-filter').toggle(visibleRows === 0);
+            });
+
+            $('.collapse').on('shown.bs.collapse', function() {
+                $(this).find('.detail-search-input').trigger('focus');
+            });
 
             $('.date-filter').on('change', function() {
                 const selectedDate = $(this).val();
