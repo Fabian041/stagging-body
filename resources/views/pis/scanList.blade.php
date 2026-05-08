@@ -729,7 +729,7 @@
                     orderable: false,
                     searchable: false,
                     className: 'button-cell',
-                    width: '200px'
+                    width: '280px'
                 }
             ],
             order: [
