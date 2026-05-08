@@ -93,7 +93,12 @@
             <a class="sb-sub-item {{ request()->routeIs('dashboard.kbnCheck') ? 'active' : '' }}"
                 href="{{ route('dashboard.kbnCheck') }}">
                 <i class="fas fa-clipboard-list"></i>
-                Check Kanban
+                Kanban Check
+            </a>
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.partCheck') ? 'active' : '' }}"
+                href="{{ route('dashboard.partCheck') }}">
+                <i class="fas fa-cogs"></i>
+                Part Check
             </a>
             <a class="sb-sub-item {{ request()->is('dashboard/production/result') ? 'active' : '' }}"
                 href="{{ route('dashboard.prodResult') }}">
