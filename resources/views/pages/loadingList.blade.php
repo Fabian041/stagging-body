@@ -561,6 +561,335 @@
             font-weight: 500;
         }
 
+
+
+        /* ===== ENHANCEMENT: PAGE HEADER / SUMMARY ===== */
+        .bella-page-hero {
+            background: linear-gradient(135deg, rgba(41, 71, 149, .96), rgba(0, 112, 183, .92));
+            border-radius: 18px;
+            padding: 22px 24px;
+            color: #fff;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            margin-top: 12px;
+            margin-bottom: 16px;
+        }
+
+        .bella-page-hero::after {
+            content: '';
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            right: -80px;
+            top: -90px;
+            background: rgba(255, 255, 255, .12);
+            border-radius: 50%;
+        }
+
+        .bella-page-hero h4 {
+            font-size: 20px;
+            font-weight: 850;
+            margin: 0 0 5px;
+            letter-spacing: -.02em;
+        }
+
+        .bella-page-hero p {
+            font-size: 12.5px;
+            opacity: .88;
+            margin: 0;
+            max-width: 680px;
+        }
+
+        .bella-hero-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .bella-hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, .22);
+            background: rgba(255, 255, 255, .12);
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 700;
+            backdrop-filter: blur(8px);
+        }
+
+        .bella-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .bella-summary-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 82px;
+        }
+
+        .bella-summary-label {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            margin-bottom: 6px;
+        }
+
+        .bella-summary-value {
+            font-size: 23px;
+            font-weight: 850;
+            color: var(--navy);
+            line-height: 1;
+        }
+
+        .bella-summary-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-weight: 600;
+        }
+
+        .bella-summary-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            background: rgba(0, 151, 216, .10);
+            color: var(--sky);
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .bella-filter-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .bella-filter-title {
+            font-size: 12px;
+            font-weight: 850;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            margin: 0;
+        }
+
+        .bella-filter-hint {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .bella-filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .bella-filter-group label {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin: 0;
+        }
+
+        .bella-table-card-header.enhanced {
+            justify-content: space-between;
+        }
+
+        .bella-title-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .bella-table-card-subtitle {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .bella-table-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .bella-last-sync {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .bella-table-card-header.enhanced .bella-live-badge {
+            position: static;
+            right: auto;
+            top: auto;
+            transform: none;
+            flex-shrink: 0;
+        }
+
+        .bella-table-card-header.enhanced .bella-table-tools {
+            margin-left: auto;
+        }
+
+        .bella-table-card-header.enhanced .bella-last-sync {
+            display: inline-flex;
+            align-items: center;
+            min-height: 24px;
+        }
+
+        /* ===== ENHANCEMENT: MODAL DETAIL ===== */
+        .modal-dialog.modal-xl-bella {
+            max-width: 1080px;
+        }
+
+        .loading-detail-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+
+        .loading-detail-search {
+            height: 36px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--text);
+            font-size: 12.5px;
+            padding: 0 12px;
+            outline: none;
+            min-width: 280px;
+        }
+
+        .loading-detail-search:focus {
+            border-color: var(--sky);
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
+        }
+
+        .loading-detail-stats {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .loading-detail-stat {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            min-width: 92px;
+        }
+
+        .loading-detail-stat span {
+            display: block;
+            font-size: 9.5px;
+            color: var(--text-muted);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .loading-detail-stat strong {
+            display: block;
+            font-size: 15px;
+            color: var(--navy);
+            font-weight: 850;
+            margin-top: 2px;
+        }
+
+        .loading-list-scroll {
+            max-height: 62vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .loading-list-scroll::-webkit-scrollbar {
+            width: 7px;
+        }
+
+        .loading-list-scroll::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 999px;
+        }
+
+        .bella-acc-item.hidden-by-search {
+            display: none !important;
+        }
+
+        .accordion-header.compact {
+            padding: 10px 14px;
+        }
+
+        .quick-view-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .quick-view-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+
+        .quick-view-item label {
+            display: block;
+            font-size: 9.5px;
+            color: var(--text-muted);
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 4px;
+        }
+
+        .quick-view-item strong {
+            display: block;
+            color: var(--text);
+            font-size: 12.5px;
+            word-break: break-word;
+        }
+
+        @media (max-width: 1024px) {
+            .bella-summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .quick-view-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
         @media (max-width: 768px) {
             .bella-filter-row {
                 flex-direction: column;
@@ -572,55 +901,144 @@
                 min-width: 0;
                 width: 100%;
             }
+
+            .bella-page-hero {
+                padding: 18px;
+            }
+
+            .bella-summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bella-filter-head,
+            .bella-table-card-header.enhanced {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .bella-live-badge {
+                position: static;
+                transform: none;
+            }
+
+            .loading-detail-search {
+                min-width: 0;
+                width: 100%;
+            }
+
+            .quick-view-grid {
+                grid-template-columns: 1fr;
+            }
+
         }
     </style>
 
+    {{-- ===== SUMMARY CARDS ===== --}}
+    <div class="bella-summary-grid">
+        <div class="bella-summary-card">
+            <div>
+                <div class="bella-summary-label">Visible PDS</div>
+                <div class="bella-summary-value" id="sumVisiblePds">0</div>
+                <div class="bella-summary-sub">Current table view</div>
+            </div>
+            <div class="bella-summary-icon"><i class="fas fa-file-alt"></i></div>
+        </div>
+        <div class="bella-summary-card">
+            <div>
+                <div class="bella-summary-label">Completed</div>
+                <div class="bella-summary-value" id="sumComplete">0</div>
+                <div class="bella-summary-sub">100% pulling</div>
+            </div>
+            <div class="bella-summary-icon"><i class="fas fa-check-circle"></i></div>
+        </div>
+        <div class="bella-summary-card">
+            <div>
+                <div class="bella-summary-label">In Progress</div>
+                <div class="bella-summary-value" id="sumProgress">0</div>
+                <div class="bella-summary-sub">Partial pulling</div>
+            </div>
+            <div class="bella-summary-icon"><i class="fas fa-spinner"></i></div>
+        </div>
+        <div class="bella-summary-card">
+            <div>
+                <div class="bella-summary-label">Avg Progress</div>
+                <div class="bella-summary-value" id="sumAvgProgress">0%</div>
+                <div class="bella-summary-sub">Visible records</div>
+            </div>
+            <div class="bella-summary-icon"><i class="fas fa-chart-line"></i></div>
+        </div>
+    </div>
+
     {{-- ===== FILTER CARD ===== --}}
     <div class="bella-filter-card mt-3">
+        <div class="bella-filter-head">
+            <div>
+                <h6 class="bella-filter-title"><i class="fas fa-sliders-h" style="margin-right:6px;"></i>Filter Data</h6>
+                <p class="bella-filter-hint">Gunakan kombinasi manifest, customer, cycle, dan tanggal delivery.</p>
+            </div>
+            <button class="act-btn danger" id="reset" type="button"
+                style="height:34px; padding: 0 14px; font-size: 11.5px; letter-spacing: .04em;">
+                <i class="fas fa-redo-alt" style="margin-right:5px;"></i> RESET FILTER
+            </button>
+        </div>
         <div class="bella-filter-row">
             @isset($manifests)
-                <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
-                    <option disabled selected>-- Select manifest --</option>
-                    @foreach ($manifests as $manifest)
-                        <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
-                    @endforeach
-                </select>
+                <div class="bella-filter-group">
+                    <label>Manifest</label>
+                    <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
+                        <option disabled selected>-- Select manifest --</option>
+                        @foreach ($manifests as $manifest)
+                            <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
+                        @endforeach
+                    </select>
+                </div>
             @endisset
 
-            <select class="bella-filter-select" id="cycle">
-                <option selected disabled>-- Select cycle --</option>
-                <option value="1">Cycle 1</option>
-                <option value="2">Cycle 2</option>
-                <option value="3">Cycle 3</option>
-                <option value="4">Cycle 4</option>
-                <option value="5">Cycle 5</option>
-            </select>
+            <div class="bella-filter-group">
+                <label>Cycle</label>
+                <select class="bella-filter-select" id="cycle">
+                    <option selected disabled>-- Select cycle --</option>
+                    <option value="1">Cycle 1</option>
+                    <option value="2">Cycle 2</option>
+                    <option value="3">Cycle 3</option>
+                    <option value="4">Cycle 4</option>
+                    <option value="5">Cycle 5</option>
+                </select>
+            </div>
 
             @isset($customers)
-                <select class="bella-filter-select" id="customer">
-                    <option selected disabled>-- Select customer --</option>
-                    @foreach ($customers as $customer)
-                        <option value="{{ $customer->name }}">{{ $customer->name }}</option>
-                    @endforeach
-                </select>
+                <div class="bella-filter-group">
+                    <label>Customer</label>
+                    <select class="bella-filter-select" id="customer">
+                        <option selected disabled>-- Select customer --</option>
+                        @foreach ($customers as $customer)
+                            <option value="{{ $customer->name }}">{{ $customer->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
             @endisset
 
-            <input id="date" type="date" class="bella-filter-input" placeholder="Delivery date">
-
-            <button class="act-btn danger" id="reset" type="button"
-                style="height:36px; padding: 0 16px; font-size: 12px; letter-spacing: .04em;">
-                <i class="fas fa-redo-alt" style="margin-right:5px;"></i> RESET
-            </button>
+            <div class="bella-filter-group">
+                <label>Delivery Date</label>
+                <input id="date" type="date" class="bella-filter-input" placeholder="Delivery date">
+            </div>
         </div>
     </div>
 
     {{-- ===== TABLE CARD ===== --}}
     <div class="bella-table-card mt-2">
-        <div class="bella-table-card-header">
-            <span class="bella-table-card-title">Delivery Monitoring</span>
-            <span class="bella-live-badge">
-                <span class="bella-live-dot"></span> LIVE
-            </span>
+        <div class="bella-table-card-header enhanced">
+            <div class="bella-title-wrap">
+                <span class="bella-table-card-title">Delivery Monitoring</span>
+                <span class="bella-table-card-subtitle">Click status/detail untuk melihat daftar loading list per
+                    PDS.</span>
+            </div>
+            <div class="bella-table-tools">
+                <span class="bella-last-sync" id="lastSyncText">Last sync: -</span>
+                <span class="bella-live-badge">
+                    <span class="bella-live-dot"></span> LIVE
+                </span>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -644,7 +1062,7 @@
 
 {{-- ===== MODAL ===== --}}
 <div class="modal fade" id="loadingListModal" tabindex="-1" role="dialog" aria-labelledby="loadingListModalLabel">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl-bella" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="loadingListModalLabel">
@@ -686,6 +1104,41 @@
         function getFilterCycle() {
             const v = $('#cycle').val();
             return (v && v !== '-- Select cycle --') ? v : '';
+        }
+
+        function extractPercent(value) {
+            if (value === null || value === undefined) return 0;
+            const text = $('<div>').html(String(value)).text();
+            const match = text.match(/(\d+(?:\.\d+)?)\s*%/);
+            if (match) return parseFloat(match[1]);
+            const nums = text.match(/\d+(?:\.\d+)?/g);
+            return nums && nums.length ? parseFloat(nums[nums.length - 1]) : 0;
+        }
+
+        function updateDashboardSummary() {
+            const rows = table.rows({
+                page: 'current'
+            }).data().toArray();
+            let complete = 0;
+            let progress = 0;
+            let totalPct = 0;
+
+            rows.forEach(function(row) {
+                const pct = extractPercent(row.progress);
+                totalPct += pct;
+                if (pct >= 100) complete++;
+                else if (pct > 0) progress++;
+            });
+
+            $('#sumVisiblePds').text(rows.length);
+            $('#sumComplete').text(complete);
+            $('#sumProgress').text(progress);
+            $('#sumAvgProgress').text(rows.length ? Math.round(totalPct / rows.length) + '%' : '0%');
+            $('#lastSyncText').text('Last sync: ' + new Date().toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }));
         }
 
         /* Apply query-string filters on load */
@@ -754,7 +1207,7 @@
                 }
             ],
             order: [
-                [3, 'dsc']
+                [3, 'desc']
             ],
             lengthMenu: [
                 [10, 25, 100],
@@ -772,6 +1225,9 @@
                         $(window).scrollTop(data.scrollTop);
                     }, 100);
                 }
+            },
+            drawCallback: function() {
+                updateDashboardSummary();
             }
         });
 
@@ -986,6 +1442,35 @@
                     let html = '';
 
                     if (response.loading_lists && response.loading_lists.length > 0) {
+                        let totalList = response.loading_lists.length;
+                        let completeList = 0;
+                        let inProgressList = 0;
+                        let totalKanbanAll = 0;
+                        let actualKanbanAll = 0;
+
+                        response.loading_lists.forEach(function(item) {
+                            totalKanbanAll += Number(item.total_kanban || 0);
+                            actualKanbanAll += Number(item.actual_kanban || 0);
+                            if (Number(item.total_kanban || 0) > 0 && Number(item
+                                    .actual_kanban || 0) >= Number(item
+                                    .total_kanban || 0)) completeList++;
+                            else if (Number(item.actual_kanban || 0) > 0)
+                                inProgressList++;
+                        });
+
+                        html += `
+                        <div class="loading-detail-toolbar">
+                            <input type="text" class="loading-detail-search" id="loadingDetailSearch" placeholder="Search loading list, customer, cycle, or date...">
+                            <div class="loading-detail-stats">
+                                <div class="loading-detail-stat"><span>Total List</span><strong>${totalList}</strong></div>
+                                <div class="loading-detail-stat"><span>Complete</span><strong>${completeList}</strong></div>
+                                <div class="loading-detail-stat"><span>Progress</span><strong>${inProgressList}</strong></div>
+                                <div class="loading-detail-stat"><span>Kanban</span><strong>${actualKanbanAll}/${totalKanbanAll}</strong></div>
+                            </div>
+                        </div>
+                        <div class="loading-list-scroll" id="loadingListScrollArea">
+                        `;
+
                         response.loading_lists.forEach(function(ll, index) {
                             const collapseId = 'acc-collapse-' + index;
                             const pct = ll.total_kanban > 0 ?
@@ -1009,8 +1494,8 @@
                             }
 
                             html += `
-                            <div class="bella-acc-item">
-                                <div class="accordion-header ${index === 0 ? 'open' : ''}" data-target="${collapseId}">
+                            <div class="bella-acc-item" data-keywords="${String(ll.number || '').toLowerCase()} ${String(ll.customer_name || '').toLowerCase()} ${String(ll.cycle || '').toLowerCase()} ${String(ll.delivery_date || '').toLowerCase()}">
+                                <div class="accordion-header compact ${index === 0 ? 'open' : ''}" data-target="${collapseId}">
                                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                                         <span class="acc-title-text">${ll.number}</span>
                                         <span class="${statusClass}">${statusText}</span>
@@ -1024,34 +1509,22 @@
                                     </div>
                                 </div>
                                 <div class="acc-body-content" id="${collapseId}" style="${index === 0 ? 'display:block;' : ''}">
-                                    <div class="acc-info-grid">
-                                        <div>
-                                            <div class="acc-info-field" style="margin-bottom:10px;">
-                                                <label>Loading List</label>
-                                                <p>${ll.number}</p>
-                                            </div>
-                                            <div class="acc-info-field" style="margin-bottom:10px;">
-                                                <label>Customer</label>
-                                                <p>${ll.customer_name || 'Not specified'}</p>
-                                            </div>
-                                            <div class="acc-info-field">
-                                                <label>Cycle</label>
-                                                <p>${ll.cycle || 'Not specified'}</p>
-                                            </div>
+                                    <div class="quick-view-grid">
+                                        <div class="quick-view-item">
+                                            <label>Loading List</label>
+                                            <strong>${ll.number}</strong>
                                         </div>
-                                        <div>
-                                            <div class="acc-info-field" style="margin-bottom:10px;">
-                                                <label>Delivery Date</label>
-                                                <p>${ll.delivery_date || 'Not specified'}</p>
-                                            </div>
-                                            <div class="acc-info-field" style="margin-bottom:10px;">
-                                                <label>Progress</label>
-                                                <p style="color:var(--navy);font-weight:700;">${pct}%</p>
-                                            </div>
-                                            <div class="acc-info-field">
-                                                <label>Kanban Status</label>
-                                                <p>${ll.actual_kanban} of ${ll.total_kanban} completed</p>
-                                            </div>
+                                        <div class="quick-view-item">
+                                            <label>Customer</label>
+                                            <strong>${ll.customer_name || 'Not specified'}</strong>
+                                        </div>
+                                        <div class="quick-view-item">
+                                            <label>Cycle</label>
+                                            <strong>${ll.cycle || 'Not specified'}</strong>
+                                        </div>
+                                        <div class="quick-view-item">
+                                            <label>Delivery Date</label>
+                                            <strong>${ll.delivery_date || 'Not specified'}</strong>
                                         </div>
                                     </div>
                                     <div class="acc-prog-section">
@@ -1071,6 +1544,7 @@
                                 </div>
                             </div>`;
                         });
+                        html += `</div>`;
                     } else {
                         html = `
                         <div class="acc-empty-state">
@@ -1096,6 +1570,17 @@
                                 $(this).addClass('open');
                                 $body.show();
                             }
+                        });
+
+                    $(document).off('input', '#loadingDetailSearch').on('input',
+                        '#loadingDetailSearch',
+                        function() {
+                            const keyword = $(this).val().toLowerCase().trim();
+                            $('#loadingListAccordion .bella-acc-item').each(function() {
+                                const haystack = $(this).data('keywords') || '';
+                                $(this).toggleClass('hidden-by-search',
+                                    keyword && !haystack.includes(keyword));
+                            });
                         });
                 },
                 error: function() {

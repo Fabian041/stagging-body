@@ -504,6 +504,359 @@
             border-bottom: none;
         }
 
+
+
+        /* ===== ENHANCED DETAIL DASHBOARD ===== */
+        .detail-hero-card {
+            margin-top: 14px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background:
+                radial-gradient(circle at top left, rgba(0, 151, 216, .16), transparent 34%),
+                linear-gradient(135deg, var(--navy), #1f3b82 55%, var(--primary));
+            box-shadow: var(--shadow-md);
+            color: #fff;
+            padding: 20px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .detail-hero-card::after {
+            content: '';
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 999px;
+            right: -70px;
+            top: -80px;
+            background: rgba(255, 255, 255, .10);
+        }
+
+        .detail-hero-kicker {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            opacity: .78;
+            margin-bottom: 5px;
+        }
+
+        .detail-hero-title {
+            font-size: 22px;
+            line-height: 1.2;
+            font-weight: 900;
+            margin: 0;
+        }
+
+        .detail-hero-subtitle {
+            margin-top: 7px;
+            font-size: 12.5px;
+            opacity: .82;
+            max-width: 680px;
+        }
+
+        .detail-hero-pill {
+            min-width: 160px;
+            border: 1px solid rgba(255, 255, 255, .22);
+            background: rgba(255, 255, 255, .12);
+            border-radius: 14px;
+            padding: 12px 14px;
+            text-align: right;
+            backdrop-filter: blur(8px);
+            position: relative;
+            z-index: 1;
+        }
+
+        .detail-hero-pill span {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            opacity: .74;
+            font-weight: 800;
+        }
+
+        .detail-hero-pill strong {
+            display: block;
+            margin-top: 4px;
+            font-size: 16px;
+            font-weight: 900;
+        }
+
+        .detail-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin: 14px 0 16px;
+        }
+
+        .detail-summary-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 15px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .detail-summary-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .detail-summary-icon.success {
+            background: #DCFCE7;
+            color: var(--success);
+        }
+
+        .detail-summary-icon.warning {
+            background: #FEF3C7;
+            color: var(--warning);
+        }
+
+        .detail-summary-icon.info {
+            background: #E0F2FE;
+            color: var(--sky);
+        }
+
+        .detail-summary-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .detail-summary-value {
+            display: block;
+            font-size: 19px;
+            font-weight: 900;
+            color: var(--navy);
+            line-height: 1.1;
+        }
+
+        .table-head-content {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .table-head-subtitle {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .part-code-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 190px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #EEF2FF;
+            border: 1px solid #DDE5FF;
+            color: var(--navy);
+            font-weight: 800;
+            font-size: 11.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .qty-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            font-weight: 900;
+            color: var(--navy);
+        }
+
+        .scan-progress-cell {
+            min-width: 120px;
+        }
+
+        .scan-progress-top {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .scan-progress-top .actual {
+            color: var(--navy);
+            font-size: 13px;
+        }
+
+        .mini-progress {
+            width: 100%;
+            height: 7px;
+            border-radius: 999px;
+            background: #E5E7EB;
+            overflow: hidden;
+        }
+
+        .mini-progress>span {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--sky), var(--primary));
+        }
+
+        .mini-progress.done>span {
+            background: linear-gradient(90deg, #16A34A, #22C55E);
+        }
+
+        .mini-progress.over>span {
+            background: linear-gradient(90deg, #F59E0B, #EF4444);
+        }
+
+        .edcl-detail-panel {
+            padding: 12px;
+            background: #F8FAFC;
+            border: 1px solid #E5E7EB;
+            border-radius: 14px;
+            margin: 8px 10px 12px;
+        }
+
+        .edcl-detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .edcl-title-block strong {
+            display: block;
+            color: var(--navy);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .edcl-title-block span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 11.5px;
+            margin-top: 2px;
+        }
+
+        .edcl-mini-stats {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .edcl-stat {
+            border: 1px solid var(--border);
+            background: var(--card);
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-muted);
+        }
+
+        .edcl-stat strong {
+            color: var(--navy);
+        }
+
+        .edcl-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .edcl-search-wrap {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            height: 34px;
+            min-width: 280px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0 11px;
+            background: var(--card);
+        }
+
+        .edcl-search-wrap i {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .edcl-search-wrap input {
+            border: 0;
+            outline: 0;
+            background: transparent;
+            font-size: 12px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            width: 100%;
+            color: var(--text);
+        }
+
+        .edcl-scroll-wrap {
+            max-height: 360px;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+        }
+
+        .edcl-child-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .serial-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #EEF2FF;
+            color: var(--navy);
+            font-weight: 900;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 11.5px;
+        }
+
+        .row-hidden-by-search {
+            display: none !important;
+        }
+
         @media (max-width: 768px) {
             .bella-info-grid {
                 grid-template-columns: 1fr 1fr;
@@ -536,6 +889,46 @@
             }
 
             .compare-controls {
+                flex-direction: column;
+            }
+        }
+
+
+        @media (max-width: 992px) {
+            .detail-summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .detail-hero-card {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .detail-hero-pill {
+                text-align: left;
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .detail-summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bella-info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-hero-title {
+                font-size: 18px;
+            }
+
+            .edcl-search-wrap {
+                min-width: 100%;
+            }
+
+            .table-head-content {
+                align-items: flex-start;
                 flex-direction: column;
             }
         }
@@ -597,10 +990,45 @@
         </div>
     </div>
 
+    {{-- ===== SUMMARY ===== --}}
+    <div class="detail-summary-grid">
+        <div class="detail-summary-card">
+            <div class="detail-summary-icon"><i class="fas fa-layer-group"></i></div>
+            <div>
+                <span class="detail-summary-label">Total Item</span>
+                <span class="detail-summary-value" id="sumRows">0</span>
+            </div>
+        </div>
+        <div class="detail-summary-card">
+            <div class="detail-summary-icon info"><i class="fas fa-boxes"></i></div>
+            <div>
+                <span class="detail-summary-label">Kanban Qty</span>
+                <span class="detail-summary-value" id="sumTarget">0</span>
+            </div>
+        </div>
+        <div class="detail-summary-card">
+            <div class="detail-summary-icon success"><i class="fas fa-barcode"></i></div>
+            <div>
+                <span class="detail-summary-label">Total Scan</span>
+                <span class="detail-summary-value" id="sumActual">0</span>
+            </div>
+        </div>
+        <div class="detail-summary-card">
+            <div class="detail-summary-icon warning"><i class="fas fa-chart-line"></i></div>
+            <div>
+                <span class="detail-summary-label">Progress</span>
+                <span class="detail-summary-value" id="sumProgress">0%</span>
+            </div>
+        </div>
+    </div>
+
     {{-- ===== DETAILS TABLE CARD ===== --}}
     <div class="bella-table-card">
         <div class="bella-table-card-header">
-            <span class="bella-table-card-title">Details</span>
+            <div class="table-head-content">
+                <span class="bella-table-card-title">Kanban Details</span>
+                <span class="table-head-subtitle" id="tableLastSync">Waiting data...</span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table bella-table" id="loadingList" style="width: 100%">
@@ -701,6 +1129,77 @@
                 "Content-type": "application/json"
             }
         };
+
+
+        function toNumber(v) {
+            const n = parseFloat(String(v ?? 0).replace(/[^0-9.-]/g, ''));
+            return isNaN(n) ? 0 : n;
+        }
+
+        function fmtNum(v) {
+            return new Intl.NumberFormat('id-ID').format(toNumber(v));
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '-')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Beberapa kolom dari API lama sudah mengirim HTML seperti:
+        // <span class="customerPart">...</span> / <span class="backNumber">...</span>.
+        // Helper ini mengambil isi teksnya saja, lalu kita bungkus ulang dengan style baru.
+        function plainCellValue(value) {
+            if (value === null || value === undefined || value === '') return '-';
+
+            const str = String(value).trim();
+            if (str.indexOf('<') !== -1 && str.indexOf('>') !== -1) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = str;
+                const text = (tmp.textContent || tmp.innerText || '').trim();
+                return text || '-';
+            }
+
+            return str;
+        }
+
+        function updateSummary(rows) {
+            rows = rows || [];
+            const totalRows = rows.length;
+            const totalTarget = rows.reduce((sum, row) => sum + toNumber(row.kbn_qty), 0);
+            const totalActual = rows.reduce((sum, row) => sum + toNumber(row.actual_kbn_qty), 0);
+            const progress = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
+
+            $('#sumRows').text(fmtNum(totalRows));
+            $('#sumTarget').text(fmtNum(totalTarget));
+            $('#sumActual').text(fmtNum(totalActual));
+            $('#sumProgress').text(`${progress}%`);
+            $('#tableLastSync').html(
+                `<i class="fas fa-sync-alt" style="margin-right:5px;"></i>Last sync: ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+            );
+        }
+
+        function renderProgress(actual, target) {
+            actual = toNumber(actual);
+            target = toNumber(target);
+            const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+            const cls = target > 0 && actual > target ? 'over' : (target > 0 && actual >= target ? 'done' : '');
+            return `
+                <div class="scan-progress-cell">
+                    <div class="scan-progress-top">
+                        <span class="actual">${fmtNum(actual)}</span>
+                        <span>/ ${fmtNum(target)}</span>
+                    </div>
+                    <input type="number" min="0" class="editActual edit-input" value="${actual}" style="display:none;">
+                    <div class="mini-progress ${cls}" title="${pct}%">
+                        <span style="width:${pct}%"></span>
+                    </div>
+                </div>
+            `;
+        }
 
         /* =========================================================
          * HELPERS
@@ -862,22 +1361,48 @@
                     }
                 },
                 {
-                    data: 'cust_partno'
+                    data: 'cust_partno',
+                    render: function(data, type) {
+                        const value = plainCellValue(data);
+                        if (type !== 'display') return value;
+                        return `<span class="part-code-pill customerPart" title="${escapeHtml(value)}">${escapeHtml(value)}</span>`;
+                    }
                 },
                 {
-                    data: 'int_partno'
+                    data: 'int_partno',
+                    render: function(data, type) {
+                        const value = plainCellValue(data);
+                        if (type !== 'display') return value;
+                        return `<span class="part-code-pill" title="${escapeHtml(value)}">${escapeHtml(value)}</span>`;
+                    }
                 },
                 {
-                    data: 'cust_backno'
+                    data: 'cust_backno',
+                    render: function(data, type) {
+                        const value = plainCellValue(data);
+                        if (type !== 'display') return value;
+                        return `<span class="qty-pill backNumber">${escapeHtml(value)}</span>`;
+                    }
                 },
                 {
-                    data: 'int_backno'
+                    data: 'int_backno',
+                    render: function(data, type) {
+                        const value = plainCellValue(data);
+                        if (type !== 'display') return value;
+                        return `<span class="qty-pill">${escapeHtml(value)}</span>`;
+                    }
                 },
                 {
-                    data: 'kbn_qty'
+                    data: 'kbn_qty',
+                    render: function(data) {
+                        return `<span class="qty-pill">${fmtNum(data)}</span>`;
+                    }
                 },
                 {
-                    data: 'actual_kbn_qty'
+                    data: 'actual_kbn_qty',
+                    render: function(data, type, row) {
+                        return renderProgress(data, row.kbn_qty);
+                    }
                 },
                 {
                     data: 'edit',
@@ -889,6 +1414,19 @@
                 [5, 10, 100],
                 [5, 10, 100]
             ],
+            order: [
+                [2, 'asc']
+            ],
+            language: {
+                search: 'Search:',
+                lengthMenu: 'Show _MENU_ rows',
+                info: 'Showing _START_ to _END_ of _TOTAL_ items',
+                emptyTable: 'Tidak ada data loading list detail.'
+            }
+        });
+
+        table.on('xhr.dt', function(e, settings, json) {
+            updateSummary((json && json.data) ? json.data : []);
         });
 
         /* =========================================================
@@ -1083,47 +1621,96 @@
         });
 
         function formatDetails(data) {
+            const childId = `edcl-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const total = data && data.length ? data.length : 0;
+            const confirmed = (data || []).filter(item => item.message === 'Success - Confirm Manifest').length;
+            const pending = Math.max(total - confirmed, 0);
+
             let rows = '';
             if (!data || data.length === 0) {
                 rows =
                     `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No data available</td></tr>`;
             } else {
-                rows = data.map(item => `
-                    <tr>
-                        <td>${item.id}</td>
-                        <td>${item.skid_no}</td>
-                        <td>${item.item_no}</td>
-                        <td>${item.serial}</td>
-                        <td>${item.kanban_id}</td>
-                        <td>${item.message}</td>
-                        <td>
-                            <span class="bella-badge ${item.message === 'Success - Confirm Manifest' ? 'bella-badge-green' : 'bella-badge-gray'}">YES</span>
-                        </td>
-                        <td>
-                            <button class="act-btn danger cancel-manifest">Cancel Manifest</button>
-                        </td>
-                    </tr>
-                `).join('');
+                rows = data.map(item => {
+                    const searchText =
+                        `${item.id} ${item.skid_no} ${item.item_no} ${item.serial} ${item.kanban_id} ${item.message}`
+                        .toLowerCase();
+                    return `
+                        <tr data-search="${escapeHtml(searchText)}">
+                            <td>${escapeHtml(item.id)}</td>
+                            <td>${escapeHtml(item.skid_no)}</td>
+                            <td>${escapeHtml(item.item_no)}</td>
+                            <td><span class="serial-chip">${escapeHtml(item.serial)}</span></td>
+                            <td>${escapeHtml(item.kanban_id)}</td>
+                            <td>${escapeHtml(item.message)}</td>
+                            <td>
+                                <span class="bella-badge ${item.message === 'Success - Confirm Manifest' ? 'bella-badge-green' : 'bella-badge-gray'}">${item.message === 'Success - Confirm Manifest' ? 'YES' : 'CHECK'}</span>
+                            </td>
+                            <td>
+                                <button class="act-btn danger cancel-manifest">Cancel Manifest</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
 
             return `
-                <table class="edcl-child-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Skid Number</th>
-                            <th>Item Number</th>
-                            <th>Serial Number</th>
-                            <th>Customer Kanban</th>
-                            <th>Message</th>
-                            <th>Confirm</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
+                <div class="edcl-detail-panel" id="${childId}">
+                    <div class="edcl-detail-header">
+                        <div class="edcl-title-block">
+                            <strong>EDCL Scan Detail</strong>
+                            <span>List dibuat compact dengan scroll internal agar halaman utama tidak terlalu panjang.</span>
+                        </div>
+                        <div class="edcl-mini-stats">
+                            <span class="edcl-stat">Total: <strong>${fmtNum(total)}</strong></span>
+                            <span class="edcl-stat">Confirmed: <strong>${fmtNum(confirmed)}</strong></span>
+                            <span class="edcl-stat">Pending: <strong>${fmtNum(pending)}</strong></span>
+                        </div>
+                    </div>
+                    <div class="edcl-toolbar">
+                        <div class="edcl-search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="edcl-search" placeholder="Cari skid / item / serial / kanban..." data-target="#${childId}">
+                        </div>
+                        <span class="table-head-subtitle edcl-shown-info">Shown: ${fmtNum(total)} / ${fmtNum(total)}</span>
+                    </div>
+                    <div class="edcl-scroll-wrap">
+                        <table class="edcl-child-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Skid Number</th>
+                                    <th>Item Number</th>
+                                    <th>Serial Number</th>
+                                    <th>Customer Kanban</th>
+                                    <th>Message</th>
+                                    <th>Confirm</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>
             `;
         }
+
+        $(document).on('input', '.edcl-search', function() {
+            const target = $(this).data('target');
+            const panel = $(target);
+            const q = String($(this).val() || '').toLowerCase().trim();
+            const rows = panel.find('.edcl-child-table tbody tr[data-search]');
+            let shown = 0;
+
+            rows.each(function() {
+                const haystack = String($(this).attr('data-search') || '').toLowerCase();
+                const isMatch = !q || haystack.includes(q);
+                $(this).toggleClass('row-hidden-by-search', !isMatch);
+                if (isMatch) shown++;
+            });
+
+            panel.find('.edcl-shown-info').text(`Shown: ${fmtNum(shown)} / ${fmtNum(rows.length)}`);
+        });
 
         /* =========================================================
          * NOTIFICATIONS
