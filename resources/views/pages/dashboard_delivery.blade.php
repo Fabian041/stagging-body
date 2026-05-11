@@ -1353,6 +1353,7 @@
             var dashboardViewMode = 'daily';
             var weeklyChartInstance = null;
             var weeklyNowTimer = null;
+            var weeklyGridTimer = null;
             var editMasterId = null;
             var ganttNowTimer = null;
             var waNotifyTimer = null;
@@ -1879,6 +1880,10 @@
                     clearInterval(weeklyNowTimer);
                     weeklyNowTimer = null;
                 }
+                if (weeklyGridTimer) {
+                    clearInterval(weeklyGridTimer);
+                    weeklyGridTimer = null;
+                }
                 if (weeklyChartInstance) {
                     weeklyChartInstance.destroy();
                     weeklyChartInstance = null;
@@ -1964,6 +1969,37 @@
                     return null;
                 }
                 return dt;
+            }
+
+            // ── Weekly HTML-grid helpers (sesuai kode terbaru) ────────────────
+            function weeklyDaySlots(dateFrom, dateTo) {
+                // Kembalikan array tanggal dari dateFrom s/d dateTo (string 'YYYY-MM-DD')
+                var slots = [];
+                var d = new Date(dateFrom + 'T00:00:00');
+                var end = new Date(dateTo + 'T00:00:00');
+                while (d <= end) {
+                    slots.push(new Date(d));
+                    d.setDate(d.getDate() + 1);
+                }
+                return slots;
+            }
+
+            function weeklyDateLabel(dt) {
+                return dt.toLocaleDateString('id-ID', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short'
+                });
+            }
+
+            function weeklyFracOfDay(deliveryDate, clockStr) {
+                // Kembalikan posisi 0-1 pada sumbu hari slot yang tepat (per deliveryDate)
+                if (!clockStr || clockStr === '-') return null;
+                var p = clockStr.substring(0, 5).split(':');
+                var h = parseInt(p[0], 10);
+                var m = parseInt(p[1] || '0', 10);
+                if (isNaN(h) || isNaN(m)) return null;
+                return h / 24 + m / 1440;
             }
 
             function mergeRowsForCustomerTime(rows) {
@@ -2200,164 +2236,231 @@
             });
 
             function renderWeeklySummary() {
-                if (!chartWeeklyPoints.length) {
-                    destroyWeeklyChart();
-                    $('#weeklyGanttContainer').html(
-                        '<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
-                } else {
-                    var dataPoints = [];
-                    chartWeeklyPoints.forEach(function(row) {
-                        var prepStart = row.prep_time ? String(row.prep_time).substring(0, 5) : '-';
-                        var prepEnd = row.prep_end_time ? String(row.prep_end_time).substring(0, 5) : '-';
-                        var truckTime = row.truck_time ? String(row.truck_time).substring(0, 5) : '-';
-                        var prepStartDt = buildWeeklyDateTime(row.delivery_date, prepStart);
-                        var prepEndDt = buildWeeklyDateTime(row.delivery_date, prepEnd);
-                        var truckDt = buildWeeklyDateTime(row.delivery_date, truckTime);
-                        var prepStartMs = prepStartDt ? prepStartDt.getTime() : NaN;
-                        var prepEndMs = prepEndDt ? prepEndDt.getTime() : NaN;
-                        var truckMs = truckDt ? truckDt.getTime() : NaN;
-                        if (isNaN(prepStartMs) && isNaN(truckMs)) {
-                            return;
-                        }
-                        var roundedPct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
-                        var detailText = [
-                            'Tanggal ' + (row.delivery_date || '-'),
-                            'Cycle ' + (row.cycle_name || '-'),
-                            'Prep ' + prepStart + (prepEnd !== '-' ? ' - ' + prepEnd : ''),
-                            'ETA ' + truckTime,
-                            'Progress ' + roundedPct + '%'
-                        ].join(' | ');
-                        if (!isNaN(prepStartMs)) {
-                            if (isNaN(prepEndMs)) {
-                                prepEndMs = prepStartMs + (30 * 60000);
-                            }
-                            if (prepEndMs <= prepStartMs) {
-                                prepEndMs += 24 * 60 * 60 * 1000;
-                            }
-                            dataPoints.push({
-                                x: (row.customer_name || '-') + ' | PREP',
-                                y: [prepStartMs, prepEndMs],
-                                meta: {
-                                    type: 'prep',
-                                    total_done: parseInt(row.total_done || 0, 10),
-                                    total_target: parseInt(row.total_target || 0, 10),
-                                    progress_pct: roundedPct,
-                                    details_text: detailText
-                                }
-                            });
-                        }
-                        if (!isNaN(truckMs)) {
-                            var truckEndMs = truckMs + (30 * 60000);
-                            dataPoints.push({
-                                x: (row.customer_name || '-') + ' | ETA TRUCK',
-                                y: [truckMs, truckEndMs],
-                                meta: {
-                                    type: 'truck',
-                                    total_done: parseInt(row.total_done || 0, 10),
-                                    total_target: parseInt(row.total_target || 0, 10),
-                                    progress_pct: roundedPct,
-                                    details_text: detailText
-                                }
-                            });
-                        }
-                    });
-
-                    destroyWeeklyChart();
-                    var dateFrom = $('#filterDateFrom').val() || '';
-                    var dateTo = $('#filterDateTo').val() || dateFrom;
-                    var startDateMs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
-                    var endDateMs = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null;
-                    var options = {
-                        chart: {
-                            type: 'rangeBar',
-                            height: Math.max(460, Math.min(980, dataPoints.length * 30)),
-                            toolbar: {
-                                show: false,
-                                tools: {
-                                    download: false,
-                                    selection: false,
-                                    zoom: false,
-                                    zoomin: false,
-                                    zoomout: false,
-                                    pan: false,
-                                    reset: false
-                                }
-                            },
-                            zoom: {
-                                enabled: false
-                            },
-                            selection: {
-                                enabled: false
-                            }
-                        },
-                        plotOptions: {
-                            bar: {
-                                horizontal: true,
-                                barHeight: '52%',
-                                distributed: false,
-                                rangeBarGroupRows: true
-                            }
-                        },
-                        colors: [function(ctx) {
-                            var point = ctx.w.config.series[ctx.seriesIndex].data[ctx.dataPointIndex];
-                            if (point && point.meta && point.meta.type === 'truck') {
-                                var truckPct = parseFloat(point.meta.progress_pct || 0);
-                                return truckPct >= 100 ? '#B5D4F4' : '#f59e0b';
-                            }
-                            var pct = point && point.meta ? parseFloat(point.meta.progress_pct || 0) :
-                                0;
-                            return pct >= 100 ? '#C0DD97' : 'hsl(58, 100%, 70%)';
-                        }],
-                        series: [{
-                            name: 'Progress',
-                            data: dataPoints
-                        }],
-                        xaxis: {
-                            type: 'datetime',
-                            min: startDateMs || undefined,
-                            max: endDateMs || undefined,
-                            labels: {
-                                datetimeUTC: false
-                            }
-                        },
-                        yaxis: {
-                            labels: {
-                                maxWidth: 260
-                            }
-                        },
-                        dataLabels: {
-                            enabled: false
-                        },
-                        tooltip: {
-                            custom: function(ctx) {
-                                var point = ctx.w.config.series[ctx.seriesIndex].data[ctx.dataPointIndex];
-                                var meta = point.meta || {};
-                                return '<div class="px-2 py-1 text-sm">' +
-                                    '<strong>' + escapeHtml(point.x) + '</strong><br/>' +
-                                    'Done: ' + (meta.total_done || 0) + ' / ' + (meta.total_target || 0) +
-                                    '<br/>' +
-                                    escapeHtml(meta.details_text || '-') +
-                                    '</div>';
-                            }
-                        },
-                        grid: {
-                            borderColor: '#eef0f3'
-                        },
-                        annotations: {
-                            xaxis: (function() {
-                                var daily = buildWeeklyDailyAnnotations(startDateMs, endDateMs);
-                                return [buildWeeklyNowAnnotation()].concat(daily);
-                            })()
-                        },
-                        legend: {
-                            show: false
-                        }
-                    };
-                    weeklyChartInstance = new ApexCharts(document.querySelector('#weeklyGanttContainer'), options);
-                    weeklyChartInstance.render().then(function() {
-                        startWeeklyNowTicker(buildWeeklyDailyAnnotations(startDateMs, endDateMs));
-                    });
+                destroyWeeklyChart();
+                if (weeklyGridTimer) {
+                    clearInterval(weeklyGridTimer);
+                    weeklyGridTimer = null;
                 }
+
+                if (!chartWeeklyPoints.length) {
+                    $('#weeklyGanttContainer').html('<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
+                    updateTimelineTotal();
+                    return;
+                }
+
+                var dateFrom = $('#filterDateFrom').val() || '';
+                var dateTo = $('#filterDateTo').val() || dateFrom;
+                if (!dateFrom) {
+                    $('#weeklyGanttContainer').html('<div class="text-muted small">Pilih rentang tanggal.</div>');
+                    updateTimelineTotal();
+                    return;
+                }
+
+                var slots = weeklyDaySlots(dateFrom, dateTo);
+                var nSlots = slots.length || 1;
+
+                // Kelompokkan chartWeeklyPoints per customer
+                var custMap = {};
+                var custOrder = [];
+                chartWeeklyPoints.forEach(function(row) {
+                    var c = row.customer_name || '-';
+                    if (!custMap[c]) {
+                        custMap[c] = [];
+                        custOrder.push(c);
+                    }
+                    custMap[c].push(row);
+                });
+                custOrder.sort(function(a, b) {
+                    return a.localeCompare(b);
+                });
+
+                // CSS variabel lebar per hari (mirip --gantt-hour-width tapi per hari)
+                var dayColWidth = 120; // px per hari (minimum)
+                var custColWidth = 160;
+                var typeColWidth = 120;
+                var minTableWidth = custColWidth + typeColWidth + (nSlots * dayColWidth);
+
+                // ── Build HTML ────────────────────────────────────────────────────
+                var gridStyle = [
+                    'min-width:' + minTableWidth + 'px',
+                    'width:100%',
+                    'border-collapse:collapse',
+                    'font-size:13px',
+                    'table-layout:fixed'
+                ].join(';');
+
+                var html = '<div style="overflow-x:auto;overflow-y:hidden;width:100%;min-width:100%;">';
+                html += '<table style="' + gridStyle + '">';
+
+                // Header
+                html += '<thead><tr>';
+                html += '<th style="position:sticky;top:0;left:0;z-index:7;background:#fff;border:1px solid #eef0f3;width:' +
+                    custColWidth + 'px;text-align:center;padding:4px 8px;font-size:11px;font-weight:600;color:#5c6370;">Customer</th>';
+                html += '<th style="position:sticky;top:0;left:' + custColWidth +
+                    'px;z-index:7;background:#fff;border:1px solid #eef0f3;width:' + typeColWidth +
+                    'px;text-align:center;padding:4px 8px;font-size:11px;font-weight:600;color:#5c6370;">TYPE</th>';
+                slots.forEach(function(dt) {
+                    html += '<th style="position:sticky;top:0;z-index:6;background:#fff;border:1px solid #eef0f3;width:' +
+                        dayColWidth +
+                        'px;text-align:center;padding:3px 4px;font-size:10px;font-weight:600;color:#5c6370;white-space:nowrap;">' +
+                        weeklyDateLabel(dt) + '</th>';
+                });
+                html += '</tr></thead><tbody>';
+
+                // Hitung posisi "Now" untuk marker
+                var todayStr = new Date().toISOString().slice(0, 10);
+                var nowDayIdx = -1;
+                slots.forEach(function(dt, i) {
+                    if (dt.toISOString().slice(0, 10) === todayStr) nowDayIdx = i;
+                });
+                var nowFrac = (new Date().getHours() + new Date().getMinutes() / 60) / 24;
+                var nowLeftPct = nowDayIdx >= 0 ? ((nowDayIdx + nowFrac) / nSlots) * 100 : -1;
+                var nowLbl = new Date().toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                custOrder.forEach(function(cust, custIdx) {
+                    var rows = custMap[cust];
+                    var rowHeight = 136; // px – sama dengan daily
+
+                    // ── Baris PREP ──
+                    html += '<tr>';
+                    // Kolom Customer dengan rowspan=2
+                    html += '<td rowspan="2" style="' +
+                        'position:sticky;left:0;z-index:5;' +
+                        'background:#fff;border:1px solid #eef0f3;' +
+                        'width:' + custColWidth + 'px;' +
+                        'vertical-align:middle;text-align:center;' +
+                        'font-size:12px;font-weight:500;padding:8px 10px;' +
+                        'word-break:break-word;line-height:1.3;' +
+                        '">' + escapeHtml(cust) + '</td>';
+                    // Kolom TYPE – PREP
+                    html += '<td style="' +
+                        'position:sticky;left:' + custColWidth + 'px;z-index:5;' +
+                        'background:#fff;border:1px solid #eef0f3;' +
+                        'width:' + typeColWidth + 'px;height:' + (rowHeight / 2) + 'px;' +
+                        'text-align:center;vertical-align:middle;' +
+                        'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5c7f2b;' +
+                        '">PREP</td>';
+                    // Slot hari – lane PREP
+                    slots.forEach(function(dt, dayIdx) {
+                        var slotDateStr = dt.toISOString().slice(0, 10);
+                        var isToday = slotDateStr === todayStr;
+                        var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
+                        html += '<td style="position:relative;padding:0;border:1px solid #eef0f3;width:' +
+                            dayColWidth + 'px;height:' + (rowHeight / 2) +
+                            'px;vertical-align:top;overflow:visible;' + bg + '">';
+                        html += '<div style="position:relative;height:' + (rowHeight / 2) + 'px;">';
+                        // Bar PREP untuk hari ini
+                        rows.forEach(function(row) {
+                            if (String(row.delivery_date || '').trim() !== slotDateStr) return;
+                            var prepStart = row.prep_time ? String(row.prep_time).substring(0, 5) : null;
+                            var prepEnd = row.prep_end_time ? String(row.prep_end_time).substring(0, 5) : null;
+                            if (!prepStart) return;
+                            var startFrac = weeklyFracOfDay(slotDateStr, prepStart);
+                            var endFrac = prepEnd ? weeklyFracOfDay(slotDateStr, prepEnd) : null;
+                            if (endFrac === null || endFrac <= startFrac) endFrac = startFrac + (30 / 1440);
+                            var leftPct = startFrac * 100;
+                            var widthPct = Math.max((endFrac - startFrac) * 100, 4);
+                            var pct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
+                            var barColor = pct >= 100 ? 'var(--dm-complete)' : 'var(--dm-yellow)';
+                            var tipText = escapeAttr('Prep ' + prepStart + (prepEnd ? ' - ' + prepEnd : '') +
+                                ' | Cycle ' + (row.cycle_name || '-') + ' | Progress ' + pct +
+                                '% | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
+                            var av = 'C' + escapeHtml(String(row.cycle_name || '?').toUpperCase());
+                            html += '<div title="' + tipText + '" style="' +
+                                'position:absolute;top:6px;height:26px;' +
+                                'left:' + leftPct + '%;width:' + widthPct + '%;min-width:28px;' +
+                                'background:' + barColor + ';border-radius:4px;' +
+                                'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
+                                'overflow:hidden;cursor:pointer;box-sizing:border-box;z-index:2;' +
+                                'display:flex;align-items:center;padding-left:4px;' +
+                                '">' +
+                                '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;">' + av +
+                                '</span>' +
+                                '</div>';
+                        });
+                        // Garis Now pada lane PREP jika hari ini
+                        if (isToday) {
+                            var nFrac = (new Date().getHours() + new Date().getMinutes() / 60) / 24;
+                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac * 100) +
+                                '%;width:2px;background:rgb(67,53,220);transform:translateX(-50%);z-index:4;pointer-events:none;">' +
+                                '<span style="position:absolute;top:-14px;left:0;transform:translateX(-50%);font-size:8px;background:rgb(59,53,220);color:#fff;padding:1px 4px;border-radius:2px;white-space:nowrap;">Now</span>' +
+                                '</div>';
+                        }
+                        html += '</div></td>';
+                    });
+                    html += '</tr>';
+
+                    // ── Baris ETA TRUCK ──
+                    html += '<tr>';
+                    // Kolom TYPE – ETA TRUCK
+                    html += '<td style="' +
+                        'position:sticky;left:' + custColWidth + 'px;z-index:5;' +
+                        'background:#fff;border:1px solid #eef0f3;' +
+                        'width:' + typeColWidth + 'px;height:' + (rowHeight / 2) + 'px;' +
+                        'text-align:center;vertical-align:middle;' +
+                        'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#b86f00;' +
+                        '">ETA TRUCK</td>';
+                    // Slot hari – lane ETA TRUCK
+                    slots.forEach(function(dt, dayIdx) {
+                        var slotDateStr = dt.toISOString().slice(0, 10);
+                        var isToday = slotDateStr === todayStr;
+                        var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
+                        html += '<td style="position:relative;padding:0;border:1px solid #eef0f3;width:' +
+                            dayColWidth + 'px;height:' + (rowHeight / 2) +
+                            'px;vertical-align:top;overflow:visible;' + bg + '">';
+                        html += '<div style="position:relative;height:' + (rowHeight / 2) + 'px;">';
+                        rows.forEach(function(row) {
+                            if (String(row.delivery_date || '').trim() !== slotDateStr) return;
+                            var truckTime = row.truck_time ? String(row.truck_time).substring(0, 5) : null;
+                            if (!truckTime) return;
+                            var truckFrac = weeklyFracOfDay(slotDateStr, truckTime);
+                            if (truckFrac === null) return;
+                            var leftPct = truckFrac * 100;
+                            var pct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
+                            var barColor = pct >= 100 ? 'var(--dm-blue)' : '#f59e0b';
+                            var tipText = escapeAttr('ETA Truck ' + truckTime + ' | Cycle ' + (row.cycle_name || '-') +
+                                ' | Progress ' + pct + '% | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
+                            var av = 'C' + escapeHtml(String(row.cycle_name || '?').toUpperCase());
+                            html += '<div title="' + tipText + '" style="' +
+                                'position:absolute;top:8px;height:22px;' +
+                                'left:' + leftPct + '%;width:42px;min-width:42px;' +
+                                'background:' + barColor + ';border-radius:4px;' +
+                                'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
+                                'cursor:pointer;box-sizing:border-box;z-index:2;' +
+                                'display:flex;align-items:center;padding-left:4px;' +
+                                '">' +
+                                '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;">' + av +
+                                '</span>' +
+                                '</div>';
+                        });
+                        if (isToday) {
+                            var nFrac2 = (new Date().getHours() + new Date().getMinutes() / 60) / 24;
+                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac2 * 100) +
+                                '%;width:2px;background:rgb(67,53,220);transform:translateX(-50%);z-index:4;pointer-events:none;"></div>';
+                        }
+                        html += '</div></td>';
+                    });
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                $('#weeklyGanttContainer').html(html);
+
+                // Ticker: update garis Now setiap detik
+                weeklyGridTimer = setInterval(function() {
+                    var now2 = new Date();
+                    var nFrac3 = (now2.getHours() + now2.getMinutes() / 60 + now2.getSeconds() / 3600) / 24;
+                    var todayS = now2.toISOString().slice(0, 10);
+                    slots.forEach(function(dt, dayIdx) {
+                        if (dt.toISOString().slice(0, 10) !== todayS) return;
+                        $('#weeklyGanttContainer [data-wday="' + dayIdx + '"] .weekly-now-line').css('left', (nFrac3 * 100) +
+                            '%');
+                    });
+                }, 1000);
+
                 updateTimelineTotal();
             }
 
