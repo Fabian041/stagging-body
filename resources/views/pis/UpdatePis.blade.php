@@ -404,7 +404,7 @@
                                     <option value="6I"
                                         {{ isset($part_pis->part_dock) && $part_pis->part_dock == '6I' ? 'selected' : '' }}>
                                         6I</option>
-                                    <option value="TAM-TAM"
+                                    <option value="TAM-SPD"
                                         {{ isset($part_pis->part_dock) && in_array($part_pis->part_dock, ['TAM-SPD', 'TAMSPD']) ? 'selected' : '' }}>
                                         TAM-SPD</option>
                                     <option value="TAM-ADM"
