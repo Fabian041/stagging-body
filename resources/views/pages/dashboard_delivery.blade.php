@@ -1361,6 +1361,8 @@
             var ganttCols = 24;
             var etaWindowStorageKey = 'delivery_eta_window_v2';
             var waSentStorageKey = 'delivery_wa_unfinished_sent_v1';
+            /** Bar prep: pernah lewat finish prep & belum 100% → merah, tetap merah sampai 100% */
+            var ganttOverdueLatchStorageKey = 'delivery_gantt_overdue_latched_v1';
             var etaWindowSettings = {
                 eta_offset_hours: 0,
                 finish_offset_hours: 4
@@ -1557,6 +1559,27 @@
 
             function setWaSentMap(map) {
                 localStorage.setItem(waSentStorageKey, JSON.stringify(map));
+            }
+
+            function getOverdueLatchMap() {
+                try {
+                    return JSON.parse(localStorage.getItem(ganttOverdueLatchStorageKey) || '{}');
+                } catch (err) {
+                    return {};
+                }
+            }
+
+            function setOverdueLatchMap(map) {
+                localStorage.setItem(ganttOverdueLatchStorageKey, JSON.stringify(map));
+            }
+
+            function rowOverdueLatchKey(row) {
+                var df = $('#filterDateFrom').val() || '';
+                var dt = $('#filterDateTo').val() || '';
+                var pe = (row.prep_end_time != null) ? String(row.prep_end_time).trim().substring(0, 5) : '';
+                var ct = (row.cycle_time != null) ? String(row.cycle_time).trim().substring(0, 5) : '';
+                return [df, dt, String(row.customer_id || ''), String(row.customer_name || ''), String(row
+                        .cycle_name || ''), ct, pe].join('|');
             }
 
             function getRowFinishPrepClock(row) {
@@ -2074,6 +2097,11 @@
                     updateTimelineTotal();
                     return;
                 }
+                var overdueLatch = getOverdueLatchMap();
+                var nowWall = new Date();
+                var currentClock = String(nowWall.getHours()).padStart(2, '0') + ':' + String(nowWall
+                    .getMinutes()).padStart(2, '0');
+                var currentFrac = timeToFrac(currentClock);
                 var gridHtml = '<div class="gantt-grid-scroll"><div class="gantt-grid">';
                 /* Header row */
                 gridHtml += '<div class="gantt-grid-row gantt-grid-header">';
@@ -2117,7 +2145,17 @@
                         var widthPct = (durH / ganttHourWindow) * 100;
                         var pct = parseFloat(row.progress_pct || 0);
                         var progressWidth = Math.min(100, Math.max(0, pct));
-                        var barClass = pct >= 100 ? 'ontime' : (pct > 0 ? 'delay' : 'empty');
+                        var latchKey = rowOverdueLatchKey(row);
+                        var isOverdueNow = progressWidth < 100 && isRowPastFinishPrep(row, currentFrac);
+                        if (isOverdueNow) {
+                            overdueLatch[latchKey] = true;
+                        }
+                        if (progressWidth >= 100) {
+                            delete overdueLatch[latchKey];
+                        }
+                        var isOverdue = !!overdueLatch[latchKey];
+                        var barClass = progressWidth >= 100 ? 'ontime' : (isOverdue ? 'overdue' : (
+                            progressWidth > 0 ? 'delay' : 'empty'));
                         var isOvernightPrep = durH > 12;
                         var isInstantPrep = durH < (1 / 60);
                         var barTitle = buildGanttTooltip(row).replace(/"/g, '&quot;') +
@@ -2205,6 +2243,7 @@
                 });
                 gridHtml += '</div></div>';
                 $('#ganttContainer').html(gridHtml);
+                setOverdueLatchMap(overdueLatch);
                 updateTimelineTotal();
                 ganttNowTimer = setInterval(updateGanttNowMarkers, 1000);
                 updateGanttNowMarkers();

@@ -417,7 +417,7 @@
                         <th>Destination</th>
                         <th>Picture</th>
                         <th>Status Picture</th>
-                        <th>Edit</th>
+                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -446,10 +446,19 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <a class="act-btn primary" href="{{ url('/pis/edit/' . $part_pis->id) }}"
-                                        style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </a>
+                                    <div
+                                        style="display:inline-flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">
+                                        <a class="act-btn primary" href="{{ url('/pis/edit/' . $part_pis->id) }}"
+                                            style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <a class="act-btn danger js-delete-master-pis"
+                                            href="{{ url('/pis/delete/' . $part_pis->id) }}"
+                                            data-part="{{ e($part_pis->part_number_customer) }}"
+                                            style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
+                                            <i class="fas fa-trash-alt"></i> Hapus
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -590,6 +599,18 @@
 
             // Move modal to body root to fix z-index stacking
             $('#myModal').appendTo('body');
+
+            $(document).on('click', '.js-delete-master-pis', function(e) {
+                e.preventDefault();
+                var href = $(this).attr('href');
+                var part = $(this).data('part') || '';
+                var msg = part ?
+                    'Hapus master PIS untuk Part No "' + part + '"? Gambar terkait ikut dihapus. Tindakan ini tidak dapat dibatalkan.' :
+                    'Hapus master PIS ini? Gambar terkait ikut dihapus. Tindakan ini tidak dapat dibatalkan.';
+                if (window.confirm(msg)) {
+                    window.location.href = href;
+                }
+            });
         });
 
         $('table').dataTable({
