@@ -1118,7 +1118,7 @@ class PisController extends Controller
                 $end = null;
             }
 
-            $scans = PisScan::with(['customer', 'details'])
+            $scans = PisScan::with(['details'])
                 ->when($start || $end, function ($q) use ($start, $end) {
                     $q->whereHas('details', function ($dq) use ($start, $end) {
                         if ($start && $end) {
@@ -1155,7 +1155,7 @@ class PisController extends Controller
                         'id' => 'll-' . $scan->id,
                         'loading_list_number' => $scan->loading_list_number,
                         'pds_number' => $scan->pds_number ?: '-',
-                        'customer_name' => $scan->customer?->name ?: '-',
+                        'dock_type' => $scan->dock_type ? (string) $scan->dock_type : '-',
                         'total_target' => $totalTarget,
                         'total_scanned' => $totalScanned,
                         'scan_time' => $latestScanTime ? $latestScanTime->format('Y-m-d H:i') : '-',

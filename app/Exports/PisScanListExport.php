@@ -32,7 +32,7 @@ class PisScanListExport implements FromCollection, WithHeadings, WithMapping, Sh
             $end = null;
         }
 
-        return PisScan::with(['customer', 'details'])
+        return PisScan::with(['details'])
             ->when($start || $end, function ($q) use ($start, $end) {
                 $q->whereHas('details', function ($dq) use ($start, $end) {
                     if ($start && $end) {
@@ -88,7 +88,7 @@ class PisScanListExport implements FromCollection, WithHeadings, WithMapping, Sh
             $latestScanTime ? $latestScanTime->format('Y-m-d H:i') : '-',
             rtrim((string) ($scan->loading_list_number ?? ''), ' A'),
             $scan->pds_number ?? '',
-            $scan->customer->name ?? '',
+            $scan->dock_type ? (string) $scan->dock_type : '-',
             $totalTarget,
             $totalScanned,
             $progressPercentage,

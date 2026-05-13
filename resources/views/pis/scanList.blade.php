@@ -718,7 +718,7 @@
                     className: 'text-center'
                 },
                 {
-                    data: 'customer_name',
+                    data: 'dock_type',
                     className: 'text-center'
                 },
                 {
