@@ -233,7 +233,7 @@ Route::middleware(['auth'])->group(function () {
             ->name('production.assign-kanban');
 
         Route::get('/direct', [ProductionController::class, 'direct'])
-            ->middleware(['auth', 'dea.token'])
+            ->middleware(['dea.token'])
             ->name('production.direct.index');
     });
 
