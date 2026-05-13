@@ -245,10 +245,10 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // pulling
+    Route::get('/pulling', [PullingController::class, 'index'])
+        ->middleware(['auth', 'dea.token'])
+        ->name('pulling.index');
     Route::prefix('pulling')->group(function () {
-        Route::get('/', [PullingController::class, 'index'])
-            ->middleware(['auth', 'dea.token'])
-            ->name('pulling.index');
 
         Route::get('/settings', [PullingController::class, 'settingIndex'])
             ->name('pulling.settings');
