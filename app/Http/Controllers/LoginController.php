@@ -21,72 +21,40 @@ class LoginController extends Controller
 
     public function authenticate(Request $request)
     {
-        // 1. Cek apakah sudah melebihi batas
         $this->ensureIsNotRateLimited($request);
 
-        // 2. Validasi input seperti biasa
         $credentials = $request->validate([
-            'npk'      => 'required|min:6|max:6',
+            'npk'      => 'required|digits:6',
             'password' => 'required'
         ]);
 
-        // 3. Coba login
-        if (Auth::attempt($credentials)) {
-            // kalau berhasil, reset counter rate limiter
-            RateLimiter::clear($this->throttleKey($request));
+        if (!Auth::attempt($credentials)) {
+            RateLimiter::hit($this->throttleKey($request), 60);
 
-            $request->session()->regenerate();
+            Log::info('Failed login attempt', [
+                'npk' => $request->input('npk'),
+                'ip'  => $request->ip(),
+            ]);
 
-            // ===== redirect sesuai role (kode kamu sebelumnya) =====
-            if (auth()->user()->role == 'prod') {
-                return redirect()->route('production.index');
-            } else if (auth()->user()->role == 'ppic') {
-
-                $response = Http::withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
-                    'npk'      => Auth::user()->npk,
-                    'password' => '123456'
-                ]);
-
-                if ($response->successful()) {
-                    $token = json_decode($response->body(), true)['data']['access_token'];
-                    session()->put('token', $token);
-                } else {
-                    return redirect()->back()->with('error', 'Failed to generate token');
-                }
-
-                return redirect()->route('pulling.index');
-            } else if (auth()->user()->role == 'mh') {
-                return redirect()->route('validation.index');
-            } else if (auth()->user()->role == 'injection') {
-                return redirect()->route('pc2b.index');
-            } else if (auth()->user()->role == 'direct') {
-
-                $response = Http::withoutVerifying()->post('https://dea-dev.aiia.co.id/api/v1/auth/login', [
-                    'npk'      => Auth::user()->npk,
-                    'password' => '123456'
-                ]);
-
-                if ($response->successful()) {
-                    $token = json_decode($response->body(), true)['data']['access_token'];
-                    session()->put('token', $token);
-                } else {
-                    return redirect()->back()->with('error', 'Failed to generate token');
-                }
-
-                return redirect()->route('production.direct.index');
-            }
-
-            return redirect()->route('dashboard.index');
+            return redirect()
+                ->back()
+                ->with('error', 'NPK or password do not match our records!');
         }
 
-        RateLimiter::hit($this->throttleKey($request), 60);
+        RateLimiter::clear($this->throttleKey($request));
+        $request->session()->regenerate();
 
-        Log::info('Failed login attempt', [
-            'npk' => $request->input('npk'),
-            'ip'  => $request->ip(),
-        ]);
+        $user = Auth::user();
 
-        return redirect()->back()->with('error', 'Email or password do not match our records!');
+        $redirectRoutes = [
+            'prod'      => 'production.index',
+            'ppic'      => 'pulling.index',
+            'mh'        => 'validation.index',
+            'injection' => 'pc2b.index',
+            'direct'    => 'production.direct.index',
+        ];
+
+        return redirect()->route($redirectRoutes[$user->role] ?? 'dashboard.index');
     }
 
 
