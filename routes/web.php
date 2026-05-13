@@ -60,6 +60,8 @@ Route::middleware(['auth'])->prefix('pis')->group(function () {
 
     // Core Scanning API
     Route::get('/getAjaxImage/{image}/{type}/{dock}', [PisController::class, 'getAjaxImage'])->name('pis.getAjaxImage');
+    /** Gambar PIS dari disk `pis` (nama file boleh ber-spasi; tidak bergantung pada URL static / storage:link). */
+    Route::get('/storage-image', [PisController::class, 'storageImage'])->name('pis.storageImage');
 
     // Master Data Management
     Route::get('/master', [PisController::class, 'PisMasterView'])->name('pis.master');
@@ -269,6 +271,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
         Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
+
     });
 
     // get manifest

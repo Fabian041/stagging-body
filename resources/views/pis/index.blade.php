@@ -378,12 +378,24 @@
             playPisSound('pis-not-match-sound');
         }
 
-        // Base URL gambar lokal PIS (storage/app/public/pis) — spasi → %20 agar browser/static file bisa resolve (storage:link).
-        var pisImageBase = "{{ str_replace(' ', '%20', rtrim(asset('storage/pis'), '/')) }}";
-        var pisImageDefault = "{{ str_replace(' ', '%20', asset('storage/pis/default.JPG')) }}";
+        // Gambar PIS via route Laravel (baca Storage langsung) — aman untuk nama file ber-spasi tanpa mengandalkan symlink/static URL.
+        var pisImageFileEndpoint = "{{ url('/pis/storage-image') }}";
+        var pisImageDefault = pisImageFileEndpoint + "?f={{ rawurlencode('default.JPG') }}";
 
-        // Gambar hanya tampil jika lookup berdasarkan Part Number (Cust) — label yang di-scan = Part Number (Cust).
-        // Hanya gunakan part_number_cust untuk path gambar; Part Number (Int) tidak dipakai.
+        /** Variasi segmen dock pada nama file (legacy / beda konvensi penamaan). */
+        function pisDockFilenameVariants(dockRaw) {
+            var d = (dockRaw || '').toString().trim().toUpperCase();
+            if (!d) d = 'OTHER';
+            var out = [d];
+            if (d.indexOf(' ') !== -1) {
+                out.push(d.replace(/ /g, '_'));
+                out.push(d.replace(/ /g, '-'));
+                out.push(d.replace(/ /g, ''));
+            }
+            return out.filter(function (x, i, arr) { return arr.indexOf(x) === i; });
+        }
+
+        // Lookup gambar dari part_number_cust + type + dock (sama pola backend PisController).
         function setPreviewImage(partNumberInt, partNumberCust) {
             var custRaw = (partNumberCust || '').toString().trim();
             var img = document.getElementById('previewImg');
@@ -405,25 +417,24 @@
             var custNoDash = custSanitized.replace(/-/g, '');
 
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
-            var dock = ($('#dock_type').val() || 'OTHER').toUpperCase();
+            var docks = pisDockFilenameVariants($('#dock_type').val());
 
             var candidates = [];
-            /** Samakan dengan PHP: spasi dalam path/URL jadi %20 (nama file existing tidak diubah). */
-            function pisImageUrlWithEncodedSpaces(path) {
-                return (path || '').toString().replace(/ /g, '%20');
-            }
             var add = function (fileName) {
                 if (fileName) {
-                    candidates.push(pisImageUrlWithEncodedSpaces(pisImageBase + '/' + fileName));
+                    candidates.push(pisImageFileEndpoint + '?f=' + encodeURIComponent(fileName));
                 }
             };
 
-            // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG
-            if (custSanitized) {
-                add(custSanitized + '-' + type + '-' + dock + '.JPG');
-            }
-            if (custNoDash && custNoDash !== custSanitized) {
-                add(custNoDash + '-' + type + '-' + dock + '.JPG');
+            for (var di = 0; di < docks.length; di++) {
+                var dock = docks[di];
+                // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG
+                if (custSanitized) {
+                    add(custSanitized + '-' + type + '-' + dock + '.JPG');
+                }
+                if (custNoDash && custNoDash !== custSanitized) {
+                    add(custNoDash + '-' + type + '-' + dock + '.JPG');
+                }
             }
 
             // Fallback tambahan: hanya [PART_CUST].JPG
@@ -538,7 +549,7 @@
         var lastScannedKanban = ''; // Data kanban terakhir untuk validasi label (label harus ada di kanban)
         // Counter harian untuk scan label part (bukan scan loading list)
         var loadingListScanCount = 0;
-        // Item yang terakhir tervalidasi untuk preview (hanya jika scan label = part_number_cust)
+        // Item terakhir untuk refresh preview saat ganti dock/type (gambar dari part_number_cust di loading list).
         var currentPreviewItem = null;
         // Cooldown scan label: mulai setiap label berhasil di-scan
         var lastScannedLabel = '';
@@ -854,9 +865,7 @@
             if (lastResult && lastResult.matched && lastAppliedPack) {
                 var m = lastResult.matched;
                 $('#detail_no').val(m.part_number_int || '');
-                var normCust = (m.part_number_cust || '').toString().trim().toUpperCase();
-                var cl = (lastAppliedPack.cleanUpper || '').toString();
-                if (normCust && cl && (cl === normCust || cl.indexOf(normCust) !== -1 || normCust.indexOf(cl) !== -1)) {
+                if ((m.part_number_cust || '').toString().trim()) {
                     currentPreviewItem = m;
                     setPreviewImage(m.part_number_int || '', m.part_number_cust || '');
                 } else {
@@ -1593,8 +1602,7 @@
 
                 $('#detail_no').val(matched.part_number_int || '');
 
-                var normCust = (matched.part_number_cust || '').toString().trim().toUpperCase();
-                if (normCust && (cleanUpper === normCust || cleanUpper.indexOf(normCust) !== -1 || normCust.indexOf(cleanUpper) !== -1)) {
+                if ((matched.part_number_cust || '').toString().trim()) {
                     currentPreviewItem = matched;
                     setPreviewImage(matched.part_number_int || '', matched.part_number_cust || '');
                 } else {

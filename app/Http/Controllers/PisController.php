@@ -629,6 +629,46 @@ class PisController extends Controller
         return view('pis.PisPreview', compact('img_path'));
     }
 
+    /**
+     * Stream file gambar dari disk `pis` agar nama ber-spasi tetap terbaca tanpa mengandalkan
+     * URL langsung ke public/storage (encoding server-specific / symlink).
+     */
+    public function storageImage(Request $request)
+    {
+        if (!Auth::check()) {
+            abort(401);
+        }
+
+        $raw = $request->query('f', '');
+        if (!is_string($raw) || $raw === '') {
+            abort(404);
+        }
+
+        $name = basename($raw);
+        if ($name !== $raw || str_contains($name, '..')) {
+            abort(404);
+        }
+
+        if (strlen($name) > 255) {
+            abort(404);
+        }
+
+        // Pola nama PIS: alfanumerik, hubung, underscore, titik (ekstensi), spasi (mis. dock "TMMIN SPD")
+        if (!preg_match('/^[A-Za-z0-9\-_. ]+\.jpe?g$/i', $name)) {
+            abort(404);
+        }
+
+        $disk = Storage::disk('pis');
+        if (!$disk->exists($name)) {
+            abort(404);
+        }
+
+        return $disk->response($name, $name, [
+            'Content-Type' => 'image/jpeg',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
 
     function PisSearch()
     {
