@@ -378,9 +378,9 @@
             playPisSound('pis-not-match-sound');
         }
 
-        // Base URL gambar lokal PIS (storage/app/public/pis) — data tetap dari API
-        var pisImageBase = "{{ asset('storage/pis') }}";
-        var pisImageDefault = "{{ asset('storage/pis/default.JPG') }}";
+        // Base URL gambar lokal PIS (storage/app/public/pis) — spasi → %20 agar browser/static file bisa resolve (storage:link).
+        var pisImageBase = "{{ str_replace(' ', '%20', rtrim(asset('storage/pis'), '/')) }}";
+        var pisImageDefault = "{{ str_replace(' ', '%20', asset('storage/pis/default.JPG')) }}";
 
         // Gambar hanya tampil jika lookup berdasarkan Part Number (Cust) — label yang di-scan = Part Number (Cust).
         // Hanya gunakan part_number_cust untuk path gambar; Part Number (Int) tidak dipakai.
@@ -408,9 +408,13 @@
             var dock = ($('#dock_type').val() || 'OTHER').toUpperCase();
 
             var candidates = [];
+            /** Samakan dengan PHP: spasi dalam path/URL jadi %20 (nama file existing tidak diubah). */
+            function pisImageUrlWithEncodedSpaces(path) {
+                return (path || '').toString().replace(/ /g, '%20');
+            }
             var add = function (fileName) {
                 if (fileName) {
-                    candidates.push(pisImageBase + '/' + encodeURIComponent(fileName));
+                    candidates.push(pisImageUrlWithEncodedSpaces(pisImageBase + '/' + fileName));
                 }
             };
 
