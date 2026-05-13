@@ -378,9 +378,9 @@
             playPisSound('pis-not-match-sound');
         }
 
-        // Gambar PIS via route Laravel (baca Storage langsung) — aman untuk nama file ber-spasi tanpa mengandalkan symlink/static URL.
-        var pisImageFileEndpoint = "{{ url('/pis/storage-image') }}";
-        var pisImageDefault = pisImageFileEndpoint + "?f={{ rawurlencode('default.JPG') }}";
+        // Base URL gambar lokal PIS (storage/app/public/pis) dengan auto-encoding spasi.
+        var pisImageBase = "{{ str_replace(' ', '%20', asset('storage/pis')) }}";
+        var pisImageDefault = "{{ str_replace(' ', '%20', asset('storage/pis/default.JPG')) }}";
 
         /** Variasi segmen dock pada nama file (legacy / beda konvensi penamaan). */
         function pisDockFilenameVariants(dockRaw) {
@@ -391,6 +391,21 @@
                 out.push(d.replace(/ /g, '_'));
                 out.push(d.replace(/ /g, '-'));
                 out.push(d.replace(/ /g, ''));
+            }
+       
+            // Contoh: value UI "TMMIN SPD", tapi file existing bisa "TMMIN-SPD"/"TMMIN_SPD"/"TMMINSPD".
+            var aliasMap = {
+                'TMMIN SPD': ['TMMIN-SPD', 'TMMIN_SPD', 'TMMINSPD'],
+                'TMMIN SPD-ADM': ['TMMIN-SPD-ADM', 'TMMIN_SPD_ADM', 'TMMINSPDADM', 'TMMINSPD-ADM'],
+                'HINO-SPD': ['HINO SPD', 'HINO_SPD', 'HINOSPD'],
+                'SIM-SPD': ['SIM SPD', 'SIM_SPD', 'SIMSPD'],
+                'TAM-SPD': ['TAM SPD', 'TAM_SPD', 'TAMSPD'],
+                'MMKI-SPD': ['MMKI SPD', 'MMKI_SPD', 'MMKISPD']
+            };
+            if (aliasMap[d]) {
+                for (var i = 0; i < aliasMap[d].length; i++) {
+                    out.push(aliasMap[d][i]);
+                }
             }
             return out.filter(function (x, i, arr) { return arr.indexOf(x) === i; });
         }
@@ -408,41 +423,70 @@
                 return;
             }
 
-            // Normalisasi nama file:
-            // - trim
-            // - uppercase
-            // - hanya mengizinkan A–Z, 0–9, dan tanda hubung (-)
+            // Normalisasi part number customer untuk kandidat nama file:
+            // - trim, uppercase
+            // - hanya izinkan A–Z, 0–9, dan '-'
+            // - siapkan beberapa variasi untuk menyesuaikan file legacy (mis. suffix "-00" tidak dipakai di nama file lama)
             var custUpper = custRaw.toUpperCase();
             var custSanitized = custUpper.replace(/[^A-Z0-9-]/g, '');
+
+            function uniq(arr) {
+                var out = [];
+                for (var i = 0; i < arr.length; i++) {
+                    var v = arr[i];
+                    if (v && out.indexOf(v) === -1) out.push(v);
+                }
+                return out;
+            }
+
+            function stripTrailingDashZeros(s) {
+                // Contoh: 16100B9490-00 -> 16100B9490
+                return (s || '').replace(/-0+$/g, '');
+            }
+
+            function stripTrailingZeros(s) {
+                // Contoh: 16100B949000 -> 16100B9490
+                return (s || '').replace(/0+$/g, '');
+            }
+
+            var custSanitizedNoSuffix = stripTrailingDashZeros(custSanitized);
             var custNoDash = custSanitized.replace(/-/g, '');
+            var custNoDashNoSuffix = stripTrailingZeros(custNoDash);
+
+            var custVariants = uniq([
+                custSanitized,
+                custSanitizedNoSuffix,
+                custNoDash,
+                custNoDashNoSuffix
+            ]);
 
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
             var docks = pisDockFilenameVariants($('#dock_type').val());
 
             var candidates = [];
-            var add = function (fileName) {
-                if (fileName) {
-                    candidates.push(pisImageFileEndpoint + '?f=' + encodeURIComponent(fileName));
+            var imageExtensions = ['.JPG', '.jpg', '.JPEG', '.jpeg', '.PNG', '.png'];
+            function pisEncodeSpaces(path) {
+                return (path || '').toString().replace(/ /g, '%20');
+            }
+            var add = function (baseName) {
+                if (baseName) {
+                    for (var ei = 0; ei < imageExtensions.length; ei++) {
+                        candidates.push(pisEncodeSpaces(pisImageBase + '/' + baseName + imageExtensions[ei]));
+                    }
                 }
             };
 
             for (var di = 0; di < docks.length; di++) {
                 var dock = docks[di];
-                // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG
-                if (custSanitized) {
-                    add(custSanitized + '-' + type + '-' + dock + '.JPG');
-                }
-                if (custNoDash && custNoDash !== custSanitized) {
-                    add(custNoDash + '-' + type + '-' + dock + '.JPG');
+                // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG (coba semua variasi cust)
+                for (var ci = 0; ci < custVariants.length; ci++) {
+                    add(custVariants[ci] + '-' + type + '-' + dock);
                 }
             }
 
             // Fallback tambahan: hanya [PART_CUST].JPG
-            if (custSanitized) {
-                add(custSanitized + '.JPG');
-            }
-            if (custNoDash && custNoDash !== custSanitized) {
-                add(custNoDash + '.JPG');
+            for (var c2 = 0; c2 < custVariants.length; c2++) {
+                add(custVariants[c2]);
             }
 
             var idx = 0;
@@ -538,6 +582,21 @@
                 setPreviewImage(currentPreviewItem.part_number_int || '', currentPreviewItem.part_number_cust || '');
             }
         }
+
+        // Init: samakan nilai hidden dengan tombol yang terlihat aktif.
+        // Tanpa ini, default UI dock bisa "TMMIN SPD" tapi #dock_type masih "OTHER" → nama file jadi salah.
+        $(function () {
+            try {
+                var $dockHidden = $('#dock_type');
+                var currentDock = ($dockHidden.val() || '').toString().trim();
+                if (!currentDock || currentDock.toUpperCase() === 'OTHER') {
+                    var $activeDockBtn = $('#dock').find('button.pis-dock-btn.btn-primary:visible').first();
+                    if ($activeDockBtn.length) {
+                        $dockHidden.val($activeDockBtn.val());
+                    }
+                }
+            } catch (e) { }
+        });
 
         var barcode = "";
         var token = ""; // Variabel untuk menyimpan token yang diperoleh setelah login
