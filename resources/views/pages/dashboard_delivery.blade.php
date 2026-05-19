@@ -875,7 +875,8 @@
             height: 24px;
         }
 
-        .delivery-timeline-card .gantt-seg.ontime:only-child {
+        .delivery-timeline-card .gantt-seg.ontime:only-child,
+        .delivery-timeline-card .gantt-seg.overdue:only-child {
             border-radius: 6px;
         }
 
@@ -1361,7 +1362,7 @@
             var ganttCols = 24;
             var etaWindowStorageKey = 'delivery_eta_window_v2';
             var waSentStorageKey = 'delivery_wa_unfinished_sent_v1';
-            /** Bar prep: pernah lewat finish prep & belum 100% → merah, tetap merah sampai 100% */
+            /** Bar prep: pernah lewat finish prep sebelum 100% → merah, tetap merah meski sudah 100% */
             var ganttOverdueLatchStorageKey = 'delivery_gantt_overdue_latched_v1';
             var etaWindowSettings = {
                 eta_offset_hours: 0,
@@ -2150,12 +2151,10 @@
                         if (isOverdueNow) {
                             overdueLatch[latchKey] = true;
                         }
-                        if (progressWidth >= 100) {
-                            delete overdueLatch[latchKey];
-                        }
                         var isOverdue = !!overdueLatch[latchKey];
-                        var barClass = progressWidth >= 100 ? 'ontime' : (isOverdue ? 'overdue' : (
-                            progressWidth > 0 ? 'delay' : 'empty'));
+                        var barClass = progressWidth >= 100 ?
+                            (isOverdue ? 'overdue' : 'ontime') :
+                            (isOverdue ? 'overdue' : (progressWidth > 0 ? 'delay' : 'empty'));
                         var isOvernightPrep = durH > 12;
                         var isInstantPrep = durH < (1 / 60);
                         var barTitle = buildGanttTooltip(row).replace(/"/g, '&quot;') +
@@ -2175,7 +2174,8 @@
                             .val() || '') + '">';
                         gridHtml += '<div class="gantt-bar-stack">';
                         if (progressWidth >= 100) {
-                            gridHtml += '<span class="gantt-seg ontime" style="width:100%"></span>';
+                            gridHtml += '<span class="gantt-seg ' + barClass +
+                                '" style="width:100%"></span>';
                         } else {
                             gridHtml += '<span class="gantt-seg ' + barClass + '" style="width:' +
                                 progressWidth + '%"></span>';
