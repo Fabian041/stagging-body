@@ -1837,7 +1837,8 @@ class LoadingListController extends Controller
         }
 
         $token = env('FASTWA_API_KEY', '793D30579A77D4A0E12648872BFBB085');
-        $phone = env('FASTWA_PHONE', '085971684756');
+        // Grup WA: PPIC DELIVERY BODY ALERT (id 120363425808222838)
+        $phone = env('FASTWA_PHONE', '120363425808222838@g.us');
         $url = env('FASTWA_SEND_URL', 'https://app.fastwa.com/api/v1/4D9AF7CE224B91C9CE14FFDDB55D248D/send_text');
 
         $period = trim((string) ($validated['date_from'] ?? ''));

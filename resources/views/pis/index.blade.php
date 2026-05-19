@@ -423,42 +423,13 @@
                 return;
             }
 
-            // Normalisasi part number customer untuk kandidat nama file:
-            // - trim, uppercase
-            // - hanya izinkan A–Z, 0–9, dan '-'
-            // - siapkan beberapa variasi untuk menyesuaikan file legacy (mis. suffix "-00" tidak dipakai di nama file lama)
+            // Normalisasi nama file:
+            // - trim
+            // - uppercase
+            // - hanya mengizinkan A–Z, 0–9, dan tanda hubung (-)
             var custUpper = custRaw.toUpperCase();
             var custSanitized = custUpper.replace(/[^A-Z0-9-]/g, '');
-
-            function uniq(arr) {
-                var out = [];
-                for (var i = 0; i < arr.length; i++) {
-                    var v = arr[i];
-                    if (v && out.indexOf(v) === -1) out.push(v);
-                }
-                return out;
-            }
-
-            function stripTrailingDashZeros(s) {
-                // Contoh: 16100B9490-00 -> 16100B9490
-                return (s || '').replace(/-0+$/g, '');
-            }
-
-            function stripTrailingZeros(s) {
-                // Contoh: 16100B949000 -> 16100B9490
-                return (s || '').replace(/0+$/g, '');
-            }
-
-            var custSanitizedNoSuffix = stripTrailingDashZeros(custSanitized);
             var custNoDash = custSanitized.replace(/-/g, '');
-            var custNoDashNoSuffix = stripTrailingZeros(custNoDash);
-
-            var custVariants = uniq([
-                custSanitized,
-                custSanitizedNoSuffix,
-                custNoDash,
-                custNoDashNoSuffix
-            ]);
 
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
             var docks = pisDockFilenameVariants($('#dock_type').val());
@@ -478,15 +449,21 @@
 
             for (var di = 0; di < docks.length; di++) {
                 var dock = docks[di];
-                // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG (coba semua variasi cust)
-                for (var ci = 0; ci < custVariants.length; ci++) {
-                    add(custVariants[ci] + '-' + type + '-' + dock);
+                // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG
+                if (custSanitized) {
+                    add(custSanitized + '-' + type + '-' + dock);
+                }
+                if (custNoDash && custNoDash !== custSanitized) {
+                    add(custNoDash + '-' + type + '-' + dock);
                 }
             }
 
             // Fallback tambahan: hanya [PART_CUST].JPG
-            for (var c2 = 0; c2 < custVariants.length; c2++) {
-                add(custVariants[c2]);
+            if (custSanitized) {
+                add(custSanitized);
+            }
+            if (custNoDash && custNoDash !== custSanitized) {
+                add(custNoDash);
             }
 
             var idx = 0;
@@ -582,21 +559,6 @@
                 setPreviewImage(currentPreviewItem.part_number_int || '', currentPreviewItem.part_number_cust || '');
             }
         }
-
-        // Init: samakan nilai hidden dengan tombol yang terlihat aktif.
-        // Tanpa ini, default UI dock bisa "TMMIN SPD" tapi #dock_type masih "OTHER" → nama file jadi salah.
-        $(function () {
-            try {
-                var $dockHidden = $('#dock_type');
-                var currentDock = ($dockHidden.val() || '').toString().trim();
-                if (!currentDock || currentDock.toUpperCase() === 'OTHER') {
-                    var $activeDockBtn = $('#dock').find('button.pis-dock-btn.btn-primary:visible').first();
-                    if ($activeDockBtn.length) {
-                        $dockHidden.val($activeDockBtn.val());
-                    }
-                }
-            } catch (e) { }
-        });
 
         var barcode = "";
         var token = ""; // Variabel untuk menyimpan token yang diperoleh setelah login
@@ -1003,12 +965,106 @@
             return str;
         }
 
-        // Hapus dua karakter terakhir dari hasil scan (sampah yang ikut terbaca)
+        // Hapus dua karakter terakhir dari hasil scan (sampah yang ikut terbaca — khusus loading list)
         function stripLastTwoChars(s) {
             if (!s) return '';
             var str = ('' + s).trim();
-            if (str.length <= 1) return str;
-            return str.substring(0, str.length - 1);
+            if (str.length <= 2) return str;
+            return str.substring(0, str.length - 2);
+        }
+
+        function pisEscapeRegex(s) {
+            return ('' + s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        /** Token part di kanban harus match utuh (bukan substring panjang, mis. ...A1 vs ...A14). */
+        function pisKanbanHasExactPartToken(kanbanUpper, tokenUpper) {
+            if (!tokenUpper || !kanbanUpper) return false;
+            var re = new RegExp('(?:^|[^A-Z0-9])' + pisEscapeRegex(tokenUpper) + '(?:[^A-Z0-9]|$)');
+            return re.test(kanbanUpper);
+        }
+
+        /**
+         * Normalisasi scan label part: cocokkan ke part_number di loading list.
+         * Jika scanner menambah 1–2 karakter di akhir (mis. 69210VT010A14 → 69210VT010A1), dipakai nilai kanonik LL.
+         */
+        function pisNormalizePartLabelScan(rawScanned) {
+            var base = cleanBarcode(rawScanned || '');
+            var first = base.split(/\s{2,}/)[0].trim();
+            if (!first) {
+                return { label: '', labelUpper: '', scannedRaw: '' };
+            }
+            var upper = first.toUpperCase();
+            var items = getSortedLoadingListItemsForMatch();
+            var bestCanonical = null;
+            var bestLen = -1;
+
+            function considerCanonical(canonical) {
+                if (!canonical) return;
+                var c = canonical.toString().trim();
+                if (!c) return;
+                var cu = c.toUpperCase();
+                var scanCmp = upper;
+                if (pisIsDockMmkiSpd()) {
+                    scanCmp = pisMmkiSpdStripRevisionSuffix(upper);
+                    cu = pisMmkiSpdStripRevisionSuffix(cu);
+                }
+                if (scanCmp === cu && cu.length > bestLen) {
+                    bestLen = cu.length;
+                    bestCanonical = canonical.toString().trim();
+                    return;
+                }
+                if (scanCmp.indexOf(cu) === 0) {
+                    var tail = scanCmp.substring(cu.length);
+                    if (tail.length >= 1 && tail.length <= 2 && /^[A-Z0-9]+$/.test(tail) && cu.length > bestLen) {
+                        bestLen = cu.length;
+                        bestCanonical = canonical.toString().trim();
+                    }
+                }
+            }
+
+            (items || []).forEach(function (item) {
+                considerCanonical(item.part_number_cust);
+                considerCanonical(item.part_number_int);
+            });
+
+            var label = bestCanonical || first;
+            return {
+                label: label,
+                labelUpper: label.toUpperCase(),
+                scannedRaw: first
+            };
+        }
+
+        /** Label part valid jika ada sebagai token utuh di kanban (bukan indexOf pada string panjang). */
+        function pisLabelExistsInKanban(labelUpper, kanbanStr) {
+            if (!labelUpper || !kanbanStr) return false;
+            var kanbanUpper = kanbanStr.toUpperCase();
+
+            var tokens = kanbanUpper.split(/\s+/).filter(function (t) { return t && t.length > 0; });
+            for (var i = 0; i < tokens.length; i++) {
+                var tok = tokens[i];
+                if (tok === labelUpper) return true;
+                if (pisIsDockMmkiSpd()) {
+                    if (pisMmkiSpdStripRevisionSuffix(tok) === labelUpper) return true;
+                    if (pisMmkiSpdStripRevisionSuffix(labelUpper) === tok) return true;
+                }
+            }
+
+            if (pisKanbanHasExactPartToken(kanbanUpper, labelUpper)) return true;
+            if (pisIsDockMmkiSpd()) {
+                var mmkiLabel = pisMmkiSpdStripRevisionSuffix(labelUpper);
+                if (mmkiLabel && pisKanbanHasExactPartToken(kanbanUpper, mmkiLabel)) return true;
+            }
+
+            var fromKanban = extractCustomerPartFromKanban(kanbanStr);
+            if (fromKanban) {
+                var fk = fromKanban.toUpperCase();
+                if (fk === labelUpper) return true;
+                if (pisIsDockMmkiSpd() && pisMmkiSpdStripRevisionSuffix(labelUpper) === fk) return true;
+            }
+
+            return false;
         }
 
         // Ekstrak Part No Customer dari string kanban berdasarkan loading list aktif.
@@ -1491,8 +1547,11 @@
                 return;
             }
 
-            // --- LOGIKA PEMBERSIHAN BARCODE ---
-            var cleanLabel = raw.split(/\s{2,}/)[0].trim();
+            // --- LOGIKA PEMBERSIHAN BARCODE (normalisasi suffix scanner + match ke LL) ---
+            var norm = pisNormalizePartLabelScan(raw);
+            var cleanLabel = norm.label;
+            var cleanUpper = norm.labelUpper;
+            var scannedRaw = norm.scannedRaw || raw;
             var matched = null;
 
             // Helper: ambil part number customer (kombinasi angka + huruf, mis. 8281074820WBY) dari string kanban
@@ -1512,25 +1571,14 @@
                 return matches[matches.length - 1];
             }
 
-            // 1. Validasi: Apakah part ada di dalam Kanban?
-            var kanbanUpper = (lastScannedKanban || '').toUpperCase();
-            var rawUpper = raw.toUpperCase();
-            var cleanUpper = cleanLabel.toUpperCase();
-
-            var existsInKanban = (kanbanUpper.indexOf(rawUpper) !== -1 || kanbanUpper.indexOf(cleanUpper) !== -1);
-            if (pisIsDockMmkiSpd()) {
-                var mmkiRawBase = pisMmkiSpdStripRevisionSuffix(rawUpper);
-                var mmkiCleanBase = pisMmkiSpdStripRevisionSuffix(cleanUpper);
-                existsInKanban = existsInKanban
-                    || (mmkiRawBase && kanbanUpper.indexOf(mmkiRawBase) !== -1)
-                    || (mmkiCleanBase && kanbanUpper.indexOf(mmkiCleanBase) !== -1);
-            }
+            // 1. Validasi: part harus ada sebagai token utuh di kanban (hindari false positive ...A1 di ...A14)
+            var existsInKanban = pisLabelExistsInKanban(cleanUpper, lastScannedKanban);
 
             // INTERLOCK (1): Scan kanban Part A lalu scan label Part B yang tidak sesuai — wajib verifikasi JP/Leader
             if (!lastScannedKanban || !existsInKanban) {
                 $('#status-container').removeClass('alert-success').addClass('alert-danger');
                 $('#alert-header').html('<i class="fas fa-lock"></i> Interlock: Label Tidak Sesuai Kanban');
-                $('#alert-body').text('Label "' + (cleanLabel || raw) + '" tidak sesuai kanban. Proses dihentikan. Hubungi JP/Leader untuk verifikasi.');
+                $('#alert-body').text('Label "' + (scannedRaw || cleanLabel) + '" tidak sesuai kanban. Proses dihentikan. Hubungi JP/Leader untuk verifikasi.');
                 pisErrorSound();
 
                 // Log interlock: label tidak sesuai kanban
@@ -1542,7 +1590,7 @@
                         message: 'Interlock: Label tidak sesuai Kanban',
                         // Simpan hanya part number customer dari kanban, bukan seluruh string panjang
                         expected: extractPartFromKanban(lastScannedKanban) || '',
-                        scanned: cleanLabel || raw
+                        scanned: scannedRaw || cleanLabel
                     }
                 });
 
@@ -1576,9 +1624,8 @@
 
             hidePisSameLabelCooldownUi();
 
-            // 3. PENCARIAN ITEM DI LOADING LIST (urutan LL di tabel; part sama di beberapa LL tanpa klik prioritas)
+            // 3. PENCARIAN ITEM DI LOADING LIST — exact match pada label yang sudah dinormalisasi
             var sortedItems = getSortedLoadingListItemsForMatch();
-            // Tahap A: Match Exact
             var mmkiScanBase = pisIsDockMmkiSpd() ? pisMmkiSpdStripRevisionSuffix(cleanUpper) : '';
             for (var i = 0; i < sortedItems.length; i++) {
                 var item = sortedItems[i];
@@ -1587,7 +1634,7 @@
                 var pcust = (item.part_number_cust || '').toString().trim();
                 var pint = (item.part_number_int || '').toString().trim();
 
-                if (pcust === raw || pcust === cleanLabel || pint === raw || pint === cleanLabel) {
+                if (pcust.toUpperCase() === cleanUpper || pint.toUpperCase() === cleanUpper) {
                     matched = item;
                     break;
                 }
@@ -1596,36 +1643,6 @@
                     if (pcust.toUpperCase() === mmkiScanBase || pint.toUpperCase() === mmkiScanBase) {
                         matched = item;
                         break;
-                    }
-                }
-            }
-
-            // Tahap B: Match Contains (Jika exact match tidak ditemukan)
-            if (!matched) {
-                for (var j = 0; j < sortedItems.length; j++) {
-                    var it = sortedItems[j];
-                    if ((it.remaining || 0) <= 0) continue;
-
-                    var pcust2 = (it.part_number_cust || '').toString().toUpperCase();
-                    var pint2 = (it.part_number_int || '').toString().toUpperCase();
-
-                    if (pcust2 && (cleanUpper.indexOf(pcust2) !== -1 || pcust2.indexOf(cleanUpper) !== -1)) {
-                        matched = it;
-                        break;
-                    }
-                    if (pint2 && (cleanUpper.indexOf(pint2) !== -1 || pint2.indexOf(cleanUpper) !== -1)) {
-                        matched = it;
-                        break;
-                    }
-                    if (pisIsDockMmkiSpd() && mmkiScanBase) {
-                        if (pcust2 && (mmkiScanBase === pcust2 || mmkiScanBase.indexOf(pcust2) !== -1 || pcust2.indexOf(mmkiScanBase) !== -1)) {
-                            matched = it;
-                            break;
-                        }
-                        if (pint2 && (mmkiScanBase === pint2 || mmkiScanBase.indexOf(pint2) !== -1 || pint2.indexOf(mmkiScanBase) !== -1)) {
-                            matched = it;
-                            break;
-                        }
                     }
                 }
             }
@@ -1653,7 +1670,8 @@
                     part_number_int: matched.part_number_int || '',
                     part_number_cust: matched.part_number_cust || '',
                     loading_list_number: (matched.loading_list_number || '').toString().trim(),
-                    rawLabel: raw,
+                    rawLabel: cleanLabel,
+                    scannedRaw: scannedRaw,
                     cleanLabel: cleanLabel,
                     cleanUpper: cleanUpper
                 });
@@ -1693,7 +1711,7 @@
                 // JIKA TIDAK ADA YANG COCOK DI LOADING LIST
                 $('#status-container').removeClass('alert-success').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Tidak Cocok');
-                $('#alert-body').text('Part "' + cleanLabel + '" tidak ada dalam daftar loading list atau qty sudah terpenuhi.');
+                $('#alert-body').text('Part "' + (scannedRaw || cleanLabel) + '" tidak ada dalam daftar loading list atau qty sudah terpenuhi.');
                 pisErrorSound();
                 // Restore scroll position untuk kasus ini
                 $(window).scrollTop(_savedScrollTop);
