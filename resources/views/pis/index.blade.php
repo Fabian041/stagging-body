@@ -1065,10 +1065,11 @@
             if (scan === part) return true;
             if (pisIsDockMmkiSpd() && pisMmkiSpdStripRevisionSuffix(scan) === part) return true;
 
-            // Scan lebih panjang dari LL: buang 1 digit ekstra di akhir scanner (mis. ...A14 → ...A1)
+            // Scan lebih panjang dari LL: sufiks numerik di akhir label (mis. 5716A707YD0001 vs LL 5716A707YD),
+            // atau 1 digit artefak scanner (mis. ...A14 vs ...A1). Batasi panjang sufiks agar selaras dengan cabang di bawah.
             if (scan.length > part.length && scan.indexOf(part) === 0) {
                 var scanExtra = scan.substring(part.length);
-                if (/^[0-9]{1}$/.test(scanExtra)) return true;
+                if (/^[0-9]{1,6}$/.test(scanExtra)) return true;
             }
 
             // Scan lebih pendek dari LL: label tidak membawa suffix penuh (mis. 15100BZ060 vs 15100BZ06000)
