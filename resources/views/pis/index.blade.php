@@ -64,7 +64,7 @@
                                 <div class="card-body p-2">
                                     <div class="row no-gutters align-items-stretch">
                                         <div class="col-12">
-                                            <button type="button" class="btn btn-lg btn-outline-danger" id="pis-btn-delay" style="border-radius: 40px; width: 100%; min-height: 50px; font-size: 1.15rem;">
+                                            <button type="button" class="btn btn-lg btn-outline-danger" id="pis-btn-delay" tabindex="-1" style="border-radius: 40px; width: 100%; min-height: 50px; font-size: 1.15rem;">
                                                 <i class="fas fa-pause-circle"></i> Delay
                                             </button>
                                         </div>
@@ -80,6 +80,25 @@
                                         <i class="fas fa-expand"></i> Fullscreen
                                     </button>
                                 </div>
+                                <div class="card border mt-1" style="border-radius: 12px;">
+                                <div class="p-2" style="padding-left: 10px;">
+                                    <strong>Action Confirm Packing</strong>
+                                </div>
+                                <div class="card-body p-2">
+                                    <div class="row no-gutters align-items-stretch">
+                                        <div class="col-12 mb-1">
+                                            <button type="button" class="btn btn-lg btn-success" id="pis-btn-confirm-packing" disabled style="border-radius: 40px; width: 100%; min-height: 54px; font-size: 1.07rem;">
+                                                <i class="fas fa-check-double"></i> Confirm Packing
+                                        </button>
+                                        </div>
+                                        <div class="col-12 mb-2">
+                                            <div class="text-center small text-muted">
+                                                Menunggu konfirmasi: <strong id="pis-pending-count">0</strong> label
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             </div>
                         </div>
 
@@ -156,7 +175,6 @@
                                         <button value="MMKI" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI</button>
                                         <button value="MMKI-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-SPD</button>
                                         <button value="6I" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">6I</button>
-                                        <button value="TAM-SPD" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-SPD</button>
                                         <button value="TAM-ADM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-ADM</button>
                                         <button value="TAM-HINO" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-HINO</button>
                                         <button value="ADM-AS" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">ADM-AS</button>
@@ -164,11 +182,11 @@
                                         <button value="YHA" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">YHA</button>
                                         <button value="ADM" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">ADM</button>
                                         <button value="TTI" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TTI</button>
-                                        <input id="dock_type" value="OTHER" type="hidden">
+                                        <input id="dock_type" value="TMMIN SPD" type="hidden">
                                     </div>
                                 </div>
                             </div>
-                            <div class="card border mt-1" style="border-radius: 12px;">
+                            <!-- <div class="card border mt-1" style="border-radius: 12px;">
                                 <div class="p-2" style="padding-left: 10px;">
                                     <strong>Action Confirm Packing</strong>
                                 </div>
@@ -184,7 +202,7 @@
                                                 Menunggu konfirmasi: <strong id="pis-pending-count">0</strong> label
                                             </div>
                                         </div>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                 </div>
@@ -329,6 +347,28 @@
             background-color: #fff3cd;
             border-color: #ffc107;
         }
+
+        /* Delay: default putih; hindari state focus/active tertahan di touchscreen (tampak merah penuh) */
+        #pis-btn-delay {
+            background-color: #fff !important;
+            color: #dc3545 !important;
+            border-color: #dc3545 !important;
+        }
+
+        #pis-btn-delay:hover {
+            background-color: #dc3545 !important;
+            color: #fff !important;
+        }
+
+        #pis-btn-delay:focus,
+        #pis-btn-delay:active,
+        #pis-btn-delay.active,
+        #pis-btn-delay.focus {
+            background-color: #fff !important;
+            color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            box-shadow: none !important;
+        }
     </style>
 
     {{-- Modal konfirmasi JP/Leader (interlock: label tidak sesuai / pindah part sebelum selesai) --}}
@@ -417,7 +457,7 @@
             var custNoDash = custSanitized.replace(/-/g, '');
 
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
-            var docks = pisDockFilenameVariants($('#dock_type').val());
+            var docks = pisDockFilenameVariants(pisGetDockType());
 
             var candidates = [];
             var add = function (fileName) {
@@ -539,6 +579,50 @@
             }
         }
 
+        /** Dock aktif: tombol primary di UI (sumber kebenaran), fallback ke hidden #dock_type. */
+        function pisGetDockType() {
+            var $primary = $('#dock').find('button.pis-dock-btn.btn-primary:visible').first();
+            if (!$primary.length) {
+                $primary = $('#dock').find('button.pis-dock-btn.btn-primary').first();
+            }
+            if ($primary.length) {
+                var fromBtn = ($primary.attr('value') || '').toString().trim();
+                if (fromBtn) {
+                    $('#dock_type').val(fromBtn);
+                    return fromBtn;
+                }
+            }
+            return ($('#dock_type').val() || 'TMMIN SPD').toString().trim();
+        }
+
+        function pisUpdateScanContextOnServer(meta) {
+            if (!meta || !meta.loading_list_number) return;
+            $.ajax({
+                url: '{{ url("pis/save-scan") }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    delivery_type: ($('#delivery_type').val() || 'OEM'),
+                    dock_type: pisGetDockType(),
+                    loading_list_number: meta.loading_list_number,
+                    pds_number: meta.pds_number || '',
+                    cycle: meta.cycle || '',
+                    delivery_date: meta.delivery_date || '',
+                    shipping_date: meta.shipping_date || '',
+                    customer_id: meta.customer_id || null,
+                    customer_code: meta.customer_code || null,
+                    customer_name: meta.customer_name || null,
+                    items: meta.items || []
+                },
+                success: function (response) {
+                    console.log('PIS scan context saved:', response);
+                },
+                error: function (xhr) {
+                    console.error('Failed to save PIS scan context:', xhr);
+                }
+            });
+        }
+
         var barcode = "";
         var token = ""; // Variabel untuk menyimpan token yang diperoleh setelah login
         var stage = 1; // 1 = scan loading list, 2 = scan kanban, 3 = scan label (decrement quantity)
@@ -546,7 +630,7 @@
         var pisLoadingListGroups = []; // { loadingListNumber, displayName, pds_number, items: [] } — terpisah per LL di UI
         var pisSessionPdsNumber = ''; // PDS sesi: LL tambahan wajib sama
         var currentLoadingListNumber = ''; // LL terakhir di-scan (log/API); match part memakai semua LL sesi secara setara
-        var lastScannedKanban = ''; // Data kanban terakhir untuk validasi label (label harus ada di kanban)
+        var lastScannedKanban = ''; // String kanban penuh terakhir — validasi label (part harus ada di kanban)
         // Counter harian untuk scan label part (bukan scan loading list)
         var loadingListScanCount = 0;
         // Item terakhir untuk refresh preview saat ganti dock/type (gambar dari part_number_cust di loading list).
@@ -688,6 +772,49 @@
             return true;
         }
 
+        /** Nomor LL (11 char) yang sudah dimuat di sesi PIS ini. */
+        function pisGetSessionLoadingListNumbers() {
+            var nums = [];
+            for (var gi = 0; gi < pisLoadingListGroups.length; gi++) {
+                var n = (pisLoadingListGroups[gi].loadingListNumber || '').toString().trim().toUpperCase();
+                if (n && nums.indexOf(n) === -1) nums.push(n);
+            }
+            if (!nums.length && currentLoadingListNumber) {
+                nums.push(currentLoadingListNumber.toString().trim().toUpperCase());
+            }
+            return nums;
+        }
+
+        /** Kanban wajib memuat minimal satu nomor Loading List sesi (mis. C365A494520). */
+        function pisKanbanContainsSessionLoadingList(kanbanStr) {
+            var upper = (kanbanStr || '').toString().toUpperCase();
+            if (!upper) return false;
+            var sessionLls = pisGetSessionLoadingListNumbers();
+            if (!sessionLls.length) return true;
+            for (var i = 0; i < sessionLls.length; i++) {
+                if (sessionLls[i] && upper.indexOf(sessionLls[i]) !== -1) return true;
+            }
+            return false;
+        }
+
+        /**
+         * Scan pendek yang hanya berisi part cust (label) — bukan kanban panjang / berisi LL.
+         * Dipakai di stage 2 agar label tidak lolos sebagai kanban.
+         */
+        function pisIsLikelyLabelOnlyBarcode(scanStr, extractedPart) {
+            var s = (scanStr || '').toString().trim();
+            if (!s) return false;
+            if (s.length > 100) return false;
+            if (pisKanbanContainsSessionLoadingList(s)) return false;
+            var tokens = s.split(/\s+/).filter(function (t) { return t && t.length > 0; });
+            if (tokens.length >= 4) return false;
+            var part = (extractedPart || '').toString().trim().toUpperCase();
+            var upper = s.toUpperCase();
+            if (part && upper === part) return true;
+            if (s.length <= 32 && tokens.length <= 1) return true;
+            return false;
+        }
+
         /** Interlock: satu label valid boleh antre; scan berikutnya baru setelah Confirm Packing. */
         function pisHasPendingLabelPack() {
             return pendingLabelPacks.length > 0;
@@ -821,6 +948,7 @@
                         matchedItem = it;
                         break;
                     }
+
                 }
                 if (!matchedItem) continue;
 
@@ -916,13 +1044,95 @@
 
         /** Dock MMKI-SPD: kasus khusus label fisik berbentuk BASE-001 sementara API/LL/kanban hanya BASE. */
         function pisIsDockMmkiSpd() {
-            return ($('#dock_type').val() || '').toString().trim().toUpperCase() === 'MMKI-SPD';
+            return pisGetDockType().toUpperCase() === 'MMKI-SPD';
         }
 
         /** Hanya untuk MMKI-SPD: buang suffix revisi/lot berupa - + angka di akhir (contoh 5716A714HC-001 → 5716A714HC). */
         function pisMmkiSpdStripRevisionSuffix(s) {
             if (!s) return '';
             return ('' + s).toUpperCase().trim().replace(/-\d+$/, '');
+        }
+
+        /**
+         * Validasi tambahan: scan label harus cocok dengan part di Loading List.
+         * Mencegah false positive contains (69210VT010A14 vs LL 69210VT010A1) tetapi tetap
+         * mengizinkan artefak scanner: digit ekstra di akhir, atau label lebih pendek dari LL.
+         */
+        function pisIsLabelStrictMatchWithLlPart(scanStr, partStr) {
+            var scan = (scanStr || '').toString().trim().toUpperCase();
+            var part = (partStr || '').toString().trim().toUpperCase();
+            if (!scan || !part) return false;
+            if (scan === part) return true;
+            if (pisIsDockMmkiSpd() && pisMmkiSpdStripRevisionSuffix(scan) === part) return true;
+
+            // Scan lebih panjang dari LL: buang 1 digit ekstra di akhir scanner (mis. ...A14 → ...A1)
+            if (scan.length > part.length && scan.indexOf(part) === 0) {
+                var scanExtra = scan.substring(part.length);
+                if (/^[0-9]{1}$/.test(scanExtra)) return true;
+            }
+
+            // Scan lebih pendek dari LL: label tidak membawa suffix penuh (mis. 15100BZ060 vs 15100BZ06000)
+            if (part.length > scan.length && part.indexOf(scan) === 0) {
+                var partTail = part.substring(scan.length);
+                if (/^[0-9]{1,6}$/.test(partTail)) return true;
+            }
+
+            return false;
+        }
+
+        /** Tambahan: label (dengan suffix scanner) cocok part LL yang juga ada di string kanban. */
+        function pisLabelMatchesKanban(scanUpper, kanbanUpper) {
+            if (!scanUpper || !kanbanUpper) return false;
+            var items = loadingListItems || [];
+            for (var i = 0; i < items.length; i++) {
+                var candidates = [
+                    (items[i].part_number_cust || '').toString().trim().toUpperCase(),
+                    (items[i].part_number_int || '').toString().trim().toUpperCase()
+                ];
+                for (var c = 0; c < candidates.length; c++) {
+                    var part = candidates[c];
+                    if (!part || kanbanUpper.indexOf(part) === -1) continue;
+                    if (pisIsLabelStrictMatchWithLlPart(scanUpper, part)) return true;
+                }
+            }
+            return false;
+        }
+
+        /** Apakah scan (raw atau bersih) exact match ke part_number_cust / part_number_int item LL. */
+        function pisIsLabelStrictMatchWithLlItem(cleanLabel, raw, item) {
+            if (!item) return false;
+            var pcust = (item.part_number_cust || '').toString().trim();
+            var pint = (item.part_number_int || '').toString().trim();
+            var labels = [(cleanLabel || '').toString(), (raw || '').toString()];
+            for (var li = 0; li < labels.length; li++) {
+                var lb = labels[li];
+                if (!lb) continue;
+                if (pisIsLabelStrictMatchWithLlPart(lb, pcust) || pisIsLabelStrictMatchWithLlPart(lb, pint)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /** Cari baris LL yang cocok persis dengan label (tanpa substring / indexOf). */
+        function pisFindLlItemByStrictLabelMatch(cleanLabel, raw) {
+            var sortedItems = getSortedLoadingListItemsForMatch();
+            for (var i = 0; i < sortedItems.length; i++) {
+                var item = sortedItems[i];
+                if (toQtyNumber(item.remaining) <= 0) continue;
+                if (pisIsLabelStrictMatchWithLlItem(cleanLabel, raw, item)) {
+                    return item;
+                }
+            }
+            return null;
+        }
+
+        function pisDescribeLlPartForMismatch(item) {
+            if (!item) return '-';
+            var c = (item.part_number_cust || '').toString().trim();
+            var p = (item.part_number_int || '').toString().trim();
+            if (c && p && c !== p) return c + ' / ' + p;
+            return c || p || '-';
         }
 
         function cleanBarcode(s) {
@@ -953,29 +1163,36 @@
         }
 
         // Ekstrak Part No Customer dari string kanban berdasarkan loading list aktif.
-        // Hanya mengembalikan nilai yang benar-benar sama dengan part_number_cust di loading list.
+        // Prioritas: part yang LL-nya juga ada di string kanban (membedakan kanban vs label part saja).
         function extractCustomerPartFromKanban(kanbanStr) {
             if (!kanbanStr) return '';
             var upper = kanbanStr.toUpperCase();
+            var kanbanHasLl = pisKanbanContainsSessionLoadingList(kanbanStr);
 
-            // Pecah string kanban menjadi token berdasarkan spasi/tab
             var tokens = upper.split(/\s+/).filter(function(t) { return t && t.trim().length > 0; });
             if (!tokens.length) return '';
 
             var bestMatch = '';
             var bestLen = -1;
+            var bestWithLl = '';
+            var bestWithLlLen = -1;
 
             try {
                 (loadingListItems || []).forEach(function(item) {
                     var cust = (item.part_number_cust || '').toString().toUpperCase().trim();
                     if (!cust) return;
+                    var itemLl = (item.loading_list_number || '').toString().trim().toUpperCase();
+                    var llInKanban = itemLl && upper.indexOf(itemLl) !== -1;
                     for (var i = 0; i < tokens.length; i++) {
                         var tok = tokens[i];
-                        // Token harus sama persis dengan part_number_cust (ignore case)
                         var exact = tok === cust;
-                        // MMKI-SPD: token di kanban bisa BASE-001 sedangkan LL/API = BASE
                         var mmkiAlias = pisIsDockMmkiSpd() && pisMmkiSpdStripRevisionSuffix(tok) === cust;
-                        if ((exact || mmkiAlias) && cust.length > bestLen) {
+                        if (!exact && !mmkiAlias) continue;
+                        if (kanbanHasLl && llInKanban && cust.length > bestWithLlLen) {
+                            bestWithLlLen = cust.length;
+                            bestWithLl = cust;
+                        }
+                        if (cust.length > bestLen) {
                             bestLen = cust.length;
                             bestMatch = cust;
                         }
@@ -985,8 +1202,7 @@
                 // Abaikan error
             }
 
-            // Jika tidak ada yang match persis dengan part_number_cust di loading list, anggap tidak valid
-            return bestMatch || '';
+            return bestWithLl || bestMatch || '';
         }
 
         function updateStepIndicator() {
@@ -1209,6 +1425,7 @@
             lastScannedLabel = '';
             lastScannedLabelTime = 0;
             lastLabelCooldownStartTime = 0;
+            clearSameLabelCountdown();
             barcode = '';
             pendingJpAction = null;
             pendingScanBarcode = null;
@@ -1272,12 +1489,11 @@
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
-            // Hanya ambil bagian Part No Customer yang relevan dengan loading list aktif
+            var fullKanbanUpper = fullKanbanRaw.toUpperCase();
             var extractedPart = extractCustomerPartFromKanban(fullKanbanRaw);
-            // raw = nilai yang akan dipakai untuk semua proses selanjutnya (hanya part no customer)
-            var raw = extractedPart || fullKanbanRaw;
+            var kanbanPart = extractedPart || '';
 
-            if (!raw) {
+            if (!fullKanbanRaw) {
                 $('#status-container').removeClass('alert-success').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Kanban Kosong');
                 $('#alert-body').text('Data kanban tidak valid.');
@@ -1285,6 +1501,42 @@
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
+
+            if (pisIsLikelyLabelOnlyBarcode(fullKanbanRaw, extractedPart)) {
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-tag"></i> Ini Label Part');
+                $('#alert-body').text(
+                    'Scan "' + (kanbanPart || fullKanbanRaw) + '" adalah label part, bukan kanban. '
+                    + 'Scan kanban fisik (baris panjang yang memuat nomor Loading List).'
+                );
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            if (!pisKanbanContainsSessionLoadingList(fullKanbanRaw)) {
+                var llHint = pisGetSessionLoadingListNumbers().join(', ') || '(belum ada)';
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-times-circle"></i> Kanban Tidak Cocok LL');
+                $('#alert-body').text(
+                    'Kanban harus memuat nomor Loading List sesi: ' + llHint + '. '
+                    + 'Periksa apakah yang di-scan bukan label part saja.'
+                );
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            if (!kanbanPart) {
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-times-circle"></i> Part Tidak di LL');
+                $('#alert-body').text('Part di kanban tidak ditemukan di Loading List aktif.');
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            var kanbanContent = fullKanbanUpper;
 
             // --- LOGIKA VALIDASI: Cek apakah Part di dalam Kanban ini sudah terpenuhi (QTY 0) ---
             var isAlreadyFinished = false;
@@ -1294,7 +1546,6 @@
                 var item = loadingListItems[i];
                 var pInt = (item.part_number_int || '').toString().toUpperCase();
                 var pCust = (item.part_number_cust || '').toString().toUpperCase();
-                var kanbanContent = raw.toUpperCase();
 
                 // Cek apakah Part Number (Int atau Cust) ada di dalam string Barcode Kanban
                 if ((pInt && kanbanContent.indexOf(pInt) !== -1) || (pCust && kanbanContent.indexOf(pCust) !== -1)) {
@@ -1365,18 +1616,17 @@
                         source: 'pis',
                         message: 'Interlock: Pindah part sebelum selesai',
                         expected: partNames,
-                        // simpan hanya Part No Customer hasil ekstraksi, bukan seluruh isi string kanban
-                        scanned: extractedPart || raw
+                        scanned: kanbanPart
                     }
                 });
 
                 $(window).scrollTop(_savedScrollTop);
-                var kanbanRawToApply = raw;
+                var kanbanFullToApply = fullKanbanRaw;
                 showJpConfirmationThen(function() {
                     // Interlock dibuka → anggap kanban ini sebagai konteks aktif BARU.
                     // Jangan biarkan state part sebelumnya memaksa user menyelesaikan part lama.
                     resetActiveKanbanContext();
-                    lastScannedKanban = kanbanRawToApply;
+                    lastScannedKanban = kanbanFullToApply;
                     setSessionStartedPartsFromKanban(partsInThisKanban);
                     stage = 3;
                     updateStepIndicator();
@@ -1394,14 +1644,15 @@
                 var k = getPartSessionKey(p);
                 if (k && partsStartedInCurrentSession.indexOf(k) === -1) partsStartedInCurrentSession.push(k);
             });
-            // Simpan ke state interlock hanya bagian Part No Customer yang sudah diproses
-            lastScannedKanban = raw;
+            lastScannedKanban = fullKanbanRaw;
             stage = 3;
             updateStepIndicator();
 
             $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-warning');
             $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK');
-            $('#alert-body').text('Kanban diterima. Silahkan scan LABEL PART.');
+            $('#alert-body').text(
+                'Kanban diterima (LL + part ' + kanbanPart + '). Silahkan scan LABEL PART.'
+            );
             pisOkSound();
             
             $(window).scrollTop(_savedScrollTop);
@@ -1458,7 +1709,9 @@
             var rawUpper = raw.toUpperCase();
             var cleanUpper = cleanLabel.toUpperCase();
 
-            var existsInKanban = (kanbanUpper.indexOf(rawUpper) !== -1 || kanbanUpper.indexOf(cleanUpper) !== -1);
+            var existsInKanban = (kanbanUpper.indexOf(rawUpper) !== -1 || kanbanUpper.indexOf(cleanUpper) !== -1)
+                || pisLabelMatchesKanban(rawUpper, kanbanUpper)
+                || pisLabelMatchesKanban(cleanUpper, kanbanUpper);
             if (pisIsDockMmkiSpd()) {
                 var mmkiRawBase = pisMmkiSpdStripRevisionSuffix(rawUpper);
                 var mmkiCleanBase = pisMmkiSpdStripRevisionSuffix(cleanUpper);
@@ -1569,6 +1822,38 @@
                         }
                     }
                 }
+            }
+
+            // --- Cek tambahan: label harus exact match part di LL (setelah logika match lama tetap jalan) ---
+            if (matched && !pisIsLabelStrictMatchWithLlItem(cleanLabel, raw, matched)) {
+                var strictOnly = pisFindLlItemByStrictLabelMatch(cleanLabel, raw);
+                if (strictOnly) {
+                    matched = strictOnly;
+                }
+            }
+            if (matched && !pisIsLabelStrictMatchWithLlItem(cleanLabel, raw, matched)) {
+                var scannedShow = cleanLabel || raw;
+                var llPartShow = pisDescribeLlPartForMismatch(matched);
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-times-circle"></i> Label Tidak Cocok LL');
+                $('#alert-body').text(
+                    'Scan "' + scannedShow + '" tidak sama persis dengan part di Loading List ("' + llPartShow + '"). '
+                    + 'Periksa karakter tambahan di akhir barcode (contoh: ...A14 vs ...A1).'
+                );
+                pisErrorSound();
+                $.ajax({
+                    url: '{{ url("error/store") }}',
+                    type: 'GET',
+                    data: {
+                        source: 'pis',
+                        message: 'Label scan tidak exact match dengan part Loading List',
+                        expected: llPartShow,
+                        scanned: scannedShow
+                    }
+                });
+                $(window).scrollTop(_savedScrollTop);
+                $('#part_number_loading').hide();
+                return;
             }
 
             // 4. JIKA ITEM DITEMUKAN (MATCHED) — simpan ke antrean frontend (maks. 1 label sampai Confirm Packing)
@@ -1859,6 +2144,16 @@
                     if (res.exists && res.items && res.items.length >= 0) {
                         console.log('Loading list dari database (existing):', res);
 
+                        pisUpdateScanContextOnServer({
+                            loading_list_number: res.loading_list_number,
+                            pds_number: res.pds_number,
+                            cycle: res.cycle,
+                            delivery_date: res.delivery_date,
+                            shipping_date: res.shipping_date,
+                            customer_id: res.customer_id,
+                            items: mapPisItemsFromDbOrApi(res.items)
+                        });
+
                         // Jika backend mengirim kumpulan LL dengan PDS yang sama, muat semua sekaligus.
                         if (Array.isArray(res.related_loading_lists) && res.related_loading_lists.length > 0) {
                             pisLoadingListGroups = [];
@@ -1940,29 +2235,16 @@
                                 console.log('Loading list dari API (pertama kali):', payload);
                                 var mapped = mapPisItemsFromDeaApi(items);
 
-                                $.ajax({
-                                    url: '{{ url("pis/save-scan") }}',
-                                    type: 'POST',
-                                    data: {
-                                        _token: '{{ csrf_token() }}',
-                                        delivery_type: ($('#delivery_type').val() || 'OEM'),
-                                        dock_type: ($('#dock_type').val() || 'OTHER'),
-                                        loading_list_number: loadingListNumberForDB,
-                                        pds_number: payload.pds_number || payload.pds || '',
-                                        cycle: payload.cycle || '',
-                                        delivery_date: payload.delivery_date || '',
-                                        shipping_date: payload.shipping_date || '',
-                                        customer_id: payload.customer_id || null,
-                                        customer_code: payload.customer_code || (payload.customer && payload.customer.code) || null,
-                                        customer_name: payload.customer_name || (payload.customer && payload.customer.name) || null,
-                                        items: mapped
-                                    },
-                                    success: function (response) {
-                                        console.log('PIS scan saved (first time):', response);
-                                    },
-                                    error: function (xhr) {
-                                        console.error('Failed to save PIS scan:', xhr);
-                                    }
+                                pisUpdateScanContextOnServer({
+                                    loading_list_number: loadingListNumberForDB,
+                                    pds_number: payload.pds_number || payload.pds || '',
+                                    cycle: payload.cycle || '',
+                                    delivery_date: payload.delivery_date || '',
+                                    shipping_date: payload.shipping_date || '',
+                                    customer_id: payload.customer_id || null,
+                                    customer_code: payload.customer_code || (payload.customer && payload.customer.code) || null,
+                                    customer_name: payload.customer_name || (payload.customer && payload.customer.name) || null,
+                                    items: mapped
                                 });
 
                                 finishApplyNewGroup(
@@ -2038,8 +2320,42 @@
             }
         }
 
-        $('#pis-btn-delay').on('click', function() {
+        var pisDelayBtnBusy = false;
+
+        function releasePisDelayButtonVisual() {
+            var $btn = $('#pis-btn-delay');
+            $btn.blur();
+            $btn.removeClass('active focus');
+        }
+
+        function onPisDelayButtonActivate() {
+            if (pisDelayBtnBusy) return;
+            pisDelayBtnBusy = true;
+            setTimeout(function() { pisDelayBtnBusy = false; }, 500);
             resetPisState();
+            releasePisDelayButtonVisual();
+        }
+
+        $('#pis-btn-delay').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            onPisDelayButtonActivate();
+        });
+
+        // Touchscreen: lepaskan state "pressed" agar tidak tampak terus ditekan / terbaca ganda
+        $('#pis-btn-delay').on('mouseup touchend pointerup mouseleave', function() {
+            releasePisDelayButtonVisual();
+        });
+
+        // Scanner Enter: cegah aktivasi ulang tombol, lepas fokus, tetap teruskan ke handler scan document
+        $('#pis-btn-delay').on('keydown', function(e) {
+            var code = e.keyCode || e.which;
+            if (code === 13) {
+                e.preventDefault();
+                releasePisDelayButtonVisual();
+            } else if (code === 32) {
+                e.preventDefault();
+            }
         });
 
         $('#pis-btn-fullscreen').on('click', function() {
@@ -2126,6 +2442,11 @@
             loadDailyCounter();
             updateStepIndicator();
             pisUpdateFullscreenButton();
+
+            var $defaultDock = $('#dock').find('button.pis-dock-btn.btn-primary').first();
+            if ($defaultDock.length) {
+                func_change_dock($defaultDock[0]);
+            }
             
             // Nonaktifkan niceScroll yang mungkin menyebabkan auto-scroll
             if($.fn.niceScroll) {

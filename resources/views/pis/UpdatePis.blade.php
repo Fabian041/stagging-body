@@ -448,9 +448,9 @@
                                 <div class="pis-preview-box">
                                     <label class="pis-preview-label"><i class="fas fa-eye mr-1"></i>Current Image</label>
                                     <div class="pis-preview-image-wrap">
-                                        <img src="{{ asset('storage/pis/' . $part_pis->img_path) }}"
+                                        <img src="{{ url('/pis/storage-image') }}?f={{ rawurlencode($part_pis->img_path) }}"
                                             alt="Current PIS Image"
-                                            onerror="this.src='{{ asset('storage/pis/default.JPG') }}'">
+                                            onerror="this.src='{{ url('/pis/storage-image') }}?f={{ rawurlencode('default.JPG') }}'">
                                     </div>
                                 </div>
                             @endif
