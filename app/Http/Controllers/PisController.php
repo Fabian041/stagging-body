@@ -45,6 +45,150 @@ class PisController extends Controller
         return $custNoDash . '-' . $kind . '-' . $dock;
     }
 
+    private function pisImageMaxDim(): int
+    {
+        return 800;
+    }
+
+    private function pisImageJpegQuality(): int
+    {
+        return 82;
+    }
+
+    private function pisImagesDirectory(): string
+    {
+        $directory = storage_path('app/public/pis');
+        if (!file_exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        return $directory;
+    }
+
+    /** Cache hasil kompres untuk serve via storage-image (gambar lama ikut ringan). */
+    private function pisImageCacheDirectory(): string
+    {
+        $directory = $this->pisImagesDirectory() . DIRECTORY_SEPARATOR . '_cache';
+        if (!file_exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        return $directory;
+    }
+
+    private function pisImageCachePath(string $fileName): string
+    {
+        $hash = md5(strtoupper($fileName));
+
+        return $this->pisImageCacheDirectory() . DIRECTORY_SEPARATOR . $hash . '_w' . $this->pisImageMaxDim() . '.jpg';
+    }
+
+    private function invalidatePisImageCache(string $fileName): void
+    {
+        $cachePath = $this->pisImageCachePath($fileName);
+        if (is_file($cachePath)) {
+            @unlink($cachePath);
+        }
+    }
+
+    /**
+     * Kompres/resize file gambar ke path tujuan (JPEG).
+     */
+    private function compressPisImageAtPath(string $sourcePath, string $destPath): bool
+    {
+        if (!function_exists('imagecreatefromjpeg') || !is_readable($sourcePath)) {
+            return false;
+        }
+
+        $mime = strtolower((string) @mime_content_type($sourcePath));
+        $src = null;
+        if (in_array($mime, ['image/jpeg', 'image/jpg'], true)) {
+            $src = @imagecreatefromjpeg($sourcePath);
+        } elseif ($mime === 'image/png') {
+            $src = @imagecreatefrompng($sourcePath);
+        }
+
+        if (!$src) {
+            return false;
+        }
+
+        $width = imagesx($src);
+        $height = imagesy($src);
+        if ($width <= 0 || $height <= 0) {
+            imagedestroy($src);
+
+            return false;
+        }
+
+        $maxDim = $this->pisImageMaxDim();
+        $targetWidth = $width;
+        $targetHeight = $height;
+        if ($width > $maxDim || $height > $maxDim) {
+            $ratio = min($maxDim / $width, $maxDim / $height);
+            $targetWidth = max(1, (int) round($width * $ratio));
+            $targetHeight = max(1, (int) round($height * $ratio));
+        }
+
+        $dst = imagecreatetruecolor($targetWidth, $targetHeight);
+        $white = imagecolorallocate($dst, 255, 255, 255);
+        imagefill($dst, 0, 0, $white);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+        imagedestroy($src);
+
+        $destDir = dirname($destPath);
+        if (!file_exists($destDir)) {
+            File::makeDirectory($destDir, 0755, true);
+        }
+
+        $ok = imagejpeg($dst, $destPath, $this->pisImageJpegQuality());
+        imagedestroy($dst);
+
+        return (bool) $ok;
+    }
+
+    /**
+     * Path file untuk ditampilkan: cache terkompresi jika perlu (buat gambar besar/lama).
+     */
+    private function resolvePisDisplayImagePath(string $fileName): string
+    {
+        $disk = Storage::disk('pis');
+        $sourcePath = $disk->path($fileName);
+
+        if (!is_readable($sourcePath)) {
+            abort(404);
+        }
+
+        if (!function_exists('imagecreatefromjpeg')) {
+            return $sourcePath;
+        }
+
+        $cachePath = $this->pisImageCachePath($fileName);
+        if (is_file($cachePath) && filemtime($cachePath) >= filemtime($sourcePath)) {
+            return $cachePath;
+        }
+
+        if ($this->compressPisImageAtPath($sourcePath, $cachePath)) {
+            return $cachePath;
+        }
+
+        return $sourcePath;
+    }
+
+    /**
+     * Simpan gambar PIS sebagai JPEG terkompresi saat upload.
+     */
+    private function storeCompressedPisImage($uploadedFile, string $fileName): void
+    {
+        $fullPath = $this->pisImagesDirectory() . DIRECTORY_SEPARATOR . $fileName;
+        $sourcePath = $uploadedFile->getRealPath();
+
+        if (!$sourcePath || !$this->compressPisImageAtPath($sourcePath, $fullPath)) {
+            Storage::disk('pis')->putFileAs('', $uploadedFile, $fileName);
+        }
+
+        $this->invalidatePisImageCache($fileName);
+    }
+
     /**
      * UI-ONLY PREVIEW MODE (no DB/models).
      * Dummy data provider for all PIS screens.
@@ -588,14 +732,15 @@ class PisController extends Controller
                 // Delete old file jika ada (baik nama baru maupun nama lama yang masih pakai '-')
                 if (Storage::disk('pis')->exists($filesName)) {
                     Storage::disk('pis')->delete($filesName);
+                    $this->invalidatePisImageCache($filesName);
                 }
                 $legacyName = strtoupper($part_number_customer . '-' . $type . '-' . $dock . '.JPG');
                 if ($legacyName !== $filesName && Storage::disk('pis')->exists($legacyName)) {
                     Storage::disk('pis')->delete($legacyName);
+                    $this->invalidatePisImageCache($legacyName);
                 }
-                
-                // Upload new file - use putFileAs for better handling
-                Storage::disk('pis')->putFileAs('', $file, $filesName);
+
+                $this->storeCompressedPisImage($file, $filesName);
             }
 
             DB::commit();
@@ -621,10 +766,8 @@ class PisController extends Controller
             return redirect()->route('login.index')->with('error', 'Please login to view PIS images.');
         }
 
-        // Simple check and return asset URL
-        $img_path = Storage::disk('pis')->exists($img) ?
-            asset('storage/pis/' . $img) :
-            asset('storage/pis/default.JPG');
+        $file = Storage::disk('pis')->exists($img) ? $img : 'default.JPG';
+        $img_path = url('/pis/storage-image') . '?f=' . rawurlencode($file);
 
         return view('pis.PisPreview', compact('img_path'));
     }
@@ -663,9 +806,11 @@ class PisController extends Controller
             abort(404);
         }
 
-        return $disk->response($name, $name, [
+        $displayPath = $this->resolvePisDisplayImagePath($name);
+
+        return response()->file($displayPath, [
             'Content-Type' => 'image/jpeg',
-            'Cache-Control' => 'private, max-age=3600',
+            'Cache-Control' => 'private, max-age=86400',
         ]);
     }
 
@@ -1493,14 +1638,15 @@ class PisController extends Controller
                 // Delete old file if exists (baru & legacy)
                 if (Storage::disk('pis')->exists($fileName)) {
                     Storage::disk('pis')->delete($fileName);
+                    $this->invalidatePisImageCache($fileName);
                 }
                 $legacyName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
                 if ($legacyName !== $fileName && Storage::disk('pis')->exists($legacyName)) {
                     Storage::disk('pis')->delete($legacyName);
+                    $this->invalidatePisImageCache($legacyName);
                 }
-                
-                // Store new file - use putFileAs for better handling
-                Storage::disk('pis')->putFileAs('', $file, $fileName);
+
+                $this->storeCompressedPisImage($file, $fileName);
             }
 
             DB::commit();
@@ -1606,14 +1752,15 @@ class PisController extends Controller
                 // Delete old file if exists (baru & legacy)
                 if (Storage::disk('pis')->exists($fileName)) {
                     Storage::disk('pis')->delete($fileName);
+                    $this->invalidatePisImageCache($fileName);
                 }
                 $legacyName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
                 if ($legacyName !== $fileName && Storage::disk('pis')->exists($legacyName)) {
                     Storage::disk('pis')->delete($legacyName);
+                    $this->invalidatePisImageCache($legacyName);
                 }
-                
-                // Store new file - use putFileAs for better handling
-                Storage::disk('pis')->putFileAs('', $file, $fileName);
+
+                $this->storeCompressedPisImage($file, $fileName);
             }
 
             DB::commit();
@@ -1709,6 +1856,7 @@ class PisController extends Controller
             foreach ([$newImg, $legacyImg] as $imgPath) {
                 if ($imgPath && Storage::disk('pis')->exists($imgPath)) {
                     Storage::disk('pis')->delete($imgPath);
+                    $this->invalidatePisImageCache($imgPath);
                 }
             }
             

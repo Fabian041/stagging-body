@@ -562,6 +562,9 @@
                                     <label>Picture (.JPG)</label>
                                     <input type="file" class="pis_picture form-control-file" name="pis_picture[]"
                                         accept=".jpg,.jpeg,.png" style="font-size:12px;">
+                                    <small class="text-muted d-block mt-1" style="font-size:10.5px;">
+                                        Gambar dikompresi saat upload &amp; saat ditampilkan (max 800px).
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -705,6 +708,53 @@
     </script>
 
     <script>
+        /** Kompres gambar di browser sebelum upload (max 800px, JPEG quality 0.82). */
+        function compressPisImageFile(file) {
+            return new Promise(function(resolve) {
+                if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+                    resolve(file);
+                    return;
+                }
+                var maxDim = 800;
+                var quality = 0.82;
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        var w = img.width;
+                        var h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            var ratio = Math.min(maxDim / w, maxDim / h);
+                            w = Math.max(1, Math.round(w * ratio));
+                            h = Math.max(1, Math.round(h * ratio));
+                        }
+                        var canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        canvas.toBlob(function(blob) {
+                            if (!blob) {
+                                resolve(file);
+                                return;
+                            }
+                            var baseName = (file.name || 'picture').replace(/\.[^.]+$/i, '');
+                            resolve(new File([blob], baseName + '.jpg', {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        }, 'image/jpeg', quality);
+                    };
+                    img.onerror = function() { resolve(file); };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function() { resolve(file); };
+                reader.readAsDataURL(file);
+            });
+        }
+
         function cekData() {
             var $rows = $('#pisRowsContainer .pis-row');
             if ($rows.length === 0) {
@@ -749,43 +799,45 @@
                     return;
                 }
 
-                var formData = new FormData();
-                var path = "{{ url('/pis/addpis') }}";
+                compressPisImageFile(pis_picture).then(function(compressedFile) {
+                    var formData = new FormData();
+                    var path = "{{ url('/pis/addpis') }}";
 
-                formData.append('part_number', part_number);
-                formData.append('part_number_customer', part_number_customer);
-                formData.append('back_number', back_number);
-                formData.append('part_kind', part_kind);
-                formData.append('part_dock', part_dock);
-                formData.append('qty_kanban', qty_kanban);
-                formData.append('pis_picture', pis_picture);
-                formData.append('_token', '{{ csrf_token() }}');
+                    formData.append('part_number', part_number);
+                    formData.append('part_number_customer', part_number_customer);
+                    formData.append('back_number', back_number);
+                    formData.append('part_kind', part_kind);
+                    formData.append('part_dock', part_dock);
+                    formData.append('qty_kanban', qty_kanban);
+                    formData.append('pis_picture', compressedFile);
+                    formData.append('_token', '{{ csrf_token() }}');
 
-                $.ajax({
-                    url: path,
-                    type: "POST",
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function() {
-                        currentIndex++;
-                        processNextRow();
-                    },
-                    error: function(xhr) {
-                        var errorMsg = 'Error saving data';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            errorMsg = xhr.responseJSON.message;
-                        } else if (xhr.responseText) {
-                            try {
-                                var parser = new DOMParser();
-                                var doc = parser.parseFromString(xhr.responseText, 'text/html');
-                                var errorElement = doc.querySelector('.alert-danger, .error');
-                                if (errorElement) errorMsg = errorElement.textContent.trim();
-                            } catch (e) {}
+                    $.ajax({
+                        url: path,
+                        type: "POST",
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function() {
+                            currentIndex++;
+                            processNextRow();
+                        },
+                        error: function(xhr) {
+                            var errorMsg = 'Error saving data';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMsg = xhr.responseJSON.message;
+                            } else if (xhr.responseText) {
+                                try {
+                                    var parser = new DOMParser();
+                                    var doc = parser.parseFromString(xhr.responseText, 'text/html');
+                                    var errorElement = doc.querySelector('.alert-danger, .error');
+                                    if (errorElement) errorMsg = errorElement.textContent.trim();
+                                } catch (e) {}
+                            }
+                            alert('Baris #' + (currentIndex + 1) + ' gagal disimpan: ' + errorMsg);
+                            $saveBtn.prop('disabled', false).html(originalText);
                         }
-                        alert('Baris #' + (currentIndex + 1) + ' gagal disimpan: ' + errorMsg);
-                        $saveBtn.prop('disabled', false).html(originalText);
-                    }
+                    });
                 });
             }
 

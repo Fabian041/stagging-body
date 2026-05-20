@@ -640,7 +640,7 @@
                         <th class="text-center">Scan Time</th>
                         <th class="text-center">Loading List Number</th>
                         <th class="text-center">No PDS</th>
-                        <th class="text-center">Customer</th>
+                        <th class="text-center">Dock</th>
                         <th class="text-center">PIS Progress</th>
                         <th class="text-center">Status</th>
                     </tr>
