@@ -1064,6 +1064,10 @@
             if (!scan || !part) return false;
             if (scan === part) return true;
             if (pisIsDockMmkiSpd() && pisMmkiSpdStripRevisionSuffix(scan) === part) return true;
+            // Beberapa label fisik mengandung 1 prefix huruf di depan (atau scanner melewatkannya):
+            // contoh LL D16100B9490001 vs scan 16100B9490001.
+            if (part.length > 1 && /^[A-Z]/.test(part.charAt(0)) && part.substring(1) === scan) return true;
+            if (scan.length > 1 && /^[A-Z]/.test(scan.charAt(0)) && scan.substring(1) === part) return true;
 
             // Scan lebih panjang dari LL: sufiks numerik di akhir label (mis. 5716A707YD0001 vs LL 5716A707YD),
             // atau 1 digit artefak scanner (mis. ...A14 vs ...A1). Batasi panjang sufiks agar selaras dengan cabang di bawah.
