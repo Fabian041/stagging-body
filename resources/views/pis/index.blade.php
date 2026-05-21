@@ -79,26 +79,15 @@
                                     <button type="button" class="btn btn-lg btn-outline-primary" id="pis-btn-fullscreen" tabindex="-1" style="border-radius: 40px; width: 100%; min-height: 50px; font-size: 1.05rem;">
                                         <i class="fas fa-expand"></i> Fullscreen
                                     </button>
-                                </div>
-                                <div class="card border mt-1" style="border-radius: 12px;">
-                                <div class="p-2" style="padding-left: 10px;">
-                                    <strong>Action Confirm Packing</strong>
-                                </div>
-                                <div class="card-body p-2">
-                                    <div class="row no-gutters align-items-stretch">
-                                        <div class="col-12 mb-1">
-                                            <button type="button" class="btn btn-lg btn-success" id="pis-btn-confirm-packing" disabled style="border-radius: 40px; width: 100%; min-height: 54px; font-size: 1.07rem;">
-                                                <i class="fas fa-check-double"></i> Confirm Packing
+                                    <div id="pis-confirm-packing-card" class="mt-1">
+                                        <button type="button" class="btn btn-lg btn-success" id="pis-btn-confirm-packing" disabled style="border-radius: 40px; width: 100%; min-height: 54px; font-size: 1.07rem;">
+                                            <i class="fas fa-check-double"></i> Confirm Packing
                                         </button>
-                                        </div>
-                                        <div class="col-12 mb-2">
-                                            <div class="text-center small text-muted">
-                                                Menunggu konfirmasi: <strong id="pis-pending-count">0</strong> label
-                                            </div>
+                                        <div class="text-center small text-muted mt-1 mb-0">
+                                            Menunggu konfirmasi: <strong id="pis-pending-count">0</strong> label
                                         </div>
                                     </div>
                                 </div>
-                            </div>
                             </div>
                         </div>
 
@@ -186,23 +175,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- <div class="card border mt-1" style="border-radius: 12px;">
-                                <div class="p-2" style="padding-left: 10px;">
-                                    <strong>Action Confirm Packing</strong>
-                                </div>
-                                <div class="card-body p-2">
-                                    <div class="row no-gutters align-items-stretch">
-                                        <div class="col-12 mb-1">
-                                            <button type="button" class="btn btn-lg btn-success" id="pis-btn-confirm-packing" disabled style="border-radius: 40px; width: 100%; min-height: 54px; font-size: 1.07rem;">
-                                                <i class="fas fa-check-double"></i> Confirm Packing
-                                        </button>
-                                        </div>
-                                        <div class="col-12 mb-2">
-                                            <div class="text-center small text-muted">
-                                                Menunggu konfirmasi: <strong id="pis-pending-count">0</strong> label
-                                            </div>
-                                        </div>
-                            </div> -->
                         </div>
                     </div>
                 </div>
@@ -368,6 +340,20 @@
             color: #dc3545 !important;
             border-color: #dc3545 !important;
             box-shadow: none !important;
+        }
+
+        /* Confirm Packing: di bawah Fullscreen, tetap terlihat saat scroll kolom kiri */
+        #pis-confirm-packing-card {
+            position: sticky;
+            bottom: 0;
+            z-index: 3;
+            background: #fff;
+            padding-top: 0.15rem;
+        }
+
+        #pis-btn-confirm-packing:disabled {
+            opacity: 0.72;
+            cursor: not-allowed;
         }
     </style>
 
@@ -974,14 +960,7 @@
                 if (isLoadingListComplete()) {
                     renderLoadingList();
                     updateCounter();
-                    Swal.fire({
-                        title: 'Loading List Complete!',
-                        text: 'Semua item dalam daftar telah terpenuhi.',
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(function () {
-                        resetPisState();
-                    });
+                    resetPisState();
                     $(window).scrollTop(_savedScrollTop);
                     return;
                 }
