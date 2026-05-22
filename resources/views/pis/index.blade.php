@@ -373,6 +373,24 @@
         </div>
     </div>
 
+    {{-- Modal: semua loading list dalam sesi selesai --}}
+    <div class="modal fade" id="modalPisLoadingListComplete" tabindex="-1" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-success">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-check-circle"></i> Loading list selesai</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <p class="mb-2">Semua item dalam daftar telah terpenuhi.</p>
+                    <p class="mb-0 font-weight-bold">LL: <span id="pis-ll-complete-summary">-</span></p>
+                </div>
+                <div class="modal-footer justify-content-center py-2">
+                    <button type="button" class="btn btn-success px-4" id="pis-btn-ll-complete-ok">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <audio id="pis-ok-sound">
         <source src="{{ asset('assets/sounds/ok.mp3') }}" type="audio/mpeg">
     </audio>
@@ -844,19 +862,19 @@
             });
         }
 
-        function showPisLoadingListCompleteSwal(callback) {
+        var pisLoadingListCompleteCallback = null;
+
+        function showPisLoadingListCompleteModal(callback) {
             var llSummary = pisLoadingListGroups.map(function (g) {
                 return g.displayName || g.loadingListNumber;
             }).join(', ');
-            Swal.fire({
-                title: 'Loading list selesai',
-                html: 'Semua item dalam daftar telah terpenuhi.' +
-                    (llSummary ? '<br><strong>LL: ' + llSummary + '</strong>' : ''),
-                icon: 'success',
-                confirmButtonText: 'OK'
-            }).then(function () {
-                if (typeof callback === 'function') callback();
-            });
+            $('#pis-ll-complete-summary').text(llSummary || '-');
+            pisLoadingListCompleteCallback = callback;
+            var $modal = $('#modalPisLoadingListComplete');
+            if ($modal.length && !$modal.parent().is('body')) {
+                $modal.appendTo('body');
+            }
+            $modal.modal('show');
         }
 
         function updatePendingPackingUI() {
@@ -975,7 +993,7 @@
                 if (isLoadingListComplete()) {
                     renderLoadingList();
                     updateCounter();
-                    showPisLoadingListCompleteSwal(function () {
+                    showPisLoadingListCompleteModal(function () {
                         resetPisState();
                         $(window).scrollTop(_savedScrollTop);
                     });
@@ -1290,6 +1308,7 @@
                 return;
             }
             if ($('#modalPisJpConfirmation').hasClass('show')) return;
+            if ($('#modalPisLoadingListComplete').hasClass('show')) return;
             var code = e.keyCode || e.which;
             if (code == 13) {
                 e.preventDefault();
@@ -2388,6 +2407,18 @@
         $('#pis-btn-confirm-packing').on('click', function () {
             if (!pendingLabelPacks.length) return;
             confirmPacking();
+        });
+
+        $('#pis-btn-ll-complete-ok').on('click', function () {
+            $('#modalPisLoadingListComplete').modal('hide');
+        });
+
+        $('#modalPisLoadingListComplete').on('hidden.bs.modal', function () {
+            if (typeof pisLoadingListCompleteCallback === 'function') {
+                var cb = pisLoadingListCompleteCallback;
+                pisLoadingListCompleteCallback = null;
+                cb();
+            }
         });
 
         $('#modalPisJpConfirmation').on('shown.bs.modal', function() {
