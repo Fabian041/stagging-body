@@ -844,6 +844,21 @@
             });
         }
 
+        function showPisLoadingListCompleteSwal(callback) {
+            var llSummary = pisLoadingListGroups.map(function (g) {
+                return g.displayName || g.loadingListNumber;
+            }).join(', ');
+            Swal.fire({
+                title: 'Loading list selesai',
+                html: 'Semua item dalam daftar telah terpenuhi.' +
+                    (llSummary ? '<br><strong>LL: ' + llSummary + '</strong>' : ''),
+                icon: 'success',
+                confirmButtonText: 'OK'
+            }).then(function () {
+                if (typeof callback === 'function') callback();
+            });
+        }
+
         function updatePendingPackingUI() {
             var n = pendingLabelPacks.length;
             $('#pis-pending-count').text(String(n));
@@ -960,8 +975,10 @@
                 if (isLoadingListComplete()) {
                     renderLoadingList();
                     updateCounter();
-                    resetPisState();
-                    $(window).scrollTop(_savedScrollTop);
+                    showPisLoadingListCompleteSwal(function () {
+                        resetPisState();
+                        $(window).scrollTop(_savedScrollTop);
+                    });
                     return;
                 }
             }
