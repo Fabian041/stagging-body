@@ -1066,10 +1066,11 @@
             if (scan.length > 1 && /^[A-Z]/.test(scan.charAt(0)) && scan.substring(1) === part) return true;
 
             // Scan lebih panjang dari LL: sufiks numerik di akhir label (mis. 5716A707YD0001 vs LL 5716A707YD),
-            // atau 1 digit artefak scanner (mis. ...A14 vs ...A1). Batasi panjang sufiks agar selaras dengan cabang di bawah.
+            // 1 digit artefak scanner (mis. ...A14 vs ...A1), atau 1–2 huruf dari scanner (mis. 692060K020E1H vs LL 692060K020E1).
             if (scan.length > part.length && scan.indexOf(part) === 0) {
                 var scanExtra = scan.substring(part.length);
                 if (/^[0-9]{1,6}$/.test(scanExtra)) return true;
+                if (/^[A-Z]{1,2}$/.test(scanExtra)) return true;
             }
 
             // Scan lebih pendek dari LL: label tidak membawa suffix penuh (mis. 15100BZ060 vs 15100BZ06000)
@@ -1839,7 +1840,7 @@
                 $('#alert-header').html('<i class="fas fa-times-circle"></i> Label Tidak Cocok LL');
                 $('#alert-body').text(
                     'Scan "' + scannedShow + '" tidak sama persis dengan part di Loading List ("' + llPartShow + '"). '
-                    + 'Periksa karakter tambahan di akhir barcode (contoh: ...A14 vs ...A1).'
+                    + 'Periksa karakter tambahan di akhir barcode (contoh: ...A14 vs ...A1, atau ...E1H vs ...E1).'
                 );
                 pisErrorSound();
                 $.ajax({
