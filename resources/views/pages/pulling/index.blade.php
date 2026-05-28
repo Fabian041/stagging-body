@@ -1,8 +1,355 @@
 @extends('layouts.root.auth')
 
 <style>
+    /* Halaman pulling — putih, rapi, ukuran nyaman */
+    body.auth-body:has(.pulling-page),
+    body.auth-body:has(.pulling-page) #app {
+        background: #fff;
+        min-height: 100vh;
+    }
+
+    .pulling-page {
+        min-height: 100vh;
+        width: 100%;
+        background: #fff;
+    }
+
+    .pulling-workspace {
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 1.25rem 1.25rem 2rem;
+        box-sizing: border-box;
+    }
+
+    .pulling-header,
+    .pulling-panel {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .pulling-body {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .pulling-panel {
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+        min-width: 0;
+    }
+
+    .pulling-row.row {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .pulling-row > [class*="col-"] {
+        padding-left: 0;
+        padding-right: 10px;
+    }
+
+    .pulling-row > [class*="col-"]:last-child {
+        padding-right: 0;
+    }
+
+    .pulling-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border, #DDE3EF);
+    }
+
+    .pulling-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text, #1A2340);
+    }
+
+    .pulling-title span {
+        color: var(--text-muted, #6B7A99);
+        font-weight: 500;
+    }
+
+    .pulling-toolbar {
+        display: flex;
+        gap: 8px;
+    }
+
+    .pulling-toolbar .btn {
+        min-height: 38px;
+        padding: 0 16px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .pulling-page .btn-danger,
+    .pulling-page .btn-danger:hover,
+    .pulling-page .btn-danger:focus,
+    .pulling-page .btn-danger:active {
+        color: #fff !important;
+        background-color: var(--danger, #DC2626);
+        border-color: var(--danger, #DC2626);
+    }
+
+    .pulling-page .btn-outline-danger:hover,
+    .pulling-page .btn-outline-danger:focus,
+    .pulling-page .btn-outline-danger:active {
+        color: #fff !important;
+    }
+
+    .pulling-section-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: .25rem;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted, #6B7A99);
+    }
+
+    .pulling-section-head__title {
+        margin: 0;
+    }
+
+    .pulling-count-badge {
+        font-size: 12px;
+        font-weight: 700;
+        padding: .15rem .5rem;
+        border-radius: 6px;
+        background: var(--primary-light, #E8F4FD);
+        color: var(--primary, #0070B7);
+    }
+
+    .pulling-ll-section {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .pulling-ll-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        padding-inline-start: 0;
+        width: 100%;
+    }
+
+    .pulling-ll-item {
+        margin: .5rem 0 0;
+        padding: 0;
+        list-style: none;
+        width: 100%;
+    }
+
+    .pulling-ll-row > .col-12 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .pulling-ll-chip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.75rem;
+        padding: .5rem .75rem;
+        border-radius: 8px;
+        background: var(--primary-light, #E8F4FD);
+        border: 1px solid #c5dff0;
+        color: var(--text, #1A2340);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .pulling-ll-chip span {
+        margin: 0;
+    }
+
+    .pulling-tile {
+        background: #f8fafc;
+        border: 1px solid var(--border, #DDE3EF);
+        border-radius: 8px;
+        padding: .7rem .85rem;
+        min-height: 4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .pulling-tile__label {
+        font-size: 12px;
+        color: var(--text-muted, #6B7A99);
+        margin: 0 0 .25rem;
+        font-weight: 500;
+    }
+
+    .pulling-tile__value {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text, #1A2340);
+        text-align: center;
+        margin: 0;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+
+    .pulling-tile--compact {
+        min-height: 3.75rem;
+    }
+
+    .pulling-tile.bg-default {
+        background: var(--primary-light, #E8F4FD);
+        border-color: #c5dff0;
+    }
+
+    .pulling-tile.bg-success {
+        background: #ecfdf5 !important;
+        border-color: #86efac !important;
+    }
+
+    .pulling-tile.bg-warning {
+        background: #fffbeb !important;
+        border-color: #fcd34d !important;
+    }
+
+    .pulling-tile.bg-danger {
+        background: #fef2f2 !important;
+        border-color: #fca5a5 !important;
+    }
+
+    .pulling-scan-wrap {
+        padding: .25rem 0;
+    }
+
+    .pulling-scan-input {
+        height: 3.25rem;
+        border: 1px solid var(--border, #DDE3EF);
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-align: center;
+        background: #fff;
+    }
+
+    .pulling-scan-input:focus {
+        border-color: var(--primary, #0070B7);
+        box-shadow: 0 0 0 3px var(--primary-light, #E8F4FD);
+        outline: none;
+    }
+
+    .pulling-actions {
+        display: grid;
+        grid-template-columns: 2fr 3fr;
+        gap: 12px;
+    }
+
+    .pulling-actions .btn {
+        height: 3.25rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        border-radius: 8px;
+    }
+
+    .pulling-status-wrap {
+        margin-top: .75rem;
+    }
+
+    .pulling-status-badge {
+        display: inline-block;
+        padding: .45rem 1rem;
+        border-radius: 8px;
+        background: #f1f5f9;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted, #6B7A99);
+    }
+
+    .pulling-status-badge #pullingQty,
+    .pulling-status-badge #pullingStatus {
+        color: inherit;
+    }
+
+    .pulling-status-badge.bg-danger,
+    .pulling-status-badge.bg-danger #pullingQty,
+    .pulling-status-badge.bg-danger #pullingStatus {
+        color: #fff !important;
+    }
+
+    .pulling-status-badge.bg-success,
+    .pulling-status-badge.bg-success #pullingQty,
+    .pulling-status-badge.bg-success #pullingStatus {
+        color: #fff !important;
+    }
+
+    .pulling-status-badge.bg-warning,
+    .pulling-status-badge.bg-warning #pullingQty,
+    .pulling-status-badge.bg-warning #pullingStatus {
+        color: #1A2340 !important;
+    }
+
+    .pulling-skid-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: .75rem 1rem;
+        border: 1px solid var(--border, #DDE3EF);
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+
+    .pulling-skid-info {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+    }
+
+    .pulling-skid-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted, #6B7A99);
+    }
+
+    .pulling-skid-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text, #1A2340);
+    }
+
+    .pulling-skid-bar #close-skid {
+        margin: 0;
+        font-size: 12px;
+        padding: .35rem .65rem;
+    }
+
+    .pulling-modal .modal-content {
+        border-radius: 8px;
+        border: 1px solid var(--border, #DDE3EF);
+    }
+
+    .pulling-modal .modal-body h5 {
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+
+    .pulling-modal .form-control {
+        height: 3rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        text-align: center;
+    }
+
     .bg-default {
-        background-color: #03b1fc;
+        background: var(--primary-light, #E8F4FD) !important;
+        border: 1px solid #c5dff0 !important;
     }
 
     #modalLoadingListScan .loading-overlay {
@@ -34,112 +381,88 @@
         height: 3rem;
     }
 
-    /* Base glass tile */
-    /* Glass tile utk progress saja */
     .glass-tile {
-        position: relative;
-        border-radius: 14px;
-        padding: .5rem .75rem;
-        min-height: 2.25rem;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: .5rem;
-        color: #fff;
-        background: rgba(17, 25, 40, .45);
-        border: 1px solid rgba(255, 255, 255, .18);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .08);
-        overflow: hidden;
-        transform: translateZ(0);
-    }
-
-    @supports ((-webkit-backdrop-filter:none) or (backdrop-filter:none)) {
-        .glass-tile {
-            backdrop-filter: blur(10px) saturate(140%);
-            -webkit-backdrop-filter: blur(10px) saturate(140%);
-            background: rgba(17, 25, 40, .30);
-        }
+        min-height: 2.75rem;
+        padding: .5rem .75rem;
+        border-radius: 8px;
+        border: 1px solid var(--border, #DDE3EF);
+        background: #f8fafc;
+        color: var(--text-muted, #6B7A99);
+        font-size: .9rem;
+        font-weight: 500;
     }
 
     .glass-tile--loading {
-        border-color: rgba(0, 173, 255, .35);
-        box-shadow: 0 6px 20px rgba(0, 173, 255, .18), inset 0 1px 0 rgba(255, 255, 255, .12);
+        border-color: #c5dff0;
+        background: var(--primary-light, #E8F4FD);
+        color: var(--primary, #0070B7);
     }
 
     .glass-tile--error {
-        border-color: rgba(255, 99, 132, .45);
-        background: rgba(40, 17, 22, .50);
-    }
-
-    .glass-tile--loading::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, .14) 25%, transparent 50%);
-        transform: translateX(-100%);
-        animation: glass-shimmer 2.2s ease-in-out infinite;
-        pointer-events: none;
-    }
-
-    @keyframes glass-shimmer {
-        to {
-            transform: translateX(100%);
-        }
-    }
-
-    .glass-in {
-        animation: glass-in .18s ease-out both;
-    }
-
-    @keyframes glass-in {
-        from {
-            transform: scale(.98);
-            opacity: 0
-        }
-
-        to {
-            transform: scale(1);
-            opacity: 1
-        }
+        border-color: #fca5a5;
+        background: #fef2f2;
+        color: var(--danger, #DC2626);
     }
 
     .glass-tile .spinner-border {
-        color: rgba(255, 255, 255, .92);
+        width: 1rem;
+        height: 1rem;
+        color: var(--primary, #0070B7);
     }
 
-/* Kotak Quantity rapi */
-.qbox{
-  background-color:#03b1fc;
-  border-radius:4px;
-  padding:.65rem .85rem;
-  min-height:3rem;
-}
+    .qbox {
+        background: #f8fafc;
+        border: 1px solid var(--border, #DDE3EF);
+        border-radius: 8px;
+        padding: .75rem 1rem;
+        min-height: 3.5rem;
+    }
 
-/* Indicator kotak kecil di kanan */
-.indicator{
-  width:60px; height:30px; border-radius:10%;
-  background:#ffc107; /* default warning */
-}
+    .qbox .badge-dark {
+        background: #fff !important;
+        color: var(--text-muted, #6B7A99) !important;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid var(--border, #DDE3EF);
+    }
+
+    .qbox h5,
+    .qbox #qty-display {
+        color: var(--text, #1A2340) !important;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .indicator {
+        width: 56px;
+        height: 26px;
+        border-radius: 6px;
+        background: #f59e0b;
+        flex-shrink: 0;
+    }
 
 /* ===== Slide Toggle (tetap sama seperti versi animasi) ===== */
 .direct-toggle { display:inline-flex; align-items:center; height:38px; user-select:none; }
 .direct-toggle__input{ position:absolute; opacity:0; pointer-events:none; }
 .direct-toggle__track{
-  --track-w: 140px; --track-h: 36px; --pad: 4px; --thumb: 28px;
+  --track-w: 120px; --track-h: 32px; --pad: 3px; --thumb: 26px;
   position:relative; width:var(--track-w); height:var(--track-h);
   border-radius:calc(var(--track-h)/2);
-  background:linear-gradient(180deg,#e6ecf2,#d8e0e7);
-  border:1px solid rgba(0,0,0,.08);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.06);
-  cursor:pointer; overflow:hidden; display:inline-flex; align-items:center; justify-content:space-between;
-  padding:0 var(--pad); transition:background-color .25s ease, box-shadow .25s ease, border-color .25s ease;
+  background:#eef2f7;
+  border:1px solid var(--border,#DDE3EF);
+  cursor:pointer; overflow:hidden; display:inline-flex; align-items:center;
+  padding:0 var(--pad); transition:background .2s ease, border-color .2s ease;
 }
 .direct-toggle__thumb{
   position:absolute; top:50%; left:var(--pad);
   width:var(--thumb); height:var(--thumb);
   transform:translateY(-50%); border-radius:999px; background:#fff;
-  box-shadow: 0 6px 14px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
-  transition: transform .25s ease, width .18s ease, background-color .25s ease, box-shadow .25s ease;
+  border:1px solid var(--border,#DDE3EF);
+  transition: transform .2s ease;
 }
 .direct-toggle__label{
   font-size:12px; font-weight:600; letter-spacing:.2px; color:#637085; z-index:1; transition:color .25s ease, opacity .25s ease;
@@ -152,200 +475,309 @@
 
 /* State: ON */
 .direct-toggle__input:checked + .direct-toggle__track{
-  background:linear-gradient(180deg,#2fb7ff,#03b1fc);
-  border-color:rgba(3,177,252,.35);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.25), 0 4px 14px rgba(3,177,252,.35);
+  background:var(--primary,#0070B7);
+  border-color:var(--primary,#0070B7);
 }
 .direct-toggle__input:checked + .direct-toggle__track .direct-toggle__thumb{
   transform:translate(calc(var(--track-w) - var(--thumb) - var(--pad) - var(--pad)), -50%) !important;
-  background:#fff; box-shadow: 0 8px 18px rgba(3,177,252,.35), inset 0 1px 0 rgba(255,255,255,.95);
 }
-.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__label--off{ opacity:.55; color:#eaf7ff; }
-.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__label--on{  opacity:1;    color:#fff; }
+.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__label--off{ opacity:.5; color:#fff; }
+.direct-toggle__input:checked + .direct-toggle__track .direct-toggle__label--on{ opacity:1; color:#fff; }
 
-/* Responsif kecil: track diperkecil di layar sempit */
-@media (max-width: 480px){
-  .direct-toggle__track{ --track-w: 80px; }
+@media (max-width: 575.98px) {
+    .pulling-workspace {
+        padding-left: 1.125rem;
+        padding-right: 1.125rem;
+    }
+
+    .pulling-header,
+    .pulling-panel {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .pulling-qty-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: 6px;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .pulling-qty-row > .col-8,
+    .pulling-qty-row > .col-4 {
+        padding: 0 !important;
+        max-width: none;
+    }
+
+    .pulling-qty-row > .col-8 {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: auto;
+    }
+
+    .pulling-qty-row > .col-4 {
+        flex: 0 0 auto;
+        width: auto;
+        display: flex;
+        align-items: center;
+    }
+
+    .pulling-qty-row .d-flex.justify-content-end {
+        justify-content: flex-end !important;
+        width: auto;
+    }
+
+    .pulling-qty-row .direct-toggle {
+        flex-shrink: 0;
+    }
+
+    .pulling-qty-row .direct-toggle__track {
+        --track-w: 108px;
+        --track-h: 30px;
+        width: 108px;
+    }
+
+    .pulling-toolbar {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .pulling-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+@media (min-width: 576px) {
+    .pulling-workspace {
+        max-width: 600px;
+    }
+}
+
+@media (min-width: 768px) {
+    .pulling-workspace {
+        max-width: 900px;
+    }
+
+    .pulling-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem 2rem;
+        align-items: start;
+    }
+
+    .pulling-title {
+        font-size: 1.2rem;
+    }
+
+    .pulling-tile {
+        min-height: 4.5rem;
+        padding: .85rem 1rem;
+    }
+
+    .pulling-tile__value {
+        font-size: 1.15rem;
+    }
+
+    .pulling-ll-chip {
+        min-height: 3rem;
+        font-size: 1.1rem;
+    }
+
+    .pulling-scan-input {
+        height: 3.5rem;
+        font-size: 1.15rem;
+    }
+
+    .pulling-actions .btn {
+        height: 3.5rem;
+        font-size: 1.1rem;
+    }
+
+    .qbox {
+        min-height: 4rem;
+    }
+
+    .qbox h5,
+    .qbox #qty-display {
+        font-size: 1.4rem;
+    }
+
+    .direct-toggle__track {
+        --track-w: 140px;
+        --track-h: 36px;
+    }
+}
+
+@media (min-width: 992px) {
+    .pulling-workspace {
+        max-width: 1040px;
+    }
+
+    .pulling-body {
+        gap: 1.75rem 2.5rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    .pulling-workspace {
+        max-width: 1100px;
+    }
 }
 
 </style>
 
 @section('main')
-    <div class="main-section">
-        <section class="section">
-            <div class="row">
-                <div class="col-12 col-sm-12 col-md-12 p-0" style="height: 100%;">
-                    <div class="shadow hero bg-white text-dark" style="padding: 1.5rem; height: 100%;">
-                        <div class="hero-inner">
-                            <div class="row">
-                                <div class="col-5">
-                                    <span style="font-size: 1rem;">Siap Pulling, {{ auth()->user()->name }}</span>
-                                </div>
-                                <div class="col-2 ml-4">
-                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
-                                        <button type="button" class="btn btn-xl btn-warning"
-                                            id="refreshTokenBtn">Refresh</button>
-                                    </div>
-                                </div>
-                                <div class="col-2 ml-3">
-                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
-                                        <button type="button" class="btn btn-xl btn-danger" id="hardReset">Reset</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mt-1" id="list">
-                                <h6 id="loadingList" style="padding-left: 1rem">Loading List</h6>
-                                <small class="text-right badge badge-primary ml-2" style="color:#ffffff; display:inline;"
-                                    id="total-ll">0</small>
-                                <li class="col-12 mt-2"
-                                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
-                                    id="loadingListContainerSample">
-                                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
-                                        <h5 class="text-center " style="padding-top: .8rem; color: white;"
-                                            id="loadingList-display"></h5>
+<div class="pulling-page">
+    <div class="pulling-workspace">
+        <header class="pulling-header">
+            <p class="pulling-title">Pulling · <span>{{ auth()->user()->name }}</span></p>
+            <div class="pulling-toolbar">
+                <button type="button" class="btn btn-warning" id="refreshTokenBtn">Refresh</button>
+                <button type="button" class="btn btn-danger" id="hardReset">Reset</button>
+            </div>
+        </header>
+
+        <div class="pulling-body">
+            <div class="pulling-panel pulling-panel--info">
+                <div class="pulling-ll-section">
+                    <div class="pulling-section-head">
+                        <span class="pulling-section-head__title">Loading list</span>
+                        <span class="pulling-count-badge" id="total-ll">0</span>
+                    </div>
+                    <div class="row pulling-row pulling-ll-row">
+                        <div class="col-12">
+                            <ul class="pulling-ll-list" id="list">
+                                <li class="pulling-ll-item" id="loadingListContainerSample">
+                                    <div class="pulling-ll-chip" id="loadingList">
+                                        <span id="loadingList-display"></span>
                                     </div>
                                 </li>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-9" style="padding-left: 1rem; padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
-                                        <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
-                                            Customer</h6>
-                                        <h6 class="text-center " style="padding-top: 0rem; color: white;"
-                                            id="customer-display">Customer</h6>
-                                    </div>
-                                </div>
-                                <div class="col-3" style="padding-left: .5rem; padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;">
-                                        <h6 class="p-2" style="color: #ffffff;font-size:12px; font-weight:lighter">Cycle
-                                        </h6>
-                                        <h6 class="text-center " style="padding-top: 0rem; color: white;"
-                                            id="cycle-display">Cycle</h6>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mt-2 align-items-center">
-                                <!-- Kiri: Quantity + Indicator -->
-                                <div class="col-8">
-                                    <div class="d-flex align-items-center justify-content-between qbox">
-                                    <div class="d-flex align-items-center">
-                                        <small class="badge badge-dark mr-3" style="border-radius:4px !important;">Quantity</small>
-                                        <h5 class="mb-0 text-white">
-                                        <span id="qty-display">-</span>
-                                        </h5>
-                                    </div>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
-                                    <!-- Indicator tetap id yang sama -->
-                                    <div id="indicator" class="indicator"></div>
-                                    </div>
-                                </div>
+                <div class="row pulling-row">
+                    <div class="col-9">
+                        <div class="pulling-tile">
+                            <p class="pulling-tile__label">Customer</p>
+                            <p class="pulling-tile__value" id="customer-display">Customer</p>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="pulling-tile">
+                            <p class="pulling-tile__label">Cycle</p>
+                            <p class="pulling-tile__value" id="cycle-display">Cycle</p>
+                        </div>
+                    </div>
+                </div>
 
-                                <!-- Kanan: Toggle Direct -->
-                                <div class="col-4 mt-2 mt-md-0">
-                                    <div class="d-flex justify-content-md-end justify-content-start">
-                                    <div class="direct-toggle">
-                                        <input type="checkbox" id="directToggle" class="direct-toggle__input" />
-                                        <label for="directToggle" class="direct-toggle__track" aria-label="Direct Mode (Single Scan)">
-                                        <span class="direct-toggle__thumb" aria-hidden="true"></span>
-                                        <span class="direct-toggle__label direct-toggle__label--off">Direct</span>
-                                        </label>
-                                    </div>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="row pulling-row">
+                    <div class="col-6">
+                        <div class="pulling-tile bg-default">
+                            <p class="pulling-tile__label">Kanban Customer</p>
+                            <p class="pulling-tile__value" id="cust-display">-</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="pulling-tile bg-default" id="tmmin-indicator">
+                            <p class="pulling-tile__label">Kanban Internal</p>
+                            <p class="pulling-tile__value" id="int-display">-</p>
+                        </div>
+                    </div>
+                </div>
 
-                            <div class="skid-display"></div>
-                            <div class="row mt-2">
-                                <div class="col-6" style="padding-right: 0px">
-                                    <div class="bg-default" style="height: 5rem; width: 100%;  border-radius: 4px;">
-                                        <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
-                                            Kanban Customer</h6>
-                                        <h6 class="text-center " style="padding-top: 0rem;  color: white;"
-                                            id="cust-display">
-                                            -
-                                        </h6>
-                                        {{-- <div class="bg-warning"
-                                            style="display:inline-block; margin-left:143px; margin-top:-55px; border-radius:100%; width: 10px; height:10px"
-                                            id="tmmin-indicator">
-                                        </div> --}}
-                                    </div>
-                                </div>
-                                <div class="col-6" style="padding-left: .5rem; padding-right: 0px">
-                                    <div style="height: 5rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
-                                        id="tmmin-indicator">
-                                        <h6 class="p-2" style="color: #ffffff; font-size:12px; font-weight:lighter">
-                                            Kanban Internal</h6>
-                                        <h6 class="text-center " style="padding-top: 0rem; color: white;" id="int-display">
-                                            -
-                                        </h6>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-12" style="padding: 15px; padding-right: 0px">
-                                    <input
-                                        style="height: 2.4rem; width: 100%; background-color: white; border-radius: 4px;"
-                                        height="60"
-                                        id="code"
-                                        class="form-control"
-                                        name="code"
-                                        required
-                                        autocomplete="off"
-                                        autocapitalize="off"
-                                        autocorrect="off"
-                                        spellcheck="false"
-                                        inputmode="none"
-                                        />
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-5" style="padding: 15px; padding-top:0; padding-right: 0px">
-                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
-                                        <button type="button" class="btn btn-xl btn-outline-danger"
-                                            style="border-radius: .2rem; height: 3rem; width: 100%; font-size: 1.2rem;"
-                                            id="delay">Delay</button>
-                                    </div>
-                                </div>
-                                <div class="col-7" style="padding: 15px; padding-top:0; padding-right: 0px">
-                                    <div style="height: 2.4rem; width: 100%; border-radius: 20px;">
-                                        <button type="button" class="btn btn-xl btn-success"
-                                            style="border-radius: .2rem; height: 3rem; width: 100%; font-size: 1.2rem; box-shadow: rgba(0, 0, 0, 0.45) 0px 25px 20px -20px;"
-                                            id="done">Selesai</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row text-center mt-2">
-                                <div class="col">
-                                    <span class="badge badge-pill" id="pullingStatusContainer"
-                                        style="border-radius: .2rem;">
-                                        <span id="pullingQty" style="color: #ffffff"></span> <span id="pullingStatus"
-                                            style="color: #ffffff"></span>
-                                    </span>
-                                </div>
-                            </div>
+                <div class="row pulling-row">
+                    <div class="col-6">
+                        <div class="pulling-tile pulling-tile--compact">
+                            <p class="pulling-tile__label">Alamat Chute</p>
+                            <p class="pulling-tile__value" id="chute-display">-</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="pulling-tile pulling-tile--compact">
+                            <p class="pulling-tile__label">Back No</p>
+                            <p class="pulling-tile__value" id="backno-display">-</p>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
+
+            <div class="pulling-panel pulling-panel--ops">
+                <div class="row pulling-row align-items-center pulling-qty-row">
+                    <div class="col-8">
+                        <div class="d-flex align-items-center justify-content-between qbox">
+                            <div class="d-flex align-items-center">
+                                <small class="badge badge-dark mr-2">Qty</small>
+                                <h5 class="mb-0"><span id="qty-display">-</span></h5>
+                            </div>
+                            <div id="indicator" class="indicator"></div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="d-flex justify-content-end">
+                            <div class="direct-toggle">
+                                <input type="checkbox" id="directToggle" class="direct-toggle__input" />
+                                <label for="directToggle" class="direct-toggle__track" aria-label="Direct Mode">
+                                    <span class="direct-toggle__thumb" aria-hidden="true"></span>
+                                    <span class="direct-toggle__label direct-toggle__label--off">Direct</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skid-display"></div>
+
+                <div class="pulling-scan-wrap">
+                    <input
+                        id="code"
+                        class="form-control pulling-scan-input"
+                        name="code"
+                        required
+                        autocomplete="off"
+                        autocapitalize="off"
+                        autocorrect="off"
+                        spellcheck="false"
+                        inputmode="none"
+                        aria-label="Scan barcode"
+                    />
+                </div>
+
+                <div class="pulling-actions">
+                    <button type="button" class="btn btn-outline-danger" id="delay">Delay</button>
+                    <button type="button" class="btn btn-success" id="done">Selesai</button>
+                </div>
+
+                <div class="text-center pulling-status-wrap">
+                    <span class="pulling-status-badge" id="pullingStatusContainer">
+                        <span id="pullingQty"></span>
+                        <span id="pullingStatus"></span>
+                    </span>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="modal fade" id="modalLoadingListScan" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+</div>
+    <div class="modal fade pulling-modal" id="modalLoadingListScan" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-hidden="true" aria-labelledby="modalToggleLabel2">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content position-relative">
-                <!-- overlay TANPA d-none/d-flex -->
                 <div class="loading-overlay" aria-live="polite" aria-busy="true">
                     <div class="text-center">
-                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
                         <div class="mt-3 fw-semibold" id="loading-text">Memproses...</div>
                     </div>
                 </div>
 
-                <div class="modal-header"></div>
-                <div class="modal-body">
-                    <h5 class="text-center"><b>LOADING LIST</b></h5><br>
-                    <input type="text" class="form-control" id="input-loadingList" autocomplete="off">
-                    <br>
+                <div class="modal-body py-3">
+                    <h5 class="text-center">Loading list</h5>
+                    <input type="text" class="form-control mt-2" id="input-loadingList" autocomplete="off">
                 </div>
             </div>
         </div>
@@ -363,18 +795,14 @@
     </div>
 
     {{-- confirmation modal --}}
-    <div class="modal fade" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2"
+    <div class="modal fade pulling-modal" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2"
         tabindex="-1" data-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                </div>
-                <div class="modal-body">
-                    <h5 class="text-center"><b>JP or Leader Confirmation</b></h5>
-                    <p class="text-center" style="color: red">*hubungi JP atau Leader</p><br>
-                    <input type="text" class="form-control" id="input-confirmation" placeholder="scan barcode..."
-                        autocomplete="off" autofocus>
-                    <br>
+                <div class="modal-body py-3">
+                    <h5 class="text-center">Konfirmasi JP / Leader</h5>
+                    <p class="text-center text-danger small mb-2">Hubungi JP atau Leader</p>
+                    <input type="text" class="form-control" id="input-confirmation" autocomplete="off" autofocus>
                 </div>
             </div>
         </div>
@@ -460,6 +888,29 @@
     const doneKey = (ll) => `ll_done_${ll}`;
     const isLLDone = (ll) => (localStorage.getItem(doneKey(ll)) === '1');
     const markLLDone = (ll) => { try { localStorage.setItem(doneKey(ll), '1'); } catch(e){} };
+
+    function pullingLlMarkup(number, liId) {
+        const id = liId || 'loadingListContainer';
+        return `<li class="pulling-ll-item" id="${id}">
+            <div class="pulling-ll-chip" id="loadingList">
+                <span id="loadingList-display">${number}</span>
+            </div>
+        </li>`;
+    }
+
+    function pullingSkidMarkup(skid) {
+        return `<div class="row mt-2 px-1">
+            <div class="col-12">
+                <div class="pulling-skid-bar">
+                    <div class="pulling-skid-info">
+                        <span class="pulling-skid-label">Skid</span>
+                        <span class="pulling-skid-value" id="skid-display">${skid}</span>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" id="close-skid">Close Skid ${skid}</button>
+                </div>
+            </div>
+        </div>`;
+    }
 
     function okSound() {
         var sound = document.getElementById("ok-sound");
@@ -586,6 +1037,34 @@
 
     function isDirectOn() {
         try { return (localStorage.getItem(KEY_DIRECT_MODE) || 'off') === 'on'; } catch(e) { return false; }
+    }
+
+    function fetchAlamatChute(loadingList, customerPart, internalPart) {
+        if (!loadingList || !customerPart) {
+            $('#chute-display').text('-');
+            return;
+        }
+
+        $('#chute-display').text('Loading...');
+        $.ajax({
+            type: 'GET',
+            url: "{{ route('pulling.alamat-chute') }}",
+            data: {
+                loadingList: loadingList,
+                customerPart: customerPart,
+                internalPart: internalPart || ''
+            },
+            dataType: 'json',
+            success: function(resp) {
+                $('#chute-display').text(resp?.alamat_chute || '-');
+                if (resp?.back_no) {
+                    $('#backno-display').text(resp.back_no);
+                }
+            },
+            error: function() {
+                $('#chute-display').text('-');
+            }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -717,6 +1196,8 @@
                 if (typeof tmminSuccessIndicator==='function') tmminSuccessIndicator();
                 if (typeof okSound==='function') okSound();
                 $('#cust-display').text('-');
+                $('#chute-display').text('-');
+                $('#backno-display').text('-');
                 localStorage.removeItem('customerPart');
                 if (typeof pullingQuantity==='function') pullingQuantity();
                 db2.close();
@@ -788,17 +1269,7 @@
             $('#loadingListContainerSample').remove();
 
             // loading list display
-            $('#list').append(
-                `<li class="col-12 mt-2"
-                    style="padding-left: 1rem; padding-right: 0px; list-style-type: none;"
-                    id="loadingListContainer">
-                        <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;"
-                        id="loadingList">
-                            <h6 class="text-center " style="padding-top: .5rem; color: white;"
-                            id="loadingList-display">${loadingList[key]}</h6>
-                        </div>
-                    </li>`
-            );
+            $('#list').append(pullingLlMarkup(loadingList[key]));
 
             pullingQuantity();
             $('#customer-display').text(customer);
@@ -813,23 +1284,7 @@
 
         // display skid if customer is TMMIN
         if (customer == 'TMMIN KRW 1') {
-            $('.skid-display').append(`<div class="row mt-2">
-                <div class="col-12" style="padding-right: 0px">
-                    <div
-                        style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
-                        <small class="badge badge-dark"
-                            style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
-                        <h5 style="color: #ffffff; display:inline; padding-left:5rem">
-                            <span id="skid-display">${skid}</span>
-                        </h5>
-                        <div class="btn btn-danger"
-                            style="display:inline-block; margin-left:220px; margin-top:-27px;"
-                            id="close-skid">
-                            Close Skid ${skid}
-                        </div>
-                    </div>
-                </div>
-            </div>`)
+            $('.skid-display').append(pullingSkidMarkup(skid));
         }
 
         if (getLoadingListNumber().length == 0) {
@@ -1484,13 +1939,7 @@
 
             updateLoadingListUI(data) {
                 $('#loadingListContainerSample').remove();
-                $('#list').append(`
-            <li class="col-12 mt-2" style="padding-left: 1rem; padding-right: 0px; list-style-type: none;" id="loadingListContainer">
-                <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;" id="loadingList">
-                    <h6 class="text-center" style="padding-top: .5rem; color: white;" id="loadingList-display">${data.number}</h6>
-                </div>
-            </li>
-        `);
+                $('#list').append(pullingLlMarkup(data.number));
             }
 
             async initializeDatabase(data) {
@@ -1651,21 +2100,7 @@
                         localStorage.setItem('skid', '1');
                     }
 
-                    $('.skid-display').append(`
-                <div class="row mt-2">
-                    <div class="col-12" style="padding-right: 0px">
-                        <div style="height: 3rem; width: 100%; background-color: #03b1fc; border-radius: 4px; padding:10.5px; padding-left:12px">
-                            <small class="badge badge-dark" style="color:#ffffff; display:inline; border-radius:4px !important;">Skid</small>
-                            <h5 style="color: #ffffff; display:inline; padding-left:5rem">
-                                <span id="skid-display">${skid}</span>
-                            </h5>
-                            <div class="btn btn-danger" style="display:inline-block; margin-left:220px; margin-top:-27px;" id="close-skid">
-                                Close Skid ${skid}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `);
+                    $('.skid-display').append(pullingSkidMarkup(skid));
                 }
             }
 
@@ -2158,6 +2593,8 @@
                         $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
                         $('#int-display').text(internal);
                         $('#cust-display').text('-');
+                        $('#chute-display').text('-');
+                        $('#backno-display').text('-');
                         $('#indicator').removeClass('bg-danger bg-warning').addClass('bg-success');
                         resetIndicator();
                         pullingQuantity();
@@ -2443,7 +2880,7 @@
             createProgressTile(message = 'Mengambil data loading list...') {
                 const id = `${this.progressTilePrefix}${Date.now()}`;
                 $('#list').append(`
-                    <li class="col-12 mt-2" style="padding-left:1rem;padding-right:0;list-style-type:none;" id="${id}">
+                    <li class="pulling-ll-item" id="${id}">
                     <div id="${id}-card" class="glass-tile glass-tile--loading glass-in">
                         <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
                         <span class="fw-semibold" id="${id}-text" aria-live="polite">${message}</span>
@@ -2467,7 +2904,7 @@
                     return id;
                 }
                 $('#list').append(`
-                        <li class="col-12 mt-2" style="padding-left:1rem;padding-right:0;list-style-type:none;" id="${id}">
+                        <li class="pulling-ll-item" id="${id}">
                         <div id="${id}-card" class="glass-tile glass-tile--loading glass-in">
                             <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
                             <span class="fw-semibold" id="${id}-text" aria-live="polite">${message}</span>
@@ -2504,13 +2941,7 @@
             // final: ganti tile progress jadi markup LAMA-mu (biru)
             replaceTileWithFinalOriginal(key, number) {
                 const id = this.getTileIdByKey(key);
-                const html = `
-                    <li class="col-12 mt-2" style="padding-left: 1rem; padding-right: 0px; list-style-type: none;" id="loadingListContainer">
-                    <div style="height: 2rem; width: 100%; background-color: #03b1fc; border-radius: 4px;" id="loadingList">
-                        <h6 class="text-center " style="padding-top: .5rem; color: white;" id="loadingList-display">${number}</h6>
-                    </div>
-                    </li>`;
-                $(`#${id}`).replaceWith(html);
+                $(`#${id}`).replaceWith(pullingLlMarkup(number));
                 this.tileByKey.delete(key);
             }
 
@@ -3171,6 +3602,8 @@
 
             updateKanbanDisplay(record, customerCode, originalCode = null) {
                 $('#cust-display').text(record.customer);
+                $('#backno-display').text('-');
+                fetchAlamatChute(record.loading_list_number, record.customer, record.internal);
                 $('#int-display').text('-');
                 $('#qty-display').text(`${record.seri.length}/${record.total_qty}`);
 

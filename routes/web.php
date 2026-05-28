@@ -269,8 +269,24 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
         Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
 
+        Route::get('/alamat-chute', [PullingController::class, 'getAlamatChute'])
+            ->name('pulling.alamat-chute');
+
         Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
         Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
+
+        Route::get('/master-alamat-chute', [PullingController::class, 'masterAlamatChuteIndex'])
+            ->name('pulling.master-alamat-chute');
+        Route::get('/master-alamat-chute/template', [PullingController::class, 'downloadMasterAlamatChuteTemplate'])
+            ->name('pulling.master-alamat-chute.template');
+        Route::post('/master-alamat-chute/import', [PullingController::class, 'importMasterAlamatChute'])
+            ->name('pulling.master-alamat-chute.import');
+        Route::post('/master-alamat-chute', [PullingController::class, 'storeMasterAlamatChute'])
+            ->name('pulling.master-alamat-chute.store');
+        Route::put('/master-alamat-chute/{master_alamat_chute}', [PullingController::class, 'updateMasterAlamatChute'])
+            ->name('pulling.master-alamat-chute.update');
+        Route::delete('/master-alamat-chute/{master_alamat_chute}', [PullingController::class, 'deleteMasterAlamatChute'])
+            ->name('pulling.master-alamat-chute.delete');
 
     });
 

@@ -95,6 +95,21 @@
             box-shadow: 0 10px 24px rgba(0, 112, 183, .28);
         }
 
+        .btn-danger,
+        .btn-danger:hover,
+        .btn-danger:focus,
+        .btn-danger:active {
+            color: #fff !important;
+            background-color: var(--danger, #DC2626);
+            border-color: var(--danger, #DC2626);
+        }
+
+        .btn-outline-danger:hover,
+        .btn-outline-danger:focus,
+        .btn-outline-danger:active {
+            color: #fff !important;
+        }
+
         .login-screen {
             min-height: 100vh;
             display: flex;

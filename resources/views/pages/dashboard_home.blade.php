@@ -509,6 +509,12 @@
                                 'icon' => 'fa-sync-alt',
                                 'type' => 'outline',
                             ],
+                            [
+                                'route' => 'pulling.master-alamat-chute',
+                                'label' => 'Alamat Chute',
+                                'icon' => 'fa-map-marker-alt',
+                                'type' => 'outline',
+                            ],
                         ],
                     ],
                     [
