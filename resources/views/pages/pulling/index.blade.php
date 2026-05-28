@@ -105,6 +105,26 @@
         color: #fff !important;
     }
 
+    .pulling-page #delay {
+        color: #DC2626 !important;
+        background-color: #FEECEC !important;
+        border-color: #FBD0D0 !important;
+    }
+
+    .pulling-page #delay:hover,
+    .pulling-page #delay:focus {
+        color: #C81E1E !important;
+        background-color: #FCDDDD !important;
+        border-color: #F6B8B8 !important;
+    }
+
+    .pulling-page #delay:active,
+    .pulling-page #delay:focus:active {
+        color: #B91C1C !important;
+        background-color: #F9CFCF !important;
+        border-color: #F2A5A5 !important;
+    }
+
     .pulling-section-head {
         display: flex;
         align-items: center;
@@ -750,7 +770,7 @@
                 </div>
 
                 <div class="pulling-actions">
-                    <button type="button" class="btn btn-outline-danger" id="delay">Delay</button>
+                    <button type="button" class="btn btn-danger" id="delay">Delay</button>
                     <button type="button" class="btn btn-success" id="done">Selesai</button>
                 </div>
 
@@ -2274,6 +2294,11 @@
         }
 
         $('#delay').on('click', function() {
+            $(this).prop('disabled', true).css({
+                color: '#B91C1C',
+                backgroundColor: '#F9CFCF',
+                borderColor: '#F2A5A5'
+            });
             localStorage.clear();
             window.location.reload();
         });
