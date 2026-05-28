@@ -469,6 +469,284 @@
             color: var(--text-muted, #64748b);
         }
 
+        /* ===== UPLOAD MODAL - CLEAN MINIMAL ===== */
+        .upload-drop-zone {
+            border: 1.5px dashed var(--border, #e5e7eb);
+            border-radius: var(--r, 8px);
+            background: var(--bg, #f8fafc);
+            padding: 28px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+        }
+
+        .upload-drop-zone:hover,
+        .upload-drop-zone.dragover {
+            border-color: #0070B7;
+            background: rgba(0, 112, 183, .04);
+        }
+
+        .upload-drop-zone .dz-icon-wrap {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            background: var(--card, #ffffff);
+            border: 1px solid var(--border, #e5e7eb);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+        }
+
+        .upload-drop-zone .dz-icon-wrap i {
+            font-size: 22px;
+            color: var(--text-muted, #64748b);
+        }
+
+        .upload-drop-zone p {
+            font-size: 12.5px;
+            color: var(--text-muted, #64748b);
+            margin: 0 0 4px;
+        }
+
+        .upload-drop-zone span.dz-ext {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .upload-drop-zone .dz-browse {
+            color: var(--primary, #0070B7);
+            font-weight: 700;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .upload-file-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card, #ffffff);
+            border: 1px solid var(--border, #e5e7eb);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 10px;
+        }
+
+        .upload-file-card .ufc-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 6px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .upload-file-card .ufc-icon i {
+            font-size: 18px;
+            color: #15803d;
+        }
+
+        .upload-file-card .ufc-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .upload-file-card .ufc-name {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text, #0f172a);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .upload-file-card .ufc-size {
+            font-size: 11px;
+            color: var(--text-muted, #64748b);
+            margin-top: 1px;
+        }
+
+        .upload-file-card .ufc-remove {
+            width: 26px;
+            height: 26px;
+            border: 1px solid var(--border, #e5e7eb);
+            border-radius: 5px;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted, #64748b);
+            font-size: 14px;
+            transition: .15s;
+            flex-shrink: 0;
+        }
+
+        .upload-file-card .ufc-remove:hover {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+
+        .upload-hint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .upload-hint i {
+            font-size: 13px;
+        }
+
+        .upload-hint.success {
+            color: #15803d;
+        }
+
+        .upload-modal-label {
+            display: block;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-muted, #64748b);
+            margin-bottom: 8px;
+        }
+
+        /* ===== IZITOAST OVERRIDE - MINIMAL FLAT ===== */
+        .iziToast {
+            border-radius: 8px !important;
+            padding: 10px 14px !important;
+            min-height: unset !important;
+            border: none !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, .15) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+
+        /* hapus icon besar bawaan */
+        .iziToast>.iziToast-icon {
+            display: none !important;
+        }
+
+        .iziToast>.iziToast-body {
+            padding: 0 !important;
+            margin-left: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+        }
+
+        /* icon kecil custom lewat pseudo */
+        .iziToast>.iziToast-body::before {
+            content: '';
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, .18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            font-size: 13px;
+            color: #fff;
+            line-height: 28px;
+            text-align: center;
+        }
+
+        .iziToast-success>.iziToast-body::before {
+            content: '\f00c';
+        }
+
+        .iziToast-danger>.iziToast-body::before {
+            content: '\f00d';
+        }
+
+        .iziToast-warning>.iziToast-body::before {
+            content: '\f071';
+        }
+
+        .iziToast-info>.iziToast-body::before {
+            content: '\f05a';
+        }
+
+        .iziToast>.iziToast-body .iziToast-texts {
+            flex: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .iziToast>.iziToast-body .iziToast-title {
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            color: #fff !important;
+            margin-bottom: 1px !important;
+            line-height: 1.3 !important;
+        }
+
+        .iziToast>.iziToast-body .iziToast-message {
+            font-size: 11.5px !important;
+            color: rgba(255, 255, 255, .82) !important;
+            line-height: 1.4 !important;
+            margin: 0 !important;
+        }
+
+        /* tombol close */
+        .iziToast>.iziToast-close {
+            width: 22px !important;
+            height: 22px !important;
+            border-radius: 4px !important;
+            background: rgba(255, 255, 255, .15) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M1 1l12 12M13 1L1 13' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center / 10px no-repeat !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            right: 10px !important;
+            opacity: .7 !important;
+        }
+
+        .iziToast>.iziToast-close:hover {
+            opacity: 1 !important;
+            background-color: rgba(255, 255, 255, .25) !important;
+        }
+
+        /* progress bar */
+        .iziToast>.iziToast-progressbar {
+            height: 2px !important;
+            bottom: 0 !important;
+            border-radius: 0 0 8px 8px !important;
+            background: transparent !important;
+        }
+
+        .iziToast>.iziToast-progressbar>div {
+            background: rgba(255, 255, 255, .4) !important;
+            height: 2px !important;
+        }
+
+        /* warna per tipe */
+        .iziToast-success {
+            background: #16a34a !important;
+            border-color: #15803d !important;
+        }
+
+        .iziToast-danger {
+            background: #dc2626 !important;
+            border-color: #b91c1c !important;
+        }
+
+        .iziToast-warning {
+            background: #d97706 !important;
+            border-color: #b45309 !important;
+        }
+
+        .iziToast-info {
+            background: #0070B7 !important;
+            border-color: #005a94 !important;
+        }
+
         @media (max-width: 768px) {
             .bella-table-card-header {
                 align-items: flex-start;
@@ -510,11 +788,11 @@
             </div>
             <div class="stock-header-actions">
                 <button type="button" class="act-btn danger" data-toggle="modal" data-target="#partModal">
-                    <i class="fas fa-upload"></i> Upload Part
+                    <i class="fas fa-upload"></i> Upload Master Part
                 </button>
-                {{-- <button type="button" class="act-btn success" data-toggle="modal" data-target="#stockModal">
+                <button type="button" class="act-btn success" data-toggle="modal" data-target="#stockModal">
                     <i class="fas fa-file-import"></i> Import Stock
-                </button> --}}
+                </button>
                 {{-- <button type="button" class="act-btn success" data-toggle="modal" data-target="#exportMutationModal">
                     <i class="fas fa-file-excel"></i> Export Mutasi
                 </button> --}}
@@ -652,29 +930,62 @@
 <div class="modal fade" tabindex="-1" role="dialog" id="partModal">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form action="{{ route('dashboard.part.import') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route('dashboard.part.import') }}" method="POST" enctype="multipart/form-data"
+                id="partForm">
                 @method('POST')
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title">Upload Part</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-database mr-1"></i> Upload Master Part
+                    </h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="modal-body mt-3">
-                    <div class="pis-row">
-                        <div class="form-group full-span">
-                            <label>Part File</label>
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input" id="customFile" name="file">
-                                <label class="custom-file-label" for="customFile">Choose file</label>
-                            </div>
+                <div class="modal-body">
+                    <span class="upload-modal-label">Part File</span>
+
+                    <input type="file" id="partFileInput" name="file" accept=".xlsx,.xls"
+                        style="display:none">
+
+                    <div class="upload-drop-zone" id="partDropZone"
+                        onclick="document.getElementById('partFileInput').click()">
+                        <div class="dz-icon-wrap">
+                            <i class="fas fa-cloud-upload-alt"></i>
                         </div>
+                        <p>Drag &amp; drop file di sini, atau
+                            <span class="dz-browse">browse</span>
+                        </p>
+                        <span class="dz-ext">.xlsx, .xls &mdash; maks 10 MB</span>
+                    </div>
+
+                    <div class="upload-file-card" id="partFileCard" style="display:none">
+                        <div class="ufc-icon">
+                            <i class="fas fa-file-excel"></i>
+                        </div>
+                        <div class="ufc-meta">
+                            <div class="ufc-name" id="partFileName">—</div>
+                            <div class="ufc-size" id="partFileSize">—</div>
+                        </div>
+                        <button type="button" class="ufc-remove" id="partFileRemove" title="Hapus file">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="upload-hint" id="partHint">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Gunakan template standar sebelum upload.</span>
+                    </div>
+                    <div class="upload-hint success" id="partHintOk" style="display:none">
+                        <i class="fas fa-check-circle"></i>
+                        <span>File siap diimport.</span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="act-btn secondary" data-dismiss="modal">Close</button>
-                    <button type="submit" class="act-btn primary">Import</button>
+                    <button type="button" class="act-btn secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="act-btn primary" id="partSubmitBtn" disabled>
+                        <i class="fas fa-upload"></i> Import
+                    </button>
                 </div>
             </form>
         </div>
@@ -686,29 +997,62 @@
 <div class="modal fade" tabindex="-1" role="dialog" id="stockModal">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form action="{{ route('dashboard.stock.import') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route('dashboard.stock.import') }}" method="POST" enctype="multipart/form-data"
+                id="stockForm">
                 @method('POST')
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title">Upload Stock</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-file-import mr-1"></i> Import Stock
+                    </h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="modal-body mt-3">
-                    <div class="pis-row">
-                        <div class="form-group full-span">
-                            <label>Stock File</label>
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input" id="customStockFile" name="file">
-                                <label class="custom-file-label" for="customStockFile">Choose file</label>
-                            </div>
+                <div class="modal-body">
+                    <span class="upload-modal-label">Stock File</span>
+
+                    <input type="file" id="stockFileInput" name="file" accept=".xlsx,.xls"
+                        style="display:none">
+
+                    <div class="upload-drop-zone" id="stockDropZone"
+                        onclick="document.getElementById('stockFileInput').click()">
+                        <div class="dz-icon-wrap">
+                            <i class="fas fa-cloud-upload-alt"></i>
                         </div>
+                        <p>Drag &amp; drop file di sini, atau
+                            <span class="dz-browse">browse</span>
+                        </p>
+                        <span class="dz-ext">.xlsx, .xls &mdash; maks 10 MB</span>
+                    </div>
+
+                    <div class="upload-file-card" id="stockFileCard" style="display:none">
+                        <div class="ufc-icon">
+                            <i class="fas fa-file-excel"></i>
+                        </div>
+                        <div class="ufc-meta">
+                            <div class="ufc-name" id="stockFileName">—</div>
+                            <div class="ufc-size" id="stockFileSize">—</div>
+                        </div>
+                        <button type="button" class="ufc-remove" id="stockFileRemove" title="Hapus file">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="upload-hint" id="stockHint">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Gunakan template standar sebelum upload.</span>
+                    </div>
+                    <div class="upload-hint success" id="stockHintOk" style="display:none">
+                        <i class="fas fa-check-circle"></i>
+                        <span>File siap diimport.</span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="act-btn secondary" data-dismiss="modal">Close</button>
-                    <button type="submit" class="act-btn primary">Import</button>
+                    <button type="button" class="act-btn secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="act-btn primary" id="stockSubmitBtn" disabled>
+                        <i class="fas fa-upload"></i> Import
+                    </button>
                 </div>
             </form>
         </div>
@@ -765,8 +1109,101 @@
     // Declare a global object to store chart instances
     var charts = {};
 
-    var errorMessege = "{!! session('error') !!}";
-    var successMessege = "{!! session('success') !!}";
+    const flashMessage = {
+        error: @json(session('error')),
+        success: @json(session('success')),
+        warning: @json(session('warning')),
+        details: @json(session('import_errors', [])),
+        validationErrors: @json($errors->all()),
+    };
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function formatDetails(details) {
+        if (!details || details.length === 0) {
+            return '';
+        }
+
+        let html = '<br><br><b>Detail:</b><br>';
+
+        details.slice(0, 8).forEach(function(item) {
+            html += '• ' + escapeHtml(item) + '<br>';
+        });
+
+        return html;
+    }
+
+    $(document).ready(function() {
+        if (flashMessage.validationErrors.length > 0) {
+            iziToast.error({
+                title: 'File tidak valid',
+                message: formatDetails(flashMessage.validationErrors),
+                position: 'bottomRight',
+                timeout: 9000,
+                class: 'iziToast-danger', // ← tambahkan ini
+            });
+        }
+
+        if (flashMessage.error) {
+            iziToast.error({
+                title: 'Gagal',
+                message: escapeHtml(flashMessage.error) + formatDetails(flashMessage.details),
+                position: 'bottomRight',
+                timeout: 10000,
+                class: 'iziToast-danger', // ← tambahkan ini
+            });
+        }
+
+        if (flashMessage.warning) {
+            iziToast.warning({
+                title: 'Perhatian',
+                message: escapeHtml(flashMessage.warning) + formatDetails(flashMessage.details),
+                position: 'bottomRight',
+                timeout: 10000,
+                class: 'iziToast-warning', // ← tambahkan ini
+            });
+        }
+
+        if (flashMessage.success) {
+            iziToast.success({
+                title: 'Berhasil',
+                message: escapeHtml(flashMessage.success),
+                position: 'bottomRight',
+                timeout: 7000,
+                class: 'iziToast-success', // ← tambahkan ini
+            });
+        }
+
+        @if (count($lines))
+            $('#stocks-{{ $lines[0]->line }}').DataTable();
+        @endif
+
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+            var target = $(e.target).attr("href");
+            var tableId = target + ' table';
+
+            if (!$.fn.DataTable.isDataTable(tableId)) {
+                $(tableId).DataTable();
+            }
+        });
+
+        lineData.forEach(function(data) {
+            if (getElement(data.line)) {
+                chart(data.line).render();
+            }
+        });
+
+        lineData.forEach(function(item) {
+            updateChart(item.line, item.items);
+        });
+    });
 
     // chart option
     function generateOptions(line) {
@@ -854,6 +1291,76 @@
         return el;
     }
 
+    function setupUploadModal(inputId, dropZoneId, fileCardId, fileNameId, fileSizeId,
+        removeId, hintId, hintOkId, submitId) {
+        const input = document.getElementById(inputId);
+        const dropZone = document.getElementById(dropZoneId);
+        const fileCard = document.getElementById(fileCardId);
+        const fileName = document.getElementById(fileNameId);
+        const fileSize = document.getElementById(fileSizeId);
+        const removeBtn = document.getElementById(removeId);
+        const hint = document.getElementById(hintId);
+        const hintOk = document.getElementById(hintOkId);
+        const submitBtn = document.getElementById(submitId);
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        function setFile(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatBytes(file.size) + ' · Excel Spreadsheet';
+            fileCard.style.display = 'flex';
+            hint.style.display = 'none';
+            hintOk.style.display = 'flex';
+            dropZone.classList.add('dragover');
+            submitBtn.disabled = false;
+        }
+
+        function clearFile() {
+            input.value = '';
+            fileCard.style.display = 'none';
+            hint.style.display = 'flex';
+            hintOk.style.display = 'none';
+            dropZone.classList.remove('dragover');
+            submitBtn.disabled = true;
+        }
+
+        input.addEventListener('change', function() {
+            if (this.files[0]) setFile(this.files[0]);
+        });
+
+        removeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            clearFile();
+        });
+
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', function() {
+            if (!input.files[0]) this.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                setFile(file);
+            }
+        });
+
+        // Reset saat modal ditutup
+        $(dropZone).closest('.modal').on('hidden.bs.modal', clearFile);
+    }
+
     $(document).on('click', '.edit-stock', function() {
         const data = $(this).data('stock');
         let modal = $('#edit').modal('show');
@@ -869,21 +1376,21 @@
     });
 
     $(document).ready(function() {
-        if (errorMessege) {
-            iziToast.error({
-                title: 'Error! ' + errorMessege,
-                position: 'bottomRight'
-            });
-        } else if (successMessege) {
-            iziToast.success({
-                title: 'Success! ' + successMessege,
-                position: 'bottomRight'
-            });
-        }
         // Initialize DataTable for the first tab
         @if (count($lines))
             $('#stocks-{{ $lines[0]->line }}').DataTable();
         @endif
+
+        setupUploadModal(
+            'partFileInput', 'partDropZone', 'partFileCard',
+            'partFileName', 'partFileSize', 'partFileRemove',
+            'partHint', 'partHintOk', 'partSubmitBtn'
+        );
+        setupUploadModal(
+            'stockFileInput', 'stockDropZone', 'stockFileCard',
+            'stockFileName', 'stockFileSize', 'stockFileRemove',
+            'stockHint', 'stockHintOk', 'stockSubmitBtn'
+        );
 
         // Initialize DataTable on tab show event
         $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
