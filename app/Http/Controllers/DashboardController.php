@@ -21,6 +21,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
 
@@ -38,49 +39,39 @@ class DashboardController extends Controller
      */
     public function productionStock()
     {
-        $lines = [];
-
-        // get all current qty of all internal parts
         $data = DB::table('internal_parts')
-            ->join('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->select('lines.name', 'production_stocks.internal_part_id as id', 'internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.current_stock', 'internal_parts.standard_stock')
-            ->groupBy('internal_parts.part_number', 'internal_parts.back_number', 'production_stocks.internal_part_id', 'lines.name', 'production_stocks.current_stock', 'internal_parts.standard_stock')
+            ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+            ->select(
+                'lines.name as line_name',
+                'internal_parts.id',
+                'internal_parts.part_number',
+                'internal_parts.back_number',
+                DB::raw('COALESCE(production_stocks.current_stock, 0) as current_stock'),
+                DB::raw('COALESCE(internal_parts.standard_stock, 0) as standard_stock')
+            )
+            ->orderBy('lines.name')
+            ->orderBy('internal_parts.back_number')
             ->get();
 
-        foreach ($data as $value) {
-            $lineFound = false;
-            // Check if line already exists in $lines array
-            foreach ($lines as $line) {
-                if ($line->line === $value->name) {
-                    $lineFound = true;
-                    $line->items[] = [
-                        'id' => $value->id,
-                        'part_number' => $value->part_number,
-                        'back_number' => $value->back_number,
-                        'qty' => $value->current_stock,
-                        'standard' => $value->standard_stock,
-                    ];
-                    break;
-                }
-            }
-            // If line doesn't exist, create a new object and add it to $lines array
-            if (!$lineFound) {
-                $lineObject = (object) [
-                    'line' => $value->name,
-                    'items' => [
-                        [
-                            'id' => $value->id,
-                            'part_number' => $value->part_number,
-                            'back_number' => $value->back_number,
-                            'qty' => $value->current_stock,
-                            'standard' => $value->standard_stock,
-                        ],
-                    ],
+        $lines = $data
+            ->groupBy('line_name')
+            ->map(function ($items, $lineName) {
+                return (object) [
+                    'line' => $lineName,
+                    'items' => $items->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'part_number' => $item->part_number,
+                            'back_number' => $item->back_number,
+                            'qty' => (int) $item->current_stock,
+                            'standard' => (int) $item->standard_stock,
+                        ];
+                    })->values()->toArray(),
                 ];
-                $lines[] = $lineObject;
-            }
-        }
+            })
+            ->values()
+            ->toArray();
 
         return view('pages.dashboard', [
             'lines' => $lines,
@@ -976,9 +967,57 @@ class DashboardController extends Controller
 
     public function importPart(Request $request)
     {
-        Excel::import(new PartImport, $request->file('file')->store('files'));
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|mimes:xlsx,xls,csv',
+        ], [
+            'file.required' => 'Silakan pilih file Master Part terlebih dahulu.',
+            'file.mimes'    => 'Format file tidak sesuai. Gunakan file Excel dengan format .xlsx, .xls, atau .csv.',
+        ]);
 
-        return redirect()->back()->with('success', 'Part berhasil diupload!');
+        if ($validator->fails()) {
+            return redirect()
+                ->back()
+                ->with('error', $validator->errors()->first());
+        }
+
+        try {
+            $import = new PartImport();
+
+            Excel::import($import, $request->file('file'));
+
+            if (method_exists($import, 'isAllDuplicate') && $import->isAllDuplicate()) {
+                return redirect()
+                    ->back()
+                    ->with('error', 'Import Master Part gagal. Semua data pada file sudah pernah diupload sebelumnya.')
+                    ->with('import_errors', method_exists($import, 'getUserMessages') ? $import->getUserMessages() : []);
+            }
+
+            if (method_exists($import, 'hasImportedData') && !$import->hasImportedData()) {
+                return redirect()
+                    ->back()
+                    ->with('error', 'Import Master Part gagal. Tidak ada data baru yang berhasil diupload.')
+                    ->with('import_errors', method_exists($import, 'getUserMessages') ? $import->getUserMessages() : []);
+            }
+
+            $message = method_exists($import, 'getSummaryMessage')
+                ? $import->getSummaryMessage()
+                : 'Part berhasil diupload!';
+
+            $redirect = redirect()
+                ->back()
+                ->with('success', $message);
+
+            if (method_exists($import, 'hasWarnings') && $import->hasWarnings()) {
+                $redirect->with('warning', 'Beberapa baris tidak diproses. Silakan cek detail import.');
+                $redirect->with('import_errors', method_exists($import, 'getUserMessages') ? $import->getUserMessages() : []);
+            }
+
+            return $redirect;
+        } catch (\Throwable $th) {
+            return redirect()
+                ->back()
+                ->with('error', $this->friendlyImportError($th->getMessage()));
+        }
     }
 
     public function importManifest(Request $request)
@@ -990,9 +1029,75 @@ class DashboardController extends Controller
 
     public function importStock(Request $request)
     {
-        Excel::import(new StockImport, $request->file('file')->store('files'));
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|mimes:xlsx,xls,csv',
+        ], [
+            'file.required' => 'Silakan pilih file Stock terlebih dahulu.',
+            'file.mimes'    => 'Format file tidak sesuai. Gunakan file Excel dengan format .xlsx, .xls, atau .csv.',
+        ]);
 
-        return redirect()->back()->with('success', 'Stock berhasil diupload!');
+        if ($validator->fails()) {
+            return redirect()
+                ->back()
+                ->with('error', $validator->errors()->first());
+        }
+
+        try {
+            $import = new StockImport();
+
+            Excel::import($import, $request->file('file'));
+
+            if (method_exists($import, 'hasUpdatedData') && !$import->hasUpdatedData()) {
+                return redirect()
+                    ->back()
+                    ->with('error', 'Import Stock gagal. Tidak ada stock yang berhasil diupdate.')
+                    ->with('import_errors', method_exists($import, 'getUserMessages') ? $import->getUserMessages() : []);
+            }
+
+            $message = method_exists($import, 'getSummaryMessage')
+                ? $import->getSummaryMessage()
+                : 'Standard stock dan current stock berhasil diimport.';
+
+            $redirect = redirect()
+                ->back()
+                ->with('success', $message);
+
+            if (method_exists($import, 'hasWarnings') && $import->hasWarnings()) {
+                $redirect->with('warning', 'Beberapa baris stock tidak diproses. Silakan cek detail import.');
+                $redirect->with('import_errors', method_exists($import, 'getUserMessages') ? $import->getUserMessages() : []);
+            }
+
+            return $redirect;
+        } catch (\Throwable $th) {
+            return redirect()
+                ->back()
+                ->with('error', $this->friendlyImportError($th->getMessage()));
+        }
+    }
+
+    private function friendlyImportError(string $message): string
+    {
+        if (str_contains($message, 'Header Excel tidak ditemukan')) {
+            return 'Header Excel tidak ditemukan. Pastikan file memiliki kolom yang sesuai.';
+        }
+
+        if (str_contains($message, 'Undefined array key')) {
+            return 'Format kolom Excel tidak sesuai. Pastikan nama kolom sudah benar.';
+        }
+
+        if (str_contains($message, 'Trying to access array offset')) {
+            return 'Format data Excel tidak sesuai. Pastikan header dan isi kolom sudah benar.';
+        }
+
+        if (str_contains($message, 'Call to a member function store() on null')) {
+            return 'File belum dipilih. Silakan pilih file Excel terlebih dahulu.';
+        }
+
+        if (str_contains($message, 'SQLSTATE')) {
+            return 'Terjadi kesalahan saat menyimpan data ke database. Silakan cek kembali isi file Excel.';
+        }
+
+        return $message ?: 'Terjadi kesalahan saat import file.';
     }
 
     //Receiving Dashboard

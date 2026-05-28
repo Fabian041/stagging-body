@@ -149,9 +149,9 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
-
+    
     Route::prefix('dashboard')->group(function () {
+        Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
         Route::get('/stock/export', [DashboardController::class, 'exportStock'])->name('dashboard.stock.export');
         Route::get('/mutation/export', [DashboardController::class, 'exportMutation'])->name('dashboard.mutation.export');
         // Production stock monitoring (sebelumnya ada di /dashboard)
@@ -232,7 +232,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/part-scan/assign-kanban', [ProductionController::class, 'assignKanbanToPartScans'])
             ->name('production.assign-kanban');
 
-        Route::get('/direct', [ProductionController::class, 'direct'])->name('production.direct.index');
+        Route::get('/direct', [ProductionController::class, 'direct'])
+            ->middleware(['dea.token'])
+            ->name('production.direct.index');
     });
 
     //Validation
@@ -241,9 +243,13 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('validation')->group(function () {
         Route::get('/kanban/pairing', [ValidationController::class, 'pair'])->name('validation.pairing');
     });
+
     // pulling
-    Route::get('/pulling', [PullingController::class, 'index'])->name('pulling.index');
     Route::prefix('pulling')->group(function () {
+        Route::get('/', [PullingController::class, 'index'])
+            ->middleware(['dea.token'])
+            ->name('pulling.index');
+
         Route::get('/settings', [PullingController::class, 'settingIndex'])
             ->name('pulling.settings');
 
