@@ -105,6 +105,11 @@
                 <i class="fas fa-chart-line"></i>
                 Production Result
             </a>
+            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
+                href="{{ route('pulling.master-alamat-chute') }}">
+                <i class="fas fa-map-marker-alt"></i>
+                Alamat Chute
+            </a>
         </div>
 
         {{-- ── PIS ── --}}

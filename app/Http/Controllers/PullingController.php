@@ -20,10 +20,15 @@ use App\Models\ProductionPlan;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
 use Illuminate\Validation\Rule;
+use App\Models\MasterAlamatChute;
+use App\Exports\MasterAlamatChuteTemplateExport;
+use App\Services\MasterAlamatChuteImporter;
 use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpMqtt\Client\ConnectionSettings;
 
 class PullingController extends Controller
@@ -122,6 +127,95 @@ class PullingController extends Controller
 
         return $convertedPartNumber;
     }
+
+    /**
+     * Kandidat format part number customer untuk lookup DB (raw, tanpa dash, hasil convert).
+     *
+     * @return array<int, string>
+     */
+    private function customerPartNumberCandidates(string $loadingListNumber, string $customerPart): array
+    {
+        $customerPart = trim($customerPart);
+        $raw = strtoupper(str_replace(['-', ' '], '', $customerPart));
+
+        $candidates = array_filter([$customerPart, $raw !== $customerPart ? $raw : null]);
+
+        foreach (array_unique(array_filter([$customerPart, $raw])) as $input) {
+            $converted = $this->convertPartNumber($loadingListNumber, $input);
+            if (is_string($converted) && $converted !== '') {
+                $candidates[] = $converted;
+            }
+        }
+
+        return array_values(array_unique(array_filter($candidates)));
+    }
+
+    private function findCustomerPartForLoadingList(
+        int $customerId,
+        string $loadingListNumber,
+        string $customerPart
+    ): ?CustomerPart {
+        foreach ($this->customerPartNumberCandidates($loadingListNumber, $customerPart) as $partNumber) {
+            $found = CustomerPart::query()
+                ->with('internalPart:id,part_name,back_number')
+                ->where('part_number', $partNumber)
+                ->where('customer_id', $customerId)
+                ->first(['id', 'back_number', 'internal_part_id', 'part_number']);
+
+            if ($found) {
+                return $found;
+            }
+        }
+
+        $normalizedInput = strtoupper(str_replace(['-', ' '], '', $customerPart));
+        if ($normalizedInput === '') {
+            return null;
+        }
+
+        return CustomerPart::query()
+            ->with('internalPart:id,part_name,back_number')
+            ->where('customer_id', $customerId)
+            ->whereRaw(
+                "UPPER(REPLACE(REPLACE(part_number, '-', ''), ' ', '')) = ?",
+                [$normalizedInput]
+            )
+            ->first(['id', 'back_number', 'internal_part_id', 'part_number']);
+    }
+
+    /**
+     * Back no & part name hanya dari part internal (bukan customer_parts.back_number).
+     *
+     * @return array{0: string, 1: string} [backNo, partName]
+     */
+    private function resolveInternalBackNo(?CustomerPart $customerPart, ?string $internalPartNumber): array
+    {
+        if ($customerPart?->relationLoaded('internalPart') || $customerPart?->internal_part_id) {
+            $customerPart->loadMissing('internalPart:id,back_number,part_name');
+        }
+
+        if ($customerPart?->internalPart) {
+            return [
+                trim((string) $customerPart->internalPart->back_number),
+                trim((string) $customerPart->internalPart->part_name),
+            ];
+        }
+
+        if ($internalPartNumber !== null && trim($internalPartNumber) !== '') {
+            $internal = InternalPart::query()
+                ->where('part_number', trim($internalPartNumber))
+                ->first(['back_number', 'part_name']);
+
+            if ($internal) {
+                return [
+                    trim((string) $internal->back_number),
+                    trim((string) $internal->part_name),
+                ];
+            }
+        }
+
+        return ['', ''];
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -792,6 +886,63 @@ class PullingController extends Controller
         ]);
     }
 
+    public function getAlamatChute(Request $request)
+    {
+        $validated = $request->validate([
+            'loadingList' => 'required|string',
+            'customerPart' => 'required|string',
+            'internalPart' => 'nullable|string',
+        ]);
+
+        $loadingList = LoadingList::query()
+            ->select('id', 'customer_id')
+            ->where('number', $validated['loadingList'])
+            ->first();
+
+        if (!$loadingList) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Loading list tidak terdaftar!',
+            ], 404);
+        }
+
+        $customerPart = $this->findCustomerPartForLoadingList(
+            (int) $loadingList->customer_id,
+            $validated['loadingList'],
+            $validated['customerPart']
+        );
+
+        [$backNo] = $this->resolveInternalBackNo(
+            $customerPart,
+            $validated['internalPart'] ?? null
+        );
+
+        $partCandidates = array_values(array_unique(array_filter(
+            $customerPart
+                ? array_merge(
+                    [trim((string) $customerPart->part_number)],
+                    $this->customerPartNumberCandidates($validated['loadingList'], $validated['customerPart'])
+                )
+                : $this->customerPartNumberCandidates($validated['loadingList'], $validated['customerPart'])
+        )));
+
+        $alamatChute = null;
+        if ($backNo !== '') {
+            foreach ($partCandidates as $partNumber) {
+                $alamatChute = MasterAlamatChute::resolveByPartCustomerAndBackNo($partNumber, $backNo);
+                if ($alamatChute !== null) {
+                    break;
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'alamat_chute' => $alamatChute,
+            'back_no' => $backNo !== '' ? $backNo : null,
+        ]);
+    }
+
     public function internalCheck($internal, $isinternal = 0)
     {
         // check internal 
@@ -866,7 +1017,7 @@ class PullingController extends Controller
             $convertedPartNumber = is_string($converted) ? $converted : $data['customerPart'];
 
             // 3) Ambil internal_part & customer_part (minim query)
-            $internalPart = InternalPart::select('id', 'part_number')
+            $internalPart = InternalPart::select('id', 'part_number', 'back_number', 'part_name')
                 ->where('part_number', $data['internalPart'])
                 ->first();
 
@@ -880,7 +1031,7 @@ class PullingController extends Controller
             $customerPart = DB::table('customer_parts')
                 ->where('internal_part_id', $internalPart->id)
                 ->where('part_number', $convertedPartNumber)
-                ->select('id')
+                ->select('id', 'back_number')
                 ->first();
 
             if (!$customerPart) {
@@ -951,10 +1102,17 @@ class PullingController extends Controller
 
             // 9) Ambil nilai actual terbaru (opsional: pakai +1 dari sebelumnya)
             $newActual = $lld->actual_kanban_qty + 1;
+            $backNo = trim((string) ($internalPart->back_number ?? ''));
+
+            $alamatChute = MasterAlamatChute::resolveByPartCustomerAndBackNo(
+                $convertedPartNumber,
+                $backNo
+            );
 
             return response()->json([
                 'status' => 'success',
                 'data'   => $newActual,
+                'alamat_chute' => $alamatChute,
             ]);
         });
     }
@@ -1431,6 +1589,151 @@ class PullingController extends Controller
     {
         $customers = Customer::all(); // Atau filter sesuai kebutuhan
         return view('pages.pulling.manual', compact('customers'));
+    }
+
+    public function masterAlamatChuteIndex()
+    {
+        $masters = MasterAlamatChute::query()
+            ->orderBy('part_no_customer')
+            ->orderBy('back_no')
+            ->orderBy('part_name')
+            ->get();
+
+        return view('pages.pulling.master_alamat_chute', compact('masters'));
+    }
+
+    public function downloadMasterAlamatChuteTemplate()
+    {
+        return Excel::download(
+            new MasterAlamatChuteTemplateExport,
+            'template_master_alamat_chute.xlsx'
+        );
+    }
+
+    public function importMasterAlamatChute(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        $uploaded = $request->file('file');
+        $path = $uploaded->getRealPath();
+        if ($path === false || $path === '') {
+            $path = $uploaded->getPathname();
+        }
+
+        try {
+            $spreadsheet = IOFactory::load($path);
+            $rows = $spreadsheet->getActiveSheet()->toArray();
+        } catch (\Throwable $e) {
+            return redirect()
+                ->route('pulling.master-alamat-chute')
+                ->withErrors(['file' => 'Gagal membaca file: '.$e->getMessage()]);
+        }
+
+        $importer = new MasterAlamatChuteImporter;
+        $importer->processSheetRows($rows);
+
+        $redirect = redirect()->route('pulling.master-alamat-chute');
+
+        if ($importer->imported > 0) {
+            $redirect->with(
+                'success',
+                "Tersimpan {$importer->imported} baris ke master alamat chute (Part no customer | Back No | Part name | Alamat Chute)."
+            );
+        }
+
+        if ($importer->errors !== []) {
+            $lines = $importer->errors;
+            if (count($lines) > 30) {
+                $lines = array_merge(
+                    array_slice($lines, 0, 30),
+                    ['… dan '.(count($importer->errors) - 30).' pesan lainnya.']
+                );
+            }
+            $redirect->with('import_notice', implode("\n", $lines));
+        } elseif ($importer->imported === 0) {
+            $redirect->with(
+                'import_notice',
+                'Tidak ada baris yang diimpor. Pastikan baris pertama berisi header kolom (sesuai template) dan ada data di bawahnya.'
+            );
+        }
+
+        return $redirect;
+    }
+
+    public function storeMasterAlamatChute(Request $request)
+    {
+        $validated = $request->validate([
+            'part_no_customer' => 'required|string|max:100',
+            'back_no' => 'nullable|string|max:50',
+            'part_name' => 'nullable|string|max:150',
+            'alamat_chute' => 'required|string|max:100',
+        ]);
+
+        $partNoCustomer = trim($validated['part_no_customer']);
+        $backNo = trim((string) ($validated['back_no'] ?? ''));
+        $partName = trim((string) ($validated['part_name'] ?? ''));
+
+        MasterAlamatChute::updateOrCreate(
+            [
+                'part_no_customer' => $partNoCustomer,
+                'back_no' => $backNo,
+                'part_name' => $partName,
+            ],
+            ['alamat_chute' => trim($validated['alamat_chute'])]
+        );
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', 'Master alamat Chute berhasil disimpan.');
+    }
+
+    public function updateMasterAlamatChute(Request $request, MasterAlamatChute $master_alamat_chute)
+    {
+        $validated = $request->validate([
+            'part_no_customer' => 'required|string|max:100',
+            'back_no' => 'nullable|string|max:50',
+            'part_name' => 'nullable|string|max:150',
+            'alamat_chute' => 'required|string|max:100',
+        ]);
+
+        $partNoCustomer = trim($validated['part_no_customer']);
+        $backNo = trim((string) ($validated['back_no'] ?? ''));
+        $partName = trim((string) ($validated['part_name'] ?? ''));
+
+        $duplicate = MasterAlamatChute::query()
+            ->where('part_no_customer', $partNoCustomer)
+            ->where('back_no', $backNo)
+            ->where('part_name', $partName)
+            ->where('id', '!=', $master_alamat_chute->id)
+            ->exists();
+
+        if ($duplicate) {
+            return redirect()
+                ->route('pulling.master-alamat-chute')
+                ->withErrors(['part_no_customer' => 'Kombinasi Part no customer, Back No, dan Part name sudah terdaftar.']);
+        }
+
+        $master_alamat_chute->update([
+            'part_no_customer' => $partNoCustomer,
+            'back_no' => $backNo,
+            'part_name' => $partName,
+            'alamat_chute' => trim($validated['alamat_chute']),
+        ]);
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', 'Master alamat Chute berhasil diperbarui.');
+    }
+
+    public function deleteMasterAlamatChute(MasterAlamatChute $master_alamat_chute)
+    {
+        $master_alamat_chute->delete();
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', 'Master alamat Chute berhasil dihapus.');
     }
 
     public function manualReset(Request $request)
