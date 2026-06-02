@@ -1870,7 +1870,7 @@ class LoadingListController extends Controller
             if (!empty($partShortages)) {
                 $lines[] = '   Detail Part Kurang:';
                 foreach ($partShortages as $part) {
-                    $lines[] = '   - part_no: '.$part['part_no'].' | part_name: '.$part['part_name'].' | qty_kurang: '.$part['qty_kurang'];
+                    $lines[] = '   - part_no: '.$part['part_no'].' | qty_kurang: '.$part['qty_kurang'];
                 }
             }
         }
@@ -1927,7 +1927,7 @@ class LoadingListController extends Controller
      * Ambil top part yang masih kurang untuk bucket customer+cycle pada periode filter.
      *
      * @param  array<string, mixed>  $row
-     * @return array<int, array{part_no: string, part_name: string, qty_kurang: int}>
+     * @return array<int, array{part_no: string, qty_kurang: int}>
      */
     private function resolveDeliveryPartShortages(array $row, ?string $dateFrom, ?string $dateTo): array
     {
@@ -1949,7 +1949,6 @@ class LoadingListController extends Controller
         $query = DB::table('loading_lists as ll')
             ->join('loading_list_details as lld', 'lld.loading_list_id', '=', 'll.id')
             ->leftJoin('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
-            ->leftJoin('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
             ->where('ll.customer_id', $customerId)
             ->where(function ($q) use ($cycleRaw, $cycleNumber) {
                 $q->where('ll.cycle', $cycleRaw);
@@ -1979,11 +1978,10 @@ class LoadingListController extends Controller
         $rows = $query
             ->selectRaw("
                 COALESCE(cp.part_number, '-') as part_no,
-                COALESCE(ip.part_name, '-') as part_name,
                 SUM(COALESCE(lld.kanban_qty, 0)) as total_target,
                 SUM(COALESCE(lld.actual_kanban_qty, 0)) as total_done
             ")
-            ->groupBy('cp.part_number', 'ip.part_name')
+            ->groupBy('cp.part_number')
             ->get();
 
         return collect($rows)
@@ -1993,7 +1991,6 @@ class LoadingListController extends Controller
                 $shortage = max(0, $target - $done);
                 return [
                     'part_no' => (string) ($part->part_no ?? '-'),
-                    'part_name' => (string) ($part->part_name ?? '-'),
                     'qty_kurang' => $shortage,
                 ];
             })
