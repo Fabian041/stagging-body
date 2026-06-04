@@ -1662,6 +1662,23 @@ class PullingController extends Controller
         return $redirect;
     }
 
+    public function clearAllMasterAlamatChute()
+    {
+        $count = MasterAlamatChute::query()->count();
+
+        if ($count === 0) {
+            return redirect()
+                ->route('pulling.master-alamat-chute')
+                ->with('success', 'Tidak ada data master alamat chute yang perlu dihapus.');
+        }
+
+        MasterAlamatChute::query()->delete();
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', "Semua data master alamat chute ({$count} baris) berhasil dihapus. Anda dapat mengimpor ulang file Excel terbaru.");
+    }
+
     public function storeMasterAlamatChute(Request $request)
     {
         $validated = $request->validate([
@@ -1679,9 +1696,11 @@ class PullingController extends Controller
             [
                 'part_no_customer' => $partNoCustomer,
                 'back_no' => $backNo,
-                'part_name' => $partName,
             ],
-            ['alamat_chute' => trim($validated['alamat_chute'])]
+            [
+                'part_name' => $partName,
+                'alamat_chute' => trim($validated['alamat_chute']),
+            ]
         );
 
         return redirect()
@@ -1705,14 +1724,13 @@ class PullingController extends Controller
         $duplicate = MasterAlamatChute::query()
             ->where('part_no_customer', $partNoCustomer)
             ->where('back_no', $backNo)
-            ->where('part_name', $partName)
             ->where('id', '!=', $master_alamat_chute->id)
             ->exists();
 
         if ($duplicate) {
             return redirect()
                 ->route('pulling.master-alamat-chute')
-                ->withErrors(['part_no_customer' => 'Kombinasi Part no customer, Back No, dan Part name sudah terdaftar.']);
+                ->withErrors(['part_no_customer' => 'Kombinasi Part no customer dan Back No sudah terdaftar.']);
         }
 
         $master_alamat_chute->update([

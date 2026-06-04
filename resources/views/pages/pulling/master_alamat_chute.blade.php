@@ -9,7 +9,10 @@
                         <div class="bella-table-card-header">
                             <div>
                                 <span class="bella-table-card-title"><i class="fas fa-map-marker-alt mr-2"></i>Data Master Alamat Chute</span>
-                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Impor Excel: baris 1 = header. Format kolom: <strong>Part no customer</strong> | <strong>Back No</strong> | <strong>Part name</strong> | <strong>Alamat Chute</strong>. Unduh template lalu unggah.</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                                    Impor Excel: baris 1 = header. Format kolom: <strong>Part no customer</strong> | <strong>Back No</strong> | <strong>Part name</strong> | <strong>Alamat Chute</strong>.
+                                    Untuk ganti seluruh master: <strong>Clear Data</strong> lalu impor ulang. Untuk menambah atau memperbarui part: impor langsung (Part no + Back No yang sama akan diperbarui).
+                                </div>
                             </div>
                             <div class="d-flex flex-wrap align-items-center justify-content-end" style="gap:8px;">
                                 <a href="{{ route('pulling.master-alamat-chute.template') }}" class="act-btn"
@@ -25,6 +28,14 @@
                                     <button type="submit" class="act-btn primary"
                                         style="height:34px; padding:0 14px; font-size:12px; letter-spacing:.04em;">
                                         <i class="fas fa-file-upload mr-1"></i> Import Excel
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ route('pulling.master-alamat-chute.clear-all') }}"
+                                    id="formClearAllMasterChute" class="m-0">
+                                    @csrf
+                                    <button type="button" class="act-btn danger" id="btnClearAllMasterChute"
+                                        style="height:34px; padding:0 14px; font-size:12px; letter-spacing:.04em;">
+                                        <i class="fas fa-eraser mr-1"></i> Clear Data
                                     </button>
                                 </form>
                                 <button type="button" class="act-btn primary" id="btnOpenAddMasterChute"
@@ -92,8 +103,8 @@
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button
-                                                                    type="submit"
-                                                                    class="act-btn danger"
+                                                                    type="button"
+                                                                    class="act-btn danger btn-delete-master-chute"
                                                                     data-part="{{ e($item->part_no_customer) }}"
                                                                     style="height:28px; padding:0 10px; font-size:11px;">
                                                                     <i class="fas fa-trash-alt mr-1"></i> Hapus
@@ -107,6 +118,39 @@
                                     </table>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="modalConfirmMasterChute" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true"
+                data-backdrop="static" data-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 480px;">
+                    <div class="modal-content">
+                        <div class="modal-header border-0 pb-0">
+                            <h5 class="modal-title font-weight-bold" id="modalConfirmMasterChuteTitle">Konfirmasi</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Tutup">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body pt-2">
+                            <div class="text-center mb-3">
+                                <span class="d-inline-flex align-items-center justify-content-center rounded-circle"
+                                    style="width:56px; height:56px; background:#fde8e8; color:#c0392b;">
+                                    <i class="fas fa-exclamation-triangle fa-lg"></i>
+                                </span>
+                            </div>
+                            <p id="modalConfirmMasterChuteMessage" class="mb-0 text-center" style="font-size:13px; line-height:1.5; color:var(--text);"></p>
+                        </div>
+                        <div class="modal-footer border-0 pt-0 justify-content-center" style="gap:8px;">
+                            <button type="button" class="act-btn" data-dismiss="modal"
+                                style="height:36px; padding:0 18px; font-size:12px;">
+                                Batal
+                            </button>
+                            <button type="button" class="act-btn danger" id="btnConfirmMasterChuteOk"
+                                style="height:36px; padding:0 18px; font-size:12px;">
+                                <i class="fas fa-trash-alt mr-1"></i> Ya, Hapus
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -308,12 +352,62 @@
             position: relative;
             z-index: auto !important;
         }
+
+        #modalConfirmMasterChute.modal {
+            z-index: 21000 !important;
+        }
+
+        #modalConfirmMasterChute .modal-dialog {
+            z-index: 21001;
+            position: relative;
+            pointer-events: auto !important;
+        }
+
+        #modalConfirmMasterChute .modal-content {
+            pointer-events: auto !important;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
     </style>
 
     <script>
         $(function() {
             const storeUrl = @json(route('pulling.master-alamat-chute.store'));
             const updateUrlBase = @json(url('/pulling/master-alamat-chute'));
+
+            let pendingConfirmAction = null;
+
+            function openConfirmMasterChute(options) {
+                const title = options.title || 'Konfirmasi';
+                const message = options.message || '';
+                const confirmLabel = options.confirmLabel || 'Ya, Hapus';
+                const confirmIcon = options.confirmIcon || 'fa-trash-alt';
+
+                $('#modalConfirmMasterChuteTitle').text(title);
+                $('#modalConfirmMasterChuteMessage').html(message);
+                $('#btnConfirmMasterChuteOk').html(
+                    '<i class="fas ' + confirmIcon + ' mr-1"></i> ' + confirmLabel
+                );
+                pendingConfirmAction = typeof options.onConfirm === 'function' ? options.onConfirm : null;
+                $('#modalConfirmMasterChute').modal('show');
+            }
+
+            $('#btnConfirmMasterChuteOk').on('click', function() {
+                if (pendingConfirmAction) {
+                    pendingConfirmAction();
+                }
+                pendingConfirmAction = null;
+                $('#modalConfirmMasterChute').modal('hide');
+            });
+
+            $('#modalConfirmMasterChute').on('hidden.bs.modal', function() {
+                pendingConfirmAction = null;
+            });
+
+            $('#modalConfirmMasterChute').on('show.bs.modal', function() {
+                $(this).appendTo('body');
+            });
 
             function clearMethodOverride() {
                 $('#formMasterChuteMethodOverride').empty();
@@ -358,16 +452,41 @@
                 $('#modalMasterChute').modal('show');
             });
 
-            $(document).on('submit', '.form-delete-master-chute', function(e) {
-                e.preventDefault();
-                const $form = $(this);
-                const part = $form.find('button[type="submit"]').attr('data-part') || '-';
-                const ok = window.confirm(
-                    `Hapus master alamat chute untuk part "${part}"? Tindakan ini tidak dapat dibatalkan.`
-                );
-                if (ok) {
-                    this.submit();
-                }
+            $(document).on('click', '.btn-delete-master-chute', function() {
+                const $form = $(this).closest('.form-delete-master-chute');
+                const part = $(this).attr('data-part') || '-';
+                openConfirmMasterChute({
+                    title: 'Hapus Data',
+                    message:
+                        'Hapus master alamat chute untuk part <strong>' + $('<span>').text(part).html() + '</strong>?<br><br>' +
+                        '<span style="color:var(--text-muted); font-size:12px;">Tindakan ini tidak dapat dibatalkan.</span>',
+                    confirmLabel: 'Ya, Hapus',
+                    confirmIcon: 'fa-trash-alt',
+                    onConfirm: function() {
+                        $form[0].submit();
+                    },
+                });
+            });
+
+            $('#btnClearAllMasterChute').on('click', function() {
+                const $form = $('#formClearAllMasterChute');
+                const rowCount = $('#masterChuteTable tbody tr').length;
+                const countHint = rowCount > 0
+                    ? '<br><br>Saat ini terdapat sekitar <strong>' + rowCount + '</strong> baris data di tabel.'
+                    : '';
+                openConfirmMasterChute({
+                    title: 'Clear Data',
+                    message:
+                        'Hapus <strong>seluruh</strong> data master alamat chute?' +
+                        countHint +
+                        '<br><br>Setelah dihapus, Anda dapat mengimpor ulang file Excel terbaru.' +
+                        '<br><br><span style="color:#c0392b; font-size:12px;">Tindakan ini tidak dapat dibatalkan.</span>',
+                    confirmLabel: 'Ya, Hapus Semua',
+                    confirmIcon: 'fa-eraser',
+                    onConfirm: function() {
+                        $form[0].submit();
+                    },
+                });
             });
 
             $('#modalMasterChute').on('hidden.bs.modal', function() {
