@@ -2501,6 +2501,36 @@
                 return currentFrac >= finishFrac;
             }
 
+            /** Sudah melewati jam selesai PREP terjadwal (prep_end_time) — prep di belakang boleh mulai. */
+            function isRowPastScheduledPrepEnd(row, currentFrac) {
+                if (currentFrac === null || typeof currentFrac === 'undefined') {
+                    return false;
+                }
+                var prepEnd = getRowPrepEndClock(row);
+                if (!prepEnd) {
+                    return false;
+                }
+                var endFrac = timeToFrac(prepEnd);
+                if (endFrac === null) {
+                    return false;
+                }
+                var startFrac = timeToFrac(getRowPrepStartClock(row));
+                if (startFrac !== null && endFrac < startFrac) {
+                    return currentFrac > endFrac && currentFrac < startFrac;
+                }
+                return currentFrac >= endFrac;
+            }
+
+            function resolveCurrentTimelineFrac(currentFrac) {
+                if (currentFrac !== null && typeof currentFrac !== 'undefined') {
+                    return currentFrac;
+                }
+                var nowWall = new Date();
+                var currentClock = String(nowWall.getHours()).padStart(2, '0') + ':' + String(nowWall
+                    .getMinutes()).padStart(2, '0');
+                return timeToFrac(currentClock);
+            }
+
             function checkAndSendUnfinishedWaNotification() {
                 if (!chartMergedByCustTime.length) {
                     return;
@@ -3042,7 +3072,8 @@
                 return sortPrepRowsByOrder(rows, viewDateStr);
             }
 
-            function hasPriorIncompletePrep(row, orderedRows, viewDateStr) {
+            function hasPriorIncompletePrep(row, orderedRows, viewDateStr, currentFrac) {
+                var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
                 var rowOrder = getPrepStartTimelineMinutes(row, viewDateStr);
                 var rowKey = prepRowIdentityKey(row);
                 for (var i = 0; i < orderedRows.length; i++) {
@@ -3054,6 +3085,9 @@
                         continue;
                     }
                     if (getRowRawProgressPct(prior) < 100) {
+                        if (isRowPastScheduledPrepEnd(prior, effectiveFrac)) {
+                            continue;
+                        }
                         return true;
                     }
                 }
@@ -3063,7 +3097,8 @@
             function resolvePrepBarStatus(row, orderedRows, viewDateStr, currentFrac, overdueLatch, prepLayout) {
                 var rawPct = getRowRawProgressPct(row);
                 var progressWidth = rawPct;
-                if (isStandardPrepBar(prepLayout) && hasPriorIncompletePrep(row, orderedRows, viewDateStr)) {
+                if (isStandardPrepBar(prepLayout) &&
+                    hasPriorIncompletePrep(row, orderedRows, viewDateStr, currentFrac)) {
                     return {
                         progressWidth: 0,
                         barClass: 'empty',
