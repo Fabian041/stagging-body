@@ -1749,6 +1749,85 @@ class LoadingListController extends Controller
         ]);
     }
 
+    /**
+     * Dipanggil scheduler (send:delivery-unfinished-notification) agar WA tetap terkirim tanpa dashboard dibuka.
+     *
+     * @return array{exit_code: int, message: string, detail?: string}
+     */
+    public function runScheduledDeliveryUnfinishedWaNotification(): array
+    {
+        $today = Carbon::now()->format('Y-m-d');
+        $finishOffsetHours = (int) env('DELIVERY_FINISH_OFFSET_HOURS', 4);
+        if ($finishOffsetHours < -24) {
+            $finishOffsetHours = -24;
+        }
+        if ($finishOffsetHours > 24) {
+            $finishOffsetHours = 24;
+        }
+
+        $chartRequest = Request::create('/delivery/stacked-chart', 'GET', [
+            'date_from' => $today,
+            'date_to' => $today,
+        ]);
+        $chartPayload = json_decode(
+            $this->getDeliveryStackedChartData($chartRequest)->getContent(),
+            true
+        );
+        $chartRows = is_array($chartPayload) ? ($chartPayload['rows'] ?? []) : [];
+
+        $mergedRows = $this->mergeDeliveryChartRowsByCustomerTime($chartRows);
+        $pendingRows = [];
+        foreach ($mergedRows as $row) {
+            $progress = (float) ($row['progress_pct'] ?? 0);
+            if ($progress >= 100) {
+                continue;
+            }
+            $cycleTime = trim((string) ($row['cycle_time'] ?? ''));
+            if ($cycleTime === '') {
+                continue;
+            }
+            if (! $this->isDeliveryRowPastFinishPrep($row, $finishOffsetHours)) {
+                continue;
+            }
+            $pendingRows[] = [
+                'customer_id' => (int) ($row['customer_id'] ?? 0),
+                'customer_name' => (string) ($row['customer_name'] ?? '-'),
+                'cycle_name' => (string) ($row['cycle_name'] ?? '-'),
+                'cycle_time' => $cycleTime,
+                'prep_end_time' => $row['prep_end_time'] ?? null,
+                'progress_pct' => round($progress, 1),
+                'total_done' => (int) ($row['total_done'] ?? 0),
+                'total_target' => (int) ($row['total_target'] ?? 0),
+                'll_count' => (int) ($row['ll_count'] ?? 0),
+            ];
+        }
+
+        if ($pendingRows === []) {
+            return [
+                'exit_code' => 0,
+                'message' => 'Tidak ada bar delay yang perlu dikirim ('.$today.').',
+            ];
+        }
+
+        $result = $this->dispatchDeliveryUnfinishedWaNotification([
+            'date_from' => $today,
+            'date_to' => $today,
+            'finish_offset_hours' => $finishOffsetHours,
+            'pending_rows' => $pendingRows,
+        ]);
+
+        $detail = null;
+        if (isset($result['data']['already_sent']) && $result['data']['already_sent']) {
+            $detail = 'Dedupe cache aktif — notifikasi untuk snapshot yang sama sudah pernah dikirim.';
+        }
+
+        return [
+            'exit_code' => ($result['status'] ?? 200) >= 400 ? 1 : 0,
+            'message' => (string) ($result['data']['message'] ?? 'Selesai.'),
+            'detail' => $detail,
+        ];
+    }
+
     public function sendDeliveryUnfinishedWaNotification(Request $request)
     {
         $validated = $request->validate([
@@ -1767,6 +1846,17 @@ class LoadingListController extends Controller
             'pending_rows.*.ll_count' => 'nullable|integer|min:0',
         ]);
 
+        $result = $this->dispatchDeliveryUnfinishedWaNotification($validated);
+
+        return response()->json($result['data'], $result['status']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{status: int, data: array<string, mixed>}
+     */
+    private function dispatchDeliveryUnfinishedWaNotification(array $validated): array
+    {
         $toTimelineMinutes = function (?string $clock): ?int {
             $raw = trim((string) ($clock ?? ''));
             if ($raw === '' || !preg_match('/^\d{1,2}:\d{2}/', $raw)) {
@@ -1816,10 +1906,13 @@ class LoadingListController extends Controller
             ->values();
 
         if ($pendingRows->isEmpty()) {
-            return response()->json([
-                'message' => 'Belum ada bar delay yang melewati garis Finish Preparation.',
-                'already_sent' => false,
-            ]);
+            return [
+                'status' => 200,
+                'data' => [
+                    'message' => 'Belum ada bar delay yang melewati garis Finish Preparation.',
+                    'already_sent' => false,
+                ],
+            ];
         }
 
         $hashPayload = [
@@ -1830,10 +1923,13 @@ class LoadingListController extends Controller
         ];
         $dedupeKey = 'delivery_wa_unfinished_'.md5(json_encode($hashPayload));
         if (Cache::has($dedupeKey)) {
-            return response()->json([
-                'message' => 'Notifikasi untuk data yang sama sudah pernah dikirim.',
-                'already_sent' => true,
-            ]);
+            return [
+                'status' => 200,
+                'data' => [
+                    'message' => 'Notifikasi untuk data yang sama sudah pernah dikirim.',
+                    'already_sent' => true,
+                ],
+            ];
         }
 
         $token = env('FASTWA_API_KEY', '793D30579A77D4A0E12648872BFBB085');
@@ -1900,27 +1996,126 @@ class LoadingListController extends Controller
         curl_close($curl);
 
         if (!empty($curlError)) {
-            return response()->json([
-                'message' => 'Gagal kirim notifikasi WhatsApp.',
-                'error' => $curlError,
-            ], 500);
+            return [
+                'status' => 500,
+                'data' => [
+                    'message' => 'Gagal kirim notifikasi WhatsApp.',
+                    'error' => $curlError,
+                ],
+            ];
         }
 
         if ($statusCode >= 400) {
-            return response()->json([
-                'message' => 'FastWA mengembalikan error.',
-                'status_code' => $statusCode,
-                'response' => $response,
-            ], 502);
+            return [
+                'status' => 502,
+                'data' => [
+                    'message' => 'FastWA mengembalikan error.',
+                    'status_code' => $statusCode,
+                    'response' => $response,
+                ],
+            ];
         }
 
         Cache::put($dedupeKey, true, now()->addMinutes(30));
 
-        return response()->json([
-            'message' => 'Notifikasi WhatsApp terkirim.',
-            'status_code' => $statusCode,
-            'response' => $response,
-        ]);
+        return [
+            'status' => 200,
+            'data' => [
+                'message' => 'Notifikasi WhatsApp terkirim.',
+                'status_code' => $statusCode,
+                'response' => $response,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeDeliveryChartRowsByCustomerTime(array $rows): array
+    {
+        $map = [];
+        foreach ($rows as $row) {
+            $cycleKey = $this->normalizeCycleNumber($row['cycle_name'] ?? '');
+            $key = (int) ($row['customer_id'] ?? 0).'|'.$cycleKey.'|'.trim((string) ($row['cycle_time'] ?? ''));
+            if (! isset($map[$key])) {
+                $map[$key] = $row;
+                $map[$key]['total_done'] = 0;
+                $map[$key]['total_target'] = 0;
+                $map[$key]['ll_count'] = 0;
+            }
+            $map[$key]['total_done'] += (int) ($row['total_done'] ?? 0);
+            $map[$key]['total_target'] += (int) ($row['total_target'] ?? 0);
+            $map[$key]['ll_count'] += (int) ($row['ll_count'] ?? 0);
+        }
+
+        foreach ($map as &$merged) {
+            $target = (int) ($merged['total_target'] ?? 0);
+            $done = (int) ($merged['total_done'] ?? 0);
+            $merged['progress_pct'] = $target > 0 ? round(($done / $target) * 100, 1) : 0.0;
+        }
+        unset($merged);
+
+        return array_values($map);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function isDeliveryRowPastFinishPrep(array $row, int $finishOffsetHours): bool
+    {
+        $finishClock = $this->getDeliveryRowFinishPrepClock($row, $finishOffsetHours);
+        if ($finishClock === null) {
+            return false;
+        }
+
+        $currentFrac = $this->deliveryClockToTimelineFrac(Carbon::now()->format('H:i'));
+        $finishFrac = $this->deliveryClockToTimelineFrac($finishClock);
+
+        return $currentFrac !== null && $finishFrac !== null && $currentFrac >= $finishFrac;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function getDeliveryRowFinishPrepClock(array $row, int $finishOffsetHours): ?string
+    {
+        $prepEnd = trim((string) ($row['prep_end_time'] ?? ''));
+        if ($prepEnd !== '') {
+            return substr($prepEnd, 0, 5);
+        }
+
+        $cycleTime = trim((string) ($row['cycle_time'] ?? ''));
+        if ($cycleTime === '') {
+            return null;
+        }
+
+        return Carbon::parse('2000-01-01 '.$cycleTime)
+            ->addHours($finishOffsetHours)
+            ->format('H:i');
+    }
+
+    private function deliveryClockToTimelineFrac(string $clock): ?float
+    {
+        $raw = trim($clock);
+        if ($raw === '' || ! preg_match('/^\d{1,2}:\d{2}/', $raw)) {
+            return null;
+        }
+
+        [$h, $m] = array_pad(explode(':', substr($raw, 0, 5)), 2, '0');
+        $hour = (int) $h;
+        $minute = (int) $m;
+        if ($hour < 0 || $hour > 23 || $minute < 0 || $minute > 59) {
+            return null;
+        }
+
+        $timelineStart = 6;
+        $value = $hour + ($minute / 60);
+        if ($value < $timelineStart) {
+            $value += 24;
+        }
+
+        return $value - $timelineStart;
     }
 
     /**
