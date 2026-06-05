@@ -3663,8 +3663,29 @@
                 ].join('|');
             }
 
-            function getRowRawProgressPct(row) {
+            function getRowKanbanProgressPct(row) {
+                if (!row) {
+                    return 0;
+                }
+                var target = parseInt(row.total_target || 0, 10);
+                var done = parseInt(row.total_done || 0, 10);
+                if (target > 0) {
+                    return Math.min(100, Math.max(0, (done / target) * 100));
+                }
                 return Math.min(100, Math.max(0, parseFloat(row.progress_pct || 0)));
+            }
+
+            function getRowRawProgressPct(row) {
+                return Math.round(getRowKanbanProgressPct(row) * 10) / 10;
+            }
+
+            function isRowPrepKanbanComplete(row) {
+                var target = parseInt(row.total_target || 0, 10);
+                var done = parseInt(row.total_done || 0, 10);
+                if (target > 0) {
+                    return done >= target;
+                }
+                return getRowKanbanProgressPct(row) >= 100;
             }
 
             /** Cycle punya Master Cycle lengkap — bar timeline boleh dirender. */
@@ -3901,7 +3922,7 @@
                     if (comparePrepRowsByAbsolute(prior, row) >= 0) {
                         continue;
                     }
-                    if (getRowRawProgressPct(prior) < 100) {
+                    if (!isRowPrepKanbanComplete(prior)) {
                         if (isRowPastScheduledPrepEnd(prior, effectiveFrac)) {
                             continue;
                         }
@@ -3915,6 +3936,7 @@
                 var rawPct = getRowRawProgressPct(row);
                 var progressWidth = rawPct;
                 if (isStandardPrepBar(prepLayout) &&
+                    rawPct <= 0 &&
                     hasPriorIncompletePrep(row, orderedRows, viewDateStr, currentFrac)) {
                     return {
                         progressWidth: 0,
@@ -3962,7 +3984,7 @@
                 opts = opts || {};
                 var pct = (opts.displayPct !== undefined) ?
                     opts.displayPct :
-                    Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
+                    getRowRawProgressPct(row);
                 var cycleLbl = rowCycleKey(row) || '?';
                 var parts = ['C' + cycleLbl, pct + '%'];
                 if (opts.prepRange) {
@@ -4214,7 +4236,7 @@
                         }
                         var truckNextDay = isTruckOnNextDay(row);
                         var truckLeftPct = (truckStart / ganttHourWindow) * 100;
-                        var truckComplete = (parseFloat(row.progress_pct || 0) >= 100);
+                        var truckComplete = isRowPrepKanbanComplete(row);
                         var truckSegClass = truckComplete ? 'truck-complete' : 'truck';
                         var truckTitle = buildGanttTooltip(row, {
                             truckClock: truckAt,
@@ -4497,8 +4519,8 @@
                                 return;
                             }
                             var leftPct = truckFrac * 100;
-                            var pct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
-                            var barColor = pct >= 100 ? 'var(--dm-blue)' : '#f59e0b';
+                            var pct = getRowRawProgressPct(row);
+                            var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' : '#f59e0b';
                             var truckNextDay = isTruckOnNextDay(row);
                             var cycleLblTruck = rowCycleKey(row) || '-';
                             var tipText = escapeAttr('C' + cycleLblTruck + ' TRUCK ' + truckTime +

@@ -1597,9 +1597,10 @@ class LoadingListController extends Controller
                 $completeCount = $pdsGroup->where('is_complete', true)->count();
                 $totalTarget = (int) $pdsGroup->sum('total_kanban');
                 $totalDone = (int) $pdsGroup->sum('actual_kanban');
-                $progressPct = $llCount > 0
-                    ? round(($completeCount / $llCount) * 100, 1)
-                    : 0.0;
+                // Progress bar = kanban (sama dengan tampilan loading list & weekly chart)
+                $progressPct = $totalTarget > 0
+                    ? round(($totalDone / $totalTarget) * 100, 1)
+                    : ($llCount > 0 ? round(($completeCount / $llCount) * 100, 1) : 0.0);
 
                 $cycleTime = $hasMaster ? $master['time'] : null;
                 $prepEndTime = $hasMaster ? $master['prep_end_time'] : null;
