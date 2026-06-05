@@ -3624,18 +3624,39 @@
                 return row.prep_end_day_offset_label || formatPrepDayOffsetLabel(getRowPrepEndDayOffset(row));
             }
 
-            function buildPrepOffsetBadgeHtml(row, extraClass) {
-                var lbl = getRowPrepOffsetLabel(row);
-                var cls = getPrepOffsetCssClass(getRowPrepDayOffset(row));
-                return '<span class="pill-offset-badge ' + cls + (extraClass ? ' ' + extraClass : '') + '">' +
-                    escapeHtml(lbl) + '</span>';
+            function getPrepBarDisplayOffset(row, opts) {
+                opts = opts || {};
+                if (opts.isContinuation) {
+                    return null;
+                }
+                var startOff = getRowPrepDayOffset(row);
+                if (opts.continuesTomorrow && startOff < 0) {
+                    return {
+                        offset: 1,
+                        label: formatPrepDayOffsetLabel(1)
+                    };
+                }
+                return {
+                    offset: startOff,
+                    label: getRowPrepOffsetLabel(row)
+                };
             }
 
-            function buildPrepPillMetaHtml(row, avatarText, avatarStyle) {
+            function buildPrepOffsetBadgeHtml(row, extraClass, opts) {
+                var display = getPrepBarDisplayOffset(row, opts);
+                if (!display) {
+                    return '';
+                }
+                var cls = getPrepOffsetCssClass(display.offset);
+                return '<span class="pill-offset-badge ' + cls + (extraClass ? ' ' + extraClass : '') + '">' +
+                    escapeHtml(display.label) + '</span>';
+            }
+
+            function buildPrepPillMetaHtml(row, avatarText, avatarStyle, opts) {
                 var av = avatarText || ('C' + String(rowCycleKey(row) || '?').toUpperCase());
                 var styleAttr = avatarStyle ? ' style="' + avatarStyle + '"' : '';
                 return '<span class="pill-meta"><span class="pill-avatar"' + styleAttr + '>' + escapeHtml(av) +
-                    '</span>' + buildPrepOffsetBadgeHtml(row) + '</span>';
+                    '</span>' + buildPrepOffsetBadgeHtml(row, '', opts) + '</span>';
             }
 
             function buildWeeklyOffsetBadgeHtml(row) {
@@ -4015,12 +4036,19 @@
                 var row = item.row;
                 var kind = item.kind || 'evening';
                 var zIndex = 2 + (parseInt(sortIndex, 10) || 0);
-                var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
                 var prepLayout = item.prepLayout || computePrepBarSegmentOnViewDate(row, viewDate,
                     ganttHourWindow);
                 if (!prepLayout) {
                     return '';
                 }
+                var isContinuationBar = prepLayout.isContinuation || kind === 'continuation';
+                var displayOffset = getPrepBarDisplayOffset(row, {
+                    isContinuation: isContinuationBar,
+                    continuesTomorrow: prepLayout.continuesTomorrow
+                });
+                var offsetClass = displayOffset ?
+                    getPrepOffsetCssClass(displayOffset.offset) :
+                    getPrepOffsetCssClass(getRowPrepDayOffset(row));
                 var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch,
                     prepLayout);
                 var progressWidth = prepStatus.progressWidth;
@@ -4028,9 +4056,10 @@
                 var prepStartLbl = formatClockDot(getRowPrepStartClock(row));
                 var prepEndLbl = formatClockDot(getRowPrepEndClock(row) || '');
                 var prepRangeLbl = prepEndLbl.length ? prepStartLbl + '–' + prepEndLbl : prepStartLbl;
+                var barOffsetLabel = displayOffset ? displayOffset.label : getRowPrepOffsetLabel(row);
                 var tooltipOpts = {
                     prepRange: prepRangeLbl,
-                    prepDayOffsetLabel: getRowPrepOffsetLabel(row),
+                    prepDayOffsetLabel: barOffsetLabel,
                     prepEndDayOffsetLabel: getRowPrepEndOffsetLabel(row),
                     prepEndClock: getRowPrepEndClock(row),
                     displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
@@ -4038,8 +4067,8 @@
                 };
                 var crossDayFrom = getPrepCrossDaySourceDateKey(row);
                 var crossDayLabel = formatCrossDaySourceLabel(crossDayFrom);
-                var prepExtraClass = ' ' + offsetClass;
-                if (prepLayout.isContinuation || kind === 'continuation') {
+                var prepExtraClass = isContinuationBar ? '' : (' ' + offsetClass);
+                if (isContinuationBar) {
                     prepExtraClass += ' is-prep-from-yesterday is-cross-day-continuation';
                     tooltipOpts.crossDayFromDate = crossDayFrom;
                     tooltipOpts.crossDayViewDate = viewDate;
@@ -4061,7 +4090,7 @@
                     prepExtraClass += ' is-instant';
                 }
                 var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';';
-                if (prepLayout.isContinuation || kind === 'continuation' || prepLayout.continuesTomorrow) {
+                if (isContinuationBar) {
                     inlineStyle += '--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;;';
                 }
                 var barTitle = buildGanttTooltip(row, tooltipOpts).replace(/"/g, '&quot;');
@@ -4074,7 +4103,10 @@
                 html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '">';
                 html += buildGanttProgressStackHtml(progressWidth, barClass,
                     getGanttBarDisplayPct(row, prepStatus), prepLayout);
-                html += buildPrepPillMetaHtml(row, null, kind === 'continuation' ? 'opacity:.9' : '');
+                html += buildPrepPillMetaHtml(row, null, isContinuationBar ? 'opacity:.9' : '', {
+                    isContinuation: isContinuationBar,
+                    continuesTomorrow: prepLayout.continuesTomorrow
+                });
                 html += '</div>';
                 return html;
             }
