@@ -1030,8 +1030,46 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
         }
 
-        .delivery-timeline-card .pill-pct {
+        .delivery-timeline-card .gantt-bar-pct {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+            color: #1a1d24;
+            text-shadow: 0 0 3px rgba(255, 255, 255, .95), 0 1px 1px rgba(255, 255, 255, .8);
+            pointer-events: none;
+            z-index: 4;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.truck-pill .gantt-bar-pct {
+            font-size: 8px;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.truck-pill .pill-meta {
             display: none;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.is-instant .gantt-bar-pct {
+            display: none;
+        }
+
+        .delivery-timeline-card .weekly-prep-bar .gantt-bar-pct,
+        .delivery-timeline-card .weekly-truck-pill .gantt-bar-pct {
+            position: static;
+            display: inline;
+            margin-left: 3px;
+            font-size: 8px;
+            font-weight: 700;
+            color: #1a1d24;
+            text-shadow: none;
         }
 
         .delivery-timeline-card .timeline-card-footer {
@@ -1557,15 +1595,15 @@
             }
 
             function getTimelineStartHour() {
-                return 6;
+                return 0;
             }
 
-            /** Label jam terakhir pada timeline harian (window 06:00 → selesai slot 05:00). */
+            /** Label jam terakhir pada timeline harian (window 00:00 → selesai slot 23:00). */
             function getTimelineCropEndHour() {
-                return 5;
+                return 23;
             }
 
-            /** Potong bar PREP overnight di slot 05:00 (bukan 06:00) agar tidak wrap ke kiri timeline. */
+            /** Potong bar PREP overnight di slot 23:00 agar tidak wrap ke kiri timeline. */
             function getPrepOvernightClampEndFrac(hourWindow) {
                 var cropClock = String(getTimelineCropEndHour()).padStart(2, '0') + ':00';
                 var endFrac = timeToWindowFrac(cropClock);
@@ -1729,7 +1767,7 @@
                 return isPrepOvernightByClock(getRowPrepStartClock(row), getRowPrepEndClock(row));
             }
 
-            /** Style bar malam: dari jam mulai sampai ujung kanan (05:00), tanpa wrap ke 06:00. */
+            /** Style bar malam: dari jam mulai sampai ujung kanan (23:00), tanpa wrap ke 00:00. */
             function buildPrepBarInlineStyle(prepLayout) {
                 if (!prepLayout) {
                     return '';
@@ -1853,7 +1891,7 @@
                 return computePrepBarLayout(getRowPrepStartClock(row), getRowPrepEndClock(row), hourWindow);
             }
 
-            /** Sisa PREP pagi (06:00 → akhir PREP) di hari berikutnya, setelah crop malam di 05:00. */
+            /** Sisa PREP pagi (00:00 → akhir PREP) di hari berikutnya, setelah crop malam di 23:00. */
             function computePrepMorningContinuationLayout(prepEndClock, hourWindow) {
                 var windowH = hourWindow || ganttHourWindow || 24;
                 var endClock = normalizeClock(prepEndClock);
@@ -2209,7 +2247,7 @@
                 return out;
             }
 
-            /** PREP dari hari sebelumnya yang masih berlanjut pagi di viewDate (06:00 → selesai prep). */
+            /** PREP dari hari sebelumnya yang masih berlanjut pagi di viewDate (00:00 → selesai prep). */
             function shouldShowPrepMorningContinuation(row, viewDateStr) {
                 var dd = formatLocalDateKey(row.delivery_date);
                 var view = formatLocalDateKey(viewDateStr);
@@ -2337,6 +2375,7 @@
                                 '%"></span>';
                         }
                         html += '</div>';
+                        html += buildGanttBarPctHtml(getGanttBarDisplayPct(row, prepStatus));
                         html += '<span class="pill-meta"><span class="pill-avatar" style="opacity:.9">' +
                             escapeHtml(avC) + '</span></span></div>';
                     });
@@ -2362,7 +2401,7 @@
                     return null;
                 }
                 if (isTruckOnNextDay(row)) {
-                    // Window 06:00–05:59 sudah memetakan 00:00–05:59 ke sisi kanan timeline.
+                    // Window 00:00–23:59: TRUCK hari berikutnya memakai kolom perpanjangan (+1).
                     if (getTimelineStartHour() > 0) {
                         return baseFrac;
                     }
@@ -2601,7 +2640,7 @@
                 for (var i = 0; i < total; i++) {
                     var h = (getTimelineStartHour() + i) % 24;
                     var suffix = i >= 24 ? ' (+1)' : '';
-                    a.push(String(h).padStart(2, '0') + ':00' + suffix);
+                    a.push(formatClockDot(String(h).padStart(2, '0') + ':00') + suffix);
                 }
                 return a;
             }
@@ -3048,6 +3087,26 @@
                 return Math.min(100, Math.max(0, parseFloat(row.progress_pct || 0)));
             }
 
+            function formatGanttBarPctLabel(pct) {
+                var n = Math.min(100, Math.max(0, parseFloat(pct || 0)));
+                n = Math.round(n * 10) / 10;
+                if (Math.abs(n - Math.round(n)) < 0.05) {
+                    n = Math.round(n);
+                }
+                return n + '%';
+            }
+
+            function buildGanttBarPctHtml(pct) {
+                return '<span class="gantt-bar-pct">' + escapeHtml(formatGanttBarPctLabel(pct)) + '</span>';
+            }
+
+            function getGanttBarDisplayPct(row, prepStatus) {
+                if (prepStatus && prepStatus.isBlocked) {
+                    return 0;
+                }
+                return Math.round(getRowRawProgressPct(row) * 10) / 10;
+            }
+
             /** Bar PREP normal (bukan instant marker) — aturan berjenjang hanya berlaku di sini. */
             function isStandardPrepBar(prepLayout) {
                 return !!prepLayout && prepLayout.durH >= (1 / 60);
@@ -3351,6 +3410,7 @@
                                 progressWidth) + '%"></span>';
                         }
                         gridHtml += '</div>';
+                        gridHtml += buildGanttBarPctHtml(getGanttBarDisplayPct(row, prepStatus));
                         gridHtml += '<span class="pill-meta"><span class="pill-avatar">' +
                             escapeHtml(av) + '</span></span>';
                         gridHtml += '</div>';
@@ -3404,6 +3464,7 @@
                             .val() || '') + '">';
                         gridHtml += '<div class="gantt-bar-stack"><span class="gantt-seg ' +
                             truckSegClass + '" style="width:100%"></span></div>';
+                        gridHtml += buildGanttBarPctHtml(getRowRawProgressPct(row));
                         gridHtml += '<span class="pill-meta"><span class="pill-avatar">' +
                             truckLabel + '</span></span>';
                         gridHtml += '</div>';
@@ -3621,7 +3682,7 @@
                         html += ' data-delivery-date-from="' + escapeAttr(anchorDate) + '"';
                         html += ' data-delivery-date-to="' + escapeAttr(anchorDate) + '">';
                         html += '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;">' + av +
-                            '</span></div>';
+                            buildGanttBarPctHtml(pct) + '</span></div>';
                     });
                     if (nowDayIdx >= 0) {
                         var nowLeftInTrack = ((nowDayIdx + nowFrac) / nSlots) * 100;
@@ -3674,16 +3735,16 @@
                                 '% | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
                             var truckBorder = truckNextDay ? 'border:2px dashed #b86f00;' : '';
                             var av = 'C' + escapeHtml(String(cycleLblTruck).toUpperCase());
-                            html += '<div title="' + tipText + '" style="' +
+                            html += '<div class="weekly-truck-pill" title="' + tipText + '" style="' +
                                 'position:absolute;top:8px;height:22px;' +
                                 'left:' + leftPct + '%;width:42px;min-width:42px;' +
                                 'background:' + barColor + ';border-radius:4px;' + truckBorder +
                                 'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
                                 'cursor:pointer;box-sizing:border-box;z-index:2;' +
-                                'display:flex;align-items:center;padding-left:4px;' +
+                                'display:flex;align-items:center;justify-content:center;padding:0 2px;' +
                                 '">' +
-                                '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;">' + av +
-                                '</span>' +
+                                '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;line-height:1;">' +
+                                av + buildGanttBarPctHtml(pct) + '</span>' +
                                 '</div>';
                         });
                         if (isToday) {
