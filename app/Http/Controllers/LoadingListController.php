@@ -1308,19 +1308,7 @@ class LoadingListController extends Controller
             ->orderBy('cycle_name')
             ->get()
             ->map(function (MasterCycle $m) {
-                return [
-                    'id' => $m->id,
-                    'customer_id' => $m->customer_id,
-                    'customer_name' => optional($m->customer)->name,
-                    'cycle_name' => $m->cycle_name,
-                    'time' => Carbon::parse($m->time)->format('H:i'),
-                    'prep_end_time' => $m->prep_end_time
-                        ? Carbon::parse($m->prep_end_time)->format('H:i')
-                        : null,
-                    'truck_time' => $m->truck_time
-                        ? Carbon::parse($m->truck_time)->format('H:i')
-                        : null,
-                ];
+                return $this->formatMasterCycleForApi($m);
             });
 
         return response()->json(['data' => $rows]);
@@ -1365,10 +1353,12 @@ class LoadingListController extends Controller
             'cycle_name' => 'required|string|max:120',
             'time' => 'required|date_format:H:i',
             'prep_end_time' => 'required|date_format:H:i',
+            'prep_day_offset' => 'nullable|integer|min:-14|max:14',
             'truck_time' => 'required|date_format:H:i',
         ]);
 
         $validated['cycle_name'] = trim($validated['cycle_name']);
+        $validated = $this->applyMasterCyclePrepOffsets($validated);
         $exists = MasterCycle::query()
             ->where('customer_id', $validated['customer_id'])
             ->whereRaw('LOWER(cycle_name) = ?', [Str::lower($validated['cycle_name'])])
@@ -1394,10 +1384,12 @@ class LoadingListController extends Controller
             'cycle_name' => 'required|string|max:120',
             'time' => 'required|date_format:H:i',
             'prep_end_time' => 'required|date_format:H:i',
+            'prep_day_offset' => 'nullable|integer|min:-14|max:14',
             'truck_time' => 'required|date_format:H:i',
         ]);
 
         $validated['cycle_name'] = trim($validated['cycle_name']);
+        $validated = $this->applyMasterCyclePrepOffsets($validated);
         $exists = MasterCycle::query()
             ->where('customer_id', $validated['customer_id'])
             ->whereRaw('LOWER(cycle_name) = ?', [Str::lower($validated['cycle_name'])])
@@ -1579,18 +1571,7 @@ class LoadingListController extends Controller
             ->get();
 
         $masterMeta = $masters->map(function (MasterCycle $m) {
-            return [
-                'id' => $m->id,
-                'customer_id' => (int) $m->customer_id,
-                'cycle_name' => $this->normalizeCycleNumber($m->cycle_name),
-                'time' => Carbon::parse($m->time)->format('H:i'),
-                'prep_end_time' => $m->prep_end_time
-                    ? Carbon::parse($m->prep_end_time)->format('H:i')
-                    : null,
-                'truck_time' => $m->truck_time
-                    ? Carbon::parse($m->truck_time)->format('H:i')
-                    : null,
-            ];
+            return $this->formatMasterCycleMetaForChart($m);
         });
 
         $rows = $groupedData
@@ -1605,10 +1586,12 @@ class LoadingListController extends Controller
                 $dateStr = $first->delivery_date
                     ? Carbon::parse($first->delivery_date)->format('Y-m-d')
                     : Carbon::now()->format('Y-m-d');
-                $master = $masterMeta->first(function (array $m) use ($first) {
-                    return $m['customer_id'] === (int) $first->customer_id
-                        && $m['cycle_name'] === (string) $first->cycle;
-                });
+                $master = $this->findMasterCycleForDeliveryBucket(
+                    (int) $first->customer_id,
+                    (string) $first->cycle,
+                    $masterMeta
+                );
+                $hasMaster = $this->deliveryChartRowHasConfiguredMasterCycle($master);
 
                 $llCount = $pdsGroup->count();
                 $completeCount = $pdsGroup->where('is_complete', true)->count();
@@ -1618,24 +1601,42 @@ class LoadingListController extends Controller
                     ? round(($completeCount / $llCount) * 100, 1)
                     : 0.0;
 
-                $cycleTime = $master ? ($master['time'] ?? '06:00') : '06:00';
-                $prepEndTime = ($master && isset($master['prep_end_time']) && $master['prep_end_time'] !== null)
-                    ? $master['prep_end_time']
-                    : $cycleTime;
-                $truckTime = ($master && isset($master['truck_time']) && $master['truck_time'] !== null)
+                $cycleTime = $hasMaster ? $master['time'] : null;
+                $prepEndTime = $hasMaster ? $master['prep_end_time'] : null;
+                $truckTime = ($hasMaster && isset($master['truck_time']) && $master['truck_time'] !== null)
                     ? $master['truck_time']
                     : null;
+                $prepDayOffset = 0;
+                $prepEndDayOffset = 0;
+                if ($hasMaster) {
+                    $prepDayOffset = $this->resolvePrepDayOffset(
+                        (int) ($master['prep_day_offset'] ?? 0),
+                        $master['time'] ?? null,
+                        $master['truck_time'] ?? null
+                    );
+                    $prepEndDayOffset = $this->computePrepEndDayOffset(
+                        $prepDayOffset,
+                        (string) ($master['time'] ?? ''),
+                        (string) ($master['prep_end_time'] ?? '')
+                    );
+                }
 
-                return [
+                $rowPayload = [
                     'customer_id' => (int) $first->customer_id,
                     'customer_name' => optional($first->customer)->name ?? '-',
                     'delivery_date' => $dateStr,
-                    'master_cycle_id' => $master ? ($master['id'] ?? null) : null,
+                    'master_cycle_id' => $hasMaster ? ($master['id'] ?? null) : null,
+                    'master_cycle_configured' => $hasMaster,
                     'cycle_name' => (string) $first->cycle,
                     'cycle_time' => $cycleTime,
                     'prep_end_time' => $prepEndTime,
+                    'prep_day_offset' => $prepDayOffset,
+                    'prep_end_day_offset' => $prepEndDayOffset,
+                    'prep_day_offset_label' => $hasMaster ? ($master['prep_day_offset_label'] ?? $this->formatPrepDayOffsetLabel($prepDayOffset)) : null,
+                    'prep_end_day_offset_label' => $hasMaster ? ($master['prep_end_day_offset_label'] ?? $this->formatPrepDayOffsetLabel($prepEndDayOffset)) : null,
+                    'prep_crosses_midnight' => $hasMaster ? ($master['prep_crosses_midnight'] ?? false) : false,
                     'truck_time' => $truckTime,
-                    'mapping_source' => $master ? 'master_cycle_name' : 'loading_list_only',
+                    'mapping_source' => $hasMaster ? 'master_cycle_name' : 'loading_list_only',
                     'on_time' => $completeCount,
                     'delay' => $llCount - $completeCount,
                     'no_order' => $pdsGroup->filter(function ($p) {
@@ -1647,11 +1648,12 @@ class LoadingListController extends Controller
                     'progress_pct_raw' => $progressPct,
                     'progress_pct' => min(100.0, max(0.0, $progressPct)),
                 ];
+
+                return $this->appendPrepAbsoluteDatetimesToChartRow($rowPayload);
             })
             ->sortBy([
                 ['customer_name', 'asc'],
-                ['delivery_date', 'asc'],
-                ['cycle_time', 'asc'],
+                ['absolute_start_datetime', 'asc'],
             ])
             ->values()
             ->all();
@@ -1669,34 +1671,68 @@ class LoadingListController extends Controller
                     ? Carbon::parse($first->delivery_date)->format('Y-m-d')
                     : Carbon::now()->format('Y-m-d');
 
-                $master = $masterMeta->first(function (array $m) use ($first) {
-                    return $m['customer_id'] === (int) $first->customer_id
-                        && $m['cycle_name'] === (string) $first->cycle;
-                });
-
-                $prepStart = $master['time'] ?? '06:00';
-                $prepEnd = $master['prep_end_time'] ?? null;
-                $truckTime = $master['truck_time'] ?? null;
-
-                $start = Carbon::parse($dateStr.' '.$prepStart);
-                $end = $prepEnd ? Carbon::parse($dateStr.' '.$prepEnd) : $start->copy()->addMinutes(45);
-                if ($end->lessThanOrEqualTo($start)) {
-                    $end = $end->addDay();
-                }
+                $master = $this->findMasterCycleForDeliveryBucket(
+                    (int) $first->customer_id,
+                    (string) $first->cycle,
+                    $masterMeta
+                );
+                $hasMaster = $this->deliveryChartRowHasConfiguredMasterCycle($master);
 
                 $target = (int) $bucket->sum('total_kanban');
                 $done = (int) $bucket->sum('actual_kanban');
                 $progress = $target > 0 ? round(($done / $target) * 100, 1) : 0.0;
+
+                if ($hasMaster) {
+                    $prepStart = $master['time'];
+                    $prepEnd = $master['prep_end_time'];
+                    $truckTime = $master['truck_time'] ?? null;
+                    $prepDayOffset = $this->resolvePrepDayOffset(
+                        (int) ($master['prep_day_offset'] ?? 0),
+                        $master['time'] ?? null,
+                        $master['truck_time'] ?? null
+                    );
+                    $prepEndDayOffset = $this->computePrepEndDayOffset(
+                        $prepDayOffset,
+                        (string) ($master['time'] ?? ''),
+                        (string) ($master['prep_end_time'] ?? '')
+                    );
+                    $start = Carbon::parse(
+                        Carbon::parse($dateStr)->addDays($prepDayOffset)->format('Y-m-d').' '.$prepStart
+                    );
+                    $end = $prepEnd
+                        ? Carbon::parse(
+                            Carbon::parse($dateStr)->addDays($prepEndDayOffset)->format('Y-m-d').' '.$prepEnd
+                        )
+                        : $start->copy()->addMinutes(45);
+                    $startAt = $start->toIso8601String();
+                    $endAt = $end->toIso8601String();
+                } else {
+                    $prepStart = null;
+                    $prepEnd = null;
+                    $truckTime = null;
+                    $prepDayOffset = 0;
+                    $prepEndDayOffset = 0;
+                    $startAt = null;
+                    $endAt = null;
+                }
 
                 return [
                     'customer_id' => (int) $first->customer_id,
                     'customer_name' => optional($first->customer)->name ?? '-',
                     'delivery_date' => $dateStr,
                     'cycle_name' => (string) $first->cycle,
-                    'start_at' => $start->toIso8601String(),
-                    'end_at' => $end->toIso8601String(),
+                    'master_cycle_configured' => $hasMaster,
+                    'start_at' => $startAt,
+                    'end_at' => $endAt,
+                    'absolute_start_datetime' => $startAt,
+                    'absolute_end_datetime' => $endAt,
                     'prep_time' => $prepStart,
                     'prep_end_time' => $prepEnd,
+                    'prep_day_offset' => $prepDayOffset,
+                    'prep_end_day_offset' => $prepEndDayOffset,
+                    'prep_day_offset_label' => $hasMaster ? ($master['prep_day_offset_label'] ?? $this->formatPrepDayOffsetLabel($prepDayOffset)) : null,
+                    'prep_end_day_offset_label' => $hasMaster ? ($master['prep_end_day_offset_label'] ?? $this->formatPrepDayOffsetLabel($prepEndDayOffset)) : null,
+                    'prep_crosses_midnight' => $hasMaster ? ($master['prep_crosses_midnight'] ?? false) : false,
                     'truck_time' => $truckTime,
                     'total_target' => $target,
                     'total_done' => $done,
@@ -1706,33 +1742,26 @@ class LoadingListController extends Controller
             })
             ->sortBy([
                 ['customer_name', 'asc'],
-                ['start_at', 'asc'],
+                ['absolute_start_datetime', 'asc'],
             ])
             ->values()
             ->all();
 
+        $configuredBucketCount = collect($rows)->where('master_cycle_configured', true)->count();
+        $totalBuckets = count($rows);
+
         $hint = null;
         if ($groupedData->isEmpty()) {
             $hint = 'Tidak ada loading list untuk filter ini. Samakan filter dengan halaman loading list.';
+        } elseif ($totalBuckets > 0 && $configuredBucketCount === 0) {
+            $hint = 'Ada data loading list, tetapi semua cycle belum dikonfigurasi di Master Cycle. Customer tetap ditampilkan; atur waktu PREP di tab Master Cycle untuk menampilkan bar timeline.';
         }
 
         return response()->json([
             'rows' => $rows,
             'weekly_points' => $weeklyPoints,
             'master_cycles' => $masters->map(function (MasterCycle $m) {
-                return [
-                    'id' => $m->id,
-                    'customer_id' => $m->customer_id,
-                    'customer_name' => optional($m->customer)->name,
-                    'cycle_name' => $m->cycle_name,
-                    'time' => Carbon::parse($m->time)->format('H:i'),
-                    'prep_end_time' => $m->prep_end_time
-                        ? Carbon::parse($m->prep_end_time)->format('H:i')
-                        : null,
-                    'truck_time' => $m->truck_time
-                        ? Carbon::parse($m->truck_time)->format('H:i')
-                        : null,
-                ];
+                return $this->formatMasterCycleForApi($m);
             }),
             'meta' => [
                 'total_loading_lists' => $groupedData->count(),
@@ -1743,6 +1772,8 @@ class LoadingListController extends Controller
                 'raw_rows_loaded' => $rawLists->count(),
                 'pds_grouped_count' => $groupedData->count(),
                 'customer_cycle_bucket_count' => count($rows),
+                'unconfigured_cycle_bucket_count' => max(0, $totalBuckets - $configuredBucketCount),
+                'configured_cycle_bucket_count' => $configuredBucketCount,
                 'is_truncated' => $rowLimit !== null ? ($rawLists->count() >= $rowLimit) : false,
                 'hint' => $hint,
             ],
@@ -2209,6 +2240,31 @@ class LoadingListController extends Controller
      *   mapping_source: string
      * }
      */
+    /**
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $masterMeta
+     */
+    private function findMasterCycleForDeliveryBucket(int $customerId, string $cycleName, $masterMeta): ?array
+    {
+        $match = $masterMeta->first(function (array $m) use ($customerId, $cycleName) {
+            return $m['customer_id'] === $customerId
+                && $m['cycle_name'] === $cycleName;
+        });
+
+        return $match !== null ? $match : null;
+    }
+
+    private function deliveryChartRowHasConfiguredMasterCycle(?array $master): bool
+    {
+        if ($master === null) {
+            return false;
+        }
+
+        $prepStart = trim((string) ($master['time'] ?? ''));
+        $prepEnd = trim((string) ($master['prep_end_time'] ?? ''));
+
+        return $prepStart !== '' && $prepEnd !== '';
+    }
+
     private function resolveCycleBucketForLoadingList($ll, $masterMeta): array
     {
         $cid = (int) $ll->customer_id;
@@ -2295,6 +2351,234 @@ class LoadingListController extends Controller
         $c = Carbon::parse($value);
 
         return ($c->hour * 60) + $c->minute;
+    }
+
+    private function normalizePrepDayOffset($value): int
+    {
+        $offset = (int) $value;
+        if ($offset < -14) {
+            return -14;
+        }
+        if ($offset > 14) {
+            return 14;
+        }
+
+        return $offset;
+    }
+
+    private function prepTimeRangeCrossesMidnight(string $prepStart, string $prepEnd): bool
+    {
+        $start = trim($prepStart);
+        $end = trim($prepEnd);
+        if ($start === '' || $end === '') {
+            return false;
+        }
+
+        return $this->timeOfDayToMinutes($end) <= $this->timeOfDayToMinutes($start);
+    }
+
+    private function computePrepEndDayOffset(int $prepDayOffset, string $prepStart, string $prepEnd): int
+    {
+        if ($this->prepTimeRangeCrossesMidnight($prepStart, $prepEnd)) {
+            return $prepDayOffset + 1;
+        }
+
+        return $prepDayOffset;
+    }
+
+    /**
+     * Prep malam sebelum truck pagi: jam mulai prep > jam truck → H-1 terhadap delivery.
+     */
+    private function inferPrepDayOffsetFromTruck(?string $prepStart, ?string $truckTime): ?int
+    {
+        $prepStartClock = $prepStart !== null ? substr(trim($prepStart), 0, 5) : '';
+        $truckClock = $truckTime !== null ? substr(trim($truckTime), 0, 5) : '';
+
+        if ($prepStartClock === '' || $truckClock === '') {
+            return null;
+        }
+
+        if ($this->timeOfDayToMinutes($prepStartClock) > $this->timeOfDayToMinutes($truckClock)) {
+            return -1;
+        }
+
+        return null;
+    }
+
+    private function resolvePrepDayOffset(int $storedOffset, ?string $prepStart, ?string $truckTime): int
+    {
+        $inferred = $this->inferPrepDayOffsetFromTruck($prepStart, $truckTime);
+        if ($inferred !== null) {
+            return $inferred;
+        }
+
+        return $this->normalizePrepDayOffset($storedOffset);
+    }
+
+    private function formatPrepDayOffsetLabel(int $offset): string
+    {
+        if ($offset === 0) {
+            return 'H+0';
+        }
+        if ($offset > 0) {
+            return 'H+'.$offset;
+        }
+
+        return 'H'.$offset;
+    }
+
+    /**
+     * @return array{
+     *   absolute_start_datetime: string|null,
+     *   absolute_end_datetime: string|null
+     * }
+     */
+    private function computePrepAbsoluteDatetimes(
+        string $deliveryDate,
+        int $prepDayOffset,
+        int $prepEndDayOffset,
+        ?string $prepStart,
+        ?string $prepEnd
+    ): array {
+        $prepStartClock = $prepStart !== null ? substr(trim($prepStart), 0, 5) : '';
+        $prepEndClock = $prepEnd !== null ? substr(trim($prepEnd), 0, 5) : '';
+
+        if ($prepStartClock === '') {
+            return [
+                'absolute_start_datetime' => null,
+                'absolute_end_datetime' => null,
+            ];
+        }
+
+        $start = Carbon::parse(
+            Carbon::parse($deliveryDate)->addDays($prepDayOffset)->format('Y-m-d').' '.$prepStartClock
+        );
+        $end = $prepEndClock !== ''
+            ? Carbon::parse(
+                Carbon::parse($deliveryDate)->addDays($prepEndDayOffset)->format('Y-m-d').' '.$prepEndClock
+            )
+            : $start->copy()->addMinutes(45);
+
+        return [
+            'absolute_start_datetime' => $start->format('Y-m-d\TH:i:s'),
+            'absolute_end_datetime' => $end->format('Y-m-d\TH:i:s'),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function appendPrepAbsoluteDatetimesToChartRow(array $row): array
+    {
+        if (empty($row['master_cycle_configured'])) {
+            $row['absolute_start_datetime'] = null;
+            $row['absolute_end_datetime'] = null;
+
+            return $row;
+        }
+
+        $deliveryDate = (string) ($row['delivery_date'] ?? '');
+        $prepStart = isset($row['cycle_time']) ? (string) $row['cycle_time'] : null;
+        $prepEnd = isset($row['prep_end_time']) ? (string) $row['prep_end_time'] : null;
+        $prepDayOffset = (int) ($row['prep_day_offset'] ?? 0);
+        $prepEndDayOffset = (int) ($row['prep_end_day_offset'] ?? $prepDayOffset);
+
+        $absolute = $this->computePrepAbsoluteDatetimes(
+            $deliveryDate,
+            $prepDayOffset,
+            $prepEndDayOffset,
+            $prepStart,
+            $prepEnd
+        );
+
+        return array_merge($row, $absolute);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function applyMasterCyclePrepOffsets(array $validated): array
+    {
+        $storedOffset = $this->normalizePrepDayOffset($validated['prep_day_offset'] ?? 0);
+        $prepDayOffset = $this->resolvePrepDayOffset(
+            $storedOffset,
+            (string) $validated['time'],
+            isset($validated['truck_time']) ? (string) $validated['truck_time'] : null
+        );
+        $validated['prep_day_offset'] = $prepDayOffset;
+        $validated['prep_end_day_offset'] = $this->computePrepEndDayOffset(
+            $prepDayOffset,
+            (string) $validated['time'],
+            (string) $validated['prep_end_time']
+        );
+
+        return $validated;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatMasterCycleForApi(MasterCycle $m): array
+    {
+        $prepStart = Carbon::parse($m->time)->format('H:i');
+        $prepEnd = $m->prep_end_time
+            ? Carbon::parse($m->prep_end_time)->format('H:i')
+            : null;
+        $prepDayOffset = $this->resolvePrepDayOffset(
+            $this->normalizePrepDayOffset($m->prep_day_offset ?? 0),
+            $prepStart,
+            $m->truck_time ? Carbon::parse($m->truck_time)->format('H:i') : null
+        );
+        $prepEndDayOffset = $this->computePrepEndDayOffset($prepDayOffset, $prepStart, (string) $prepEnd);
+        $crossesMidnight = $prepEnd !== null
+            && $this->prepTimeRangeCrossesMidnight($prepStart, $prepEnd);
+
+        $payload = [
+            'id' => $m->id,
+            'customer_id' => $m->customer_id,
+            'customer_name' => optional($m->customer)->name,
+            'cycle_name' => $m->cycle_name,
+            'time' => $prepStart,
+            'prep_end_time' => $prepEnd,
+            'prep_day_offset' => $prepDayOffset,
+            'prep_end_day_offset' => $prepEndDayOffset,
+            'prep_day_offset_label' => $this->formatPrepDayOffsetLabel($prepDayOffset),
+            'prep_end_day_offset_label' => $this->formatPrepDayOffsetLabel($prepEndDayOffset),
+            'prep_crosses_midnight' => $crossesMidnight,
+            'truck_time' => $m->truck_time
+                ? Carbon::parse($m->truck_time)->format('H:i')
+                : null,
+            'absolute_start_datetime' => null,
+            'absolute_end_datetime' => null,
+        ];
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatMasterCycleMetaForChart(MasterCycle $m): array
+    {
+        $formatted = $this->formatMasterCycleForApi($m);
+
+        return [
+            'id' => $formatted['id'],
+            'customer_id' => (int) $formatted['customer_id'],
+            'cycle_name' => $this->normalizeCycleNumber($m->cycle_name),
+            'time' => $formatted['time'],
+            'prep_end_time' => $formatted['prep_end_time'],
+            'prep_day_offset' => $formatted['prep_day_offset'],
+            'prep_end_day_offset' => $formatted['prep_end_day_offset'],
+            'prep_day_offset_label' => $formatted['prep_day_offset_label'],
+            'prep_end_day_offset_label' => $formatted['prep_end_day_offset_label'],
+            'prep_crosses_midnight' => $formatted['prep_crosses_midnight'],
+            'truck_time' => $formatted['truck_time'],
+            'absolute_start_datetime' => $formatted['absolute_start_datetime'],
+            'absolute_end_datetime' => $formatted['absolute_end_datetime'],
+        ];
     }
 
     /**
