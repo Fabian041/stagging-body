@@ -495,7 +495,8 @@
             width: 2px !important;
         }
 
-        .gantt-bar-wrap.is-overnight {
+        /* Hanya marker instant; bar clamp sampai 05:00 pakai lebar inline dari layout */
+        .gantt-bar-wrap.is-overnight:not(.is-prep-clamped) {
             min-width: 28px;
             width: 28px !important;
         }
@@ -538,8 +539,9 @@
             background: rgba(92, 127, 43, 0.15);
         }
 
-        .gantt-bar-wrap.is-prep-from-yesterday::before {
-            content: 'kemarin';
+        .gantt-bar-wrap.is-prep-from-yesterday::before,
+        .gantt-bar-wrap.is-cross-day-continuation::before {
+            content: 'lanjutan';
             position: absolute;
             left: 2px;
             top: 50%;
@@ -571,6 +573,51 @@
         .delivery-timeline-card .gantt-grid-time.is-next-day-col {
             background: rgba(184, 111, 0, 0.06);
             color: #9a5f00;
+        }
+
+        /* Timeline mingguan: satu track lintas kolom hari, bar boleh melewati garis antarhari */
+        .weekly-prep-track {
+            position: relative;
+            overflow: visible;
+        }
+
+        .weekly-prep-track .weekly-day-column {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            border-right: 1px solid #eef0f3;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .weekly-prep-track .weekly-day-column.is-today {
+            background: rgba(255, 235, 235, 0.35);
+        }
+
+        .weekly-prep-bar {
+            position: absolute;
+            top: 6px;
+            height: 26px;
+            min-width: 28px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+            cursor: pointer;
+            box-sizing: border-box;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            padding-left: 4px;
+            overflow: visible;
+        }
+
+        .weekly-prep-bar.is-cross-day {
+            border: 2px dashed #f39c12;
+            z-index: 3;
+        }
+
+        .weekly-prep-bar.is-incoming-prior-range {
+            border-left: 3px solid #5c7f2b;
+            padding-left: 6px;
         }
 
         .gantt-now-marker {
@@ -902,6 +949,12 @@
             background-image: repeating-linear-gradient(to right, transparent 0, transparent calc(var(--gantt-hour-width) - 1px), rgba(0, 0, 0, 0) calc(var(--gantt-hour-width) - 1px), #dde1e7 calc(var(--gantt-hour-width) - 1px), #dde1e7 var(--gantt-hour-width), transparent var(--gantt-hour-width));
             background-size: var(--gantt-hour-width) 100%;
             background-position: 0 0;
+            overflow: hidden;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.is-continues-tomorrow {
+            min-width: 0 !important;
+            max-width: none;
         }
 
         .delivery-timeline-card .gantt-seg.gantt-trail {
@@ -1412,6 +1465,8 @@
             var chartMergedByCustTime = [];
             var chartCustomerOrder = [];
             var chartWeeklyPoints = [];
+            /** Indeks keberadaan LL per customer+cycle+tanggal (hanya untuk validasi render, bukan ubah data). */
+            var loadingListPresenceIndex = {};
             var dashboardViewMode = 'daily';
             var weeklyChartInstance = null;
             var weeklyNowTimer = null;
@@ -1510,8 +1565,13 @@
                 return 5;
             }
 
-            /** Potong bar PREP overnight di ujung kanan timeline (slot 05:00 = 100% lebar track). */
+            /** Potong bar PREP overnight di slot 05:00 (bukan 06:00) agar tidak wrap ke kiri timeline. */
             function getPrepOvernightClampEndFrac(hourWindow) {
+                var cropClock = String(getTimelineCropEndHour()).padStart(2, '0') + ':00';
+                var endFrac = timeToWindowFrac(cropClock);
+                if (endFrac !== null && endFrac > 0) {
+                    return endFrac;
+                }
                 return hourWindow || ganttHourWindow || 24;
             }
 
@@ -1654,11 +1714,30 @@
                 if (!prepStart || !prepEnd) {
                     return false;
                 }
-                return timeToMinutes(prepEnd) <= timeToMinutes(prepStart);
+                if (timeToMinutes(prepEnd) <= timeToMinutes(prepStart)) {
+                    return true;
+                }
+                var sFrac = timeToWindowFrac(normalizeClock(prepStart));
+                var eFrac = timeToWindowFrac(normalizeClock(prepEnd));
+                if (sFrac === null || eFrac === null) {
+                    return false;
+                }
+                return eFrac < sFrac;
             }
 
             function isPrepOvernight(row) {
                 return isPrepOvernightByClock(getRowPrepStartClock(row), getRowPrepEndClock(row));
+            }
+
+            /** Style bar malam: dari jam mulai sampai ujung kanan (05:00), tanpa wrap ke 06:00. */
+            function buildPrepBarInlineStyle(prepLayout) {
+                if (!prepLayout) {
+                    return '';
+                }
+                if (prepLayout.continuesTomorrow) {
+                    return 'left:' + prepLayout.leftPct + '%;right:0;width:auto;min-width:0;max-width:none;';
+                }
+                return 'left:' + prepLayout.leftPct + '%;width:' + prepLayout.widthPct + '%;';
             }
 
             function isEveningPrepClock(clock) {
@@ -1742,9 +1821,20 @@
                 var clampEndFrac = overnight ? getPrepOvernightClampEndFrac(windowH) : windowH;
                 var visibleDurH = durH;
                 var overflowH = 0;
-                if (endFrac > clampEndFrac) {
+                if (overnight) {
+                    if (endFrac > clampEndFrac) {
+                        overflowH = endFrac - clampEndFrac;
+                    }
+                    visibleDurH = Math.max(clampEndFrac - startFrac, (1 / 60));
+                } else if (endFrac > clampEndFrac) {
                     overflowH = endFrac - clampEndFrac;
                     visibleDurH = Math.max(clampEndFrac - startFrac, (1 / 60));
+                }
+                var leftPct = (startFrac / windowH) * 100;
+                var widthPct = (visibleDurH / windowH) * 100;
+                var continuesTomorrow = overflowH > (1 / 120) && overnight;
+                if (continuesTomorrow) {
+                    widthPct = Math.max(100 - leftPct, (1 / 60) * 100 / windowH);
                 }
                 return {
                     startFrac: startFrac,
@@ -1752,10 +1842,10 @@
                     visibleDurH: visibleDurH,
                     overflowH: overflowH,
                     hasOverflow: overflowH > (1 / 120),
-                    continuesTomorrow: overflowH > (1 / 120) && overnight,
+                    continuesTomorrow: continuesTomorrow,
                     isOvernightPrep: overnight,
-                    leftPct: (startFrac / windowH) * 100,
-                    widthPct: (visibleDurH / windowH) * 100
+                    leftPct: leftPct,
+                    widthPct: widthPct
                 };
             }
 
@@ -1793,42 +1883,361 @@
                 };
             }
 
+            function weeklyPointToChartRow(wp) {
+                if (!wp) {
+                    return null;
+                }
+                return {
+                    customer_id: wp.customer_id,
+                    customer_name: wp.customer_name,
+                    delivery_date: wp.delivery_date,
+                    cycle_name: wp.cycle_name,
+                    cycle_time: wp.prep_time || wp.cycle_time,
+                    prep_time: wp.prep_time,
+                    prep_end_time: wp.prep_end_time,
+                    truck_time: wp.truck_time,
+                    progress_pct: wp.progress_pct,
+                    total_done: wp.total_done,
+                    total_target: wp.total_target,
+                    ll_count: wp.ll_count != null ? wp.ll_count : (wp.total_target > 0 ? 1 : 0)
+                };
+            }
+
             function getAllChartRowsForLookup() {
                 var seen = {};
                 var out = [];
-                chartRows.concat(chartRowsPrevDay).forEach(function(r) {
-                    var k = (r.customer_id || '') + '|' + rowCycleKey(r) + '|' + (r.delivery_date || '') +
-                        '|' + (r.cycle_time || '');
+                function pushRow(r) {
+                    if (!r) {
+                        return;
+                    }
+                    var k = (r.customer_id || '') + '|' + rowCycleKey(r) + '|' + formatLocalDateKey(
+                        r.delivery_date) + '|' + (r.cycle_time || '');
                     if (seen[k]) {
                         return;
                     }
                     seen[k] = true;
                     out.push(r);
+                }
+                chartRows.forEach(pushRow);
+                chartRowsPrevDay.forEach(pushRow);
+                (chartWeeklyPoints || []).forEach(function(wp) {
+                    pushRow(weeklyPointToChartRow(wp));
                 });
                 return out;
             }
 
-            function hasOvernightPrepStartingOnViewDate(viewDateStr) {
-                if (!viewDateStr) {
+            function rowHasLoadingListData(row) {
+                if (!row) {
                     return false;
                 }
+                if (parseInt(row.ll_count || 0, 10) > 0) {
+                    return true;
+                }
+                if (parseInt(row.total_target || 0, 10) > 0) {
+                    return true;
+                }
+                return false;
+            }
+
+            function makeLoadingListPresenceKey(customerId, customerName, cycleKey, dateStr) {
+                var cid = parseInt(customerId, 10) || 0;
+                var cn = String(customerName || '-').trim();
+                var ck = String(cycleKey || '').trim();
+                var d = formatLocalDateKey(dateStr);
+                return cid + '|' + cn + '|' + ck + '|' + d;
+            }
+
+            function rebuildLoadingListPresenceIndex() {
+                loadingListPresenceIndex = {};
+                function ingest(row) {
+                    if (!rowHasLoadingListData(row)) {
+                        return;
+                    }
+                    var d = formatLocalDateKey(row.delivery_date);
+                    if (!d.length) {
+                        return;
+                    }
+                    var k = makeLoadingListPresenceKey(row.customer_id, row.customer_name, rowCycleKey(row), d);
+                    loadingListPresenceIndex[k] = true;
+                }
+                chartRows.forEach(ingest);
+                chartRowsPrevDay.forEach(ingest);
+                (chartWeeklyPoints || []).forEach(ingest);
+            }
+
+            /** Ada loading list (customer + cycle) pada tanggal delivery tertentu — validasi render saja. */
+            function hasLoadingListOnDeliveryDate(customerId, customerName, cycleKey, dateStr) {
+                var d = formatLocalDateKey(dateStr);
+                if (!d.length) {
+                    return false;
+                }
+                var k = makeLoadingListPresenceKey(customerId, customerName, cycleKey, d);
+                if (loadingListPresenceIndex[k]) {
+                    return true;
+                }
+                var cid = parseInt(customerId, 10) || 0;
+                var cn = String(customerName || '-').trim();
+                var ck = String(cycleKey || '').trim();
                 return getAllChartRowsForLookup().some(function(r) {
-                    return String(r.delivery_date || '').trim() === viewDateStr && isPrepOvernight(r);
+                    if (formatLocalDateKey(r.delivery_date) !== d) {
+                        return false;
+                    }
+                    if (String(rowCycleKey(r)) !== ck) {
+                        return false;
+                    }
+                    if (!rowHasLoadingListData(r)) {
+                        return false;
+                    }
+                    if (cid) {
+                        return parseInt(r.customer_id, 10) === cid;
+                    }
+                    return (r.customer_name || '-').trim() === cn;
                 });
             }
 
+            function formatDeliveryDateLabel(dateStr) {
+                var d = formatLocalDateKey(dateStr);
+                if (!d.length) {
+                    return String(dateStr || '');
+                }
+                var dt = new Date(d + 'T12:00:00');
+                if (isNaN(dt.getTime())) {
+                    return d;
+                }
+                return dt.toLocaleDateString('id-ID', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
+
+            /**
+             * Bagian pagi (00:00–07:00) di viewDate hanya jika ada LL di tanggal sebelumnya
+             * (delivery_date bar sumber) untuk customer + cycle yang sama.
+             */
+            function canShowCrossDayPrepContinuation(row, viewDateStr) {
+                var srcDate = formatLocalDateKey(row.delivery_date);
+                var view = formatLocalDateKey(viewDateStr);
+                if (!srcDate.length || !view.length || addDaysToDateStr(srcDate, 1) !== view) {
+                    return false;
+                }
+                return hasLoadingListOnDeliveryDate(row.customer_id, row.customer_name, rowCycleKey(row),
+                    srcDate);
+            }
+
+            /** Layout prep untuk tampilan harian: sembunyikan penanda lintas hari jika tidak ada LL tanggal sumber. */
+            function resolvePrepBarLayoutForDisplay(row, hourWindow) {
+                var layout = computePrepBarLayoutForRow(row, hourWindow);
+                if (!layout || !layout.isOvernightPrep) {
+                    return layout;
+                }
+                if (!hasLoadingListOnDeliveryDate(row.customer_id, row.customer_name, rowCycleKey(row),
+                        row.delivery_date)) {
+                    layout = Object.assign({}, layout);
+                    layout.continuesTomorrow = false;
+                    layout.hasOverflow = false;
+                    layout.overflowH = 0;
+                }
+                return layout;
+            }
+
+            function slotIndexInWeeklyRange(slots, dateStr) {
+                var d = formatLocalDateKey(dateStr);
+                for (var i = 0; i < slots.length; i++) {
+                    if (formatLocalDateKey(slots[i]) === d) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            /**
+             * Tampilan mingguan: satu bar kontinu per cycle (boleh melewati garis antar hari).
+             * Tidak memakai potong 05:00 / bar lanjutan terpisah seperti mode harian.
+             */
+            function computeWeeklyPrepBarSpan(row, slots) {
+                if (!row || !slots || !slots.length) {
+                    return null;
+                }
+                var anchorDate = formatLocalDateKey(row.delivery_date);
+                var dayIdx = slotIndexInWeeklyRange(slots, anchorDate);
+                if (dayIdx < 0) {
+                    return null;
+                }
+                var prepStart = getRowPrepStartClock(row);
+                var prepEnd = getRowPrepEndClock(row) || '';
+                if (!prepStart.length) {
+                    return null;
+                }
+                var startFrac = timeToWindowFrac(prepStart);
+                if (startFrac === null) {
+                    return null;
+                }
+                var nSlots = slots.length;
+                var slotWPct = 100 / nSlots;
+                var leftPct = dayIdx * slotWPct + (startFrac / 24) * slotWPct;
+                var rightPct;
+                var overnight = isPrepOvernight(row);
+                var canExtendNextDay = overnight && prepEnd.length &&
+                    hasLoadingListOnDeliveryDate(row.customer_id, row.customer_name, rowCycleKey(row), anchorDate);
+
+                if (overnight && prepEnd.length && canExtendNextDay) {
+                    var endFrac = timeToWindowFrac(prepEnd);
+                    if (endFrac === null) {
+                        return null;
+                    }
+                    if (dayIdx + 1 < nSlots) {
+                        rightPct = (dayIdx + 1) * slotWPct + (endFrac / 24) * slotWPct;
+                    } else {
+                        rightPct = (dayIdx + 1) * slotWPct;
+                    }
+                } else if (overnight && prepEnd.length) {
+                    rightPct = (dayIdx + 1) * slotWPct;
+                } else {
+                    var durH = prepEnd.length ? calcDurationHours(prepStart, prepEnd) : 1;
+                    rightPct = dayIdx * slotWPct + ((startFrac + durH) / 24) * slotWPct;
+                    rightPct = Math.min(rightPct, (dayIdx + 1) * slotWPct);
+                }
+                var widthPct = rightPct - leftPct;
+                if (widthPct <= (slotWPct / 24 / 120)) {
+                    return null;
+                }
+                var crossesDays = rightPct > (dayIdx + 1) * slotWPct + 0.05;
+                var endDate = anchorDate;
+                if (crossesDays && dayIdx + 1 < nSlots) {
+                    endDate = formatLocalDateKey(slots[dayIdx + 1]);
+                }
+                return {
+                    leftPct: leftPct,
+                    widthPct: widthPct,
+                    isOvernightPrep: overnight,
+                    crossesDays: crossesDays,
+                    anchorDate: anchorDate,
+                    endDate: endDate,
+                    prepStart: prepStart,
+                    prepEnd: prepEnd,
+                    isIncomingFromPriorRange: false
+                };
+            }
+
+            /**
+             * Prep overnight dari hari sebelum kolom pertama rentang (mis. 30 Jun → pagi 1 Jul)
+             * tetap tampil di track mingguan meski tanggal sumber di luar rentang filter.
+             */
+            function computeWeeklyIncomingPrepBarSpan(row, slots) {
+                if (!row || !slots || !slots.length) {
+                    return null;
+                }
+                var firstSlot = formatLocalDateKey(slots[0]);
+                var prevDate = addDaysToDateStr(firstSlot, -1);
+                var anchorDate = formatLocalDateKey(row.delivery_date);
+                if (!prevDate.length || anchorDate !== prevDate) {
+                    return null;
+                }
+                if (!canShowCrossDayPrepContinuation(row, firstSlot)) {
+                    return null;
+                }
+                if (!isPrepOvernight(row)) {
+                    return null;
+                }
+                var prepStart = getRowPrepStartClock(row);
+                var prepEnd = getRowPrepEndClock(row) || '';
+                if (!prepEnd.length) {
+                    return null;
+                }
+                var startFrac = timeToWindowFrac(prepStart);
+                var endFrac = timeToWindowFrac(prepEnd);
+                if (startFrac === null || endFrac === null || endFrac <= 0) {
+                    return null;
+                }
+                var nSlots = slots.length;
+                var slotWPct = 100 / nSlots;
+                var leftPct = -slotWPct + (startFrac / 24) * slotWPct;
+                var rightPct = (endFrac / 24) * slotWPct;
+                var widthPct = rightPct - leftPct;
+                if (widthPct <= (slotWPct / 24 / 120)) {
+                    return null;
+                }
+                return {
+                    leftPct: leftPct,
+                    widthPct: widthPct,
+                    isOvernightPrep: true,
+                    crossesDays: true,
+                    isIncomingFromPriorRange: true,
+                    anchorDate: anchorDate,
+                    endDate: firstSlot,
+                    prepStart: prepStart,
+                    prepEnd: prepEnd
+                };
+            }
+
+            function collectWeeklyPrepBarsForCustomer(cust, rows, slots) {
+                var out = [];
+                var rendered = {};
+                function pushBar(row, span) {
+                    if (!span) {
+                        return;
+                    }
+                    var k = prepRowIdentityKey(row);
+                    if (rendered[k]) {
+                        return;
+                    }
+                    rendered[k] = true;
+                    out.push({
+                        row: row,
+                        span: span
+                    });
+                }
+                (rows || []).forEach(function(row) {
+                    pushBar(row, computeWeeklyPrepBarSpan(row, slots));
+                });
+                if (!slots || !slots.length) {
+                    return out;
+                }
+                var firstSlot = formatLocalDateKey(slots[0]);
+                var prevDate = addDaysToDateStr(firstSlot, -1);
+                getAllChartRowsForLookup().forEach(function(row) {
+                    if ((row.customer_name || '-') !== cust) {
+                        return;
+                    }
+                    if (formatLocalDateKey(row.delivery_date) !== prevDate) {
+                        return;
+                    }
+                    pushBar(row, computeWeeklyIncomingPrepBarSpan(row, slots));
+                });
+                return out;
+            }
+
+            /** PREP dari hari sebelumnya yang masih berlanjut pagi di viewDate (06:00 → selesai prep). */
+            function shouldShowPrepMorningContinuation(row, viewDateStr) {
+                var dd = formatLocalDateKey(row.delivery_date);
+                var view = formatLocalDateKey(viewDateStr);
+                if (!dd.length || !view.length || dd === view || addDaysToDateStr(dd, 1) !== view) {
+                    return false;
+                }
+                if (!canShowCrossDayPrepContinuation(row, viewDateStr)) {
+                    return false;
+                }
+                var morningLayout = computePrepMorningContinuationLayout(getRowPrepEndClock(row), ganttHourWindow);
+                if (!morningLayout || !morningLayout.segments || !morningLayout.segments.length) {
+                    return false;
+                }
+                var prepLayout = computePrepBarLayoutForRow(row, ganttHourWindow);
+                if (prepLayout && (prepLayout.continuesTomorrow || prepLayout.isOvernightPrep)) {
+                    return true;
+                }
+                return isPrepOvernight(row);
+            }
+
             function getPrepContinuationsForViewDate(viewDateStr) {
-                if (!viewDateStr || hasOvernightPrepStartingOnViewDate(viewDateStr)) {
+                if (!viewDateStr) {
                     return [];
                 }
                 var sourceRows = getAllChartRowsForLookup().filter(function(r) {
-                    var dd = String(r.delivery_date || '').trim();
-                    return dd.length && addDaysToDateStr(dd, 1) === viewDateStr && isPrepOvernight(r);
+                    return shouldShowPrepMorningContinuation(r, viewDateStr);
                 });
-                return mergeRowsForCustomerTime(sourceRows).map(function(row) {
-                    if (!isPrepOvernight(row)) {
-                        return null;
-                    }
+                return sourceRows.map(function(row) {
                     var layout = computePrepMorningContinuationLayout(getRowPrepEndClock(row), ganttHourWindow);
                     if (!layout) {
                         return null;
@@ -1846,7 +2255,7 @@
                 return String($('#filterDateFrom').val() || $('#filterDateTo').val() || '').trim();
             }
 
-            function injectPrepContinuationBars() {
+            function injectPrepContinuationBars(overdueLatch) {
                 var viewDate = getDailyFilterViewDate();
                 if (!viewDate.length) {
                     return;
@@ -1868,7 +2277,7 @@
                         return;
                     }
                     var cn = $(this).find('.gantt-grid-customer').first().text().trim();
-                    var barHtml = buildPrepContinuationBarHtml(cn, contByCustomer);
+                    var barHtml = buildPrepContinuationBarHtml(cn, contByCustomer, viewDate, overdueLatch);
                     if (!barHtml) {
                         return;
                     }
@@ -1876,31 +2285,46 @@
                 });
             }
 
-            function buildPrepContinuationBarHtml(cn, contByCustomer) {
+            function buildPrepContinuationBarHtml(cn, contByCustomer, viewDate, overdueLatch) {
                 var html = '';
+                var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
+                var currentFrac = timeToFrac(String(new Date().getHours()).padStart(2, '0') + ':' + String(
+                    new Date().getMinutes()).padStart(2, '0'));
                 (contByCustomer[cn] || []).forEach(function(item) {
                     var row = item.row;
+                    if (String(row.delivery_date || '').trim() === String(viewDate || '').trim()) {
+                        return;
+                    }
+                    if (!canShowCrossDayPrepContinuation(row, viewDate)) {
+                        return;
+                    }
                     var contLayout = item.layout;
                     var segs = contLayout.segments || [];
                     if (!segs.length) {
                         return;
                     }
-                    var pctC = parseFloat(row.progress_pct || 0);
-                    var progressWidthC = Math.min(100, Math.max(0, pctC));
-                    var barClassC = progressWidthC >= 100 ? 'ontime' : (progressWidthC > 0 ? 'delay' :
-                        'empty');
+                    var prepLayout = computePrepBarLayoutForRow(row, ganttHourWindow);
+                    var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch || {},
+                        prepLayout);
+                    var progressWidthC = prepStatus.progressWidth;
+                    var barClassC = prepStatus.barClass;
                     var avC = 'C' + String(rowCycleKey(row) || '?').toUpperCase();
+                    var srcDate = formatLocalDateKey(row.delivery_date);
                     var contTitle = buildGanttTooltip(row, {
+                        crossDayFromDate: srcDate,
+                        crossDayViewDate: viewDate,
                         prepFromYesterday: true,
-                        prepEndClock: contLayout.prepEndClock
+                        prepEndClock: contLayout.prepEndClock,
+                        displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
+                        blockedByPrior: prepStatus.isBlocked
                     }).replace(/"/g, '&quot;') + ' — Klik untuk buka Loading List';
-                    var srcDate = String(row.delivery_date || '').trim();
                     segs.forEach(function(seg) {
-                        html += '<div class="gantt-bar-wrap is-prep-from-yesterday is-instant" style="left:' +
+                        html += '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation" style="left:' +
                             seg.leftPct + '%;width:' + Math.max(seg.widthPct, 2) + '%" title="' +
                             contTitle + '"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                        html += ' data-cross-day-from="' + escapeAttr(srcDate) + '"';
                         html += ' data-delivery-date-from="' + escapeAttr(srcDate) + '"';
                         html += ' data-delivery-date-to="' + escapeAttr(srcDate) + '">';
                         html += '<div class="gantt-bar-stack">';
@@ -2075,6 +2499,36 @@
                     return false;
                 }
                 return currentFrac >= finishFrac;
+            }
+
+            /** Sudah melewati jam selesai PREP terjadwal (prep_end_time) — prep di belakang boleh mulai. */
+            function isRowPastScheduledPrepEnd(row, currentFrac) {
+                if (currentFrac === null || typeof currentFrac === 'undefined') {
+                    return false;
+                }
+                var prepEnd = getRowPrepEndClock(row);
+                if (!prepEnd) {
+                    return false;
+                }
+                var endFrac = timeToFrac(prepEnd);
+                if (endFrac === null) {
+                    return false;
+                }
+                var startFrac = timeToFrac(getRowPrepStartClock(row));
+                if (startFrac !== null && endFrac < startFrac) {
+                    return currentFrac > endFrac && currentFrac < startFrac;
+                }
+                return currentFrac >= endFrac;
+            }
+
+            function resolveCurrentTimelineFrac(currentFrac) {
+                if (currentFrac !== null && typeof currentFrac !== 'undefined') {
+                    return currentFrac;
+                }
+                var nowWall = new Date();
+                var currentClock = String(nowWall.getHours()).padStart(2, '0') + ':' + String(nowWall
+                    .getMinutes()).padStart(2, '0');
+                return timeToFrac(currentClock);
             }
 
             function checkAndSendUnfinishedWaNotification() {
@@ -2467,19 +2921,41 @@
             }
 
             // ── Weekly HTML-grid helpers (sesuai kode terbaru) ────────────────
+            /** YYYY-MM-DD di timezone lokal (hindari toISOString() yang menggeser hari pertama rentang). */
+            function formatLocalDateKey(dt) {
+                if (!dt) {
+                    return '';
+                }
+                if (typeof dt === 'string') {
+                    return String(dt).trim().substring(0, 10);
+                }
+                return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt
+                    .getDate()).padStart(2, '0');
+            }
+
+            function todayLocalDateKey() {
+                return formatLocalDateKey(new Date());
+            }
+
             function weeklyDaySlots(dateFrom, dateTo) {
-                // Kembalikan array tanggal dari dateFrom s/d dateTo (string 'YYYY-MM-DD')
                 var slots = [];
                 var d = new Date(dateFrom + 'T00:00:00');
                 var end = new Date(dateTo + 'T00:00:00');
+                if (isNaN(d.getTime()) || isNaN(end.getTime())) {
+                    return slots;
+                }
                 while (d <= end) {
-                    slots.push(new Date(d));
+                    slots.push(formatLocalDateKey(d));
                     d.setDate(d.getDate() + 1);
                 }
                 return slots;
             }
 
-            function weeklyDateLabel(dt) {
+            function weeklyDateLabel(dateKey) {
+                var dt = new Date(formatLocalDateKey(dateKey) + 'T12:00:00');
+                if (isNaN(dt.getTime())) {
+                    return String(dateKey || '');
+                }
                 return dt.toLocaleDateString('id-ID', {
                     weekday: 'short',
                     day: '2-digit',
@@ -2522,31 +2998,190 @@
                     if (cn !== 0) {
                         return cn;
                     }
-                    return timeToMinutes(a.cycle_time) - timeToMinutes(b.cycle_time);
+                    return comparePrepRowsSequential(a, b, '');
                 });
+            }
+
+            function getPrepStartTimelineMinutes(row, viewDateStr) {
+                var prepStart = getRowPrepStartClock(row);
+                if (!prepStart.length) {
+                    return 24 * 60;
+                }
+                var deliveryDate = String(row.delivery_date || '').trim();
+                if (viewDateStr && deliveryDate && addDaysToDateStr(deliveryDate, 1) === viewDateStr &&
+                    isPrepOvernight(row)) {
+                    return -1;
+                }
+                var frac = timeToWindowFrac(prepStart);
+                if (frac === null) {
+                    return timeToMinutes(prepStart);
+                }
+                return frac * 60;
+            }
+
+            /** Urutan berjenjang berdasarkan jam mulai PREP di timeline, bukan nomor cycle (C1/C2). */
+            function comparePrepRowsSequential(a, b, viewDateStr) {
+                var diff = getPrepStartTimelineMinutes(a, viewDateStr) -
+                    getPrepStartTimelineMinutes(b, viewDateStr);
+                if (diff !== 0) {
+                    return diff;
+                }
+                return prepRowIdentityKey(a).localeCompare(prepRowIdentityKey(b));
+            }
+
+            function sortPrepRowsByOrder(rows, viewDateStr) {
+                return (rows || []).slice().sort(function(a, b) {
+                    return comparePrepRowsSequential(a, b, viewDateStr);
+                });
+            }
+
+            function prepRowIdentityKey(row) {
+                return [
+                    String(row.customer_id || ''),
+                    rowCycleKey(row),
+                    String(row.delivery_date || '').trim(),
+                    String(row.cycle_time || '').trim()
+                ].join('|');
+            }
+
+            function getRowRawProgressPct(row) {
+                return Math.min(100, Math.max(0, parseFloat(row.progress_pct || 0)));
+            }
+
+            /** Bar PREP normal (bukan instant marker) — aturan berjenjang hanya berlaku di sini. */
+            function isStandardPrepBar(prepLayout) {
+                return !!prepLayout && prepLayout.durH >= (1 / 60);
+            }
+
+            function getCustomerPrepRowsForSequentialGate(customerName, viewDate) {
+                var viewDateStr = String(viewDate || '').trim();
+                var rows = [];
+                chartMergedByCustTime.forEach(function(r) {
+                    if ((r.customer_name || '-') !== customerName) {
+                        return;
+                    }
+                    if (String(r.delivery_date || '').trim() === viewDateStr) {
+                        rows.push(r);
+                    }
+                });
+                getPrepContinuationsForViewDate(viewDateStr).forEach(function(item) {
+                    if ((item.row.customer_name || '-') === customerName) {
+                        rows.push(item.row);
+                    }
+                });
+                return sortPrepRowsByOrder(rows, viewDateStr);
+            }
+
+            function hasPriorIncompletePrep(row, orderedRows, viewDateStr, currentFrac) {
+                var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
+                var rowOrder = getPrepStartTimelineMinutes(row, viewDateStr);
+                var rowKey = prepRowIdentityKey(row);
+                for (var i = 0; i < orderedRows.length; i++) {
+                    var prior = orderedRows[i];
+                    if (prepRowIdentityKey(prior) === rowKey) {
+                        continue;
+                    }
+                    if (getPrepStartTimelineMinutes(prior, viewDateStr) >= rowOrder) {
+                        continue;
+                    }
+                    if (getRowRawProgressPct(prior) < 100) {
+                        if (isRowPastScheduledPrepEnd(prior, effectiveFrac)) {
+                            continue;
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function resolvePrepBarStatus(row, orderedRows, viewDateStr, currentFrac, overdueLatch, prepLayout) {
+                var rawPct = getRowRawProgressPct(row);
+                var progressWidth = rawPct;
+                if (isStandardPrepBar(prepLayout) &&
+                    hasPriorIncompletePrep(row, orderedRows, viewDateStr, currentFrac)) {
+                    return {
+                        progressWidth: 0,
+                        barClass: 'empty',
+                        isBlocked: true,
+                        isOverdue: false
+                    };
+                }
+                var latchKey = rowOverdueLatchKey(row);
+                var isOverdueNow = progressWidth < 100 && isRowPastFinishPrep(row, currentFrac);
+                if (isOverdueNow) {
+                    overdueLatch[latchKey] = true;
+                }
+                var isOverdue = !!overdueLatch[latchKey];
+                var barClass = progressWidth >= 100 ?
+                    (isOverdue ? 'overdue' : 'ontime') :
+                    (isOverdue ? 'overdue' : (progressWidth > 0 ? 'delay' : 'empty'));
+                return {
+                    progressWidth: progressWidth,
+                    barClass: barClass,
+                    isBlocked: false,
+                    isOverdue: isOverdue
+                };
             }
 
             function buildGanttTooltip(row, opts) {
                 opts = opts || {};
-                var pct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
+                var pct = (opts.displayPct !== undefined) ?
+                    opts.displayPct :
+                    Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
                 var done = parseInt(row.total_done || 0, 10);
                 var tgt = parseInt(row.total_target || 0, 10);
                 var cycleLbl = rowCycleKey(row) || '?';
                 var tip = (row.customer_name || '-') + ' · C' + cycleLbl + ' · ' + pct + '% (' + done + '/' +
                     tgt + ')';
+                if (opts.blockedByPrior) {
+                    tip += ' · Belum Prepare (menunggu PREP jam lebih awal selesai)';
+                }
                 if (opts.prepRange) {
                     tip += ' · PREP ' + opts.prepRange;
                 }
                 if (opts.continuesTomorrow) {
-                    tip += ' · potong ' + String(getTimelineCropEndHour()).padStart(2, '0') + ':00 · lanjut esok hari';
-                    if (opts.prepEndClock) {
-                        tip += ' (s/d ' + formatClockDot(opts.prepEndClock) + ')';
+                    tip += ' · Prep lintas hari (malam)';
+                    tip += ' · potong ' + String(getTimelineCropEndHour()).padStart(2, '0') + ':00';
+                    tip += ' · bagian pagi tampil di hari berikutnya';
+                    if (opts.crossDaySourceDate) {
+                        tip += ' · sumber LL: ' + formatDeliveryDateLabel(opts.crossDaySourceDate) +
+                            ' (' + opts.crossDaySourceDate + ')';
                     }
-                } else if (opts.prepFromYesterday) {
-                    tip += ' · lanjutan dari kemarin';
                     if (opts.prepEndClock) {
-                        tip += ' (s/d ' + formatClockDot(opts.prepEndClock) + ')';
+                        tip += ' · selesai prep ' + formatClockDot(opts.prepEndClock);
                     }
+                } else if (opts.weeklyCrossDaySpan) {
+                    tip += ' · Prep lintas hari (tampilan mingguan · satu bar kontinu)';
+                    if (opts.incomingFromPriorRange) {
+                        tip += ' · masuk dari hari sebelum rentang tampilan';
+                    }
+                    if (opts.crossDaySourceDate) {
+                        tip += ' · mulai ' + formatDeliveryDateLabel(opts.crossDaySourceDate) +
+                            ' (' + opts.crossDaySourceDate + ')';
+                    }
+                    if (opts.crossDayEndDate && opts.crossDayEndDate !== opts.crossDaySourceDate) {
+                        tip += ' · melewati ke ' + formatDeliveryDateLabel(opts.crossDayEndDate) +
+                            ' (' + opts.crossDayEndDate + ')';
+                    }
+                    if (opts.prepRange) {
+                        tip += ' · ' + opts.prepRange;
+                    } else if (opts.prepEndClock) {
+                        tip += ' · selesai ' + formatClockDot(opts.prepEndClock);
+                    }
+                } else if (opts.crossDayFromDate || opts.prepFromYesterday) {
+                    tip += ' · Lanjutan lintas hari';
+                    if (opts.crossDayFromDate) {
+                        tip += ' · dari tanggal ' + formatDeliveryDateLabel(opts.crossDayFromDate) +
+                            ' (' + opts.crossDayFromDate + ')';
+                    }
+                    if (opts.crossDayViewDate) {
+                        tip += ' · ditampilkan di ' + formatDeliveryDateLabel(opts.crossDayViewDate) +
+                            ' (' + opts.crossDayViewDate + ')';
+                    }
+                    if (opts.prepEndClock) {
+                        tip += ' · selesai prep ' + formatClockDot(opts.prepEndClock);
+                    }
+                    tip += ' · bukan aktivitas baru hari ini';
                 } else if (opts.prepOverflowHours) {
                     tip += ' · lanjut +' + (Math.round(opts.prepOverflowHours * 10) / 10) + 'j di luar timeline';
                 }
@@ -2636,7 +3271,8 @@
                 gridHtml += '</div>';
                 /* Data rows */
                 custNames.forEach(function(cn, custIdx) {
-                    var buckets = byCustomer[cn];
+                    var buckets = sortPrepRowsByOrder(byCustomer[cn], viewDate);
+                    var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
                     gridHtml += '<div class="gantt-grid-row">';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer">' +
@@ -2656,33 +3292,31 @@
                         if (String(row.delivery_date || '').trim() !== viewDate) {
                             return;
                         }
-                        var prepLayout = computePrepBarLayoutForRow(row, ganttHourWindow);
+                        var prepLayout = resolvePrepBarLayoutForDisplay(row, ganttHourWindow);
                         if (!prepLayout) {
                             return;
                         }
                         var leftPct = prepLayout.leftPct;
                         var widthPct = prepLayout.widthPct;
-                        var pct = parseFloat(row.progress_pct || 0);
-                        var progressWidth = Math.min(100, Math.max(0, pct));
-                        var latchKey = rowOverdueLatchKey(row);
-                        var isOverdueNow = progressWidth < 100 && isRowPastFinishPrep(row, currentFrac);
-                        if (isOverdueNow) {
-                            overdueLatch[latchKey] = true;
-                        }
-                        var isOverdue = !!overdueLatch[latchKey];
-                        var barClass = progressWidth >= 100 ?
-                            (isOverdue ? 'overdue' : 'ontime') :
-                            (isOverdue ? 'overdue' : (progressWidth > 0 ? 'delay' : 'empty'));
+                        var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch,
+                            prepLayout);
+                        var progressWidth = prepStatus.progressWidth;
+                        var barClass = prepStatus.barClass;
                         var isInstantPrep = prepLayout.durH < (1 / 60);
                         var prepStartLbl = formatClockDot(getRowPrepStartClock(row));
                         var prepEndLbl = formatClockDot(getRowPrepEndClock(row) || '');
                         var prepRangeLbl = prepEndLbl.length ? prepStartLbl + '–' + prepEndLbl : prepStartLbl;
+                        var srcDateLbl = formatLocalDateKey(row.delivery_date);
                         var barTitle = buildGanttTooltip(row, {
                             prepRange: prepRangeLbl,
                             continuesTomorrow: prepLayout.continuesTomorrow,
+                            crossDaySourceDate: prepLayout.continuesTomorrow ? srcDateLbl : '',
                             prepEndClock: getRowPrepEndClock(row),
                             prepOverflowHours: (!prepLayout.continuesTomorrow && prepLayout.hasOverflow) ?
-                                prepLayout.overflowH : 0
+                                prepLayout.overflowH : 0,
+                            displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) /
+                                10,
+                            blockedByPrior: prepStatus.isBlocked
                         }).replace(/"/g, '&quot;') + ' — Klik untuk buka Loading List';
                         var av = 'C' + String(rowCycleKey(row) || '?').toUpperCase();
                         var prepExtraClass = '';
@@ -2698,7 +3332,7 @@
                             prepExtraClass += ' is-instant';
                         }
                         gridHtml += '<div class="gantt-bar-wrap' + prepExtraClass +
-                            '" style="left:' + leftPct + '%;width:' + widthPct + '%" title="' +
+                            '" style="' + buildPrepBarInlineStyle(prepLayout) + '" title="' +
                             barTitle + '"';
                         gridHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         gridHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
@@ -2784,20 +3418,18 @@
                 });
                 gridHtml += '</div></div>';
                 $('#ganttContainer').html(gridHtml);
-                injectPrepContinuationBars();
+                injectPrepContinuationBars(overdueLatch);
                 setOverdueLatchMap(overdueLatch);
                 updateTimelineTotal();
                 ganttNowTimer = setInterval(updateGanttNowMarkers, 1000);
                 updateGanttNowMarkers();
             }
 
-            $('#ganttContainer').on('click', '.gantt-bar-wrap', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var customer = $(this).attr('data-customer-name') || '';
-                var cycle = $(this).attr('data-cycle') || '';
-                var deliveryDateFrom = $(this).attr('data-delivery-date-from') || '';
-                var deliveryDateTo = $(this).attr('data-delivery-date-to') || '';
+            function openLoadingListFromBar($bar) {
+                var customer = $bar.attr('data-customer-name') || '';
+                var cycle = $bar.attr('data-cycle') || '';
+                var deliveryDateFrom = $bar.attr('data-delivery-date-from') || '';
+                var deliveryDateTo = $bar.attr('data-delivery-date-to') || '';
                 var params = new URLSearchParams();
                 if (customer) {
                     params.set('customer', customer);
@@ -2814,6 +3446,18 @@
                 }
                 var qs = params.toString();
                 window.location.href = loadingListUrl + (qs ? '?' + qs : '');
+            }
+
+            $('#ganttContainer').on('click', '.gantt-bar-wrap', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openLoadingListFromBar($(this));
+            });
+
+            $('#weeklyGanttContainer').on('click', '.weekly-prep-bar', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openLoadingListFromBar($(this));
             });
 
             function renderWeeklySummary() {
@@ -2839,6 +3483,7 @@
 
                 var slots = weeklyDaySlots(dateFrom, dateTo);
                 var nSlots = slots.length || 1;
+                var slotWPct = 100 / nSlots;
 
                 // Kelompokkan chartWeeklyPoints per customer
                 var custMap = {};
@@ -2880,19 +3525,21 @@
                 html += '<th style="position:sticky;top:0;left:' + custColWidth +
                     'px;z-index:7;background:#fff;border:1px solid #eef0f3;width:' + typeColWidth +
                     'px;text-align:center;padding:4px 8px;font-size:11px;font-weight:600;color:#5c6370;">TYPE</th>';
-                slots.forEach(function(dt) {
+                slots.forEach(function(slotDateStr) {
                     html += '<th style="position:sticky;top:0;z-index:6;background:#fff;border:1px solid #eef0f3;width:' +
                         dayColWidth +
                         'px;text-align:center;padding:3px 4px;font-size:10px;font-weight:600;color:#5c6370;white-space:nowrap;">' +
-                        weeklyDateLabel(dt) + '</th>';
+                        weeklyDateLabel(slotDateStr) + '</th>';
                 });
                 html += '</tr></thead><tbody>';
 
                 // Hitung posisi "Now" untuk marker
-                var todayStr = new Date().toISOString().slice(0, 10);
+                var todayStr = todayLocalDateKey();
                 var nowDayIdx = -1;
-                slots.forEach(function(dt, i) {
-                    if (dt.toISOString().slice(0, 10) === todayStr) nowDayIdx = i;
+                slots.forEach(function(slotDateStr, i) {
+                    if (slotDateStr === todayStr) {
+                        nowDayIdx = i;
+                    }
                 });
                 var nowFrac = getCurrentDayFrac();
                 var nowLeftPct = nowDayIdx >= 0 ? ((nowDayIdx + nowFrac) / nSlots) * 100 : -1;
@@ -2902,7 +3549,7 @@
                 });
 
                 custOrder.forEach(function(cust, custIdx) {
-                    var rows = custMap[cust];
+                    var rows = sortPrepRowsByOrder(custMap[cust]);
                     var rowHeight = 136; // px – sama dengan daily
 
                     // ── Baris PREP ──
@@ -2924,84 +3571,66 @@
                         'text-align:center;vertical-align:middle;' +
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5c7f2b;' +
                         '">PREP</td>';
-                    // Slot hari – lane PREP
-                    slots.forEach(function(dt, dayIdx) {
-                        var slotDateStr = dt.toISOString().slice(0, 10);
-                        var isToday = slotDateStr === todayStr;
-                        var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
-                        html += '<td style="position:relative;padding:0;border:1px solid #eef0f3;width:' +
-                            dayColWidth + 'px;height:' + (rowHeight / 2) +
-                            'px;vertical-align:top;overflow:visible;' + bg + '">';
-                        html += '<div style="position:relative;height:' + (rowHeight / 2) + 'px;">';
-                        // Bar PREP untuk hari ini
-                        rows.forEach(function(row) {
-                            if (String(row.delivery_date || '').trim() !== slotDateStr) {
-                                return;
-                            }
-                            var prepStart = row.prep_time ? String(row.prep_time).substring(0, 5) :
-                                (row.cycle_time ? String(row.cycle_time).substring(0, 5) : null);
-                            var prepEnd = row.prep_end_time ? String(row.prep_end_time).substring(0, 5) : null;
-                            if (!prepStart) return;
-                            var prepLayout = computePrepBarLayout(prepStart, prepEnd, 24);
-                            if (!prepLayout) return;
-                            var leftPct = prepLayout.leftPct;
-                            var widthPct = Math.max(prepLayout.widthPct, 4);
-                            var pct = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
-                            var barColor = pct >= 100 ? 'var(--dm-complete)' : 'var(--dm-yellow)';
-                            var cycleLbl = rowCycleKey(row) || '-';
-                            var tipText = escapeAttr('C' + cycleLbl + ' PREP ' + prepStart +
-                                (prepEnd ? ' - ' + prepEnd : '') +
-                                (prepLayout.continuesTomorrow ? ' | lanjut esok hari' : '') +
-                                ' | Progress ' + pct + '% | Done ' + (row.total_done || 0) + '/' + (row
-                                    .total_target || 0));
-                            var av = 'C' + escapeHtml(String(cycleLbl).toUpperCase());
-                            var clampBorder = prepLayout.continuesTomorrow ? 'border-right:3px solid #e67e22;' :
-                                '';
-                            html += '<div title="' + tipText + '" style="' +
-                                'left:' + leftPct + '%;width:' + widthPct + '%;min-width:28px;' +
-                                'background:' + barColor + ';border-radius:4px;' + clampBorder +
-                                'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
-                                'overflow:visible;cursor:pointer;box-sizing:border-box;z-index:2;' +
-                                'display:flex;align-items:center;padding-left:4px;' +
-                                '">' +
-                                '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;">' + av +
-                                '</span>' +
-                                '</div>';
-                        });
-                        if (!hasOvernightPrepStartingOnViewDate(slotDateStr)) {
-                            getPrepContinuationsForViewDate(slotDateStr).forEach(function(item) {
-                                var row = item.row;
-                                var contLayout = item.layout;
-                                var segsW = contLayout.segments || [];
-                                if (!segsW.length) {
-                                    return;
-                                }
-                                var pctC = Math.round(parseFloat(row.progress_pct || 0) * 10) / 10;
-                                var barColorC = pctC >= 100 ? 'var(--dm-complete)' : 'rgba(92,127,43,0.35)';
-                                var cycleLblC = rowCycleKey(row) || '-';
-                                var tipC = escapeAttr('C' + cycleLblC + ' lanjutan kemarin (s/d ' + contLayout
-                                    .prepEndClock + ') | Progress ' + pctC + '%');
-                                var avC = 'C' + escapeHtml(String(cycleLblC).toUpperCase());
-                                segsW.forEach(function(seg) {
-                                    var wC = Math.max(seg.widthPct, 4);
-                                    html += '<div title="' + tipC + '" style="position:absolute;top:6px;height:26px;left:' +
-                                        seg.leftPct + '%;width:' + wC + '%;min-width:28px;background:' + barColorC +
-                                        ';border-radius:4px;border:2px dotted #5c7f2b;box-shadow:0 1px 2px rgba(0,0,0,.08);cursor:pointer;z-index:2;display:flex;align-items:center;padding-left:4px;">' +
-                                        '<span style="font-size:9px;font-weight:700;color:#2f3542;">' + avC +
-                                        '</span></div>';
-                                });
-                            });
-                        }
-                        // Garis Now pada lane PREP jika hari ini
-                        if (isToday) {
-                            var nFrac = getCurrentDayFrac();
-                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac * 100) +
-                                '%;width:2px;background:rgb(67,53,220);transform:translateX(-50%);z-index:4;pointer-events:none;">' +
-                                '<span style="position:absolute;top:-14px;left:0;transform:translateX(-50%);font-size:8px;background:rgb(59,53,220);color:#fff;padding:1px 4px;border-radius:2px;white-space:nowrap;">Now</span>' +
-                                '</div>';
-                        }
-                        html += '</div></td>';
+                    // Lane PREP mingguan: satu track lintas semua hari (bar boleh melewati garis antarhari)
+                    var prepLaneH = rowHeight / 2;
+                    html += '<td colspan="' + nSlots +
+                        '" style="position:relative;padding:0;border:1px solid #eef0f3;vertical-align:top;overflow:visible;">';
+                    html += '<div class="weekly-prep-track" style="height:' + prepLaneH + 'px;">';
+                    slots.forEach(function(slotDateStr, dayIdx) {
+                        var isTodayCol = slotDateStr === todayStr;
+                        html += '<div class="weekly-day-column' + (isTodayCol ? ' is-today' : '') +
+                            '" style="left:' + ((dayIdx / nSlots) * 100) + '%;width:' + slotWPct +
+                            '%;"></div>';
                     });
+                    var weeklyOverdueLatch = {};
+                    collectWeeklyPrepBarsForCustomer(cust, rows, slots).forEach(function(item) {
+                        var row = item.row;
+                        var span = item.span;
+                        var anchorDate = span.anchorDate;
+                        var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[0]) :
+                            anchorDate;
+                        var gateRows = getCustomerPrepRowsForSequentialGate(cust, gateDate);
+                        var prepLayoutDaily = computePrepBarLayoutForRow(row, 24);
+                        var prepStatus = resolvePrepBarStatus(row, gateRows, gateDate, null, weeklyOverdueLatch,
+                            prepLayoutDaily);
+                        var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
+                        var pct = prepStatus.isBlocked ? 0 : rawPct;
+                        var barColor = prepStatus.isBlocked ? '#e8ecf1' :
+                            (pct >= 100 ? 'var(--dm-complete)' : (pct > 0 ? 'var(--dm-yellow)' : '#e8ecf1'));
+                        var cycleLbl = rowCycleKey(row) || '-';
+                        var prepRangeLbl = span.prepStart + (span.prepEnd ? '–' + span.prepEnd : '');
+                        var tipText = escapeAttr(buildGanttTooltip(row, {
+                            prepRange: prepRangeLbl,
+                            weeklyCrossDaySpan: span.crossesDays,
+                            incomingFromPriorRange: span.isIncomingFromPriorRange,
+                            crossDaySourceDate: span.anchorDate,
+                            crossDayEndDate: span.endDate,
+                            prepEndClock: span.prepEnd,
+                            displayPct: pct,
+                            blockedByPrior: prepStatus.isBlocked
+                        }));
+                        var av = 'C' + escapeHtml(String(cycleLbl).toUpperCase());
+                        var crossClass = span.crossesDays ? ' is-cross-day' : '';
+                        var incomingClass = span.isIncomingFromPriorRange ? ' is-incoming-prior-range' : '';
+                        html += '<div class="weekly-prep-bar' + crossClass + incomingClass +
+                            '" title="' + tipText + '" style="left:' +
+                            span.leftPct + '%;width:' + Math.max(span.widthPct, (100 / nSlots / 24)) + '%;' +
+                            'background:' + barColor + ';"';
+                        html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                        html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                        html += ' data-delivery-date-from="' + escapeAttr(anchorDate) + '"';
+                        html += ' data-delivery-date-to="' + escapeAttr(anchorDate) + '">';
+                        html += '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;">' + av +
+                            '</span></div>';
+                    });
+                    if (nowDayIdx >= 0) {
+                        var nowLeftInTrack = ((nowDayIdx + nowFrac) / nSlots) * 100;
+                        html += '<div style="position:absolute;top:0;bottom:0;left:' + nowLeftInTrack +
+                            '%;width:2px;background:rgb(67,53,220);transform:translateX(-50%);z-index:4;pointer-events:none;">' +
+                            '<span style="position:absolute;top:-14px;left:0;transform:translateX(-50%);font-size:8px;background:rgb(59,53,220);color:#fff;padding:1px 4px;border-radius:2px;white-space:nowrap;">Now</span>' +
+                            '</div>';
+                    }
+                    html += '</div></td>';
                     html += '</tr>';
 
                     // ── Baris ETA TRUCK ──
@@ -3015,8 +3644,7 @@
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#b86f00;' +
                         '">ETA TRUCK</td>';
                     // Slot hari – lane ETA TRUCK
-                    slots.forEach(function(dt, dayIdx) {
-                        var slotDateStr = dt.toISOString().slice(0, 10);
+                    slots.forEach(function(slotDateStr, dayIdx) {
                         var isToday = slotDateStr === todayStr;
                         var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
                         html += '<td style="position:relative;padding:0;border:1px solid #eef0f3;width:' +
@@ -3073,10 +3701,12 @@
 
                 // Ticker: update garis Now setiap detik
                 weeklyGridTimer = setInterval(function() {
-                    var todayS = new Date().toISOString().slice(0, 10);
+                    var todayS = todayLocalDateKey();
                     var nFrac3 = getCurrentDayFrac();
-                    slots.forEach(function(dt, dayIdx) {
-                        if (dt.toISOString().slice(0, 10) !== todayS) return;
+                    slots.forEach(function(slotDateStr, dayIdx) {
+                        if (slotDateStr !== todayS) {
+                            return;
+                        }
                         $('#weeklyGanttContainer [data-wday="' + dayIdx + '"] .weekly-now-line').css('left', (nFrac3 * 100) +
                             '%');
                     });
@@ -3104,6 +3734,7 @@
                 function finishStackedChartLoad(res) {
                     chartRows = res.rows || [];
                     chartWeeklyPoints = res.weekly_points || [];
+                    rebuildLoadingListPresenceIndex();
                     var viewMode = detectDashboardViewMode();
                     var hint = (res.meta && res.meta.hint) ? res.meta.hint : '';
                     if (!chartRows.length && !chartRowsPrevDay.length) {
@@ -3133,11 +3764,14 @@
                     chartRowsPrevDay = [];
                     var viewMode = detectDashboardViewMode();
                     var dateFrom = params.date_from || '';
-                    if (viewMode === 'daily' && dateFrom) {
+                    var dateTo = params.date_to || dateFrom;
+                    var viewDateForPrev = getDailyFilterViewDate() || dateFrom;
+                    var needPrevDayLookup = !!viewDateForPrev;
+                    if (needPrevDayLookup) {
                         var prevParams = $.extend({}, params, {
-                            date_from: addDaysToDateStr(dateFrom, -1),
-                            date_to: addDaysToDateStr(dateFrom, -1),
-                            date: addDaysToDateStr(dateFrom, -1)
+                            date_from: addDaysToDateStr(viewDateForPrev, -1),
+                            date_to: addDaysToDateStr(viewDateForPrev, -1),
+                            date: addDaysToDateStr(viewDateForPrev, -1)
                         });
                         $.get(stackedUrl, prevParams, function(prevRes) {
                             chartRowsPrevDay = prevRes.rows || [];
@@ -3175,7 +3809,7 @@
             });
 
             if (!$('#filterDateFrom').val()) {
-                var today = new Date().toISOString().slice(0, 10);
+                var today = todayLocalDateKey();
                 $('#filterDateFrom').val(today);
                 $('#filterDateTo').val(today);
             }

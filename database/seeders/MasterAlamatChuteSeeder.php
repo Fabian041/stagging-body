@@ -23,9 +23,11 @@ class MasterAlamatChuteSeeder extends Seeder
                 [
                     'part_no_customer' => $row['part_no_customer'],
                     'back_no' => $row['back_no'],
-                    'part_name' => $row['part_name'],
                 ],
-                ['alamat_chute' => $row['alamat_chute']]
+                [
+                    'part_name' => $row['part_name'],
+                    'alamat_chute' => $row['alamat_chute'],
+                ]
             );
         }
     }

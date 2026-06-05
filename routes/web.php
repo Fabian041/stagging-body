@@ -287,6 +287,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('pulling.master-alamat-chute.template');
         Route::post('/master-alamat-chute/import', [PullingController::class, 'importMasterAlamatChute'])
             ->name('pulling.master-alamat-chute.import');
+        Route::post('/master-alamat-chute/clear-all', [PullingController::class, 'clearAllMasterAlamatChute'])
+            ->name('pulling.master-alamat-chute.clear-all');
         Route::post('/master-alamat-chute', [PullingController::class, 'storeMasterAlamatChute'])
             ->name('pulling.master-alamat-chute.store');
         Route::put('/master-alamat-chute/{master_alamat_chute}', [PullingController::class, 'updateMasterAlamatChute'])

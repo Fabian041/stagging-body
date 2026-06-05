@@ -18,6 +18,7 @@ class Kernel extends ConsoleKernel
         // $schedule->command('inspire')->hourly();
         $schedule->command('sync:external-deliveries')->everyFiveMinutes();
         $schedule->command('check:late-deliveries')->everyFiveMinutes();
+        $schedule->command('send:delivery-unfinished-notification')->everyMinute();
     }
 
     /**
