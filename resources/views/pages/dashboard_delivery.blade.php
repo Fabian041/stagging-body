@@ -1206,6 +1206,28 @@
         }
 
         .delivery-timeline-card .gantt-bar-wrap.truck-pill .pill-meta {
+            left: 50%;
+            transform: translateX(-50%);
+            padding-left: 0;
+            max-width: 100%;
+            justify-content: center;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.truck-pill .pill-avatar {
+            width: auto;
+            height: auto;
+            min-width: 0;
+            padding: 0 2px;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            font-size: 9px;
+            font-weight: 700;
+            color: #1a1d24;
+            text-shadow: 0 0 2px rgba(255, 255, 255, .9);
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.truck-pill .pill-offset-badge {
             display: none;
         }
 
@@ -2922,11 +2944,37 @@
             }
 
             function getTruckDisplayDate(row) {
-                var base = String(row.delivery_date || $('#filterDateFrom').val() || '').trim();
+                var base = formatLocalDateKey(row.delivery_date || $('#filterDateFrom').val() || '');
                 if (!base.length) {
                     return base;
                 }
-                return isTruckOnNextDay(row) ? addDaysToDateStr(base, 1) : base;
+                var truckAt = normalizeClock(row.truck_time);
+                if (!truckAt.length) {
+                    return base;
+                }
+                var prepStartDate = getPrepStartDate(row);
+                var prepEndDate = getPrepEndDate(row);
+                var prepStart = getRowPrepStartClock(row);
+
+                /**
+                 * PREP lintas malam: truck pagi (jam < jam mulai prep) jatuh pada tanggal selesai prep,
+                 * bukan delivery_date + 1. Contoh prep H-1 19:30–00:30, truck 05:30 → tampil di hari delivery (H).
+                 */
+                if (isPrepOvernight(row) && prepStart.length && prepEndDate.length) {
+                    var truckMin = timeToMinutes(truckAt);
+                    var startMin = timeToMinutes(prepStart);
+                    if (truckMin >= startMin) {
+                        return prepStartDate.length ? prepStartDate : base;
+                    }
+                    return prepEndDate;
+                }
+
+                if (isTruckOnNextDay(row)) {
+                    var anchor = prepStartDate.length ? prepStartDate : base;
+                    return addDaysToDateStr(anchor, 1);
+                }
+
+                return prepStartDate.length ? prepStartDate : base;
             }
 
             function resolveTruckTimelineFrac(row) {
@@ -3932,6 +3980,37 @@
                 return items;
             }
 
+            /** Bar ETA truck pada viewDate — tanggal tampil dari getTruckDisplayDate, bukan hanya delivery_date. */
+            function collectCustomerTruckRows(cn, viewDate) {
+                var viewDateStr = formatLocalDateKey(viewDate);
+                if (!viewDateStr.length) {
+                    return [];
+                }
+                var seen = {};
+                var rows = [];
+                getAllChartRowsForLookup().forEach(function(row) {
+                    if ((row.customer_name || '-') !== cn) {
+                        return;
+                    }
+                    if (!rowHasConfiguredMasterCycle(row)) {
+                        return;
+                    }
+                    if (!normalizeClock(row.truck_time).length) {
+                        return;
+                    }
+                    if (getTruckDisplayDate(row) !== viewDateStr) {
+                        return;
+                    }
+                    var k = prepRowIdentityKey(row);
+                    if (seen[k]) {
+                        return;
+                    }
+                    seen[k] = true;
+                    rows.push(row);
+                });
+                return sortPrepRowsByOrder(rows, viewDateStr);
+            }
+
             function hasPriorIncompletePrep(row, orderedRows, viewDateStr, currentFrac) {
                 var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
                 var rowKey = prepRowIdentityKey(row);
@@ -4165,6 +4244,18 @@
                         custNames.push(cn);
                     }
                 });
+                getAllChartRowsForLookup().forEach(function(row) {
+                    if (!rowHasConfiguredMasterCycle(row)) {
+                        return;
+                    }
+                    if (getTruckDisplayDate(row) !== formatLocalDateKey(viewDate)) {
+                        return;
+                    }
+                    var cn = row.customer_name || '-';
+                    if (custNames.indexOf(cn) < 0) {
+                        custNames.push(cn);
+                    }
+                });
                 custNames.sort(function(a, b) {
                     return a.localeCompare(b);
                 });
@@ -4213,8 +4304,7 @@
                         return false;
                     });
                     var prepBarItems = collectCustomerPrepBarItems(cn, viewDate);
-                    var truckRows = sortPrepRowsByOrder(
-                        deliveryBucketsForDate.filter(rowHasConfiguredMasterCycle), viewDate);
+                    var truckRows = collectCustomerTruckRows(cn, viewDate);
                     var allBucketsForDate = deliveryBucketsForDate.slice();
                     var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
                     var unconfiguredHint = buildUnconfiguredTimelineHintHtml(allBucketsForDate);
