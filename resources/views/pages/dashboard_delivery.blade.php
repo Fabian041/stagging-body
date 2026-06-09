@@ -2977,6 +2977,63 @@
                 return prepStartDate.length ? prepStartDate : base;
             }
 
+            function isTruckCrossMidnight(row) {
+                if (!row || !normalizeClock(row.truck_time).length) {
+                    return false;
+                }
+                if (isPrepOvernight(row)) {
+                    return true;
+                }
+                if (isTruckOnNextDay(row)) {
+                    return true;
+                }
+                var prepStartDate = getPrepStartDate(row);
+                var truckDisplayDate = getTruckDisplayDate(row);
+                return prepStartDate.length && truckDisplayDate.length && prepStartDate !== truckDisplayDate;
+            }
+
+            function getTruckCrossDaySourceDate(row) {
+                if (!isTruckCrossMidnight(row)) {
+                    return '';
+                }
+                return getPrepStartDate(row) || formatLocalDateKey(row.delivery_date);
+            }
+
+            function formatTruckCrossDayDateRangeLabel(sourceDate, displayDate) {
+                var from = formatDeliveryDateShort(sourceDate);
+                var to = formatDeliveryDateShort(displayDate);
+                if (!from.length) {
+                    return 'Lintas malam';
+                }
+                if (!to.length || from === to) {
+                    return 'Dari ' + from;
+                }
+                return 'Dari ' + from + ' \u2192 ' + to;
+            }
+
+            function buildTruckTooltipOpts(row) {
+                var truckAt = normalizeClock(row.truck_time);
+                var opts = {
+                    truckClock: truckAt,
+                    truckNextDay: isTruckOnNextDay(row),
+                    prepDayOffsetLabel: getRowPrepOffsetLabel(row),
+                    displayPct: Math.round(getRowRawProgressPct(row) * 10) / 10
+                };
+                var prepStart = getRowPrepStartClock(row);
+                var prepEnd = getRowPrepEndClock(row) || '';
+                if (prepStart.length) {
+                    var ps = formatClockDot(prepStart);
+                    var pe = prepEnd.length ? formatClockDot(prepEnd) : '';
+                    opts.prepRange = pe.length ? ps + '\u2013' + pe : ps;
+                }
+                if (isTruckCrossMidnight(row)) {
+                    opts.truckCrossMidnight = true;
+                    opts.crossDayFromDate = getTruckCrossDaySourceDate(row);
+                    opts.truckDisplayDate = getTruckDisplayDate(row);
+                }
+                return opts;
+            }
+
             function resolveTruckTimelineFrac(row) {
                 var truckAt = normalizeClock(row.truck_time);
                 if (!truckAt.length) {
@@ -3120,6 +3177,18 @@
             }
 
             function isRowPastFinishPrep(row, currentFrac) {
+                enrichRowAbsoluteDatetimes(row);
+
+                /** Belum masuk jadwal prep (mis. C1 H+1 malam saat C3 H+0 masih jalan) → belum lewat finish. */
+                if (row.absolute_start_ms != null && Date.now() < row.absolute_start_ms) {
+                    return false;
+                }
+
+                var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
+                if (deadlineMs != null) {
+                    return Date.now() >= deadlineMs;
+                }
+
                 if (currentFrac === null || typeof currentFrac === 'undefined') {
                     return false;
                 }
@@ -3129,6 +3198,11 @@
                 }
                 var finishFrac = timeToFrac(finishClock);
                 if (finishFrac === null) {
+                    return false;
+                }
+                var startFrac = timeToFrac(getRowPrepStartClock(row));
+                /** Lintas malam: jam selesai pagi bukan "lewat" saat masih siang sebelum mulai malam. */
+                if (startFrac !== null && finishFrac < startFrac) {
                     return false;
                 }
                 return currentFrac >= finishFrac;
@@ -4045,14 +4119,18 @@
                         isOverdue: false
                     };
                 }
+                enrichRowAbsoluteDatetimes(row);
+                var beforeScheduledStart = row.absolute_start_ms != null && Date.now() < row.absolute_start_ms;
                 var latchKey = rowOverdueLatchKey(row);
                 var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
-                var pastFinish = isRowPastFinishPrep(row, effectiveFrac) || isRowPastFinishPrepDeadline(row);
-                var isOverdueNow = progressWidth < 100 && pastFinish;
+                var pastFinish = isRowPastFinishPrep(row, effectiveFrac);
+                var isOverdueNow = !beforeScheduledStart && progressWidth < 100 && pastFinish;
                 if (isOverdueNow) {
                     overdueLatch[latchKey] = true;
+                } else if (beforeScheduledStart) {
+                    delete overdueLatch[latchKey];
                 }
-                var isOverdue = !!overdueLatch[latchKey];
+                var isOverdue = !beforeScheduledStart && !!overdueLatch[latchKey];
                 var barClass = progressWidth >= 100 ?
                     (isOverdue ? 'overdue' : 'ontime') :
                     (isOverdue ? 'overdue' : (progressWidth > 0 ? 'delay' : 'empty'));
@@ -4096,14 +4174,16 @@
                 if (opts.blockedByPrior) {
                     parts.push('Menunggu cycle sebelumnya');
                 }
-                if (opts.crossDayFromDate) {
+                if (opts.truckCrossMidnight && opts.crossDayFromDate) {
+                    parts.push(formatTruckCrossDayDateRangeLabel(opts.crossDayFromDate, opts.truckDisplayDate));
+                } else if (opts.crossDayFromDate) {
                     parts.push(formatCrossDaySourceLabel(opts.crossDayFromDate));
                 } else if (opts.continuesTomorrow || opts.weeklyCrossDaySpan || opts.prepFromYesterday) {
                     parts.push('Lintas hari');
                 }
                 if (opts.truckClock) {
                     parts.push('Truck ' + formatClockDot(opts.truckClock) +
-                        (opts.truckNextDay ? ' (+1)' : ''));
+                        (opts.truckNextDay && !opts.truckCrossMidnight ? ' (+1)' : ''));
                 }
                 return parts.join(' · ');
             }
@@ -4357,16 +4437,14 @@
                             return;
                         }
                         var truckNextDay = isTruckOnNextDay(row);
+                        var truckCrossMidnight = isTruckCrossMidnight(row);
                         var truckLeftPct = (truckStart / ganttHourWindow) * 100;
                         var truckComplete = isRowPrepKanbanComplete(row);
                         var truckSegClass = truckComplete ? 'truck-complete' : 'truck';
-                        var truckTitle = buildGanttTooltip(row, {
-                            truckClock: truckAt,
-                            truckNextDay: truckNextDay,
-                            prepDayOffsetLabel: getRowPrepOffsetLabel(row)
-                        }).replace(/"/g, '&quot;');
+                        var truckTitle = buildGanttTooltip(row, buildTruckTooltipOpts(row)).replace(/"/g,
+                            '&quot;');
                         var truckLabel = 'C' + escapeHtml(String(rowCycleKey(row) || '?'));
-                        var truckExtraClass = (truckNextDay ? ' is-cross-day' : '') + ' ' +
+                        var truckExtraClass = (truckNextDay || truckCrossMidnight ? ' is-cross-day' : '') + ' ' +
                             getPrepOffsetCssClass(getRowPrepDayOffset(row));
                         gridHtml += '<div class="gantt-bar-wrap truck-pill' + truckExtraClass +
                             '" style="left:' + truckLeftPct + '%;z-index:' + (2 + truckIdx) + ';" title="' +
@@ -4644,11 +4722,12 @@
                             var pct = getRowRawProgressPct(row);
                             var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' : '#f59e0b';
                             var truckNextDay = isTruckOnNextDay(row);
+                            var truckCrossMidnight = isTruckCrossMidnight(row);
                             var cycleLblTruck = rowCycleKey(row) || '-';
-                            var tipText = escapeAttr('C' + cycleLblTruck + ' TRUCK ' + truckTime +
-                                (truckNextDay ? ' (hari berikutnya)' : '') + ' | Progress ' + pct +
-                                '% | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
-                            var truckBorder = truckNextDay ? 'border:2px dashed #b86f00;' : '';
+                            var tipText = escapeAttr(buildGanttTooltip(row, buildTruckTooltipOpts(row)) +
+                                ' | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
+                            var truckBorder = (truckNextDay || truckCrossMidnight) ?
+                                'border:2px dashed #b86f00;' : '';
                             var av = 'C' + escapeHtml(String(cycleLblTruck).toUpperCase());
                             html += '<div class="weekly-truck-pill" title="' + tipText + '" style="' +
                                 'position:absolute;top:8px;height:22px;' +
