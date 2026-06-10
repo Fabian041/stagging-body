@@ -1080,7 +1080,7 @@
                     return;
                 }
 
-                notif("barcodecomplete");
+                notif("success", `Barcode valid: ${barcodecomplete.length} characters`);
                 return;
 
                 // 3) PART SCAN
