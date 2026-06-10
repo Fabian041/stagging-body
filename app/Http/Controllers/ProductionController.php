@@ -859,7 +859,7 @@ class ProductionController extends Controller
 
         $barcodeLength = strlen($barcode);
 
-        $allowedPart21BackNumbers = [
+        $allowedPart22BackNumbers = [
             'SPKV',
             'SPKW',
             'SPKX',
@@ -874,38 +874,48 @@ class ProductionController extends Controller
             'SPL7',
         ];
 
-        if (!in_array($barcodeLength, [22, 27])) {
+        if (!in_array($barcodeLength, [22, 27], true)) {
             return response()->json([
                 'status'  => 'invalid',
-                'message' => 'Panjang barcode part tidak valid. Hanya menerima 22 atau 27 digit.'
+                'message' => 'Panjang barcode part tidak valid. Hanya menerima 22 atau 27 digit.',
             ], 422);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validasi barcode 22 digit
+        |--------------------------------------------------------------------------
+        */
         if ($barcodeLength === 22) {
             if (!$backNumber) {
                 return response()->json([
                     'status'  => 'invalid',
-                    'message' => 'Back number wajib dikirim untuk scan part 22 digit.'
+                    'message' => 'Back number wajib dikirim untuk scan part 22 digit.',
                 ], 422);
             }
 
-            if (!in_array($backNumber, $allowedPart21BackNumbers)) {
+            if (!in_array($backNumber, $allowedPart22BackNumbers, true)) {
                 return response()->json([
                     'status'  => 'invalid',
-                    'message' => 'Barcode part 21 digit hanya berlaku untuk model SPKV sampai SPL7.'
+                    'message' => 'Barcode part 22 digit hanya berlaku untuk model SPKV sampai SPL7.',
                 ], 422);
             }
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validasi barcode 27 digit
+        |--------------------------------------------------------------------------
+        */
         if ($barcodeLength === 27) {
             if (!$backNumber) {
                 return response()->json([
                     'status'  => 'invalid',
-                    'message' => 'Back number wajib dikirim untuk scan part 27 digit.'
+                    'message' => 'Back number wajib dikirim untuk scan part 27 digit.',
                 ], 422);
             }
 
-            $last4 = strtoupper(substr($barcode, -4));
+            $last4           = strtoupper(substr($barcode, -4));
             $prefixBackNumber = substr($backNumber, 0, 2);
 
             $rules = [
@@ -913,25 +923,37 @@ class ProductionController extends Controller
                 'KMOT' => 'KP',
             ];
 
-            if (!isset($rules[$last4]) || $rules[$last4] !== $prefixBackNumber) {
+            if (
+                !isset($rules[$last4]) ||
+                $rules[$last4] !== $prefixBackNumber
+            ) {
                 return response()->json([
                     'status'  => 'invalid',
-                    'message' => 'Barcode part tidak sesuai dengan back number.'
+                    'message' => 'Barcode part tidak sesuai dengan back number.',
                 ], 422);
             }
         }
 
         $today = Carbon::today();
 
-        $exists = ScannedPart::where('line', $line)
-            ->where('barcode', $barcode)
-            ->whereDate('scan_date', $today)
-            ->exists();
+        /*
+        |--------------------------------------------------------------------------
+        | Cek duplicate hanya untuk barcode selain 22 digit
+        |--------------------------------------------------------------------------
+        | Barcode 22 digit boleh discan dan disimpan berulang kali.
+        */
+        if ($barcodeLength !== 22) {
+            $exists = ScannedPart::where('line', $line)
+                ->where('barcode', $barcode)
+                ->whereDate('scan_date', $today)
+                ->exists();
 
-        if ($exists) {
-            return response()->json([
-                'status' => 'duplicate'
-            ]);
+            if ($exists) {
+                return response()->json([
+                    'status'  => 'duplicate',
+                    'message' => 'Barcode part sudah pernah discan.',
+                ]);
+            }
         }
 
         ScannedPart::create([
