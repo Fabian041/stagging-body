@@ -1080,6 +1080,9 @@
                     return;
                 }
 
+                notif(barcodecomplete.length);
+                return;
+
                 // 3) PART SCAN
                 // Existing: 27 digit
                 // New: 21 digit khusus back number SPKV - SPL7
