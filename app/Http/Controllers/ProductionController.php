@@ -874,18 +874,18 @@ class ProductionController extends Controller
             'SPL7',
         ];
 
-        if (!in_array($barcodeLength, [21, 27])) {
+        if (!in_array($barcodeLength, [22, 27])) {
             return response()->json([
                 'status'  => 'invalid',
-                'message' => 'Panjang barcode part tidak valid. Hanya menerima 21 atau 27 digit.'
+                'message' => 'Panjang barcode part tidak valid. Hanya menerima 22 atau 27 digit.'
             ], 422);
         }
 
-        if ($barcodeLength === 21) {
+        if ($barcodeLength === 22) {
             if (!$backNumber) {
                 return response()->json([
                     'status'  => 'invalid',
-                    'message' => 'Back number wajib dikirim untuk scan part 21 digit.'
+                    'message' => 'Back number wajib dikirim untuk scan part 22 digit.'
                 ], 422);
             }
 
