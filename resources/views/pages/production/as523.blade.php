@@ -1080,13 +1080,13 @@
                     return;
                 }
 
-                notif("success", `Barcode valid: ${barcodecomplete.length} characters`);
-                return;
+                // notif("success", `Barcode valid: ${barcodecomplete.length} characters`);
+                // return;
 
                 // 3) PART SCAN
                 // Existing: 27 digit
                 // New: 21 digit khusus back number SPKV - SPL7
-                if (barcodecomplete.length === 27 || barcodecomplete.length === 21) {
+                if (barcodecomplete.length === 27 || barcodecomplete.length === 22) {
                     const model = LS.get('model');
                     const dandori = LS.get('dandori_board');
                     const backNo = normalizeBackNumber(LS.get('back_number'));
