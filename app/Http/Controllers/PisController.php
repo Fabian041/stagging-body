@@ -991,7 +991,7 @@ class PisController extends Controller
         $items = $pisScan->details->map(function ($detail) {
             $target = (int) ($detail->target_qty ?? 0);
             $scanned = (int) ($detail->scanned_qty ?? 0);
-            $remaining = (int) ($detail->remaining_qty ?? max(0, $target - $scanned));
+            $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
             return [
                 'part_number_int' => $detail->part_number_int,
                 'part_number_cust' => $detail->part_number_cust,
@@ -1013,7 +1013,7 @@ class PisController extends Controller
                     $relatedItems = $scan->details->map(function ($detail) {
                         $target = (int) ($detail->target_qty ?? 0);
                         $scanned = (int) ($detail->scanned_qty ?? 0);
-                        $remaining = (int) ($detail->remaining_qty ?? max(0, $target - $scanned));
+                        $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
                         return [
                             'part_number_int' => $detail->part_number_int,
                             'part_number_cust' => $detail->part_number_cust,
@@ -1545,7 +1545,7 @@ class PisController extends Controller
                     'back_number'          => $backNumber,
                     'target_qty'           => $targetKanban,
                     'scanned_qty'          => $scannedKanban,
-                    'remaining_qty'        => $detail->remaining_qty ?? max(0, $targetKanban - $scannedKanban),
+                    'remaining_qty'        => max(0, (int) ($detail->remaining_qty ?? ($targetKanban - $scannedKanban))),
                     'progress_percentage'  => $progressPercentage,
                     'is_complete'          => $isComplete,
                     // Waktu scan diambil dari updated_at detail (terakhir kali qty di-update)
