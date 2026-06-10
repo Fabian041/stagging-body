@@ -15,6 +15,25 @@ class MasterAlamatChute extends Model
         'alamat_chute',
     ];
 
+    protected static function booted()
+    {
+        static::saved(function () {
+            try {
+                cache()->increment('chute_cache_version');
+            } catch (\Exception $e) {
+                // fallback
+            }
+        });
+
+        static::deleted(function () {
+            try {
+                cache()->increment('chute_cache_version');
+            } catch (\Exception $e) {
+                // fallback
+            }
+        });
+    }
+
     /**
      * Lookup scan pulling: cocokkan part_no_customer + back_no saja (abaikan part_name).
      */
@@ -27,38 +46,43 @@ class MasterAlamatChute extends Model
             return null;
         }
 
-        $backUpper = strtoupper($backNo);
+        $version = cache()->get('chute_cache_version', 1);
+        $cacheKey = 'chute_address_' . $version . '_' . md5($partNoCustomer . '_' . $backNo);
 
-        $exact = static::query()
-            ->where('part_no_customer', $partNoCustomer)
-            ->whereRaw('UPPER(TRIM(back_no)) = ?', [$backUpper])
-            ->value('alamat_chute');
+        return cache()->rememberForever($cacheKey, function () use ($partNoCustomer, $backNo) {
+            $backUpper = strtoupper($backNo);
 
-        if ($exact !== null && trim((string) $exact) !== '') {
-            return trim((string) $exact);
-        }
+            $exact = static::query()
+                ->where('part_no_customer', $partNoCustomer)
+                ->whereRaw('UPPER(TRIM(back_no)) = ?', [$backUpper])
+                ->value('alamat_chute');
 
-        $normalized = strtoupper(str_replace(['-', ' '], '', $partNoCustomer));
-        if ($normalized === '') {
-            return null;
-        }
+            if ($exact !== null && trim((string) $exact) !== '') {
+                return trim((string) $exact);
+            }
 
-        $rows = static::query()
-            ->whereRaw(
-                "UPPER(REPLACE(REPLACE(TRIM(part_no_customer), '-', ''), ' ', '')) = ?",
-                [$normalized]
-            )
-            ->whereRaw('UPPER(TRIM(back_no)) = ?', [$backUpper])
-            ->pluck('alamat_chute')
-            ->map(fn ($v) => trim((string) $v))
-            ->filter(fn ($v) => $v !== '')
-            ->values();
+            $normalized = strtoupper(str_replace(['-', ' '], '', $partNoCustomer));
+            if ($normalized === '') {
+                return null;
+            }
 
-        if ($rows->isEmpty()) {
-            return null;
-        }
+            $rows = static::query()
+                ->whereRaw(
+                    "UPPER(REPLACE(REPLACE(TRIM(part_no_customer), '-', ''), ' ', '')) = ?",
+                    [$normalized]
+                )
+                ->whereRaw('UPPER(TRIM(back_no)) = ?', [$backUpper])
+                ->pluck('alamat_chute')
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->values();
 
-        return $rows->first();
+            if ($rows->isEmpty()) {
+                return null;
+            }
+
+            return $rows->first();
+        });
     }
 
     /**
