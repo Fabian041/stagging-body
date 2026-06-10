@@ -498,7 +498,7 @@
         const cleanBarcode = (barcode || '').trim().toUpperCase();
         const cleanBackNo = normalizeBackNumber(backNo);
 
-        if (cleanBarcode.length === 21) {
+        if (cleanBarcode.length === 22) {
             const allowed = isAllowedPart21Model(cleanBackNo);
 
             return {
