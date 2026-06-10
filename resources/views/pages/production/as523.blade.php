@@ -1080,7 +1080,7 @@
                     return;
                 }
 
-                notif(barcodecomplete);
+                notif("barcodecomplete");
                 return;
 
                 // 3) PART SCAN
