@@ -163,6 +163,9 @@
                                         <button value="TAM-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-SPD</button>
                                         <button value="MMKI" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI</button>
                                         <button value="MMKI-SPD" type="button" data-dandory="1" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-SPD</button>
+                                        <button value="MMKI-Fujitrans" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-Fujitrans</button>
+                                        <button value="MMKI-Senopati" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-Senopati</button>
+                                        <button value="MMKI-MMO" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">MMKI-MMO</button>
                                         <button value="6I" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">6I</button>
                                         <button value="TAM-ADM" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-ADM</button>
                                         <button value="TAM-HINO" type="button" class="btn btn-block btn-default pis-dock-btn" onclick="func_change_dock(this);">TAM-HINO</button>
@@ -910,8 +913,7 @@
             if (!matched || toQtyNumber(matched.remaining) <= 0) return null;
 
             var remBase = matched.remaining != null ? matched.remaining : matched.total_qty || 0;
-            matched.remaining = toQtyNumber(remBase) - 1;
-            if (matched.remaining < 0) matched.remaining = 0;
+            matched.remaining = Math.max(0, toQtyNumber(remBase) - 1);
             matched.actual_kanban_qty = toQtyNumber(matched.actual_kanban_qty) + 1;
 
             loadingListScanCount += 1;
@@ -1289,10 +1291,10 @@
                 tbody.append(headRow);
                 grp.items.forEach(function (item) {
                     var target = item.total_qty != null ? item.total_qty : (item.total_kanban_qty != null ? item.total_kanban_qty : 0);
-                    var remaining = item.remaining != null ? item.remaining : target;
-                    var current = Math.max(0, toQtyNumber(target) - toQtyNumber(remaining));
+                    var remaining = Math.max(0, toQtyNumber(item.remaining != null ? item.remaining : target));
+                    var current = Math.max(0, toQtyNumber(target) - remaining);
                     var row = $('<tr></tr>');
-                    if (toQtyNumber(remaining) <= 0) row.addClass('table-success');
+                    if (remaining <= 0) row.addClass('table-success');
                     row.append($('<td></td>').text(item.part_number_int || '—'));
                     row.append($('<td></td>').text(item.part_number_cust || '—'));
                     row.append($('<td class="text-right"></td>').text(current));
@@ -2009,14 +2011,15 @@
 
             function mapPisItemsFromDbOrApi(items) {
                 return (items || []).map(function (it) {
-                    var total = (it.total_qty != null ? it.total_qty : (it.total_kanban_qty != null ? it.total_kanban_qty : 0));
-                    var remaining = (it.remaining != null ? it.remaining : Math.max(0, total - (it.actual_kanban_qty || 0)));
+                    var total = toQtyNumber(it.total_qty != null ? it.total_qty : (it.total_kanban_qty != null ? it.total_kanban_qty : 0));
+                    var remaining = Math.max(0, toQtyNumber(it.remaining != null ? it.remaining : Math.max(0, total - (it.actual_kanban_qty || 0))));
+                    var actual = Math.max(0, toQtyNumber(it.actual_kanban_qty != null ? it.actual_kanban_qty : Math.max(0, total - remaining)));
                     return {
                         part_number_int: it.part_number_int || '',
                         part_number_cust: it.part_number_cust || '',
                         total_qty: total,
-                        total_kanban_qty: it.total_kanban_qty != null ? it.total_kanban_qty : total,
-                        actual_kanban_qty: it.actual_kanban_qty != null ? it.actual_kanban_qty : (total - remaining),
+                        total_kanban_qty: total,
+                        actual_kanban_qty: actual,
                         remaining: remaining
                     };
                 });
@@ -2024,13 +2027,13 @@
 
             function mapPisItemsFromDeaApi(items) {
                 return (items || []).map(function (it) {
-                    var total = (it.total_qty != null ? it.total_qty : (it.quantity != null ? it.quantity : 0));
-                    var done = (it.actual_kanban_qty != null ? it.actual_kanban_qty : 0);
+                    var total = toQtyNumber(it.total_qty != null ? it.total_qty : (it.quantity != null ? it.quantity : 0));
+                    var done = Math.max(0, toQtyNumber(it.actual_kanban_qty != null ? it.actual_kanban_qty : 0));
                     return {
                         part_number_int: it.part_number_int || '',
                         part_number_cust: it.part_number_cust || '',
                         total_qty: total,
-                        total_kanban_qty: it.total_kanban_qty != null ? it.total_kanban_qty : total,
+                        total_kanban_qty: total,
                         actual_kanban_qty: done,
                         remaining: Math.max(0, total - done)
                     };

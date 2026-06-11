@@ -33,6 +33,49 @@ use PhpMqtt\Client\ConnectionSettings;
 
 class PullingController extends Controller
 {
+    private static $loadingListsCache = [];
+    private static $internalPartsCache = [];
+
+    private function ensureOptimizedTrigger()
+    {
+        try {
+            if (cache()->get('trigger_optimized_v1', false)) {
+                return;
+            }
+
+            // Drop trigger if exists
+            DB::unprepared('DROP TRIGGER IF EXISTS update_production_stock');
+
+            // Recreate trigger without the redundant SELECT query
+            DB::unprepared('CREATE TRIGGER update_production_stock AFTER INSERT ON mutations FOR EACH ROW
+                BEGIN
+                    IF NEW.type = "supply" THEN
+                        IF EXISTS (SELECT 1 FROM production_stocks WHERE internal_part_id = NEW.internal_part_id) THEN
+                            UPDATE production_stocks SET current_stock = current_stock + NEW.qty 
+                            WHERE internal_part_id = NEW.internal_part_id;
+                        ELSE
+                            INSERT INTO production_stocks (internal_part_id, DATE, current_stock) 
+                            VALUES (NEW.internal_part_id, NEW.date ,NEW.qty);
+                        END IF;
+                    ELSE
+                        IF EXISTS (SELECT 1 FROM production_stocks WHERE internal_part_id = NEW.internal_part_id) THEN
+                            UPDATE production_stocks SET current_stock = current_stock - NEW.qty 
+                            WHERE internal_part_id = NEW.internal_part_id;
+                        ELSE
+                            INSERT INTO production_stocks (internal_part_id, DATE, current_stock) 
+                            VALUES (NEW.internal_part_id, NEW.date ,-NEW.qty);
+                        END IF;
+                    END IF;
+                END'
+            );
+
+            cache()->put('trigger_optimized_v1', true, now()->addDays(30));
+        } catch (\Exception $e) {
+            // Log or ignore if the database user doesn't have privileges
+            logger()->error('Failed to optimize trigger: ' . $e->getMessage());
+        }
+    }
+
     public function mqttConnect($topic, $message)
     {
         $server   = '172.18.3.70';
@@ -84,7 +127,10 @@ class PullingController extends Controller
         // check last two digit of partNumber 
         $lastDigit = substr($customerPart, -2);
 
-        $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        if (!isset(self::$loadingListsCache[$loadingList])) {
+            self::$loadingListsCache[$loadingList] = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        }
+        $loadingListId = self::$loadingListsCache[$loadingList];
         if (!$loadingListId) {
             return [
                 'status' => 'notExists',
@@ -223,6 +269,7 @@ class PullingController extends Controller
      */
     public function index()
     {
+        $this->ensureOptimizedTrigger();
         return view('pages.pulling.index');
     }
 
@@ -983,6 +1030,7 @@ class PullingController extends Controller
 
     public function mutation(Request $request)
     {
+        $this->ensureOptimizedTrigger();
         $data = $request->validate([
             'loadingList'  => 'required|string',
             'customerPart' => 'required|string',
@@ -995,9 +1043,12 @@ class PullingController extends Controller
 
         return DB::transaction(function () use ($data) {
             // 1) Ambil Loading List
-            $loadingList = LoadingList::select('id', 'number', 'customer_id')
-                ->where('number', $data['loadingList'])
-                ->first();
+            if (!isset(self::$loadingListsCache[$data['loadingList']])) {
+                self::$loadingListsCache[$data['loadingList']] = LoadingList::select('id', 'number', 'customer_id')
+                    ->where('number', $data['loadingList'])
+                    ->first();
+            }
+            $loadingList = self::$loadingListsCache[$data['loadingList']];
 
             // dd( $data['loadingList']);
 
@@ -1017,9 +1068,13 @@ class PullingController extends Controller
             $convertedPartNumber = is_string($converted) ? $converted : $data['customerPart'];
 
             // 3) Ambil internal_part & customer_part (minim query)
-            $internalPart = InternalPart::select('id', 'part_number', 'back_number', 'part_name')
-                ->where('part_number', $data['internalPart'])
-                ->first();
+            $internalPartKey = $data['internalPart'];
+            if (!isset(self::$internalPartsCache[$internalPartKey])) {
+                self::$internalPartsCache[$internalPartKey] = InternalPart::select('id', 'part_number', 'back_number', 'part_name')
+                    ->where('part_number', $data['internalPart'])
+                    ->first();
+            }
+            $internalPart = self::$internalPartsCache[$internalPartKey];
 
             if (!$internalPart) {
                 return response()->json([
@@ -1673,6 +1728,9 @@ class PullingController extends Controller
         }
 
         MasterAlamatChute::query()->delete();
+        try {
+            cache()->increment('chute_cache_version');
+        } catch (\Exception $e) {}
 
         return redirect()
             ->route('pulling.master-alamat-chute')
