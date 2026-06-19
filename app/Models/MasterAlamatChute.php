@@ -49,7 +49,7 @@ class MasterAlamatChute extends Model
         $version = cache()->get('chute_cache_version', 1);
         $cacheKey = 'chute_address_' . $version . '_' . md5($partNoCustomer . '_' . $backNo);
 
-        return cache()->rememberForever($cacheKey, function () use ($partNoCustomer, $backNo) {
+        $result = cache()->rememberForever($cacheKey, function () use ($partNoCustomer, $backNo) {
             $backUpper = strtoupper($backNo);
 
             $exact = static::query()
@@ -63,7 +63,7 @@ class MasterAlamatChute extends Model
 
             $normalized = strtoupper(str_replace(['-', ' '], '', $partNoCustomer));
             if ($normalized === '') {
-                return null;
+                return '';
             }
 
             $rows = static::query()
@@ -78,11 +78,13 @@ class MasterAlamatChute extends Model
                 ->values();
 
             if ($rows->isEmpty()) {
-                return null;
+                return '';
             }
 
             return $rows->first();
         });
+
+        return $result === '' ? null : $result;
     }
 
     /**
