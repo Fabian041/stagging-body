@@ -2986,7 +2986,8 @@
                         handler: 'handleCustomerKanban'
                     },
                     {
-                        test: () => localStorage.getItem('customer') === 'MMKI',
+                        test: () => ['MMKI', 'SENOPATI', 'FUJITRANS'].includes(localStorage.getItem(
+                            'customer')),
                         handler: 'handleMMKIKanban'
                     },
                     {
