@@ -1094,6 +1094,12 @@
 <script>
     $(document).ready(function() {
 
+        /* Bootstrap modal focus-trap bikin input SweetAlert tak bisa diketik → matikan */
+        if ($.fn.modal && $.fn.modal.Constructor) {
+            $.fn.modal.Constructor.prototype._enforceFocus = function() {}; // Bootstrap 4
+            $.fn.modal.Constructor.prototype.enforceFocus = function() {}; // fallback BS3
+        }
+
         /* =========================================================
          * HELPERS
          * ======================================================= */
@@ -1612,15 +1618,37 @@
             const id = $btn.data('id');
             const number = $btn.data('number');
 
+            const esc = function(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+                });
+            };
+
             Swal.fire({
-                title: `Hapus loading list ${number}?`,
-                text: 'Semua detail kanban-nya ikut terhapus dan tidak bisa dikembalikan.',
+                title: 'Hapus loading list?',
+                html: 'Ketik nomor <strong>' + esc(number) + '</strong> untuk konfirmasi.<br>' +
+                    '<span style="color:#64748b;font-size:13px;">Semua detail kanban-nya ikut terhapus dan tidak bisa dikembalikan.</span>',
                 icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'Masukkan nomor loading list',
+                inputAttributes: {
+                    autocapitalize: 'off',
+                    autocorrect: 'off',
+                    autocomplete: 'off',
+                    spellcheck: 'false'
+                },
                 showCancelButton: true,
                 confirmButtonColor: '#dc2626',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Ya, hapus',
-                cancelButtonText: 'Batal'
+                cancelButtonText: 'Batal',
+                preConfirm: function(value) {
+                    if (String(value || '').trim() !== String(number).trim()) {
+                        Swal.showValidationMessage('Nomor loading list tidak cocok.');
+                        return false;
+                    }
+                    return true;
+                }
             }).then(function(result) {
                 if (!result.isConfirmed) return;
 
@@ -1637,6 +1665,7 @@
                         if (res && res.status === 'success') {
                             $btn.closest('.bella-acc-item').remove();
                             table.draw(false); // refresh tabel utama (progress & jumlah PDS)
+                            $('#loadingListModal').modal('hide'); // tutup modal detail setelah hapus
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Terhapus',
