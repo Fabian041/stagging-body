@@ -106,11 +106,13 @@
                                     <i class="fas fa-barcode mx-1"></i>
                                     <span>Kanban</span>
 
-                                    <span class="mx-2">→</span>
+                                    <span id="pis-step3-block">
+                                        <span class="mx-2">→</span>
 
-                                    <span>STEP 3</span>
-                                    <i class="fas fa-tag mx-1"></i>
-                                    <span>Label Part</span>
+                                        <span>STEP 3</span>
+                                        <i class="fas fa-tag mx-1"></i>
+                                        <span>Label Part</span>
+                                    </span>
 
                                 </div>
 
@@ -127,7 +129,7 @@
                                         <img id="previewImg" src="" alt="Part image" style="background: #f9f9f9; border-radius: 8px; display: none;" />
                                         <div id="previewPlaceholder" class="text-muted py-5">
                                             <i class="fas fa-image fa-5x mb-3" style="opacity: 0.2;"></i>
-                                            <p class="mb-0">Gambar akan muncul otomatis jika label cocok</p>
+                                            <p id="pis-preview-hint" class="mb-0">Gambar akan muncul otomatis jika label cocok</p>
                                         </div>
                                     </div>
                                 </div>
@@ -241,6 +243,11 @@
         body.pis-interlock-open #modalPisJpConfirmation .modal-content {
             position: relative;
             z-index: 10000 !important;
+        }
+
+        /* SweetAlert2 default z-index ~1060; harus di atas modal interlock */
+        body.pis-interlock-open .swal2-container {
+            z-index: 10050 !important;
         }
 
         /* Pratinjau: tinggi adaptif mengikuti monitor (terutama desktop/16:9). */
@@ -400,6 +407,18 @@
     <audio id="pis-not-match-sound">
         <source src="{{ asset('assets/sounds/notMatch.mp3') }}" type="audio/mpeg">
     </audio>
+    <audio id="pis-lbl-tidak-valid-sound">
+        <source src="{{ asset('assets/sounds/lblTidakValid.mp3') }}" type="audio/mpeg">
+    </audio>
+    <audio id="pis-ll-selesai-sound">
+        <source src="{{ asset('assets/sounds/LLSelesai.mp3') }}" type="audio/mpeg">
+    </audio>
+    <audio id="pis-pds-berbeda-sound">
+        <source src="{{ asset('assets/sounds/pdsBerbeda.mp3') }}" type="audio/mpeg">
+    </audio>
+    <audio id="pis-pindah-kanban-sound">
+        <source src="{{ asset('assets/sounds/pindahKanban.mp3') }}" type="audio/mpeg">
+    </audio>
 @endsection
 
 @section('custom-script')
@@ -423,6 +442,22 @@
 
         function pisErrorSound() {
             playPisSound('pis-not-match-sound');
+        }
+
+        function pisLabelInvalidSound() {
+            playPisSound('pis-lbl-tidak-valid-sound');
+        }
+
+        function pisLlCompleteSound() {
+            playPisSound('pis-ll-selesai-sound');
+        }
+
+        function pisPdsBerbedaSound() {
+            playPisSound('pis-pds-berbeda-sound');
+        }
+
+        function pisPindahKanbanSound() {
+            playPisSound('pis-pindah-kanban-sound');
         }
 
         // Gambar PIS via route Laravel (baca Storage langsung) — aman untuk nama file ber-spasi tanpa mengandalkan symlink/static URL.
@@ -580,6 +615,7 @@
             $('#dock').find('button.pis-dock-btn').addClass('btn-default');
             $(obj).addClass('btn-primary');
             $('#dock_type').val(obj.value);
+            pisRefreshDockSpecificUi();
             // Refresh gambar hanya jika sudah ada part yang tervalidasi (scan label = Part Number (Cust))
             if (currentPreviewItem) {
                 setPreviewImage(currentPreviewItem.part_number_int || '', currentPreviewItem.part_number_cust || '');
@@ -638,6 +674,7 @@
         var pisSessionPdsNumber = ''; // PDS sesi: LL tambahan wajib sama
         var currentLoadingListNumber = ''; // LL terakhir di-scan (log/API); match part memakai semua LL sesi secara setara
         var lastScannedKanban = ''; // String kanban penuh terakhir — validasi label (part harus ada di kanban)
+        var ttiScannedUniques = []; // TTI: unique kanban (mis. G9C3TP) yang sudah di-scan dalam sesi LL
         // Counter harian untuk scan label part (bukan scan loading list)
         var loadingListScanCount = 0;
         // Item terakhir untuk refresh preview saat ganti dock/type (gambar dari part_number_cust di loading list).
@@ -877,6 +914,7 @@
             if ($modal.length && !$modal.parent().is('body')) {
                 $modal.appendTo('body');
             }
+            pisLlCompleteSound();
             $modal.modal('show');
         }
 
@@ -978,17 +1016,36 @@
                 lastResult = res;
                 lastAppliedPack = pack;
 
-                if (res.matched.remaining > 0) {
-                    stage = 3;
-                    $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
-                    $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                    $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
-                } else {
+                if (pack.ttiUnique && ttiScannedUniques.indexOf(pack.ttiUnique) === -1) {
+                    ttiScannedUniques.push(pack.ttiUnique);
+                }
+
+                if (pisIsDockTti()) {
                     stage = 2;
                     lastScannedKanban = '';
                     $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
-                    $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                    $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                    if (res.matched.remaining > 0) {
+                        $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK');
+                        $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
+                    } else {
+                        $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
+                        $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                        pisPindahKanbanSound();
+                    }
+                } else {
+                    if (res.matched.remaining > 0) {
+                        stage = 3;
+                        $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+                        $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
+                        $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
+                    } else {
+                        stage = 2;
+                        lastScannedKanban = '';
+                        $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+                        $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
+                        $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                        pisPindahKanbanSound();
+                    }
                 }
                 updateStepIndicator();
 
@@ -1008,7 +1065,7 @@
 
             if (lastResult && lastResult.matched && lastAppliedPack) {
                 var m = lastResult.matched;
-                $('#detail_no').val(m.part_number_int || '');
+                $('#detail_no').val(lastAppliedPack.ttiUnique || m.part_number_int || '');
                 if ((m.part_number_cust || '').toString().trim()) {
                     currentPreviewItem = m;
                     setPreviewImage(m.part_number_int || '', m.part_number_cust || '');
@@ -1061,6 +1118,102 @@
         /** Dock MMKI-SPD: kasus khusus label fisik berbentuk BASE-001 sementara API/LL/kanban hanya BASE. */
         function pisIsDockMmkiSpd() {
             return pisGetDockType().toUpperCase() === 'MMKI-SPD';
+        }
+
+        /**
+         * TTI kanban pipe-delimited, contoh:
+         * <WDT>G9C3TP|18|IDAII|85820-X7A00|85820X7A00|20260602|1|...
+         * unique = G9C3TP, part = 85820-X7A00 (field ke-4).
+         */
+        function pisIsTtiKanbanFormat(kanbanStr) {
+            var s = (kanbanStr || '').toString().trim();
+            if (!s || s.indexOf('|') === -1) return false;
+            var parts = s.split('|');
+            if (parts.length < 4) return false;
+            var first = (parts[0] || '').toUpperCase();
+            return first.indexOf('WDT') !== -1 || /^[A-Z0-9]{4,12}$/.test(first.replace(/^<WDT>/i, ''));
+        }
+
+        /** Dock TTI: hanya scan Loading List + Kanban (tanpa label part). */
+        function pisIsDockTti() {
+            return pisGetDockType().toUpperCase() === 'TTI';
+        }
+
+        function pisRefreshDockSpecificUi() {
+            var isTti = pisIsDockTti();
+            $('#pis-step3-block').toggle(!isTti);
+            $('#pis-confirm-packing-card').show();
+            $('#pis-preview-hint').text(isTti
+                ? 'Gambar akan muncul otomatis jika kanban cocok dengan loading list'
+                : 'Gambar akan muncul otomatis jika label cocok');
+            if (isTti && stage === 3) {
+                stage = 2;
+                updateStepIndicator();
+            }
+            if (pisHasPendingLabelPack()) {
+                clearPendingLabelPacks();
+            }
+        }
+
+        /**
+         * Parse kanban TTI berformat pipe, contoh:
+         * <WDT>G9C3TP|18|IDAII|85820-X7A00|85820X7A00|20260602|1|...
+         * unique = G9C3TP, part number = 85820-X7A00 (field ke-4).
+         */
+        function pisParseTtiKanban(kanbanStr) {
+            var raw = (kanbanStr || '').toString().trim();
+            if (!raw || raw.indexOf('|') === -1) return null;
+            var fields = raw.split('|').map(function (p) { return (p || '').trim(); });
+            if (fields.length < 4) return null;
+
+            var uniqueRaw = (fields[0] || '').toUpperCase();
+            var unique = uniqueRaw.replace(/^<[^>]+>/, '').trim();
+            if (!unique) unique = uniqueRaw;
+
+            var partNumber = (fields[3] || '').toUpperCase();
+            var partNumberNoDash = (fields[4] || partNumber.replace(/-/g, '')).toUpperCase();
+            if (!unique || !partNumber) return null;
+
+            return {
+                unique: unique,
+                partNumber: partNumber,
+                partNumberNoDash: partNumberNoDash,
+                raw: raw
+            };
+        }
+
+        function pisNormalizePartToken(s) {
+            return (s || '').toString().trim().toUpperCase().replace(/-/g, '');
+        }
+
+        function pisTtiLlItemMatches(item, parsed) {
+            if (!item || !parsed) return false;
+            var pint = (item.part_number_int || '').toString().trim().toUpperCase();
+            var pcust = (item.part_number_cust || '').toString().trim().toUpperCase();
+            var parsedPart = (parsed.partNumber || '').toString().trim().toUpperCase();
+            var parsedPartNorm = pisNormalizePartToken(parsed.partNumber);
+            var parsedPartNoDash = (parsed.partNumberNoDash || parsedPartNorm).toString().trim().toUpperCase();
+
+            if (!parsedPart) return false;
+
+            if (pcust && (pcust === parsedPart || pisNormalizePartToken(pcust) === parsedPartNorm)) {
+                return true;
+            }
+            if (pint && (pint === parsedPart || pisNormalizePartToken(pint) === parsedPartNorm || pint === parsedPartNoDash)) {
+                return true;
+            }
+            return false;
+        }
+
+        function pisFindTtiLlItem(parsed) {
+            if (!parsed) return null;
+            var sortedItems = getSortedLoadingListItemsForMatch();
+            for (var i = 0; i < sortedItems.length; i++) {
+                var item = sortedItems[i];
+                if (toQtyNumber(item.remaining) <= 0) continue;
+                if (pisTtiLlItemMatches(item, parsed)) return item;
+            }
+            return null;
         }
 
         /** Hanya untuk MMKI-SPD: buang suffix revisi/lot berupa - + angka di akhir (contoh 5716A714HC-001 → 5716A714HC). */
@@ -1188,6 +1341,10 @@
         // Prioritas: part yang LL-nya juga ada di string kanban (membedakan kanban vs label part saja).
         function extractCustomerPartFromKanban(kanbanStr) {
             if (!kanbanStr) return '';
+            if (pisIsDockTti()) {
+                var ttiParsed = pisParseTtiKanban(kanbanStr);
+                if (ttiParsed && ttiParsed.partNumber) return ttiParsed.partNumber;
+            }
             var upper = kanbanStr.toUpperCase();
             var kanbanHasLl = pisKanbanContainsSessionLoadingList(kanbanStr);
 
@@ -1398,7 +1555,11 @@
                             $(window).scrollTop(_savedScrollTop);
                         }
                     } else if (stage === 3 && loadingListItems.length > 0) {
-                        if (isLikelyPisLoadingListBarcode(processBarcode)) {
+                        if (pisIsDockTti()) {
+                            processKanbanScan(processBarcode);
+                            $('#part_number_loading').hide();
+                            $(window).scrollTop(_savedScrollTop);
+                        } else if (isLikelyPisLoadingListBarcode(processBarcode)) {
                             scanLoadingList(processBarcode, displayBarcode);
                         } else {
                             processPartScan(processBarcode, displayBarcode);
@@ -1442,6 +1603,7 @@
             loadingListItems = [];
             partsStartedInCurrentSession = [];
             clearPendingLabelPacks();
+            ttiScannedUniques = [];
             currentLoadingListNumber = '';
             lastScannedKanban = '';
             currentPreviewItem = null;
@@ -1494,8 +1656,111 @@
             setTimeout(function() { $('#pis-input-jp-confirm').focus(); }, 300);
         }
 
+        /**
+         * TTI: scan kanban langsung cocokkan unique + part number ke Loading List (tanpa label).
+         * Format: <WDT>G9C3TP|18|IDAII|85820-X7A00|85820X7A00|...
+         */
+        function processTtiKanbanScan(barcode) {
+            var fullKanbanRaw = cleanBarcode(barcode || '');
+            if (isLikelyPisLoadingListBarcode(fullKanbanRaw)) {
+                scanLoadingList(fullKanbanRaw, stripLastTwoChars(fullKanbanRaw));
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            var parsed = pisParseTtiKanban(fullKanbanRaw);
+            if (!parsed) {
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Format Kanban TTI Salah');
+                $('#alert-body').text('Kanban TTI harus berformat pipe (|) dengan unique dan part number. Contoh: <WDT>G9C3TP|...|85820-X7A00|...');
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            // Check if unique is already pending or scanned
+            var isAlreadyPending = pendingLabelPacks.some(function(p) {
+                return p.ttiUnique === parsed.unique;
+            });
+            if (isAlreadyPending || (parsed.unique && ttiScannedUniques.indexOf(parsed.unique) !== -1)) {
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-ban"></i> Kanban Sudah Di-scan');
+                $('#alert-body').text('Unique kanban "' + parsed.unique + '" sudah tercatat dalam sesi ini atau sedang menunggu konfirmasi. Scan kanban lain.');
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            var matched = pisFindTtiLlItem(parsed);
+            if (!matched) {
+                $('#status-container').removeClass('alert-success').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-times-circle"></i> Kanban Tidak Cocok LL');
+                $('#alert-body').text(
+                    'Unique "' + parsed.unique + '" / part "' + parsed.partNumber + '" tidak ditemukan di Loading List aktif atau qty sudah terpenuhi.'
+                );
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            var rem = (matched.remaining != null ? matched.remaining : matched.total_qty || 0);
+            var remNum = toQtyNumber(rem);
+            if (remNum <= 0) {
+                $('#status-container').removeClass('alert-success alert-primary').addClass('alert-danger');
+                $('#alert-header').html('<i class="fas fa-ban"></i> Kanban Sudah Terpenuhi');
+                $('#alert-body').text('Part "' + (matched.part_number_cust || matched.part_number_int) + '" sudah mencapai target (Sisa: 0).');
+                pisErrorSound();
+                $(window).scrollTop(_savedScrollTop);
+                return;
+            }
+
+            var partKey = getPartSessionKey(matched);
+            if (partKey && partsStartedInCurrentSession.indexOf(partKey) === -1) {
+                partsStartedInCurrentSession.push(partKey);
+            }
+
+            pendingLabelPacks.push({
+                part_number_int: matched.part_number_int || '',
+                part_number_cust: matched.part_number_cust || '',
+                loading_list_number: (matched.loading_list_number || '').toString().trim(),
+                rawLabel: fullKanbanRaw,
+                ttiUnique: parsed.unique || ''
+            });
+            updatePendingPackingUI();
+
+            $('#detail_no').val(parsed.unique || matched.part_number_cust || matched.part_number_int || '');
+
+            if ((matched.part_number_cust || '').toString().trim()) {
+                currentPreviewItem = matched;
+                setPreviewImage(matched.part_number_int || '', matched.part_number_cust || '');
+            } else {
+                currentPreviewItem = null;
+                clearPreviewImage();
+            }
+
+            var effAfterConfirm = Math.max(0, remNum - 1);
+            stage = 2; // TTI stays in stage 2 (kanban scan)
+            $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
+            if (effAfterConfirm > 0) {
+                $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK');
+                $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' di-scan. Setelah Confirm Packing, sisa: ' + effAfterConfirm + ' box.');
+                pisOkSound();
+            } else {
+                $('#alert-header').html('<i class="fas fa-lock"></i> Kanban terakhir — wajib Confirm Packing');
+                $('#alert-body').text('Ini kanban terakhir untuk part ini. Tekan Confirm Packing untuk menutup qty; scan kanban/loading list lain diblok sampai konfirmasi.');
+                pisOkSound();
+            }
+
+            updateStepIndicator();
+            $(window).scrollTop(_savedScrollTop);
+        }
+
         // Stage 2: Scan kanban — simpan data untuk validasi label (label harus terkandung di data kanban)
         function processKanbanScan(barcode) {
+            if (pisIsDockTti()) {
+                processTtiKanbanScan(barcode);
+                return;
+            }
             if (pisHasPendingLabelPack()) {
                 $('#status-container').removeClass('alert-success').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-lock"></i> Menunggu Confirm Packing');
@@ -1532,7 +1797,7 @@
                     'Scan "' + (kanbanPart || fullKanbanRaw) + '" adalah label part, bukan kanban. '
                     + 'Scan kanban fisik (baris panjang yang memuat nomor Loading List).'
                 );
-                pisErrorSound();
+                pisLabelInvalidSound();
                 $(window).scrollTop(_savedScrollTop);
                 return;
             }
@@ -1748,7 +2013,7 @@
                 $('#status-container').removeClass('alert-success').addClass('alert-danger');
                 $('#alert-header').html('<i class="fas fa-lock"></i> Interlock: Label Tidak Sesuai Kanban');
                 $('#alert-body').text('Label "' + (cleanLabel || raw) + '" tidak sesuai kanban. Proses dihentikan. Hubungi JP/Leader untuk verifikasi.');
-                pisErrorSound();
+                pisLabelInvalidSound();
 
                 // Log interlock: label tidak sesuai kanban
                 $.ajax({
@@ -1863,7 +2128,7 @@
                     'Scan "' + scannedShow + '" tidak sama persis dengan part di Loading List ("' + llPartShow + '"). '
                     + 'Periksa karakter tambahan di akhir barcode (contoh: ...A14 vs ...A1, atau ...E1H vs ...E1).'
                 );
-                pisErrorSound();
+                pisLabelInvalidSound();
                 $.ajax({
                     url: '{{ url("error/store") }}',
                     type: 'GET',
@@ -1887,7 +2152,7 @@
                     $('#status-container').removeClass('alert-success').addClass('alert-warning');
                     $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Qty penuh');
                     $('#alert-body').text('Sisa qty untuk part ini sudah nol. Konfirmasi packing sebelumnya atau refresh data.');
-                    pisErrorSound();
+                    pisLabelInvalidSound();
                     $(window).scrollTop(_savedScrollTop);
                     return;
                 }
@@ -1943,7 +2208,7 @@
                 $('#status-container').removeClass('alert-success').addClass('alert-warning');
                 $('#alert-header').html('<i class="fas fa-exclamation-triangle"></i> Tidak Cocok');
                 $('#alert-body').text('Part "' + cleanLabel + '" tidak ada dalam daftar loading list atau qty sudah terpenuhi.');
-                pisErrorSound();
+                pisLabelInvalidSound();
                 // Restore scroll position untuk kasus ini
                 $(window).scrollTop(_savedScrollTop);
             }
@@ -2060,6 +2325,7 @@
                     pisSessionPdsNumber = pds;
                     partsStartedInCurrentSession = [];
                     clearPendingLabelPacks();
+                    ttiScannedUniques = [];
                 } else {
                     // Interlock: semua LL dalam satu sesi wajib PDS sama (termasuk sama-sama kosong vs salah satu ada nilai).
                     var sessionPdsNorm = (pisSessionPdsNumber || '').toString().trim().toUpperCase();
@@ -2072,7 +2338,7 @@
                             'Tidak boleh mencampur loading list dengan PDS berbeda dalam satu sesi. ' +
                             'PDS sesi: ' + (pisSessionPdsNumber || '(kosong)') + ' — PDS LL ini: ' + (pds || '(kosong)') + '.'
                         );
-                        pisErrorSound();
+                        pisPdsBerbedaSound();
                         $(window).scrollTop(_savedScrollTop);
 
                         // Wajib konfirmasi JP/Leader untuk override PDS berbeda
@@ -2125,9 +2391,11 @@
                 $('#alert-header').html('<i class="icon fa fa-check"></i> Loading List Ditemukan');
                 var nLl = pisLoadingListGroups.length;
                 $('#alert-body').text(
-                    fromExisting
-                        ? 'LL (existing): ' + name + ' — total ' + nLl + ' LL. Tiap LL dipisah di tabel; scan kanban & label; Confirm Packing per label.'
-                        : 'LL: ' + name + ' — total ' + nLl + ' LL. Scan kanban, lalu label; Confirm Packing untuk qty & counter.'
+                    pisIsDockTti()
+                        ? 'LL: ' + name + ' — total ' + nLl + ' LL. Scan kanban TTI (unique + part number); tekan Confirm Packing untuk mengupdate qty.'
+                        : (fromExisting
+                            ? 'LL (existing): ' + name + ' — total ' + nLl + ' LL. Tiap LL dipisah di tabel; scan kanban & label; Confirm Packing per label.'
+                            : 'LL: ' + name + ' — total ' + nLl + ' LL. Scan kanban, lalu label; Confirm Packing untuk qty & counter.')
                 );
                 pisOkSound();
             }
@@ -2477,6 +2745,7 @@
             $('#detail_no').prop('readonly', true).blur();
             loadDailyCounter();
             updateStepIndicator();
+            pisRefreshDockSpecificUi();
             pisUpdateFullscreenButton();
 
             var $defaultDock = $('#dock').find('button.pis-dock-btn.btn-primary').first();

@@ -787,6 +787,10 @@
                     line.</div>
             </div>
             <div class="stock-header-actions">
+                <a href="{{ route('dashboard.part.template') }}" class="act-btn"
+                    style="text-decoration:none; display:inline-flex; align-items:center;">
+                    <i class="fas fa-file-download"></i> Template Excel
+                </a>
                 <button type="button" class="act-btn danger" data-toggle="modal" data-target="#partModal">
                     <i class="fas fa-upload"></i> Upload Master Part
                 </button>
@@ -974,7 +978,7 @@
 
                     <div class="upload-hint" id="partHint">
                         <i class="fas fa-info-circle"></i>
-                        <span>Gunakan template standar sebelum upload.</span>
+                        <span>Gunakan <a href="{{ route('dashboard.part.template') }}" style="color:inherit; font-weight:700; text-decoration:underline;">template Excel</a> sebelum upload.</span>
                     </div>
                     <div class="upload-hint success" id="partHintOk" style="display:none">
                         <i class="fas fa-check-circle"></i>

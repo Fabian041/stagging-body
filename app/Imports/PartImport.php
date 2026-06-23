@@ -2,9 +2,11 @@
 
 namespace App\Imports;
 
+use App\Models\Customer;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use App\Models\Kanban;
+use App\Models\Line;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -20,6 +22,8 @@ class PartImport implements ToCollection, WithHeadingRow, WithStartRow
 
     private array $messages = [];
     private array $affectedInternalPartIds = [];
+    private array $lineIdCache = [];
+    private array $customerIdCache = [];
 
     public function collection(Collection $rows)
     {
@@ -35,18 +39,32 @@ class PartImport implements ToCollection, WithHeadingRow, WithStartRow
                 $backNumberInternal = $this->clean($row['aiia_back_no'] ?? '');
                 $backNumberCustomer = $this->clean($row['cust_back_no'] ?? '');
                 $qtyPerKanban       = $row['qty_per_kbn'] ?? null;
-                $lineId             = $row['line_id'] ?? null;
-                $customerId         = $row['customer_id'] ?? null;
+                $lineName           = $this->clean($row['line_name'] ?? '');
+                $customerName       = $this->clean($row['customer_name'] ?? '');
 
                 if (
                     $partNumberInternal === '' ||
                     $backNumberInternal === '' ||
                     $partNumberCustomer === '' ||
-                    empty($lineId) ||
-                    empty($customerId)
+                    $lineName === '' ||
+                    $customerName === ''
                 ) {
                     $this->invalidRows++;
                     $this->messages[] = "Baris {$excelRow}: data wajib belum lengkap.";
+                    continue;
+                }
+
+                $lineId = $this->resolveLineId($lineName);
+                if ($lineId === null) {
+                    $this->invalidRows++;
+                    $this->messages[] = "Baris {$excelRow}: line \"{$lineName}\" tidak ditemukan.";
+                    continue;
+                }
+
+                $customerId = $this->resolveCustomerId($customerName);
+                if ($customerId === null) {
+                    $this->invalidRows++;
+                    $this->messages[] = "Baris {$excelRow}: customer \"{$customerName}\" tidak ditemukan.";
                     continue;
                 }
 
@@ -193,6 +211,40 @@ class PartImport implements ToCollection, WithHeadingRow, WithStartRow
     private function clean($value): string
     {
         return trim((string) $value);
+    }
+
+    private function resolveLineId(string $lineName): ?int
+    {
+        $key = mb_strtolower($lineName);
+
+        if (array_key_exists($key, $this->lineIdCache)) {
+            return $this->lineIdCache[$key];
+        }
+
+        $lineId = Line::query()
+            ->where('name', $lineName)
+            ->value('id');
+
+        $this->lineIdCache[$key] = $lineId ? (int) $lineId : null;
+
+        return $this->lineIdCache[$key];
+    }
+
+    private function resolveCustomerId(string $customerName): ?int
+    {
+        $key = mb_strtolower($customerName);
+
+        if (array_key_exists($key, $this->customerIdCache)) {
+            return $this->customerIdCache[$key];
+        }
+
+        $customerId = Customer::query()
+            ->where('name', $customerName)
+            ->value('id');
+
+        $this->customerIdCache[$key] = $customerId ? (int) $customerId : null;
+
+        return $this->customerIdCache[$key];
     }
 
     public function hasImportedData(): bool

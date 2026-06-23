@@ -251,6 +251,22 @@
             background: var(--bg);
         }
 
+        .bella-master-table tbody tr.is-master-highlight td {
+            background: rgba(0, 151, 216, .14) !important;
+            transition: background .4s ease;
+            animation: masterRowHighlightPulse 1.2s ease-out;
+        }
+
+        @keyframes masterRowHighlightPulse {
+            0% {
+                background: rgba(0, 151, 216, .32);
+            }
+
+            100% {
+                background: rgba(0, 151, 216, .14);
+            }
+        }
+
         /* ── ETA info pill ── */
         .bella-info-pill {
             display: inline-flex;
@@ -607,7 +623,7 @@
             position: absolute;
             top: 6px;
             height: 26px;
-            min-width: 28px;
+            min-width: 48px;
             border-radius: 4px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
             cursor: pointer;
@@ -615,7 +631,7 @@
             z-index: 2;
             display: flex;
             align-items: center;
-            padding-left: 4px;
+            padding: 0 6px;
             overflow: visible;
         }
 
@@ -1350,7 +1366,10 @@
         }
 
         .delivery-weekly-card .weekly-axis-header .col-customer {
-            min-width: 190px;
+            flex: 0 0 var(--gantt-customer-col-width);
+            width: var(--gantt-customer-col-width);
+            min-width: var(--gantt-customer-col-width);
+            max-width: var(--gantt-customer-col-width);
         }
 
         .delivery-weekly-card .weekly-axis-header .sep {
@@ -1358,7 +1377,106 @@
         }
 
         .delivery-weekly-card .weekly-axis-header .col-type {
-            min-width: 80px;
+            flex: 0 0 var(--gantt-type-col-width);
+            width: var(--gantt-type-col-width);
+            min-width: var(--gantt-type-col-width);
+            max-width: var(--gantt-type-col-width);
+        }
+
+        .delivery-weekly-card .weekly-gantt-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+        }
+
+        .delivery-weekly-card .weekly-gantt-table {
+            border-collapse: collapse;
+            font-size: 13px;
+            table-layout: fixed;
+            width: 100%;
+            min-width: calc(var(--gantt-customer-col-width) + var(--gantt-type-col-width) + (var(--weekly-day-count, 1) * var(--gantt-hour-width)));
+        }
+
+        .delivery-weekly-card .weekly-col-customer,
+        .delivery-weekly-card .weekly-col-customer-head {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: #fff;
+            border: 1px solid #eef0f3;
+            width: var(--gantt-customer-col-width);
+            min-width: var(--gantt-customer-col-width);
+            max-width: var(--gantt-customer-col-width);
+            box-sizing: border-box;
+        }
+
+        .delivery-weekly-card .weekly-col-customer-head {
+            z-index: 7;
+            text-align: center;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #5c6370;
+        }
+
+        .delivery-weekly-card .weekly-col-type,
+        .delivery-weekly-card .weekly-col-type-head {
+            position: sticky;
+            left: var(--gantt-customer-col-width);
+            z-index: 5;
+            background: #fff;
+            border: 1px solid #eef0f3;
+            width: var(--gantt-type-col-width);
+            min-width: var(--gantt-type-col-width);
+            max-width: var(--gantt-type-col-width);
+            box-sizing: border-box;
+        }
+
+        .delivery-weekly-card .weekly-col-type-head {
+            z-index: 7;
+            text-align: center;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #5c6370;
+        }
+
+        .delivery-weekly-card .weekly-col-day,
+        .delivery-weekly-card .weekly-col-day-head {
+            width: auto;
+            min-width: var(--gantt-hour-width);
+            box-sizing: border-box;
+        }
+
+        .delivery-weekly-card .weekly-prep-lane-cell {
+            position: relative;
+            padding: 0;
+            border: 1px solid #eef0f3;
+            vertical-align: top;
+            overflow: visible;
+        }
+
+        .delivery-weekly-card .weekly-prep-bar > span,
+        .delivery-weekly-card .weekly-truck-pill > span {
+            font-size: 9px;
+            font-weight: 700;
+            color: #2f3542;
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        .delivery-weekly-card .weekly-col-day-head {
+            position: sticky;
+            top: 0;
+            z-index: 6;
+            background: #fff;
+            border: 1px solid #eef0f3;
+            text-align: center;
+            padding: 3px 4px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #5c6370;
+            white-space: nowrap;
         }
 
         .delivery-weekly-row+.delivery-weekly-row {
@@ -1415,6 +1533,44 @@
                 min-width: 0;
                 width: 100%;
             }
+        }
+
+        .master-cycle-swal-popup {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+
+        .master-cycle-swal-detail {
+            text-align: left;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 4px;
+        }
+
+        .master-cycle-swal-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 7px 0;
+            border-bottom: 1px solid #eef0f3;
+        }
+
+        .master-cycle-swal-row:last-child {
+            border-bottom: none;
+        }
+
+        .master-cycle-swal-row span {
+            color: #6c757d;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            flex-shrink: 0;
+        }
+
+        .master-cycle-swal-row strong {
+            color: #1a1d21;
+            font-weight: 700;
+            text-align: right;
         }
     </style>
 
@@ -1711,6 +1867,7 @@
 @endsection
 
 @section('custom-script')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
         $(function() {
@@ -2140,10 +2297,14 @@
             /**
              * Bar prep hanya untuk yang sudah / sedang berjalan (bukan jadwal masa depan).
              * Tampil jika: progress > 0, atau waktu sekarang >= absolute_start.
+             * (Atau jika sudah ada data Loading List / ll_count > 0).
              */
             function isPrepActiveOrCompleted(row, nowMs) {
                 if (!row) {
                     return false;
+                }
+                if (rowHasLoadingListData(row)) {
+                    return true;
                 }
                 var pct = getRowRawProgressPct(row);
                 if (pct > 0) {
@@ -3327,7 +3488,7 @@
             }
 
             /* ── renderMasterTable ── */
-            function renderMasterTable(rows) {
+            function renderMasterTable(rows, highlightId) {
                 var $tb = $('#masterCycleTable tbody');
                 $tb.empty();
                 if (!rows.length) {
@@ -3357,8 +3518,10 @@
                     }
                     var truckDisp = (r.truck_time && String(r.truck_time).length) ? formatClockDot(r
                         .truck_time) : '<span style="color:var(--text-muted);">-</span>';
+                    var rowClass = (highlightId && String(r.id) === String(highlightId)) ?
+                        ' class="is-master-highlight"' : '';
                     $tb.append(
-                        '<tr>' +
+                        '<tr' + rowClass + ' data-master-id="' + escapeAttr(r.id) + '">' +
                         '<td>' + (i + 1) + '</td>' +
                         '<td>' + escapeHtml(cust) + '</td>' +
                         '<td>' + escapeHtml(r.cycle_name) + '</td>' +
@@ -3378,9 +3541,85 @@
                 });
             }
 
-            function fetchMasters() {
+            var masterHighlightTimer = null;
+
+            function scrollToMasterRow(highlightId) {
+                if (!highlightId) {
+                    return;
+                }
+                var $row = $('#masterCycleTable tbody tr[data-master-id="' + highlightId + '"]');
+                if (!$row.length) {
+                    return;
+                }
+                $row[0].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest'
+                });
+            }
+
+            function scheduleMasterHighlightClear() {
+                if (masterHighlightTimer) {
+                    clearTimeout(masterHighlightTimer);
+                }
+                masterHighlightTimer = setTimeout(function() {
+                    $('#masterCycleTable tbody tr.is-master-highlight').removeClass('is-master-highlight');
+                    masterHighlightTimer = null;
+                }, 5000);
+            }
+
+            function fetchMasters(highlightId) {
                 $.get(masterIndex, function(res) {
-                    renderMasterTable((res && res.data) ? res.data : []);
+                    renderMasterTable((res && res.data) ? res.data : [], highlightId);
+                    if (highlightId) {
+                        scrollToMasterRow(highlightId);
+                        scheduleMasterHighlightClear();
+                    }
+                });
+            }
+
+            function showMasterCycleAddedSwal(payload, customerName, offsetLabel) {
+                var prepRange = formatClockDot(payload.time) + ' – ' + formatClockDot(payload.prep_end_time);
+                var offsetText = offsetLabel || formatPrepDayOffsetLabel(payload.prep_day_offset || 0);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Master Cycle Tersimpan',
+                    html: '<div class="master-cycle-swal-detail">' +
+                        '<div class="master-cycle-swal-row"><span>Customer</span><strong>' + escapeHtml(
+                            customerName || '-') + '</strong></div>' +
+                        '<div class="master-cycle-swal-row"><span>Cycle</span><strong>' + escapeHtml(payload
+                            .cycle_name || '-') + '</strong></div>' +
+                        '<div class="master-cycle-swal-row"><span>Prep</span><strong>' + escapeHtml(prepRange) +
+                        '</strong></div>' +
+                        '<div class="master-cycle-swal-row"><span>Offset</span><strong>' + escapeHtml(offsetText) +
+                        '</strong></div>' +
+                        '<div class="master-cycle-swal-row"><span>ETA Truck</span><strong>' + escapeHtml(
+                            formatClockDot(payload.truck_time)) + '</strong></div>' +
+                        '</div>',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#0097d8',
+                    customClass: {
+                        popup: 'master-cycle-swal-popup'
+                    }
+                });
+            }
+
+            function showMasterCycleErrorSwal(message) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Menyimpan',
+                    text: message || 'Gagal menyimpan master cycle.',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#0097d8'
+                });
+            }
+
+            function showMasterCycleValidationSwal(message) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Data Belum Lengkap',
+                    text: message,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#0097d8'
                 });
             }
 
@@ -3390,7 +3629,8 @@
                 var prepEnd = ($('#mcyclePrepEnd').val() || '').trim();
                 var etaTruck = ($('#mcycleTruckTime').val() || '').trim();
                 if (!prepStart || !prepEnd || !etaTruck) {
-                    alert('Waktu preparation (mulai-selesai) dan ETA truck wajib diisi.');
+                    showMasterCycleValidationSwal(
+                        'Waktu preparation (mulai-selesai) dan ETA truck wajib diisi.');
                     return;
                 }
                 var payload = {
@@ -3417,11 +3657,22 @@
                         }
                     });
                 } else {
-                    $.post(masterStore, payload, function() {
-                        $('#masterCycleForm')[0].reset();
-                        fetchMasters();
-                        loadStackedChart();
-                    });
+                    var savedCustomerName = $('#mcycleCustomerId option:selected').text().trim();
+                    var savedOffsetLabel = $('#mcyclePrepDayOffset option:selected').text().trim();
+                    $.post(masterStore, payload)
+                        .done(function(res) {
+                            var newId = (res && res.data && res.data.id) ? res.data.id : null;
+                            $('#masterCycleForm')[0].reset();
+                            showMasterCycleAddedSwal(payload, savedCustomerName, savedOffsetLabel);
+                            fetchMasters(newId);
+                            loadStackedChart();
+                        })
+                        .fail(function(xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ?
+                                xhr.responseJSON.message :
+                                'Gagal menyimpan master cycle.';
+                            showMasterCycleErrorSwal(msg);
+                        });
                 }
             });
 
@@ -4510,6 +4761,20 @@
                 openLoadingListFromBar($(this));
             });
 
+            function resolveWeeklyDayColWidth(nSlots) {
+                var custColWidth = 200;
+                var typeColWidth = 120;
+                var minDayWidth = 120;
+                var slots = Math.max(parseInt(nSlots, 10) || 1, 1);
+                var $host = $('#deliveryWeeklyCard .weekly-card-body');
+                var containerW = $host.length ? $host.innerWidth() : 0;
+                if (!containerW || containerW < 320) {
+                    containerW = Math.max($(window).width() - 120, 640);
+                }
+                var available = containerW - custColWidth - typeColWidth;
+                return Math.max(minDayWidth, Math.floor(available / slots));
+            }
+
             function renderWeeklySummary() {
                 destroyWeeklyChart();
                 if (weeklyGridTimer) {
@@ -4534,6 +4799,7 @@
                 var slots = weeklyDaySlots(dateFrom, dateTo);
                 var nSlots = slots.length || 1;
                 var slotWPct = 100 / nSlots;
+                $('#deliveryWeeklyCard').css('--weekly-day-count', String(nSlots));
 
                 var custOrder = buildChartCustomerOrder(chartRows);
                 var custMap = {};
@@ -4545,36 +4811,30 @@
                     custMap[c].push(row);
                 });
 
-                // CSS variabel lebar per hari (mirip --gantt-hour-width tapi per hari)
-                var dayColWidth = 120; // px per hari (minimum)
-                var custColWidth = 160;
+                // Kolom hari mengisi sisa lebar; Customer/Type tetap statis
+                var dayColWidth = resolveWeeklyDayColWidth(nSlots);
+                var custColWidth = 200;
                 var typeColWidth = 120;
-                var minTableWidth = custColWidth + typeColWidth + (nSlots * dayColWidth);
+                $('#deliveryWeeklyCard').css('--weekly-day-col-width', dayColWidth + 'px');
 
                 // ── Build HTML ────────────────────────────────────────────────────
-                var gridStyle = [
-                    'min-width:' + minTableWidth + 'px',
-                    'width:100%',
-                    'border-collapse:collapse',
-                    'font-size:13px',
-                    'table-layout:fixed'
-                ].join(';');
+                var html = '<div class="weekly-gantt-scroll">';
+                html += '<table class="weekly-gantt-table">';
 
-                var html = '<div style="overflow-x:auto;overflow-y:hidden;width:100%;min-width:100%;">';
-                html += '<table style="' + gridStyle + '">';
+                html += '<colgroup>';
+                html += '<col style="width:' + custColWidth + 'px">';
+                html += '<col style="width:' + typeColWidth + 'px">';
+                slots.forEach(function() {
+                    html += '<col>';
+                });
+                html += '</colgroup>';
 
                 // Header
                 html += '<thead><tr>';
-                html += '<th style="position:sticky;top:0;left:0;z-index:7;background:#fff;border:1px solid #eef0f3;width:' +
-                    custColWidth + 'px;text-align:center;padding:4px 8px;font-size:11px;font-weight:600;color:#5c6370;">Customer</th>';
-                html += '<th style="position:sticky;top:0;left:' + custColWidth +
-                    'px;z-index:7;background:#fff;border:1px solid #eef0f3;width:' + typeColWidth +
-                    'px;text-align:center;padding:4px 8px;font-size:11px;font-weight:600;color:#5c6370;">TYPE</th>';
+                html += '<th class="weekly-col-customer-head" style="text-align:left;padding-left:10px;">Customer</th>';
+                html += '<th class="weekly-col-type-head">TYPE</th>';
                 slots.forEach(function(slotDateStr) {
-                    html += '<th style="position:sticky;top:0;z-index:6;background:#fff;border:1px solid #eef0f3;width:' +
-                        dayColWidth +
-                        'px;text-align:center;padding:3px 4px;font-size:10px;font-weight:600;color:#5c6370;white-space:nowrap;">' +
-                        weeklyDateLabel(slotDateStr) + '</th>';
+                    html += '<th class="weekly-col-day-head">' + weeklyDateLabel(slotDateStr) + '</th>';
                 });
                 html += '</tr></thead><tbody>';
 
@@ -4593,6 +4853,8 @@
                     minute: '2-digit'
                 });
                 var weeklyOverdueLatch = getOverdueLatchMap();
+                var trackWidthPx = Math.max(nSlots * dayColWidth, 1);
+                var minPrepBarWidthPct = (48 / trackWidthPx) * 100;
 
                 custOrder.forEach(function(cust, custIdx) {
                     var rows = sortPrepRowsByOrder(custMap[cust] || []);
@@ -4602,28 +4864,22 @@
                     // ── Baris PREP ──
                     html += '<tr>';
                     // Kolom Customer dengan rowspan=2
-                    html += '<td rowspan="2" style="' +
-                        'position:sticky;left:0;z-index:5;' +
-                        'background:#fff;border:1px solid #eef0f3;' +
-                        'width:' + custColWidth + 'px;' +
-                        'vertical-align:middle;text-align:center;' +
+                    html += '<td rowspan="2" class="weekly-col-customer" style="' +
+                        'vertical-align:middle;text-align:left;' +
                         'font-size:12px;font-weight:500;padding:8px 10px;' +
                         'word-break:break-word;line-height:1.3;' +
                         '">' + escapeHtml(cust) +
                         buildUnconfiguredTimelineHintHtml(filterRowsInWeeklySlots(rows, slots)) +
                         '</td>';
                     // Kolom TYPE – PREP
-                    html += '<td style="' +
-                        'position:sticky;left:' + custColWidth + 'px;z-index:5;' +
-                        'background:#fff;border:1px solid #eef0f3;' +
-                        'width:' + typeColWidth + 'px;height:' + (rowHeight / 2) + 'px;' +
+                    html += '<td class="weekly-col-type" style="' +
+                        'height:' + (rowHeight / 2) + 'px;' +
                         'text-align:center;vertical-align:middle;' +
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5c7f2b;' +
                         '">PREP</td>';
                     // Lane PREP mingguan: satu track lintas semua hari (bar boleh melewati garis antarhari)
                     var prepLaneH = rowHeight / 2;
-                    html += '<td colspan="' + nSlots +
-                        '" style="position:relative;padding:0;border:1px solid #eef0f3;vertical-align:top;overflow:visible;">';
+                    html += '<td colspan="' + nSlots + '" class="weekly-prep-lane-cell">';
                     html += '<div class="weekly-prep-track" style="height:' + prepLaneH + 'px;">';
                     slots.forEach(function(slotDateStr, dayIdx) {
                         var isTodayCol = slotDateStr === todayStr;
@@ -4663,18 +4919,18 @@
                         var crossClass = span.crossesDays ? ' is-cross-day' : '';
                         var incomingClass = span.isIncomingFromPriorRange ? ' is-incoming-prior-range' : '';
                         var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
+                        var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24), minPrepBarWidthPct);
                         html += '<div class="weekly-prep-bar' + crossClass + incomingClass + ' ' + offsetClass +
                             '" title="' + tipText + '" style="left:' +
-                            span.leftPct + '%;width:' + Math.max(span.widthPct, (100 / nSlots / 24)) + '%;' +
+                            span.leftPct + '%;width:' + barWidthPct + '%;' +
                             'background:' + barColor + ';"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
                         html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
                         html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '">';
-                        var spanWidthPct = Math.max(span.widthPct, (100 / nSlots / 24));
-                        var weeklyBarW = (nSlots * dayColWidth) * (spanWidthPct / 100);
+                        var weeklyBarW = trackWidthPx * (barWidthPct / 100);
                         var weeklyPctHtml = shouldShowGanttBarPct(weeklyBarW, pct) ? buildGanttBarPctHtml(pct) : '';
-                        html += '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+                        html += '<span>' +
                             av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml + '</span></div>';
                     });
                     if (nowDayIdx >= 0) {
@@ -4690,10 +4946,8 @@
                     // ── Baris ETA TRUCK ──
                     html += '<tr>';
                     // Kolom TYPE – ETA TRUCK
-                    html += '<td style="' +
-                        'position:sticky;left:' + custColWidth + 'px;z-index:5;' +
-                        'background:#fff;border:1px solid #eef0f3;' +
-                        'width:' + typeColWidth + 'px;height:' + (rowHeight / 2) + 'px;' +
+                    html += '<td class="weekly-col-type" style="' +
+                        'height:' + (rowHeight / 2) + 'px;' +
                         'text-align:center;vertical-align:middle;' +
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#b86f00;' +
                         '">ETA TRUCK</td>';
@@ -4701,8 +4955,8 @@
                     slots.forEach(function(slotDateStr, dayIdx) {
                         var isToday = slotDateStr === todayStr;
                         var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
-                        html += '<td style="position:relative;padding:0;border:1px solid #eef0f3;width:' +
-                            dayColWidth + 'px;height:' + (rowHeight / 2) +
+                        html += '<td class="weekly-col-day" style="position:relative;padding:0;border:1px solid #eef0f3;height:' +
+                            (rowHeight / 2) +
                             'px;vertical-align:top;overflow:visible;' + bg + '">';
                         html += '<div style="position:relative;height:' + (rowHeight / 2) + 'px;">';
                         rowsForBars.forEach(function(row) {
@@ -4731,14 +4985,14 @@
                             var av = 'C' + escapeHtml(String(cycleLblTruck).toUpperCase());
                             html += '<div class="weekly-truck-pill" title="' + tipText + '" style="' +
                                 'position:absolute;top:8px;height:22px;' +
-                                'left:' + leftPct + '%;width:42px;min-width:42px;' +
+                                'left:' + leftPct + '%;width:48px;min-width:48px;' +
                                 'background:' + barColor + ';border-radius:4px;' + truckBorder +
                                 'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
                                 'cursor:pointer;box-sizing:border-box;z-index:2;' +
-                                'display:flex;align-items:center;justify-content:center;padding:0 2px;' +
+                                'display:flex;align-items:center;justify-content:center;padding:0 4px;' +
                                 '">' +
-                                '<span style="font-size:9px;font-weight:700;color:#2f3542;white-space:nowrap;line-height:1;">' +
-                                av + (shouldShowGanttBarPct(42, pct) ? buildGanttBarPctHtml(pct) : '') + '</span>' +
+                                '<span>' +
+                                av + (shouldShowGanttBarPct(48, pct) ? buildGanttBarPctHtml(pct) : '') + '</span>' +
                                 '</div>';
                         });
                         if (isToday) {
