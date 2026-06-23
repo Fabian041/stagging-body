@@ -1041,7 +1041,7 @@ class PullingController extends Controller
 
         $data['qty_per_kbn'] = (int) round($data['qty_per_kbn']);
 
-        return DB::transaction(function () use ($data) {
+        $result = DB::transaction(function () use ($data) {
             // 1) Ambil Loading List
             if (!isset(self::$loadingListsCache[$data['loadingList']])) {
                 self::$loadingListsCache[$data['loadingList']] = LoadingList::select('id', 'number', 'customer_id')
@@ -1113,9 +1113,10 @@ class PullingController extends Controller
             }
 
             // 5) Ambil row LoadingListDetail sekali saja (untuk return info)
+            //    Tanpa lockForUpdate: over-scan sudah dicegah oleh conditional update
+            //    (whereColumn actual < kanban_qty) di bawah, jadi tak perlu lock baris.
             $lld = LoadingListDetail::where('loading_list_id', $loadingList->id)
                 ->where('customer_part_id', $customerPart->id)
-                ->lockForUpdate()
                 ->first(['id', 'kanban_qty', 'actual_kanban_qty']);
 
             if (!$lld) {
@@ -1155,21 +1156,32 @@ class PullingController extends Controller
                 $kanban->update(['status' => 2]);
             }
 
-            // 9) Ambil nilai actual terbaru (opsional: pakai +1 dari sebelumnya)
-            $newActual = $lld->actual_kanban_qty + 1;
-            $backNo = trim((string) ($internalPart->back_number ?? ''));
-
-            $alamatChute = MasterAlamatChute::resolveByPartCustomerAndBackNo(
-                $convertedPartNumber,
-                $backNo
-            );
-
-            return response()->json([
-                'status' => 'success',
-                'data'   => $newActual,
-                'alamat_chute' => $alamatChute,
-            ]);
+            // 9) Siapkan payload sukses. Lookup alamat chute SENGAJA dilakukan
+            //    di luar transaksi agar lock baris tidak ditahan selama query
+            //    master alamat chute (yang bisa full-scan saat cache miss).
+            return [
+                'newActual'           => $lld->actual_kanban_qty + 1,
+                'convertedPartNumber' => $convertedPartNumber,
+                'backNo'              => trim((string) ($internalPart->back_number ?? '')),
+            ];
         });
+
+        // Error dari dalam transaksi (JsonResponse) diteruskan apa adanya
+        if ($result instanceof \Illuminate\Http\JsonResponse) {
+            return $result;
+        }
+
+        // Lookup alamat chute bersifat read-only → aman di luar transaksi
+        $alamatChute = MasterAlamatChute::resolveByPartCustomerAndBackNo(
+            $result['convertedPartNumber'],
+            $result['backNo']
+        );
+
+        return response()->json([
+            'status'       => 'success',
+            'data'         => $result['newActual'],
+            'alamat_chute' => $alamatChute,
+        ]);
     }
 
     public function post(Request $request)
@@ -1387,17 +1399,30 @@ class PullingController extends Controller
         }
     }
 
-    public function edclAuth($username, $password)
+    public function edclAuth($username, $password, bool $forceRefresh = false)
     {
+        $cacheKey = 'tmmin_edcl_token';
+
+        // Pakai token yang sudah di-cache supaya tidak login eksternal tiap scan
+        if (!$forceRefresh) {
+            $cached = cache()->get($cacheKey);
+            if (is_string($cached) && $cached !== '') {
+                return $cached;
+            }
+        }
+
         try {
             $response = Http::withHeaders([
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'x-apihub-key' => env('API_TMMIN_KEY'),
-            ])->post(env('API_TMMIN') . 'auth/login', [
-                'username' => $username,
-                'password' => $password,
-            ]);
+            ])
+                ->connectTimeout(5)
+                ->timeout(10)
+                ->post(env('API_TMMIN') . 'auth/login', [
+                    'username' => $username,
+                    'password' => $password,
+                ]);
 
             if ($response->failed()) {
                 return response()->json([
@@ -1409,6 +1434,12 @@ class PullingController extends Controller
 
             $data = $response->json(); // Convert response to array
             $accessToken = $data['data']['accessToken'] ?? null; // Safely retrieve accessToken
+
+            // Cache hanya token yang valid (jangan cache kegagalan)
+            if (is_string($accessToken) && $accessToken !== '') {
+                $ttl = (int) env('TMMIN_TOKEN_TTL_MINUTES', 30);
+                cache()->put($cacheKey, $accessToken, now()->addMinutes($ttl));
+            }
 
             return $accessToken; // Output the token
 
@@ -1481,13 +1512,29 @@ class PullingController extends Controller
             }
         }
 
-        // Send the request to the EDCL API
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-            'x-apihub-key' => env('API_TMMIN_KEY'),
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])->post(env('API_TMMIN') . 'ManifestCompleteness/confirm', $data);
+        // Send the request to the EDCL API (timeout + retry sekali bila token cache kedaluwarsa)
+        $postConfirm = function ($token) use ($data) {
+            return Http::withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+                'x-apihub-key' => env('API_TMMIN_KEY'),
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->post(env('API_TMMIN') . 'ManifestCompleteness/confirm', $data);
+        };
+
+        $response = $postConfirm($token);
+
+        // Token cache bisa kedaluwarsa di sisi server → refresh sekali lalu ulangi
+        if ($response->status() === 401) {
+            $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD'), true);
+            if (!is_string($token) || $token === '') {
+                return response()->json(['error' => 'Authentication failed'], 401);
+            }
+            $response = $postConfirm($token);
+        }
 
         // get loading list detail table
         $loadingListDetailId = LoadingListDetail::select('id')
@@ -1593,12 +1640,28 @@ class PullingController extends Controller
             ]
         ];
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-            'x-apihub-key' => env('API_TMMIN_KEY'),
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])->post(env('API_TMMIN') . 'ManifestCompleteness/cancel', $data);
+        $postCancel = function ($token) use ($data) {
+            return Http::withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+                'x-apihub-key' => env('API_TMMIN_KEY'),
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->post(env('API_TMMIN') . 'ManifestCompleteness/cancel', $data);
+        };
+
+        $response = $postCancel($token);
+
+        // Token cache bisa kedaluwarsa di sisi server → refresh sekali lalu ulangi
+        if ($response->status() === 401) {
+            $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD'), true);
+            if (!is_string($token) || $token === '') {
+                return response()->json(['error' => 'Authentication failed'], 401);
+            }
+            $response = $postCancel($token);
+        }
 
         // Process the response
         if ($response['message'] === 'Success - Cancel Manifest') {

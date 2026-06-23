@@ -692,8 +692,8 @@ class LoadingListController extends Controller
             return [
                 'status' => 'llNotExists',
             ];
-        } 
-
+        }
+        
         // check part number customer length
         if($codeLength == 12){
             // TMMIN
@@ -708,7 +708,7 @@ class LoadingListController extends Controller
                 // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
             }else{
-                if($loadingListId->customer_id == 6){
+                if($loadingListId->customer_id == 6  || $loadingListId->customer_id == 23 || $loadingListId->customer_id == 24){
                     // MMKI
                     $convertedPartNumber = $customerPart;
                 }else{
@@ -773,7 +773,173 @@ class LoadingListController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Detail loading list tersimpan!'
-        ], 200);        
+        ], 200);
+    }
+
+    /**
+     * Konversi part number customer mengikuti aturan per-customer (sama dengan storeDetail).
+     * Diekstrak agar bisa dipakai endpoint bulk tanpa menduplikasi logika.
+     */
+    private function convertCustomerPartNumber(string $customerPart, $customerId): string
+    {
+        $codeLength = strlen($customerPart);
+        $lastDigit = substr($customerPart, -2);
+
+        if ($codeLength == 12) {
+            // TMMIN
+            if ($lastDigit != '00') {
+                return substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -2);
+            }
+            return substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
+        }
+
+        if ($codeLength == 10) {
+            if ($customerId == 14 || $customerId == 22) {
+                // SUZUKI
+                return substr_replace($customerPart, '-', 5, 0);
+            }
+            if ($customerId == 6 || $customerId == 23 || $customerId == 24) {
+                // MMKI
+                return $customerPart;
+            }
+            // TBINA
+            return substr_replace($customerPart, '-', 5, 0);
+        }
+
+        if ($codeLength == 13) {
+            // SUZUKI
+            if ($lastDigit != '000') {
+                return substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
+            }
+            return substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
+        }
+
+        return $customerPart;
+    }
+
+    /**
+     * Bulk simpan detail loading list dalam SATU request + SATU transaksi.
+     * Menggantikan pemanggilan storeDetail berulang (yang sebelumnya di-stagger 200ms/item).
+     */
+    public function storeDetails(Request $request)
+    {
+        $validated = $request->validate([
+            'loadingList'                 => 'required|string',
+            'items'                       => 'required|array|min:1',
+            'items.*.part_number_cust'    => 'required|string',
+            'items.*.part_number_int'     => 'required|string',
+            'items.*.total_kanban_qty'    => 'required|numeric',
+            'items.*.total_qty'           => 'required|numeric',
+            'items.*.actual_kanban_qty'   => 'nullable|numeric',
+        ]);
+
+        $loadingList = LoadingList::select('id', 'customer_id')
+            ->where('number', $validated['loadingList'])
+            ->first();
+
+        if (!$loadingList) {
+            return response()->json([
+                'status'  => 'llNotExists',
+                'message' => 'Loading list tidak terdaftar!',
+            ], 404);
+        }
+
+        // 1) Resolve setiap item: konversi part number + cari internal_part_id (bulk, hindari N+1)
+        $internalNumbers = collect($validated['items'])
+            ->pluck('part_number_int')
+            ->map(fn ($v) => trim((string) $v))
+            ->unique()
+            ->values()
+            ->all();
+
+        $internalParts = InternalPart::whereIn('part_number', $internalNumbers)
+            ->get(['id', 'part_number'])
+            ->keyBy('part_number');
+
+        $resolved = [];
+        foreach ($validated['items'] as $item) {
+            $custRaw = trim((string) $item['part_number_cust']);
+            $intRaw  = trim((string) $item['part_number_int']);
+            $kbnQty  = (int) $item['total_kanban_qty'];
+
+            $resolved[] = [
+                'cust_raw'         => $custRaw,
+                'int_raw'          => $intRaw,
+                'converted'        => $this->convertCustomerPartNumber($custRaw, $loadingList->customer_id),
+                'internal_part_id' => optional($internalParts->get($intRaw))->id,
+                'kanban_qty'       => $kbnQty,
+                'total_qty'        => (int) $item['total_qty'],
+                'actual'           => (int) ($item['actual_kanban_qty'] ?? 0),
+                'qty_per_kanban'   => $kbnQty > 0 ? ($item['total_qty'] / $kbnQty) : 0,
+            ];
+        }
+
+        // 2) Ambil customer_parts sekali jalan (match internal_part_id + part_number)
+        $internalIds      = collect($resolved)->pluck('internal_part_id')->filter()->unique()->values()->all();
+        $convertedNumbers = collect($resolved)->pluck('converted')->filter()->unique()->values()->all();
+
+        $custPartIndex = [];
+        if (!empty($internalIds) && !empty($convertedNumbers)) {
+            DB::table('customer_parts')
+                ->select('id', 'internal_part_id', 'part_number')
+                ->whereIn('internal_part_id', $internalIds)
+                ->whereIn('part_number', $convertedNumbers)
+                ->get()
+                ->each(function ($cp) use (&$custPartIndex) {
+                    $custPartIndex[$cp->internal_part_id . '|' . $cp->part_number] = $cp->id;
+                });
+        }
+
+        // 3) Susun baris insert, skip yang sudah ada / tidak ketemu
+        $failed = [];
+        $now    = now();
+
+        DB::transaction(function () use ($resolved, $loadingList, $custPartIndex, &$failed, $now) {
+            $existing = LoadingListDetail::where('loading_list_id', $loadingList->id)
+                ->pluck('customer_part_id')
+                ->flip(); // customer_part_id => index, untuk cek cepat
+
+            $insert = [];
+            foreach ($resolved as $r) {
+                if (!$r['internal_part_id']) {
+                    $failed[] = ['int' => $r['int_raw'], 'cust' => $r['cust_raw'], 'reason' => 'internal part tidak ditemukan'];
+                    continue;
+                }
+
+                $cpId = $custPartIndex[$r['internal_part_id'] . '|' . $r['converted']] ?? null;
+                if (!$cpId) {
+                    $failed[] = ['int' => $r['int_raw'], 'cust' => $r['converted'], 'reason' => 'customer part tidak ditemukan'];
+                    continue;
+                }
+
+                if ($existing->has($cpId)) {
+                    continue; // sudah tersimpan, jangan duplikat
+                }
+
+                $insert[] = [
+                    'loading_list_id'   => $loadingList->id,
+                    'customer_part_id'  => $cpId,
+                    'kanban_qty'        => $r['kanban_qty'],
+                    'qty_per_kanban'    => $r['qty_per_kanban'],
+                    'total_qty'         => $r['total_qty'],
+                    'actual_kanban_qty' => $r['actual'],
+                    'created_at'        => $now,
+                    'updated_at'        => $now,
+                ];
+
+                $existing->put($cpId, true); // cegah duplikat dalam batch yang sama
+            }
+
+            if (!empty($insert)) {
+                LoadingListDetail::insert($insert); // satu bulk insert
+            }
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Detail loading list tersimpan!',
+            'failed'  => $failed,
+        ], 200);
     }
 
     public function kanbanScanned(Request $request)

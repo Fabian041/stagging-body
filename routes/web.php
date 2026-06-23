@@ -146,6 +146,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/fetch/{pds}', [LoadingListController::class, 'fetchLoadingList'])->name('loadingList.fetch');
         Route::get('/store/{loadingList}/{pds}/{cycle}/{customerCode}/{deliveryDate}/{shippingDate}', [LoadingListController::class, 'store'])->name('loadingList.store');
         Route::get('/storeDetail/{loadingList}/{customerPart}/{internalPart}/{kbnQty}/{qtyPerKanban}/{totalQty}/{actualKanbanQty}', [LoadingListController::class, 'storeDetail'])->name('loadingList.storeDetail');
+        Route::post('/storeDetails', [LoadingListController::class, 'storeDetails'])->name('loadingList.storeDetails');
     });
 
     // dashboard
