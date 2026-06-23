@@ -152,7 +152,7 @@ class PullingController extends Controller
                 // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
                 $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
             } else {
-                if ($loadingListId->customer_id == 6) {
+                if ($loadingListId->customer_id == 6 || $loadingListId->customer_id == 23 || $loadingListId->customer_id == 24) {
                     // MMKI
                     $convertedPartNumber = $customerPart;
                 } else {
