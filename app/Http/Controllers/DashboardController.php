@@ -78,6 +78,17 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function downloadPartImportTemplate()
+    {
+        $path = base_path('docs/format import new part BELLA.xlsx');
+
+        if (! is_file($path)) {
+            abort(404, 'Template import Master Part tidak ditemukan.');
+        }
+
+        return response()->download($path, 'format import new part BELLA.xlsx');
+    }
+
     public function exportMutation()
     {
         $tz = 'Asia/Jakarta';

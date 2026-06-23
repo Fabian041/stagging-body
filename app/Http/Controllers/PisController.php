@@ -45,6 +45,25 @@ class PisController extends Controller
         return $custNoDash . '-' . $kind . '-' . $dock;
     }
 
+    private function pisMasterDuplicateExists(
+        string $partNumber,
+        string $partNumberCustomer,
+        string $partKind,
+        string $partDock,
+        ?int $excludeId = null
+    ): bool {
+        $query = PisPart::whereRaw('UPPER(TRIM(part_number)) = ?', [strtoupper(trim($partNumber))])
+            ->whereRaw('UPPER(TRIM(part_number_customer)) = ?', [strtoupper(trim($partNumberCustomer))])
+            ->where('part_kind', $partKind)
+            ->where('part_dock', $partDock);
+
+        if ($excludeId !== null) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
     private function pisImageMaxDim(): int
     {
         return 800;
@@ -1611,6 +1630,14 @@ class PisController extends Controller
                 throw new \Exception('Part Number AIIA is required but was not provided.');
             }
 
+            if ($this->pisMasterDuplicateExists($part_number, $part_number_customer, $part_kind, $part_dock)) {
+                $duplicateMessage = 'Data Master PIS sudah ada (Part Number AIIA, Part Number Customer, Type, dan Destination sama).';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['message' => $duplicateMessage], 422);
+                }
+                throw new \Exception($duplicateMessage);
+            }
+
             // Save to part_pis
             $pis = new PisPart();
             $pis->part_number = $part_number;
@@ -1651,14 +1678,25 @@ class PisController extends Controller
 
             DB::commit();
 
-        \Session::flash('flash_type', 'alert-success');
-            \Session::flash('flash_message', 'PIS data saved successfully by ' . $user->name . ' (' . $user->npk . ').');
-        return redirect('/pis/master');
+            $successMessage = 'PIS data saved successfully by ' . $user->name . ' (' . $user->npk . ').';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $successMessage], 200);
+            }
+
+            \Session::flash('flash_type', 'alert-success');
+            \Session::flash('flash_message', $successMessage);
+            return redirect('/pis/master');
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $e->validator->errors()->first()], 422);
+            }
             return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
             \Session::flash('flash_type', 'alert-danger');
             \Session::flash('flash_message', 'Error saving PIS data: ' . $e->getMessage());
             return redirect()->back()->withInput();
