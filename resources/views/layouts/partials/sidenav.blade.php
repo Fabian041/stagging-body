@@ -46,7 +46,8 @@
                 request()->is('dashboard/receiving*') ||
                 request()->is('dashboard/delivery') ||
                 request()->is('loading-list*') ||
-                request()->is('pulling/manual');
+                request()->is('pulling/manual') ||
+                request()->is('pulling/master-alamat-chute');
         @endphp
 
         <div class="sb-item {{ $ppicActive ? 'open' : '' }}" data-has-sub>
@@ -70,6 +71,11 @@
                 href="{{ route('pulling.manual') }}">
                 <i class="fas fa-sync-alt"></i>
                 Kanban Reset
+            </a>
+            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
+                href="{{ route('pulling.master-alamat-chute') }}">
+                <i class="fas fa-map-marker-alt"></i>
+                Alamat Chute
             </a>
         </div>
 
@@ -104,11 +110,6 @@
                 href="{{ route('dashboard.prodResult') }}">
                 <i class="fas fa-chart-line"></i>
                 Production Result
-            </a>
-            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
-                href="{{ route('pulling.master-alamat-chute') }}">
-                <i class="fas fa-map-marker-alt"></i>
-                Alamat Chute
             </a>
         </div>
 

@@ -684,17 +684,24 @@
 
                 {{-- Filter Tanggal --}}
                 <div class="prod-filter-card">
-                    <form method="GET" action="{{ route('dashboard.prodResult') }}" class="prod-filter-form">
+                    <div class="d-flex align-items-end flex-wrap" style="gap:10px;">
+                        <form method="GET" action="{{ route('dashboard.prodResult') }}" class="prod-filter-form" style="margin:0;">
+                            <div class="prod-form-group">
+                                <label for="date">Filter Date</label>
+                                <input type="date" id="date" name="date" class="form-control"
+                                    value="{{ $selectedDate ?? \Carbon\Carbon::now()->toDateString() }}">
+                            </div>
+                            <button type="submit" class="act-btn primary">
+                                <i class="fas fa-filter"></i>
+                                Filter
+                            </button>
+                        </form>
                         <div class="prod-form-group">
-                            <label for="date">Filter Date</label>
-                            <input type="date" id="date" name="date" class="form-control"
-                                value="{{ $selectedDate ?? \Carbon\Carbon::now()->toDateString() }}">
+                            <label for="bnFilter">Cari Back Number</label>
+                            <input type="text" id="bnFilter" class="form-control" placeholder="Ketik back number..."
+                                autocomplete="off">
                         </div>
-                        <button type="submit" class="act-btn primary">
-                            <i class="fas fa-filter"></i>
-                            Filter
-                        </button>
-                    </form>
+                    </div>
                 </div>
 
                 <div class="tab-content" id="myTabContent2">
@@ -787,9 +794,6 @@
                             </table>
                         </div>
 
-                        <div class="d-flex justify-content-center mt-3">
-                            {{ $lines->links() }}
-                        </div>
                     </div>
 
                     {{-- Tab per Line --}}
@@ -881,6 +885,8 @@
                         </div>
                     @endforeach
                 </div>
+
+                <div class="d-flex justify-content-center mt-3" id="prodPager"></div>
             </div>
         </div>
     </div>
@@ -988,4 +994,84 @@
             });
         });
     </script>
+
+    <script>
+        // Filter back number + pagination client-side untuk tab aktif (All & per-line)
+        $(function () {
+            const PER_PAGE = 10;
+            let currentPage = 1;
+
+            function getActiveTable() {
+                const pane = document.querySelector('#myTabContent2 .tab-pane.active');
+                return pane ? pane.querySelector('.prod-table') : null;
+            }
+
+            // Kelompokkan tiap baris utama + baris detail (.detail-row) sesudahnya jadi satu unit
+            function getUnits(table) {
+                const tbody = table.querySelector('tbody');
+                const units = [];
+                let cur = null;
+                Array.from(tbody.children).forEach(function (tr) {
+                    if (tr.classList.contains('detail-row')) {
+                        if (cur) cur.rows.push(tr);
+                        return;
+                    }
+                    if (tr.querySelector('.empty-row')) { cur = null; return; }
+                    const bnEl = tr.querySelector('.back-number-code');
+                    cur = { rows: [tr], backno: (bnEl ? bnEl.textContent : '').toLowerCase().trim() };
+                    units.push(cur);
+                });
+                return units;
+            }
+
+            function renderPager(totalPages) {
+                const $pager = $('#prodPager');
+                if (totalPages <= 1) { $pager.empty(); return; }
+                let html = '<ul class="pagination">';
+                html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') +
+                    '"><a href="#" class="page-link" data-page="' + (currentPage - 1) + '">&lsaquo;</a></li>';
+                for (let p = 1; p <= totalPages; p++) {
+                    html += '<li class="page-item ' + (p === currentPage ? 'active' : '') +
+                        '"><a href="#" class="page-link" data-page="' + p + '">' + p + '</a></li>';
+                }
+                html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') +
+                    '"><a href="#" class="page-link" data-page="' + (currentPage + 1) + '">&rsaquo;</a></li>';
+                html += '</ul>';
+                $pager.html(html);
+            }
+
+            function apply() {
+                const table = getActiveTable();
+                if (!table) { $('#prodPager').empty(); return; }
+
+                const keyword = ($('#bnFilter').val() || '').toLowerCase().trim();
+                const units = getUnits(table);
+                const filtered = keyword
+                    ? units.filter(function (u) { return u.backno.indexOf(keyword) !== -1; })
+                    : units;
+
+                const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+                if (currentPage > totalPages) currentPage = totalPages;
+
+                units.forEach(function (u) { u.rows.forEach(function (r) { r.style.display = 'none'; }); });
+                const start = (currentPage - 1) * PER_PAGE;
+                filtered.slice(start, start + PER_PAGE).forEach(function (u) {
+                    u.rows.forEach(function (r) { r.style.display = ''; });
+                });
+
+                renderPager(totalPages);
+            }
+
+            $(document).on('input', '#bnFilter', function () { currentPage = 1; apply(); });
+            $(document).on('click', '#prodPager .page-link', function (e) {
+                e.preventDefault();
+                const p = parseInt($(this).attr('data-page'), 10);
+                if (!isNaN(p) && p >= 1) { currentPage = p; apply(); }
+            });
+            $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function () { currentPage = 1; apply(); });
+
+            apply();
+        });
+    </script>
+
 @endsection

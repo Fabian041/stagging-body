@@ -1089,6 +1089,7 @@
     integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
 <script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     $(document).ready(function() {
@@ -1536,10 +1537,14 @@
                                             <div class="acc-prog-bar-fill" style="width:${pct}%;background:${progColor};"></div>
                                         </div>
                                     </div>
-                                    <div style="text-align:right;margin-top:4px;">
+                                    <div style="text-align:right;margin-top:4px;display:flex;gap:8px;justify-content:flex-end;">
                                         <a href="/loading-list/${ll.id}" class="bella-btn bella-btn-primary bella-btn-sm">
                                             <i class="fas fa-eye"></i> View Details
                                         </a>
+                                        <button type="button" class="bella-btn bella-btn-danger bella-btn-sm delete-loading-list"
+                                            data-id="${ll.id}" data-number="${String(ll.number || '').replace(/"/g, '&quot;')}">
+                                            <i class="fas fa-trash"></i> Hapus
+                                        </button>
                                     </div>
                                 </div>
                             </div>`;
@@ -1595,6 +1600,61 @@
             });
 
             $('#loadingListModal').modal('show');
+        });
+
+        /* =========================================================
+         * MODAL: DELETE LOADING LIST
+         * ======================================================= */
+        $(document).on('click', '.delete-loading-list', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const $btn = $(this);
+            const id = $btn.data('id');
+            const number = $btn.data('number');
+
+            Swal.fire({
+                title: `Hapus loading list ${number}?`,
+                text: 'Semua detail kanban-nya ikut terhapus dan tidak bisa dikembalikan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, hapus',
+                cancelButtonText: 'Batal'
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menghapus...');
+
+                $.ajax({
+                    url: `{{ url('loading-list') }}/${id}`,
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    dataType: 'json',
+                    success: function(res) {
+                        if (res && res.status === 'success') {
+                            $btn.closest('.bella-acc-item').remove();
+                            table.draw(false); // refresh tabel utama (progress & jumlah PDS)
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Terhapus',
+                                text: res.message || 'Loading list berhasil dihapus.',
+                                timer: 1600,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire('Gagal', (res && res.message) || 'Gagal menghapus loading list.', 'error');
+                            $btn.prop('disabled', false).html('<i class="fas fa-trash"></i> Hapus');
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Gagal', (xhr.responseJSON && xhr.responseJSON.message) || 'Gagal menghapus loading list.', 'error');
+                        $btn.prop('disabled', false).html('<i class="fas fa-trash"></i> Hapus');
+                    }
+                });
+            });
         });
 
         /* =========================================================

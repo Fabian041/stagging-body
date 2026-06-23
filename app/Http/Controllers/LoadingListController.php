@@ -566,6 +566,24 @@ class LoadingListController extends Controller
         ]);
     }
 
+    public function destroy(LoadingList $loadingList)
+    {
+        try {
+            // loading_list_details ikut terhapus via FK onDelete cascade
+            $loadingList->delete();
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menghapus loading list: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Loading list berhasil dihapus.',
+        ]);
+    }
+
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
         if($backNumber == 'null'){

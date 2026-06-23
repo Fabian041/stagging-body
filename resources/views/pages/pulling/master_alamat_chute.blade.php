@@ -14,7 +14,7 @@
                                     Untuk ganti seluruh master: <strong>Clear Data</strong> lalu impor ulang. Untuk menambah atau memperbarui part: impor langsung (Part no + Back No yang sama akan diperbarui).
                                 </div>
                             </div>
-                            <div class="d-flex flex-wrap align-items-center justify-content-end" style="gap:8px;">
+                            <div class="mac-toolbar">
                                 <a href="{{ route('pulling.master-alamat-chute.template') }}" class="act-btn"
                                     style="height:34px; padding:0 14px; font-size:12px; letter-spacing:.04em; text-decoration:none; display:inline-flex; align-items:center;">
                                     <i class="fas fa-file-download mr-1"></i> Template Excel
@@ -252,8 +252,22 @@
             padding: 14px 20px;
             border-bottom: 1px solid var(--border);
             display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+        }
+
+        .mac-toolbar {
+            display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .mac-toolbar .act-btn,
+        .mac-toolbar .form-control {
+            height: 34px;
+            font-size: 12px;
         }
 
         .bella-table-card-title {
