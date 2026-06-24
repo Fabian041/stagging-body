@@ -18,27 +18,10 @@
         </div>
     </div>
 
-    {{-- ===== USER CARD ===== --}}
-    <div class="sb-user-wrap">
-        <div class="sb-user">
-            <div class="sb-avatar">
-                {{ auth()->check() ? strtoupper(substr(auth()->user()->name, 0, 2)) : 'GS' }}
-            </div>
-            <div style="min-width:0;flex:1;">
-                <div class="sb-user-name">{{ auth()->check() ? auth()->user()->name : 'Guest' }}</div>
-                <div class="sb-user-role">{{ auth()->check() ? auth()->user()->role ?? 'User' : 'Not logged in' }}
-                </div>
-            </div>
-            @if (auth()->check())
-                <div class="sb-user-badge">{{ strtoupper(auth()->user()->role ?? 'USR') }}</div>
-            @endif
-        </div>
-    </div>
-
     {{-- ===== NAV ===== --}}
     <nav class="sb-nav">
 
-        <div class="sb-section-label">Main Menu</div>
+        <div class="sb-section-label" style="margin-top: 16px;">Main Menu</div>
 
         {{-- ── Dashboard Overview ── --}}
         <a class="sb-item {{ request()->is('dashboard/overview') ? 'active' : '' }}" href="{{ route('dashboard.overview') }}">
@@ -159,6 +142,23 @@
         </a>
 
     </nav>
+
+    {{-- ===== USER CARD (dipindah ke bawah) ===== --}}
+    <div class="sb-user-wrap">
+        <div class="sb-user">
+            <div class="sb-avatar">
+                {{ auth()->check() ? strtoupper(substr(auth()->user()->name, 0, 2)) : 'GS' }}
+            </div>
+            <div style="min-width:0;flex:1;">
+                <div class="sb-user-name">{{ auth()->check() ? auth()->user()->name : 'Guest' }}</div>
+                <div class="sb-user-role">{{ auth()->check() ? auth()->user()->role ?? 'User' : 'Not logged in' }}
+                </div>
+            </div>
+            @if (auth()->check())
+                <div class="sb-user-badge">{{ strtoupper(auth()->user()->role ?? 'USR') }}</div>
+            @endif
+        </div>
+    </div>
 
     {{-- ===== BOTTOM: version ===== --}}
     <div class="sb-bottom">

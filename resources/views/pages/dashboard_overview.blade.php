@@ -165,7 +165,7 @@
         {{-- ===== Jam tersibuk (#5) ===== --}}
         <div class="ov-row">
             <div class="ov-panel">
-                <div class="ov-panel__head"><div class="ov-panel__title"><i class="fas fa-clock"></i> Jam Tersibuk (heatmap hari × jam)</div></div>
+                <div class="ov-panel__head"><div class="ov-panel__title"><i class="fas fa-clock"></i> Jam Tersibuk — Aktivitas Pulling &amp; Produksi (hari × jam)</div></div>
                 <div class="ov-panel__body"><div id="ovHourlyChart"></div></div>
             </div>
         </div>
