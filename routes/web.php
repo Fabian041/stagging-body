@@ -142,6 +142,7 @@ Route::middleware(['auth'])->group(function () {
     // loading list
     Route::get('/kanban/scanned', [LoadingListController::class, 'kanbanScanned'])->name('kanban.scanned');
     Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
+    Route::get('/loading-list/manifests', [LoadingListController::class, 'searchManifests'])->name('loadingList.manifests');
     Route::get('/loading-list/absen-driver', [LoadingListController::class, 'driverAbsen'])->name('loadingList.driverAbsen');
     Route::get('/loading-list/absen-driver/data', [LoadingListController::class, 'getDriverAbsenData'])->name('loadingList.driverAbsen.data');
     Route::post('/loading-list/absen-driver/scan-customer', [LoadingListController::class, 'scanDriverAbsenCustomer'])->name('loadingList.driverAbsen.scanCustomer');

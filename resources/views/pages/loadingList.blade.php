@@ -982,17 +982,12 @@
             </button>
         </div>
         <div class="bella-filter-row">
-            @isset($manifests)
-                <div class="bella-filter-group">
-                    <label>Manifest</label>
-                    <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
-                        <option disabled selected>-- Select manifest --</option>
-                        @foreach ($manifests as $manifest)
-                            <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            @endisset
+            <div class="bella-filter-group">
+                <label>Manifest</label>
+                <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
+                    <option></option>
+                </select>
+            </div>
 
             <div class="bella-filter-group">
                 <label>Cycle</label>
@@ -1084,15 +1079,12 @@
 </div>
 
 {{-- Scripts --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
-<script src="https://code.jquery.com/jquery-3.6.3.min.js"
-    integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-<script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+@push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     $(document).ready(function() {
+        const MANIFEST_URL = @json(route('loadingList.manifests'));
 
         /* Bootstrap modal focus-trap bikin input SweetAlert tak bisa diketik → matikan */
         if ($.fn.modal && $.fn.modal.Constructor) {
@@ -1108,18 +1100,13 @@
             return (v && v !== '-- Select customer --') ? v : '';
         }
 
+        function getFilterManifest() {
+            return $('#manifest').val() || '';
+        }
+
         function getFilterCycle() {
             const v = $('#cycle').val();
             return (v && v !== '-- Select cycle --') ? v : '';
-        }
-
-        function extractPercent(value) {
-            if (value === null || value === undefined) return 0;
-            const text = $('<div>').html(String(value)).text();
-            const match = text.match(/(\d+(?:\.\d+)?)\s*%/);
-            if (match) return parseFloat(match[1]);
-            const nums = text.match(/\d+(?:\.\d+)?/g);
-            return nums && nums.length ? parseFloat(nums[nums.length - 1]) : 0;
         }
 
         function updateDashboardSummary() {
@@ -1131,7 +1118,7 @@
             let totalPct = 0;
 
             rows.forEach(function(row) {
-                const pct = extractPercent(row.progress);
+                const pct = Number(row.progress_percentage || 0);
                 totalPct += pct;
                 if (pct >= 100) complete++;
                 else if (pct > 0) progress++;
@@ -1151,10 +1138,14 @@
         /* Apply query-string filters on load */
         (function applyQueryStringFilters() {
             const params = new URLSearchParams(window.location.search);
+            const manifest = params.get('manifest') || params.get('pds_number');
             const customer = params.get('customer');
             const cycle = params.get('cycle');
             const deliveryDate = params.get('delivery_date');
 
+            if (manifest) {
+                $('#manifest').append(new Option(manifest, manifest, true, true));
+            }
             if (customer) {
                 const $match = $('#customer option').filter(function() {
                     return $(this).val() === customer;
@@ -1174,17 +1165,41 @@
             if (deliveryDate) $('#date').val(deliveryDate);
         })();
 
+        $('#manifest').select2({
+            placeholder: '-- Cari manifest --',
+            allowClear: true,
+            width: 'resolve',
+            minimumInputLength: 2,
+            ajax: {
+                url: MANIFEST_URL,
+                dataType: 'json',
+                delay: 350,
+                cache: true,
+                data: function(params) {
+                    return {
+                        q: params.term || '',
+                        page: params.page || 1
+                    };
+                },
+                processResults: function(data) {
+                    return data;
+                }
+            }
+        });
+
         /* =========================================================
          * DATATABLE INIT
          * ======================================================= */
         let table = $('#loadingList').DataTable({
             scrollX: false,
-            processing: false,
+            processing: true,
             serverSide: true,
+            deferRender: true,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',
                 data: function(d) {
+                    d.manifest = getFilterManifest();
                     d.customer = getFilterCustomer();
                     d.cycle = getFilterCycle();
                     d.delivery_date = $('#date').val() || '';
@@ -1203,7 +1218,9 @@
                     data: 'delivery_date'
                 },
                 {
-                    data: 'progress'
+                    data: 'progress',
+                    orderable: false,
+                    searchable: false
                 },
                 {
                     data: 'loading_and_status',
@@ -1222,11 +1239,14 @@
             ],
             stateSave: true,
             stateDuration: 60 * 60,
-            pageResize: true,
             stateSaveParams: function(settings, data) {
                 data.scrollTop = $(window).scrollTop();
             },
             stateLoadParams: function(settings, data) {
+                data.search.search = '';
+                data.columns.forEach(function(column) {
+                    column.search.search = '';
+                });
                 if (data.scrollTop) {
                     setTimeout(function() {
                         $(window).scrollTop(data.scrollTop);
@@ -1244,9 +1264,19 @@
         let autoRefreshInterval;
         let isUserInteracting = false;
         let lastInteractionTime = Date.now();
-        let lastDataHash = '';
         let lastRecordCount = 0;
         let lastPdsNumbers = [];
+        let rowRefreshInFlight = false;
+        let checkRefreshInFlight = false;
+        let refreshCount = 0;
+
+        $('#loadingList').on('xhr.dt', function(e, settings, json) {
+            if (!json) return;
+            lastRecordCount = Number(json.recordsTotal || 0);
+            lastPdsNumbers = (json.data || []).map(function(row) {
+                return row.pds_number;
+            }).filter(Boolean).slice(0, 10);
+        });
 
         function onUserInteraction() {
             isUserInteracting = true;
@@ -1261,30 +1291,16 @@
         }
 
         function refreshTableData() {
-            if (isUserInteracting) return;
-            const pageInfo = table.page.info();
+            if (isUserInteracting || document.hidden) return;
             const scrollTop = $(window).scrollTop();
-            sessionStorage.setItem('tableState', JSON.stringify({
-                page: pageInfo.page,
-                scrollTop: scrollTop,
-                timestamp: Date.now()
-            }));
-            table.draw(false);
-            setTimeout(function() {
-                const saved = JSON.parse(sessionStorage.getItem('tableState') || '{}');
-                if (saved.scrollTop && Date.now() - saved.timestamp < 1000) {
-                    $(window).scrollTop(saved.scrollTop);
-                }
-            }, 200);
+            table.ajax.reload(function() {
+                $(window).scrollTop(scrollTop);
+            }, false);
         }
 
         function smartRefresh() {
-            if (isUserInteracting) return;
-            const visiblePdsNumbers = table.rows({
-                    page: 'current'
-                }).data().toArray()
-                .map(row => row.pds_number)
-                .filter((v, i, a) => a.indexOf(v) === i);
+            if (isUserInteracting || document.hidden || checkRefreshInFlight) return;
+            checkRefreshInFlight = true;
 
             $.ajax({
                 url: `{{ url('dashboard/checkLoadingListUpdates') }}`,
@@ -1293,56 +1309,27 @@
                 data: {
                     state: {
                         pdsCount: lastRecordCount,
-                        latestPdsNumbers: lastPdsNumbers,
-                        visiblePdsNumbers: visiblePdsNumbers
+                        latestPdsNumbers: lastPdsNumbers
                     }
                 },
                 timeout: 5000,
                 success: function(response) {
-                    if (response.error) {
-                        refreshTableData();
-                        return;
-                    }
-
-                    const countMismatch = response.totalRecords !== lastRecordCount;
-                    const forceRefresh = countMismatch || (response.deletedCount && response
-                        .deletedCount > 0);
-                    if (forceRefresh) {
-                        lastRecordCount = response.totalRecords;
-                        refreshTableData();
-                        return;
-                    }
-
-                    const dataChanged = (response.dataHash && response.dataHash !== lastDataHash) ||
-                        (response.totalRecords !== lastRecordCount);
-                    const hasNewPds = response.latestPdsNumbers &&
-                        (!lastPdsNumbers || response.latestPdsNumbers.some(pds => !lastPdsNumbers
-                            .includes(pds)));
-
                     if (response.hasNewData) {
-                        lastRecordCount = response.serverPdsCount;
-                        lastPdsNumbers = response.serverLatestPds;
+                        lastRecordCount = Number(response.serverPdsCount || 0);
+                        lastPdsNumbers = response.serverLatestPds || [];
                         refreshTableData();
                     } else {
                         updateSpecificRows();
                     }
-
-                    if (dataChanged || hasNewPds) {
-                        lastDataHash = response.dataHash || '';
-                        lastRecordCount = response.totalRecords || 0;
-                        lastPdsNumbers = response.latestPdsNumbers || [];
-                        refreshTableData();
-                    }
                 },
-                error: function(xhr, status, error) {
-                    if (Math.random() < 0.1) refreshTableData();
-                    console.warn('Smart refresh check failed:', status, error);
+                complete: function() {
+                    checkRefreshInFlight = false;
                 }
             });
         }
 
         function updateSpecificRows() {
-            if (isUserInteracting) return;
+            if (isUserInteracting || document.hidden || rowRefreshInFlight) return;
             const visibleData = table.rows({
                 page: 'current'
             }).data();
@@ -1353,9 +1340,9 @@
                 }
             }
             if (visibleIds.length === 0) {
-                smartRefresh();
                 return;
             }
+            rowRefreshInFlight = true;
 
             $.ajax({
                 url: `{{ url('dashboard/getLoadingListUpdates') }}`,
@@ -1367,51 +1354,47 @@
                 dataType: 'json',
                 success: function(response) {
                     if (response.deletedRows && response.deletedRows.length > 0) {
-                        response.deletedRows.forEach(function(id) {
-                            const row = table.row('#row-' + id);
-                            if (row.any()) row.remove().draw(false);
-                        });
+                        refreshTableData();
+                        return;
                     }
                     if (response.updatedRows && response.updatedRows.length > 0) {
                         response.updatedRows.forEach(function(updatedRow) {
-                            const row = table.row('#row-' + updatedRow.id);
+                            const dataId = String(updatedRow.id || '').replace(/^row-/, '');
+                            const row = table.row(function(index, data) {
+                                return data && data.id === dataId;
+                            });
                             if (row.any()) {
                                 const rowData = row.data();
-                                if (updatedRow.progress) rowData.progress = updatedRow
-                                    .progress;
-                                if (updatedRow.detail) rowData.loading_and_status =
-                                    updatedRow.detail;
-                                row.data(rowData).draw(false);
+                                if (updatedRow.progress) rowData.progress = updatedRow.progress;
+                                rowData.progress_percentage = Number(updatedRow.progress_percentage || 0);
+                                if (updatedRow.loading_and_status) {
+                                    rowData.loading_and_status = updatedRow.loading_and_status;
+                                }
+                                rowData.updated_at = updatedRow.updated_at || rowData.updated_at;
+                                row.data(rowData);
                             }
                         });
-                    }
-                    if ((response.deletedRows && response.deletedRows.length > 0) ||
-                        (response.updatedRows && response.updatedRows.length > 0)) {
-                        table.order([3, 'desc']).draw(false);
+                        updateDashboardSummary();
                     }
                 },
-                error: function() {
-                    smartRefresh();
+                complete: function() {
+                    rowRefreshInFlight = false;
                 }
             });
         }
 
         function startAutoRefresh() {
             if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-            let refreshCount = 0;
             autoRefreshInterval = setInterval(function() {
+                if (isUserInteracting || document.hidden) return;
                 refreshCount++;
-                if (refreshCount >= 10) {
+                if (refreshCount >= 4) {
                     refreshCount = 0;
-                    refreshTableData();
+                    smartRefresh();
                     return;
                 }
-                if (typeof updateSpecificRows === 'function') {
-                    updateSpecificRows();
-                } else {
-                    smartRefresh();
-                }
-            }, 3000);
+                updateSpecificRows();
+            }, 15000);
         }
 
         /* =========================================================
@@ -1422,7 +1405,6 @@
         $(document).on('click', '.dataTables_paginate .paginate_button', onUserInteraction);
         $(document).on('change', '.dataTables_length select', onUserInteraction);
         $('#loadingList').closest('.table-responsive').on('scroll', onUserInteraction);
-        $('#manifest, #customer, #cycle, #date').on('change', onUserInteraction);
 
         /* =========================================================
          * MODAL: LOADING LISTS ACCORDION
@@ -1689,25 +1671,22 @@
         /* =========================================================
          * FILTER HANDLERS
          * ======================================================= */
-        $('#manifest').on('change', function() {
-            table.column(0).search($(this).val() || '').draw();
-        });
-        $('#customer').on('change', function() {
-            table.column(1).search($(this).val() || '').draw();
-        });
-        $('#cycle').on('change', function() {
-            table.column(2).search($(this).val() || '').draw();
-        });
-        $('#date').on('change', function() {
-            table.column(3).search($(this).val() || '').draw();
+        $('#manifest, #customer, #cycle, #date').on('change', function() {
+            onUserInteraction();
+            table.ajax.reload(null, true);
         });
 
         $('#reset').on('click', function() {
-            $('#cycle').val('-- Select cycle --').trigger('change');
-            $('#customer').val('-- Select customer --').trigger('change');
-            $('#manifest').val(null).trigger('change'); // select2 reset
-            $('#date').val('').trigger('change');
+            $('#cycle, #customer').prop('selectedIndex', 0);
+            $('#manifest').val(null).trigger('change.select2');
+            $('#date').val('');
+            table.search('').columns().search('');
             onUserInteraction();
+            table.ajax.reload(null, true);
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && !isUserInteracting) updateSpecificRows();
         });
 
         /* =========================================================
@@ -1722,3 +1701,4 @@
         startAutoRefresh();
     });
 </script>
+@endpush
