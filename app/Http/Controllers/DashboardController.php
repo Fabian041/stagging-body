@@ -42,7 +42,6 @@ class DashboardController extends Controller
         [$from, $to] = $this->overviewRange($request);
 
         return view('pages.dashboard_overview', [
-            'd'    => $this->buildOverviewData($from, $to),
             'from' => $from->toDateString(),
             'to'   => $to->toDateString(),
         ]);
@@ -58,7 +57,7 @@ class DashboardController extends Controller
         return response()->json($this->buildOverviewData($from, $to) + [
             'from' => $from->toDateString(),
             'to'   => $to->toDateString(),
-        ]);
+        ])->header('Cache-Control', 'private, max-age=30');
     }
 
     /** Rentang tanggal overview: default 7 hari terakhir, maksimal 31 hari. */
@@ -89,11 +88,14 @@ class DashboardController extends Controller
 
     private function buildOverviewData(Carbon $from, Carbon $to): array
     {
-        $cacheKey = 'dashboard_overview_v3_' . $from->toDateString() . '_' . $to->toDateString();
+        $cacheKey = 'dashboard_overview_v4_' . $from->toDateString() . '_' . $to->toDateString();
 
         return Cache::remember($cacheKey, 60, function () use ($from, $to) {
             $start = $from->copy()->startOfDay();
             $end = $to->copy()->endOfDay();
+            $lenDays = $from->diffInDays($to) + 1;
+            $prevFrom = $from->copy()->subDays($lenDays)->startOfDay();
+            $currentFromKey = $from->toDateString();
 
             // ===== PPIC: loading list delivery dalam rentang =====
             $ll = \App\Models\LoadingList::query()
@@ -122,10 +124,53 @@ class DashboardController extends Controller
                     ];
                 })->sortBy('cycle')->values();
 
-            $kanbanScanned = \App\Models\Mutation::where('type', 'checkout')->whereBetween('date', [$start, $end])->count();
-            $pullingDone = DB::table('pullings')->whereBetween('pulling_date', [$start, $end])->count();
-            $produksi = \App\Models\Mutation::where('type', 'supply')->whereBetween('date', [$start, $end])->count();
-            $pisScan = DB::table('pis_scan_logs')->whereBetween('scan_time', [$start, $end])->count();
+            // Satu scan terindeks untuk KPI, tren harian, dan pembanding periode sebelumnya.
+            $mutationDailyRows = DB::table('mutations')
+                ->whereIn('type', ['checkout', 'supply'])
+                ->whereBetween('date', [$prevFrom, $end])
+                ->selectRaw('DATE(date) as d, type, COUNT(*) as c')
+                ->groupBy('d', 'type')
+                ->get();
+
+            $pullingByDay = collect();
+            $supplyByDay = collect();
+            $prevKanban = 0;
+            $prevProduksi = 0;
+            foreach ($mutationDailyRows as $row) {
+                $count = (int) $row->c;
+                if ($row->d >= $currentFromKey) {
+                    if ($row->type === 'checkout') {
+                        $pullingByDay[$row->d] = $count;
+                    } elseif ($row->type === 'supply') {
+                        $supplyByDay[$row->d] = $count;
+                    }
+                } elseif ($row->type === 'checkout') {
+                    $prevKanban += $count;
+                } elseif ($row->type === 'supply') {
+                    $prevProduksi += $count;
+                }
+            }
+            $kanbanScanned = (int) $pullingByDay->sum();
+            $produksi = (int) $supplyByDay->sum();
+
+            $pullingDaily = DB::table('pullings')
+                ->whereBetween('pulling_date', [$prevFrom, $end])
+                ->selectRaw('DATE(pulling_date) as d, COUNT(*) as c')
+                ->groupBy('d')
+                ->pluck('c', 'd');
+            $pullingDone = (int) $pullingDaily
+                ->filter(fn ($count, $date) => $date >= $currentFromKey)
+                ->sum();
+            $prevPulling = (int) $pullingDaily
+                ->filter(fn ($count, $date) => $date < $currentFromKey)
+                ->sum();
+
+            $pisByDay = DB::table('pis_scan_logs')
+                ->whereBetween('scan_time', [$start, $end])
+                ->selectRaw('DATE(scan_time) as d, COUNT(*) as c')
+                ->groupBy('d')
+                ->pluck('c', 'd');
+            $pisScan = (int) $pisByDay->sum();
 
             // ===== Stok (snapshot, tidak tergantung tanggal) =====
             $stockRows = DB::table('internal_parts')
@@ -154,10 +199,29 @@ class DashboardController extends Controller
                 ->count();
 
             // ===== Error dalam rentang =====
-            $errPeriod = DB::table('error_logs')->whereBetween('date', [$start, $end])->count();
-            $errByArea = DB::table('error_logs')->whereBetween('date', [$start, $end])
-                ->selectRaw('area, COUNT(*) as c')
-                ->groupBy('area')->orderByDesc('c')->limit(6)->get();
+            $errorDailyRows = DB::table('error_logs')
+                ->whereBetween('date', [$prevFrom, $end])
+                ->selectRaw('DATE(date) as d, area, COUNT(*) as c')
+                ->groupBy('d', 'area')
+                ->get();
+            $errPeriod = 0;
+            $prevErr = 0;
+            $errorAreaCounts = collect();
+            foreach ($errorDailyRows as $row) {
+                $count = (int) $row->c;
+                if ($row->d >= $currentFromKey) {
+                    $errPeriod += $count;
+                    $area = $row->area ?: '-';
+                    $errorAreaCounts[$area] = (int) ($errorAreaCounts[$area] ?? 0) + $count;
+                } else {
+                    $prevErr += $count;
+                }
+            }
+            $errByArea = $errorAreaCounts
+                ->sortDesc()
+                ->take(6)
+                ->map(fn ($count, $area) => (object) ['area' => $area, 'c' => $count])
+                ->values();
             $recentErrors = DB::table('error_logs')
                 ->orderByDesc('date')->limit(8)
                 ->get(['area', 'message', 'expected', 'scanned', 'date'])
@@ -172,17 +236,6 @@ class DashboardController extends Controller
                 });
 
             // ===== Tren per hari (rentang) =====
-            $countByDay = function ($table, $dateCol, $where = []) use ($start, $end) {
-                $q = DB::table($table)->whereBetween($dateCol, [$start, $end]);
-                foreach ($where as $col => $val) {
-                    $q->where($col, $val);
-                }
-                return $q->selectRaw("DATE($dateCol) as d, COUNT(*) as c")->groupBy('d')->pluck('c', 'd');
-            };
-            $pullingByDay = $countByDay('mutations', 'date', ['type' => 'checkout']);
-            $supplyByDay  = $countByDay('mutations', 'date', ['type' => 'supply']);
-            $pisByDay     = $countByDay('pis_scan_logs', 'scan_time');
-
             $trend = collect();
             for ($c = $from->copy(); $c->lte($to); $c->addDay()) {
                 $key = $c->toDateString();
@@ -195,13 +248,6 @@ class DashboardController extends Controller
             }
 
             // ===== Perbandingan periode sebelumnya (#1) =====
-            $lenDays = $from->diffInDays($to) + 1;
-            $prevFrom = $from->copy()->subDays($lenDays)->startOfDay();
-            $prevTo   = $from->copy()->subDay()->endOfDay();
-            $prevKanban   = \App\Models\Mutation::where('type', 'checkout')->whereBetween('date', [$prevFrom, $prevTo])->count();
-            $prevPulling  = DB::table('pullings')->whereBetween('pulling_date', [$prevFrom, $prevTo])->count();
-            $prevProduksi = \App\Models\Mutation::where('type', 'supply')->whereBetween('date', [$prevFrom, $prevTo])->count();
-            $prevErr      = DB::table('error_logs')->whereBetween('date', [$prevFrom, $prevTo])->count();
             $delta = fn ($cur, $prev) => $prev > 0 ? (int) round(($cur - $prev) / $prev * 100) : ($cur > 0 ? 100 : 0);
 
             // ===== Error rate (#4) =====

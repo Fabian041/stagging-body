@@ -263,6 +263,44 @@
             padding: 4px 8px;
         }
 
+        .ov-loading {
+            min-height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .ov-loading::before {
+            content: '';
+            width: 15px;
+            height: 15px;
+            margin-right: 8px;
+            border: 2px solid rgba(0, 151, 216, .2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: ov-spin .7s linear infinite;
+        }
+
+        .ov-chart-loading {
+            min-height: 290px;
+        }
+
+        .ov-empty {
+            padding: 24px 12px;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        @keyframes ov-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         .ov-cycle {
             display: flex;
             flex-direction: column;
@@ -391,8 +429,6 @@
         }
     </style>
 
-    @php $kpi = $d['kpi'] ?? []; @endphp
-
     <div class="ov-wrap">
         <div class="ov-head">
             <div>
@@ -421,36 +457,35 @@
         <div class="ov-kpis">
             <a class="ov-kpi" href="{{ route('dashboard.delivery') }}">
                 <div class="ov-kpi__label">Preparation</div>
-                <div class="ov-kpi__value"><span id="k-prepComplete">{{ $kpi['prepComplete'] ?? 0 }}</span><small>/<span
-                            id="k-prepTotal">{{ $kpi['prepTotal'] ?? 0 }}</span></small></div>
-                <div class="ov-kpi__sub" id="sub-prep">{{ $kpi['prepPct'] ?? 0 }}% selesai · periode</div>
+                <div class="ov-kpi__value"><span id="k-prepComplete">—</span><small>/<span
+                            id="k-prepTotal">—</span></small></div>
+                <div class="ov-kpi__sub" id="sub-prep">memuat data…</div>
             </a>
             <a class="ov-kpi" href="{{ route('loadingList.index') }}">
                 <div class="ov-kpi__label">Kanban Discan</div>
-                <div class="ov-kpi__value" id="k-kanban">{{ number_format($kpi['kanbanScanned'] ?? 0) }}</div>
-                <div class="ov-kpi__sub" id="sub-kanban">pulling · periode</div>
+                <div class="ov-kpi__value" id="k-kanban">—</div>
+                <div class="ov-kpi__sub" id="sub-kanban">memuat data…</div>
             </a>
             <a class="ov-kpi ov-kpi--success" href="{{ route('loadingList.index') }}">
                 <div class="ov-kpi__label">Pulling Selesai</div>
-                <div class="ov-kpi__value" id="k-pulling">{{ number_format($kpi['pullingDone'] ?? 0) }}</div>
-                <div class="ov-kpi__sub" id="sub-pulling">loading list · periode</div>
+                <div class="ov-kpi__value" id="k-pulling">—</div>
+                <div class="ov-kpi__sub" id="sub-pulling">memuat data…</div>
             </a>
             <a class="ov-kpi" href="{{ route('dashboard.prodResult') }}">
                 <div class="ov-kpi__label">Produksi</div>
-                <div class="ov-kpi__value" id="k-produksi">{{ number_format($kpi['produksi'] ?? 0) }}</div>
-                <div class="ov-kpi__sub" id="sub-produksi">supply · periode</div>
+                <div class="ov-kpi__value" id="k-produksi">—</div>
+                <div class="ov-kpi__sub" id="sub-produksi">memuat data…</div>
             </a>
             <a class="ov-kpi ov-kpi--danger" href="{{ route('dashboard.productionStock') }}">
                 <div class="ov-kpi__label">Stok &lt; Standar</div>
                 <div class="ov-kpi__value"><span
-                        id="k-understock">{{ number_format($kpi['underStock'] ?? 0) }}</span><small>/<span
-                            id="k-totalpart">{{ number_format($kpi['totalPart'] ?? 0) }}</span></small></div>
-                <div class="ov-kpi__sub">snapshot saat ini</div>
+                        id="k-understock">—</span><small>/<span id="k-totalpart">—</span></small></div>
+                <div class="ov-kpi__sub" id="sub-understock">memuat data…</div>
             </a>
             <a class="ov-kpi ov-kpi--amber" href="{{ route('error.log') }}">
                 <div class="ov-kpi__label">Error</div>
-                <div class="ov-kpi__value" id="k-errperiod">{{ number_format($kpi['errPeriod'] ?? 0) }}</div>
-                <div class="ov-kpi__sub" id="sub-error">dalam periode</div>
+                <div class="ov-kpi__value" id="k-errperiod">—</div>
+                <div class="ov-kpi__sub" id="sub-error">memuat data…</div>
             </a>
         </div>
 
@@ -461,7 +496,7 @@
                     <div class="ov-panel__title"><i class="fas fa-truck-fast"></i> Delivery Berisiko (hari ini &amp; besok)
                     </div>
                 </div>
-                <div class="ov-panel__body ov-panel__body--tight" id="ovAtRisk"></div>
+                <div class="ov-panel__body ov-panel__body--tight" id="ovAtRisk"><div class="ov-loading">Memuat data</div></div>
             </div>
         </div>
 
@@ -472,7 +507,7 @@
                     <div class="ov-panel__title"><i class="fas fa-chart-area"></i> Aktivitas Harian</div>
                 </div>
                 <div class="ov-panel__body">
-                    <div id="ovTrendChart"></div>
+                    <div id="ovTrendChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
                 </div>
             </div>
             <div class="ov-panel">
@@ -480,7 +515,7 @@
                     <div class="ov-panel__title"><i class="fas fa-boxes"></i> Kesehatan Stok</div>
                 </div>
                 <div class="ov-panel__body">
-                    <div id="ovStockChart"></div>
+                    <div id="ovStockChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
                 </div>
             </div>
         </div>
@@ -491,13 +526,13 @@
                 <div class="ov-panel__head">
                     <div class="ov-panel__title"><i class="fas fa-industry"></i> Produksi per Line</div>
                 </div>
-                <div class="ov-panel__body" id="ovProdByLine"></div>
+                <div class="ov-panel__body" id="ovProdByLine"><div class="ov-loading">Memuat data</div></div>
             </div>
             <div class="ov-panel">
                 <div class="ov-panel__head">
                     <div class="ov-panel__title"><i class="fas fa-users"></i> Preparation per Customer</div>
                 </div>
-                <div class="ov-panel__body" id="ovPrepByCustomer"></div>
+                <div class="ov-panel__body" id="ovPrepByCustomer"><div class="ov-loading">Memuat data</div></div>
             </div>
         </div>
 
@@ -509,7 +544,7 @@
                         Produksi (hari × jam)</div>
                 </div>
                 <div class="ov-panel__body">
-                    <div id="ovHourlyChart"></div>
+                    <div id="ovHourlyChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
                 </div>
             </div>
         </div>
@@ -520,13 +555,13 @@
                 <div class="ov-panel__head">
                     <div class="ov-panel__title"><i class="fas fa-layer-group"></i> Preparation per Cycle</div>
                 </div>
-                <div class="ov-panel__body" id="ovCycle"></div>
+                <div class="ov-panel__body" id="ovCycle"><div class="ov-loading">Memuat data</div></div>
             </div>
             <div class="ov-panel">
                 <div class="ov-panel__head">
                     <div class="ov-panel__title"><i class="fas fa-arrow-down"></i> Part Paling Kekurangan Stok</div>
                 </div>
-                <div class="ov-panel__body ov-panel__body--tight" id="ovTopUnder"></div>
+                <div class="ov-panel__body ov-panel__body--tight" id="ovTopUnder"><div class="ov-loading">Memuat data</div></div>
             </div>
         </div>
 
@@ -536,7 +571,7 @@
                 <div class="ov-panel__head">
                     <div class="ov-panel__title"><i class="fas fa-chart-bar"></i> Error per Area</div>
                 </div>
-                <div class="ov-panel__body" id="ovErrByArea"></div>
+                <div class="ov-panel__body" id="ovErrByArea"><div class="ov-loading">Memuat data</div></div>
             </div>
             <div class="ov-panel">
                 <div class="ov-panel__head">
@@ -544,22 +579,25 @@
                     <a href="{{ route('error.log') }}"
                         style="font-size:11px;font-weight:700;color:var(--primary);text-decoration:none;">Lihat semua →</a>
                 </div>
-                <div class="ov-panel__body ov-panel__body--tight" id="ovRecentErrors"></div>
+                <div class="ov-panel__body ov-panel__body--tight" id="ovRecentErrors"><div class="ov-loading">Memuat data</div></div>
             </div>
         </div>
     </div>
 
-    <script src="{{ asset('assets/js/apexcharts.js') }}"></script>
     <script>
         (function() {
             var DATA_URL = @json(route('dashboard.overview.data'));
             var STOCK_URL = @json(route('dashboard.productionStock'));
             var LL_URL = @json(url('/loading-list'));
-            var initial = @json($d ?? []);
+            var CHART_URL = @json(asset('assets/js/apexcharts.js'));
+            var initial = @json($d ?? null);
             var trendChart = null,
                 stockChart = null,
                 hourlyChart = null,
-                timer = null;
+                timer = null,
+                chartsLoading = null,
+                latestData = null,
+                requestId = 0;
 
             function esc(s) {
                 return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
@@ -772,6 +810,7 @@
             }
 
             function applyData(d) {
+                latestData = d;
                 var k = d.kpi || {},
                     dl = d.delta || {};
                 setText('k-prepComplete', k.prepComplete || 0);
@@ -785,6 +824,7 @@
                 setHtml('sub-produksi', deltaHtml(dl.produksi, true));
                 setText('k-understock', fmt(k.underStock));
                 setText('k-totalpart', fmt(k.totalPart));
+                setText('sub-understock', 'snapshot saat ini');
                 setText('k-errperiod', fmt(k.errPeriod));
                 setHtml('sub-error', deltaHtml(dl.err, false) + ' · rate ' + (d.errRate || 0) + '%');
 
@@ -832,8 +872,42 @@
                 setText('ovUpdated', new Date().toLocaleTimeString('id-ID'));
             }
 
+            function loadCharts() {
+                if (window.ApexCharts) return Promise.resolve();
+                if (chartsLoading) return chartsLoading;
+
+                chartsLoading = new Promise(function(resolve, reject) {
+                    var script = document.createElement('script');
+                    script.src = CHART_URL;
+                    script.async = true;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+
+                return chartsLoading;
+            }
+
+            function ensureCharts(d) {
+                latestData = d || latestData;
+                return loadCharts().then(function() {
+                    if (!trendChart && latestData) buildCharts(latestData);
+                }).catch(function() {
+                    ['ovTrendChart', 'ovStockChart', 'ovHourlyChart'].forEach(function(id) {
+                        setHtml(id, '<div class="ov-empty">Grafik gagal dimuat.</div>');
+                    });
+                });
+            }
+
             function buildCharts(d) {
-                if (!window.ApexCharts) return;
+                if (!window.ApexCharts || trendChart) return;
+                ['ovTrendChart', 'ovStockChart', 'ovHourlyChart'].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) {
+                        el.classList.remove('ov-loading', 'ov-chart-loading');
+                        el.textContent = '';
+                    }
+                });
                 var trend = d.trend || [];
                 trendChart = new ApexCharts(document.getElementById('ovTrendChart'), {
                     chart: {
@@ -1015,6 +1089,7 @@
             }
 
             function refresh() {
+                var currentRequestId = ++requestId;
                 var from = document.getElementById('ovFrom').value;
                 var to = document.getElementById('ovTo').value;
                 fetch(DATA_URL + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), {
@@ -1024,17 +1099,34 @@
                         credentials: 'same-origin'
                     })
                     .then(function(r) {
+                        if (!r.ok) throw new Error('Dashboard data request failed');
                         return r.json();
                     })
                     .then(function(d) {
+                        if (currentRequestId !== requestId) return;
                         if (d.from) document.getElementById('ovFrom').value = d.from;
                         if (d.to) document.getElementById('ovTo').value = d.to;
                         applyData(d);
+                        ensureCharts(d);
                         try {
                             history.replaceState(null, '', '?from=' + d.from + '&to=' + d.to);
                         } catch (e) {}
                     })
-                    .catch(function() {});
+                    .catch(function() {
+                        if (currentRequestId !== requestId) return;
+                        var message = '<div class="ov-empty">Data belum berhasil dimuat. Silakan coba lagi.</div>';
+                        ['ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder',
+                            'ovErrByArea', 'ovRecentErrors'
+                        ].forEach(function(id) {
+                            setHtml(id, message);
+                        });
+                        setText('sub-prep', 'gagal memuat data');
+                        setText('sub-kanban', 'gagal memuat data');
+                        setText('sub-pulling', 'gagal memuat data');
+                        setText('sub-produksi', 'gagal memuat data');
+                        setText('sub-understock', 'gagal memuat data');
+                        setText('sub-error', 'gagal memuat data');
+                    });
             }
 
             function setPreset(p) {
@@ -1051,8 +1143,13 @@
             }
 
             document.addEventListener('DOMContentLoaded', function() {
-                buildCharts(initial);
-                applyData(initial);
+                loadCharts();
+                if (initial && initial.kpi) {
+                    applyData(initial);
+                    ensureCharts(initial);
+                } else {
+                    refresh();
+                }
                 document.querySelectorAll('.ov-preset').forEach(function(b) {
                     b.addEventListener('click', function() {
                         setPreset(b.getAttribute('data-preset'));
