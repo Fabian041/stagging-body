@@ -40,6 +40,13 @@
 
         <div class="sb-section-label">Main Menu</div>
 
+        {{-- ── Dashboard Overview ── --}}
+        <a class="sb-item {{ request()->is('dashboard/overview') ? 'active' : '' }}" href="{{ route('dashboard.overview') }}">
+            <i class="fas fa-chart-pie sb-icon"></i>
+            <span class="sb-item-label">Dashboard</span>
+            <span class="sb-item-tooltip">Dashboard</span>
+        </a>
+
         {{-- ── PPIC ── --}}
         @php
             $ppicActive =

@@ -35,6 +35,127 @@ class DashboardController extends Controller
     }
 
     /**
+     * Dashboard Overview: ringkasan KPI lintas area (PPIC, Production, PIS, Error).
+     */
+    public function overview()
+    {
+        $data = Cache::remember('dashboard_overview_v2', 60, function () {
+            $today = Carbon::today();
+            $start7 = Carbon::today()->subDays(6);
+
+            // ===== PPIC: loading list delivery hari ini =====
+            $ll = \App\Models\LoadingList::query()
+                ->withSum('detail as total_kanban', 'kanban_qty')
+                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->whereDate('delivery_date', $today)
+                ->get();
+
+            $isComplete = fn ($l) => (int) ($l->total_kanban ?? 0) > 0
+                && (int) ($l->actual_kanban ?? 0) >= (int) $l->total_kanban;
+
+            $prepTotal = $ll->count();
+            $prepComplete = $ll->filter($isComplete)->count();
+            $prepPct = $prepTotal > 0 ? (int) round($prepComplete / $prepTotal * 100) : 0;
+
+            $kanbanScanned = \App\Models\Mutation::where('type', 'checkout')->whereDate('date', $today)->count();
+            $pullingDone = DB::table('pullings')->whereDate('pulling_date', $today)->count();
+
+            // Preparation per cycle (delivery hari ini)
+            $prepByCycle = $ll->groupBy(fn ($l) => $l->cycle ?: '-')
+                ->map(function ($items, $cycle) use ($isComplete) {
+                    $total = $items->count();
+                    $complete = $items->filter($isComplete)->count();
+                    return [
+                        'cycle'    => (string) $cycle,
+                        'total'    => $total,
+                        'complete' => $complete,
+                        'pct'      => $total > 0 ? (int) round($complete / $total * 100) : 0,
+                    ];
+                })
+                ->sortBy('cycle')->values();
+
+            // ===== Production =====
+            $produksi = \App\Models\Mutation::where('type', 'supply')->whereDate('date', $today)->count();
+
+            $stockRows = DB::table('internal_parts')
+                ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+                ->selectRaw('COALESCE(production_stocks.current_stock, 0) as cur, COALESCE(internal_parts.standard_stock, 0) as std')
+                ->get();
+            $totalPart = $stockRows->count();
+            $stockUnder = $stockRows->filter(fn ($r) => $r->cur < $r->std)->count();
+            $stockLow = $stockRows->filter(fn ($r) => $r->cur == $r->std)->count();
+            $stockIn = $stockRows->filter(fn ($r) => $r->cur > $r->std)->count();
+
+            $topUnder = DB::table('internal_parts')
+                ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+                ->leftJoin('lines', 'lines.id', '=', 'internal_parts.line_id')
+                ->selectRaw('internal_parts.back_number, lines.name as line,
+                    COALESCE(production_stocks.current_stock, 0) as cur,
+                    COALESCE(internal_parts.standard_stock, 0) as std,
+                    (COALESCE(internal_parts.standard_stock, 0) - COALESCE(production_stocks.current_stock, 0)) as gap')
+                ->whereRaw('COALESCE(production_stocks.current_stock, 0) < COALESCE(internal_parts.standard_stock, 0)')
+                ->orderByRaw('gap DESC')
+                ->limit(8)
+                ->get();
+
+            // ===== PIS =====
+            $pisScan = DB::table('pis_scan_logs')->whereDate('scan_time', $today)->count();
+            $pisDone = DB::table('pis_scan_details')
+                ->where('target_qty', '>', 0)
+                ->whereColumn('scanned_qty', '>=', 'target_qty')
+                ->count();
+
+            // ===== Error =====
+            $errToday = DB::table('error_logs')->whereDate('date', $today)->count();
+            $errWeek = DB::table('error_logs')->whereDate('date', '>=', $start7)->count();
+            $recentErrors = DB::table('error_logs')
+                ->orderByDesc('date')
+                ->limit(8)
+                ->get(['area', 'message', 'expected', 'scanned', 'date']);
+
+            // ===== Tren 7 hari (pulling vs produksi vs PIS) =====
+            $countByDay = function ($table, $dateCol, $where = []) use ($start7) {
+                $q = DB::table($table)->where($dateCol, '>=', $start7->copy()->startOfDay());
+                foreach ($where as $col => $val) {
+                    $q->where($col, $val);
+                }
+                return $q->selectRaw("DATE($dateCol) as d, COUNT(*) as c")->groupBy('d')->pluck('c', 'd');
+            };
+            $pullingByDay = $countByDay('mutations', 'date', ['type' => 'checkout']);
+            $supplyByDay  = $countByDay('mutations', 'date', ['type' => 'supply']);
+            $pisByDay     = $countByDay('pis_scan_logs', 'scan_time');
+
+            $trend = collect(range(0, 6))->map(function ($i) use ($start7, $pullingByDay, $supplyByDay, $pisByDay) {
+                $d = $start7->copy()->addDays($i);
+                $key = $d->toDateString();
+                return [
+                    'label'    => $d->format('d/m'),
+                    'pulling'  => (int) ($pullingByDay[$key] ?? 0),
+                    'produksi' => (int) ($supplyByDay[$key] ?? 0),
+                    'pis'      => (int) ($pisByDay[$key] ?? 0),
+                ];
+            });
+
+            return [
+                'kpi' => [
+                    'prepTotal' => $prepTotal, 'prepComplete' => $prepComplete, 'prepPct' => $prepPct,
+                    'kanbanScanned' => $kanbanScanned, 'pullingDone' => $pullingDone,
+                    'produksi' => $produksi, 'totalPart' => $totalPart, 'underStock' => $stockUnder,
+                    'pisScan' => $pisScan, 'pisDone' => $pisDone,
+                    'errToday' => $errToday, 'errWeek' => $errWeek,
+                ],
+                'stock' => ['under' => $stockUnder, 'low' => $stockLow, 'in' => $stockIn],
+                'trend' => $trend->values(),
+                'prepByCycle' => $prepByCycle,
+                'topUnder' => $topUnder,
+                'recentErrors' => $recentErrors,
+            ];
+        });
+
+        return view('pages.dashboard_overview', ['d' => $data]);
+    }
+
+    /**
      * Halaman Production Stock (sebelumnya ada di index()).
      */
     public function productionStock()
