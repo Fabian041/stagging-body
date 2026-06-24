@@ -99,6 +99,7 @@ class DashboardController extends Controller
             $ll = \App\Models\LoadingList::query()
                 ->withSum('detail as total_kanban', 'kanban_qty')
                 ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->with('customer:id,name')
                 ->whereBetween('delivery_date', [$start, $end])
                 ->get();
 
@@ -193,6 +194,80 @@ class DashboardController extends Controller
                 ]);
             }
 
+            // ===== Perbandingan periode sebelumnya (#1) =====
+            $lenDays = $from->diffInDays($to) + 1;
+            $prevFrom = $from->copy()->subDays($lenDays)->startOfDay();
+            $prevTo   = $from->copy()->subDay()->endOfDay();
+            $prevKanban   = \App\Models\Mutation::where('type', 'checkout')->whereBetween('date', [$prevFrom, $prevTo])->count();
+            $prevPulling  = DB::table('pullings')->whereBetween('pulling_date', [$prevFrom, $prevTo])->count();
+            $prevProduksi = \App\Models\Mutation::where('type', 'supply')->whereBetween('date', [$prevFrom, $prevTo])->count();
+            $prevErr      = DB::table('error_logs')->whereBetween('date', [$prevFrom, $prevTo])->count();
+            $delta = fn ($cur, $prev) => $prev > 0 ? (int) round(($cur - $prev) / $prev * 100) : ($cur > 0 ? 100 : 0);
+
+            // ===== Error rate (#4) =====
+            $totalScans = $kanbanScanned + $produksi + $pisScan;
+            $errRate = $totalScans > 0 ? round($errPeriod / $totalScans * 100, 1) : 0;
+
+            // ===== Produksi per line (#2) =====
+            $prodByLine = DB::table('mutations')
+                ->join('internal_parts', 'internal_parts.id', '=', 'mutations.internal_part_id')
+                ->join('lines', 'lines.id', '=', 'internal_parts.line_id')
+                ->where('mutations.type', 'supply')
+                ->whereBetween('mutations.date', [$start, $end])
+                ->selectRaw('lines.name as line, COUNT(*) as c')
+                ->groupBy('lines.name')->orderByDesc('c')->limit(8)->get();
+
+            // ===== Preparation per customer (#2) =====
+            $prepByCustomer = $ll->groupBy(fn ($l) => optional($l->customer)->name ?: '-')
+                ->map(function ($items, $cust) use ($isComplete) {
+                    $total = $items->count();
+                    $complete = $items->filter($isComplete)->count();
+                    return [
+                        'customer' => (string) $cust, 'total' => $total, 'complete' => $complete,
+                        'pct' => $total > 0 ? (int) round($complete / $total * 100) : 0,
+                    ];
+                })->sortByDesc('total')->take(8)->values();
+
+            // ===== Jam tersibuk: heatmap hari x jam (#5) =====
+            $hm = DB::table('mutations')->whereIn('type', ['checkout', 'supply'])
+                ->whereBetween('date', [$start, $end])
+                ->selectRaw('DAYOFWEEK(date) as dow, HOUR(date) as h, COUNT(*) as c')
+                ->groupBy('dow', 'h')->get();
+            $matrix = [];
+            foreach ($hm as $r) {
+                $matrix[(int) $r->dow][(int) $r->h] = (int) $r->c;
+            }
+            $dowLabels = [1 => 'Min', 2 => 'Sen', 3 => 'Sel', 4 => 'Rab', 5 => 'Kam', 6 => 'Jum', 7 => 'Sab'];
+            // urutan dibalik agar Senin tampil paling atas (ApexCharts render seri pertama di bawah)
+            $heatmap = collect([1, 7, 6, 5, 4, 3, 2])->map(function ($dow) use ($matrix, $dowLabels) {
+                $row = [];
+                for ($h = 0; $h < 24; $h++) {
+                    $row[] = ['x' => sprintf('%02d', $h), 'y' => (int) ($matrix[$dow][$h] ?? 0)];
+                }
+                return ['name' => $dowLabels[$dow], 'data' => $row];
+            })->values();
+
+            // ===== Delivery berisiko (#6): hari ini + besok, belum lengkap =====
+            $atRisk = \App\Models\LoadingList::query()
+                ->withSum('detail as total_kanban', 'kanban_qty')
+                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+                ->with('customer:id,name')
+                ->whereBetween('delivery_date', [Carbon::today()->startOfDay(), Carbon::tomorrow()->endOfDay()])
+                ->get()
+                ->filter(fn ($l) => (int) ($l->total_kanban ?? 0) > 0 && (int) ($l->actual_kanban ?? 0) < (int) $l->total_kanban)
+                ->sortBy('delivery_date')
+                ->take(10)
+                ->map(fn ($l) => (object) [
+                    'id'       => $l->id,
+                    'number'   => $l->number,
+                    'customer' => optional($l->customer)->name,
+                    'cycle'    => $l->cycle,
+                    'delivery' => $l->delivery_date ? Carbon::parse($l->delivery_date)->format('d/m') : '-',
+                    'actual'   => (int) ($l->actual_kanban ?? 0),
+                    'total'    => (int) ($l->total_kanban ?? 0),
+                    'pct'      => (int) ($l->total_kanban ?? 0) > 0 ? (int) round(($l->actual_kanban ?? 0) / $l->total_kanban * 100) : 0,
+                ])->values();
+
             return [
                 'kpi' => [
                     'prepTotal' => $prepTotal, 'prepComplete' => $prepComplete, 'prepPct' => $prepPct,
@@ -200,12 +275,23 @@ class DashboardController extends Controller
                     'produksi' => $produksi, 'totalPart' => $totalPart, 'underStock' => $stockUnder,
                     'pisScan' => $pisScan, 'pisDone' => $pisDone, 'errPeriod' => $errPeriod,
                 ],
+                'delta' => [
+                    'kanban'   => $delta($kanbanScanned, $prevKanban),
+                    'pulling'  => $delta($pullingDone, $prevPulling),
+                    'produksi' => $delta($produksi, $prevProduksi),
+                    'err'      => $delta($errPeriod, $prevErr),
+                ],
+                'errRate' => $errRate,
                 'stock' => ['under' => $stockUnder, 'low' => $stockLow, 'in' => $stockIn],
                 'trend' => $trend->values(),
                 'prepByCycle' => $prepByCycle,
+                'prepByCustomer' => $prepByCustomer,
+                'prodByLine' => $prodByLine,
+                'heatmap' => $heatmap,
                 'topUnder' => $topUnder,
                 'errByArea' => $errByArea,
                 'recentErrors' => $recentErrors,
+                'atRisk' => $atRisk,
             ];
         });
     }
