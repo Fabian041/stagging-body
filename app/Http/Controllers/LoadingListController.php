@@ -661,156 +661,106 @@ class LoadingListController extends Controller
 
     public function detail(LoadingList $loadingList)
     {
-        $loadingListDetail = DB::table('loading_lists')
-                            ->join('loading_list_details', 'loading_lists.id', 'loading_list_details.loading_list_id')
-                            ->join('customers', 'customers.id', 'loading_lists.customer_id')
-                            ->select('loading_lists.number', 'loading_lists.pds_number', 'loading_lists.cycle', 'loading_lists.delivery_date', 'loading_lists.shipping_date', 'customers.name')
-                            ->where('loading_list_details.loading_list_id', $loadingList->id)
-                            ->first();
+        $loadingList->loadMissing('customer:id,name');
 
         return view('pages.loadingListDetail', [
-            'customers' => Customer::all(),
-            'loadingListDetail' => $loadingListDetail,
+            'loadingListDetail' => $loadingList,
             'loadingListId' => $loadingList->id,
         ]);
     }
 
     public function getLoadingListDetail(LoadingList $loadingList)
     {
-        $input = LoadingListDetail::with(['customerPart.internalPart'])
+        $details = LoadingListDetail::with(['customerPart.internalPart'])
             ->where('loading_list_id', $loadingList->id)
+            ->get()
+            ->map(function (LoadingListDetail $detail) {
+                $customerPart = $detail->customerPart;
+                $internalPart = $customerPart?->internalPart;
+
+                return [
+                    'id' => $detail->id,
+                    'loading_list_id' => $detail->loading_list_id,
+                    'customer_part_id' => $detail->customer_part_id,
+                    'cust_partno' => $customerPart?->part_number ?? '-',
+                    'int_partno' => $internalPart?->part_number ?? '-',
+                    'cust_backno' => $customerPart?->back_number ?? '-',
+                    'int_backno' => $internalPart?->back_number ?? '-',
+                    'kbn_qty' => (int) ($detail->kanban_qty ?? 0),
+                    'actual_kbn_qty' => (int) ($detail->actual_kanban_qty ?? 0),
+                ];
+            });
+
+        return response()->json(['data' => $details]);
+    }
+
+    public function getLoadingListDetailComparison(LoadingListDetail $detail)
+    {
+        $detail->loadMissing('customerPart:id,internal_part_id');
+        $internalPartId = $detail->customerPart?->internal_part_id;
+        $start = $detail->created_at;
+        $end = $detail->updated_at;
+
+        if (! $internalPartId || ! $start || ! $end || $start->equalTo($end)) {
+            return response()->json([
+                'detail_id' => $detail->id,
+                'pulling' => [],
+                'production' => [],
+            ]);
+        }
+
+        $checkouts = DB::table('mutations as checkout')
+            ->select('checkout.id', 'checkout.serial_number', 'checkout.qty', 'checkout.date', 'checkout.created_at')
+            ->selectSub(function ($query) {
+                $query->from('mutations as supply')
+                    ->select('supply.id')
+                    ->whereColumn('supply.internal_part_id', 'checkout.internal_part_id')
+                    ->where('supply.type', 'supply')
+                    ->whereColumn('supply.serial_number', 'checkout.serial_number')
+                    ->whereColumn('supply.created_at', '<', 'checkout.created_at')
+                    ->orderByDesc('supply.created_at')
+                    ->orderByDesc('supply.id')
+                    ->limit(1);
+            }, 'supply_id')
+            ->where('checkout.internal_part_id', $internalPartId)
+            ->where('checkout.type', 'checkout')
+            ->whereBetween('checkout.created_at', [$start, $end])
+            ->orderBy('checkout.created_at')
             ->get();
 
-        return DataTables::of($input)
-            ->addColumn('part_name', function ($row) {
-                return optional($row->customerPart->internalPart)->part_name ?? '-';
-            })
-            ->addColumn('cust_partno', function ($row) {
-                return '<span class="customerPart">'.(optional($row->customerPart)->part_number ?? '-').'</span>';
-            })
-            ->addColumn('int_partno', function ($row) {
-                return optional($row->customerPart->internalPart)->part_number ?? '-';
-            })
-            ->addColumn('cust_backno', function ($row) {
-                return '<span class="backNumber">'.(optional($row->customerPart)->back_number ?? '-').'</span>';
-            })
-            ->addColumn('int_backno', function ($row) {
-                return optional($row->customerPart->internalPart)->back_number ?? '-';
-            })
-            ->addColumn('kbn_qty', function ($row) {
-                return $row->kanban_qty;
-            })
-            ->addColumn('actual_kbn_qty', function ($row) {
-                return '<span class="actual">'.$row->actual_kanban_qty.'</span>
-                    <input id="editActual" class="form-control editActual" type="number"
-                        value="'.$row->actual_kanban_qty.'" data-width="100"
-                        style="border-radius:6px; display:none">';
-            })
-            // ✅ Pulling Date = mutations type checkout (window per detail) + bawa mutation_id
-            ->addColumn('pulling_date', function ($row) {
-                $internalPartId = optional($row->customerPart->internalPart)->id;
+        $supplies = DB::table('mutations')
+            ->whereIn('id', $checkouts->pluck('supply_id')->filter()->unique()->values()->all())
+            ->get(['id', 'date', 'qty'])
+            ->keyBy('id');
 
-                if (! $internalPartId) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+        $pulling = $checkouts->map(function ($checkout) {
+            return [
+                'id' => $checkout->id,
+                'serial_number' => $checkout->serial_number,
+                'date' => $checkout->date,
+                'qty' => $checkout->qty,
+            ];
+        });
 
-                $start = $row->created_at;
-                $end = $row->updated_at;
+        $production = $checkouts->map(function ($checkout) use ($supplies) {
+            $supply = $supplies->get($checkout->supply_id);
+            if (! $supply) {
+                return null;
+            }
 
-                if (! $start || ! $end || $start->equalTo($end)) {
-                    return '<span class="text-danger">N/A</span>';
-                }
+            return [
+                'id' => $supply->id,
+                'serial_number' => $checkout->serial_number,
+                'date' => $supply->date,
+                'qty' => $supply->qty,
+            ];
+        })->filter()->values();
 
-                $mutations = Mutation::query()
-                    ->select('id', 'serial_number', 'qty', 'date', 'created_at')
-                    ->where('internal_part_id', $internalPartId)
-                    ->where('type', 'checkout')
-                    ->whereBetween('created_at', [$start, $end])
-                    ->orderBy('created_at', 'asc')
-                    ->get();
-
-                if ($mutations->isEmpty()) {
-                    return '<span class="text-danger">N/A</span>';
-                }
-
-                $lines = [];
-                foreach ($mutations as $m) {
-                    // ⚠️ span ini penting: data-mid dipakai JS untuk delete per mutation
-                    $text = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
-                    $lines[] = '<span class="mline" data-mid="'.$m->id.'">'.e($text).'</span>';
-                }
-
-                return implode('<br>', $lines);
-            })
-
-            // ✅ Production Date = supply terakhir sebelum pulling (serial sama) + bawa supply_id jika ada
-            ->addColumn('prod_date', function ($row) {
-                $internalPartId = optional($row->customerPart->internalPart)->id;
-
-                if (! $internalPartId) {
-                    return '<span class="text-danger">N/A</span>';
-                }
-
-                $start = $row->created_at;
-                $end = $row->updated_at;
-
-                if (! $start || ! $end || $start->equalTo($end)) {
-                    return '<span class="text-danger">N/A</span>';
-                }
-
-                $checkouts = Mutation::query()
-                    ->select('id', 'serial_number', 'date', 'qty', 'created_at')
-                    ->where('internal_part_id', $internalPartId)
-                    ->where('type', 'checkout')
-                    ->whereBetween('created_at', [$start, $end])
-                    ->orderBy('created_at', 'asc')
-                    ->get();
-
-                if ($checkouts->isEmpty()) {
-                    return '<span class="text-danger">N/A</span>';
-                }
-
-                $lines = [];
-
-                foreach ($checkouts as $co) {
-                    $serial = $co->serial_number;
-
-                    $supply = Mutation::query()
-                        ->select('id', 'serial_number', 'date', 'qty', 'created_at')
-                        ->where('internal_part_id', $internalPartId)
-                        ->where('type', 'supply')
-                        ->where('serial_number', $serial)
-                        ->where('created_at', '<', $co->created_at)
-                        ->orderBy('created_at', 'desc')
-                        ->first();
-
-                    if (! $supply) {
-                        $text = "[{$serial}] - [N/A]";
-                        $lines[] = '<span class="mline" data-mid="">'.e($text).'</span>';
-
-                        continue;
-                    }
-
-                    $text = "[{$serial}] - [{$supply->date}] (qty: {$supply->qty})";
-                    $lines[] = '<span class="mline" data-mid="'.$supply->id.'">'.e($text).'</span>';
-                }
-
-                return implode('<br>', $lines);
-            })
-            ->addColumn('edit', function ($row) {
-                return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
-                    <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
-                    <button class="btn btn-icon btn-danger cancel" style="display: none"><i class="fas fa-times"></i></button>';
-            })
-            ->rawColumns([
-                'cust_partno',
-                'cust_backno',
-                'actual_kbn_qty',
-                'edit',
-                'pulling_date',
-                'prod_date',
-            ])
-            ->toJson();
+        return response()->json([
+            'detail_id' => $detail->id,
+            'pulling' => $pulling,
+            'production' => $production,
+        ]);
     }
 
     public function deletePullingMutation(LoadingListDetail $detail, Mutation $mutation)

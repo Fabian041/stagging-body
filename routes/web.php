@@ -148,6 +148,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/loading-list/absen-driver/scan-customer', [LoadingListController::class, 'scanDriverAbsenCustomer'])->name('loadingList.driverAbsen.scanCustomer');
     Route::get('/loading-list/absen-driver/cycles', [LoadingListController::class, 'getDriverAbsenCycles'])->name('loadingList.driverAbsen.cycles');
     Route::post('/loading-list/absen-driver/submit', [LoadingListController::class, 'submitDriverAbsen'])->name('loadingList.driverAbsen.submit');
+    Route::get('/loading-list-detail/{detail}/comparison', [LoadingListController::class, 'getLoadingListDetailComparison'])
+        ->name('loadingListDetail.comparison');
     Route::delete('/loading-list-detail/{detail}/pulling-mutation/{mutation}', [LoadingListController::class, 'deletePullingMutation']);
     Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
     Route::delete('/loading-list/{loadingList}', [LoadingListController::class, 'destroy'])->name('loadingList.destroy');

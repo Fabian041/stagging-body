@@ -1318,21 +1318,23 @@
     <script src={{ asset('assets/modules/moment.min.js') }}></script>
     <script src={{ asset('assets/js/stisla.js') }}></script>
     @unless (request()->routeIs('dashboard.overview'))
-    @if (request()->routeIs('loadingList.index'))
+    @if (request()->routeIs('loadingList.index', 'loadingList.detail'))
     <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/jquery.dataTables.min.js') }}></script>
     <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js') }}></script>
     @else
     <script src={{ asset('assets/modules/datatables/datatables.min.js') }}></script>
     @endif
-    @unless (request()->routeIs('loadingList.index'))
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail'))
     <script src={{ asset('assets/modules/jquery.sparkline.min.js') }}></script>
     <script src={{ asset('assets/modules/chart.min.js') }}></script>
     <script src={{ asset('assets/modules/owlcarousel2/dist/owl.carousel.min.js') }}></script>
     <script src={{ asset('assets/modules/summernote/summernote-bs4.js') }}></script>
     <script src={{ asset('assets/modules/chocolat/dist/js/jquery.chocolat.min.js') }}></script>
     @endunless
+    @unless (request()->routeIs('loadingList.detail'))
     <script src={{ asset('dist/assets/select2/dist/js/select2.full.min.js') }}></script>
-    @unless (request()->routeIs('loadingList.index'))
+    @endunless
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail'))
     <script src={{ asset('assets/js/page/bootstrap-modal.js') }}></script>
     <script src={{ asset('assets/js/page/index.js') }}></script>
     @endunless
