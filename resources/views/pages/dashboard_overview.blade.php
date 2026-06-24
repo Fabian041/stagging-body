@@ -297,19 +297,37 @@
                 return '<table class="ov-table"><thead><tr><th>Area</th><th>Pesan</th><th>Expected</th><th>Scanned</th><th>Waktu</th></tr></thead><tbody>' + body + '</tbody></table>';
             }
 
+            function urgencyColor(u) {
+                return u === 'overdue' ? '#dc2626' : (u === 'urgent' ? '#ea580c' : (u === 'soon' ? '#d97706' : (u === 'ok' ? '#16a34a' : '#94a3b8')));
+            }
+            function urgencyLabel(u) {
+                return u === 'overdue' ? 'LEWAT' : (u === 'urgent' ? 'URGENT' : (u === 'soon' ? 'SEGERA' : (u === 'ok' ? 'AMAN' : '—')));
+            }
+            function remLabel(min) {
+                if (min === null || min === undefined) return '';
+                var neg = min < 0, m = Math.abs(min), h = Math.floor(m / 60), mm = m % 60;
+                var s = (h > 0 ? h + 'j ' : '') + mm + 'm';
+                return neg ? ('lewat ' + s) : (s + ' lagi');
+            }
+
             function renderAtRisk(rows) {
                 if (!rows || !rows.length) return '<div class="ov-empty">Tidak ada delivery berisiko hari ini/besok. 👍</div>';
                 var body = rows.map(function (r) {
                     var col = r.pct >= 100 ? '#16a34a' : (r.pct > 0 ? '#d97706' : '#dc2626');
+                    var uc = urgencyColor(r.urgency);
+                    var truck = r.truck ? '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;"><i class="fas fa-truck"></i> ' + esc(r.truck) + '</div>' : '';
+                    var deadline = r.deadline ? esc(r.deadline) : '<span style="color:var(--text-muted);">—</span>';
                     return '<tr>' +
                         '<td><a class="ov-badge" href="' + LL_URL + '/' + encodeURIComponent(r.id) + '">' + esc(r.number || '-') + '</a></td>' +
                         '<td>' + esc(r.customer || '-') + '</td>' +
                         '<td>' + esc(r.cycle || '-') + '</td>' +
-                        '<td>' + esc(r.delivery || '-') + '</td>' +
-                        '<td style="min-width:140px;"><div class="ov-cycle__top" style="margin-bottom:3px;"><span>' + r.actual + '/' + r.total + '</span><span>' + r.pct + '%</span></div>' +
+                        '<td>' + deadline + truck + '</td>' +
+                        '<td style="white-space:nowrap;"><span class="ov-area-tag" style="background:' + uc + '1f;color:' + uc + ';border-color:' + uc + '66;">' + urgencyLabel(r.urgency) + '</span>' +
+                        (r.remaining !== null && r.remaining !== undefined ? ' <span style="font-size:11px;font-weight:700;color:' + uc + ';">' + remLabel(r.remaining) + '</span>' : '') + '</td>' +
+                        '<td style="min-width:130px;"><div class="ov-cycle__top" style="margin-bottom:3px;"><span>' + r.actual + '/' + r.total + '</span><span>' + r.pct + '%</span></div>' +
                         '<div class="ov-bar"><div class="ov-bar__fill" style="width:' + r.pct + '%;background:' + col + ';"></div></div></td></tr>';
                 }).join('');
-                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Delivery</th><th>Progress</th></tr></thead><tbody>' + body + '</tbody></table>';
+                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Prep</th><th>Status</th><th>Progress</th></tr></thead><tbody>' + body + '</tbody></table>';
             }
 
             function applyData(d) {

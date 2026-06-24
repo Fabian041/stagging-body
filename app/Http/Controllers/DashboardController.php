@@ -247,7 +247,22 @@ class DashboardController extends Controller
                 return ['name' => $dowLabels[$dow], 'data' => $row];
             })->values();
 
-            // ===== Delivery berisiko (#6): hari ini + besok, belum lengkap =====
+            // ===== Delivery berisiko (#6): hari ini + besok, belum lengkap, + deadline master cycle =====
+            // Lookup master cycle per (customer_id, cycle) — cocokkan exact lalu by-angka.
+            $mcRows = \App\Models\MasterCycle::get(['customer_id', 'cycle_name', 'truck_time', 'prep_end_time', 'prep_day_offset', 'prep_end_day_offset']);
+            $normCycle = fn ($s) => strtolower(trim((string) $s));
+            $digitCycle = function ($s) { preg_match('/\d+/', (string) $s, $m); return $m[0] ?? ''; };
+            $mcExact = [];
+            $mcDigit = [];
+            foreach ($mcRows as $row) {
+                $mcExact[$row->customer_id . '|' . $normCycle($row->cycle_name)] = $row;
+                $dg = $digitCycle($row->cycle_name);
+                if ($dg !== '') {
+                    $mcDigit[$row->customer_id . '|' . $dg] = $row;
+                }
+            }
+
+            $now = now();
             $atRisk = \App\Models\LoadingList::query()
                 ->withSum('detail as total_kanban', 'kanban_qty')
                 ->withSum('detail as actual_kanban', 'actual_kanban_qty')
@@ -255,18 +270,45 @@ class DashboardController extends Controller
                 ->whereBetween('delivery_date', [Carbon::today()->startOfDay(), Carbon::tomorrow()->endOfDay()])
                 ->get()
                 ->filter(fn ($l) => (int) ($l->total_kanban ?? 0) > 0 && (int) ($l->actual_kanban ?? 0) < (int) $l->total_kanban)
-                ->sortBy('delivery_date')
+                ->map(function ($l) use ($mcExact, $mcDigit, $normCycle, $digitCycle, $now) {
+                    $m = $mcExact[$l->customer_id . '|' . $normCycle($l->cycle)]
+                        ?? ($mcDigit[$l->customer_id . '|' . $digitCycle($l->cycle)] ?? null);
+
+                    $deadline = null;
+                    $remaining = null;
+                    $urgency = 'unknown';
+                    $truck = null;
+                    if ($m) {
+                        $truck = $m->truck_time ? substr($m->truck_time, 0, 5) : null;
+                        if ($m->prep_end_time && $l->delivery_date) {
+                            $endOffset = $m->prep_end_day_offset !== null
+                                ? (int) $m->prep_end_day_offset
+                                : (int) ($m->prep_day_offset ?? 0);
+                            $dl = Carbon::parse($l->delivery_date)->addDays($endOffset)->setTimeFromTimeString($m->prep_end_time);
+                            $deadline = $dl->format('d/m H:i');
+                            $remaining = (int) floor(($dl->getTimestamp() - $now->getTimestamp()) / 60); // menit; negatif = lewat
+                            $urgency = $remaining < 0 ? 'overdue' : ($remaining <= 60 ? 'urgent' : ($remaining <= 180 ? 'soon' : 'ok'));
+                        }
+                    }
+
+                    return (object) [
+                        'id'        => $l->id,
+                        'number'    => $l->number,
+                        'customer'  => optional($l->customer)->name,
+                        'cycle'     => $l->cycle,
+                        'deadline'  => $deadline,
+                        'truck'     => $truck,
+                        'remaining' => $remaining,
+                        'urgency'   => $urgency,
+                        'sortKey'   => $remaining ?? 999999,
+                        'actual'    => (int) ($l->actual_kanban ?? 0),
+                        'total'     => (int) ($l->total_kanban ?? 0),
+                        'pct'       => (int) ($l->total_kanban ?? 0) > 0 ? (int) round(($l->actual_kanban ?? 0) / $l->total_kanban * 100) : 0,
+                    ];
+                })
+                ->sortBy('sortKey')
                 ->take(10)
-                ->map(fn ($l) => (object) [
-                    'id'       => $l->id,
-                    'number'   => $l->number,
-                    'customer' => optional($l->customer)->name,
-                    'cycle'    => $l->cycle,
-                    'delivery' => $l->delivery_date ? Carbon::parse($l->delivery_date)->format('d/m') : '-',
-                    'actual'   => (int) ($l->actual_kanban ?? 0),
-                    'total'    => (int) ($l->total_kanban ?? 0),
-                    'pct'      => (int) ($l->total_kanban ?? 0) > 0 ? (int) round(($l->actual_kanban ?? 0) / $l->total_kanban * 100) : 0,
-                ])->values();
+                ->values();
 
             return [
                 'kpi' => [
