@@ -912,7 +912,7 @@
                 }
 
                 // 1) DANDORI
-                if (barcodecomplete.endsWith('dandori')) {
+                if (barcodecomplete.endsWith('dandori') || barcodecomplete.endsWith('DANDORI')) {
                     const cleaned = barcodecomplete
                         .replace(/-dandori$/i, '')
                         .replace(/^\p{C}+/gu, '')
@@ -959,7 +959,7 @@
                 }
 
                 // 2) MASTER / MODEL
-                if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
+                if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')  || barcodecomplete.endsWith('MODEL')) {
                     const model = barcodecomplete
                         .replace(/-model$/i, '')
                         .replace(/^\p{C}+/gu, '')
