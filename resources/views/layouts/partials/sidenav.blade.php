@@ -52,7 +52,16 @@
                 <i class="fas fa-chart-bar"></i>
                 Preparation Monitoring
             </a>
-            <a class="sb-sub-item {{ request()->is('loading-list') || request()->is('loading-list/*') ? 'active' : '' }}"
+            @php
+                $loadingListDetailActive = (request()->is('loading-list') || request()->is('loading-list/*'))
+                    && !request()->is('loading-list/absen-driver*');
+            @endphp
+            <a class="sb-sub-item {{ request()->is('loading-list/absen-driver*') ? 'active' : '' }}"
+                href="{{ route('loadingList.driverAbsen') }}">
+                <i class="fas fa-truck"></i>
+                Absen Driver
+            </a>
+            <a class="sb-sub-item {{ $loadingListDetailActive ? 'active' : '' }}"
                 href="{{ route('loadingList.index') }}">
                 <i class="fas fa-truck-loading"></i>
                 Preparation Detail

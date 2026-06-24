@@ -142,11 +142,11 @@ Route::middleware(['auth'])->group(function () {
     // loading list
     Route::get('/kanban/scanned', [LoadingListController::class, 'kanbanScanned'])->name('kanban.scanned');
     Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
-    // Route::get('/loading-list/absen-driver', [LoadingListController::class, 'driverAbsen'])->name('loadingList.driverAbsen');
-    // Route::get('/loading-list/absen-driver/data', [LoadingListController::class, 'getDriverAbsenData'])->name('loadingList.driverAbsen.data');
-    // Route::post('/loading-list/absen-driver/scan-customer', [LoadingListController::class, 'scanDriverAbsenCustomer'])->name('loadingList.driverAbsen.scanCustomer');
-    // Route::get('/loading-list/absen-driver/cycles', [LoadingListController::class, 'getDriverAbsenCycles'])->name('loadingList.driverAbsen.cycles');
-    // Route::post('/loading-list/absen-driver/submit', [LoadingListController::class, 'submitDriverAbsen'])->name('loadingList.driverAbsen.submit');
+    Route::get('/loading-list/absen-driver', [LoadingListController::class, 'driverAbsen'])->name('loadingList.driverAbsen');
+    Route::get('/loading-list/absen-driver/data', [LoadingListController::class, 'getDriverAbsenData'])->name('loadingList.driverAbsen.data');
+    Route::post('/loading-list/absen-driver/scan-customer', [LoadingListController::class, 'scanDriverAbsenCustomer'])->name('loadingList.driverAbsen.scanCustomer');
+    Route::get('/loading-list/absen-driver/cycles', [LoadingListController::class, 'getDriverAbsenCycles'])->name('loadingList.driverAbsen.cycles');
+    Route::post('/loading-list/absen-driver/submit', [LoadingListController::class, 'submitDriverAbsen'])->name('loadingList.driverAbsen.submit');
     Route::delete('/loading-list-detail/{detail}/pulling-mutation/{mutation}', [LoadingListController::class, 'deletePullingMutation']);
     Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
     Route::delete('/loading-list/{loadingList}', [LoadingListController::class, 'destroy'])->name('loadingList.destroy');
