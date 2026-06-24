@@ -315,19 +315,24 @@
                 var body = rows.map(function (r) {
                     var col = r.pct >= 100 ? '#16a34a' : (r.pct > 0 ? '#d97706' : '#dc2626');
                     var uc = urgencyColor(r.urgency);
-                    var truck = r.truck ? '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;"><i class="fas fa-truck"></i> ' + esc(r.truck) + '</div>' : '';
-                    var deadline = r.deadline ? esc(r.deadline) : '<span style="color:var(--text-muted);">—</span>';
+                    var dlCell = r.deadline
+                        ? '<span style="font-weight:800;">' + esc(r.deadline) + '</span>'
+                        : '<span style="color:var(--text-muted);font-size:11px;">belum diset</span>';
+                    var truckCell = r.truck
+                        ? '<span style="font-weight:700;"><i class="fas fa-truck" style="color:var(--text-muted);margin-right:4px;"></i>' + esc(r.truck) + '</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
                     return '<tr>' +
                         '<td><a class="ov-badge" href="' + LL_URL + '/' + encodeURIComponent(r.id) + '">' + esc(r.number || '-') + '</a></td>' +
                         '<td>' + esc(r.customer || '-') + '</td>' +
                         '<td>' + esc(r.cycle || '-') + '</td>' +
-                        '<td>' + deadline + truck + '</td>' +
+                        '<td style="white-space:nowrap;">' + dlCell + '</td>' +
+                        '<td style="white-space:nowrap;">' + truckCell + '</td>' +
                         '<td style="white-space:nowrap;"><span class="ov-area-tag" style="background:' + uc + '1f;color:' + uc + ';border-color:' + uc + '66;">' + urgencyLabel(r.urgency) + '</span>' +
                         (r.remaining !== null && r.remaining !== undefined ? ' <span style="font-size:11px;font-weight:700;color:' + uc + ';">' + remLabel(r.remaining) + '</span>' : '') + '</td>' +
                         '<td style="min-width:130px;"><div class="ov-cycle__top" style="margin-bottom:3px;"><span>' + r.actual + '/' + r.total + '</span><span>' + r.pct + '%</span></div>' +
                         '<div class="ov-bar"><div class="ov-bar__fill" style="width:' + r.pct + '%;background:' + col + ';"></div></div></td></tr>';
                 }).join('');
-                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Prep</th><th>Status</th><th>Progress</th></tr></thead><tbody>' + body + '</tbody></table>';
+                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Prep</th><th>ETA Truck</th><th>Status</th><th>Progress</th></tr></thead><tbody>' + body + '</tbody></table>';
             }
 
             function applyData(d) {

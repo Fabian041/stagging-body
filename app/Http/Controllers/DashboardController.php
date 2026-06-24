@@ -285,7 +285,7 @@ class DashboardController extends Controller
                                 ? (int) $m->prep_end_day_offset
                                 : (int) ($m->prep_day_offset ?? 0);
                             $dl = Carbon::parse($l->delivery_date)->addDays($endOffset)->setTimeFromTimeString($m->prep_end_time);
-                            $deadline = $dl->format('d/m H:i');
+                            $deadline = $dl->format('d M, H:i');
                             $remaining = (int) floor(($dl->getTimestamp() - $now->getTimestamp()) / 60); // menit; negatif = lewat
                             $urgency = $remaining < 0 ? 'overdue' : ($remaining <= 60 ? 'urgent' : ($remaining <= 180 ? 'soon' : 'ok'));
                         }
