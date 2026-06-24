@@ -71,11 +71,6 @@
                 <i class="fas fa-sync-alt"></i>
                 Kanban Reset
             </a>
-            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
-                href="{{ route('pulling.master-alamat-chute') }}">
-                <i class="fas fa-map-marker-alt"></i>
-                Alamat Chute
-            </a>
         </div>
 
         {{-- ── Production ── --}}
@@ -134,10 +129,24 @@
                 <i class="fas fa-list-alt"></i>
                 Scan List
             </a>
+        </div>
+
+         <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
+            <i class="fas fa-database sb-icon"></i>
+            <span class="sb-item-label">Master Data</span>
+            <i class="fas fa-chevron-right sb-chevron"></i>
+            <span class="sb-item-tooltip">Master Data</span>
+        </div>
+        <div class="sb-submenu">
             <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
                 href="{{ route('pis.master') }}">
                 <i class="fas fa-database"></i>
-                Master Data
+                Master Data PIS
+            </a>
+            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
+                href="{{ route('pulling.master-alamat-chute') }}">
+                <i class="fas fa-map-marker-alt"></i>
+                Alamat Chute
             </a>
         </div>
 
