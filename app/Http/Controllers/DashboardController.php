@@ -35,19 +35,71 @@ class DashboardController extends Controller
     }
 
     /**
-     * Dashboard Overview: ringkasan KPI lintas area (PPIC, Production, PIS, Error).
+     * Dashboard Overview: ringkasan & analisis lintas area (PPIC, Production, PIS, Error).
      */
-    public function overview()
+    public function overview(Request $request)
     {
-        $data = Cache::remember('dashboard_overview_v2', 60, function () {
-            $today = Carbon::today();
-            $start7 = Carbon::today()->subDays(6);
+        [$from, $to] = $this->overviewRange($request);
 
-            // ===== PPIC: loading list delivery hari ini =====
+        return view('pages.dashboard_overview', [
+            'd'    => $this->buildOverviewData($from, $to),
+            'from' => $from->toDateString(),
+            'to'   => $to->toDateString(),
+        ]);
+    }
+
+    /**
+     * Data overview untuk auto-refresh (JSON).
+     */
+    public function overviewData(Request $request)
+    {
+        [$from, $to] = $this->overviewRange($request);
+
+        return response()->json($this->buildOverviewData($from, $to) + [
+            'from' => $from->toDateString(),
+            'to'   => $to->toDateString(),
+        ]);
+    }
+
+    /** Rentang tanggal overview: default 7 hari terakhir, maksimal 31 hari. */
+    private function overviewRange(Request $request): array
+    {
+        try {
+            $to = $request->filled('to') ? Carbon::parse($request->input('to')) : Carbon::today();
+        } catch (\Throwable $e) {
+            $to = Carbon::today();
+        }
+        try {
+            $from = $request->filled('from') ? Carbon::parse($request->input('from')) : $to->copy()->subDays(6);
+        } catch (\Throwable $e) {
+            $from = $to->copy()->subDays(6);
+        }
+
+        $from = $from->startOfDay();
+        $to = $to->startOfDay();
+        if ($from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+        if ($from->lt($to->copy()->subDays(30))) {
+            $from = $to->copy()->subDays(30); // batasi maksimal 31 hari
+        }
+
+        return [$from, $to];
+    }
+
+    private function buildOverviewData(Carbon $from, Carbon $to): array
+    {
+        $cacheKey = 'dashboard_overview_v3_' . $from->toDateString() . '_' . $to->toDateString();
+
+        return Cache::remember($cacheKey, 60, function () use ($from, $to) {
+            $start = $from->copy()->startOfDay();
+            $end = $to->copy()->endOfDay();
+
+            // ===== PPIC: loading list delivery dalam rentang =====
             $ll = \App\Models\LoadingList::query()
                 ->withSum('detail as total_kanban', 'kanban_qty')
                 ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-                ->whereDate('delivery_date', $today)
+                ->whereBetween('delivery_date', [$start, $end])
                 ->get();
 
             $isComplete = fn ($l) => (int) ($l->total_kanban ?? 0) > 0
@@ -57,10 +109,6 @@ class DashboardController extends Controller
             $prepComplete = $ll->filter($isComplete)->count();
             $prepPct = $prepTotal > 0 ? (int) round($prepComplete / $prepTotal * 100) : 0;
 
-            $kanbanScanned = \App\Models\Mutation::where('type', 'checkout')->whereDate('date', $today)->count();
-            $pullingDone = DB::table('pullings')->whereDate('pulling_date', $today)->count();
-
-            // Preparation per cycle (delivery hari ini)
             $prepByCycle = $ll->groupBy(fn ($l) => $l->cycle ?: '-')
                 ->map(function ($items, $cycle) use ($isComplete) {
                     $total = $items->count();
@@ -71,12 +119,14 @@ class DashboardController extends Controller
                         'complete' => $complete,
                         'pct'      => $total > 0 ? (int) round($complete / $total * 100) : 0,
                     ];
-                })
-                ->sortBy('cycle')->values();
+                })->sortBy('cycle')->values();
 
-            // ===== Production =====
-            $produksi = \App\Models\Mutation::where('type', 'supply')->whereDate('date', $today)->count();
+            $kanbanScanned = \App\Models\Mutation::where('type', 'checkout')->whereBetween('date', [$start, $end])->count();
+            $pullingDone = DB::table('pullings')->whereBetween('pulling_date', [$start, $end])->count();
+            $produksi = \App\Models\Mutation::where('type', 'supply')->whereBetween('date', [$start, $end])->count();
+            $pisScan = DB::table('pis_scan_logs')->whereBetween('scan_time', [$start, $end])->count();
 
+            // ===== Stok (snapshot, tidak tergantung tanggal) =====
             $stockRows = DB::table('internal_parts')
                 ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
                 ->selectRaw('COALESCE(production_stocks.current_stock, 0) as cur, COALESCE(internal_parts.standard_stock, 0) as std')
@@ -94,28 +144,35 @@ class DashboardController extends Controller
                     COALESCE(internal_parts.standard_stock, 0) as std,
                     (COALESCE(internal_parts.standard_stock, 0) - COALESCE(production_stocks.current_stock, 0)) as gap')
                 ->whereRaw('COALESCE(production_stocks.current_stock, 0) < COALESCE(internal_parts.standard_stock, 0)')
-                ->orderByRaw('gap DESC')
-                ->limit(8)
-                ->get();
+                ->orderByRaw('gap DESC')->limit(8)->get();
 
             // ===== PIS =====
-            $pisScan = DB::table('pis_scan_logs')->whereDate('scan_time', $today)->count();
             $pisDone = DB::table('pis_scan_details')
                 ->where('target_qty', '>', 0)
                 ->whereColumn('scanned_qty', '>=', 'target_qty')
                 ->count();
 
-            // ===== Error =====
-            $errToday = DB::table('error_logs')->whereDate('date', $today)->count();
-            $errWeek = DB::table('error_logs')->whereDate('date', '>=', $start7)->count();
+            // ===== Error dalam rentang =====
+            $errPeriod = DB::table('error_logs')->whereBetween('date', [$start, $end])->count();
+            $errByArea = DB::table('error_logs')->whereBetween('date', [$start, $end])
+                ->selectRaw('area, COUNT(*) as c')
+                ->groupBy('area')->orderByDesc('c')->limit(6)->get();
             $recentErrors = DB::table('error_logs')
-                ->orderByDesc('date')
-                ->limit(8)
-                ->get(['area', 'message', 'expected', 'scanned', 'date']);
+                ->orderByDesc('date')->limit(8)
+                ->get(['area', 'message', 'expected', 'scanned', 'date'])
+                ->map(function ($e) {
+                    return (object) [
+                        'area'     => $e->area,
+                        'message'  => $e->message,
+                        'expected' => $e->expected,
+                        'scanned'  => $e->scanned,
+                        'date'     => $e->date ? Carbon::parse($e->date)->format('d/m H:i') : '-',
+                    ];
+                });
 
-            // ===== Tren 7 hari (pulling vs produksi vs PIS) =====
-            $countByDay = function ($table, $dateCol, $where = []) use ($start7) {
-                $q = DB::table($table)->where($dateCol, '>=', $start7->copy()->startOfDay());
+            // ===== Tren per hari (rentang) =====
+            $countByDay = function ($table, $dateCol, $where = []) use ($start, $end) {
+                $q = DB::table($table)->whereBetween($dateCol, [$start, $end]);
                 foreach ($where as $col => $val) {
                     $q->where($col, $val);
                 }
@@ -125,34 +182,32 @@ class DashboardController extends Controller
             $supplyByDay  = $countByDay('mutations', 'date', ['type' => 'supply']);
             $pisByDay     = $countByDay('pis_scan_logs', 'scan_time');
 
-            $trend = collect(range(0, 6))->map(function ($i) use ($start7, $pullingByDay, $supplyByDay, $pisByDay) {
-                $d = $start7->copy()->addDays($i);
-                $key = $d->toDateString();
-                return [
-                    'label'    => $d->format('d/m'),
+            $trend = collect();
+            for ($c = $from->copy(); $c->lte($to); $c->addDay()) {
+                $key = $c->toDateString();
+                $trend->push([
+                    'label'    => $c->format('d/m'),
                     'pulling'  => (int) ($pullingByDay[$key] ?? 0),
                     'produksi' => (int) ($supplyByDay[$key] ?? 0),
                     'pis'      => (int) ($pisByDay[$key] ?? 0),
-                ];
-            });
+                ]);
+            }
 
             return [
                 'kpi' => [
                     'prepTotal' => $prepTotal, 'prepComplete' => $prepComplete, 'prepPct' => $prepPct,
                     'kanbanScanned' => $kanbanScanned, 'pullingDone' => $pullingDone,
                     'produksi' => $produksi, 'totalPart' => $totalPart, 'underStock' => $stockUnder,
-                    'pisScan' => $pisScan, 'pisDone' => $pisDone,
-                    'errToday' => $errToday, 'errWeek' => $errWeek,
+                    'pisScan' => $pisScan, 'pisDone' => $pisDone, 'errPeriod' => $errPeriod,
                 ],
                 'stock' => ['under' => $stockUnder, 'low' => $stockLow, 'in' => $stockIn],
                 'trend' => $trend->values(),
                 'prepByCycle' => $prepByCycle,
                 'topUnder' => $topUnder,
+                'errByArea' => $errByArea,
                 'recentErrors' => $recentErrors,
             ];
         });
-
-        return view('pages.dashboard_overview', ['d' => $data]);
     }
 
     /**
