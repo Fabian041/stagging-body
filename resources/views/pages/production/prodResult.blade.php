@@ -1071,6 +1071,12 @@
             $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function () { currentPage = 1; apply(); });
 
             apply();
+
+            // Prefill dari global search: ?back_number=XXX
+            const bnParam = new URLSearchParams(window.location.search).get('back_number');
+            if (bnParam) {
+                $('#bnFilter').val(bnParam).trigger('input');
+            }
         });
     </script>
 

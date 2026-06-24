@@ -18,6 +18,7 @@ use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PisController;
 
 /*
@@ -118,6 +119,8 @@ Route::middleware(['auth'])->post('/refresh-token', function () {
 
     return response()->json(['success' => false, 'message' => 'User not authenticated'], 401);
 });
+
+Route::middleware(['auth'])->get('/global-search', [GlobalSearchController::class, 'search'])->name('global-search');
 
 // authenticated user
 Route::middleware(['auth'])->group(function () {

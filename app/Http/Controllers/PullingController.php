@@ -30,9 +30,12 @@ use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpMqtt\Client\ConnectionSettings;
+use App\Support\ConvertsCustomerPartNumber;
 
 class PullingController extends Controller
 {
+    use ConvertsCustomerPartNumber;
+
     private static $loadingListsCache = [];
     private static $internalPartsCache = [];
 
@@ -121,12 +124,6 @@ class PullingController extends Controller
 
     public function convertPartNumber($loadingList, $customerPart)
     {
-        // get part number length
-        $codeLength = strlen($customerPart);
-
-        // check last two digit of partNumber 
-        $lastDigit = substr($customerPart, -2);
-
         if (!isset(self::$loadingListsCache[$loadingList])) {
             self::$loadingListsCache[$loadingList] = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
         }
@@ -138,40 +135,7 @@ class PullingController extends Controller
             ];
         }
 
-        // check part number customer length
-        if ($codeLength == 12) {
-            // TMMIN
-            if ($lastDigit != '00') {
-                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -2);
-            } else {
-                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
-            }
-        } else if ($codeLength == 10) {
-            if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
-                // SUZUKI
-                // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
-                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
-            } else {
-                if ($loadingListId->customer_id == 6 || $loadingListId->customer_id == 23 || $loadingListId->customer_id == 24) {
-                    // MMKI
-                    $convertedPartNumber = $customerPart;
-                } else {
-                    // TBINA
-                    $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
-                }
-            }
-        } else if ($codeLength == 13) {
-            // SUZUKI
-            if ($lastDigit != '000') {
-                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
-            } else {
-                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
-            }
-        } else {
-            $convertedPartNumber = $customerPart;
-        }
-
-        return $convertedPartNumber;
+        return $this->convertCustomerPartNumber($customerPart, $loadingListId->customer_id);
     }
 
     /**
@@ -1231,41 +1195,9 @@ class PullingController extends Controller
                 $kanbans = array_count_values(array_column(json_decode(json_encode($data[$i]->items), true), 'part_number_cust'));
 
                 foreach ($kanbans as $kanban_cust => $actual_scanned) {
-                    $lastDigit = substr($kanban_cust, -2);
                     $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $data[$i]->loading_list_number)->first();
 
-                    // check part number customer length
-                    if (strlen($kanban_cust) == 12) {
-                        // TMMIN
-                        if ($lastDigit != '00') {
-                            $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -2);
-                        } else {
-                            $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -2);
-                        }
-                    } else if (strlen($kanban_cust) == 10) {
-                        if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
-                            // SUZUKI
-                            // $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
-                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
-                        } else {
-                            if ($loadingListId->customer_id == 6) {
-                                // MMKI
-                                $convertedPartNumber = $kanban_cust;
-                            } else {
-                                // TBINA
-                                $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
-                            }
-                        }
-                    } else if (strlen($kanban_cust) == 13) {
-                        // SUZUKI
-                        if ($lastDigit != '000') {
-                            $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -3);
-                        } else {
-                            $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -3);
-                        }
-                    } else {
-                        $convertedPartNumber = $kanban_cust;
-                    }
+                    $convertedPartNumber = $this->convertCustomerPartNumber($kanban_cust, $loadingListId->customer_id);
 
                     // get customer part id
                     $customerPart = CustomerPart::select('id')

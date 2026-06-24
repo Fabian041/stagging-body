@@ -1469,3 +1469,37 @@
 
     connectMQTT();
 </script>
+
+<style>
+    .stock-table tbody tr.stock-flash>td {
+        background: #fff7cc !important;
+        transition: background .4s ease;
+    }
+</style>
+
+<script>
+    // Prefill dari global search: ?back_number=XXX → aktifkan tab line, scroll + sorot barisnya
+    (function () {
+        const bn = new URLSearchParams(window.location.search).get('back_number');
+        if (!bn) return;
+
+        const badges = document.querySelectorAll('#myTabContent2 .back-number-badge');
+        for (let i = 0; i < badges.length; i++) {
+            if ((badges[i].textContent || '').trim() !== bn) continue;
+
+            const row = badges[i].closest('tr');
+            const pane = badges[i].closest('.tab-pane');
+            const tabLink = pane ? document.querySelector('a[data-toggle="tab"][href="#' + pane.id + '"]') : null;
+
+            if (tabLink) tabLink.click(); // aktifkan tab line yang benar (via data-api bootstrap)
+
+            setTimeout(function () {
+                if (!row) return;
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('stock-flash');
+                setTimeout(function () { row.classList.remove('stock-flash'); }, 2000);
+            }, 250);
+            break;
+        }
+    })();
+</script>
