@@ -569,9 +569,9 @@
                                 </div>
 
                                 <div class="form-group pis_picture_group">
-                                    <label>Picture (.JPG) <span class="text-danger">(*required)</span></label>
+                                    <label>Picture (.JPG, .WEBP) <span class="text-danger">(*required)</span></label>
                                     <input type="file" class="pis_picture form-control-file" name="pis_picture[]"
-                                        accept=".jpg,.jpeg,.png" style="font-size:12px;">
+                                        accept=".jpg,.jpeg,.png,.webp" style="font-size:12px;">
                                     <small class="text-muted d-block mt-1" style="font-size:10.5px;">
                                         Gambar dikompresi saat upload &amp; saat ditampilkan (max 800px).
                                     </small>
@@ -719,7 +719,7 @@
                     Swal.fire({
                         icon: 'warning',
                         title: 'Invalid File',
-                        text: 'File yang diupload harus berupa gambar (.JPG, .JPEG, .PNG)!'
+                        text: 'File yang diupload harus berupa gambar (.JPG, .JPEG, .PNG, .WEBP)!'
                     });
                     $(this).val('');
                 }
@@ -835,7 +835,7 @@
             return false;
         }
 
-        /** Kompres gambar di browser sebelum upload (max 800px, JPEG quality 0.82). */
+        /** Kompres gambar di browser sebelum upload (max 800px, WEBP quality 0.82). */
         function compressPisImageFile(file) {
             return new Promise(function(resolve) {
                 if (!file || !file.type || file.type.indexOf('image/') !== 0) {
@@ -868,11 +868,11 @@
                                 return;
                             }
                             var baseName = (file.name || 'picture').replace(/\.[^.]+$/i, '');
-                            resolve(new File([blob], baseName + '.jpg', {
-                                type: 'image/jpeg',
+                            resolve(new File([blob], baseName + '.webp', {
+                                type: 'image/webp',
                                 lastModified: Date.now()
                             }));
-                        }, 'image/jpeg', quality);
+                        }, 'image/webp', quality);
                     };
                     img.onerror = function() { resolve(file); };
                     img.src = e.target.result;

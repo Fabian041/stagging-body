@@ -441,10 +441,10 @@
                             </div>
 
                             <div class="form-group pis_picture_group">
-                                <label for="part_picture">Picture (.JPG, .JPEG, .PNG)</label>
+                                <label for="part_picture">Picture (.JPG, .JPEG, .PNG, .WEBP)</label>
                                 <div class="custom-file">
                                     <input type="file" class="custom-file-input" id="part_picture"
-                                        name="part_picture" accept=".jpg,.jpeg,.png" onchange="previewImage(event)">
+                                        name="part_picture" accept=".jpg,.jpeg,.png,.webp" onchange="previewImage(event)">
                                     <label class="custom-file-label" for="part_picture">Choose file</label>
                                 </div>
                                 <small class="form-text text-muted" style="font-size:11px;">Leave empty to keep current
@@ -603,7 +603,7 @@
                     Swal.fire({
                         icon: 'warning',
                         title: 'Invalid File',
-                        text: 'File yang diupload harus berupa gambar (.JPG, .JPEG, .PNG)!'
+                        text: 'File yang diupload harus berupa gambar (.JPG, .JPEG, .PNG, .WEBP)!'
                     });
                     event.target.value = '';
                     resetPreview();

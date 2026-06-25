@@ -508,23 +508,29 @@
                 }
             };
 
+            var addBase = function (base) {
+                if (!base) return;
+                add(base + '.webp');
+                add(base + '.JPG');
+            };
+
             for (var di = 0; di < docks.length; di++) {
                 var dock = docks[di];
-                // Pola utama: [PART_CUST]-[TYPE]-[DOCK].JPG
+                // Pola utama: [PART_CUST]-[TYPE]-[DOCK] — utamakan .webp, fallback .JPG
                 if (custSanitized) {
-                    add(custSanitized + '-' + type + '-' + dock + '.JPG');
+                    addBase(custSanitized + '-' + type + '-' + dock);
                 }
                 if (custNoDash && custNoDash !== custSanitized) {
-                    add(custNoDash + '-' + type + '-' + dock + '.JPG');
+                    addBase(custNoDash + '-' + type + '-' + dock);
                 }
             }
 
-            // Fallback tambahan: hanya [PART_CUST].JPG
+            // Fallback tambahan: hanya [PART_CUST]
             if (custSanitized) {
-                add(custSanitized + '.JPG');
+                addBase(custSanitized);
             }
             if (custNoDash && custNoDash !== custSanitized) {
-                add(custNoDash + '.JPG');
+                addBase(custNoDash);
             }
 
             var idx = 0;
