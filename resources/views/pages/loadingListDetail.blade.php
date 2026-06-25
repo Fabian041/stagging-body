@@ -959,7 +959,7 @@
                     <div class="bella-info-icon"><i class="fas fa-building"></i></div>
                     <div class="bella-info-text">
                         <label>Customer</label>
-                        <span class="info-val">{{ $loadingListDetail->name }}</span>
+                        <span class="info-val">{{ optional($loadingListDetail->customer)->name ?? '-' }}</span>
                     </div>
                 </div>
                 <div class="bella-info-field">
@@ -1113,13 +1113,7 @@
     </div>
 </div>
 
-{{-- Scripts --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
-<script src="https://code.jquery.com/jquery-3.6.3.min.js"
-    integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-<script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
+@push('scripts')
 <script>
     $(document).ready(function() {
         const loadingList = "{{ $loadingListId }}";
@@ -1204,10 +1198,6 @@
         /* =========================================================
          * HELPERS
          * ======================================================= */
-        function decodeEscapedBr(s) {
-            return String(s || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
-        }
-
         function isMaskedSerial(serial) {
             if (!serial) return true;
             const s = String(serial).trim().toLowerCase();
@@ -1217,34 +1207,15 @@
             return false;
         }
 
-        function extractSerialFromText(text) {
-            const m = String(text).match(/\[([^\]]+)\]/);
-            const serial = m ? m[1].trim() : null;
-            if (!serial) return null;
-            if (isMaskedSerial(serial)) return null;
-            return serial;
-        }
+        function mutationItem(item) {
+            const serial = String(item.serial_number || '').trim();
+            if (!serial || isMaskedSerial(serial)) return null;
 
-        function parseMutationHtml(html) {
-            if (!html) return [];
-            const s = decodeEscapedBr(html);
-            const tmp = document.createElement('div');
-            tmp.innerHTML = s;
-            const nodes = tmp.querySelectorAll('span.mline');
-            const arr = [];
-            nodes.forEach(n => {
-                const mid = n.getAttribute('data-mid') || '';
-                const text = (n.textContent || '').trim();
-                if (!text || text.toUpperCase() === 'N/A') return;
-                const serial = extractSerialFromText(text);
-                if (!serial) return;
-                arr.push({
-                    mid,
-                    serial,
-                    text
-                });
-            });
-            return arr;
+            return {
+                mid: item.id || '',
+                serial,
+                text: `[${serial}] - [${item.date || 'N/A'}] (qty: ${item.qty || 0})`
+            };
         }
 
         function groupBySerial(items) {
@@ -1295,11 +1266,11 @@
                 shown++;
 
                 const prodHtml = (item.prodItems && item.prodItems.length) ?
-                    item.prodItems.map(x => `<div class="mut-row">${x.text}</div>`).join('') :
+                    item.prodItems.map(x => `<div class="mut-row">${escapeHtml(x.text)}</div>`).join('') :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
                 const pullHtml = (item.pullItems && item.pullItems.length) ?
-                    item.pullItems.map(x => `<div class="mut-row">${x.text}</div>`).join('') :
+                    item.pullItems.map(x => `<div class="mut-row">${escapeHtml(x.text)}</div>`).join('') :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
                 const actionHtml = (item.pullItems && item.pullItems.length) ?
@@ -1308,7 +1279,7 @@
                             return `<div class="mut-row"><button class="act-btn" disabled style="opacity:.4;">Delete</button></div>`;
                         return `<div class="mut-row">
                             <button class="act-btn danger btn-del-pulling-mutation"
-                                data-mid="${x.mid}" data-serial="${item.serial}">Delete</button>
+                                data-mid="${x.mid}" data-serial="${escapeHtml(item.serial)}">Delete</button>
                         </div>`;
                     }).join('') :
                     '';
@@ -1339,7 +1310,7 @@
          * ======================================================= */
         let table = $('#loadingList').DataTable({
             scrollX: false,
-            processing: false,
+            processing: true,
             serverSide: false,
             ajax: {
                 url: `{{ url('dashboard/getLoadingListDetail') }}` + '/' + loadingList,
@@ -1405,9 +1376,14 @@
                     }
                 },
                 {
-                    data: 'edit',
+                    data: null,
                     orderable: false,
-                    searchable: false
+                    searchable: false,
+                    render: function() {
+                        return `<button class="btn btn-icon btn-primary edit"><i class="far fa-edit"></i></button>
+                            <button class="btn btn-icon btn-success save mb-1" style="display:none"><i class="fas fa-check"></i></button>
+                            <button class="btn btn-icon btn-danger cancel" style="display:none"><i class="fas fa-times"></i></button>`;
+                    }
                 },
             ],
             lengthMenu: [
@@ -1433,35 +1409,60 @@
          * COMPARE CLICK
          * ======================================================= */
         $(document).on('click', '.btn-compare', function() {
+            const button = $(this);
             const tr = $(this).closest('tr');
             const row = table.row(tr).data();
 
             compareCtx.detailId = row.id;
-
-            const pullItems = parseMutationHtml(row.pulling_date);
-            const prodItems = parseMutationHtml(row.prod_date);
-            const pullMap = groupBySerial(pullItems);
-            const prodMap = groupBySerial(prodItems);
-            const serials = Array.from(new Set([...pullMap.keys(), ...prodMap.keys()])).sort();
-
-            compareData = serials.map(serial => {
-                const pItems = pullMap.get(serial) || [];
-                const dItems = prodMap.get(serial) || [];
-                let status = 'MATCH';
-                if (pItems.length && !dItems.length) status = 'MISSING_PROD';
-                else if (dItems.length && !pItems.length) status = 'MISSING_PULL';
-                return {
-                    serial,
-                    prodItems: dItems,
-                    pullItems: pItems,
-                    status
-                };
-            });
-
             $('#compareSearch').val('');
             $('#compareFilter').val('all');
-            rebuildCompareRows('', 'all');
+            $('#compareMeta').text('Loading comparison...');
+            $('#compareTbody').html(
+                '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Loading data...</td></tr>'
+            );
             $('#compareModal').modal('show');
+
+            button.prop('disabled', true).text('Loading...');
+            $.ajax({
+                url: `/loading-list-detail/${row.id}/comparison`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    const pullItems = (response.pulling || []).map(mutationItem).filter(Boolean);
+                    const prodItems = (response.production || []).map(mutationItem).filter(Boolean);
+                    const pullMap = groupBySerial(pullItems);
+                    const prodMap = groupBySerial(prodItems);
+                    const serials = Array.from(new Set([...pullMap.keys(), ...prodMap.keys()])).sort();
+
+                    compareData = serials.map(serial => {
+                        const pItems = pullMap.get(serial) || [];
+                        const dItems = prodMap.get(serial) || [];
+                        let status = 'MATCH';
+                        if (pItems.length && !dItems.length) status = 'MISSING_PROD';
+                        else if (dItems.length && !pItems.length) status = 'MISSING_PULL';
+                        return {
+                            serial,
+                            prodItems: dItems,
+                            pullItems: pItems,
+                            status
+                        };
+                    });
+
+                    rebuildCompareRows('', 'all');
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON && xhr.responseJSON.message ?
+                        xhr.responseJSON.message : 'Gagal memuat data comparison.';
+                    $('#compareMeta').text('Failed to load');
+                    $('#compareTbody').html(
+                        `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--danger);">${escapeHtml(message)}</td></tr>`
+                    );
+                    notif('error', message);
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('Compare Kanban');
+                }
+            });
         });
 
         $('#compareSearch').on('input', function() {
@@ -1730,3 +1731,4 @@
         }
     });
 </script>
+@endpush

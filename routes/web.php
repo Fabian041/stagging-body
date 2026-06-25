@@ -73,7 +73,7 @@ Route::middleware(['auth'])->prefix('pis')->group(function () {
     // CRUD Operations
     Route::get('/edit/{id}', [PisController::class, 'UpdatePis'])->name('pis.edit');
     Route::post('/update/{id}', [PisController::class, 'UpdatePisProses'])->name('pis.update');
-    Route::get('/delete/{id}', [PisController::class, 'destroy'])->name('pis.delete');
+    Route::get('/delete/{id}', [PisController::class, 'destroy'])->middleware('can:manage-master')->name('pis.delete');
     
     // Add/Update PIS Data
     Route::post('/addpis', [PisController::class, 'addpis'])->name('pis.addpis');
@@ -142,14 +142,17 @@ Route::middleware(['auth'])->group(function () {
     // loading list
     Route::get('/kanban/scanned', [LoadingListController::class, 'kanbanScanned'])->name('kanban.scanned');
     Route::get('/loading-list', [LoadingListController::class, 'index'])->name('loadingList.index');
+    Route::get('/loading-list/manifests', [LoadingListController::class, 'searchManifests'])->name('loadingList.manifests');
     Route::get('/loading-list/absen-driver', [LoadingListController::class, 'driverAbsen'])->name('loadingList.driverAbsen');
     Route::get('/loading-list/absen-driver/data', [LoadingListController::class, 'getDriverAbsenData'])->name('loadingList.driverAbsen.data');
     Route::post('/loading-list/absen-driver/scan-customer', [LoadingListController::class, 'scanDriverAbsenCustomer'])->name('loadingList.driverAbsen.scanCustomer');
     Route::get('/loading-list/absen-driver/cycles', [LoadingListController::class, 'getDriverAbsenCycles'])->name('loadingList.driverAbsen.cycles');
     Route::post('/loading-list/absen-driver/submit', [LoadingListController::class, 'submitDriverAbsen'])->name('loadingList.driverAbsen.submit');
-    Route::delete('/loading-list-detail/{detail}/pulling-mutation/{mutation}', [LoadingListController::class, 'deletePullingMutation']);
+    Route::get('/loading-list-detail/{detail}/comparison', [LoadingListController::class, 'getLoadingListDetailComparison'])
+        ->name('loadingListDetail.comparison');
+    Route::delete('/loading-list-detail/{detail}/pulling-mutation/{mutation}', [LoadingListController::class, 'deletePullingMutation'])->middleware('can:manage-master');
     Route::get('/loading-list/{loadingList}', [LoadingListController::class, 'detail'])->name('loadingList.detail');
-    Route::delete('/loading-list/{loadingList}', [LoadingListController::class, 'destroy'])->name('loadingList.destroy');
+    Route::delete('/loading-list/{loadingList}', [LoadingListController::class, 'destroy'])->middleware('can:manage-master')->name('loadingList.destroy');
     Route::prefix('loading-list')->group(function () {
         Route::get('/edit/{loadingList}/{customerPart}/{backNumber}/{newActual}', [LoadingListController::class, 'editLoadingListDetail'])->name('loadingListDetail.edit');
         Route::get('/fetch/{pds}', [LoadingListController::class, 'fetchLoadingList'])->name('loadingList.fetch');
@@ -168,6 +171,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/mutation/export', [DashboardController::class, 'exportMutation'])->name('dashboard.mutation.export');
         // Production stock monitoring (sebelumnya ada di /dashboard)
         Route::get('/production/stock', [DashboardController::class, 'productionStock'])->name('dashboard.productionStock');
+        Route::get('/production/stock/data', [DashboardController::class, 'productionStockData'])->name('dashboard.productionStock.data');
 
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
 
@@ -185,9 +189,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/delivery/stacked-chart', [LoadingListController::class, 'getDeliveryStackedChartData'])->name('dashboard.delivery.stackedChart');
         Route::post('/delivery/notify-unfinished', [LoadingListController::class, 'sendDeliveryUnfinishedWaNotification'])->name('dashboard.delivery.notifyUnfinished');
         Route::get('/delivery/master-cycles', [LoadingListController::class, 'getMasterCycles'])->name('dashboard.delivery.masterCycles.index');
-        Route::post('/delivery/master-cycles', [LoadingListController::class, 'storeMasterCycle'])->name('dashboard.delivery.masterCycles.store');
-        Route::put('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'updateMasterCycle'])->name('dashboard.delivery.masterCycles.update');
-        Route::delete('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'destroyMasterCycle'])->name('dashboard.delivery.masterCycles.destroy');
+        Route::post('/delivery/master-cycles', [LoadingListController::class, 'storeMasterCycle'])->middleware('can:manage-master')->name('dashboard.delivery.masterCycles.store');
+        Route::put('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'updateMasterCycle'])->middleware('can:manage-master')->name('dashboard.delivery.masterCycles.update');
+        Route::delete('/delivery/master-cycles/{masterCycle}', [LoadingListController::class, 'destroyMasterCycle'])->middleware('can:manage-master')->name('dashboard.delivery.masterCycles.destroy');
 
         Route::get('/getLoadingList', [LoadingListController::class, 'getLoadingList'])->name('dashboard.getLoadingList');
         Route::get('/getLoadingListDetail/{loadingList}', [LoadingListController::class, 'getLoadingListDetail'])->name('dashboard.getLoadingListDetail');
@@ -267,15 +271,19 @@ Route::middleware(['auth'])->group(function () {
             ->name('pulling.settings');
 
         Route::post('/settings/update', [PullingController::class, 'settingUpdate'])
+            ->middleware('can:manage-master')
             ->name('pulling.settings.update');
 
         Route::post('/settings/reorder/add', [PullingController::class, 'addManualItem'])
+            ->middleware('can:manage-master')
             ->name('pulling.reorder.add');
 
         Route::post('/settings/reorder', [PullingController::class, 'reorderByDeliveryTime'])
+            ->middleware('can:manage-master')
             ->name('pulling.reorder');
 
         Route::delete('/settings/reorder/{id}', [PullingController::class, 'deleteItem'])
+            ->middleware('can:manage-master')
             ->name('pulling.reorder.delete');
 
         Route::get('/settings/reorder/options', [PullingController::class, 'addItemOptions'])
@@ -299,14 +307,19 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/master-alamat-chute/template', [PullingController::class, 'downloadMasterAlamatChuteTemplate'])
             ->name('pulling.master-alamat-chute.template');
         Route::post('/master-alamat-chute/import', [PullingController::class, 'importMasterAlamatChute'])
+            ->middleware('can:manage-master')
             ->name('pulling.master-alamat-chute.import');
         Route::post('/master-alamat-chute/clear-all', [PullingController::class, 'clearAllMasterAlamatChute'])
+            ->middleware('can:manage-master')
             ->name('pulling.master-alamat-chute.clear-all');
         Route::post('/master-alamat-chute', [PullingController::class, 'storeMasterAlamatChute'])
+            ->middleware('can:manage-master')
             ->name('pulling.master-alamat-chute.store');
         Route::put('/master-alamat-chute/{master_alamat_chute}', [PullingController::class, 'updateMasterAlamatChute'])
+            ->middleware('can:manage-master')
             ->name('pulling.master-alamat-chute.update');
         Route::delete('/master-alamat-chute/{master_alamat_chute}', [PullingController::class, 'deleteMasterAlamatChute'])
+            ->middleware('can:manage-master')
             ->name('pulling.master-alamat-chute.delete');
 
     });

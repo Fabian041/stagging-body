@@ -2,38 +2,39 @@
 
 namespace App\Http\Controllers;
 
-use Pusher\Pusher;
-use App\Models\Kanban;
 use App\Models\Customer;
-use App\Models\Mutation;
-use App\Models\SkidDetail;
-use App\Models\LoadingList;
-use App\Models\MasterCycle;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
-use Illuminate\Http\Request;
-use App\Models\LoadingListDetail;
+use App\Models\Kanban;
 use App\Models\KanbanAfterPulling;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
-use Illuminate\Support\HtmlString;
-use Yajra\DataTables\Facades\DataTables;
+use App\Models\LoadingList;
+use App\Models\LoadingListDetail;
+use App\Models\MasterCycle;
+use App\Models\Mutation;
+use App\Models\SkidDetail;
 use App\Support\ConvertsCustomerPartNumber;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Pusher\Pusher;
+use Yajra\DataTables\Facades\DataTables;
 
 class LoadingListController extends Controller
 {
     use ConvertsCustomerPartNumber;
 
     public $temp_serial_number;
-    public function pushData($is_updated){
+
+    public function pushData($is_updated)
+    {
         // connection to pusher
-        $options = array(
+        $options = [
             'cluster' => 'ap1',
-            'encrypted' => true
-        );
+            'encrypted' => true,
+        ];
 
         $pusher = new Pusher(
             '78dc86268a49904a688d',
@@ -43,16 +44,44 @@ class LoadingListController extends Controller
         );
 
         // sending data
-        $result = $pusher->trigger('loading-list' , 'loadingListUpdated', $is_updated);
+        $result = $pusher->trigger('loading-list', 'loadingListUpdated', $is_updated);
 
         return $result;
     }
-    
+
     public function index()
     {
-        return view('pages.loadingList',[
-            'customers' => Customer::all(),
-            'manifests' => LoadingList::select('pds_number')->distinct()->get()
+        return view('pages.loadingList', [
+            'customers' => Customer::query()->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function searchManifests(Request $request)
+    {
+        $term = trim((string) $request->input('q', ''));
+        $perPage = 30;
+
+        $query = LoadingList::query()
+            ->whereNotNull('pds_number')
+            ->where('pds_number', '<>', '')
+            ->select('pds_number')
+            ->distinct()
+            ->orderBy('pds_number');
+
+        if ($term !== '') {
+            $query->where('pds_number', 'like', addcslashes($term, '%_\\').'%');
+        }
+
+        $manifests = $query->paginate($perPage);
+
+        return response()->json([
+            'results' => collect($manifests->items())->map(function ($manifest) {
+                return [
+                    'id' => $manifest->pds_number,
+                    'text' => $manifest->pds_number,
+                ];
+            })->values(),
+            'pagination' => ['more' => $manifests->hasMorePages()],
         ]);
     }
 
@@ -93,10 +122,11 @@ class LoadingListController extends Controller
 
             $groupedData = $data->groupBy(function ($item) {
                 $dateStr = $item->delivery_date ? Carbon::parse($item->delivery_date)->format('Y-m-d') : 'nodate';
-                return $item->customer_id . '|' . $item->cycle . '|' . $dateStr;
+
+                return $item->customer_id.'|'.$item->cycle.'|'.$dateStr;
             })->map(function ($items) {
                 $first = $items->first();
-                
+
                 $pickedCount = $items->where('truck_status', 'picked')->count();
                 $totalCount = $items->count();
 
@@ -109,12 +139,12 @@ class LoadingListController extends Controller
                 }
 
                 $pickedAt = $items->max('truck_picked_at');
-                
+
                 $numbers = $items->pluck('number')->toArray();
                 if (count($numbers) > 2) {
-                    $numberDisplay = '<strong>' . count($numbers) . ' LL</strong> <span class="text-muted" style="font-size: 11px;">(' . implode(', ', array_slice($numbers, 0, 2)) . '...)</span>';
+                    $numberDisplay = '<strong>'.count($numbers).' LL</strong> <span class="text-muted" style="font-size: 11px;">('.implode(', ', array_slice($numbers, 0, 2)).'...)</span>';
                 } else {
-                    $numberDisplay = '<strong>' . count($numbers) . ' LL</strong> <span class="text-muted" style="font-size: 11px;">(' . implode(', ', $numbers) . ')</span>';
+                    $numberDisplay = '<strong>'.count($numbers).' LL</strong> <span class="text-muted" style="font-size: 11px;">('.implode(', ', $numbers).')</span>';
                 }
 
                 return (object) [
@@ -150,7 +180,7 @@ class LoadingListController extends Controller
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
-                'error' => 'Unable to load data: ' . $e->getMessage(),
+                'error' => 'Unable to load data: '.$e->getMessage(),
             ]);
         }
     }
@@ -163,7 +193,7 @@ class LoadingListController extends Controller
         ]);
 
         $customer = $this->resolveCustomerFromLabelScan($validated['barcode']);
-        if (!$customer) {
+        if (! $customer) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Customer tidak ditemukan dari scan label.',
@@ -209,9 +239,9 @@ class LoadingListController extends Controller
         $cycleInput = trim($validated['cycle']);
         $deliveryDate = $validated['delivery_date'] ?? null;
 
-        if (!empty($validated['barcode'])) {
+        if (! empty($validated['barcode'])) {
             $resolved = $this->resolveCycleFromBarcode($customerId, $validated['barcode']);
-            if (!$resolved) {
+            if (! $resolved) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Cycle / barcode tidak dikenali untuk customer ini.',
@@ -262,178 +292,128 @@ class LoadingListController extends Controller
         ]);
     }
 
-    // Modified getLoadingList method that groups by pds_number
     public function getLoadingList(Request $request)
     {
         try {
-            $baseQuery = LoadingList::with(['customer'])
-                ->withSum('detail as total_kanban', 'kanban_qty')
-                ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-                ->whereNotNull('customer_id')
-                ->latest();
+            $draw = max(0, (int) $request->input('draw', 0));
+            $start = max(0, (int) $request->input('start', 0));
+            $length = min(100, max(10, (int) $request->input('length', 10)));
 
-            // Filter from query string: ?customer=MMKI
-            if ($request->filled('customer')) {
-                $customerName = trim((string) $request->get('customer'));
-                $baseQuery->whereHas('customer', function ($q) use ($customerName) {
-                    $q->where('name', $customerName);
-                });
+            $totalRecords = Cache::remember('loading_list_pds_count_v2', 30, function () {
+                return LoadingList::query()
+                    ->whereNotNull('pds_number')
+                    ->where('pds_number', '<>', '')
+                    ->distinct()
+                    ->count('pds_number');
+            });
+
+            $baseQuery = DB::table('loading_lists as ll')
+                ->whereNotNull('ll.pds_number')
+                ->where('ll.pds_number', '<>', '');
+
+            $this->applyLoadingListTableFilters($baseQuery, $request);
+
+            $hasFilters = collect([
+                $request->input('manifest'),
+                $request->input('customer'),
+                $request->input('cycle'),
+                $request->input('delivery_date'),
+                $request->input('search.value'),
+            ])->contains(fn ($value) => trim((string) $value) !== '');
+            $filteredRecords = $hasFilters
+                ? (clone $baseQuery)->distinct()->count('ll.pds_number')
+                : $totalRecords;
+
+            $summaryQuery = (clone $baseQuery)
+                ->selectRaw('ll.pds_number,
+                    MIN(ll.customer_id) as customer_id,
+                    MIN(NULLIF(ll.cycle, "")) as cycle,
+                    MIN(ll.delivery_date) as delivery_date,
+                    COUNT(*) as loading_list_count,
+                    0 as truck_picked_count,
+                    MAX(ll.updated_at) as updated_at')
+                ->groupBy('ll.pds_number');
+
+            $orderMap = [
+                0 => 'pds_number',
+                1 => 'customer',
+                2 => 'cycle',
+                3 => 'delivery_date',
+            ];
+            $orderIndex = (int) $request->input('order.0.column', 3);
+            $orderColumn = $orderMap[$orderIndex] ?? 'delivery_date';
+            $orderDirection = strtolower((string) $request->input('order.0.dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+            $groups = $summaryQuery
+                ->orderBy($orderColumn, $orderDirection)
+                ->orderBy('pds_number')
+                ->offset($start)
+                ->limit($length)
+                ->get();
+
+            $pdsNumbers = $groups->pluck('pds_number')->filter()->values()->all();
+            $kanbanTotals = collect();
+            if ($pdsNumbers !== []) {
+                $kanbanTotals = DB::table('loading_lists as ll')
+                    ->leftJoin('loading_list_details as lld', 'lld.loading_list_id', '=', 'll.id')
+                    ->whereIn('ll.pds_number', $pdsNumbers)
+                    ->selectRaw('ll.pds_number,
+                        COALESCE(SUM(lld.kanban_qty), 0) as total_kanban,
+                        COALESCE(SUM(lld.actual_kanban_qty), 0) as actual_kanban')
+                    ->groupBy('ll.pds_number')
+                    ->get()
+                    ->keyBy('pds_number');
             }
 
-            // Filter from query string: ?cycle=1 or ?cycle=Cycle 1
-            if ($request->filled('cycle')) {
-                $cycleRaw = trim((string) $request->get('cycle'));
-                $cycleNumber = null;
-                if (preg_match('/\d+/', $cycleRaw, $m)) {
-                    $cycleNumber = $m[0];
-                }
+            $customerNames = Customer::query()
+                ->whereIn('id', $groups->pluck('customer_id')->filter()->unique()->all())
+                ->pluck('name', 'id');
 
-                $baseQuery->where(function ($q) use ($cycleRaw, $cycleNumber) {
-                    $q->where('cycle', $cycleRaw);
-                    if ($cycleNumber !== null) {
-                        $q->orWhere('cycle', $cycleNumber)
-                          ->orWhere('cycle', 'Cycle '.$cycleNumber)
-                          ->orWhere('cycle', 'cycle '.$cycleNumber);
-                    }
-                });
-            }
+            $data = $groups->map(function ($group) use ($kanbanTotals, $customerNames) {
+                $totals = $kanbanTotals->get($group->pds_number);
+                $totalKanban = (int) ($totals->total_kanban ?? 0);
+                $actualKanban = (int) ($totals->actual_kanban ?? 0);
+                $loadingListCount = (int) $group->loading_list_count;
+                $pickedCount = (int) $group->truck_picked_count;
+                $truckStatus = $pickedCount === 0
+                    ? 'pending'
+                    : ($pickedCount >= $loadingListCount ? 'picked' : 'partial');
 
-            // Filter from query string: ?delivery_date=2026-04-16 (optional)
-            if ($request->filled('delivery_date')) {
-                $start = Carbon::parse($request->get('delivery_date'))->startOfDay();
-                $end = (clone $start)->endOfDay();
-                $baseQuery->whereBetween('delivery_date', [$start, $end]);
-            }
+                return [
+                    'id' => 'pds-'.$group->pds_number,
+                    'DT_RowId' => 'row-pds-'.$group->pds_number,
+                    'pds_number' => $group->pds_number,
+                    'customer' => $customerNames[$group->customer_id] ?? '-',
+                    'cycle' => $group->cycle ?: '-',
+                    'delivery_date' => $group->delivery_date
+                        ? Carbon::parse($group->delivery_date)->format('Y-m-d H:i:s')
+                        : '-',
+                    'progress_percentage' => $this->calculateLoadingListProgress($totalKanban, $actualKanban),
+                    'progress' => $this->formatLoadingListProgress($totalKanban, $actualKanban),
+                    'loading_and_status' => $this->formatLoadingListActions(
+                        $group->pds_number,
+                        $totalKanban,
+                        $actualKanban
+                    ),
+                    'truck_status' => $truckStatus,
+                    'truck_status_badge' => $this->formatTruckStatusBadge($truckStatus, true),
+                    'updated_at' => $group->updated_at,
+                ];
+            })->values();
 
-            // Group loading lists by pds_number and aggregate the data
-            $groupedData = $baseQuery
-                ->take(500)
-                ->get()
-                ->groupBy('pds_number')
-                ->map(function ($loadingLists, $pdsNumber) {
-                    $firstLoadingList = $loadingLists->first();
-                    
-                    // Aggregate totals
-                    $totalKanban = $loadingLists->sum('total_kanban');
-                    $actualKanban = $loadingLists->sum('actual_kanban');
-                    
-                    // Get all loading list numbers
-                    $loadingListNumbers = $loadingLists->pluck('number')->toArray();
-                    
-                    // Earliest delivery date
-                    $earliestDeliveryDate = $loadingLists->min('delivery_date');
-                    
-                    // Most common cycle
-                    $cycle = $loadingLists->groupBy('cycle')->sortByDesc(function($items) {
-                        return $items->count();
-                    })->keys()->first();
-
-                    $pickedCount = $loadingLists->where('truck_status', 'picked')->count();
-                    $totalCount = $loadingLists->count();
-                    if ($pickedCount === 0) {
-                        $truckStatus = 'pending';
-                    } elseif ($pickedCount >= $totalCount) {
-                        $truckStatus = 'picked';
-                    } else {
-                        $truckStatus = 'partial';
-                    }
-
-                    return (object) [
-                        'id' => 'pds-' . $pdsNumber,
-                        'pds_number' => $pdsNumber,
-                        'loading_list_numbers' => $loadingListNumbers,
-                        'loading_list_count' => $loadingLists->count(),
-                        'customer' => $firstLoadingList->customer,
-                        'cycle' => $cycle,
-                        'delivery_date' => $earliestDeliveryDate,
-                        'total_kanban' => $totalKanban,
-                        'actual_kanban' => $actualKanban,
-                        'truck_status' => $truckStatus,
-                        'truck_picked_count' => $pickedCount,
-                        'loading_lists' => $loadingLists
-                    ];
-                })
-                ->values(); // Reset array keys
-
-            return DataTables::of($groupedData)
-                ->addColumn('customer', function ($group) {
-                    return $group->customer->name ?? '-';
-                })
-                ->addColumn('truck_status_badge', function ($group) {
-                    return $this->formatTruckStatusBadge($group->truck_status ?? 'pending', true);
-                })
-                ->addColumn('loading_and_status', function ($group) {
-                    // Common button styles for consistent sizing
-                    $buttonStyle = 'style="min-width: 120px; padding: 8px 12px; font-size: 13px; font-weight: 500; text-align: center; white-space: nowrap;"';
-                    
-                    // Tombol Loading Lists
-                    $loadingBtn = '<button class="btn btn-info text-white mr-2 show-loading-lists" ' . $buttonStyle . ' data-pds="' . $group->pds_number . '">
-                                        <i class="fas fa-info-circle mr-1"></i>
-                                        Detail
-                                </button>';
-                
-                    // Tombol Status
-                    $totalKanban = $group->total_kanban ?? 0;
-                    $actualKanban = $group->actual_kanban ?? 0;
-                
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $statusButton = '<button class="btn btn-success" ' . $buttonStyle . '>
-                                            <i class="fas fa-check mr-1"></i>
-                                            COMPLETE
-                                        </button>';
-                    } elseif ($actualKanban > 0) {
-                        $statusButton = '<button class="btn btn-outline-warning" ' . $buttonStyle . '>
-                                            IN PROGRESS
-                                        </button>';
-                    } else {
-                        $statusButton = '<button class="btn btn-outline-danger" ' . $buttonStyle . '>
-                                            INCOMPLETE
-                                        </button>';
-                    }
-                
-                    return '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;">' . $loadingBtn . $statusButton . '</div>';
-                })
-                ->addColumn('progress', function ($group) {
-                    $totalKanban = $group->total_kanban ?? 0;
-                    $actualKanban = $group->actual_kanban ?? 0;
-                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
-
-                    // Progress bar colors
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $statusClass = 'lightgreen';
-                    } elseif ($actualKanban > 0) {
-                        $statusClass = 'orange';
-                    } else {
-                        $statusClass = 'red';
-                    }
-
-                    $progress = '
-                        <div class="text-small font-weight-bold text-muted mb-1 text-center">'
-                            . $actualKanban . ' / ' . $totalKanban .
-                        '</div>
-                        <div class="progress" data-height="20" style="height: 18px;">
-                            <div class="progress-bar" role="progressbar"
-                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
-                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
-                                <small class="text-white font-weight-bold">' . $progressPercentage . '%</small>
-                            </div>
-                        </div>';
-
-                    return $progress;
-                })
-                ->setRowId(function ($group) {
-                    return 'row-' . $group->id; // $group->id is already 'pds-123'
-                })
-                ->rawColumns(['loading_and_status', 'progress', 'customer', 'truck_status_badge'])
-                ->make(true);
-                
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $filteredRecords,
+                'data' => $data,
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'draw' => request()->get('draw', 0),
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
-                'error' => 'Unable to load data: ' . $e->getMessage()
+                'error' => 'Unable to load data: '.$e->getMessage(),
             ]);
         }
     }
@@ -443,8 +423,8 @@ class LoadingListController extends Controller
     {
         try {
             $pdsNumber = $request->get('pds_number');
-            
-            if (!$pdsNumber) {
+
+            if (! $pdsNumber) {
                 return response()->json(['error' => 'PDS number is required'], 400);
             }
 
@@ -468,295 +448,332 @@ class LoadingListController extends Controller
                         'total_kanban' => $loadingList->total_kanban ?? 0,
                         'actual_kanban' => $loadingList->actual_kanban ?? 0,
                         'created_at' => $loadingList->created_at,
-                        'updated_at' => $loadingList->updated_at
+                        'updated_at' => $loadingList->updated_at,
                     ];
                 });
 
             return response()->json([
                 'loading_lists' => $loadingLists,
                 'pds_number' => $pdsNumber,
-                'total_count' => $loadingLists->count()
+                'total_count' => $loadingLists->count(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Unable to load loading lists: ' . $e->getMessage()
+                'error' => 'Unable to load loading lists: '.$e->getMessage(),
             ], 500);
         }
     }
 
-    // Updated checkLoadingListUpdates for grouped data
     public function checkLoadingListUpdates(Request $request)
     {
         try {
-            // Get the current state from client
             $currentState = $request->input('state', []);
-            $currentPdsCount = $currentState['pdsCount'] ?? 0;
+            $currentPdsCount = (int) ($currentState['pdsCount'] ?? 0);
             $latestPdsNumbers = $currentState['latestPdsNumbers'] ?? [];
-            
-            // Get server state
-            $serverPdsCount = LoadingList::distinct('pds_number')->count();
-            $serverLatestPds = LoadingList::select('pds_number')
-                ->orderBy('created_at', 'desc')
+
+            $serverPdsCount = LoadingList::query()
+                ->whereNotNull('pds_number')
+                ->where('pds_number', '<>', '')
+                ->distinct()
+                ->count('pds_number');
+            $serverLatestPds = LoadingList::query()
+                ->whereNotNull('pds_number')
+                ->where('pds_number', '<>', '')
+                ->selectRaw('pds_number, MAX(created_at) as latest_created_at')
+                ->groupBy('pds_number')
+                ->orderByDesc('latest_created_at')
                 ->limit(10)
                 ->pluck('pds_number')
                 ->toArray();
-                
-            // Check if counts differ or if any new PDS numbers exist
-            $hasNewData = ($serverPdsCount != $currentPdsCount) || 
-                        count(array_diff($serverLatestPds, $latestPdsNumbers)) > 0;
-                        
+
+            $hasNewData = $serverPdsCount !== $currentPdsCount
+                || count(array_diff($serverLatestPds, $latestPdsNumbers)) > 0;
+
             return response()->json([
                 'hasNewData' => $hasNewData,
                 'serverPdsCount' => $serverPdsCount,
                 'serverLatestPds' => $serverLatestPds,
-                'timestamp' => now()->toISOString()
+                'totalRecords' => $serverPdsCount,
+                'latestPdsNumbers' => $serverLatestPds,
+                'timestamp' => now()->toISOString(),
             ]);
-            
         } catch (\Exception $e) {
             return response()->json(['error' => true], 500);
         }
     }
 
-    // Updated getLoadingListUpdates for grouped data
     public function getLoadingListUpdates(Request $request)
     {
         try {
-            $pdsNumbers = $request->input('ids', []);
-            
-            if (empty($pdsNumbers)) {
-                return response()->json(['updatedRows' => []]);
+            $pdsNumbers = collect($request->input('ids', []))
+                ->map(fn ($id) => trim(str_replace(['row-pds-', 'pds-'], '', (string) $id)))
+                ->filter()
+                ->unique()
+                ->take(100)
+                ->values();
+
+            if ($pdsNumbers->isEmpty()) {
+                return response()->json(['updatedRows' => [], 'deletedRows' => []]);
             }
 
-            // Get updated data for specific PDS numbers
-            $updatedGroups = collect();
-            
-            foreach ($pdsNumbers as $pdsId) {
-                // Extract PDS number from ID (remove 'pds-' prefix)
-                $pdsNumber = str_replace('pds-', '', $pdsId);
-                
-                $loadingLists = LoadingList::where('pds_number', $pdsNumber)
-                    ->with(['customer'])
-                    ->withSum('detail as total_kanban', 'kanban_qty')
-                    ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-                    ->get();
+            $groups = DB::table('loading_lists as ll')
+                ->leftJoin('loading_list_details as lld', 'lld.loading_list_id', '=', 'll.id')
+                ->whereIn('ll.pds_number', $pdsNumbers->all())
+                ->selectRaw('ll.pds_number,
+                    COALESCE(SUM(lld.kanban_qty), 0) as total_kanban,
+                    COALESCE(SUM(lld.actual_kanban_qty), 0) as actual_kanban,
+                    MAX(ll.updated_at) as loading_list_updated_at,
+                    MAX(lld.updated_at) as detail_updated_at')
+                ->groupBy('ll.pds_number')
+                ->get()
+                ->keyBy('pds_number');
 
-                if ($loadingLists->isNotEmpty()) {
-                    $totalKanban = $loadingLists->sum('total_kanban');
-                    $actualKanban = $loadingLists->sum('actual_kanban');
-                    $progressPercentage = ($totalKanban > 0) ? round(($actualKanban / $totalKanban) * 100) : 0;
-                    $loadingListCount = $loadingLists->count();
+            $updatedGroups = $groups->map(function ($group) {
+                $totalKanban = (int) $group->total_kanban;
+                $actualKanban = (int) $group->actual_kanban;
 
-                    // Generate updated progress HTML
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $statusClass = 'lightgreen';
-                    } elseif ($actualKanban > 0) {
-                        $statusClass = 'orange';
-                    } else {
-                        $statusClass = 'red';
-                    }
+                return [
+                    'id' => 'row-pds-'.$group->pds_number,
+                    'progress_percentage' => $this->calculateLoadingListProgress($totalKanban, $actualKanban),
+                    'progress' => $this->formatLoadingListProgress($totalKanban, $actualKanban),
+                    'loading_and_status' => $this->formatLoadingListActions(
+                        $group->pds_number,
+                        $totalKanban,
+                        $actualKanban
+                    ),
+                    'updated_at' => max(
+                        (string) ($group->loading_list_updated_at ?? ''),
+                        (string) ($group->detail_updated_at ?? '')
+                    ),
+                ];
+            })->values();
 
-                    $progress = '
-                        <div class="text-small font-weight-bold text-muted mb-1 text-center">'
-                            . $actualKanban . ' / ' . $totalKanban .
-                        '</div>
-                        <div class="progress" data-height="20" style="height: 18px;">
-                            <div class="progress-bar" role="progressbar"
-                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
-                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
-                                <small class="text-white font-weight-bold">' . $progressPercentage . '%</small>
-                            </div>
-                        </div>';
-
-                    // Generate updated detail HTML (status button)
-                    if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $detail = '<button class="btn btn-success">
-                                    <i class="fas fa-check" style="padding-right: 1px"></i>
-                                        COMPLETE
-                                    </button>';
-                    } elseif ($actualKanban > 0) {
-                        $detail = '<button class="btn btn-outline-warning">
-                                        INPROGRESS
-                                    </button>';
-                    } else {
-                        $detail = '<button class="btn btn-outline-danger">
-                                        INCOMPLETE
-                                    </button>';
-                    }
-
-                    $updatedGroups->push([
-                        'id' => 'row-pds-' . $pdsNumber,
-                        'progress' => $progress,
-                        'detail' => $detail,
-                        'updated_at' => $loadingLists->max('updated_at')
-                    ]);
-                }
-            }
+            $deletedRows = $pdsNumbers
+                ->reject(fn ($pdsNumber) => $groups->has($pdsNumber))
+                ->map(fn ($pdsNumber) => 'row-pds-'.$pdsNumber)
+                ->values();
 
             return response()->json([
-                'updatedRows' => $updatedGroups
+                'updatedRows' => $updatedGroups,
+                'deletedRows' => $deletedRows,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'error' => true,
-                'message' => 'Unable to get row updates'
+                'message' => 'Unable to get row updates',
             ], 500);
         }
     }
 
+    private function applyLoadingListTableFilters($query, Request $request): void
+    {
+        $manifest = trim((string) $request->input('manifest', ''));
+        if ($manifest !== '') {
+            $query->where('ll.pds_number', $manifest);
+        }
+
+        $customer = trim((string) $request->input('customer', ''));
+        if ($customer !== '') {
+            $customerId = Customer::query()->where('name', $customer)->value('id');
+            $customerId === null
+                ? $query->whereRaw('1 = 0')
+                : $query->where('ll.customer_id', $customerId);
+        }
+
+        $cycleRaw = trim((string) $request->input('cycle', ''));
+        if ($cycleRaw !== '') {
+            $cycleNumber = null;
+            if (preg_match('/\d+/', $cycleRaw, $matches)) {
+                $cycleNumber = (string) ((int) $matches[0]);
+            }
+
+            $query->where(function ($cycleQuery) use ($cycleRaw, $cycleNumber) {
+                $cycleQuery->where('ll.cycle', $cycleRaw);
+                if ($cycleNumber !== null) {
+                    $cycleQuery->orWhere('ll.cycle', $cycleNumber)
+                        ->orWhere('ll.cycle', str_pad($cycleNumber, 2, '0', STR_PAD_LEFT))
+                        ->orWhereRaw('LOWER(ll.cycle) = ?', ['cycle '.$cycleNumber]);
+                }
+            });
+        }
+
+        if ($request->filled('delivery_date')) {
+            $dateStart = Carbon::parse($request->input('delivery_date'))->startOfDay();
+            $dateEnd = $dateStart->copy()->endOfDay();
+            $query->whereBetween('ll.delivery_date', [$dateStart, $dateEnd]);
+        }
+
+        $search = trim((string) $request->input('search.value', ''));
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $customerIds = Customer::query()->where('name', 'like', $like)->pluck('id')->all();
+            $query->where(function ($searchQuery) use ($like, $customerIds) {
+                $searchQuery->where('ll.pds_number', 'like', $like)
+                    ->orWhere('ll.cycle', 'like', $like);
+                if ($customerIds !== []) {
+                    $searchQuery->orWhereIn('ll.customer_id', $customerIds);
+                }
+            });
+        }
+    }
+
+    private function formatLoadingListProgress(int $totalKanban, int $actualKanban): string
+    {
+        $progressPercentage = $this->calculateLoadingListProgress($totalKanban, $actualKanban);
+        $statusColor = $actualKanban >= $totalKanban && $totalKanban > 0
+            ? '#16a34a'
+            : ($actualKanban > 0 ? '#d97706' : '#dc2626');
+
+        return '<div class="text-small font-weight-bold text-muted mb-1 text-center">'
+            .$actualKanban.' / '.$totalKanban
+            .'</div><div class="progress" data-height="20" style="height:18px;">'
+            .'<div class="progress-bar" role="progressbar" style="width:'.$progressPercentage
+            .'%;background-color:'.$statusColor.' !important" aria-valuenow="'.$progressPercentage
+            .'" aria-valuemin="0" aria-valuemax="100"><small class="text-white font-weight-bold">'
+            .$progressPercentage.'%</small></div></div>';
+    }
+
+    private function calculateLoadingListProgress(int $totalKanban, int $actualKanban): int
+    {
+        return $totalKanban > 0
+            ? (int) round(($actualKanban / $totalKanban) * 100)
+            : 0;
+    }
+
+    private function formatLoadingListActions(string $pdsNumber, int $totalKanban, int $actualKanban): string
+    {
+        $buttonStyle = 'style="min-width:120px;padding:8px 12px;font-size:13px;font-weight:500;text-align:center;white-space:nowrap;"';
+        $loadingButton = '<button class="btn btn-info text-white mr-2 show-loading-lists" '
+            .$buttonStyle.' data-pds="'.e($pdsNumber).'"><i class="fas fa-info-circle mr-1"></i>Detail</button>';
+
+        if ($actualKanban >= $totalKanban && $totalKanban > 0) {
+            $statusButton = '<button class="btn btn-success" '.$buttonStyle
+                .'><i class="fas fa-check mr-1"></i>COMPLETE</button>';
+        } elseif ($actualKanban > 0) {
+            $statusButton = '<button class="btn btn-outline-warning" '.$buttonStyle.'>IN PROGRESS</button>';
+        } else {
+            $statusButton = '<button class="btn btn-outline-danger" '.$buttonStyle.'>INCOMPLETE</button>';
+        }
+
+        return '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;">'
+            .$loadingButton.$statusButton.'</div>';
+    }
+
     public function detail(LoadingList $loadingList)
     {
-        $loadingListDetail = DB::table('loading_lists')
-                            ->join('loading_list_details', 'loading_lists.id', 'loading_list_details.loading_list_id')
-                            ->join('customers', 'customers.id', 'loading_lists.customer_id')
-                            ->select('loading_lists.number', 'loading_lists.pds_number', 'loading_lists.cycle', 'loading_lists.delivery_date', 'loading_lists.shipping_date','customers.name')
-                            ->where('loading_list_details.loading_list_id', $loadingList->id)
-                            ->first();
+        $loadingList->loadMissing('customer:id,name');
 
-        return view('pages.loadingListDetail',[
-            'customers' => Customer::all(),
-            'loadingListDetail' => $loadingListDetail,
+        return view('pages.loadingListDetail', [
+            'loadingListDetail' => $loadingList,
             'loadingListId' => $loadingList->id,
         ]);
     }
 
     public function getLoadingListDetail(LoadingList $loadingList)
     {
-        $input = LoadingListDetail::with(['customerPart.internalPart'])
+        $details = LoadingListDetail::with(['customerPart.internalPart'])
             ->where('loading_list_id', $loadingList->id)
+            ->get()
+            ->map(function (LoadingListDetail $detail) {
+                $customerPart = $detail->customerPart;
+                $internalPart = $customerPart?->internalPart;
+
+                return [
+                    'id' => $detail->id,
+                    'loading_list_id' => $detail->loading_list_id,
+                    'customer_part_id' => $detail->customer_part_id,
+                    'cust_partno' => $customerPart?->part_number ?? '-',
+                    'int_partno' => $internalPart?->part_number ?? '-',
+                    'cust_backno' => $customerPart?->back_number ?? '-',
+                    'int_backno' => $internalPart?->back_number ?? '-',
+                    'kbn_qty' => (int) ($detail->kanban_qty ?? 0),
+                    'actual_kbn_qty' => (int) ($detail->actual_kanban_qty ?? 0),
+                ];
+            });
+
+        return response()->json(['data' => $details]);
+    }
+
+    public function getLoadingListDetailComparison(LoadingListDetail $detail)
+    {
+        $detail->loadMissing('customerPart:id,internal_part_id');
+        $internalPartId = $detail->customerPart?->internal_part_id;
+        $start = $detail->created_at;
+        $end = $detail->updated_at;
+
+        if (! $internalPartId || ! $start || ! $end || $start->equalTo($end)) {
+            return response()->json([
+                'detail_id' => $detail->id,
+                'pulling' => [],
+                'production' => [],
+            ]);
+        }
+
+        $checkouts = DB::table('mutations as checkout')
+            ->select('checkout.id', 'checkout.serial_number', 'checkout.qty', 'checkout.date', 'checkout.created_at')
+            ->selectSub(function ($query) {
+                $query->from('mutations as supply')
+                    ->select('supply.id')
+                    ->whereColumn('supply.internal_part_id', 'checkout.internal_part_id')
+                    ->where('supply.type', 'supply')
+                    ->whereColumn('supply.serial_number', 'checkout.serial_number')
+                    ->whereColumn('supply.created_at', '<', 'checkout.created_at')
+                    ->orderByDesc('supply.created_at')
+                    ->orderByDesc('supply.id')
+                    ->limit(1);
+            }, 'supply_id')
+            ->where('checkout.internal_part_id', $internalPartId)
+            ->where('checkout.type', 'checkout')
+            ->whereBetween('checkout.created_at', [$start, $end])
+            ->orderBy('checkout.created_at')
             ->get();
 
-        return DataTables::of($input)
-            ->addColumn('part_name', function ($row) {
-                return optional($row->customerPart->internalPart)->part_name ?? '-';
-            })
-            ->addColumn('cust_partno', function ($row) {
-                return '<span class="customerPart">' . (optional($row->customerPart)->part_number ?? '-') . '</span>';
-            })
-            ->addColumn('int_partno', function ($row) {
-                return optional($row->customerPart->internalPart)->part_number ?? '-';
-            })
-            ->addColumn('cust_backno', function ($row) {
-                return '<span class="backNumber">' . (optional($row->customerPart)->back_number ?? '-') . '</span>';
-            })
-            ->addColumn('int_backno', function ($row) {
-                return optional($row->customerPart->internalPart)->back_number ?? '-';
-            })
-            ->addColumn('kbn_qty', function ($row) {
-                return $row->kanban_qty;
-            })
-            ->addColumn('actual_kbn_qty', function ($row) {
-                return '<span class="actual">' . $row->actual_kanban_qty . '</span>
-                    <input id="editActual" class="form-control editActual" type="number"
-                        value="' . $row->actual_kanban_qty . '" data-width="100"
-                        style="border-radius:6px; display:none">';
-            })
-            // ✅ Pulling Date = mutations type checkout (window per detail) + bawa mutation_id
-            ->addColumn('pulling_date', function ($row) {
-                $internalPartId = optional($row->customerPart->internalPart)->id;
+        $supplies = DB::table('mutations')
+            ->whereIn('id', $checkouts->pluck('supply_id')->filter()->unique()->values()->all())
+            ->get(['id', 'date', 'qty'])
+            ->keyBy('id');
 
-                if (!$internalPartId) return '<span class="text-danger">N/A</span>';
+        $pulling = $checkouts->map(function ($checkout) {
+            return [
+                'id' => $checkout->id,
+                'serial_number' => $checkout->serial_number,
+                'date' => $checkout->date,
+                'qty' => $checkout->qty,
+            ];
+        });
 
-                $start = $row->created_at;
-                $end   = $row->updated_at;
+        $production = $checkouts->map(function ($checkout) use ($supplies) {
+            $supply = $supplies->get($checkout->supply_id);
+            if (! $supply) {
+                return null;
+            }
 
-                if (!$start || !$end || $start->equalTo($end)) return '<span class="text-danger">N/A</span>';
+            return [
+                'id' => $supply->id,
+                'serial_number' => $checkout->serial_number,
+                'date' => $supply->date,
+                'qty' => $supply->qty,
+            ];
+        })->filter()->values();
 
-                $mutations = Mutation::query()
-                    ->select('id','serial_number','qty','date','created_at')
-                    ->where('internal_part_id', $internalPartId)
-                    ->where('type', 'checkout')
-                    ->whereBetween('created_at', [$start, $end])
-                    ->orderBy('created_at', 'asc')
-                    ->get();
-
-                if ($mutations->isEmpty()) return '<span class="text-danger">N/A</span>';
-
-                $lines = [];
-                foreach ($mutations as $m) {
-                    // ⚠️ span ini penting: data-mid dipakai JS untuk delete per mutation
-                    $text = "[{$m->serial_number}] - [{$m->date}] (qty: {$m->qty})";
-                    $lines[] = '<span class="mline" data-mid="'.$m->id.'">'.e($text).'</span>';
-                }
-
-                return implode('<br>', $lines);
-            })
-
-            // ✅ Production Date = supply terakhir sebelum pulling (serial sama) + bawa supply_id jika ada
-            ->addColumn('prod_date', function ($row) {
-                $internalPartId = optional($row->customerPart->internalPart)->id;
-
-                if (!$internalPartId) return '<span class="text-danger">N/A</span>';
-
-                $start = $row->created_at;
-                $end   = $row->updated_at;
-
-                if (!$start || !$end || $start->equalTo($end)) return '<span class="text-danger">N/A</span>';
-
-                $checkouts = Mutation::query()
-                    ->select('id','serial_number','date','qty','created_at')
-                    ->where('internal_part_id', $internalPartId)
-                    ->where('type', 'checkout')
-                    ->whereBetween('created_at', [$start, $end])
-                    ->orderBy('created_at', 'asc')
-                    ->get();
-
-                if ($checkouts->isEmpty()) return '<span class="text-danger">N/A</span>';
-
-                $lines = [];
-
-                foreach ($checkouts as $co) {
-                    $serial = $co->serial_number;
-
-                    $supply = Mutation::query()
-                        ->select('id','serial_number','date','qty','created_at')
-                        ->where('internal_part_id', $internalPartId)
-                        ->where('type', 'supply')
-                        ->where('serial_number', $serial)
-                        ->where('created_at', '<', $co->created_at)
-                        ->orderBy('created_at', 'desc')
-                        ->first();
-
-                    if (!$supply) {
-                        $text = "[{$serial}] - [N/A]";
-                        $lines[] = '<span class="mline" data-mid="">'.e($text).'</span>';
-                        continue;
-                    }
-
-                    $text = "[{$serial}] - [{$supply->date}] (qty: {$supply->qty})";
-                    $lines[] = '<span class="mline" data-mid="'.$supply->id.'">'.e($text).'</span>';
-                }
-
-                return implode('<br>', $lines);
-            })
-            ->addColumn('edit', function ($row) {
-                return '<button class="btn btn-icon btn-primary edit" id="edit"><i class="far fa-edit"></i></button>
-                    <button class="btn btn-icon btn-success save mb-1" style="display: none"><i class="fas fa-check"></i></button>
-                    <button class="btn btn-icon btn-danger cancel" style="display: none"><i class="fas fa-times"></i></button>';
-            })
-            ->rawColumns([
-                'cust_partno',
-                'cust_backno',
-                'actual_kbn_qty',
-                'edit',
-                'pulling_date',
-                'prod_date',
-            ])
-            ->toJson();
+        return response()->json([
+            'detail_id' => $detail->id,
+            'pulling' => $pulling,
+            'production' => $production,
+        ]);
     }
 
     public function deletePullingMutation(LoadingListDetail $detail, Mutation $mutation)
     {
         $internalPartId = optional(optional($detail->customerPart)->internalPart)->id;
-        if (!$internalPartId) {
+        if (! $internalPartId) {
             return response()->json(['status' => 'error', 'message' => 'Internal part tidak ditemukan.'], 404);
         }
 
         $start = $detail->created_at;
-        $end   = $detail->updated_at;
+        $end = $detail->updated_at;
 
-        if (!$start || !$end || $start->equalTo($end)) {
+        if (! $start || ! $end || $start->equalTo($end)) {
             return response()->json(['status' => 'error', 'message' => 'Window waktu detail tidak valid.'], 422);
         }
 
@@ -766,7 +783,7 @@ class LoadingListController extends Controller
             && $mutation->created_at >= $start
             && $mutation->created_at <= $end;
 
-        if (!$isValid) {
+        if (! $isValid) {
             return response()->json(['status' => 'error', 'message' => 'Mutation tidak valid untuk dihapus.'], 403);
         }
 
@@ -775,21 +792,23 @@ class LoadingListController extends Controller
             $mutation->delete();
 
             // ✅ setiap mutation = 1 scan, jadi -1
-            $current = (int)($detail->actual_kanban_qty ?? 0);
-            $newVal  = $current - 1;
-            if ($newVal < 0) $newVal = 0;
+            $current = (int) ($detail->actual_kanban_qty ?? 0);
+            $newVal = $current - 1;
+            if ($newVal < 0) {
+                $newVal = 0;
+            }
 
             $detail->actual_kanban_qty = $newVal;
             $detail->save();
         });
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => "Berhasil hapus pulling mutation id: {$mutation->id} dan actual qty dikurangi 1.",
             'data' => [
                 'detail_id' => $detail->id,
-                'actual_kanban_qty' => (int)$detail->fresh()->actual_kanban_qty,
-            ]
+                'actual_kanban_qty' => (int) $detail->fresh()->actual_kanban_qty,
+            ],
         ]);
     }
 
@@ -800,37 +819,36 @@ class LoadingListController extends Controller
             $loadingList->delete();
         } catch (\Throwable $e) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Gagal menghapus loading list: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Gagal menghapus loading list: '.$e->getMessage(),
             ], 500);
         }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Loading list berhasil dihapus.',
         ]);
     }
 
     public function editLoadingListDetail($loadingList, $customerPart, $backNumber, $newActual)
     {
-        if($backNumber == 'null'){
+        if ($backNumber == 'null') {
             $backNumber = null;
         }
-        
+
         // get customer part id
         $customerPartId = CustomerPart::select('id')
-                            ->where('part_number',$customerPart)
-                            ->where('back_number',$backNumber)
+                            ->where('part_number', $customerPart)
+                            ->where('back_number', $backNumber)
                             ->first();
 
         // get kanban qty
-        $maxKanbanQty = LoadingListDetail::select('id','kanban_qty')
-                                        ->where('loading_list_id',$loadingList)
-                                        ->where('customer_part_id',$customerPartId->id)
+        $maxKanbanQty = LoadingListDetail::select('id', 'kanban_qty')
+                                        ->where('loading_list_id', $loadingList)
+                                        ->where('customer_part_id', $customerPartId->id)
                                         ->first();
-                                        
-                                        
-        if($newActual > $maxKanbanQty->kanban_qty){
+
+        if ($newActual > $maxKanbanQty->kanban_qty) {
             return [
                 'status' => 'error',
                 'message' => 'Tidak boleh lebih dari kuantitas kanban!',
@@ -841,32 +859,32 @@ class LoadingListController extends Controller
             DB::beginTransaction();
 
             // update loading list detail based on loading list id and customer part
-            LoadingListDetail::where('loading_list_id',$loadingList)
+            LoadingListDetail::where('loading_list_id', $loadingList)
                                 ->where('customer_part_id', $customerPartId->id)
                                 ->update([
-                                    'actual_kanban_qty' => $newActual
+                                    'actual_kanban_qty' => $newActual,
                                 ]);
 
             DB::commit();
 
             // push to websocket
             // $this->pushData(true);
-            
+
             return response()->json([
                 'status' => 'success',
                 'data' => $newActual,
-                'message' => 'Data berhasil diupdate!'
-            ],200);
+                'message' => 'Data berhasil diupdate!',
+            ], 200);
         } catch (\Throwable $th) {
             DB::rollBack();
 
             return response()->json([
                 'status' => 'error',
                 'message' => $th->getMessage(),
-            ],500);
+            ], 500);
         }
     }
-    
+
     public function store($loadingList, $pds, $cycle, $customerCode, $shippingDate, $deliveryDate)
     {
         // Kondisi khusus: customer_code 7A00022 dan PDS mengandung 'RK11'
@@ -881,7 +899,7 @@ class LoadingListController extends Controller
                 ->first();
         }
 
-        if (!$customer) {
+        if (! $customer) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Customer tidak ditemukan!',
@@ -890,7 +908,7 @@ class LoadingListController extends Controller
 
         $check = LoadingList::where('number', $loadingList)->first();
 
-        if (!$check) {
+        if (! $check) {
             try {
                 DB::beginTransaction();
 
@@ -909,6 +927,7 @@ class LoadingListController extends Controller
                 DB::commit();
             } catch (\Throwable $th) {
                 DB::rollBack();
+
                 return [
                     'status' => 'error',
                     'message' => $th->getMessage(),
@@ -922,12 +941,11 @@ class LoadingListController extends Controller
         ], 200);
     }
 
-
     public function storeDetail($loadingList, $customerPart, $internalPart, $kbnQty, $qtyPerKanban, $totalQty, $actualKanbanQty)
     {
         // get loading list id
         $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
-        if(!$loadingListId){
+        if (! $loadingListId) {
             return [
                 'status' => 'llNotExists',
             ];
@@ -943,15 +961,15 @@ class LoadingListController extends Controller
                         ->where('customer_parts.part_number', $convertedPartNumber)
                         ->first();
 
-        if(!$customerPartId){
+        if (! $customerPartId) {
             return [
                 'status' => 'partNotExists',
                 'data' => [
                     'int' => $internalPart,
-                    'cust' => $convertedPartNumber
-                ]
+                    'cust' => $convertedPartNumber,
+                ],
             ];
-        } 
+        }
 
         // check and insert if the loading list exist and customer part does not exist
         $loadingListCheck = LoadingListDetail::firstOrNew([
@@ -959,7 +977,7 @@ class LoadingListController extends Controller
             'customer_part_id' => $customerPartId->id,
         ]);
 
-        if(!$loadingListCheck->exists){
+        if (! $loadingListCheck->exists) {
             try {
                 LoadingListDetail::create([
                     'loading_list_id' => $loadingListId->id,
@@ -967,19 +985,19 @@ class LoadingListController extends Controller
                     'kanban_qty' => $kbnQty,
                     'qty_per_kanban' => $qtyPerKanban,
                     'total_qty' => $totalQty,
-                    'actual_kanban_qty' => $actualKanbanQty
+                    'actual_kanban_qty' => $actualKanbanQty,
                 ]);
             } catch (\Throwable $th) {
                 return [
                     'status' => 'error',
                     'message' => $th->getMessage(),
                 ];
-            } 
+            }
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Detail loading list tersimpan!'
+            'message' => 'Detail loading list tersimpan!',
         ], 200);
     }
 
@@ -990,22 +1008,22 @@ class LoadingListController extends Controller
     public function storeDetails(Request $request)
     {
         $validated = $request->validate([
-            'loadingList'                 => 'required|string',
-            'items'                       => 'required|array|min:1',
-            'items.*.part_number_cust'    => 'required|string',
-            'items.*.part_number_int'     => 'required|string',
-            'items.*.total_kanban_qty'    => 'required|numeric',
-            'items.*.total_qty'           => 'required|numeric',
-            'items.*.actual_kanban_qty'   => 'nullable|numeric',
+            'loadingList' => 'required|string',
+            'items' => 'required|array|min:1',
+            'items.*.part_number_cust' => 'required|string',
+            'items.*.part_number_int' => 'required|string',
+            'items.*.total_kanban_qty' => 'required|numeric',
+            'items.*.total_qty' => 'required|numeric',
+            'items.*.actual_kanban_qty' => 'nullable|numeric',
         ]);
 
         $loadingList = LoadingList::select('id', 'customer_id')
             ->where('number', $validated['loadingList'])
             ->first();
 
-        if (!$loadingList) {
+        if (! $loadingList) {
             return response()->json([
-                'status'  => 'llNotExists',
+                'status' => 'llNotExists',
                 'message' => 'Loading list tidak terdaftar!',
             ], 404);
         }
@@ -1025,40 +1043,40 @@ class LoadingListController extends Controller
         $resolved = [];
         foreach ($validated['items'] as $item) {
             $custRaw = trim((string) $item['part_number_cust']);
-            $intRaw  = trim((string) $item['part_number_int']);
-            $kbnQty  = (int) $item['total_kanban_qty'];
+            $intRaw = trim((string) $item['part_number_int']);
+            $kbnQty = (int) $item['total_kanban_qty'];
 
             $resolved[] = [
-                'cust_raw'         => $custRaw,
-                'int_raw'          => $intRaw,
-                'converted'        => $this->convertCustomerPartNumber($custRaw, $loadingList->customer_id),
+                'cust_raw' => $custRaw,
+                'int_raw' => $intRaw,
+                'converted' => $this->convertCustomerPartNumber($custRaw, $loadingList->customer_id),
                 'internal_part_id' => optional($internalParts->get($intRaw))->id,
-                'kanban_qty'       => $kbnQty,
-                'total_qty'        => (int) $item['total_qty'],
-                'actual'           => (int) ($item['actual_kanban_qty'] ?? 0),
-                'qty_per_kanban'   => $kbnQty > 0 ? ($item['total_qty'] / $kbnQty) : 0,
+                'kanban_qty' => $kbnQty,
+                'total_qty' => (int) $item['total_qty'],
+                'actual' => (int) ($item['actual_kanban_qty'] ?? 0),
+                'qty_per_kanban' => $kbnQty > 0 ? ($item['total_qty'] / $kbnQty) : 0,
             ];
         }
 
         // 2) Ambil customer_parts sekali jalan (match internal_part_id + part_number)
-        $internalIds      = collect($resolved)->pluck('internal_part_id')->filter()->unique()->values()->all();
+        $internalIds = collect($resolved)->pluck('internal_part_id')->filter()->unique()->values()->all();
         $convertedNumbers = collect($resolved)->pluck('converted')->filter()->unique()->values()->all();
 
         $custPartIndex = [];
-        if (!empty($internalIds) && !empty($convertedNumbers)) {
+        if (! empty($internalIds) && ! empty($convertedNumbers)) {
             DB::table('customer_parts')
                 ->select('id', 'internal_part_id', 'part_number')
                 ->whereIn('internal_part_id', $internalIds)
                 ->whereIn('part_number', $convertedNumbers)
                 ->get()
                 ->each(function ($cp) use (&$custPartIndex) {
-                    $custPartIndex[$cp->internal_part_id . '|' . $cp->part_number] = $cp->id;
+                    $custPartIndex[$cp->internal_part_id.'|'.$cp->part_number] = $cp->id;
                 });
         }
 
         // 3) Susun baris insert, skip yang sudah ada / tidak ketemu
         $failed = [];
-        $now    = now();
+        $now = now();
 
         DB::transaction(function () use ($resolved, $loadingList, $custPartIndex, &$failed, $now) {
             $existing = LoadingListDetail::where('loading_list_id', $loadingList->id)
@@ -1067,14 +1085,16 @@ class LoadingListController extends Controller
 
             $insert = [];
             foreach ($resolved as $r) {
-                if (!$r['internal_part_id']) {
+                if (! $r['internal_part_id']) {
                     $failed[] = ['int' => $r['int_raw'], 'cust' => $r['cust_raw'], 'reason' => 'internal part tidak ditemukan'];
+
                     continue;
                 }
 
-                $cpId = $custPartIndex[$r['internal_part_id'] . '|' . $r['converted']] ?? null;
-                if (!$cpId) {
+                $cpId = $custPartIndex[$r['internal_part_id'].'|'.$r['converted']] ?? null;
+                if (! $cpId) {
                     $failed[] = ['int' => $r['int_raw'], 'cust' => $r['converted'], 'reason' => 'customer part tidak ditemukan'];
+
                     continue;
                 }
 
@@ -1083,28 +1103,28 @@ class LoadingListController extends Controller
                 }
 
                 $insert[] = [
-                    'loading_list_id'   => $loadingList->id,
-                    'customer_part_id'  => $cpId,
-                    'kanban_qty'        => $r['kanban_qty'],
-                    'qty_per_kanban'    => $r['qty_per_kanban'],
-                    'total_qty'         => $r['total_qty'],
+                    'loading_list_id' => $loadingList->id,
+                    'customer_part_id' => $cpId,
+                    'kanban_qty' => $r['kanban_qty'],
+                    'qty_per_kanban' => $r['qty_per_kanban'],
+                    'total_qty' => $r['total_qty'],
                     'actual_kanban_qty' => $r['actual'],
-                    'created_at'        => $now,
-                    'updated_at'        => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ];
 
                 $existing->put($cpId, true); // cegah duplikat dalam batch yang sama
             }
 
-            if (!empty($insert)) {
+            if (! empty($insert)) {
                 LoadingListDetail::insert($insert); // satu bulk insert
             }
         });
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Detail loading list tersimpan!',
-            'failed'  => $failed,
+            'failed' => $failed,
         ], 200);
     }
 
@@ -1116,10 +1136,10 @@ class LoadingListController extends Controller
 
         // get loadingList id
         $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
-        if(!$loadingListId){
+        if (! $loadingListId) {
             return [
                 'status' => 'notExists',
-                'message' => 'Loading list tidak terdaftar!'
+                'message' => 'Loading list tidak terdaftar!',
             ];
         }
 
@@ -1132,24 +1152,24 @@ class LoadingListController extends Controller
                         ->where('internal_parts.part_number', $internalPart)
                         ->where('customer_parts.part_number', $convertedPartNumber)
                         ->first();
-                        
-        if(!$customerPartId){
+
+        if (! $customerPartId) {
             return [
                 'status' => 'notExists',
                 'message' => 'Part number customer tidak terdaftar!',
                 'data' => [
                     'int' => $internalPart,
-                    'cust' => $convertedPartNumber
-                ]
+                    'cust' => $convertedPartNumber,
+                ],
             ];
         }
 
         // get current actual kanban qty
-        $currentQty = LoadingListDetail::select('kanban_qty','actual_kanban_qty','loading_list_id')
+        $currentQty = LoadingListDetail::select('kanban_qty', 'actual_kanban_qty', 'loading_list_id')
                         ->where('loading_list_id', $loadingListId->id)
                         ->where('customer_part_id', $customerPartId->id)
                         ->first();
-                        
+
         $actualQty = (int) $currentQty->actual_kanban_qty;
         $targetQty = (int) $currentQty->kanban_qty;
 
@@ -1157,14 +1177,14 @@ class LoadingListController extends Controller
             DB::beginTransaction();
 
             // check if actual is below target qty
-            if($actualQty < $targetQty) {
+            if ($actualQty < $targetQty) {
                 // update actual kanban quantity or scanned kanban quantity
                 LoadingListDetail::where('loading_list_id', $loadingListId->id)
                                 ->where('customer_part_id', $customerPartId->id)
                                 ->update([
-                                    'actual_kanban_qty' => $actualQty + 1
+                                    'actual_kanban_qty' => $actualQty + 1,
                                 ]);
-            }else{
+            } else {
                 return [
                     'status' => 'error',
                     'message' => 'kanban sudah penuh',
@@ -1173,7 +1193,7 @@ class LoadingListController extends Controller
 
             // push to websocket
             // $this->pushData(true);
-            
+
             DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -1186,8 +1206,8 @@ class LoadingListController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $actualQty
-        ],200);
+            'data' => $actualQty,
+        ], 200);
     }
 
     public function fetchLoadingList($pds)
@@ -1197,7 +1217,7 @@ class LoadingListController extends Controller
             'detail.customerPart.internalPart.kanbanAfterPulling' => function ($query) {
                 $query->latest();
             },
-            'detail.customerPart.internalPart.kanbanAfterPulling.kanban'
+            'detail.customerPart.internalPart.kanbanAfterPulling.kanban',
         ])
         ->where('pds_number', $pds)
         ->get();
@@ -1222,10 +1242,10 @@ class LoadingListController extends Controller
                     $customerPartId = $detail->customerPart->part_number;
 
                     // Initialize the group if it doesn't exist
-                    if (!isset($groupedResults[$customerPartId])) {
+                    if (! isset($groupedResults[$customerPartId])) {
                         $groupedResults[$customerPartId] = [
                             'customer_part_id' => $customerPartId,
-                            'serial_number' => []
+                            'serial_number' => [],
                         ];
                     }
 
@@ -1259,7 +1279,7 @@ class LoadingListController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $results,
-            'total_series' => $totalSeries // Return the total series count in the response
+            'total_series' => $totalSeries, // Return the total series count in the response
         ]);
     }
 
@@ -1270,11 +1290,11 @@ class LoadingListController extends Controller
                                 ->where('loading_list_id', $loadingListId)
                                 ->where('customer_part_id', $customerPartId)
                                 ->first();
-                                
-        if(!$loadingListDetail){
+
+        if (! $loadingListDetail) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Data not found!' // Return the total series count in the response
+                'message' => 'Data not found!', // Return the total series count in the response
             ]);
         }
 
@@ -1283,7 +1303,7 @@ class LoadingListController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $skidData
+            'data' => $skidData,
         ]);
     }
 
@@ -1321,7 +1341,7 @@ class LoadingListController extends Controller
     /**
      * Agregasi persentase selesai per cycle dari koleksi loading list.
      *
-     * @param \Illuminate\Support\Collection<int, LoadingList> $loadingLists
+     * @param  \Illuminate\Support\Collection<int, LoadingList>  $loadingLists
      * @return array<int, array<string, mixed>>
      */
     private function aggregateCyclesFromLoadingLists($loadingLists): array
@@ -1351,7 +1371,7 @@ class LoadingListController extends Controller
                 $sort = 9999;
             } else {
                 $n = (int) $cycleKey;
-                $label = 'Cycle ' . $n;
+                $label = 'Cycle '.$n;
                 $sort = $n;
             }
 
@@ -1404,6 +1424,7 @@ class LoadingListController extends Controller
             if ($cycle === null || $cycle === '') {
                 return '_other';
             }
+
             return (string) (int) $cycle;
         };
 
@@ -1421,9 +1442,10 @@ class LoadingListController extends Controller
             }
 
             $n = (int) $cycleKey;
+
             return [
                 'cycle_key' => $cycleKey,
-                'label' => 'Cycle ' . $n,
+                'label' => 'Cycle '.$n,
                 'sort' => $n,
             ];
         })->sortBy('sort')->values()->all();
@@ -1431,7 +1453,8 @@ class LoadingListController extends Controller
         $byCustomerCycle = $rows->groupBy(function (LoadingList $ll) use ($normalizeCycleKey) {
             $cid = (int) ($ll->customer_id ?? 0);
             $ck = $normalizeCycleKey($ll->cycle);
-            return $cid . '|' . $ck;
+
+            return $cid.'|'.$ck;
         });
 
         $customersGrouped = $rows->groupBy(function (LoadingList $ll) {
@@ -1447,13 +1470,14 @@ class LoadingListController extends Controller
             $totalCounts = [];
 
             foreach ($cycleMeta as $cycle) {
-                $key = (int) $cid . '|' . $cycle['cycle_key'];
+                $key = (int) $cid.'|'.$cycle['cycle_key'];
                 $bucket = $byCustomerCycle->get($key, collect());
 
                 $total = $bucket->count();
                 $completed = $bucket->filter(function (LoadingList $ll) {
                     $tk = (int) ($ll->total_kanban ?? 0);
                     $ak = (int) ($ll->actual_kanban ?? 0);
+
                     return $tk > 0 && $ak >= $tk;
                 })->count();
 
@@ -1494,14 +1518,14 @@ class LoadingListController extends Controller
                 ->get();
 
             $grouped = $rows->groupBy(function (LoadingList $ll) {
-                return $ll->customer_id . '|' . Carbon::parse($ll->delivery_date)->format('Y-m-d');
+                return $ll->customer_id.'|'.Carbon::parse($ll->delivery_date)->format('Y-m-d');
             })->map(function ($loadingLists) {
                 $first = $loadingLists->first();
                 $cid = (int) $first->customer_id;
                 $dateStr = Carbon::parse($first->delivery_date)->format('Y-m-d');
                 $totalKanban = $loadingLists->sum('total_kanban');
                 $actualKanban = $loadingLists->sum('actual_kanban');
-                $rowId = 'cd-' . $cid . '-' . str_replace('-', '', $dateStr);
+                $rowId = 'cd-'.$cid.'-'.str_replace('-', '', $dateStr);
 
                 return (object) [
                     'id' => $rowId,
@@ -1536,13 +1560,13 @@ class LoadingListController extends Controller
 
                     return '
                         <div class="text-small font-weight-bold text-muted mb-1 text-center">'
-                            . $actualKanban . ' / ' . $totalKanban .
+                            .$actualKanban.' / '.$totalKanban.
                         '</div>
                         <div class="progress" data-height="20" style="height: 18px;">
                             <div class="progress-bar" role="progressbar"
-                                style="width:' . $progressPercentage . '%; background-color: ' . $statusClass . ' !important"
-                                aria-valuenow="' . $progressPercentage . '" aria-valuemin="0" aria-valuemax="100">
-                                <small class="text-white font-weight-bold">' . $progressPercentage . '%</small>
+                                style="width:'.$progressPercentage.'%; background-color: '.$statusClass.' !important"
+                                aria-valuenow="'.$progressPercentage.'" aria-valuemin="0" aria-valuemax="100">
+                                <small class="text-white font-weight-bold">'.$progressPercentage.'%</small>
                             </div>
                         </div>';
                 })
@@ -1553,24 +1577,24 @@ class LoadingListController extends Controller
                     $actualKanban = $group->actual_kanban ?? 0;
 
                     if ($actualKanban >= $totalKanban && $totalKanban > 0) {
-                        $statusButton = '<button type="button" class="btn btn-success" ' . $buttonStyle . '>
+                        $statusButton = '<button type="button" class="btn btn-success" '.$buttonStyle.'>
                                             <i class="fas fa-check mr-1"></i>
                                             COMPLETE
                                         </button>';
                     } elseif ($actualKanban > 0) {
-                        $statusButton = '<button type="button" class="btn btn-outline-warning" ' . $buttonStyle . '>
+                        $statusButton = '<button type="button" class="btn btn-outline-warning" '.$buttonStyle.'>
                                             IN PROGRESS
                                         </button>';
                     } else {
-                        $statusButton = '<button type="button" class="btn btn-outline-danger" ' . $buttonStyle . '>
+                        $statusButton = '<button type="button" class="btn btn-outline-danger" '.$buttonStyle.'>
                                             INCOMPLETE
                                         </button>';
                     }
 
-                    return '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;">' . $statusButton . '</div>';
+                    return '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;">'.$statusButton.'</div>';
                 })
                 ->setRowId(function ($group) {
-                    return 'row-' . $group->id;
+                    return 'row-'.$group->id;
                 })
                 ->rawColumns(['loading_and_status', 'progress', 'customer'])
                 ->make(true);
@@ -1580,7 +1604,7 @@ class LoadingListController extends Controller
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
-                'error' => 'Unable to load data: ' . $e->getMessage(),
+                'error' => 'Unable to load data: '.$e->getMessage(),
             ]);
         }
     }
@@ -1874,6 +1898,7 @@ class LoadingListController extends Controller
                 $date = $pds->delivery_date
                     ? Carbon::parse($pds->delivery_date)->format('Y-m-d')
                     : Carbon::now()->format('Y-m-d');
+
                 return $pds->customer_id.'|'.$date.'|'.$pds->cycle;
             })
             ->map(function ($pdsGroup) use ($masterMeta) {
@@ -1959,6 +1984,7 @@ class LoadingListController extends Controller
                 $date = $pds->delivery_date
                     ? Carbon::parse($pds->delivery_date)->format('Y-m-d')
                     : Carbon::now()->format('Y-m-d');
+
                 return $pds->customer_id.'|'.$date.'|'.$pds->cycle;
             })
             ->map(function ($bucket) use ($masterMeta) {
@@ -2186,7 +2212,7 @@ class LoadingListController extends Controller
     {
         $toTimelineMinutes = function (?string $clock): ?int {
             $raw = trim((string) ($clock ?? ''));
-            if ($raw === '' || !preg_match('/^\d{1,2}:\d{2}/', $raw)) {
+            if ($raw === '' || ! preg_match('/^\d{1,2}:\d{2}/', $raw)) {
                 return null;
             }
             [$h, $m] = array_pad(explode(':', substr($raw, 0, 5)), 2, '0');
@@ -2200,6 +2226,7 @@ class LoadingListController extends Controller
             if ($total < $timelineStart) {
                 $total += 24 * 60;
             }
+
             return $total;
         };
 
@@ -2265,7 +2292,7 @@ class LoadingListController extends Controller
         $url = env('FASTWA_SEND_URL', 'https://app.fastwa.com/api/v1/4D9AF7CE224B91C9CE14FFDDB55D248D/send_text');
 
         $period = trim((string) ($validated['date_from'] ?? ''));
-        if (!empty($validated['date_to']) && $validated['date_to'] !== $period) {
+        if (! empty($validated['date_to']) && $validated['date_to'] !== $period) {
             $period .= ' s/d '.trim((string) $validated['date_to']);
         }
         if ($period === '') {
@@ -2279,7 +2306,7 @@ class LoadingListController extends Controller
         $lines[] = '';
         foreach ($pendingRows as $idx => $row) {
             $lines[] = ($idx + 1).'. '.$row['customer_name'].' | Cycle '.$row['cycle_name'];
-            if (!empty($row['cycle_time'])) {
+            if (! empty($row['cycle_time'])) {
                 $lines[] = '   Time: '.$row['cycle_time'];
             }
             $lines[] = '   Progress: '.$row['progress_pct'].'% ('.$row['total_done'].' / '.$row['total_target'].')';
@@ -2290,7 +2317,7 @@ class LoadingListController extends Controller
                 $validated['date_from'] ?? null,
                 $validated['date_to'] ?? null
             );
-            if (!empty($partShortages)) {
+            if (! empty($partShortages)) {
                 $lines[] = '   Detail Part Kurang:';
                 foreach ($partShortages as $part) {
                     $lines[] = '   - part_no: '.$part['part_no'].' | qty_kurang: '.$part['qty_kurang'];
@@ -2322,7 +2349,7 @@ class LoadingListController extends Controller
         $statusCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
 
-        if (!empty($curlError)) {
+        if (! empty($curlError)) {
             return [
                 'status' => 500,
                 'data' => [
@@ -2481,9 +2508,9 @@ class LoadingListController extends Controller
                 }
             });
 
-        if (!empty($dateFrom) || !empty($dateTo)) {
-            $start = !empty($dateFrom) ? Carbon::parse($dateFrom)->startOfDay() : null;
-            $end = !empty($dateTo) ? Carbon::parse($dateTo)->endOfDay() : null;
+        if (! empty($dateFrom) || ! empty($dateTo)) {
+            $start = ! empty($dateFrom) ? Carbon::parse($dateFrom)->startOfDay() : null;
+            $end = ! empty($dateTo) ? Carbon::parse($dateTo)->endOfDay() : null;
             if ($start && $end && $start->gt($end)) {
                 [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
             }
@@ -2511,6 +2538,7 @@ class LoadingListController extends Controller
                 $target = (int) ($part->total_target ?? 0);
                 $done = (int) ($part->total_done ?? 0);
                 $shortage = max(0, $target - $done);
+
                 return [
                     'part_no' => (string) ($part->part_no ?? '-'),
                     'qty_kurang' => $shortage,
@@ -2581,6 +2609,7 @@ class LoadingListController extends Controller
 
         if ($matchedByName !== null) {
             $cycleKey = $cid.'_c_'.md5((string) $matchedByName['cycle_name']);
+
             return [
                 'bucket_key' => $cycleKey,
                 'customer_cycle_key' => $cycleKey,
@@ -2939,7 +2968,7 @@ class LoadingListController extends Controller
 
         $byName = Customer::query()
             ->whereRaw('UPPER(name) = ?', [$upper])
-            ->orWhere('name', 'like', '%' . $raw . '%')
+            ->orWhere('name', 'like', '%'.$raw.'%')
             ->first();
         if ($byName) {
             return $byName;
@@ -3007,7 +3036,7 @@ class LoadingListController extends Controller
         $candidates = array_values(array_unique(array_filter([
             $raw,
             strtoupper($raw),
-            strlen($raw) >= 11 ? substr($raw, 0, 11) . ' A' : null,
+            strlen($raw) >= 11 ? substr($raw, 0, 11).' A' : null,
             strlen($raw) >= 11 ? substr($raw, 0, 11) : null,
         ])));
 
@@ -3032,8 +3061,8 @@ class LoadingListController extends Controller
             $masterByNumber = (clone $masterQuery)
                 ->where(function ($q) use ($num) {
                     $q->whereRaw('LOWER(cycle_name) = ?', [Str::lower($num)])
-                        ->orWhereRaw('LOWER(cycle_name) = ?', [Str::lower('Cycle ' . $num)])
-                        ->orWhereRaw('LOWER(cycle_name) = ?', [Str::lower('cycle ' . $num)]);
+                        ->orWhereRaw('LOWER(cycle_name) = ?', [Str::lower('Cycle '.$num)])
+                        ->orWhereRaw('LOWER(cycle_name) = ?', [Str::lower('cycle '.$num)]);
                 })
                 ->first();
 
@@ -3088,22 +3117,21 @@ class LoadingListController extends Controller
             ->whereBetween('delivery_date', [$start, $end])
             ->where(function ($q) use ($cycleRaw, $cycleNumber) {
                 if ($cycleNumber !== null) {
-                    $numInt = (int)$cycleNumber;
-                    $numPad = str_pad((string)$numInt, 2, '0', STR_PAD_LEFT);
-                    
+                    $numInt = (int) $cycleNumber;
+                    $numPad = str_pad((string) $numInt, 2, '0', STR_PAD_LEFT);
+
                     $q->whereRaw('LOWER(cycle) = ?', [Str::lower($cycleRaw)])
-                       ->orWhere('cycle', (string)$numInt)
+                       ->orWhere('cycle', (string) $numInt)
                        ->orWhere('cycle', $numPad)
-                       ->orWhereRaw('LOWER(cycle) = ?', ["cycle " . $numInt])
-                       ->orWhereRaw('LOWER(cycle) = ?', ["cycle " . $numPad])
-                       ->orWhereRaw('LOWER(cycle) = ?', ["cycle" . $numInt])
-                       ->orWhereRaw('LOWER(cycle) = ?', ["c" . $numInt])
-                       ->orWhereRaw('LOWER(cycle) = ?', ["c" . $numPad]);
+                       ->orWhereRaw('LOWER(cycle) = ?', ['cycle '.$numInt])
+                       ->orWhereRaw('LOWER(cycle) = ?', ['cycle '.$numPad])
+                       ->orWhereRaw('LOWER(cycle) = ?', ['cycle'.$numInt])
+                       ->orWhereRaw('LOWER(cycle) = ?', ['c'.$numInt])
+                       ->orWhereRaw('LOWER(cycle) = ?', ['c'.$numPad]);
                 } else {
                     $q->whereRaw('LOWER(cycle) = ?', [Str::lower($cycleRaw)]);
                 }
             })
             ->get();
     }
-
 }

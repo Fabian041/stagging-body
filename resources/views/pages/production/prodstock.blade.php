@@ -99,6 +99,20 @@
             box-shadow: 0 8px 18px rgba(0, 112, 183, .18);
         }
 
+        .stock-filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .stock-status-filter.active {
+            background: rgba(0, 112, 183, .08);
+            border-color: rgba(0, 112, 183, .35);
+            color: var(--primary, #0070B7);
+        }
+
         .stock-table-wrap {
             border: 1px solid var(--border, #e5e7eb);
             border-radius: var(--r, 8px);
@@ -469,6 +483,11 @@
             color: var(--text-muted, #64748b);
         }
 
+        .stock-table tbody tr.stock-flash>td {
+            background: #fff7cc !important;
+            transition: background .4s ease;
+        }
+
         /* ===== UPLOAD MODAL - CLEAN MINIMAL ===== */
         .upload-drop-zone {
             border: 1.5px dashed var(--border, #e5e7eb);
@@ -787,7 +806,7 @@
                     line.</div>
             </div>
             <div class="stock-header-actions">
-                <a href="{{ route('dashboard.part.template') }}" class="act-btn"
+                <a href="{{ route('dashboard.part.template') }}" class="act-btn secondary"
                     style="text-decoration:none; display:inline-flex; align-items:center;">
                     <i class="fas fa-file-download"></i> Template Excel
                 </a>
@@ -806,78 +825,69 @@
         <div class="bella-table-card-body">
             <div class="stock-tab-wrap">
                 <ul class="nav nav-pills justify-content-center" id="myTab3" role="tablist">
-                    @foreach ($lines as $line)
+                    @forelse ($lines as $line)
                         <li class="nav-item">
-                            <a class="nav-link show @if ($line->line == 'AS711') active @endif" id="home-tab3"
-                                data-toggle="tab" href="#{{ $line->line }}" role="tab" aria-controls="home"
-                                aria-selected="true">{{ $line->line }}</a>
+                            <a class="nav-link show @if ($line['active']) active @endif"
+                                id="{{ $line['key'] }}-tab"
+                                data-toggle="tab"
+                                data-line="{{ $line['name'] }}"
+                                href="#{{ $line['key'] }}"
+                                role="tab"
+                                aria-controls="{{ $line['key'] }}"
+                                aria-selected="{{ $line['active'] ? 'true' : 'false' }}">{{ $line['name'] }}</a>
                         </li>
-                    @endforeach
+                    @empty
+                        <li class="nav-item">
+                            <span class="nav-link disabled">No Line</span>
+                        </li>
+                    @endforelse
                 </ul>
             </div>
 
+            <div class="stock-filter-bar">
+                <button type="button" class="act-btn secondary stock-status-filter active" data-status="">Semua</button>
+                <button type="button" class="act-btn secondary stock-status-filter" data-status="Under Stock">Under</button>
+                <button type="button" class="act-btn secondary stock-status-filter" data-status="Low Stock">Low</button>
+                <button type="button" class="act-btn secondary stock-status-filter" data-status="In Stock">In Stock</button>
+            </div>
+
             <div class="tab-content" id="myTabContent2">
-                @foreach ($lines as $line)
-                    <div class="tab-pane fade @if ($line->line == 'AS711') active show @endif" id="{{ $line->line }}"
-                        role="tabpanel" aria-labelledby="home-tab3">
+                @forelse ($lines as $line)
+                    <div class="tab-pane fade @if ($line['active']) active show @endif"
+                        id="{{ $line['key'] }}"
+                        data-line="{{ $line['name'] }}"
+                        role="tabpanel"
+                        aria-labelledby="{{ $line['key'] }}-tab">
                         <div class="stock-table-wrap table-responsive">
-                            <table class="table table-bordered table-md stock-table" id="stocks-{{ $line->line }}">
+                            <table class="table table-bordered table-md stock-table"
+                                id="stocks-{{ $line['key'] }}"
+                                data-line="{{ $line['name'] }}">
                                 <thead>
                                     <tr>
                                         <th>No</th>
                                         <th>Back Number</th>
+                                        <th>Part Number</th>
                                         <th>Standard Stock</th>
                                         <th>Current Stock</th>
+                                        <th>Gap</th>
                                         <th>Status</th>
                                         <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($line->items as $item)
-                                        @php
-                                            if ($item['qty'] < $item['standard']) {
-                                                $color = 'red';
-                                                $status = 'Under Stock';
-                                                $icon = 'fas fa-arrow-down';
-                                            } elseif ($item['qty'] == $item['standard']) {
-                                                $color = 'yellow';
-                                                $status = 'Low Stock';
-                                                $icon = 'fas fa-minus';
-                                            } else {
-                                                $color = 'green';
-                                                $status = 'In Stock';
-                                                $icon = 'fas fa-check';
-                                            }
-                                        @endphp
-                                        <tr>
-                                            <td>{{ $loop->iteration }}</td>
-                                            <td>
-                                                <span class="back-number-badge">{{ $item['back_number'] }}</span>
-                                            </td>
-                                            <td><span class="stock-number">{{ $item['standard'] }}</span></td>
-                                            <td><span class="stock-number">{{ $item['qty'] }}</span></td>
-                                            <td>
-                                                <span class="bella-badge bella-badge-{{ $color }}">
-                                                    <i class="{{ $icon }}"></i> {{ $status }}
-                                                </span>
-                                            </td>
-                                            <td class="text-center">
-                                                <button type="button" class="act-btn primary edit-stock"
-                                                    data-stock="{{ json_encode($item) }}">
-                                                    <i class="fas fa-edit"></i> Edit
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">Memuat data stock...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                @endforeach
+                @empty
+                    <div class="text-center text-muted py-4">Belum ada line production yang bisa ditampilkan.</div>
+                @endforelse
             </div>
         </div>
     </div>
-@endsection
 
 {{-- modal stock --}}
 <div class="modal fade" tabindex="-1" role="dialog" id="edit">
@@ -949,7 +959,7 @@
                 <div class="modal-body">
                     <span class="upload-modal-label">Part File</span>
 
-                    <input type="file" id="partFileInput" name="file" accept=".xlsx,.xls"
+                    <input type="file" id="partFileInput" name="file" accept=".xlsx,.xls,.csv"
                         style="display:none">
 
                     <div class="upload-drop-zone" id="partDropZone"
@@ -960,7 +970,7 @@
                         <p>Drag &amp; drop file di sini, atau
                             <span class="dz-browse">browse</span>
                         </p>
-                        <span class="dz-ext">.xlsx, .xls &mdash; maks 10 MB</span>
+                        <span class="dz-ext">.xlsx, .xls, .csv &mdash; maks 10 MB</span>
                     </div>
 
                     <div class="upload-file-card" id="partFileCard" style="display:none">
@@ -1016,7 +1026,7 @@
                 <div class="modal-body">
                     <span class="upload-modal-label">Stock File</span>
 
-                    <input type="file" id="stockFileInput" name="file" accept=".xlsx,.xls"
+                    <input type="file" id="stockFileInput" name="file" accept=".xlsx,.xls,.csv"
                         style="display:none">
 
                     <div class="upload-drop-zone" id="stockDropZone"
@@ -1027,7 +1037,7 @@
                         <p>Drag &amp; drop file di sini, atau
                             <span class="dz-browse">browse</span>
                         </p>
-                        <span class="dz-ext">.xlsx, .xls &mdash; maks 10 MB</span>
+                        <span class="dz-ext">.xlsx, .xls, .csv &mdash; maks 10 MB</span>
                     </div>
 
                     <div class="upload-file-card" id="stockFileCard" style="display:none">
@@ -1101,405 +1111,450 @@
 
 {{-- end of modal --}}
 
-{{-- mqtt --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
-<script src="{{ asset('assets/js/jquery-3.6.3.min.js') }}"></script>
-<script src="{{ asset('assets/js/apexcharts.js') }}"></script>
-<script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}></script>
-<script src="<https://unpkg.com/mqtt/dist/mqtt.min.js>"></script>
+@endsection
+
+@push('scripts')
 <script>
-    // chart option
-    var lineData = @json($lines);
-    // Declare a global object to store chart instances
-    var charts = {};
+    (function($) {
+        'use strict';
 
-    const flashMessage = {
-        error: @json(session('error')),
-        success: @json(session('success')),
-        warning: @json(session('warning')),
-        details: @json(session('import_errors', [])),
-        validationErrors: @json($errors->all()),
-    };
+        const stockConfig = {
+            dataUrl: @json(route('dashboard.productionStock.data')),
+            activeLine: @json($activeLine),
+            focusBackNumber: @json($focusBackNumber),
+            refreshMs: 30000,
+            statusColumn: 6,
+        };
 
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
+        const flashMessage = {
+            error: @json(session('error')),
+            success: @json(session('success')),
+            warning: @json(session('warning')),
+            details: @json(session('import_errors', [])),
+            validationErrors: @json($errors->all()),
+        };
 
-    function formatDetails(details) {
-        if (!details || details.length === 0) {
-            return '';
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
-        let html = '<br><br><b>Detail:</b><br>';
-
-        details.slice(0, 8).forEach(function(item) {
-            html += '• ' + escapeHtml(item) + '<br>';
-        });
-
-        return html;
-    }
-
-    $(document).ready(function() {
-        if (flashMessage.validationErrors.length > 0) {
-            iziToast.error({
-                title: 'File tidak valid',
-                message: formatDetails(flashMessage.validationErrors),
-                position: 'bottomRight',
-                timeout: 9000,
-                class: 'iziToast-danger', // ← tambahkan ini
-            });
-        }
-
-        if (flashMessage.error) {
-            iziToast.error({
-                title: 'Gagal',
-                message: escapeHtml(flashMessage.error) + formatDetails(flashMessage.details),
-                position: 'bottomRight',
-                timeout: 10000,
-                class: 'iziToast-danger', // ← tambahkan ini
-            });
-        }
-
-        if (flashMessage.warning) {
-            iziToast.warning({
-                title: 'Perhatian',
-                message: escapeHtml(flashMessage.warning) + formatDetails(flashMessage.details),
-                position: 'bottomRight',
-                timeout: 10000,
-                class: 'iziToast-warning', // ← tambahkan ini
-            });
-        }
-
-        if (flashMessage.success) {
-            iziToast.success({
-                title: 'Berhasil',
-                message: escapeHtml(flashMessage.success),
-                position: 'bottomRight',
-                timeout: 7000,
-                class: 'iziToast-success', // ← tambahkan ini
-            });
-        }
-
-        @if (count($lines))
-            $('#stocks-{{ $lines[0]->line }}').DataTable();
-        @endif
-
-        $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
-            var target = $(e.target).attr("href");
-            var tableId = target + ' table';
-
-            if (!$.fn.DataTable.isDataTable(tableId)) {
-                $(tableId).DataTable();
+        function formatDetails(details) {
+            if (!details || details.length === 0) {
+                return '';
             }
-        });
 
-        lineData.forEach(function(data) {
-            if (getElement(data.line)) {
-                chart(data.line).render();
+            let html = '<br><br><b>Detail:</b><br>';
+
+            details.slice(0, 8).forEach(function(item) {
+                html += '• ' + escapeHtml(item) + '<br>';
+            });
+
+            return html;
+        }
+
+        function showFlashMessages() {
+            if (flashMessage.validationErrors.length > 0) {
+                iziToast.error({
+                    title: 'File tidak valid',
+                    message: formatDetails(flashMessage.validationErrors),
+                    position: 'bottomRight',
+                    timeout: 9000,
+                    class: 'iziToast-danger',
+                });
             }
-        });
 
-        lineData.forEach(function(item) {
-            updateChart(item.line, item.items);
-        });
-    });
+            if (flashMessage.error) {
+                iziToast.error({
+                    title: 'Gagal',
+                    message: escapeHtml(flashMessage.error) + formatDetails(flashMessage.details),
+                    position: 'bottomRight',
+                    timeout: 10000,
+                    class: 'iziToast-danger',
+                });
+            }
 
-    // chart option
-    function generateOptions(line) {
-        return {
-            chart: {
-                height: 300,
-                columnWidth: 500,
-                type: 'bar',
-                animations: {
-                    enabled: true,
-                    easing: 'easein',
-                    speed: 800, // Set animation to start from bottom
-                    animateGradually: {
-                        enabled: true,
-                        delay: 150
+            if (flashMessage.warning) {
+                iziToast.warning({
+                    title: 'Perhatian',
+                    message: escapeHtml(flashMessage.warning) + formatDetails(flashMessage.details),
+                    position: 'bottomRight',
+                    timeout: 10000,
+                    class: 'iziToast-warning',
+                });
+            }
+
+            if (flashMessage.success) {
+                iziToast.success({
+                    title: 'Berhasil',
+                    message: escapeHtml(flashMessage.success),
+                    position: 'bottomRight',
+                    timeout: 7000,
+                    class: 'iziToast-success',
+                });
+            }
+        }
+
+        function renderStockNumber(value, type) {
+            if (type !== 'display') {
+                return value;
+            }
+
+            return '<span class="stock-number">' + escapeHtml(value) + '</span>';
+        }
+
+        function renderBackNumber(value, type) {
+            if (type !== 'display') {
+                return value;
+            }
+
+            return '<span class="back-number-badge">' + escapeHtml(value) + '</span>';
+        }
+
+        function renderGap(value, type, row) {
+            const gap = Number(row.qty || 0) - Number(row.standard || 0);
+
+            if (type !== 'display') {
+                return gap;
+            }
+
+            const label = gap > 0 ? '+' + gap : String(gap);
+            const badgeClass = gap < 0 ? 'red' : (gap === 0 ? 'yellow' : 'green');
+
+            return '<span class="bella-badge bella-badge-' + badgeClass + '">' + escapeHtml(label) + '</span>';
+        }
+
+        function renderStatus(value, type, row) {
+            if (type !== 'display') {
+                return value;
+            }
+
+            return '<span class="bella-badge bella-badge-' + escapeHtml(row.status_class) + '">' +
+                '<i class="' + escapeHtml(row.status_icon) + '"></i> ' + escapeHtml(value) +
+                '</span>';
+        }
+
+        function renderAction(value, type, row) {
+            if (type !== 'display') {
+                return row.id;
+            }
+
+            return '<button type="button" class="act-btn primary edit-stock" ' +
+                'data-id="' + escapeHtml(row.id) + '" ' +
+                'data-back-number="' + escapeHtml(row.back_number) + '" ' +
+                'data-standard="' + escapeHtml(row.standard) + '" ' +
+                'data-qty="' + escapeHtml(row.qty) + '">' +
+                '<i class="fas fa-edit"></i> Edit' +
+                '</button>';
+        }
+
+        function highlightFocusedRow(table) {
+            if (!stockConfig.focusBackNumber) {
+                return;
+            }
+
+            const focusedRow = table
+                .rows({
+                    search: 'applied'
+                })
+                .nodes()
+                .toArray()
+                .find(function(row) {
+                    return (row.dataset.backNumber || '').trim() === stockConfig.focusBackNumber;
+                });
+
+            if (!focusedRow) {
+                return;
+            }
+
+            focusedRow.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+            focusedRow.classList.add('stock-flash');
+
+            window.setTimeout(function() {
+                focusedRow.classList.remove('stock-flash');
+            }, 2200);
+        }
+
+        function initStockTable(pane) {
+            const $pane = $(pane);
+            const $table = $pane.find('table.stock-table');
+
+            if (!$table.length) {
+                return null;
+            }
+
+            if ($.fn.DataTable.isDataTable($table[0])) {
+                const existingTable = $table.DataTable();
+                existingTable.columns.adjust();
+
+                return existingTable;
+            }
+
+            const line = String($table.data('line') || '');
+
+            return $table.DataTable({
+                ajax: {
+                    url: stockConfig.dataUrl,
+                    data: {
+                        line: line
                     },
-                    animate: {
-                        from: 'bottom'
+                    dataSrc: 'data',
+                    cache: false,
+                },
+                autoWidth: false,
+                deferRender: true,
+                pageLength: 10,
+                lengthMenu: [10, 25, 50, 100],
+                processing: true,
+                order: [
+                    [1, 'asc']
+                ],
+                columns: [{
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        render: function(data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
                     },
-                    dynamicAnimation: {
-                        enabled: true,
-                        speed: 350
+                    {
+                        data: 'back_number',
+                        render: renderBackNumber
+                    },
+                    {
+                        data: 'part_number',
+                        render: renderStockNumber
+                    },
+                    {
+                        data: 'standard',
+                        render: renderStockNumber
+                    },
+                    {
+                        data: 'qty',
+                        render: renderStockNumber
+                    },
+                    {
+                        data: null,
+                        render: renderGap
+                    },
+                    {
+                        data: 'status',
+                        render: renderStatus
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center',
+                        render: renderAction
+                    }
+                ],
+                createdRow: function(row, data) {
+                    row.dataset.backNumber = data.back_number || '';
+                },
+                initComplete: function() {
+                    const table = this.api();
+
+                    if (stockConfig.focusBackNumber && line === stockConfig.activeLine) {
+                        $table.one('draw.dt', function() {
+                            window.setTimeout(function() {
+                                highlightFocusedRow(table);
+                            }, 50);
+                        });
+
+                        table.search(stockConfig.focusBackNumber).draw();
                     }
                 }
-            },
-            plotOptions: {
-                bar: {
-                    horizontal: false,
-                    barHeight: '50%',
-                    borderRadius: 5,
-                    borderRadiusOnAllStackedSeries: false,
-                    columnWidth: '60%'
-                },
-            },
-            colors: '#696CFF',
-            noData: {
-                text: 'No data at line ' + line
-            },
-            series: [{
-                name: 'Quantity',
-                data: []
-            }],
-        };
-    }
+            });
+        }
 
+        function getStatusFilter() {
+            return $('.stock-status-filter.active').data('status') || '';
+        }
 
-    // initialize chart
-    function chart(line) {
-        var options = generateOptions(line);
-        var chartInstance = new ApexCharts(document.querySelector(`#${line}-chart`), options);
-        charts[line] = chartInstance; // Store the chart instance in the object
-        return chartInstance;
-    }
+        function applyStatusFilter(table) {
+            table.column(stockConfig.statusColumn).search(getStatusFilter()).draw();
+        }
 
-    function updateChart(line, data) {
-        var chartData = data.map(function(item) {
-            var color;
+        function reloadActiveTable() {
+            const $table = $('#myTabContent2 .tab-pane.active table.stock-table');
 
-            // Set different colors based on qty value
-            if (item.qty <= 200) {
-                color = '#ff0000'; // Red color
-            } else if (item.qty > 200) {
-                color = '#20c997'; // Green color
-            } else {
-                color = '#0000ff'; // Blue color
+            if ($table.length && $.fn.DataTable.isDataTable($table[0])) {
+                $table.DataTable().ajax.reload(null, false);
+            }
+        }
+
+        function setupUploadModal(inputId, dropZoneId, fileCardId, fileNameId, fileSizeId,
+            removeId, hintId, hintOkId, submitId) {
+            const input = document.getElementById(inputId);
+            const dropZone = document.getElementById(dropZoneId);
+            const fileCard = document.getElementById(fileCardId);
+            const fileName = document.getElementById(fileNameId);
+            const fileSize = document.getElementById(fileSizeId);
+            const removeBtn = document.getElementById(removeId);
+            const hint = document.getElementById(hintId);
+            const hintOk = document.getElementById(hintOkId);
+            const submitBtn = document.getElementById(submitId);
+
+            if (!input || !dropZone || !fileCard || !fileName || !fileSize || !removeBtn || !hint || !hintOk ||
+                !submitBtn) {
+                return;
             }
 
-            return {
-                x: item.back_number,
-                y: item.qty,
-                fillColor: color // Add the fillColor property with the corresponding color
-            };
-        });
-
-        charts[line].updateOptions({
-            series: [{
-                name: 'Stock',
-                data: chartData
-            }]
-        });
-    }
-
-    function getElement(line) {
-        var el = document.querySelector(`#${line}-chart`);
-        return el;
-    }
-
-    function setupUploadModal(inputId, dropZoneId, fileCardId, fileNameId, fileSizeId,
-        removeId, hintId, hintOkId, submitId) {
-        const input = document.getElementById(inputId);
-        const dropZone = document.getElementById(dropZoneId);
-        const fileCard = document.getElementById(fileCardId);
-        const fileName = document.getElementById(fileNameId);
-        const fileSize = document.getElementById(fileSizeId);
-        const removeBtn = document.getElementById(removeId);
-        const hint = document.getElementById(hintId);
-        const hintOk = document.getElementById(hintOkId);
-        const submitBtn = document.getElementById(submitId);
-
-        function formatBytes(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / 1048576).toFixed(1) + ' MB';
-        }
-
-        function setFile(file) {
-            fileName.textContent = file.name;
-            fileSize.textContent = formatBytes(file.size) + ' · Excel Spreadsheet';
-            fileCard.style.display = 'flex';
-            hint.style.display = 'none';
-            hintOk.style.display = 'flex';
-            dropZone.classList.add('dragover');
-            submitBtn.disabled = false;
-        }
-
-        function clearFile() {
-            input.value = '';
-            fileCard.style.display = 'none';
-            hint.style.display = 'flex';
-            hintOk.style.display = 'none';
-            dropZone.classList.remove('dragover');
-            submitBtn.disabled = true;
-        }
-
-        input.addEventListener('change', function() {
-            if (this.files[0]) setFile(this.files[0]);
-        });
-
-        removeBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            clearFile();
-        });
-
-        dropZone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            this.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', function() {
-            if (!input.files[0]) this.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                input.files = dt.files;
-                setFile(file);
+            function formatBytes(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / 1048576).toFixed(1) + ' MB';
             }
+
+            function showUploadError(message) {
+                if (window.iziToast) {
+                    iziToast.error({
+                        title: 'File tidak valid',
+                        message: escapeHtml(message),
+                        position: 'bottomRight',
+                        timeout: 6000,
+                        class: 'iziToast-danger',
+                    });
+
+                    return;
+                }
+
+                alert(message);
+            }
+
+            function setFile(file) {
+                const extension = String(file.name).split('.').pop().toLowerCase();
+
+                if (!['xlsx', 'xls', 'csv'].includes(extension)) {
+                    clearFile();
+                    showUploadError('Gunakan file .xlsx, .xls, atau .csv.');
+
+                    return false;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    clearFile();
+                    showUploadError('Ukuran file maksimal 10 MB.');
+
+                    return false;
+                }
+
+                fileName.textContent = file.name;
+                fileSize.textContent = formatBytes(file.size) + ' - Spreadsheet';
+                fileCard.style.display = 'flex';
+                hint.style.display = 'none';
+                hintOk.style.display = 'flex';
+                dropZone.classList.add('dragover');
+                submitBtn.disabled = false;
+
+                return true;
+            }
+
+            function clearFile() {
+                input.value = '';
+                fileCard.style.display = 'none';
+                hint.style.display = 'flex';
+                hintOk.style.display = 'none';
+                dropZone.classList.remove('dragover');
+                submitBtn.disabled = true;
+            }
+
+            input.addEventListener('change', function() {
+                if (this.files[0]) {
+                    setFile(this.files[0]);
+                } else {
+                    clearFile();
+                }
+            });
+
+            removeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearFile();
+            });
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function() {
+                if (!input.files[0]) this.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const file = e.dataTransfer.files[0];
+                if (file && setFile(file)) {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                }
+            });
+
+            $(dropZone).closest('.modal').on('hidden.bs.modal', clearFile);
+        }
+
+        $(function() {
+            showFlashMessages();
+            initStockTable($('#myTabContent2 .tab-pane.active'));
+
+            $('a[data-toggle="tab"][data-line]').on('shown.bs.tab', function(e) {
+                const table = initStockTable($(e.target).attr('href'));
+
+                if (table) {
+                    applyStatusFilter(table);
+                    table.ajax.reload(null, false);
+                }
+            });
+
+            $('.stock-status-filter').on('click', function() {
+                $('.stock-status-filter').removeClass('active');
+                $(this).addClass('active');
+
+                const $table = $('#myTabContent2 .tab-pane.active table.stock-table');
+
+                if ($table.length && $.fn.DataTable.isDataTable($table[0])) {
+                    applyStatusFilter($table.DataTable());
+                }
+            });
+
+            window.setInterval(reloadActiveTable, stockConfig.refreshMs);
+
+            setupUploadModal(
+                'partFileInput', 'partDropZone', 'partFileCard',
+                'partFileName', 'partFileSize', 'partFileRemove',
+                'partHint', 'partHintOk', 'partSubmitBtn'
+            );
+
+            setupUploadModal(
+                'stockFileInput', 'stockDropZone', 'stockFileCard',
+                'stockFileName', 'stockFileSize', 'stockFileRemove',
+                'stockHint', 'stockHintOk', 'stockSubmitBtn'
+            );
         });
 
-        // Reset saat modal ditutup
-        $(dropZone).closest('.modal').on('hidden.bs.modal', clearFile);
-    }
+        $(document).on('click', '.edit-stock', function() {
+            const button = this;
+            const modal = $('#edit');
 
-    $(document).on('click', '.edit-stock', function() {
-        const data = $(this).data('stock');
-        let modal = $('#edit').modal('show');
-        if (modal.length) {
-            $('#title').html(`<h4>${data.back_number}</h4>`);
-            $('#internal_part_id').val(data.id);
-            $('#standard_stock').html(data.standard);
-            $('#current_stock').html(data.qty);
+            if (!modal.length) {
+                return;
+            }
+
+            $('#title').empty().append($('<h4>').text(button.dataset.backNumber || '-'));
+            $('#internal_part_id').val(button.dataset.id || '');
+            $('#standard_stock').text(button.dataset.standard || '0');
+            $('#current_stock').text(button.dataset.qty || '0');
             modal.modal('show');
-        } else {
-            console.error('Modal not found for chart ID:', data.id);
-        }
-    });
-
-    $(document).ready(function() {
-        // Initialize DataTable for the first tab
-        @if (count($lines))
-            $('#stocks-{{ $lines[0]->line }}').DataTable();
-        @endif
-
-        setupUploadModal(
-            'partFileInput', 'partDropZone', 'partFileCard',
-            'partFileName', 'partFileSize', 'partFileRemove',
-            'partHint', 'partHintOk', 'partSubmitBtn'
-        );
-        setupUploadModal(
-            'stockFileInput', 'stockDropZone', 'stockFileCard',
-            'stockFileName', 'stockFileSize', 'stockFileRemove',
-            'stockHint', 'stockHintOk', 'stockSubmitBtn'
-        );
-
-        // Initialize DataTable on tab show event
-        $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
-            var target = $(e.target).attr("href"); // Get the target tab ID
-            var tableId = target + ' table'; // ID of the table inside the tab
-            if (!$.fn.DataTable.isDataTable(tableId)) {
-                $(tableId).DataTable(); // Initialize DataTable if not already initialized
-            }
         });
-
-        // render chart
-        lineData.forEach(function(data) {
-            if (getElement(data.line)) {
-                chart(data.line).render();
-            }
-        });
-
-        lineData.forEach(function(item) {
-            updateChart(item.line, item.items);
-        });
-
-    });
-    Paho.MQTT.DEBUG = true;
-
-    let client;
-
-    function connectMQTT() {
-        // Create an MQTT client instance
-        clientId = "client_" + Math.random().toString(16).substr(2, 8);
-        client = new Paho.MQTT.Client("172.18.3.70", Number(8083), clientId);
-
-        // Set callback handlers
-        client.onConnectionLost = onConnectionLost;
-        client.onMessageArrived = onMessageArrived;
-
-        // Connect the client, providing an onConnect callback
-        client.connect({
-            onSuccess: onConnect,
-            onFailure: onFailure,
-            // userName: "fabian",
-            // password: "1234"
-        });
-    }
-
-    function onConnect() {
-        console.log('Connected');
-        client.subscribe("prod/quantity");
-    }
-
-    function onFailure(error) {
-        console.error('Failed to connect to MQTT broker:', error.errorMessage);
-        console.log(error);
-        // Implement your own logic for handling connection failure, e.g., retry after a certain interval
-        setTimeout(connectMQTT, 5000);
-    }
-
-    function onConnectionLost(responseObject) {
-        if (responseObject.errorCode !== 0) {
-            console.log("Connection Lost: " + responseObject.errorMessage);
-            // Implement your own logic for handling connection loss, e.g., retry after a certain interval
-            setTimeout(connectMQTT, 5000);
-        }
-    }
-
-    function onMessageArrived(data) {
-        // update chart
-        let items = JSON.parse(data.payloadString);
-        items.forEach(function(item) {
-            updateChart(item.line, item.items);
-        });
-    }
-
-    connectMQTT();
+    })(jQuery);
 </script>
-
-<style>
-    .stock-table tbody tr.stock-flash>td {
-        background: #fff7cc !important;
-        transition: background .4s ease;
-    }
-</style>
-
-<script>
-    // Prefill dari global search: ?back_number=XXX → aktifkan tab line, scroll + sorot barisnya
-    (function () {
-        const bn = new URLSearchParams(window.location.search).get('back_number');
-        if (!bn) return;
-
-        const badges = document.querySelectorAll('#myTabContent2 .back-number-badge');
-        for (let i = 0; i < badges.length; i++) {
-            if ((badges[i].textContent || '').trim() !== bn) continue;
-
-            const row = badges[i].closest('tr');
-            const pane = badges[i].closest('.tab-pane');
-            const tabLink = pane ? document.querySelector('a[data-toggle="tab"][href="#' + pane.id + '"]') : null;
-
-            if (tabLink) tabLink.click(); // aktifkan tab line yang benar (via data-api bootstrap)
-
-            setTimeout(function () {
-                if (!row) return;
-                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                row.classList.add('stock-flash');
-                setTimeout(function () { row.classList.remove('stock-flash'); }, 2000);
-            }, 250);
-            break;
-        }
-    })();
-</script>
+@endpush

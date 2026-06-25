@@ -1879,6 +1879,12 @@
             var masterBase = "{{ url('/dashboard/delivery/master-cycles') }}";
             var csrf = "{{ csrf_token() }}";
 
+            // Hak akses: hanya admin/ppic (manage-master) yang boleh kelola master cycle
+            var canManageMaster = @json(auth()->user()->can('manage-master'));
+            if (!canManageMaster) {
+                $('#masterCycleForm').closest('.bella-content-card').hide();
+            }
+
             var customers = @json($customers);
             var chartRows = [];
             var chartRowsPrevDay = [];
@@ -3529,12 +3535,14 @@
                         '<td>' + offsetDisp + '</td>' +
                         '<td>' + truckDisp + '</td>' +
                         '<td style="white-space:nowrap;">' +
-                        '<a class="act-btn primary btn-edit-master" data-id="' + r.id +
-                        '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:4px;">' +
-                        '<i class="fas fa-edit"></i> Edit</a>' +
-                        '<a class="act-btn danger btn-del-master" data-id="' + r.id +
-                        '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">' +
-                        '<i class="fas fa-trash"></i> Hapus</a>' +
+                        (canManageMaster ?
+                            ('<a class="act-btn primary btn-edit-master" data-id="' + r.id +
+                            '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:4px;">' +
+                            '<i class="fas fa-edit"></i> Edit</a>' +
+                            '<a class="act-btn danger btn-del-master" data-id="' + r.id +
+                            '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">' +
+                            '<i class="fas fa-trash"></i> Hapus</a>')
+                            : '<span style="color:var(--text-muted);">-</span>') +
                         '</td>' +
                         '</tr>'
                     );

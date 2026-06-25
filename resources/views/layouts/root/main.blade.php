@@ -7,13 +7,21 @@
     <title>BELLA</title>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('icons/bella-favicon.svg') }}?v=2">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <link rel="manifest" href={{ asset('manifest.json') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/bootstrap/css/bootstrap.min.css') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
+    @unless (request()->routeIs('dashboard.overview'))
     <link rel="stylesheet"
         href={{ asset('assets/modules/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}>
+    @unless (request()->routeIs('dashboard.productionStock'))
     <link rel="stylesheet" href={{ asset('assets/modules/select2/dist/css/select2.min.css') }}>
+    @endunless
+    @endunless
     <link rel="stylesheet" href={{ asset('assets/modules/izitoast/css/iziToast.min.css') }}>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
 
@@ -1306,8 +1314,6 @@
     </div>
 
     <!-- General JS Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.3.min.js"
-        integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
     <script src={{ asset('assets/modules/jquery.min.js') }}></script>
     <script src={{ asset('assets/modules/popper.js') }}></script>
     <script src={{ asset('assets/modules/tooltip.js') }}></script>
@@ -1315,17 +1321,29 @@
     <script src={{ asset('assets/modules/nicescroll/jquery.nicescroll.min.js') }}></script>
     <script src={{ asset('assets/modules/moment.min.js') }}></script>
     <script src={{ asset('assets/js/stisla.js') }}></script>
+    @unless (request()->routeIs('dashboard.overview'))
+    @if (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
+    <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/jquery.dataTables.min.js') }}></script>
+    <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js') }}></script>
+    @else
     <script src={{ asset('assets/modules/datatables/datatables.min.js') }}></script>
-    <script src="{{ asset('assets/js/dataTables.bootstrap4.min.js') }}"></script>
+    @endif
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/modules/jquery.sparkline.min.js') }}></script>
     <script src={{ asset('assets/modules/chart.min.js') }}></script>
     <script src={{ asset('assets/modules/owlcarousel2/dist/owl.carousel.min.js') }}></script>
     <script src={{ asset('assets/modules/summernote/summernote-bs4.js') }}></script>
     <script src={{ asset('assets/modules/chocolat/dist/js/jquery.chocolat.min.js') }}></script>
+    @endunless
+    @unless (request()->routeIs('loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('dist/assets/select2/dist/js/select2.full.min.js') }}></script>
-    <script src={{ asset('assets/modules/izitoast/js/iziToast.min.js') }}></script>
+    @endunless
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/js/page/bootstrap-modal.js') }}></script>
     <script src={{ asset('assets/js/page/index.js') }}></script>
+    @endunless
+    @endunless
+    <script src={{ asset('assets/modules/izitoast/js/iziToast.min.js') }}></script>
     <script src={{ asset('assets/js/scripts.js') }}></script>
     <script src={{ asset('assets/js/custom.js') }}></script>
 
