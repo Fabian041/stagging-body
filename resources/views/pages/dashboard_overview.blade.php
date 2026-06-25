@@ -5,6 +5,7 @@
         .ov-wrap {
             width: 100%;
             margin: 0 auto;
+            position: relative;
         }
 
         .ov-head {
@@ -122,6 +123,37 @@
 
         .ov-filter .sep {
             flex: 1;
+        }
+
+        .ov-filter-loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .ov-filter-loading::before {
+            content: '';
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(0, 151, 216, .2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: ov-spin .7s linear infinite;
+        }
+
+        .ov-wrap.is-filter-loading .ov-kpis,
+        .ov-wrap.is-filter-loading .ov-row {
+            opacity: .45;
+            transition: opacity .15s ease;
+        }
+
+        .ov-wrap.is-filter-loading .ov-filter input,
+        .ov-wrap.is-filter-loading .ov-preset {
+            pointer-events: none;
+            opacity: .65;
         }
 
         .ov-kpis {
@@ -567,6 +599,7 @@
             <span class="sep"></span>
             <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Auto-refresh tiap 60 dtk · vs periode
                 sebelumnya</span>
+            <span id="ovFilterLoading" class="ov-filter-loading" hidden>Memuat data periode dipilih</span>
         </div>
 
         {{-- ===== KPI STRIP ===== --}}
@@ -791,6 +824,16 @@
             function setHtml(id, v) {
                 var el = document.getElementById(id);
                 if (el) el.innerHTML = v;
+            }
+
+            function setFilterLoading(active) {
+                var wrap = document.querySelector('.ov-wrap');
+                var label = document.getElementById('ovFilterLoading');
+                if (wrap) {
+                    wrap.classList.toggle('is-filter-loading', active);
+                    wrap.setAttribute('aria-busy', active ? 'true' : 'false');
+                }
+                if (label) label.hidden = !active;
             }
 
             function limit(s, n) {
@@ -1375,10 +1418,11 @@
                 hourlyChart.render();
             }
 
-            function refresh() {
+            function refresh(showLoading) {
                 var currentRequestId = ++requestId;
                 var from = document.getElementById('ovFrom').value;
                 var to = document.getElementById('ovTo').value;
+                if (showLoading) setFilterLoading(true);
                 fetch(DATA_URL + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), {
                         headers: {
                             'Accept': 'application/json'
@@ -1391,6 +1435,7 @@
                     })
                     .then(function(d) {
                         if (currentRequestId !== requestId) return;
+                        setFilterLoading(false);
                         if (d.from) document.getElementById('ovFrom').value = d.from;
                         if (d.to) document.getElementById('ovTo').value = d.to;
                         applyData(d);
@@ -1401,6 +1446,7 @@
                     })
                     .catch(function() {
                         if (currentRequestId !== requestId) return;
+                        setFilterLoading(false);
                         var message = '<div class="ov-empty">Data belum berhasil dimuat. Silakan coba lagi.</div>';
                         ['ovActivitySummary', 'ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder',
                             'ovErrByArea', 'ovRecentErrors'
@@ -1426,7 +1472,7 @@
                 };
                 document.getElementById('ovFrom').value = iso(from);
                 document.getElementById('ovTo').value = iso(to);
-                refresh();
+                refresh(true);
             }
 
             document.addEventListener('DOMContentLoaded', function() {
@@ -1441,15 +1487,19 @@
                     applyData(initial);
                     ensureCharts(initial);
                 } else {
-                    refresh();
+                    refresh(true);
                 }
                 document.querySelectorAll('.ov-preset').forEach(function(b) {
                     b.addEventListener('click', function() {
                         setPreset(b.getAttribute('data-preset'));
                     });
                 });
-                document.getElementById('ovFrom').addEventListener('change', refresh);
-                document.getElementById('ovTo').addEventListener('change', refresh);
+                document.getElementById('ovFrom').addEventListener('change', function() {
+                    refresh(true);
+                });
+                document.getElementById('ovTo').addEventListener('change', function() {
+                    refresh(true);
+                });
                 // hemat query: refresh hanya saat tab aktif
                 timer = setInterval(function() {
                     if (!document.hidden) refresh();
