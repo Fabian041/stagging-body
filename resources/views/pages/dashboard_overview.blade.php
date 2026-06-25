@@ -745,36 +745,36 @@
                     base: '#0097D8',
                     ranges: [
                         { from: 0, to: 0, color: '#f8fafc', label: '0' },
-                        { from: 1, to: 2, color: '#dbeafe', label: '1-2' },
-                        { from: 3, to: 5, color: '#bfdbfe', label: '3-5' },
-                        { from: 6, to: 10, color: '#7dd3fc', label: '6-10' },
-                        { from: 11, to: 15, color: '#38bdf8', label: '11-15' },
-                        { from: 16, to: 25, color: '#0ea5e9', label: '16-25' },
-                        { from: 26, to: 999999, color: '#0369a1', label: '26+' }
+                        { from: 1, to: 10, color: '#dbeafe', label: '1-10' },
+                        { from: 11, to: 25, color: '#bfdbfe', label: '11-25' },
+                        { from: 26, to: 50, color: '#7dd3fc', label: '26-50' },
+                        { from: 51, to: 100, color: '#38bdf8', label: '51-100' },
+                        { from: 101, to: 200, color: '#0ea5e9', label: '101-200' },
+                        { from: 201, to: 999999, color: '#0369a1', label: '201+' }
                     ]
                 },
                 produksi: {
                     base: '#16a34a',
                     ranges: [
                         { from: 0, to: 0, color: '#f8fafc', label: '0' },
-                        { from: 1, to: 2, color: '#dcfce7', label: '1-2' },
-                        { from: 3, to: 5, color: '#bbf7d0', label: '3-5' },
-                        { from: 6, to: 10, color: '#86efac', label: '6-10' },
-                        { from: 11, to: 15, color: '#4ade80', label: '11-15' },
-                        { from: 16, to: 25, color: '#22c55e', label: '16-25' },
-                        { from: 26, to: 999999, color: '#15803d', label: '26+' }
+                        { from: 1, to: 10, color: '#dcfce7', label: '1-10' },
+                        { from: 11, to: 25, color: '#bbf7d0', label: '11-25' },
+                        { from: 26, to: 50, color: '#86efac', label: '26-50' },
+                        { from: 51, to: 100, color: '#4ade80', label: '51-100' },
+                        { from: 101, to: 200, color: '#22c55e', label: '101-200' },
+                        { from: 201, to: 999999, color: '#15803d', label: '201+' }
                     ]
                 },
                 all: {
                     base: '#d97706',
                     ranges: [
                         { from: 0, to: 0, color: '#f8fafc', label: '0' },
-                        { from: 1, to: 5, color: '#fef3c7', label: '1-5' },
-                        { from: 6, to: 10, color: '#fde68a', label: '6-10' },
-                        { from: 11, to: 20, color: '#fbbf24', label: '11-20' },
-                        { from: 21, to: 35, color: '#f59e0b', label: '21-35' },
-                        { from: 36, to: 60, color: '#d97706', label: '36-60' },
-                        { from: 61, to: 999999, color: '#92400e', label: '61+' }
+                        { from: 1, to: 20, color: '#fef3c7', label: '1-20' },
+                        { from: 21, to: 50, color: '#fde68a', label: '21-50' },
+                        { from: 51, to: 100, color: '#fbbf24', label: '51-100' },
+                        { from: 101, to: 150, color: '#f59e0b', label: '101-150' },
+                        { from: 151, to: 200, color: '#d97706', label: '151-200' },
+                        { from: 201, to: 999999, color: '#92400e', label: '201+' }
                     ]
                 }
             };
