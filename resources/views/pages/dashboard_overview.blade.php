@@ -390,6 +390,15 @@
             }
         }
 
+        .ov-peak-mark {
+            fill: #fff;
+            stroke: rgba(15, 23, 42, .5);
+            paint-order: stroke;
+            font-weight: 800;
+            font-family: inherit;
+            pointer-events: none;
+        }
+
         .ov-empty {
             padding: 24px 12px;
             color: var(--text-muted);
@@ -1046,6 +1055,8 @@
                 rects.forEach(function(rect) {
                     rect.classList.remove('ov-heatmap-peak');
                 });
+                var oldMark = chartEl.querySelector('.ov-peak-mark');
+                if (oldMark) oldMark.remove();
 
                 var peak = peakActivity(activitySeries(latestData.heatmap, activityMode));
                 if (!peak) return;
@@ -1059,6 +1070,19 @@
                 }
                 if (peakRect) {
                     peakRect.classList.add('ov-heatmap-peak');
+
+                    var bb = peakRect.getBBox();
+                    var fontSize = Math.max(9, Math.min(bb.height * 0.55, bb.width * 0.45));
+                    var mark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    mark.setAttribute('class', 'ov-peak-mark');
+                    mark.setAttribute('x', bb.x + bb.width / 2);
+                    mark.setAttribute('y', bb.y + bb.height / 2);
+                    mark.setAttribute('text-anchor', 'middle');
+                    mark.setAttribute('dominant-baseline', 'central');
+                    mark.setAttribute('font-size', fontSize);
+                    mark.style.strokeWidth = (fontSize * 0.22) + 'px';
+                    mark.textContent = peak.value;
+                    peakRect.parentNode.appendChild(mark);
                 }
             }
 
