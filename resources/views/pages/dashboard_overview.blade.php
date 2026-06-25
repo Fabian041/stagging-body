@@ -5,7 +5,6 @@
         .ov-wrap {
             width: 100%;
             margin: 0 auto;
-            position: relative;
         }
 
         .ov-head {
@@ -142,12 +141,6 @@
             border-top-color: var(--primary);
             border-radius: 50%;
             animation: ov-spin .7s linear infinite;
-        }
-
-        .ov-wrap.is-filter-loading .ov-kpis,
-        .ov-wrap.is-filter-loading .ov-row {
-            opacity: .45;
-            transition: opacity .15s ease;
         }
 
         .ov-wrap.is-filter-loading .ov-filter input,
@@ -836,6 +829,50 @@
                 if (label) label.hidden = !active;
             }
 
+            function resetChart(id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.classList.add('ov-loading', 'ov-chart-loading');
+                el.textContent = 'Memuat grafik';
+            }
+
+            function setChartError(id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.classList.remove('ov-loading', 'ov-chart-loading');
+                el.innerHTML = '<div class="ov-empty">Grafik belum berhasil dimuat.</div>';
+            }
+
+            function showFilterLoadingState() {
+                if (trendChart) trendChart.destroy();
+                if (stockChart) stockChart.destroy();
+                if (hourlyChart) hourlyChart.destroy();
+                trendChart = stockChart = hourlyChart = null;
+
+                setText('k-prepComplete', '—');
+                setText('k-prepTotal', '—');
+                setText('k-kanban', '—');
+                setText('k-pulling', '—');
+                setText('k-produksi', '—');
+                setText('k-understock', '—');
+                setText('k-totalpart', '—');
+                setText('k-errperiod', '—');
+                ['sub-prep', 'sub-kanban', 'sub-pulling', 'sub-produksi', 'sub-understock', 'sub-error'].forEach(function(id) {
+                    setText(id, 'memuat data…');
+                });
+
+                resetChart('ovTrendChart');
+                resetChart('ovStockChart');
+                resetChart('ovHourlyChart');
+                setHtml('ovActivitySummary', '<div class="ov-loading">Memuat ringkasan</div>');
+                setHtml('ovActivityLegend', '');
+                ['ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder', 'ovErrByArea',
+                    'ovRecentErrors'
+                ].forEach(function(id) {
+                    setHtml(id, '<div class="ov-loading">Memuat data</div>');
+                });
+            }
+
             function limit(s, n) {
                 s = String(s == null ? '' : s);
                 return s.length > n ? s.slice(0, n) + '…' : s;
@@ -1422,7 +1459,10 @@
                 var currentRequestId = ++requestId;
                 var from = document.getElementById('ovFrom').value;
                 var to = document.getElementById('ovTo').value;
-                if (showLoading) setFilterLoading(true);
+                if (showLoading) {
+                    setFilterLoading(true);
+                    showFilterLoadingState();
+                }
                 fetch(DATA_URL + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), {
                         headers: {
                             'Accept': 'application/json'
@@ -1452,6 +1492,9 @@
                             'ovErrByArea', 'ovRecentErrors'
                         ].forEach(function(id) {
                             setHtml(id, message);
+                        });
+                        ['ovTrendChart', 'ovStockChart', 'ovHourlyChart'].forEach(function(id) {
+                            setChartError(id);
                         });
                         setText('sub-prep', 'gagal memuat data');
                         setText('sub-kanban', 'gagal memuat data');
