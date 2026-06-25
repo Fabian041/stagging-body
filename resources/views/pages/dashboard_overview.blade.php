@@ -372,21 +372,21 @@
         }
 
         .ov-heatmap-peak {
-            animation: ov-peak-pulse 1s ease-in-out infinite;
-            filter: drop-shadow(0 0 5px rgba(15, 23, 42, .35));
-            stroke: #0f172a !important;
-            stroke-width: 2.5px !important;
+            animation: ov-peak-glow 1.4s ease-in-out infinite;
+            filter: brightness(1.08) drop-shadow(0 0 3px rgba(255, 255, 255, .65));
+            stroke: #fff !important;
+            stroke-width: 1.2px !important;
         }
 
-        @keyframes ov-peak-pulse {
+        @keyframes ov-peak-glow {
 
             0%,
             100% {
-                opacity: 1;
+                filter: brightness(1.08) drop-shadow(0 0 3px rgba(255, 255, 255, .65));
             }
 
             50% {
-                opacity: .45;
+                filter: brightness(1.28) drop-shadow(0 0 9px rgba(255, 255, 255, .95));
             }
         }
 
