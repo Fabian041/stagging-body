@@ -171,6 +171,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/mutation/export', [DashboardController::class, 'exportMutation'])->name('dashboard.mutation.export');
         // Production stock monitoring (sebelumnya ada di /dashboard)
         Route::get('/production/stock', [DashboardController::class, 'productionStock'])->name('dashboard.productionStock');
+        Route::get('/production/stock/data', [DashboardController::class, 'productionStockData'])->name('dashboard.productionStock.data');
 
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
 

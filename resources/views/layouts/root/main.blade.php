@@ -13,7 +13,9 @@
     @unless (request()->routeIs('dashboard.overview'))
     <link rel="stylesheet"
         href={{ asset('assets/modules/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}>
+    @unless (request()->routeIs('dashboard.productionStock'))
     <link rel="stylesheet" href={{ asset('assets/modules/select2/dist/css/select2.min.css') }}>
+    @endunless
     @endunless
     <link rel="stylesheet" href={{ asset('assets/modules/izitoast/css/iziToast.min.css') }}>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1318,23 +1320,23 @@
     <script src={{ asset('assets/modules/moment.min.js') }}></script>
     <script src={{ asset('assets/js/stisla.js') }}></script>
     @unless (request()->routeIs('dashboard.overview'))
-    @if (request()->routeIs('loadingList.index', 'loadingList.detail'))
+    @if (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/jquery.dataTables.min.js') }}></script>
     <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js') }}></script>
     @else
     <script src={{ asset('assets/modules/datatables/datatables.min.js') }}></script>
     @endif
-    @unless (request()->routeIs('loadingList.index', 'loadingList.detail'))
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/modules/jquery.sparkline.min.js') }}></script>
     <script src={{ asset('assets/modules/chart.min.js') }}></script>
     <script src={{ asset('assets/modules/owlcarousel2/dist/owl.carousel.min.js') }}></script>
     <script src={{ asset('assets/modules/summernote/summernote-bs4.js') }}></script>
     <script src={{ asset('assets/modules/chocolat/dist/js/jquery.chocolat.min.js') }}></script>
     @endunless
-    @unless (request()->routeIs('loadingList.detail'))
+    @unless (request()->routeIs('loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('dist/assets/select2/dist/js/select2.full.min.js') }}></script>
     @endunless
-    @unless (request()->routeIs('loadingList.index', 'loadingList.detail'))
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/js/page/bootstrap-modal.js') }}></script>
     <script src={{ asset('assets/js/page/index.js') }}></script>
     @endunless
