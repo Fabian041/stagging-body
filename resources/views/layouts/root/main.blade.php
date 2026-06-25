@@ -8,6 +8,7 @@
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" type="image/svg+xml" href="{{ asset('icons/bella-favicon.svg') }}?v=2">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <link rel="manifest" href={{ asset('manifest.json') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/bootstrap/css/bootstrap.min.css') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
