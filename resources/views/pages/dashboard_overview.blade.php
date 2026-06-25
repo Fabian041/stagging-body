@@ -399,6 +399,177 @@
             pointer-events: none;
         }
 
+        .ov-activity-insight {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .ov-insight-label {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-muted);
+            margin: 0 0 9px;
+        }
+
+        .ov-insight-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+            gap: 10px;
+        }
+
+        .ov-chip {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+
+        .ov-chip__l {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .ov-chip__l i {
+            color: #d97706;
+        }
+
+        .ov-chip__v {
+            font-size: 18px;
+            font-weight: 850;
+            color: var(--navy);
+            letter-spacing: -.02em;
+        }
+
+        .ov-chip__s {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-top: 1px;
+        }
+
+        .ov-t3 {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ov-t3__item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 99px;
+            padding: 4px 12px 4px 4px;
+        }
+
+        .ov-t3__rank {
+            width: 19px;
+            height: 19px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            flex-shrink: 0;
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .ov-t3__rank--1 {
+            background: #d97706;
+            color: #fff;
+        }
+
+        .ov-t3__name {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .ov-t3__val {
+            font-size: 12.5px;
+            font-weight: 800;
+            color: var(--navy);
+        }
+
+        .ov-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1080;
+            padding: 16px;
+        }
+
+        .ov-modal.open {
+            display: flex;
+        }
+
+        .ov-modal__card {
+            background: var(--card);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 440px;
+            max-height: 80vh;
+            overflow: auto;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
+        }
+
+        .ov-modal__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--card);
+        }
+
+        .ov-modal__title {
+            font-size: 14px;
+            font-weight: 850;
+            color: var(--navy);
+        }
+
+        .ov-modal__title small {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .ov-modal__close {
+            border: 0;
+            background: var(--bg);
+            color: var(--text-muted);
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .ov-modal__body {
+            padding: 14px 18px;
+        }
+
         .ov-empty {
             padding: 24px 12px;
             color: var(--text-muted);
@@ -669,6 +840,7 @@
                 <div class="ov-panel__body">
                     <div id="ovActivityLegend" class="ov-activity-legend"></div>
                     <div id="ovHourlyChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
+                    <div id="ovActivityInsight" class="ov-activity-insight" hidden></div>
                 </div>
             </div>
         </div>
@@ -708,9 +880,21 @@
         </div>
     </div>
 
+    {{-- ===== Modal drill-down jam tersibuk (#4) ===== --}}
+    <div class="ov-modal" id="ovSlotModal" role="dialog" aria-modal="true" aria-labelledby="ovSlotTitle">
+        <div class="ov-modal__card">
+            <div class="ov-modal__head">
+                <div class="ov-modal__title" id="ovSlotTitle">Detail slot</div>
+                <button type="button" class="ov-modal__close" id="ovSlotClose" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="ov-modal__body" id="ovSlotBody"><div class="ov-loading">Memuat data</div></div>
+        </div>
+    </div>
+
     <script>
         (function() {
             var DATA_URL = @json(route('dashboard.overview.data'));
+            var SLOT_URL = @json(route('dashboard.overview.slot'));
             var STOCK_URL = @json(route('dashboard.productionStock'));
             var LL_URL = @json(url('/loading-list'));
             var CHART_URL = @json(asset('assets/js/apexcharts.js'));
@@ -1072,7 +1256,9 @@
                     peakRect.classList.add('ov-heatmap-peak');
 
                     var bb = peakRect.getBBox();
-                    var fontSize = Math.max(9, Math.min(bb.height * 0.55, bb.width * 0.45));
+                    var label = fmt(peak.value);
+                    // ukuran font nyesuain lebar cell DAN jumlah karakter biar angka ribuan tetap muat
+                    var fontSize = Math.max(8, Math.min(bb.height * 0.55, bb.width * 0.85 / (label.length * 0.6)));
                     var mark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     mark.setAttribute('class', 'ov-peak-mark');
                     mark.setAttribute('x', bb.x + bb.width / 2);
@@ -1081,12 +1267,178 @@
                     mark.setAttribute('dominant-baseline', 'central');
                     mark.setAttribute('font-size', fontSize);
                     mark.style.strokeWidth = (fontSize * 0.22) + 'px';
-                    mark.textContent = peak.value;
+                    mark.textContent = label;
                     peakRect.parentNode.appendChild(mark);
                 }
             }
 
+            function chip(icon, label, value, sub) {
+                return '<div class="ov-chip"><div class="ov-chip__l"><i class="fas ' + icon + '"></i> ' +
+                    esc(label) + '</div><div class="ov-chip__v">' + esc(value) + '</div>' +
+                    '<div class="ov-chip__s">' + esc(sub) + '</div></div>';
+            }
+
+            // #1 insight strip + #2 top-3 slot — dihitung dari data yang sudah ke-load
+            function renderActivityInsight() {
+                var el = document.getElementById('ovActivityInsight');
+                if (!el) return;
+                if (!latestData) {
+                    el.hidden = true;
+                    el.innerHTML = '';
+                    return;
+                }
+
+                var series = activitySeries(latestData.heatmap, activityMode);
+                var flat = [],
+                    hourTotals = {},
+                    nonzero = [];
+                series.forEach(function(row) {
+                    (row.data || []).forEach(function(p) {
+                        var v = parseInt(p.y) || 0,
+                            hour = parseInt(p.x) || 0;
+                        hourTotals[hour] = (hourTotals[hour] || 0) + v;
+                        if (v > 0) {
+                            flat.push({ day: row.name, hour: hour, value: v });
+                            nonzero.push(v);
+                        }
+                    });
+                });
+
+                if (!flat.length) {
+                    el.hidden = false;
+                    el.innerHTML = '<div class="ov-empty">Belum ada aktivitas pada periode ini.</div>';
+                    return;
+                }
+
+                flat.sort(function(a, b) {
+                    return b.value - a.value;
+                });
+                var peak = flat[0],
+                    top3 = flat.slice(0, 3);
+
+                // band 3 jam tersibuk (sliding window)
+                var band = { start: 0, sum: -1 };
+                for (var h = 0; h <= 21; h++) {
+                    var s = (hourTotals[h] || 0) + (hourTotals[h + 1] || 0) + (hourTotals[h + 2] || 0);
+                    if (s > band.sum) band = { start: h, sum: s };
+                }
+
+                // jam paling lengang di antara jam yang ada aktivitasnya
+                var activeHours = Object.keys(hourTotals).map(Number).filter(function(hh) {
+                    return hourTotals[hh] > 0;
+                });
+                var quiet = activeHours.reduce(function(min, hh) {
+                    return hourTotals[hh] < hourTotals[min] ? hh : min;
+                }, activeHours[0]);
+
+                var avg = nonzero.reduce(function(a, b) {
+                    return a + b;
+                }, 0) / nonzero.length;
+                var ratio = avg > 0 ? (peak.value / avg) : 0;
+
+                var pad = function(x) {
+                    return (x < 10 ? '0' : '') + x;
+                };
+                var hhmm = function(x) {
+                    return pad(x) + ':00';
+                };
+
+                var chips =
+                    chip('fa-fire', 'Tersibuk', fmt(peak.value), peak.day + ' ' + hhmm(peak.hour)) +
+                    chip('fa-clock', 'Jam puncak', pad(band.start) + '–' + pad(band.start + 2), 'band tersibuk') +
+                    chip('fa-moon', 'Paling lengang', hhmm(quiet), 'cocok maintenance') +
+                    chip('fa-bolt', 'Puncak vs rata²', ratio.toFixed(1) + '×', ratio >= 2 ? 'beban spiky' :
+                        'beban merata');
+
+                var rows = top3.map(function(t, i) {
+                    return '<span class="ov-t3__item">' +
+                        '<span class="ov-t3__rank ov-t3__rank--' + (i + 1) + '">' + (i + 1) + '</span>' +
+                        '<span class="ov-t3__name">' + esc(t.day) + ' ' + hhmm(t.hour) + '</span>' +
+                        '<span class="ov-t3__val">' + fmt(t.value) + '</span></span>';
+                }).join('');
+
+                el.hidden = false;
+                el.innerHTML =
+                    '<p class="ov-insight-label">Ringkasan &amp; tindak lanjut</p>' +
+                    '<div class="ov-insight-grid">' + chips + '</div>' +
+                    '<p class="ov-insight-label" style="margin:12px 0 0;">3 slot tersibuk · klik cell untuk detail</p>' +
+                    '<div class="ov-t3">' + rows + '</div>';
+            }
+
+            // #4 drill-down: klik cell heatmap → detail per tanggal pada slot tsb
+            var slotReqId = 0;
+
+            function openSlotDetail(dayName, hour) {
+                var dowByDay = { 'Min': 1, 'Sen': 2, 'Sel': 3, 'Rab': 4, 'Kam': 5, 'Jum': 6, 'Sab': 7 };
+                var day = String(dayName || '').replace(/\s+(Pulling|Produksi)$/, '');
+                var dow = dowByDay[day];
+                if (!dow) return;
+                var pad = function(x) {
+                    return (x < 10 ? '0' : '') + x;
+                };
+                var from = document.getElementById('ovFrom').value;
+                var to = document.getElementById('ovTo').value;
+
+                document.getElementById('ovSlotTitle').innerHTML = esc(day) + ' ' + pad(hour) + ':00' +
+                    '<small>' + esc(from) + ' s/d ' + esc(to) + ' · mode ' + esc(activityMode) + '</small>';
+                document.getElementById('ovSlotBody').innerHTML = '<div class="ov-loading">Memuat data</div>';
+                document.getElementById('ovSlotModal').classList.add('open');
+
+                var rid = ++slotReqId;
+                var qs = '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) +
+                    '&dow=' + dow + '&hour=' + hour + '&mode=' + encodeURIComponent(activityMode);
+                fetch(SLOT_URL + qs, {
+                        headers: { 'Accept': 'application/json' },
+                        credentials: 'same-origin'
+                    })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('slot');
+                        return r.json();
+                    })
+                    .then(function(d) {
+                        if (rid !== slotReqId) return;
+                        document.getElementById('ovSlotBody').innerHTML = renderSlotDetail(d);
+                    })
+                    .catch(function() {
+                        if (rid !== slotReqId) return;
+                        document.getElementById('ovSlotBody').innerHTML =
+                            '<div class="ov-empty">Gagal memuat detail slot.</div>';
+                    });
+            }
+
+            function renderSlotDetail(d) {
+                var rows = (d && d.detail) || [];
+                if (!rows.length) return '<div class="ov-empty">Tidak ada aktivitas pada slot ini.</div>';
+                var showP = activityMode !== 'produksi',
+                    showS = activityMode !== 'pulling';
+                var totP = 0,
+                    totS = 0;
+                var body = rows.map(function(r) {
+                    var p = parseInt(r.pulling) || 0,
+                        s = parseInt(r.produksi) || 0;
+                    totP += p;
+                    totS += s;
+                    return '<tr><td>' + esc(r.date) + '</td>' +
+                        (showP ? '<td class="text-right">' + fmt(p) + '</td>' : '') +
+                        (showS ? '<td class="text-right">' + fmt(s) + '</td>' : '') +
+                        '<td class="text-right" style="font-weight:800;color:var(--navy);">' + fmt(p + s) +
+                        '</td></tr>';
+                }).join('');
+                var head = '<tr><th>Tanggal</th>' +
+                    (showP ? '<th class="text-right">Pulling</th>' : '') +
+                    (showS ? '<th class="text-right">Produksi</th>' : '') +
+                    '<th class="text-right">Total</th></tr>';
+                var foot = '<tr><td style="font-weight:800;">Total</td>' +
+                    (showP ? '<td class="text-right" style="font-weight:800;">' + fmt(totP) + '</td>' : '') +
+                    (showS ? '<td class="text-right" style="font-weight:800;">' + fmt(totS) + '</td>' : '') +
+                    '<td class="text-right" style="font-weight:800;color:var(--navy);">' + fmt(totP + totS) +
+                    '</td></tr>';
+                return '<table class="ov-table"><thead>' + head + '</thead><tbody>' + body + foot +
+                    '</tbody></table>';
+            }
+
             function schedulePeakHighlight() {
+                renderActivityInsight();
                 setTimeout(highlightPeakActivity, 80);
             }
 
@@ -1415,7 +1767,22 @@
                         toolbar: {
                             show: false
                         },
-                        fontFamily: 'Plus Jakarta Sans, sans-serif'
+                        fontFamily: 'Plus Jakarta Sans, sans-serif',
+                        events: {
+                            dataPointSelection: function(e, ctx, cfg) {
+                                var srs = cfg.w.config.series[cfg.seriesIndex];
+                                if (!srs) return;
+                                var pt = (srs.data || [])[cfg.dataPointIndex] || {};
+                                openSlotDetail(srs.name, parseInt(pt.x) || 0);
+                            }
+                        }
+                    },
+                    states: {
+                        active: {
+                            filter: {
+                                type: 'none'
+                            }
+                        }
                     },
                     series: activitySeries(d.heatmap, activityMode),
                     colors: heatmapOptions.colors,
@@ -1471,6 +1838,14 @@
                 var currentRequestId = ++requestId;
                 var from = document.getElementById('ovFrom').value;
                 var to = document.getElementById('ovTo').value;
+                // tukar otomatis kalau urutan kebalik (ISO date aman dibanding string)
+                if (from && to && from > to) {
+                    var tmp = from;
+                    from = to;
+                    to = tmp;
+                    document.getElementById('ovFrom').value = from;
+                    document.getElementById('ovTo').value = to;
+                }
                 if (showLoading) {
                     setFilterLoading(true);
                     showFilterLoadingState();
@@ -1567,10 +1942,25 @@
                     clearActivePreset();
                     refresh(true);
                 });
+                // modal drill-down: tutup via tombol, klik backdrop, atau Esc
+                var slotModal = document.getElementById('ovSlotModal');
+                document.getElementById('ovSlotClose').addEventListener('click', function() {
+                    slotModal.classList.remove('open');
+                });
+                slotModal.addEventListener('click', function(e) {
+                    if (e.target === slotModal) slotModal.classList.remove('open');
+                });
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') slotModal.classList.remove('open');
+                });
                 // hemat query: refresh hanya saat tab aktif
                 timer = setInterval(function() {
                     if (!document.hidden) refresh();
                 }, 60000);
+                // langsung segarkan data begitu user balik ke tab (jangan nunggu tick 60s)
+                document.addEventListener('visibilitychange', function() {
+                    if (!document.hidden) refresh();
+                });
             });
         })();
     </script>

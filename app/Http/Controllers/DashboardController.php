@@ -58,6 +58,54 @@ class DashboardController extends Controller
         ])->header('Cache-Control', 'private, max-age=30');
     }
 
+    /**
+     * Drill-down satu slot heatmap jam tersibuk (hari-of-week × jam) → rincian per tanggal. (#4)
+     */
+    public function overviewSlot(Request $request)
+    {
+        [$from, $to] = $this->overviewRange($request);
+
+        $dow = (int) $request->input('dow');   // MySQL DAYOFWEEK: 1=Minggu .. 7=Sabtu
+        $hour = (int) $request->input('hour');
+        $mode = (string) $request->input('mode', 'all');
+
+        if ($dow < 1 || $dow > 7 || $hour < 0 || $hour > 23) {
+            return response()->json(['detail' => []]);
+        }
+
+        $types = $mode === 'pulling' ? ['checkout'] : ($mode === 'produksi' ? ['supply'] : ['checkout', 'supply']);
+
+        $rows = DB::table('mutations')
+            ->whereIn('type', $types)
+            ->whereBetween('date', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->whereRaw('DAYOFWEEK(date) = ?', [$dow])
+            ->whereRaw('HOUR(date) = ?', [$hour])
+            ->selectRaw('DATE(date) as d, type, COUNT(*) as c')
+            ->groupBy('d', 'type')
+            ->orderBy('d')
+            ->get();
+
+        $byDate = [];
+        foreach ($rows as $r) {
+            $d = (string) $r->d;
+            if (! isset($byDate[$d])) {
+                $byDate[$d] = ['date' => $d, 'pulling' => 0, 'produksi' => 0];
+            }
+            if ((string) $r->type === 'checkout') {
+                $byDate[$d]['pulling'] = (int) $r->c;
+            } else {
+                $byDate[$d]['produksi'] = (int) $r->c;
+            }
+        }
+
+        return response()->json([
+            'dow' => $dow,
+            'hour' => $hour,
+            'mode' => $mode,
+            'detail' => array_values($byDate),
+        ])->header('Cache-Control', 'private, max-age=30');
+    }
+
     /** Rentang tanggal overview: default 7 hari terakhir, maksimal 31 hari. */
     private function overviewRange(Request $request): array
     {
