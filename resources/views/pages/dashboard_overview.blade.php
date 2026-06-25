@@ -376,24 +376,22 @@
         .ov-activity-legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px 12px;
+            gap: 6px;
             align-items: center;
             margin: -2px 0 8px;
             color: var(--text-muted);
-            font-size: 11px;
-            font-weight: 750;
+            font-size: 12px;
+            font-weight: 800;
         }
 
-        .ov-activity-legend__item {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+        .ov-activity-legend__label {
+            margin: 0 2px;
         }
 
         .ov-activity-legend__swatch {
-            width: 16px;
-            height: 10px;
-            border-radius: 3px;
+            width: 24px;
+            height: 16px;
+            border-radius: 4px;
             border: 1px solid rgba(15, 23, 42, .08);
         }
 
@@ -746,28 +744,37 @@
                 pulling: {
                     base: '#0097D8',
                     ranges: [
-                        { from: 0, to: 0, color: '#f1f5f9', label: '0' },
-                        { from: 1, to: 5, color: '#bfdbfe', label: '1-5' },
-                        { from: 6, to: 15, color: '#38bdf8', label: '6-15' },
-                        { from: 16, to: 999999, color: '#0369a1', label: '16+' }
+                        { from: 0, to: 0, color: '#f8fafc', label: '0' },
+                        { from: 1, to: 2, color: '#dbeafe', label: '1-2' },
+                        { from: 3, to: 5, color: '#bfdbfe', label: '3-5' },
+                        { from: 6, to: 10, color: '#7dd3fc', label: '6-10' },
+                        { from: 11, to: 15, color: '#38bdf8', label: '11-15' },
+                        { from: 16, to: 25, color: '#0ea5e9', label: '16-25' },
+                        { from: 26, to: 999999, color: '#0369a1', label: '26+' }
                     ]
                 },
                 produksi: {
                     base: '#16a34a',
                     ranges: [
-                        { from: 0, to: 0, color: '#f1f5f9', label: '0' },
-                        { from: 1, to: 5, color: '#bbf7d0', label: '1-5' },
-                        { from: 6, to: 15, color: '#22c55e', label: '6-15' },
-                        { from: 16, to: 999999, color: '#15803d', label: '16+' }
+                        { from: 0, to: 0, color: '#f8fafc', label: '0' },
+                        { from: 1, to: 2, color: '#dcfce7', label: '1-2' },
+                        { from: 3, to: 5, color: '#bbf7d0', label: '3-5' },
+                        { from: 6, to: 10, color: '#86efac', label: '6-10' },
+                        { from: 11, to: 15, color: '#4ade80', label: '11-15' },
+                        { from: 16, to: 25, color: '#22c55e', label: '16-25' },
+                        { from: 26, to: 999999, color: '#15803d', label: '26+' }
                     ]
                 },
                 all: {
                     base: '#d97706',
                     ranges: [
-                        { from: 0, to: 0, color: '#f1f5f9', label: '0' },
-                        { from: 1, to: 10, color: '#fde68a', label: '1-10' },
-                        { from: 11, to: 30, color: '#f59e0b', label: '11-30' },
-                        { from: 31, to: 999999, color: '#b45309', label: '31+' }
+                        { from: 0, to: 0, color: '#f8fafc', label: '0' },
+                        { from: 1, to: 5, color: '#fef3c7', label: '1-5' },
+                        { from: 6, to: 10, color: '#fde68a', label: '6-10' },
+                        { from: 11, to: 20, color: '#fbbf24', label: '11-20' },
+                        { from: 21, to: 35, color: '#f59e0b', label: '21-35' },
+                        { from: 36, to: 60, color: '#d97706', label: '36-60' },
+                        { from: 61, to: 999999, color: '#92400e', label: '61+' }
                     ]
                 }
             };
@@ -939,11 +946,12 @@
             }
 
             function renderActivityLegend(mode) {
-                return activityPalette(mode).ranges.map(function(r) {
-                    return '<span class="ov-activity-legend__item">' +
-                        '<span class="ov-activity-legend__swatch" style="background:' + r.color + ';"></span>' +
-                        esc(r.label) + '</span>';
+                var swatches = activityPalette(mode).ranges.map(function(r) {
+                    return '<span class="ov-activity-legend__swatch" title="' + esc(r.label) +
+                        ' aktivitas" style="background:' + r.color + ';"></span>';
                 }).join('');
+                return '<span class="ov-activity-legend__label">sepi</span>' + swatches +
+                    '<span class="ov-activity-legend__label">ramai</span>';
             }
 
             function activityDayName(name) {
