@@ -19,6 +19,7 @@
                                     style="height:34px; padding:0 14px; font-size:12px; letter-spacing:.04em; text-decoration:none; display:inline-flex; align-items:center;">
                                     <i class="fas fa-file-download mr-1"></i> Template Excel
                                 </a>
+                                @can('manage-master')
                                 <form method="POST" action="{{ route('pulling.master-alamat-chute.import') }}" enctype="multipart/form-data"
                                     class="d-flex flex-wrap align-items-center m-0" style="gap:6px;">
                                     @csrf
@@ -42,6 +43,7 @@
                                     style="height:34px; padding:0 14px; font-size:12px; letter-spacing:.04em;">
                                     <i class="fas fa-plus mr-1"></i> Add Alamat Chute
                                 </button>
+                                @endcan
                             </div>
                         </div>
 
@@ -86,6 +88,7 @@
                                                     <td>{{ $item->alamat_chute }}</td>
                                                     <td>
                                                         <div class="d-flex justify-content-center align-items-center" style="gap:6px;">
+                                                            @can('manage-master')
                                                             <button
                                                                 type="button"
                                                                 class="act-btn primary btn-edit-master-chute"
@@ -110,6 +113,9 @@
                                                                     <i class="fas fa-trash-alt mr-1"></i> Hapus
                                                                 </button>
                                                             </form>
+                                                            @else
+                                                            <span style="color:var(--text-muted);font-size:11px;">—</span>
+                                                            @endcan
                                                         </div>
                                                     </td>
                                                 </tr>

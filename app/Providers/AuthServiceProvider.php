@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -25,6 +25,16 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        //
+        // Admin selalu lolos semua gate.
+        Gate::before(function ($user) {
+            return $user->isAdmin() ? true : null;
+        });
+
+        // Aksi master-data & destruktif (PPIC): admin (via Gate::before) + ppic.
+        // Mencakup: hapus loading list & pulling mutation, master cycle,
+        // master alamat chute (CRUD/import/clear), pulling settings, hapus PIS.
+        Gate::define('manage-master', function ($user) {
+            return $user->hasRole('ppic');
+        });
     }
 }

@@ -1092,6 +1092,9 @@
             $.fn.modal.Constructor.prototype.enforceFocus = function() {}; // fallback BS3
         }
 
+        // Hak akses: hanya admin/ppic (manage-master) yang boleh menghapus loading list
+        const canManage = @json(auth()->user()->can('manage-master'));
+
         /* =========================================================
          * HELPERS
          * ======================================================= */
@@ -1529,10 +1532,7 @@
                                         <a href="/loading-list/${ll.id}" class="bella-btn bella-btn-primary bella-btn-sm">
                                             <i class="fas fa-eye"></i> View Details
                                         </a>
-                                        <button type="button" class="bella-btn bella-btn-danger bella-btn-sm delete-loading-list"
-                                            data-id="${ll.id}" data-number="${String(ll.number || '').replace(/"/g, '&quot;')}">
-                                            <i class="fas fa-trash"></i> Hapus
-                                        </button>
+                                        ${canManage ? `<button type="button" class="bella-btn bella-btn-danger bella-btn-sm delete-loading-list" data-id="${ll.id}" data-number="${String(ll.number || '').replace(/"/g, '&quot;')}"><i class="fas fa-trash"></i> Hapus</button>` : ''}
                                     </div>
                                 </div>
                             </div>`;

@@ -462,12 +462,14 @@
                                             style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
+                                        @can('manage-master')
                                         <a class="act-btn danger js-delete-master-pis"
                                             href="{{ url('/pis/delete/' . $part_pis->id) }}"
                                             data-part="{{ e($part_pis->part_number_customer) }}"
                                             style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
                                             <i class="fas fa-trash-alt"></i> Hapus
                                         </a>
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>
