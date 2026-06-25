@@ -313,55 +313,6 @@
             min-height: 290px;
         }
 
-        .ov-activity-summary {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .ov-activity-card {
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-left-width: 3px;
-            border-radius: 8px;
-            background: #fff;
-        }
-
-        .ov-activity-card--pulling {
-            border-left-color: #0097D8;
-        }
-
-        .ov-activity-card--produksi {
-            border-left-color: #16a34a;
-        }
-
-        .ov-activity-card--total {
-            border-left-color: #d97706;
-        }
-
-        .ov-activity-card__label {
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: .05em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-        }
-
-        .ov-activity-card__value {
-            margin-top: 4px;
-            font-size: 18px;
-            font-weight: 900;
-            color: var(--text);
-        }
-
-        .ov-activity-card__note {
-            margin-top: 2px;
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-muted);
-        }
-
         .ov-activity-tabs {
             display: inline-flex;
             padding: 3px;
@@ -418,6 +369,25 @@
             height: 16px;
             border-radius: 4px;
             border: 1px solid rgba(15, 23, 42, .08);
+        }
+
+        .ov-heatmap-peak {
+            animation: ov-peak-pulse 1s ease-in-out infinite;
+            filter: drop-shadow(0 0 5px rgba(15, 23, 42, .35));
+            stroke: #0f172a !important;
+            stroke-width: 2.5px !important;
+        }
+
+        @keyframes ov-peak-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .45;
+            }
         }
 
         .ov-empty {
@@ -564,9 +534,6 @@
                 flex-direction: column;
             }
 
-            .ov-activity-summary {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 
@@ -691,9 +658,6 @@
                     </div>
                 </div>
                 <div class="ov-panel__body">
-                    <div id="ovActivitySummary" class="ov-activity-summary">
-                        <div class="ov-loading">Memuat ringkasan</div>
-                    </div>
                     <div id="ovActivityLegend" class="ov-activity-legend"></div>
                     <div id="ovHourlyChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
                 </div>
@@ -864,7 +828,6 @@
                 resetChart('ovTrendChart');
                 resetChart('ovStockChart');
                 resetChart('ovHourlyChart');
-                setHtml('ovActivitySummary', '<div class="ov-loading">Memuat ringkasan</div>');
                 setHtml('ovActivityLegend', '');
                 ['ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder', 'ovErrByArea',
                     'ovRecentErrors'
@@ -974,34 +937,6 @@
                     });
             }
 
-            function renderActivitySummary(s) {
-                s = s || {};
-                var pulling = parseInt(s.pulling) || 0;
-                var produksi = parseInt(s.produksi) || 0;
-                var total = pulling + produksi;
-                var share = total ? Math.round((pulling / total) * 100) : 0;
-                var peakText = function(p) {
-                    var count = p ? (parseInt(p.count) || 0) : 0;
-                    return count ? esc(p.label || '-') + ' &middot; ' + fmt(count) + ' aktivitas' : '-';
-                };
-
-                return '<div class="ov-activity-card ov-activity-card--pulling">' +
-                    '<div class="ov-activity-card__label">Pulling</div>' +
-                    '<div class="ov-activity-card__value">' + fmt(pulling) + '</div>' +
-                    '<div class="ov-activity-card__note">Puncak: ' + peakText(s.peakPulling) + '</div>' +
-                    '</div>' +
-                    '<div class="ov-activity-card ov-activity-card--produksi">' +
-                    '<div class="ov-activity-card__label">Produksi</div>' +
-                    '<div class="ov-activity-card__value">' + fmt(produksi) + '</div>' +
-                    '<div class="ov-activity-card__note">Puncak: ' + peakText(s.peakProduksi) + '</div>' +
-                    '</div>' +
-                    '<div class="ov-activity-card ov-activity-card--total">' +
-                    '<div class="ov-activity-card__label">Total Aktivitas</div>' +
-                    '<div class="ov-activity-card__value">' + fmt(total) + '</div>' +
-                    '<div class="ov-activity-card__note">' + (total ? ('Pulling ' + share + '% · Produksi ' + (100 - share) + '%') : 'Belum ada aktivitas') + '</div>' +
-                    '</div>';
-            }
-
             function activityChartOptions(mode) {
                 var palette = activityPalette(mode);
                 return {
@@ -1082,6 +1017,55 @@
                 });
             }
 
+            function peakActivity(series) {
+                var best = {
+                        seriesIndex: -1,
+                        dataPointIndex: -1,
+                        value: 0
+                    };
+                (series || []).forEach(function(row, seriesIndex) {
+                    (row.data || []).forEach(function(point, dataPointIndex) {
+                        var value = parseInt(point.y) || 0;
+                        if (value > best.value) {
+                            best = {
+                                seriesIndex: seriesIndex,
+                                dataPointIndex: dataPointIndex,
+                                value: value
+                            };
+                        }
+                    });
+                });
+
+                return best.value > 0 ? best : null;
+            }
+
+            function highlightPeakActivity() {
+                var chartEl = document.getElementById('ovHourlyChart');
+                if (!chartEl || !latestData) return;
+                var rects = chartEl.querySelectorAll('.apexcharts-heatmap-rect, .apexcharts-heatmap-series rect');
+                rects.forEach(function(rect) {
+                    rect.classList.remove('ov-heatmap-peak');
+                });
+
+                var peak = peakActivity(activitySeries(latestData.heatmap, activityMode));
+                if (!peak) return;
+
+                var peakRect = chartEl.querySelector('.apexcharts-heatmap-rect[index="' + peak.seriesIndex +
+                    '"][j="' + peak.dataPointIndex + '"]');
+                if (!peakRect) {
+                    rects.forEach(function(rect) {
+                        if ((parseInt(rect.getAttribute('val')) || 0) === peak.value) peakRect = rect;
+                    });
+                }
+                if (peakRect) {
+                    peakRect.classList.add('ov-heatmap-peak');
+                }
+            }
+
+            function schedulePeakHighlight() {
+                setTimeout(highlightPeakActivity, 80);
+            }
+
             function setActivityMode(mode) {
                 activityMode = mode || 'all';
                 document.querySelectorAll('.ov-activity-tab').forEach(function(button) {
@@ -1092,6 +1076,7 @@
                 if (hourlyChart && latestData) {
                     hourlyChart.updateOptions(activityChartOptions(activityMode), false, false);
                     hourlyChart.updateSeries(activitySeries(latestData.heatmap, activityMode));
+                    schedulePeakHighlight();
                 }
                 setHtml('ovActivityLegend', renderActivityLegend(activityMode));
             }
@@ -1231,9 +1216,11 @@
                 }
                 var s = d.stock || {};
                 if (stockChart) stockChart.updateSeries([s.under || 0, s.low || 0, s.in || 0]);
-                if (hourlyChart) hourlyChart.updateSeries(activitySeries(d.heatmap, activityMode));
+                if (hourlyChart) {
+                    hourlyChart.updateSeries(activitySeries(d.heatmap, activityMode));
+                    schedulePeakHighlight();
+                }
 
-                setHtml('ovActivitySummary', renderActivitySummary(d.heatmapSummary));
                 setHtml('ovAtRisk', renderAtRisk(d.atRisk));
                 setHtml('ovProdByLine', renderProdByLine(d.prodByLine));
                 setHtml('ovPrepByCustomer', renderPrepByCustomer(d.prepByCustomer));
@@ -1453,6 +1440,7 @@
                     }
                 });
                 hourlyChart.render();
+                schedulePeakHighlight();
             }
 
             function refresh(showLoading) {
@@ -1488,7 +1476,7 @@
                         if (currentRequestId !== requestId) return;
                         setFilterLoading(false);
                         var message = '<div class="ov-empty">Data belum berhasil dimuat. Silakan coba lagi.</div>';
-                        ['ovActivitySummary', 'ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder',
+                        ['ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder',
                             'ovErrByArea', 'ovRecentErrors'
                         ].forEach(function(id) {
                             setHtml(id, message);
