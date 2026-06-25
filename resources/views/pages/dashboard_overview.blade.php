@@ -1521,13 +1521,23 @@
                 var to = new Date(),
                     from = new Date();
                 if (p === '7') from.setDate(to.getDate() - 6);
-                else if (p === '30') from.setDate(to.getDate() - 30);
+                else if (p === '30') from.setDate(to.getDate() - 29);
+                // pakai tanggal lokal, bukan UTC — toISOString() bisa mundur 1 hari di WIB
                 var iso = function(dt) {
-                    return dt.toISOString().slice(0, 10);
+                    return new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
                 };
                 document.getElementById('ovFrom').value = iso(from);
                 document.getElementById('ovTo').value = iso(to);
+                document.querySelectorAll('.ov-preset').forEach(function(b) {
+                    b.classList.toggle('active', b.getAttribute('data-preset') === p);
+                });
                 refresh(true);
+            }
+
+            function clearActivePreset() {
+                document.querySelectorAll('.ov-preset').forEach(function(b) {
+                    b.classList.remove('active');
+                });
             }
 
             document.addEventListener('DOMContentLoaded', function() {
@@ -1550,9 +1560,11 @@
                     });
                 });
                 document.getElementById('ovFrom').addEventListener('change', function() {
+                    clearActivePreset();
                     refresh(true);
                 });
                 document.getElementById('ovTo').addEventListener('change', function() {
+                    clearActivePreset();
                     refresh(true);
                 });
                 // hemat query: refresh hanya saat tab aktif
