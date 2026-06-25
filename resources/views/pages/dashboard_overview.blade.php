@@ -288,6 +288,115 @@
             min-height: 290px;
         }
 
+        .ov-activity-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .ov-activity-card {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-left-width: 3px;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .ov-activity-card--pulling {
+            border-left-color: #0097D8;
+        }
+
+        .ov-activity-card--produksi {
+            border-left-color: #16a34a;
+        }
+
+        .ov-activity-card--total {
+            border-left-color: #d97706;
+        }
+
+        .ov-activity-card__label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .ov-activity-card__value {
+            margin-top: 4px;
+            font-size: 18px;
+            font-weight: 900;
+            color: var(--text);
+        }
+
+        .ov-activity-card__note {
+            margin-top: 2px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .ov-activity-tabs {
+            display: inline-flex;
+            padding: 3px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--bg);
+        }
+
+        .ov-activity-tab {
+            height: 28px;
+            padding: 0 12px;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 850;
+            cursor: pointer;
+        }
+
+        .ov-activity-tab.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 6px 14px rgba(0, 151, 216, .18);
+        }
+
+        .ov-activity-tab[data-activity-mode="produksi"].active {
+            background: #16a34a;
+            box-shadow: 0 6px 14px rgba(22, 163, 74, .18);
+        }
+
+        .ov-activity-tab[data-activity-mode="all"].active {
+            background: #d97706;
+            box-shadow: 0 6px 14px rgba(217, 119, 6, .18);
+        }
+
+        .ov-activity-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            align-items: center;
+            margin: -2px 0 8px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 750;
+        }
+
+        .ov-activity-legend__item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ov-activity-legend__swatch {
+            width: 16px;
+            height: 10px;
+            border-radius: 3px;
+            border: 1px solid rgba(15, 23, 42, .08);
+        }
+
         .ov-empty {
             padding: 24px 12px;
             color: var(--text-muted);
@@ -426,6 +535,15 @@
             .ov-kpis {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
+
+            .ov-panel__head--activity {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .ov-activity-summary {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 
@@ -539,11 +657,20 @@
         {{-- ===== Jam tersibuk (#5) ===== --}}
         <div class="ov-row">
             <div class="ov-panel">
-                <div class="ov-panel__head">
+                <div class="ov-panel__head ov-panel__head--activity">
                     <div class="ov-panel__title"><i class="fas fa-clock"></i> Jam Tersibuk — Aktivitas Pulling &amp;
                         Produksi (hari × jam)</div>
+                    <div class="ov-activity-tabs" role="group" aria-label="Filter heatmap activity">
+                        <button type="button" class="ov-activity-tab" data-activity-mode="produksi">Prod</button>
+                        <button type="button" class="ov-activity-tab" data-activity-mode="pulling">Pulling</button>
+                        <button type="button" class="ov-activity-tab active" data-activity-mode="all">All</button>
+                    </div>
                 </div>
                 <div class="ov-panel__body">
+                    <div id="ovActivitySummary" class="ov-activity-summary">
+                        <div class="ov-loading">Memuat ringkasan</div>
+                    </div>
+                    <div id="ovActivityLegend" class="ov-activity-legend"></div>
                     <div id="ovHourlyChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
                 </div>
             </div>
@@ -597,6 +724,7 @@
                 timer = null,
                 chartsLoading = null,
                 latestData = null,
+                activityMode = 'all',
                 requestId = 0;
 
             function esc(s) {
@@ -612,6 +740,40 @@
 
             function fmt(n) {
                 return Number(n || 0).toLocaleString('id-ID');
+            }
+
+            var activityPalettes = {
+                pulling: {
+                    base: '#0097D8',
+                    ranges: [
+                        { from: 0, to: 0, color: '#f1f5f9', label: '0' },
+                        { from: 1, to: 5, color: '#bfdbfe', label: '1-5' },
+                        { from: 6, to: 15, color: '#38bdf8', label: '6-15' },
+                        { from: 16, to: 999999, color: '#0369a1', label: '16+' }
+                    ]
+                },
+                produksi: {
+                    base: '#16a34a',
+                    ranges: [
+                        { from: 0, to: 0, color: '#f1f5f9', label: '0' },
+                        { from: 1, to: 5, color: '#bbf7d0', label: '1-5' },
+                        { from: 6, to: 15, color: '#22c55e', label: '6-15' },
+                        { from: 16, to: 999999, color: '#15803d', label: '16+' }
+                    ]
+                },
+                all: {
+                    base: '#d97706',
+                    ranges: [
+                        { from: 0, to: 0, color: '#f1f5f9', label: '0' },
+                        { from: 1, to: 10, color: '#fde68a', label: '1-10' },
+                        { from: 11, to: 30, color: '#f59e0b', label: '11-30' },
+                        { from: 31, to: 999999, color: '#b45309', label: '31+' }
+                    ]
+                }
+            };
+
+            function activityPalette(mode) {
+                return activityPalettes[mode] || activityPalettes.all;
             }
 
             function setText(id, v) {
@@ -723,6 +885,127 @@
                     function() {
                         return '#dc2626';
                     });
+            }
+
+            function renderActivitySummary(s) {
+                s = s || {};
+                var pulling = parseInt(s.pulling) || 0;
+                var produksi = parseInt(s.produksi) || 0;
+                var total = pulling + produksi;
+                var share = total ? Math.round((pulling / total) * 100) : 0;
+                var peakText = function(p) {
+                    var count = p ? (parseInt(p.count) || 0) : 0;
+                    return count ? esc(p.label || '-') + ' &middot; ' + fmt(count) + ' aktivitas' : '-';
+                };
+
+                return '<div class="ov-activity-card ov-activity-card--pulling">' +
+                    '<div class="ov-activity-card__label">Pulling</div>' +
+                    '<div class="ov-activity-card__value">' + fmt(pulling) + '</div>' +
+                    '<div class="ov-activity-card__note">Puncak: ' + peakText(s.peakPulling) + '</div>' +
+                    '</div>' +
+                    '<div class="ov-activity-card ov-activity-card--produksi">' +
+                    '<div class="ov-activity-card__label">Produksi</div>' +
+                    '<div class="ov-activity-card__value">' + fmt(produksi) + '</div>' +
+                    '<div class="ov-activity-card__note">Puncak: ' + peakText(s.peakProduksi) + '</div>' +
+                    '</div>' +
+                    '<div class="ov-activity-card ov-activity-card--total">' +
+                    '<div class="ov-activity-card__label">Total Aktivitas</div>' +
+                    '<div class="ov-activity-card__value">' + fmt(total) + '</div>' +
+                    '<div class="ov-activity-card__note">' + (total ? ('Pulling ' + share + '% · Produksi ' + (100 - share) + '%') : 'Belum ada aktivitas') + '</div>' +
+                    '</div>';
+            }
+
+            function activityChartOptions(mode) {
+                var palette = activityPalette(mode);
+                return {
+                    colors: [palette.base],
+                    plotOptions: {
+                        heatmap: {
+                            radius: 3,
+                            enableShades: true,
+                            shadeIntensity: 0.55,
+                            colorScale: {
+                                ranges: palette.ranges.map(function(r) {
+                                    return {
+                                        from: r.from,
+                                        to: r.to,
+                                        color: r.color
+                                    };
+                                })
+                            }
+                        }
+                    }
+                };
+            }
+
+            function renderActivityLegend(mode) {
+                return activityPalette(mode).ranges.map(function(r) {
+                    return '<span class="ov-activity-legend__item">' +
+                        '<span class="ov-activity-legend__swatch" style="background:' + r.color + ';"></span>' +
+                        esc(r.label) + '</span>';
+                }).join('');
+            }
+
+            function activityDayName(name) {
+                return String(name || '').replace(/\s+(Pulling|Produksi)$/, '');
+            }
+
+            function activitySeries(rows, mode) {
+                rows = rows || [];
+                if (mode === 'pulling' || mode === 'produksi') {
+                    var suffix = mode === 'pulling' ? ' Pulling' : ' Produksi';
+                    return rows.filter(function(row) {
+                        return String(row.name || '').slice(-suffix.length) === suffix;
+                    }).map(function(row) {
+                        return {
+                            name: activityDayName(row.name),
+                            data: row.data || []
+                        };
+                    });
+                }
+
+                var order = [],
+                    byDay = {};
+                rows.forEach(function(row) {
+                    var day = activityDayName(row.name);
+                    if (!byDay[day]) {
+                        order.push(day);
+                        byDay[day] = {
+                            name: day,
+                            data: (row.data || []).map(function(point) {
+                                return {
+                                    x: point.x,
+                                    y: 0
+                                };
+                            })
+                        };
+                    }
+                    (row.data || []).forEach(function(point, i) {
+                        if (!byDay[day].data[i]) byDay[day].data[i] = {
+                            x: point.x,
+                            y: 0
+                        };
+                        byDay[day].data[i].y += parseInt(point.y) || 0;
+                    });
+                });
+
+                return order.map(function(day) {
+                    return byDay[day];
+                });
+            }
+
+            function setActivityMode(mode) {
+                activityMode = mode || 'all';
+                document.querySelectorAll('.ov-activity-tab').forEach(function(button) {
+                    var active = button.getAttribute('data-activity-mode') === activityMode;
+                    button.classList.toggle('active', active);
+                    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+                });
+                if (hourlyChart && latestData) {
+                    hourlyChart.updateOptions(activityChartOptions(activityMode), false, false);
+                    hourlyChart.updateSeries(activitySeries(latestData.heatmap, activityMode));
+                }
+                setHtml('ovActivityLegend', renderActivityLegend(activityMode));
             }
 
             function renderTopUnder(rows) {
@@ -860,8 +1143,9 @@
                 }
                 var s = d.stock || {};
                 if (stockChart) stockChart.updateSeries([s.under || 0, s.low || 0, s.in || 0]);
-                if (hourlyChart) hourlyChart.updateSeries(d.heatmap || []);
+                if (hourlyChart) hourlyChart.updateSeries(activitySeries(d.heatmap, activityMode));
 
+                setHtml('ovActivitySummary', renderActivitySummary(d.heatmapSummary));
                 setHtml('ovAtRisk', renderAtRisk(d.atRisk));
                 setHtml('ovProdByLine', renderProdByLine(d.prodByLine));
                 setHtml('ovPrepByCustomer', renderPrepByCustomer(d.prepByCustomer));
@@ -1024,27 +1308,22 @@
                 });
                 stockChart.render();
 
+                var heatmapOptions = activityChartOptions(activityMode);
                 hourlyChart = new ApexCharts(document.getElementById('ovHourlyChart'), {
                     chart: {
                         type: 'heatmap',
-                        height: 300,
+                        height: 390,
                         toolbar: {
                             show: false
                         },
                         fontFamily: 'Plus Jakarta Sans, sans-serif'
                     },
-                    series: d.heatmap || [],
-                    colors: ['#dc2626'],
+                    series: activitySeries(d.heatmap, activityMode),
+                    colors: heatmapOptions.colors,
                     dataLabels: {
                         enabled: false
                     },
-                    plotOptions: {
-                        heatmap: {
-                            radius: 3,
-                            enableShades: true,
-                            shadeIntensity: 0.6
-                        }
-                    },
+                    plotOptions: heatmapOptions.plotOptions,
                     xaxis: {
                         type: 'category',
                         labels: {
@@ -1064,7 +1343,7 @@
                     yaxis: {
                         labels: {
                             style: {
-                                fontSize: '11px',
+                                fontSize: '10px',
                                 fontWeight: 700
                             }
                         }
@@ -1115,7 +1394,7 @@
                     .catch(function() {
                         if (currentRequestId !== requestId) return;
                         var message = '<div class="ov-empty">Data belum berhasil dimuat. Silakan coba lagi.</div>';
-                        ['ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder',
+                        ['ovActivitySummary', 'ovAtRisk', 'ovProdByLine', 'ovPrepByCustomer', 'ovCycle', 'ovTopUnder',
                             'ovErrByArea', 'ovRecentErrors'
                         ].forEach(function(id) {
                             setHtml(id, message);
@@ -1143,6 +1422,12 @@
             }
 
             document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.ov-activity-tab').forEach(function(button) {
+                    button.addEventListener('click', function() {
+                        setActivityMode(button.getAttribute('data-activity-mode'));
+                    });
+                });
+                setActivityMode(activityMode);
                 loadCharts();
                 if (initial && initial.kpi) {
                     applyData(initial);

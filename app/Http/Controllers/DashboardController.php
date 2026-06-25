@@ -275,24 +275,56 @@ class DashboardController extends Controller
                 })->sortByDesc('total')->take(8)->values();
 
             // ===== Jam tersibuk: heatmap hari x jam (#5) =====
+            $dowLabels = [1 => 'Min', 2 => 'Sen', 3 => 'Sel', 4 => 'Rab', 5 => 'Kam', 6 => 'Jum', 7 => 'Sab'];
             $hm = DB::table('mutations')->whereIn('type', ['checkout', 'supply'])
                 ->whereBetween('date', [$start, $end])
-                ->selectRaw('DAYOFWEEK(date) as dow, HOUR(date) as h, COUNT(*) as c')
-                ->groupBy('dow', 'h')->get();
-            $matrix = [];
+                ->selectRaw('type, DAYOFWEEK(date) as dow, HOUR(date) as h, COUNT(*) as c')
+                ->groupBy('type', 'dow', 'h')->get();
+            $matrix = ['checkout' => [], 'supply' => []];
+            $heatmapTotals = ['checkout' => 0, 'supply' => 0];
+            $heatmapPeak = [
+                'checkout' => ['label' => '-', 'count' => 0],
+                'supply' => ['label' => '-', 'count' => 0],
+            ];
             foreach ($hm as $r) {
-                $matrix[(int) $r->dow][(int) $r->h] = (int) $r->c;
-            }
-            $dowLabels = [1 => 'Min', 2 => 'Sen', 3 => 'Sel', 4 => 'Rab', 5 => 'Kam', 6 => 'Jum', 7 => 'Sab'];
-            // urutan dibalik agar Senin tampil paling atas (ApexCharts render seri pertama di bawah)
-            $heatmap = collect([1, 7, 6, 5, 4, 3, 2])->map(function ($dow) use ($matrix, $dowLabels) {
-                $row = [];
-                for ($h = 0; $h < 24; $h++) {
-                    $row[] = ['x' => sprintf('%02d', $h), 'y' => (int) ($matrix[$dow][$h] ?? 0)];
+                $type = (string) $r->type;
+                if (! isset($matrix[$type])) {
+                    continue;
                 }
 
-                return ['name' => $dowLabels[$dow], 'data' => $row];
+                $dow = (int) $r->dow;
+                $hour = (int) $r->h;
+                $count = (int) $r->c;
+                $matrix[$type][$dow][$hour] = $count;
+                $heatmapTotals[$type] += $count;
+                if ($count > $heatmapPeak[$type]['count']) {
+                    $heatmapPeak[$type] = [
+                        'label' => ($dowLabels[$dow] ?? '-').' '.sprintf('%02d:00', $hour),
+                        'count' => $count,
+                    ];
+                }
+            }
+            // urutan dibalik agar Senin tampil paling atas (ApexCharts render seri pertama di bawah)
+            $heatmap = collect([1, 7, 6, 5, 4, 3, 2])->flatMap(function ($dow) use ($matrix, $dowLabels) {
+                return collect([
+                    ['type' => 'checkout', 'label' => 'Pulling'],
+                    ['type' => 'supply', 'label' => 'Produksi'],
+                ])->map(function ($item) use ($dow, $matrix, $dowLabels) {
+                    $type = $item['type'];
+                    $row = [];
+                    for ($h = 0; $h < 24; $h++) {
+                        $row[] = ['x' => sprintf('%02d', $h), 'y' => (int) ($matrix[$type][$dow][$h] ?? 0)];
+                    }
+
+                    return ['name' => $dowLabels[$dow].' '.$item['label'], 'data' => $row];
+                });
             })->values();
+            $heatmapSummary = [
+                'pulling' => $heatmapTotals['checkout'],
+                'produksi' => $heatmapTotals['supply'],
+                'peakPulling' => $heatmapPeak['checkout'],
+                'peakProduksi' => $heatmapPeak['supply'],
+            ];
 
             // ===== Delivery berisiko (#6): hari ini + besok, belum lengkap, + deadline master cycle =====
             // Lookup master cycle per (customer_id, cycle) — cocokkan exact lalu by-angka.
@@ -381,6 +413,7 @@ class DashboardController extends Controller
                 'prepByCustomer' => $prepByCustomer,
                 'prodByLine' => $prodByLine,
                 'heatmap' => $heatmap,
+                'heatmapSummary' => $heatmapSummary,
                 'topUnder' => $topUnder,
                 'errByArea' => $errByArea,
                 'recentErrors' => $recentErrors,
