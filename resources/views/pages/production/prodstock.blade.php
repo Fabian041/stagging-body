@@ -99,6 +99,20 @@
             box-shadow: 0 8px 18px rgba(0, 112, 183, .18);
         }
 
+        .stock-filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .stock-status-filter.active {
+            background: rgba(0, 112, 183, .08);
+            border-color: rgba(0, 112, 183, .35);
+            color: var(--primary, #0070B7);
+        }
+
         .stock-table-wrap {
             border: 1px solid var(--border, #e5e7eb);
             border-radius: var(--r, 8px);
@@ -792,7 +806,7 @@
                     line.</div>
             </div>
             <div class="stock-header-actions">
-                <a href="{{ route('dashboard.part.template') }}" class="act-btn"
+                <a href="{{ route('dashboard.part.template') }}" class="act-btn secondary"
                     style="text-decoration:none; display:inline-flex; align-items:center;">
                     <i class="fas fa-file-download"></i> Template Excel
                 </a>
@@ -830,6 +844,13 @@
                 </ul>
             </div>
 
+            <div class="stock-filter-bar">
+                <button type="button" class="act-btn secondary stock-status-filter active" data-status="">Semua</button>
+                <button type="button" class="act-btn secondary stock-status-filter" data-status="Under Stock">Under</button>
+                <button type="button" class="act-btn secondary stock-status-filter" data-status="Low Stock">Low</button>
+                <button type="button" class="act-btn secondary stock-status-filter" data-status="In Stock">In Stock</button>
+            </div>
+
             <div class="tab-content" id="myTabContent2">
                 @forelse ($lines as $line)
                     <div class="tab-pane fade @if ($line['active']) active show @endif"
@@ -845,15 +866,17 @@
                                     <tr>
                                         <th>No</th>
                                         <th>Back Number</th>
+                                        <th>Part Number</th>
                                         <th>Standard Stock</th>
                                         <th>Current Stock</th>
+                                        <th>Gap</th>
                                         <th>Status</th>
                                         <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">Memuat data stock...</td>
+                                        <td colspan="8" class="text-center text-muted py-4">Memuat data stock...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -936,7 +959,7 @@
                 <div class="modal-body">
                     <span class="upload-modal-label">Part File</span>
 
-                    <input type="file" id="partFileInput" name="file" accept=".xlsx,.xls"
+                    <input type="file" id="partFileInput" name="file" accept=".xlsx,.xls,.csv"
                         style="display:none">
 
                     <div class="upload-drop-zone" id="partDropZone"
@@ -947,7 +970,7 @@
                         <p>Drag &amp; drop file di sini, atau
                             <span class="dz-browse">browse</span>
                         </p>
-                        <span class="dz-ext">.xlsx, .xls &mdash; maks 10 MB</span>
+                        <span class="dz-ext">.xlsx, .xls, .csv &mdash; maks 10 MB</span>
                     </div>
 
                     <div class="upload-file-card" id="partFileCard" style="display:none">
@@ -1003,7 +1026,7 @@
                 <div class="modal-body">
                     <span class="upload-modal-label">Stock File</span>
 
-                    <input type="file" id="stockFileInput" name="file" accept=".xlsx,.xls"
+                    <input type="file" id="stockFileInput" name="file" accept=".xlsx,.xls,.csv"
                         style="display:none">
 
                     <div class="upload-drop-zone" id="stockDropZone"
@@ -1014,7 +1037,7 @@
                         <p>Drag &amp; drop file di sini, atau
                             <span class="dz-browse">browse</span>
                         </p>
-                        <span class="dz-ext">.xlsx, .xls &mdash; maks 10 MB</span>
+                        <span class="dz-ext">.xlsx, .xls, .csv &mdash; maks 10 MB</span>
                     </div>
 
                     <div class="upload-file-card" id="stockFileCard" style="display:none">
@@ -1100,6 +1123,7 @@
             activeLine: @json($activeLine),
             focusBackNumber: @json($focusBackNumber),
             refreshMs: 30000,
+            statusColumn: 6,
         };
 
         const flashMessage = {
@@ -1189,6 +1213,19 @@
             }
 
             return '<span class="back-number-badge">' + escapeHtml(value) + '</span>';
+        }
+
+        function renderGap(value, type, row) {
+            const gap = Number(row.qty || 0) - Number(row.standard || 0);
+
+            if (type !== 'display') {
+                return gap;
+            }
+
+            const label = gap > 0 ? '+' + gap : String(gap);
+            const badgeClass = gap < 0 ? 'red' : (gap === 0 ? 'yellow' : 'green');
+
+            return '<span class="bella-badge bella-badge-' + badgeClass + '">' + escapeHtml(label) + '</span>';
         }
 
         function renderStatus(value, type, row) {
@@ -1292,12 +1329,20 @@
                         render: renderBackNumber
                     },
                     {
+                        data: 'part_number',
+                        render: renderStockNumber
+                    },
+                    {
                         data: 'standard',
                         render: renderStockNumber
                     },
                     {
                         data: 'qty',
                         render: renderStockNumber
+                    },
+                    {
+                        data: null,
+                        render: renderGap
                     },
                     {
                         data: 'status',
@@ -1328,6 +1373,14 @@
                     }
                 }
             });
+        }
+
+        function getStatusFilter() {
+            return $('.stock-status-filter.active').data('status') || '';
+        }
+
+        function applyStatusFilter(table) {
+            table.column(stockConfig.statusColumn).search(getStatusFilter()).draw();
         }
 
         function reloadActiveTable() {
@@ -1361,14 +1414,48 @@
                 return (bytes / 1048576).toFixed(1) + ' MB';
             }
 
+            function showUploadError(message) {
+                if (window.iziToast) {
+                    iziToast.error({
+                        title: 'File tidak valid',
+                        message: escapeHtml(message),
+                        position: 'bottomRight',
+                        timeout: 6000,
+                        class: 'iziToast-danger',
+                    });
+
+                    return;
+                }
+
+                alert(message);
+            }
+
             function setFile(file) {
+                const extension = String(file.name).split('.').pop().toLowerCase();
+
+                if (!['xlsx', 'xls', 'csv'].includes(extension)) {
+                    clearFile();
+                    showUploadError('Gunakan file .xlsx, .xls, atau .csv.');
+
+                    return false;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    clearFile();
+                    showUploadError('Ukuran file maksimal 10 MB.');
+
+                    return false;
+                }
+
                 fileName.textContent = file.name;
-                fileSize.textContent = formatBytes(file.size) + ' · Excel Spreadsheet';
+                fileSize.textContent = formatBytes(file.size) + ' - Spreadsheet';
                 fileCard.style.display = 'flex';
                 hint.style.display = 'none';
                 hintOk.style.display = 'flex';
                 dropZone.classList.add('dragover');
                 submitBtn.disabled = false;
+
+                return true;
             }
 
             function clearFile() {
@@ -1381,7 +1468,11 @@
             }
 
             input.addEventListener('change', function() {
-                if (this.files[0]) setFile(this.files[0]);
+                if (this.files[0]) {
+                    setFile(this.files[0]);
+                } else {
+                    clearFile();
+                }
             });
 
             removeBtn.addEventListener('click', function(e) {
@@ -1401,11 +1492,10 @@
             dropZone.addEventListener('drop', function(e) {
                 e.preventDefault();
                 const file = e.dataTransfer.files[0];
-                if (file) {
+                if (file && setFile(file)) {
                     const dt = new DataTransfer();
                     dt.items.add(file);
                     input.files = dt.files;
-                    setFile(file);
                 }
             });
 
@@ -1420,7 +1510,19 @@
                 const table = initStockTable($(e.target).attr('href'));
 
                 if (table) {
+                    applyStatusFilter(table);
                     table.ajax.reload(null, false);
+                }
+            });
+
+            $('.stock-status-filter').on('click', function() {
+                $('.stock-status-filter').removeClass('active');
+                $(this).addClass('active');
+
+                const $table = $('#myTabContent2 .tab-pane.active table.stock-table');
+
+                if ($table.length && $.fn.DataTable.isDataTable($table[0])) {
+                    applyStatusFilter($table.DataTable());
                 }
             });
 
