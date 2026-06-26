@@ -774,6 +774,18 @@
             background: var(--dm-blue);
         }
 
+        .gantt-seg.truck-ontime {
+            background: #22c55e !important;
+        }
+
+        .gantt-seg.truck-early {
+            background: #eab308 !important;
+        }
+
+        .gantt-seg.truck-late {
+            background: #dc3545 !important;
+        }
+
         /* Timeline card */
         .delivery-timeline-card {
             background: #ffffff;
@@ -1674,6 +1686,18 @@
                                 <li>
                                     <span class="legend-offset-swatch is-offset-h-plus"></span>
                                     H+1 (hari setelah delivery)
+                                </li>
+                                <li>
+                                    <span class="legend-dot" style="background: #22c55e;"></span>
+                                    Truck On Time (Hijau)
+                                </li>
+                                <li>
+                                    <span class="legend-dot" style="background: #eab308;"></span>
+                                    Truck Early (Kuning)
+                                </li>
+                                <li>
+                                    <span class="legend-dot" style="background: #dc3545;"></span>
+                                    Truck Telat (Merah)
                                 </li>
                             </ul>
                             <div class="timeline-total" id="timelineTotalSum">Total: 0</div>
@@ -4698,8 +4722,23 @@
                         var truckNextDay = isTruckOnNextDay(row);
                         var truckCrossMidnight = isTruckCrossMidnight(row);
                         var truckLeftPct = (truckStart / ganttHourWindow) * 100;
-                        var truckComplete = isRowPrepKanbanComplete(row);
-                        var truckSegClass = truckComplete ? 'truck-complete' : 'truck';
+                        var truckSegClass = 'truck';
+                        if (row.truck_status === 'picked' && row.truck_picked_at) {
+                            var actualTime = new Date(row.truck_picked_at);
+                            var scheduledTime = new Date(getTruckDisplayDate(row) + 'T' + normalizeClock(row.truck_time) + ':00');
+                            var earlyThreshold = new Date(scheduledTime.getTime() - 15 * 60 * 1000);
+                            
+                            if (actualTime > scheduledTime) {
+                                truckSegClass = 'truck-late';
+                            } else if (actualTime < earlyThreshold) {
+                                truckSegClass = 'truck-early';
+                            } else {
+                                truckSegClass = 'truck-ontime';
+                            }
+                        } else {
+                            var truckComplete = isRowPrepKanbanComplete(row);
+                            truckSegClass = truckComplete ? 'truck-complete' : 'truck';
+                        }
                         var truckTitle = buildGanttTooltip(row, buildTruckTooltipOpts(row)).replace(/"/g,
                             '&quot;');
                         var truckLabel = 'C' + escapeHtml(String(rowCycleKey(row) || '?'));
@@ -4983,6 +5022,18 @@
                             var leftPct = truckFrac * 100;
                             var pct = getRowRawProgressPct(row);
                             var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' : '#f59e0b';
+                            if (row.truck_status === 'picked' && row.truck_picked_at) {
+                                var actualTime = new Date(row.truck_picked_at);
+                                var scheduledTime = new Date(truckDisplayDate + 'T' + truckTime + ':00');
+                                var earlyThreshold = new Date(scheduledTime.getTime() - 15 * 60 * 1000);
+                                if (actualTime > scheduledTime) {
+                                    barColor = '#dc3545';
+                                } else if (actualTime < earlyThreshold) {
+                                    barColor = '#eab308';
+                                } else {
+                                    barColor = '#22c55e';
+                                }
+                            }
                             var truckNextDay = isTruckOnNextDay(row);
                             var truckCrossMidnight = isTruckCrossMidnight(row);
                             var cycleLblTruck = rowCycleKey(row) || '-';
