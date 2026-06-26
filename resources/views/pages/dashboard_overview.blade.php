@@ -235,9 +235,6 @@
 
         .ov-row--2c {
             grid-template-columns: 1fr 1.6fr;
-            align-items: start;
-            /* jangan regangkan kartu error-per-area menyamai tinggi tabel error terbaru —
-               biar setinggi kontennya sendiri, nggak kosong saat datanya sedikit */
         }
 
         .ov-panel {
@@ -650,6 +647,17 @@
 
         .ov-table tbody tr:hover td {
             background: var(--bg);
+        }
+
+        /* tabel error terbaru: paksa satu baris (truncate) biar tinggi kartu konsisten */
+        .ov-table--fixed {
+            table-layout: fixed;
+        }
+
+        .ov-table--fixed td.ov-ellip {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .ov-badge {
@@ -1544,13 +1552,19 @@
                 if (!rows || !rows.length) return '<div class="ov-empty">Belum ada error tercatat. 👍</div>';
                 var body = rows.map(function(e) {
                     return '<tr><td><span class="ov-area-tag">' + esc(e.area || '-') + '</span></td>' +
-                        '<td>' + esc(limit(e.message || '-', 60)) + '</td>' +
-                        '<td>' + esc(limit(e.expected || '-', 26)) + '</td>' +
-                        '<td>' + esc(limit(e.scanned || '-', 26)) + '</td>' +
+                        '<td class="ov-ellip" title="' + esc(e.message || '-') + '">' + esc(limit(e.message ||
+                            '-', 60)) + '</td>' +
+                        '<td class="ov-ellip" title="' + esc(e.expected || '-') + '">' + esc(e.expected || '-') +
+                        '</td>' +
+                        '<td class="ov-ellip" title="' + esc(e.scanned || '-') + '">' + esc(e.scanned || '-') +
+                        '</td>' +
                         '<td style="white-space:nowrap;color:var(--text-muted);">' + esc(e.date || '-') +
                         '</td></tr>';
                 }).join('');
-                return '<table class="ov-table"><thead><tr><th>Area</th><th>Pesan</th><th>Expected</th><th>Scanned</th><th>Waktu</th></tr></thead><tbody>' +
+                return '<table class="ov-table ov-table--fixed"><thead><tr>' +
+                    '<th style="width:70px;">Area</th><th>Pesan</th>' +
+                    '<th style="width:22%;">Expected</th><th style="width:22%;">Scanned</th>' +
+                    '<th style="width:92px;">Waktu</th></tr></thead><tbody>' +
                     body + '</tbody></table>';
             }
 
