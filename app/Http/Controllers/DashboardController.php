@@ -134,7 +134,7 @@ class DashboardController extends Controller
 
     private function buildOverviewData(Carbon $from, Carbon $to): array
     {
-        $cacheKey = 'dashboard_overview_v4_'.$from->toDateString().'_'.$to->toDateString();
+        $cacheKey = 'dashboard_overview_v5_'.$from->toDateString().'_'.$to->toDateString();
 
         return Cache::remember($cacheKey, 60, function () use ($from, $to) {
             $start = $from->copy()->startOfDay();
@@ -142,6 +142,7 @@ class DashboardController extends Controller
             $lenDays = $from->diffInDays($to) + 1;
             $prevFrom = $from->copy()->subDays($lenDays)->startOfDay();
             $currentFromKey = $from->toDateString();
+            $delta = fn ($cur, $prev) => $prev > 0 ? (int) round(($cur - $prev) / $prev * 100) : ($cur > 0 ? 100 : 0);
 
             // ===== PPIC: loading list delivery dalam rentang =====
             $ll = \App\Models\LoadingList::query()
@@ -254,20 +255,28 @@ class DashboardController extends Controller
             $errPeriod = 0;
             $prevErr = 0;
             $errorAreaCounts = collect();
+            $errorAreaCountsPrev = collect();
+            $errByDay = collect();
             foreach ($errorDailyRows as $row) {
                 $count = (int) $row->c;
+                $area = $row->area ?: '-';
                 if ($row->d >= $currentFromKey) {
                     $errPeriod += $count;
-                    $area = $row->area ?: '-';
                     $errorAreaCounts[$area] = (int) ($errorAreaCounts[$area] ?? 0) + $count;
+                    $errByDay[$row->d] = (int) ($errByDay[$row->d] ?? 0) + $count;
                 } else {
                     $prevErr += $count;
+                    $errorAreaCountsPrev[$area] = (int) ($errorAreaCountsPrev[$area] ?? 0) + $count;
                 }
             }
             $errByArea = $errorAreaCounts
                 ->sortDesc()
                 ->take(6)
-                ->map(fn ($count, $area) => (object) ['area' => $area, 'c' => $count])
+                ->map(fn ($count, $area) => (object) [
+                    'area' => $area,
+                    'c' => $count,
+                    'delta' => $delta($count, (int) ($errorAreaCountsPrev[$area] ?? 0)),
+                ])
                 ->values();
             $recentErrors = DB::table('error_logs')
                 ->orderByDesc('date')->limit(8)
@@ -291,11 +300,11 @@ class DashboardController extends Controller
                     'pulling' => (int) ($pullingByDay[$key] ?? 0),
                     'produksi' => (int) ($supplyByDay[$key] ?? 0),
                     'pis' => (int) ($pisByDay[$key] ?? 0),
+                    'err' => (int) ($errByDay[$key] ?? 0),
                 ]);
             }
 
             // ===== Perbandingan periode sebelumnya (#1) =====
-            $delta = fn ($cur, $prev) => $prev > 0 ? (int) round(($cur - $prev) / $prev * 100) : ($cur > 0 ? 100 : 0);
 
             // ===== Error rate (#4) =====
             $totalScans = $kanbanScanned + $produksi + $pisScan;

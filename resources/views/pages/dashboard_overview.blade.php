@@ -691,6 +691,40 @@
             font-weight: 800;
         }
 
+        .ov-errtrend {
+            margin-top: 16px;
+            padding-top: 13px;
+            border-top: 1px solid var(--border);
+        }
+
+        .ov-errtrend__head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 9px;
+        }
+
+        .ov-errtrend__lbl {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-muted);
+        }
+
+        .ov-errtrend__bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 52px;
+        }
+
+        .ov-errtrend__bar {
+            flex: 1;
+            border-radius: 2px;
+            min-height: 2px;
+        }
+
         @media (max-width: 1100px) {
             .ov-kpis {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1110,17 +1144,47 @@
                     });
             }
 
+            function errDeltaArrow(d) {
+                if (d === null || d === undefined || d === 0) return '';
+                // naik = jelek untuk error (merah), turun = bagus (hijau)
+                var color = d > 0 ? '#dc2626' : '#16a34a';
+                return ' <span style="font-weight:800;color:' + color + ';">' + (d > 0 ? '▲' : '▼') +
+                    Math.abs(d) + '%</span>';
+            }
+
+            function renderErrTrend() {
+                var trend = (latestData && latestData.trend) || [];
+                var vals = trend.map(function(t) {
+                    return parseInt(t.err) || 0;
+                });
+                var max = vals.length ? Math.max.apply(null, vals) : 0;
+                if (!max) return '';
+                var n = vals.length;
+                var bars = vals.map(function(v, i) {
+                    var h = Math.max(2, Math.round(v / max * 50));
+                    var shade = i >= n - Math.ceil(n / 4) ? '#dc2626' : (i >= n / 2 ? '#ef4444' : '#fca5a5');
+                    return '<div class="ov-errtrend__bar" style="height:' + h + 'px;background:' + shade +
+                        ';" title="' + esc(trend[i].label) + ': ' + fmt(v) + ' error"></div>';
+                }).join('');
+                var dErr = latestData && latestData.delta ? latestData.delta.err : null;
+                var head = '<span class="ov-errtrend__lbl">Tren error harian</span>' +
+                    (dErr ? '<span style="font-size:11px;font-weight:800;color:' + (dErr > 0 ? '#dc2626' :
+                        '#16a34a') + ';">' + (dErr > 0 ? '▲' : '▼') + ' ' + Math.abs(dErr) + '% vs lalu</span>' : '');
+                return '<div class="ov-errtrend"><div class="ov-errtrend__head">' + head +
+                    '</div><div class="ov-errtrend__bars">' + bars + '</div></div>';
+            }
+
             function renderErrByArea(rows) {
                 if (!rows || !rows.length) return '<div class="ov-empty">Tidak ada error pada periode ini. 👍</div>';
                 var max = Math.max.apply(null, rows.map(function(r) {
                     return r.c;
                 })) || 1;
-                return renderBars(rows,
+                var bars = renderBars(rows,
                     function(r) {
                         return r.area || '-';
                     },
                     function(r) {
-                        return r.c;
+                        return fmt(r.c) + errDeltaArrow(r.delta);
                     },
                     function(r) {
                         return Math.round((r.c / max) * 100);
@@ -1128,6 +1192,7 @@
                     function() {
                         return '#dc2626';
                     });
+                return bars + renderErrTrend();
             }
 
             function activityChartOptions(mode) {
