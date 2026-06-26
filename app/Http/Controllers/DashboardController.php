@@ -657,54 +657,42 @@ class DashboardController extends Controller
     {
         $selectedDate = $request->input('date') ?? now()->toDateString(); // default hari ini
 
+        // Agregat per (line, back_number): cukup jumlah serial + tanggal scan terakhir.
+        // Detail serial diambil terpisah via AJAX (prodResultDetail) supaya payload awal kecil.
         $data = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
             ->where('mutations.type', 'supply')
-            ->whereDate('mutations.created_at', $selectedDate) // ✅ ambil berdasarkan tanggal input
-            ->select(
-                'internal_parts.back_number',
-                'mutations.serial_number',
-                'mutations.type',
-                'mutations.qty',
-                'mutations.date',
-                'lines.name as line',
-                'internal_parts.id as internal_part_id'
-            )
-            ->orderBy('mutations.date', 'desc')
-            ->get();
+            // range, bukan whereDate(), biar bisa pakai index created_at
+            ->whereBetween('mutations.created_at', [
+                Carbon::parse($selectedDate)->startOfDay(),
+                Carbon::parse($selectedDate)->endOfDay(),
+            ])
+            ->groupBy('lines.name', 'internal_parts.back_number')
+            ->orderByRaw('MAX(mutations.date) DESC')
+            ->get([
+                DB::raw('lines.name as line'),
+                DB::raw('internal_parts.back_number as back_number'),
+                DB::raw('COUNT(*) as cnt'),
+                DB::raw('MAX(mutations.date) as last_date'),
+            ]);
 
-        // Organisasi data
+        // Organisasi data per line
         $lines = [];
         foreach ($data as $value) {
             $lineKey = $value->line;
-            $backNumber = $value->back_number;
-
             if (! isset($lines[$lineKey])) {
-                $lines[$lineKey] = [
-                    'line' => $lineKey,
-                    'items' => [],
-                ];
+                $lines[$lineKey] = ['line' => $lineKey, 'items' => []];
             }
-
-            if (! isset($lines[$lineKey]['items'][$backNumber])) {
-                $lines[$lineKey]['items'][$backNumber] = [
-                    'back_number' => $backNumber,
-                    'internal_part_id' => $value->internal_part_id,
-                    'details' => [],
-                ];
-            }
-
-            $lines[$lineKey]['items'][$backNumber]['details'][] = [
-                'serial_number' => $value->serial_number,
-                'qty' => $value->qty,
-                'date' => $value->date,
+            $lines[$lineKey]['items'][] = [
+                'back_number' => $value->back_number,
+                'count' => (int) $value->cnt,
+                'last_date' => $value->last_date,
             ];
         }
 
         $result = [];
         foreach ($lines as $line) {
-            $line['items'] = array_values($line['items']);
             $result[] = (object) $line;
         }
 
@@ -725,6 +713,36 @@ class DashboardController extends Controller
             'lines' => $paginatedResult,
             'selectedDate' => $selectedDate,
         ]);
+    }
+
+    /**
+     * Detail serial untuk satu back number pada satu tanggal — diambil via AJAX saat baris di-expand,
+     * supaya tidak ikut di-render di awal (lihat prodResult.blade.php).
+     */
+    public function prodResultDetail(Request $request)
+    {
+        $line = (string) $request->input('line');
+        $backNumber = (string) $request->input('back_number');
+        $date = $request->input('date') ?? now()->toDateString();
+
+        if ($backNumber === '') {
+            return response()->json(['details' => []]);
+        }
+
+        $details = DB::table('mutations')
+            ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
+            ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
+            ->where('mutations.type', 'supply')
+            ->where('internal_parts.back_number', $backNumber)
+            ->when($line !== '', fn ($q) => $q->where('lines.name', $line))
+            ->whereBetween('mutations.created_at', [
+                Carbon::parse($date)->startOfDay(),
+                Carbon::parse($date)->endOfDay(),
+            ])
+            ->orderBy('mutations.date', 'desc')
+            ->get(['mutations.serial_number', 'mutations.qty', 'mutations.date']);
+
+        return response()->json(['details' => $details]);
     }
 
     public function prodPlan(Request $request)

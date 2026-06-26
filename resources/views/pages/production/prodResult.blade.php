@@ -669,15 +669,14 @@
 
             <div class="bella-table-card-body">
                 {{-- Nav Tabs --}}
+                {{-- tab = filter line client-side (bukan pane terpisah) biar tabel cuma dirender sekali --}}
                 <ul class="nav nav-pills prod-tabs" id="myTab3" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" data-toggle="tab" href="#all" role="tab">All</a>
+                        <a class="nav-link active" href="#" data-line="">All</a>
                     </li>
                     @foreach ($lines as $line)
                         <li class="nav-item">
-                            <a class="nav-link" data-toggle="tab" href="#{{ $line->line }}" role="tab">
-                                {{ $line->line }}
-                            </a>
+                            <a class="nav-link" href="#" data-line="{{ $line->line }}">{{ $line->line }}</a>
                         </li>
                     @endforeach
                 </ul>
@@ -704,186 +703,81 @@
                     </div>
                 </div>
 
-                <div class="tab-content" id="myTabContent2">
-                    {{-- Tab ALL --}}
-                    <div class="tab-pane fade show active" id="all" role="tabpanel">
-                        <div class="table-responsive prod-table-wrap">
-                            <table class="prod-table">
-                                <thead>
-                                    <tr>
-                                        <th>No</th>
-                                        <th>Line</th>
-                                        <th>Back Number</th>
-                                        <th>Last Scan Date</th>
-                                        <th class="text-center">Action</th>
+                <div class="table-responsive prod-table-wrap" id="myTabContent2">
+                    <table class="prod-table">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Line</th>
+                                <th>Back Number</th>
+                                <th>Last Scan Date</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php $rowIndex = 1; @endphp
+                            @forelse ($lines as $line)
+                                @foreach ($line->items as $item)
+                                    @php $cid = 'collapse-' . $loop->parent->index . '-' . $loop->index; @endphp
+                                    <tr data-line="{{ $line->line }}">
+                                        <td>{{ $rowIndex++ }}</td>
+                                        <td><span class="line-badge">{{ $line->line }}</span></td>
+                                        <td><span class="back-number-code">{{ $item['back_number'] }}</span></td>
+                                        <td>{{ $item['last_date'] ?? '-' }}</td>
+                                        <td class="text-center">
+                                            <button type="button" class="act-btn info" data-toggle="collapse"
+                                                data-target="#{{ $cid }}">
+                                                <i class="fas fa-eye"></i>
+                                                Detail
+                                            </button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    @php $rowIndex = 1; @endphp
-                                    @forelse ($lines as $line)
-                                        @foreach ($line->items as $item)
-                                            <tr>
-                                                <td>{{ $rowIndex++ }}</td>
-                                                <td><span class="line-badge">{{ $line->line }}</span></td>
-                                                <td><span class="back-number-code">{{ $item['back_number'] }}</span></td>
-                                                <td>{{ $item['details'][0]['date'] ?? '-' }}</td>
-                                                <td class="text-center">
-                                                    <button type="button" class="act-btn info" data-toggle="collapse"
-                                                        data-target="#collapse-all-{{ $line->line }}-{{ $loop->iteration }}">
-                                                        <i class="fas fa-eye"></i>
-                                                        Detail
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            <tr class="detail-row">
-                                                <td colspan="5" class="p-0">
-                                                    <div id="collapse-all-{{ $line->line }}-{{ $loop->iteration }}"
-                                                        class="collapse">
-                                                        <div class="detail-panel">
-                                                            <div class="detail-panel-head">
-                                                                <div class="detail-panel-title">
-                                                                    <i class="fas fa-list-ul"></i>
-                                                                    Production Detail
-                                                                    <span
-                                                                        class="detail-count-badge">{{ count($item['details']) }}
-                                                                        Serial</span>
-                                                                </div>
-                                                                <div class="detail-tools">
-                                                                    <div class="detail-search-wrap">
-                                                                        <i class="fas fa-search"></i>
-                                                                        <input type="text" class="detail-search-input"
-                                                                            placeholder="Search serial number / date...">
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="detail-table-wrap">
-                                                                <div class="detail-scroll-box">
-                                                                    <table class="detail-table">
-                                                                        <thead>
-                                                                            <tr>
-                                                                                <th>Serial Number</th>
-                                                                                <th>Qty</th>
-                                                                                <th>Date</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            @foreach ($item['details'] as $detail)
-                                                                                <tr class="detail-data-row">
-                                                                                    <td>{{ $detail['serial_number'] }}</td>
-                                                                                    <td>{{ $detail['qty'] }}</td>
-                                                                                    <td>{{ $detail['date'] }}</td>
-                                                                                </tr>
-                                                                            @endforeach
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                                <div class="detail-empty-filter">No matching serial number
-                                                                    found.</div>
+                                    <tr class="detail-row">
+                                        <td colspan="5" class="p-0">
+                                            <div id="{{ $cid }}" class="collapse" data-bn="{{ $item['back_number'] }}"
+                                                data-line="{{ $line->line }}">
+                                                <div class="detail-panel">
+                                                    <div class="detail-panel-head">
+                                                        <div class="detail-panel-title">
+                                                            <i class="fas fa-list-ul"></i>
+                                                            Production Detail
+                                                            <span class="detail-count-badge">{{ $item['count'] }} Serial</span>
+                                                        </div>
+                                                        <div class="detail-tools">
+                                                            <div class="detail-search-wrap">
+                                                                <i class="fas fa-search"></i>
+                                                                <input type="text" class="detail-search-input"
+                                                                    placeholder="Search serial number / date...">
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="empty-row">No production result data available.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-
-                    </div>
-
-                    {{-- Tab per Line --}}
-                    @foreach ($lines as $line)
-                        <div class="tab-pane fade" id="{{ $line->line }}" role="tabpanel">
-                            <div class="table-responsive prod-table-wrap">
-                                <table class="prod-table">
-                                    <thead>
-                                        <tr>
-                                            <th>No</th>
-                                            <th>Back Number</th>
-                                            <th>Last Scan Date</th>
-                                            <th class="text-center">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse ($line->items as $item)
-                                            <tr>
-                                                <td>{{ $loop->iteration }}</td>
-                                                <td><span class="back-number-code">{{ $item['back_number'] }}</span></td>
-                                                <td>{{ $item['details'][0]['date'] ?? '-' }}</td>
-                                                <td class="text-center">
-                                                    <button type="button" class="act-btn info" data-toggle="collapse"
-                                                        data-target="#collapse-{{ $line->line }}-line-{{ $loop->iteration }}">
-                                                        <i class="fas fa-eye"></i>
-                                                        Detail
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            <tr class="detail-row">
-                                                <td colspan="4" class="p-0">
-                                                    <div id="collapse-{{ $line->line }}-line-{{ $loop->iteration }}"
-                                                        class="collapse">
-                                                        <div class="detail-panel">
-                                                            <div class="detail-panel-head">
-                                                                <div class="detail-panel-title">
-                                                                    <i class="fas fa-list-ul"></i>
-                                                                    Production Detail
-                                                                    <span
-                                                                        class="detail-count-badge">{{ count($item['details']) }}
-                                                                        Serial</span>
-                                                                </div>
-                                                                <div class="detail-tools">
-                                                                    <div class="detail-search-wrap">
-                                                                        <i class="fas fa-search"></i>
-                                                                        <input type="text" class="detail-search-input"
-                                                                            placeholder="Search serial number / date...">
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="detail-table-wrap">
-                                                                <div class="detail-scroll-box">
-                                                                    <table class="detail-table">
-                                                                        <thead>
-                                                                            <tr>
-                                                                                <th>Serial Number</th>
-                                                                                <th>Qty</th>
-                                                                                <th>Date</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            @foreach ($item['details'] as $detail)
-                                                                                <tr class="detail-data-row">
-                                                                                    <td>{{ $detail['serial_number'] }}</td>
-                                                                                    <td>{{ $detail['qty'] }}</td>
-                                                                                    <td>{{ $detail['date'] }}</td>
-                                                                                </tr>
-                                                                            @endforeach
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                                <div class="detail-empty-filter">No matching serial number
-                                                                    found.</div>
-                                                            </div>
+                                                    <div class="detail-table-wrap">
+                                                        <div class="detail-scroll-box">
+                                                            <table class="detail-table">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Serial Number</th>
+                                                                        <th>Qty</th>
+                                                                        <th>Date</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody></tbody>
+                                                            </table>
                                                         </div>
+                                                        <div class="detail-empty-filter">No matching serial number found.</div>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="4" class="empty-row">No production result data available
-                                                    for
-                                                    this line.</td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    @endforeach
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="empty-row">No production result data available.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="d-flex justify-content-center mt-3" id="prodPager"></div>
@@ -967,6 +861,40 @@
                 detailPanel.find('.detail-empty-filter').toggle(visibleRows === 0);
             });
 
+            function escHtml(s) {
+                return $('<div>').text(s == null ? '' : s).html();
+            }
+            var PROD_DETAIL_URL = @json(route('dashboard.prodResult.detail'));
+            var PROD_DATE = @json($selectedDate ?? now()->toDateString());
+            // ambil detail serial via AJAX saat pertama kali dibuka — tidak ikut di-load awal
+            $(document).on('show.bs.collapse', '.collapse', function() {
+                var $box = $(this);
+                if ($box.data('built')) return;
+                $box.data('built', true);
+                var $tbody = $box.find('.detail-table tbody');
+                $tbody.html('<tr><td colspan="3" class="empty-row">Memuat…</td></tr>');
+                $.getJSON(PROD_DETAIL_URL, {
+                    line: $box.data('line'),
+                    back_number: $box.data('bn'),
+                    date: PROD_DATE
+                }).done(function(res) {
+                    var rows = (res && res.details) || [];
+                    if (!rows.length) {
+                        $tbody.html('<tr><td colspan="3" class="empty-row">Tidak ada detail.</td></tr>');
+                        return;
+                    }
+                    var html = '';
+                    rows.forEach(function(d) {
+                        html += '<tr class="detail-data-row"><td>' + escHtml(d.serial_number) + '</td><td>' +
+                            escHtml(d.qty) + '</td><td>' + escHtml(d.date) + '</td></tr>';
+                    });
+                    $tbody.html(html);
+                }).fail(function() {
+                    $box.data('built', false);
+                    $tbody.html('<tr><td colspan="3" class="empty-row">Gagal memuat detail.</td></tr>');
+                });
+            });
+
             $('.collapse').on('shown.bs.collapse', function() {
                 $(this).find('.detail-search-input').trigger('focus');
             });
@@ -1001,9 +929,10 @@
             const PER_PAGE = 10;
             let currentPage = 1;
 
+            let lineFilter = '';
+
             function getActiveTable() {
-                const pane = document.querySelector('#myTabContent2 .tab-pane.active');
-                return pane ? pane.querySelector('.prod-table') : null;
+                return document.querySelector('#myTabContent2 .prod-table');
             }
 
             // Kelompokkan tiap baris utama + baris detail (.detail-row) sesudahnya jadi satu unit
@@ -1018,7 +947,11 @@
                     }
                     if (tr.querySelector('.empty-row')) { cur = null; return; }
                     const bnEl = tr.querySelector('.back-number-code');
-                    cur = { rows: [tr], backno: (bnEl ? bnEl.textContent : '').toLowerCase().trim() };
+                    cur = {
+                        rows: [tr],
+                        backno: (bnEl ? bnEl.textContent : '').toLowerCase().trim(),
+                        line: (tr.getAttribute('data-line') || '').toLowerCase().trim()
+                    };
                     units.push(cur);
                 });
                 return units;
@@ -1046,9 +979,11 @@
 
                 const keyword = ($('#bnFilter').val() || '').toLowerCase().trim();
                 const units = getUnits(table);
-                const filtered = keyword
-                    ? units.filter(function (u) { return u.backno.indexOf(keyword) !== -1; })
-                    : units;
+                const filtered = units.filter(function (u) {
+                    const okBn = !keyword || u.backno.indexOf(keyword) !== -1;
+                    const okLine = !lineFilter || u.line === lineFilter;
+                    return okBn && okLine;
+                });
 
                 const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
                 if (currentPage > totalPages) currentPage = totalPages;
@@ -1068,7 +1003,14 @@
                 const p = parseInt($(this).attr('data-page'), 10);
                 if (!isNaN(p) && p >= 1) { currentPage = p; apply(); }
             });
-            $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function () { currentPage = 1; apply(); });
+            $(document).on('click', '.prod-tabs .nav-link', function (e) {
+                e.preventDefault();
+                $('.prod-tabs .nav-link').removeClass('active');
+                $(this).addClass('active');
+                lineFilter = ($(this).data('line') || '').toString().toLowerCase().trim();
+                currentPage = 1;
+                apply();
+            });
 
             apply();
 

@@ -177,6 +177,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
 
         Route::get('/production/result', [DashboardController::class, 'prodResult'])->name('dashboard.prodResult');
+        Route::get('/production/result/detail', [DashboardController::class, 'prodResultDetail'])->name('dashboard.prodResult.detail');
         Route::get('/production/plan', [DashboardController::class, 'prodPlan'])->name('dashboard.prodPlan');
         Route::get('/production/board', [DashboardController::class, 'prodBoard'])->name('dashboard.board');
         Route::get('/production/board/state', [DashboardController::class, 'prodBoardState']);
