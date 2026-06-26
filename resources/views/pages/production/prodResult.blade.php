@@ -822,10 +822,11 @@
         </div>
     </div>
 
-    {{-- mqtt --}}
-    <script src="{{ asset('assets/js/jquery-3.6.3.min.js') }}"></script>
-    <script src="{{ asset('assets/js/apexcharts.js') }}"></script>
-    <script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
+@endsection
+
+@push('scripts')
+    {{-- jQuery, DataTables, iziToast sudah dimuat layout (main.blade.php) — jangan dobel.
+         Script di-push ke akhir body biar jalan setelah jQuery layout. --}}
     <script>
         var errorMessege = "{!! session('error') !!}";
         var successMessege = "{!! session('success') !!}";
@@ -1021,5 +1022,4 @@
             }
         });
     </script>
-
-@endsection
+@endpush
