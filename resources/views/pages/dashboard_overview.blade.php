@@ -235,6 +235,9 @@
 
         .ov-row--2c {
             grid-template-columns: 1fr 1.6fr;
+            align-items: start;
+            /* jangan regangkan kartu error-per-area menyamai tinggi tabel error terbaru —
+               biar setinggi kontennya sendiri, nggak kosong saat datanya sedikit */
         }
 
         .ov-panel {
