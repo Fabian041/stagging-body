@@ -95,6 +95,13 @@ class LoadingListController extends Controller
     public function getDriverAbsenData(Request $request)
     {
         try {
+            $masters = MasterCycle::query()
+                ->with(['customer:id,name'])
+                ->get();
+            $masterMeta = $masters->map(function (MasterCycle $m) {
+                return $this->formatMasterCycleMetaForChart($m);
+            });
+
             $query = LoadingList::query()
                 ->with(['customer:id,name,code'])
                 ->whereNotNull('customer_id')
@@ -155,6 +162,7 @@ class LoadingListController extends Controller
                     'delivery_date_raw' => $first->delivery_date,
                     'truck_status' => $truckStatus,
                     'truck_picked_at' => $pickedAt,
+                    'customer_id' => $first->customer_id,
                 ];
             })->values();
 
@@ -172,7 +180,30 @@ class LoadingListController extends Controller
                         ? Carbon::parse($row->truck_picked_at)->format('d/m/Y H:i')
                         : '-';
                 })
-                ->rawColumns(['truck_status_badge', 'number'])
+                ->addColumn('arrival_status_badge', function ($row) use ($masterMeta) {
+                    if ($row->truck_status !== 'picked') {
+                        return '<span class="text-muted">-</span>';
+                    }
+
+                    $master = $this->findMasterCycleForDeliveryBucket(
+                        (int) $row->customer_id,
+                        (string) $row->cycle,
+                        $masterMeta
+                    );
+
+                    $deliveryDateStr = $row->delivery_date_raw
+                        ? Carbon::parse($row->delivery_date_raw)->format('Y-m-d')
+                        : Carbon::now()->format('Y-m-d');
+
+                    $status = $this->calculateTruckArrivalStatus(
+                        $deliveryDateStr,
+                        $row->truck_picked_at,
+                        $master
+                    );
+
+                    return $this->formatTruckArrivalStatusBadge($status);
+                })
+                ->rawColumns(['truck_status_badge', 'number', 'arrival_status_badge'])
                 ->make(true);
         } catch (\Exception $e) {
             return response()->json([
@@ -1901,11 +1932,31 @@ class LoadingListController extends Controller
 
                 return $pds->customer_id.'|'.$date.'|'.$pds->cycle;
             })
-            ->map(function ($pdsGroup) use ($masterMeta) {
+            ->map(function ($pdsGroup) use ($masterMeta, $rawLists) {
                 $first = $pdsGroup->first();
                 $dateStr = $first->delivery_date
                     ? Carbon::parse($first->delivery_date)->format('Y-m-d')
                     : Carbon::now()->format('Y-m-d');
+
+                $bucketLls = $rawLists->filter(function ($ll) use ($first, $dateStr) {
+                    $llDate = $ll->delivery_date ? Carbon::parse($ll->delivery_date)->format('Y-m-d') : null;
+                    return (int) $ll->customer_id === (int) $first->customer_id
+                        && $this->normalizeCycleNumber($ll->cycle) === (string) $first->cycle
+                        && $llDate === $dateStr;
+                });
+
+                $totalLlsInBucket = $bucketLls->count();
+                $pickedLlsInBucket = $bucketLls->where('truck_status', 'picked')->count();
+                $bucketPickedAt = $bucketLls->max('truck_picked_at');
+
+                if ($pickedLlsInBucket === 0) {
+                    $truckStatus = 'pending';
+                } elseif ($pickedLlsInBucket >= $totalLlsInBucket) {
+                    $truckStatus = 'picked';
+                } else {
+                    $truckStatus = 'partial';
+                }
+
                 $master = $this->findMasterCycleForDeliveryBucket(
                     (int) $first->customer_id,
                     (string) $first->cycle,
@@ -1968,6 +2019,8 @@ class LoadingListController extends Controller
                     'll_count' => $llCount,
                     'progress_pct_raw' => $progressPct,
                     'progress_pct' => min(100.0, max(0.0, $progressPct)),
+                    'truck_status' => $truckStatus,
+                    'truck_picked_at' => $bucketPickedAt ? Carbon::parse($bucketPickedAt)->toIso8601String() : null,
                 ];
 
                 return $this->appendPrepAbsoluteDatetimesToChartRow($rowPayload);
@@ -1987,11 +2040,30 @@ class LoadingListController extends Controller
 
                 return $pds->customer_id.'|'.$date.'|'.$pds->cycle;
             })
-            ->map(function ($bucket) use ($masterMeta) {
+            ->map(function ($bucket) use ($masterMeta, $rawLists) {
                 $first = $bucket->first();
                 $dateStr = $first->delivery_date
                     ? Carbon::parse($first->delivery_date)->format('Y-m-d')
                     : Carbon::now()->format('Y-m-d');
+
+                $bucketLls = $rawLists->filter(function ($ll) use ($first, $dateStr) {
+                    $llDate = $ll->delivery_date ? Carbon::parse($ll->delivery_date)->format('Y-m-d') : null;
+                    return (int) $ll->customer_id === (int) $first->customer_id
+                        && $this->normalizeCycleNumber($ll->cycle) === (string) $first->cycle
+                        && $llDate === $dateStr;
+                });
+
+                $totalLlsInBucket = $bucketLls->count();
+                $pickedLlsInBucket = $bucketLls->where('truck_status', 'picked')->count();
+                $bucketPickedAt = $bucketLls->max('truck_picked_at');
+
+                if ($pickedLlsInBucket === 0) {
+                    $truckStatus = 'pending';
+                } elseif ($pickedLlsInBucket >= $totalLlsInBucket) {
+                    $truckStatus = 'picked';
+                } else {
+                    $truckStatus = 'partial';
+                }
 
                 $master = $this->findMasterCycleForDeliveryBucket(
                     (int) $first->customer_id,
@@ -2060,6 +2132,8 @@ class LoadingListController extends Controller
                     'total_done' => $done,
                     'progress_pct' => min(100.0, max(0.0, $progress)),
                     'is_complete' => $target > 0 && $done >= $target,
+                    'truck_status' => $truckStatus,
+                    'truck_picked_at' => $bucketPickedAt ? Carbon::parse($bucketPickedAt)->toIso8601String() : null,
                 ];
             })
             ->sortBy([
@@ -3133,5 +3207,94 @@ class LoadingListController extends Controller
                 }
             })
             ->get();
+    }
+
+    private function resolveExpectedTruckDatetime(string $deliveryDate, array $master): ?Carbon
+    {
+        $prepStart = trim((string) ($master['time'] ?? ''));
+        $prepEnd = trim((string) ($master['prep_end_time'] ?? ''));
+        $truckTime = trim((string) ($master['truck_time'] ?? ''));
+
+        if ($prepStart === '' || $truckTime === '') {
+            return null;
+        }
+
+        $prepDayOffset = $this->resolvePrepDayOffset(
+            (int) ($master['prep_day_offset'] ?? 0),
+            $prepStart,
+            $truckTime
+        );
+
+        $prepStartDate = Carbon::parse($deliveryDate)->addDays($prepDayOffset);
+
+        $truckOnNextDay = false;
+        $truckMin = $this->timeOfDayToMinutes($truckTime);
+        $startMin = $this->timeOfDayToMinutes($prepStart);
+        $endMin = $prepEnd !== '' ? $this->timeOfDayToMinutes($prepEnd) : $startMin;
+
+        $prepCrossesMidnight = $this->prepTimeRangeCrossesMidnight($prepStart, $prepEnd);
+
+        if ($prepCrossesMidnight) {
+            if ($truckMin < $startMin) {
+                if ($truckMin <= $endMin) {
+                    $truckOnNextDay = true;
+                } elseif ($truckMin > $endMin) {
+                    if ($truckMin >= 18 * 60 && $truckMin < $startMin) {
+                        $truckOnNextDay = false;
+                    } else {
+                        $truckOnNextDay = true;
+                    }
+                }
+            }
+        } else {
+            if ($prepStart !== '' && $this->timeOfDayToMinutes($prepStart) >= 18 * 60 && $truckMin < 12 * 60 && $truckMin < $startMin) {
+                $truckOnNextDay = true;
+            } elseif ($truckMin < $endMin && $truckMin < $startMin) {
+                $truckOnNextDay = true;
+            }
+        }
+
+        if ($truckOnNextDay) {
+            return $prepStartDate->copy()->addDay()->setTimeFromTimeString($truckTime);
+        }
+
+        return $prepStartDate->copy()->setTimeFromTimeString($truckTime);
+    }
+
+    private function calculateTruckArrivalStatus(string $deliveryDate, ?string $truckPickedAt, ?array $master): string
+    {
+        if ($truckPickedAt === null || $master === null) {
+            return '-';
+        }
+
+        $expectedDatetime = $this->resolveExpectedTruckDatetime($deliveryDate, $master);
+        if ($expectedDatetime === null) {
+            return '-';
+        }
+
+        $actualDatetime = Carbon::parse($truckPickedAt);
+
+        $earlyThreshold = $expectedDatetime->copy()->subMinutes(15);
+
+        if ($actualDatetime->gt($expectedDatetime)) {
+            return 'Delay';
+        } elseif ($actualDatetime->lt($earlyThreshold)) {
+            return 'Early';
+        } else {
+            return 'Tepat Waktu';
+        }
+    }
+
+    private function formatTruckArrivalStatusBadge(string $status): string
+    {
+        if ($status === 'Tepat Waktu') {
+            return '<span class="bella-badge bella-badge-green"><i class="fas fa-check-circle"></i> Tepat Waktu</span>';
+        } elseif ($status === 'Early') {
+            return '<span class="bella-badge bella-badge-amber"><i class="fas fa-arrow-circle-down"></i> Early</span>';
+        } elseif ($status === 'Delay') {
+            return '<span class="bella-badge bella-badge-danger"><i class="fas fa-exclamation-circle"></i> Delay</span>';
+        }
+
+        return '<span class="text-muted">-</span>';
     }
 }

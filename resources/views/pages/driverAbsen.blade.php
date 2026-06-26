@@ -149,6 +149,11 @@
             color: #b45309;
         }
 
+        .bella-badge-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
         #absenAlert .alert {
             border-radius: 8px;
             font-size: 12.5px;
@@ -252,6 +257,7 @@
                         <th>Delivery Date</th>
                         <th>Status Truk</th>
                         <th>Waktu Diambil</th>
+                        <th>Status Kedatangan</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -473,7 +479,8 @@
                 { data: 'cycle' },
                 { data: 'delivery_date_fmt' },
                 { data: 'truck_status_badge', orderable: false, searchable: false },
-                { data: 'picked_at_fmt' }
+                { data: 'picked_at_fmt' },
+                { data: 'arrival_status_badge', orderable: false, searchable: false }
             ],
             order: [[3, 'desc']],
             pageLength: 25
