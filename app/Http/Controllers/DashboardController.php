@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\MutationMultiSheetExport;
+use App\Exports\PartImportTemplateExport;
 use App\Imports\ManifestImport;
 use App\Imports\PartImport;
 use App\Imports\StockImport;
@@ -599,13 +600,10 @@ class DashboardController extends Controller
 
     public function downloadPartImportTemplate()
     {
-        $path = base_path('docs/format import new part BELLA.xlsx');
-
-        if (! is_file($path)) {
-            abort(404, 'Template import Master Part tidak ditemukan.');
-        }
-
-        return response()->download($path, 'format import new part BELLA.xlsx');
+        return Excel::download(
+            new PartImportTemplateExport(),
+            'format import new part BELLA.xlsx'
+        );
     }
 
     public function exportMutation()
