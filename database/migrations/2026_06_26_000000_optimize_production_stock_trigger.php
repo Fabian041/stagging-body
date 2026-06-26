@@ -8,12 +8,41 @@ return new class extends Migration
     /**
      * Trigger versi optimized: pakai NEW.type langsung (tanpa SELECT redundan ke `mutations`).
      * Sebelumnya di-recreate per-request lewat PullingController::ensureOptimizedTrigger(),
-     * artinya DROP/CREATE TRIGGER (DDL) jalan di jalur scan. DDL butuh metadata lock di tabel
-     * `mutations` yang sangat hot → saat flag cache dingin, scan bisa stall sampai ~30 detik.
-     * Dipindah ke migration biar dijalankan sekali saat deploy, bukan di request user.
+     * artinya DROP/CREATE TRIGGER (DDL) jalan di jalur scan → metadata lock di tabel `mutations`
+     * yang hot → scan bisa stall sampai ~30 detik. Dipindah ke migration (sekali saat deploy).
+     *
+     * CREATE TRIGGER butuh SUPER atau log_bin_trust_function_creators=1 saat binary logging ON
+     * (kalau tidak → error 1419). Migration ini defensif: kalau pembuatan tidak mungkin, ia
+     * MELEWATI tanpa men-DROP trigger lama (biar tidak meninggalkan tabel tanpa trigger) dan
+     * tanpa menggagalkan `migrate`.
      */
     public function up(): void
     {
+        // best-effort: aktifkan kalau user punya hak (kalau tidak, abaikan)
+        try {
+            DB::statement('SET GLOBAL log_bin_trust_function_creators = 1');
+        } catch (\Throwable $e) {
+        }
+
+        // pastikan CREATE TRIGGER memang bisa jalan sebelum men-DROP yang lama
+        $binlogOn = false;
+        $trustOn = false;
+        try {
+            $row = DB::selectOne('SELECT @@log_bin AS log_bin, @@log_bin_trust_function_creators AS trust');
+            $binlogOn = (int) $row->log_bin === 1;
+            $trustOn = (int) $row->trust === 1;
+        } catch (\Throwable $e) {
+        }
+
+        if ($binlogOn && ! $trustOn) {
+            logger()->warning(
+                'Lewati trigger update_production_stock: butuh log_bin_trust_function_creators=1 atau SUPER. '
+                .'Set di my.cnf ([mysqld] log_bin_trust_function_creators=1) lalu jalankan ulang migrate.'
+            );
+
+            return;
+        }
+
         DB::unprepared('DROP TRIGGER IF EXISTS update_production_stock');
         DB::unprepared('CREATE TRIGGER update_production_stock AFTER INSERT ON mutations FOR EACH ROW
             BEGIN
