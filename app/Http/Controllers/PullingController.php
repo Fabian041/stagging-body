@@ -39,46 +39,6 @@ class PullingController extends Controller
     private static $loadingListsCache = [];
     private static $internalPartsCache = [];
 
-    private function ensureOptimizedTrigger()
-    {
-        try {
-            if (cache()->get('trigger_optimized_v1', false)) {
-                return;
-            }
-
-            // Drop trigger if exists
-            DB::unprepared('DROP TRIGGER IF EXISTS update_production_stock');
-
-            // Recreate trigger without the redundant SELECT query
-            DB::unprepared('CREATE TRIGGER update_production_stock AFTER INSERT ON mutations FOR EACH ROW
-                BEGIN
-                    IF NEW.type = "supply" THEN
-                        IF EXISTS (SELECT 1 FROM production_stocks WHERE internal_part_id = NEW.internal_part_id) THEN
-                            UPDATE production_stocks SET current_stock = current_stock + NEW.qty 
-                            WHERE internal_part_id = NEW.internal_part_id;
-                        ELSE
-                            INSERT INTO production_stocks (internal_part_id, DATE, current_stock) 
-                            VALUES (NEW.internal_part_id, NEW.date ,NEW.qty);
-                        END IF;
-                    ELSE
-                        IF EXISTS (SELECT 1 FROM production_stocks WHERE internal_part_id = NEW.internal_part_id) THEN
-                            UPDATE production_stocks SET current_stock = current_stock - NEW.qty 
-                            WHERE internal_part_id = NEW.internal_part_id;
-                        ELSE
-                            INSERT INTO production_stocks (internal_part_id, DATE, current_stock) 
-                            VALUES (NEW.internal_part_id, NEW.date ,-NEW.qty);
-                        END IF;
-                    END IF;
-                END'
-            );
-
-            cache()->put('trigger_optimized_v1', true, now()->addDays(30));
-        } catch (\Exception $e) {
-            // Log or ignore if the database user doesn't have privileges
-            logger()->error('Failed to optimize trigger: ' . $e->getMessage());
-        }
-    }
-
     public function mqttConnect($topic, $message)
     {
         $server   = '172.18.3.70';
@@ -233,7 +193,6 @@ class PullingController extends Controller
      */
     public function index()
     {
-        $this->ensureOptimizedTrigger();
         return view('pages.pulling.index');
     }
 
@@ -994,7 +953,6 @@ class PullingController extends Controller
 
     public function mutation(Request $request)
     {
-        $this->ensureOptimizedTrigger();
         $data = $request->validate([
             'loadingList'  => 'required|string',
             'customerPart' => 'required|string',
