@@ -847,6 +847,338 @@
             font-weight: 600;
         }
 
+        /* 🥚 easter egg: snake di judul utama */
+        .ov-snake-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1090;
+            padding: 16px;
+        }
+
+        .ov-snake-modal.open {
+            display: flex;
+        }
+
+        .ov-snake__card {
+            background: var(--card);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, .3);
+            overflow: hidden;
+        }
+
+        .ov-snake__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ov-snake__hint {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--primary);
+        }
+
+        .ov-snake__hud {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ov-snake__score {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            font-weight: 800;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            color: var(--navy);
+        }
+
+        .ov-snake__btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .ov-snake__btn:hover {
+            background: var(--bg);
+        }
+
+        .ov-snake__canvas-wrap {
+            display: flex;
+            justify-content: center;
+            padding: 12px 16px 8px;
+            background: var(--bg);
+        }
+
+        #ovSnakeCanvas {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .ov-snake__foot {
+            padding: 10px 16px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* 🥚 easter egg: break bricks */
+        .ov-bricks-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1090;
+            padding: 16px;
+        }
+
+        .ov-bricks-modal.open {
+            display: flex;
+        }
+
+        .ov-bricks__card {
+            background: var(--card);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, .3);
+            overflow: hidden;
+        }
+
+        .ov-bricks__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ov-bricks__hint {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #d97706;
+        }
+
+        .ov-bricks__hud {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ov-bricks__stat {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            font-weight: 800;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            color: var(--navy);
+        }
+
+        .ov-bricks__btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .ov-bricks__btn:hover {
+            background: var(--bg);
+        }
+
+        .ov-bricks__canvas-wrap {
+            display: flex;
+            justify-content: center;
+            padding: 12px 16px 8px;
+            background: var(--bg);
+        }
+
+        #ovBricksCanvas {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: block;
+            max-width: 100%;
+            height: auto;
+            cursor: none;
+        }
+
+        .ov-bricks__foot {
+            padding: 10px 16px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* 🥚 easter egg: duck hunt */
+        .ov-duck-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1090;
+            padding: 16px;
+        }
+
+        .ov-duck-modal.open {
+            display: flex;
+        }
+
+        .ov-duck__card {
+            background: var(--card);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, .3);
+            overflow: hidden;
+        }
+
+        .ov-duck__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ov-duck__hint {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #16a34a;
+        }
+
+        .ov-duck__hud {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .ov-duck__stat {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            font-weight: 800;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            color: var(--navy);
+        }
+
+        .ov-duck__btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .ov-duck__btn:hover {
+            background: var(--bg);
+        }
+
+        .ov-duck__canvas-wrap {
+            display: flex;
+            justify-content: center;
+            padding: 12px 16px 8px;
+            background: var(--bg);
+        }
+
+        #ovDuckCanvas {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: block;
+            max-width: 100%;
+            height: auto;
+            cursor: crosshair;
+        }
+
+        .ov-duck__foot {
+            padding: 10px 16px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* 🥚 easter egg: space impact */
+        .ov-space-modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); display: none; align-items: center; justify-content: center; z-index: 1090; padding: 16px; }
+        .ov-space-modal.open { display: flex; }
+        .ov-space__card { background: var(--card); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 20px 50px rgba(15, 23, 42, .3); overflow: hidden; }
+        .ov-space__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .ov-space__hint { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #10b981; }
+        .ov-space__hud { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .ov-space__stat { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 800; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; color: var(--navy); }
+        .ov-space__btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; }
+        .ov-space__btn:hover { background: var(--bg); }
+        .ov-space__canvas-wrap { display: flex; justify-content: center; padding: 12px 16px 8px; background: var(--bg); }
+        #ovSpaceCanvas { border-radius: 8px; border: 1px solid var(--border); display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+        .ov-space__foot { padding: 10px 16px 14px; font-size: 12px; color: var(--text-muted); text-align: center; font-weight: 600; }
+
+        /* 🥚 easter egg: flappy bird */
+        .ov-flappy-modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); display: none; align-items: center; justify-content: center; z-index: 1090; padding: 16px; }
+        .ov-flappy-modal.open { display: flex; }
+        .ov-flappy__card { background: var(--card); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 20px 50px rgba(15, 23, 42, .3); overflow: hidden; }
+        .ov-flappy__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .ov-flappy__hint { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #f59e0b; }
+        .ov-flappy__hud { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .ov-flappy__stat { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 800; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; color: var(--navy); }
+        .ov-flappy__btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; }
+        .ov-flappy__btn:hover { background: var(--bg); }
+        .ov-flappy__canvas-wrap { display: flex; justify-content: center; padding: 12px 16px 8px; background: var(--bg); }
+        #ovFlappyCanvas { border-radius: 8px; border: 1px solid var(--border); display: block; max-width: 100%; height: auto; cursor: pointer; }
+        .ov-flappy__foot { padding: 10px 16px 14px; font-size: 12px; color: var(--text-muted); text-align: center; font-weight: 600; }
+
         @media (max-width: 1100px) {
             .ov-kpis {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -876,7 +1208,7 @@
     <div class="ov-wrap">
         <div class="ov-head">
             <div>
-                <h4>Dashboard Overview</h4>
+                <h4 id="ovMainTitle" style="cursor:default;user-select:none;">Dashboard Overview</h4>
                 <p>Ringkasan &amp; analisis lintas modul — PPIC · Production · PIS · Error</p>
             </div>
             <span class="ov-live"><span class="dot"></span> LIVE · <span
@@ -949,7 +1281,8 @@
         <div class="ov-row ov-row--2a">
             <div class="ov-panel">
                 <div class="ov-panel__head">
-                    <div class="ov-panel__title"><i class="fas fa-chart-area"></i> Aktivitas Harian</div>
+                    <div class="ov-panel__title" id="ovTrendTitle" style="cursor:default;user-select:none;"><i
+                            class="fas fa-chart-area"></i> Aktivitas Harian</div>
                 </div>
                 <div class="ov-panel__body">
                     <div id="ovTrendChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
@@ -957,7 +1290,8 @@
             </div>
             <div class="ov-panel">
                 <div class="ov-panel__head">
-                    <div class="ov-panel__title"><i class="fas fa-boxes"></i> Kesehatan Stok</div>
+                    <div class="ov-panel__title" id="ovStockTitle" style="cursor:default;user-select:none;"><i
+                            class="fas fa-boxes"></i> Kesehatan Stok</div>
                 </div>
                 <div class="ov-panel__body">
                     <div id="ovStockChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
@@ -969,7 +1303,7 @@
         <div class="ov-row ov-row--2">
             <div class="ov-panel">
                 <div class="ov-panel__head">
-                    <div class="ov-panel__title"><i class="fas fa-industry"></i> Produksi per Line</div>
+                    <div class="ov-panel__title" id="ovProdTitle" style="cursor:default;user-select:none;"><i class="fas fa-industry"></i> Produksi per Line</div>
                 </div>
                 <div class="ov-panel__body" id="ovProdByLine"><div class="ov-loading">Memuat data</div></div>
             </div>
@@ -1041,7 +1375,7 @@
         <div class="ov-row ov-row--2c">
             <div class="ov-panel">
                 <div class="ov-panel__head">
-                    <div class="ov-panel__title"><i class="fas fa-chart-bar"></i> Error per Area</div>
+                    <div class="ov-panel__title" id="ovErrTitle" style="cursor:default;user-select:none;"><i class="fas fa-chart-bar"></i> Error per Area</div>
                 </div>
                 <div class="ov-panel__body" id="ovErrByArea"><div class="ov-loading">Memuat data</div></div>
             </div>
@@ -1053,6 +1387,111 @@
                 </div>
                 <div class="ov-panel__body ov-panel__body--tight" id="ovRecentErrors"><div class="ov-loading">Memuat data</div></div>
             </div>
+        </div>
+    </div>
+
+    {{-- 🥚 easter egg: snake (muncul kalau judul utama diklik 10x cepat) --}}
+    <div class="ov-snake-modal" id="ovSnakeModal" role="dialog" aria-modal="true" aria-label="Snake game">
+        <div class="ov-snake__card">
+            <div class="ov-snake__head">
+                <span class="ov-snake__hint">Easter egg · Snake</span>
+                <div class="ov-snake__hud">
+                    <span class="ov-snake__score">Skor: <span id="ovSnakeScore">0</span></span>
+                    <button type="button" class="ov-snake__btn" id="ovSnakeReset" title="Main lagi"
+                        aria-label="Main lagi"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="ov-snake__btn" id="ovSnakeClose" title="Tutup"
+                        aria-label="Tutup"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="ov-snake__canvas-wrap">
+                <canvas id="ovSnakeCanvas" width="400" height="300"></canvas>
+            </div>
+            <div class="ov-snake__foot" id="ovSnakeFoot">Panah / WASD · makan titik biru · jangan tabrak dinding &amp; ekor</div>
+        </div>
+    </div>
+
+    {{-- 🥚 easter egg: break bricks (muncul kalau judul Aktivitas Harian diklik 7x cepat) --}}
+    <div class="ov-bricks-modal" id="ovBricksModal" role="dialog" aria-modal="true" aria-label="Break bricks game">
+        <div class="ov-bricks__card">
+            <div class="ov-bricks__head">
+                <span class="ov-bricks__hint">Easter egg · Break Bricks</span>
+                <div class="ov-bricks__hud">
+                    <span class="ov-bricks__stat">Skor: <span id="ovBricksScore">0</span></span>
+                    <span class="ov-bricks__stat">Nyawa: <span id="ovBricksLives">3</span></span>
+                    <button type="button" class="ov-bricks__btn" id="ovBricksReset" title="Main lagi"
+                        aria-label="Main lagi"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="ov-bricks__btn" id="ovBricksClose" title="Tutup"
+                        aria-label="Tutup"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="ov-bricks__canvas-wrap" id="ovBricksWrap">
+                <canvas id="ovBricksCanvas" width="400" height="320"></canvas>
+            </div>
+            <div class="ov-bricks__foot" id="ovBricksFoot">Geser paddle dengan mouse / panah · pecahkan semua bata</div>
+        </div>
+    </div>
+
+    {{-- 🥚 easter egg: duck hunt (muncul kalau judul Kesehatan Stok diklik 6x cepat) --}}
+    <div class="ov-duck-modal" id="ovDuckModal" role="dialog" aria-modal="true" aria-label="Duck hunt game">
+        <div class="ov-duck__card">
+            <div class="ov-duck__head">
+                <span class="ov-duck__hint">Easter egg · Duck Hunt</span>
+                <div class="ov-duck__hud">
+                    <span class="ov-duck__stat">Skor: <span id="ovDuckScore">0</span></span>
+                    <span class="ov-duck__stat">Gelombang: <span id="ovDuckWave">1</span></span>
+                    <span class="ov-duck__stat">Peluru: <span id="ovDuckAmmo">3</span></span>
+                    <span class="ov-duck__stat">Nyawa: <span id="ovDuckLives">3</span></span>
+                    <button type="button" class="ov-duck__btn" id="ovDuckReset" title="Main lagi"
+                        aria-label="Main lagi"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="ov-duck__btn" id="ovDuckClose" title="Tutup"
+                        aria-label="Tutup"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="ov-duck__canvas-wrap" id="ovDuckWrap">
+                <canvas id="ovDuckCanvas" width="400" height="320"></canvas>
+            </div>
+            <div class="ov-duck__foot" id="ovDuckFoot">Arahkan crosshair · klik untuk tembak · 3 peluru per gelombang</div>
+        </div>
+    </div>
+
+    {{-- 🥚 easter egg: space impact (muncul kalau judul Produksi per Line diklik 8x cepat) --}}
+    <div class="ov-space-modal" id="ovSpaceModal" role="dialog" aria-modal="true" aria-label="Space Impact game">
+        <div class="ov-space__card">
+            <div class="ov-space__head">
+                <span class="ov-space__hint">Easter egg · Space Impact</span>
+                <div class="ov-space__hud">
+                    <span class="ov-space__stat">Skor: <span id="ovSpaceScore">0</span></span>
+                    <span class="ov-space__stat">Nyawa: <span id="ovSpaceLives">3</span></span>
+                    <button type="button" class="ov-space__btn" id="ovSpaceReset" title="Main lagi"
+                        aria-label="Main lagi"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="ov-space__btn" id="ovSpaceClose" title="Tutup"
+                        aria-label="Tutup"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="ov-space__canvas-wrap" id="ovSpaceWrap">
+                <canvas id="ovSpaceCanvas" width="400" height="240"></canvas>
+            </div>
+            <div class="ov-space__foot" id="ovSpaceFoot">Panah/WASD gerak · Spasi tembak · Kalahkan musuh alien</div>
+        </div>
+    </div>
+
+    {{-- 🥚 easter egg: flappy bird (muncul kalau judul Error per Area diklik 9x cepat) --}}
+    <div class="ov-flappy-modal" id="ovFlappyModal" role="dialog" aria-modal="true" aria-label="Flappy Bird game">
+        <div class="ov-flappy__card">
+            <div class="ov-flappy__head">
+                <span class="ov-flappy__hint">Easter egg · Flappy Bird</span>
+                <div class="ov-flappy__hud">
+                    <span class="ov-flappy__stat">Skor: <span id="ovFlappyScore">0</span></span>
+                    <button type="button" class="ov-flappy__btn" id="ovFlappyReset" title="Main lagi"
+                        aria-label="Main lagi"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="ov-flappy__btn" id="ovFlappyClose" title="Tutup"
+                        aria-label="Tutup"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="ov-flappy__canvas-wrap" id="ovFlappyWrap">
+                <canvas id="ovFlappyCanvas" width="320" height="400"></canvas>
+            </div>
+            <div class="ov-flappy__foot" id="ovFlappyFoot">Spasi atau klik canvas untuk lompat · Hindari pipa</div>
         </div>
     </div>
 
@@ -2412,6 +2851,1279 @@
                     clicks = 0;
                     activate();
                 }
+            });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: klik judul utama 10x cepat → Snake
+        (function() {
+            var title = document.getElementById('ovMainTitle');
+            var modal = document.getElementById('ovSnakeModal');
+            var canvas = document.getElementById('ovSnakeCanvas');
+            if (!title || !modal || !canvas) return;
+
+            var ctx = canvas.getContext('2d');
+            var scoreEl = document.getElementById('ovSnakeScore');
+            var footEl = document.getElementById('ovSnakeFoot');
+            var resetBtn = document.getElementById('ovSnakeReset');
+            var closeBtn = document.getElementById('ovSnakeClose');
+
+            var COLS = 20,
+                ROWS = 15,
+                CELL = 20;
+            var snake, dir, nextDir, food, score, tick, loop, alive, active;
+
+            function randCell() {
+                return {
+                    x: Math.floor(Math.random() * COLS),
+                    y: Math.floor(Math.random() * ROWS)
+                };
+            }
+
+            function spawnFood() {
+                var f, ok;
+                do {
+                    f = randCell();
+                    ok = !snake.some(function(s) {
+                        return s.x === f.x && s.y === f.y;
+                    });
+                } while (!ok);
+                food = f;
+            }
+
+            function initGame() {
+                snake = [{
+                        x: 10,
+                        y: 7
+                    },
+                    {
+                        x: 9,
+                        y: 7
+                    },
+                    {
+                        x: 8,
+                        y: 7
+                    }
+                ];
+                dir = {
+                    x: 1,
+                    y: 0
+                };
+                nextDir = {
+                    x: 1,
+                    y: 0
+                };
+                score = 0;
+                alive = true;
+                scoreEl.textContent = '0';
+                footEl.textContent = 'Panah / WASD · makan titik biru · jangan tabrak dinding & ekor';
+                spawnFood();
+                draw();
+            }
+
+            function drawCell(x, y, color) {
+                ctx.fillStyle = color;
+                ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+            }
+
+            function draw() {
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                drawCell(food.x, food.y, '#0097D8');
+                snake.forEach(function(seg, i) {
+                    drawCell(seg.x, seg.y, i === 0 ? '#0f172a' : '#16a34a');
+                });
+            }
+
+            function step() {
+                if (!alive || !active) return;
+                dir = nextDir;
+                var head = {
+                    x: snake[0].x + dir.x,
+                    y: snake[0].y + dir.y
+                };
+                if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+                    gameOver();
+                    return;
+                }
+                for (var i = 0; i < snake.length; i++) {
+                    if (snake[i].x === head.x && snake[i].y === head.y) {
+                        gameOver();
+                        return;
+                    }
+                }
+                snake.unshift(head);
+                if (head.x === food.x && head.y === food.y) {
+                    score++;
+                    scoreEl.textContent = String(score);
+                    spawnFood();
+                } else {
+                    snake.pop();
+                }
+                draw();
+            }
+
+            function gameOver() {
+                alive = false;
+                footEl.textContent = 'Game over! Skor ' + score + ' — klik ↻ atau tekan Spasi buat main lagi.';
+            }
+
+            function setDir(nx, ny) {
+                if (!alive) return;
+                if (nx === -dir.x && ny === -dir.y) return;
+                nextDir = {
+                    x: nx,
+                    y: ny
+                };
+            }
+
+            function onKey(e) {
+                if (!active) return;
+                var k = e.key;
+                if (k === 'ArrowUp' || k === 'w' || k === 'W') setDir(0, -1);
+                else if (k === 'ArrowDown' || k === 's' || k === 'S') setDir(0, 1);
+                else if (k === 'ArrowLeft' || k === 'a' || k === 'A') setDir(-1, 0);
+                else if (k === 'ArrowRight' || k === 'd' || k === 'D') setDir(1, 0);
+                else if (k === ' ' && !alive) {
+                    e.preventDefault();
+                    initGame();
+                } else if (k === 'Escape') close();
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].indexOf(k) >= 0) e.preventDefault();
+            }
+
+            function open() {
+                modal.classList.add('open');
+                active = true;
+                initGame();
+                clearInterval(loop);
+                loop = setInterval(step, 120);
+                document.addEventListener('keydown', onKey);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                active = false;
+                clearInterval(loop);
+                document.removeEventListener('keydown', onKey);
+            }
+
+            resetBtn.addEventListener('click', initGame);
+            closeBtn.addEventListener('click', close);
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) close();
+            });
+
+            var clicks = 0,
+                t = null;
+            title.addEventListener('click', function() {
+                clicks++;
+                clearTimeout(t);
+                t = setTimeout(function() {
+                    clicks = 0;
+                }, 700);
+                if (clicks >= 10) {
+                    clicks = 0;
+                    open();
+                }
+            });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: klik judul Aktivitas Harian 7x cepat → Break Bricks
+        (function() {
+            var title = document.getElementById('ovTrendTitle');
+            var modal = document.getElementById('ovBricksModal');
+            var wrap = document.getElementById('ovBricksWrap');
+            var canvas = document.getElementById('ovBricksCanvas');
+            if (!title || !modal || !canvas) return;
+
+            var ctx = canvas.getContext('2d');
+            var scoreEl = document.getElementById('ovBricksScore');
+            var livesEl = document.getElementById('ovBricksLives');
+            var footEl = document.getElementById('ovBricksFoot');
+            var resetBtn = document.getElementById('ovBricksReset');
+            var closeBtn = document.getElementById('ovBricksClose');
+
+            var W = 400,
+                H = 320;
+            var paddle, ball, bricks, score, lives, active, playing, raf, keys;
+
+            function buildBricks() {
+                var colors = ['#0097D8', '#16a34a', '#d97706', '#dc2626', '#6366f1'];
+                var cols = 8,
+                    rows = 5,
+                    bw = 44,
+                    bh = 14,
+                    gap = 4,
+                    offX = 12,
+                    offY = 36;
+                bricks = [];
+                for (var r = 0; r < rows; r++) {
+                    for (var c = 0; c < cols; c++) {
+                        bricks.push({
+                            x: offX + c * (bw + gap),
+                            y: offY + r * (bh + gap),
+                            w: bw,
+                            h: bh,
+                            alive: true,
+                            color: colors[r % colors.length]
+                        });
+                    }
+                }
+            }
+
+            function resetBall(stuck) {
+                ball = {
+                    x: paddle.x + paddle.w / 2,
+                    y: paddle.y - 10,
+                    r: 6,
+                    vx: stuck ? 0 : (Math.random() > .5 ? 3.2 : -3.2),
+                    vy: stuck ? 0 : -3.2,
+                    stuck: !!stuck
+                };
+            }
+
+            function initGame() {
+                paddle = {
+                    x: W / 2 - 40,
+                    y: H - 24,
+                    w: 80,
+                    h: 10
+                };
+                score = 0;
+                lives = 3;
+                playing = true;
+                keys = {
+                    left: false,
+                    right: false
+                };
+                scoreEl.textContent = '0';
+                livesEl.textContent = '3';
+                footEl.textContent = 'Geser paddle dengan mouse / panah · pecahkan semua bata';
+                buildBricks();
+                resetBall(true);
+                draw();
+            }
+
+            function drawRoundRect(x, y, w, h, r, color) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + w - r, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                ctx.lineTo(x, y + r);
+                ctx.quadraticCurveTo(x, y, x + r, y);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            function draw() {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, W, H);
+                bricks.forEach(function(b) {
+                    if (!b.alive) return;
+                    drawRoundRect(b.x, b.y, b.w, b.h, 3, b.color);
+                });
+                drawRoundRect(paddle.x, paddle.y, paddle.w, paddle.h, 4, '#94a3b8');
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+            }
+
+            function circleRectHit(cx, cy, r, rx, ry, rw, rh) {
+                var nx = Math.max(rx, Math.min(cx, rx + rw));
+                var ny = Math.max(ry, Math.min(cy, ry + rh));
+                var dx = cx - nx,
+                    dy = cy - ny;
+                return dx * dx + dy * dy <= r * r;
+            }
+
+            function bounceBrick(b) {
+                b.alive = false;
+                score += 10;
+                scoreEl.textContent = String(score);
+                var overlapL = ball.x + ball.r - b.x;
+                var overlapR = b.x + b.w - (ball.x - ball.r);
+                var overlapT = ball.y + ball.r - b.y;
+                var overlapB = b.y + b.h - (ball.y - ball.r);
+                var min = Math.min(overlapL, overlapR, overlapT, overlapB);
+                if (min === overlapL || min === overlapR) ball.vx *= -1;
+                else ball.vy *= -1;
+            }
+
+            function loseLife() {
+                lives--;
+                livesEl.textContent = String(lives);
+                if (lives <= 0) {
+                    playing = false;
+                    footEl.textContent = 'Game over! Skor ' + score + ' — Spasi / ↻ buat main lagi.';
+                    return;
+                }
+                resetBall(true);
+                footEl.textContent = 'Bola jatuh! Nyawa tersisa ' + lives + ' — klik canvas buat luncurkan.';
+            }
+
+            function checkWin() {
+                if (bricks.every(function(b) {
+                        return !b.alive;
+                    })) {
+                    playing = false;
+                    footEl.textContent = 'Menang! Skor ' + score + ' — semua bata hancur. Spasi / ↻ buat lagi.';
+                }
+            }
+
+            function launchBall() {
+                if (!ball.stuck || !playing) return;
+                ball.stuck = false;
+                ball.vx = Math.random() > .5 ? 3.2 : -3.2;
+                ball.vy = -3.2;
+            }
+
+            function tick() {
+                if (!active) return;
+                if (playing) {
+                    if (keys.left) paddle.x -= 6;
+                    if (keys.right) paddle.x += 6;
+                    paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x));
+
+                    if (ball.stuck) {
+                        ball.x = paddle.x + paddle.w / 2;
+                        ball.y = paddle.y - ball.r - 1;
+                    } else {
+                        ball.x += ball.vx;
+                        ball.y += ball.vy;
+                        if (ball.x - ball.r <= 0) {
+                            ball.x = ball.r;
+                            ball.vx *= -1;
+                        } else if (ball.x + ball.r >= W) {
+                            ball.x = W - ball.r;
+                            ball.vx *= -1;
+                        }
+                        if (ball.y - ball.r <= 0) {
+                            ball.y = ball.r;
+                            ball.vy *= -1;
+                        }
+                        if (ball.y + ball.r >= H) {
+                            loseLife();
+                        }
+                        if (ball.y + ball.r >= paddle.y && ball.y - ball.r <= paddle.y + paddle.h &&
+                            ball.x >= paddle.x && ball.x <= paddle.x + paddle.w && ball.vy > 0) {
+                            ball.y = paddle.y - ball.r;
+                            ball.vy = -Math.abs(ball.vy);
+                            var hit = (ball.x - paddle.x) / paddle.w - 0.5;
+                            ball.vx = hit * 7;
+                        }
+                        for (var i = 0; i < bricks.length; i++) {
+                            var b = bricks[i];
+                            if (b.alive && circleRectHit(ball.x, ball.y, ball.r, b.x, b.y, b.w, b.h)) {
+                                bounceBrick(b);
+                                checkWin();
+                                break;
+                            }
+                        }
+                    }
+                }
+                draw();
+                raf = requestAnimationFrame(tick);
+            }
+
+            function onKey(e) {
+                if (!active) return;
+                var k = e.key;
+                if (k === 'ArrowLeft') keys.left = e.type === 'keydown';
+                else if (k === 'ArrowRight') keys.right = e.type === 'keydown';
+                else if (k === ' ' && !playing) {
+                    e.preventDefault();
+                    initGame();
+                } else if (k === 'Escape') close();
+                if (k === 'ArrowLeft' || k === 'ArrowRight') e.preventDefault();
+            }
+
+            function onMouse(e) {
+                if (!active || !playing) return;
+                var rect = canvas.getBoundingClientRect();
+                var scale = W / rect.width;
+                var mx = (e.clientX - rect.left) * scale;
+                paddle.x = Math.max(0, Math.min(W - paddle.w, mx - paddle.w / 2));
+                if (ball.stuck) {
+                    ball.x = paddle.x + paddle.w / 2;
+                }
+            }
+
+            function onCanvasClick() {
+                launchBall();
+            }
+
+            function open() {
+                modal.classList.add('open');
+                active = true;
+                initGame();
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(tick);
+                document.addEventListener('keydown', onKey);
+                document.addEventListener('keyup', onKey);
+                wrap.addEventListener('mousemove', onMouse);
+                canvas.addEventListener('click', onCanvasClick);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                active = false;
+                playing = false;
+                cancelAnimationFrame(raf);
+                document.removeEventListener('keydown', onKey);
+                document.removeEventListener('keyup', onKey);
+                wrap.removeEventListener('mousemove', onMouse);
+                canvas.removeEventListener('click', onCanvasClick);
+            }
+
+            resetBtn.addEventListener('click', initGame);
+            closeBtn.addEventListener('click', close);
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) close();
+            });
+
+            var clicks = 0,
+                t = null;
+            title.addEventListener('click', function() {
+                clicks++;
+                clearTimeout(t);
+                t = setTimeout(function() {
+                    clicks = 0;
+                }, 700);
+                if (clicks >= 7) {
+                    clicks = 0;
+                    open();
+                }
+            });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: klik judul Kesehatan Stok 6x cepat → Duck Hunt
+        (function() {
+            var title = document.getElementById('ovStockTitle');
+            var modal = document.getElementById('ovDuckModal');
+            var wrap = document.getElementById('ovDuckWrap');
+            var canvas = document.getElementById('ovDuckCanvas');
+            if (!title || !modal || !canvas) return;
+
+            var ctx = canvas.getContext('2d');
+            var scoreEl = document.getElementById('ovDuckScore');
+            var waveEl = document.getElementById('ovDuckWave');
+            var ammoEl = document.getElementById('ovDuckAmmo');
+            var livesEl = document.getElementById('ovDuckLives');
+            var footEl = document.getElementById('ovDuckFoot');
+            var resetBtn = document.getElementById('ovDuckReset');
+            var closeBtn = document.getElementById('ovDuckClose');
+
+            var W = 400,
+                H = 320,
+                GRASS = 44;
+            var ducks, flashes, mx, my, score, wave, ammo, lives, playing, active, raf;
+            var pendingSpawns, waveEscaped, betweenWaves;
+
+            function updateHud() {
+                scoreEl.textContent = String(score);
+                waveEl.textContent = String(wave);
+                ammoEl.textContent = String(ammo);
+                livesEl.textContent = String(lives);
+            }
+
+            function spawnDuck() {
+                var fromLeft = Math.random() > 0.5;
+                ducks.push({
+                    x: fromLeft ? -32 : W + 32,
+                    y: 48 + Math.random() * (H - GRASS - 90),
+                    vx: (fromLeft ? 1 : -1) * (1.6 + Math.random() * 1.4),
+                    vy: 0,
+                    bob: Math.random() * 6.28,
+                    wingT: Math.random() * 6.28,
+                    state: 'flying'
+                });
+            }
+
+            function startWave() {
+                betweenWaves = false;
+                ammo = 3;
+                waveEscaped = 0;
+                updateHud();
+                footEl.textContent = 'Gelombang ' + wave + ' — tembak semua bebek!';
+                var count = Math.min(2 + Math.floor((wave - 1) / 2), 4);
+                pendingSpawns = count;
+                for (var i = 0; i < count; i++) {
+                    (function(delay) {
+                        setTimeout(function() {
+                            if (!active || !playing) return;
+                            spawnDuck();
+                            pendingSpawns--;
+                        }, delay);
+                    })(i * 550);
+                }
+            }
+
+            function initGame() {
+                ducks = [];
+                flashes = [];
+                mx = W / 2;
+                my = H / 2;
+                score = 0;
+                wave = 1;
+                lives = 3;
+                playing = true;
+                pendingSpawns = 0;
+                waveEscaped = 0;
+                betweenWaves = false;
+                updateHud();
+                footEl.textContent = 'Arahkan crosshair · klik untuk tembak · 3 peluru per gelombang';
+                startWave();
+                draw();
+            }
+
+            function gameOver() {
+                playing = false;
+                footEl.textContent = 'Game over! Skor ' + score + ' — Spasi / ↻ buat main lagi.';
+            }
+
+            function endWave() {
+                if (!playing || betweenWaves) return;
+                betweenWaves = true;
+                if (waveEscaped > 0) {
+                    lives -= waveEscaped;
+                    updateHud();
+                    if (lives <= 0) {
+                        gameOver();
+                        return;
+                    }
+                    footEl.textContent = waveEscaped + ' bebek lolos! Nyawa tersisa ' + lives;
+                } else {
+                    footEl.textContent = 'Gelombang ' + wave + ' bersih!';
+                }
+                wave++;
+                updateHud();
+                setTimeout(function() {
+                    if (active && playing) startWave();
+                }, 1100);
+            }
+
+            function cleanupDucks() {
+                ducks = ducks.filter(function(d) {
+                    if (d.state === 'escaped') {
+                        waveEscaped++;
+                        return false;
+                    }
+                    return d.state !== 'gone';
+                });
+                if (pendingSpawns === 0 && ducks.length === 0) endWave();
+            }
+
+            function drawDuck(d) {
+                var bobY = d.state === 'flying' ? Math.sin(d.bob) * 4 : 0;
+                var wing = Math.sin(d.wingT) * 5;
+                ctx.save();
+                ctx.translate(d.x, d.y + bobY);
+                if (d.vx < 0) ctx.scale(-1, 1);
+                ctx.fillStyle = '#92400e';
+                ctx.beginPath();
+                ctx.ellipse(-3, 3, 17, 11, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#a16207';
+                ctx.beginPath();
+                ctx.ellipse(-9, 0 + wing, 9, 5, -0.35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#15803d';
+                ctx.beginPath();
+                ctx.arc(11, -7, 9, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.moveTo(19, -7);
+                ctx.lineTo(29, -5);
+                ctx.lineTo(19, -3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(14, -9, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(14.8, -9, 1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function drawCrosshair(x, y) {
+                ctx.strokeStyle = 'rgba(255,255,255,.95)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, 13, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x - 18, y);
+                ctx.lineTo(x - 6, y);
+                ctx.moveTo(x + 6, y);
+                ctx.lineTo(x + 18, y);
+                ctx.moveTo(x, y - 18);
+                ctx.lineTo(x, y - 6);
+                ctx.moveTo(x, y + 6);
+                ctx.lineTo(x, y + 18);
+                ctx.stroke();
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function draw() {
+                var sky = ctx.createLinearGradient(0, 0, 0, H - GRASS);
+                sky.addColorStop(0, '#bae6fd');
+                sky.addColorStop(1, '#0284c7');
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = '#166534';
+                ctx.fillRect(0, H - GRASS, W, GRASS);
+                ctx.fillStyle = '#14532d';
+                for (var i = 0; i < 6; i++) {
+                    ctx.beginPath();
+                    ctx.arc(i * 72 + 20, H - GRASS + 8, 18 + (i % 3) * 4, Math.PI, 0);
+                    ctx.fill();
+                }
+                ducks.forEach(drawDuck);
+                flashes.forEach(function(f) {
+                    ctx.strokeStyle = 'rgba(255,255,255,' + (f.life / 10) + ')';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.r + (10 - f.life) * 1.2, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+                if (playing) drawCrosshair(mx, my);
+            }
+
+            function shoot(cx, cy) {
+                if (!playing || ammo <= 0) return;
+                ammo--;
+                ammoEl.textContent = String(ammo);
+                flashes.push({
+                    x: cx,
+                    y: cy,
+                    r: 3,
+                    life: 10
+                });
+                ducks.forEach(function(d) {
+                    if (d.state !== 'flying') return;
+                    var dy = Math.sin(d.bob) * 4;
+                    if (Math.hypot(cx - d.x, cy - (d.y + dy)) < 24) {
+                        d.state = 'falling';
+                        d.vy = -2.5;
+                        score += 100 + wave * 10;
+                        scoreEl.textContent = String(score);
+                    }
+                });
+            }
+
+            function tick() {
+                if (!active) return;
+                if (playing) {
+                    ducks.forEach(function(d) {
+                        if (d.state === 'flying') {
+                            d.bob += 0.07;
+                            d.wingT += 0.22;
+                            d.x += d.vx;
+                            d.y += Math.sin(d.bob) * 0.35;
+                            if ((d.vx > 0 && d.x > W + 36) || (d.vx < 0 && d.x < -36)) d.state = 'escaped';
+                        } else if (d.state === 'falling') {
+                            d.vy += 0.28;
+                            d.y += d.vy;
+                            d.x += d.vx * 0.25;
+                            if (d.y > H + 24) d.state = 'gone';
+                        }
+                    });
+                    flashes.forEach(function(f) {
+                        f.life--;
+                    });
+                    flashes = flashes.filter(function(f) {
+                        return f.life > 0;
+                    });
+                    cleanupDucks();
+                }
+                draw();
+                raf = requestAnimationFrame(tick);
+            }
+
+            function canvasPos(e) {
+                var rect = canvas.getBoundingClientRect();
+                var scaleX = W / rect.width;
+                var scaleY = H / rect.height;
+                return {
+                    x: (e.clientX - rect.left) * scaleX,
+                    y: (e.clientY - rect.top) * scaleY
+                };
+            }
+
+            function onMouseMove(e) {
+                if (!active) return;
+                var p = canvasPos(e);
+                mx = p.x;
+                my = p.y;
+            }
+
+            function onMouseDown(e) {
+                if (!active) return;
+                e.preventDefault();
+                var p = canvasPos(e);
+                mx = p.x;
+                my = p.y;
+                shoot(p.x, p.y);
+            }
+
+            function onKey(e) {
+                if (!active) return;
+                if (e.key === ' ' && !playing) {
+                    e.preventDefault();
+                    initGame();
+                } else if (e.key === 'Escape') close();
+            }
+
+            function open() {
+                modal.classList.add('open');
+                active = true;
+                initGame();
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(tick);
+                wrap.addEventListener('mousemove', onMouseMove);
+                canvas.addEventListener('mousedown', onMouseDown);
+                canvas.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+                document.addEventListener('keydown', onKey);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                active = false;
+                playing = false;
+                cancelAnimationFrame(raf);
+                wrap.removeEventListener('mousemove', onMouseMove);
+                canvas.removeEventListener('mousedown', onMouseDown);
+                document.removeEventListener('keydown', onKey);
+            }
+
+            resetBtn.addEventListener('click', initGame);
+            closeBtn.addEventListener('click', close);
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) close();
+            });
+
+            var clicks = 0,
+                t = null;
+            title.addEventListener('click', function(e) {
+                e.preventDefault();
+                clicks++;
+                clearTimeout(t);
+                t = setTimeout(function() {
+                    clicks = 0;
+                }, 700);
+                if (clicks >= 6) {
+                    clicks = 0;
+                    open();
+                }
+            });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: klik judul Produksi per Line 8x cepat → Space Impact
+        (function() {
+            var title = document.getElementById('ovProdTitle');
+            var modal = document.getElementById('ovSpaceModal');
+            var canvas = document.getElementById('ovSpaceCanvas');
+            if (!title || !modal || !canvas) return;
+
+            var ctx = canvas.getContext('2d');
+            var scoreEl = document.getElementById('ovSpaceScore');
+            var livesEl = document.getElementById('ovSpaceLives');
+            var footEl = document.getElementById('ovSpaceFoot');
+            var resetBtn = document.getElementById('ovSpaceReset');
+            var closeBtn = document.getElementById('ovSpaceClose');
+
+            var W = 400, H = 240;
+            var player, bullets, enemies, particles, stars, powerups;
+            var score, lives, active, playing, raf, keys, frameCnt;
+
+            function initGame() {
+                player = { x: 30, y: H/2, w: 24, h: 14, speed: 3.5, cd: 0, power: 1 };
+                bullets = [];
+                enemies = [];
+                particles = [];
+                stars = [];
+                powerups = [];
+                for(var i=0;i<40;i++){
+                    stars.push({ x: Math.random()*W, y: Math.random()*H, speed: 0.2 + Math.random()*1.5 });
+                }
+                score = 0;
+                lives = 3;
+                frameCnt = 0;
+                playing = true;
+                keys = { up: false, down: false, left: false, right: false, space: false };
+                scoreEl.textContent = '0';
+                livesEl.textContent = '3';
+                footEl.textContent = 'Panah/WASD gerak · Spasi tembak · Kalahkan musuh alien';
+                draw();
+            }
+
+            function spawnEnemy() {
+                var types = [
+                    { w: 20, h: 20, hp: 1, speed: 2, color: '#ef4444' },
+                    { w: 24, h: 24, hp: 2, speed: 1.5, color: '#f59e0b' },
+                    { w: 30, h: 30, hp: 4, speed: 1, color: '#8b5cf6' }
+                ];
+                var t = types[Math.floor(Math.random()*types.length)];
+                if (Math.random() < 0.1) t = types[2];
+                else if (Math.random() < 0.3) t = types[1];
+                else t = types[0];
+                enemies.push({
+                    x: W + 20, y: 10 + Math.random()*(H-40),
+                    w: t.w, h: t.h, hp: t.hp, speed: t.speed, color: t.color, bob: Math.random()*Math.PI*2
+                });
+            }
+
+            function spawnParticles(x, y, color, count) {
+                for(var i=0;i<count;i++){
+                    var a = Math.random() * Math.PI * 2;
+                    var s = Math.random() * 3 + 1;
+                    particles.push({
+                        x: x, y: y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: 1, color: color
+                    });
+                }
+            }
+
+            function rectHit(a, b) {
+                return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+            }
+
+            function draw() {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0,0,W,H);
+                
+                ctx.fillStyle = '#94a3b8';
+                stars.forEach(function(s) {
+                    ctx.fillRect(s.x, s.y, 2, 2);
+                });
+
+                if(playing || lives > 0) {
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.beginPath();
+                    ctx.moveTo(player.x, player.y);
+                    ctx.lineTo(player.x + player.w, player.y + player.h/2);
+                    ctx.lineTo(player.x, player.y + player.h);
+                    ctx.lineTo(player.x + 4, player.y + player.h/2);
+                    ctx.closePath();
+                    ctx.fill();
+                    if (keys.right) {
+                        ctx.fillStyle = '#f59e0b';
+                        ctx.beginPath();
+                        ctx.moveTo(player.x, player.y + 2);
+                        ctx.lineTo(player.x - 8 - Math.random()*6, player.y + player.h/2);
+                        ctx.lineTo(player.x, player.y + player.h - 2);
+                        ctx.fill();
+                    }
+                }
+
+                ctx.fillStyle = '#fde047';
+                bullets.forEach(function(b) {
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                });
+
+                enemies.forEach(function(e) {
+                    var y = e.y + Math.sin(e.bob) * 5;
+                    ctx.fillStyle = e.color;
+                    ctx.fillRect(e.x, y, e.w, e.h);
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(e.x + 4, y + 4, 4, 4);
+                    ctx.fillRect(e.x + 4, y + e.h - 8, 4, 4);
+                });
+
+                powerups.forEach(function(p) {
+                    ctx.fillStyle = '#10b981';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.fillText('P', p.x-3, p.y+3);
+                });
+
+                particles.forEach(function(p) {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = Math.max(0, p.life);
+                    ctx.fillRect(p.x, p.y, 3, 3);
+                    ctx.globalAlpha = 1;
+                });
+            }
+
+            function tick() {
+                if (!active) return;
+                
+                if (playing) {
+                    frameCnt++;
+                    stars.forEach(function(s) {
+                        s.x -= s.speed;
+                        if(s.x < 0) { s.x = W; s.y = Math.random()*H; }
+                    });
+
+                    if (keys.up) player.y -= player.speed;
+                    if (keys.down) player.y += player.speed;
+                    if (keys.left) player.x -= player.speed;
+                    if (keys.right) player.x += player.speed;
+                    player.x = Math.max(0, Math.min(W/2 - player.w, player.x));
+                    player.y = Math.max(0, Math.min(H - player.h, player.y));
+
+                    if (player.cd > 0) player.cd--;
+                    if (keys.space && player.cd <= 0) {
+                        bullets.push({ x: player.x + player.w, y: player.y + player.h/2 - 2, w: 10, h: 4, vx: 7, vy: 0 });
+                        if (player.power >= 2) {
+                            bullets.push({ x: player.x + player.w, y: player.y + player.h/2 - 2, w: 10, h: 4, vx: 7, vy: -1.5 });
+                            bullets.push({ x: player.x + player.w, y: player.y + player.h/2 - 2, w: 10, h: 4, vx: 7, vy: 1.5 });
+                        }
+                        player.cd = 12;
+                    }
+
+                    for(var i=bullets.length-1; i>=0; i--) {
+                        var b = bullets[i];
+                        b.x += b.vx;
+                        if (b.vy) b.y += b.vy;
+                        if (b.x > W) { bullets.splice(i, 1); continue; }
+                        var hit = false;
+                        for(var j=enemies.length-1; j>=0; j--) {
+                            var e = enemies[j];
+                            var ey = e.y + Math.sin(e.bob)*5;
+                            if (rectHit(b, {x:e.x, y:ey, w:e.w, h:e.h})) {
+                                hit = true;
+                                e.hp--;
+                                spawnParticles(b.x, b.y, '#fde047', 5);
+                                if (e.hp <= 0) {
+                                    score += (e.w === 30 ? 50 : (e.w === 24 ? 20 : 10));
+                                    scoreEl.textContent = String(score);
+                                    spawnParticles(e.x + e.w/2, ey + e.h/2, e.color, 15);
+                                    if (Math.random() < 0.15) {
+                                        powerups.push({ x: e.x, y: ey + e.h/2, vx: -1.5 });
+                                    }
+                                    enemies.splice(j, 1);
+                                } else {
+                                    var orig = e.color;
+                                    e.color = '#ffffff';
+                                    setTimeout((function(en, col){ return function(){ en.color = col; }})(e, orig), 50);
+                                }
+                                break;
+                            }
+                        }
+                        if (hit) bullets.splice(i, 1);
+                    }
+
+                    for(var i=powerups.length-1; i>=0; i--) {
+                        var p = powerups[i];
+                        p.x += p.vx;
+                        if (p.x < -10) { powerups.splice(i, 1); continue; }
+                        if (rectHit({x:player.x, y:player.y, w:player.w, h:player.h}, {x:p.x-6, y:p.y-6, w:12, h:12})) {
+                            player.power = 2;
+                            powerups.splice(i, 1);
+                        }
+                    }
+
+                    var spawnRate = Math.max(20, 80 - Math.floor(frameCnt/100));
+                    if (frameCnt % spawnRate === 0) spawnEnemy();
+
+                    for(var i=enemies.length-1; i>=0; i--) {
+                        var e = enemies[i];
+                        e.x -= e.speed;
+                        e.bob += 0.05;
+                        var ey = e.y + Math.sin(e.bob)*5;
+                        if (e.x + e.w < 0) {
+                            enemies.splice(i, 1);
+                            continue;
+                        }
+                        if (rectHit({x:player.x, y:player.y, w:player.w, h:player.h}, {x:e.x, y:ey, w:e.w, h:e.h})) {
+                            enemies.splice(i, 1);
+                            spawnParticles(player.x + player.w/2, player.y + player.h/2, '#38bdf8', 20);
+                            lives--;
+                            livesEl.textContent = String(lives);
+                            if (lives <= 0) {
+                                playing = false;
+                                footEl.textContent = 'Game Over! Skor: ' + score + ' — Tekan R atau ↻ untuk main lagi';
+                            } else {
+                                player.x -= 20;
+                            }
+                        }
+                    }
+
+                    for(var i=particles.length-1; i>=0; i--) {
+                        var p = particles[i];
+                        p.x += p.vx; p.y += p.vy;
+                        p.life -= 0.05;
+                        if (p.life <= 0) particles.splice(i, 1);
+                    }
+                }
+                
+                draw();
+                raf = requestAnimationFrame(tick);
+            }
+
+            function onKey(e) {
+                if (!active) return;
+                var k = e.key.toLowerCase();
+                var state = e.type === 'keydown';
+                if (k === 'arrowup' || k === 'w') keys.up = state;
+                if (k === 'arrowdown' || k === 's') keys.down = state;
+                if (k === 'arrowleft' || k === 'a') keys.left = state;
+                if (k === 'arrowright' || k === 'd') keys.right = state;
+                if (k === ' ' || k === 'spacebar') keys.space = state;
+                
+                if (state && !playing && (k === 'r' || k === ' ')) {
+                    e.preventDefault();
+                    initGame();
+                } else if (k === 'escape' && state) {
+                    close();
+                }
+                
+                if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].indexOf(e.key) >= 0) e.preventDefault();
+            }
+
+            function open() {
+                modal.classList.add('open');
+                active = true;
+                initGame();
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(tick);
+                document.addEventListener('keydown', onKey);
+                document.addEventListener('keyup', onKey);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                active = false;
+                playing = false;
+                cancelAnimationFrame(raf);
+                document.removeEventListener('keydown', onKey);
+                document.removeEventListener('keyup', onKey);
+            }
+
+            resetBtn.addEventListener('click', function() { if(active) initGame(); });
+            closeBtn.addEventListener('click', close);
+            modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+
+            var clicks = 0, t = null;
+            title.addEventListener('click', function(e) {
+                e.preventDefault();
+                clicks++;
+                clearTimeout(t);
+                t = setTimeout(function() { clicks = 0; }, 700);
+                if (clicks >= 8) { clicks = 0; open(); }
+            });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: klik judul Error per Area 9x cepat → Flappy Bird
+        (function() {
+            var title = document.getElementById('ovErrTitle');
+            var modal = document.getElementById('ovFlappyModal');
+            var canvas = document.getElementById('ovFlappyCanvas');
+            if (!title || !modal || !canvas) return;
+
+            var ctx = canvas.getContext('2d');
+            var scoreEl = document.getElementById('ovFlappyScore');
+            var footEl = document.getElementById('ovFlappyFoot');
+            var resetBtn = document.getElementById('ovFlappyReset');
+            var closeBtn = document.getElementById('ovFlappyClose');
+
+            var W = 320, H = 400;
+            var bird, pipes, particles;
+            var score, active, playing, raf, frameCnt;
+
+            function initGame() {
+                bird = { x: 60, y: H/2, w: 20, h: 14, vy: 0, gravity: 0.2, jump: -4.5 };
+                pipes = [];
+                particles = [];
+                score = 0;
+                frameCnt = 0;
+                playing = true;
+                scoreEl.textContent = '0';
+                footEl.textContent = 'Spasi atau klik canvas untuk lompat · Hindari pipa';
+                spawnPipe();
+                pipes[0].x = W;
+                draw();
+            }
+
+            function spawnPipe() {
+                var gap = 110;
+                var minPipe = 40;
+                var maxPipe = H - gap - minPipe;
+                var topH = Math.floor(Math.random() * (maxPipe - minPipe + 1) + minPipe);
+                pipes.push({ x: W, w: 40, top: topH, bottom: H - topH - gap, passed: false });
+            }
+
+            function draw() {
+                ctx.fillStyle = '#71c5cf';
+                ctx.fillRect(0, 0, W, H);
+                
+                ctx.fillStyle = '#ded895';
+                ctx.fillRect(0, H - 20, W, 20);
+                ctx.fillStyle = '#73bf2e';
+                ctx.fillRect(0, H - 24, W, 4);
+
+                if (playing || bird.y < H-24) {
+                    pipes.forEach(function(p) {
+                        ctx.fillStyle = '#74bf2e';
+                        ctx.fillRect(p.x, 0, p.w, p.top);
+                        ctx.strokeRect(p.x, 0, p.w, p.top);
+                        ctx.fillRect(p.x, H - p.bottom, p.w, p.bottom);
+                        ctx.strokeRect(p.x, H - p.bottom, p.w, p.bottom);
+                    });
+
+                    ctx.save();
+                    ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
+                    ctx.rotate(Math.min(Math.PI/4, Math.max(-Math.PI/4, (bird.vy * 0.1))));
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath(); ctx.ellipse(0, 0, bird.w/2, bird.h/2, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fef08a';
+                    var wingY = (frameCnt%10 < 5) ? -2 : 0;
+                    ctx.beginPath(); ctx.ellipse(-4, wingY, 6, 4, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(4, -3, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(5, -3, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#f97316';
+                    ctx.beginPath(); ctx.moveTo(6, 1); ctx.lineTo(12, 1); ctx.lineTo(6, 5); ctx.fill();
+                    ctx.restore();
+                }
+
+                particles.forEach(function(p) {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = Math.max(0, p.life);
+                    ctx.fillRect(p.x, p.y, p.s, p.s);
+                    ctx.globalAlpha = 1;
+                });
+            }
+
+            function doJump() {
+                if (playing) {
+                    bird.vy = bird.jump;
+                    particles.push({ x: bird.x, y: bird.y+bird.h/2, vx: -1 - Math.random(), vy: Math.random() - 0.5, life: 1, color: '#fef08a', s: 4 });
+                } else if (bird.y >= H-24) {
+                    initGame();
+                }
+            }
+
+            function tick() {
+                if (!active) return;
+                
+                if (playing) {
+                    frameCnt++;
+                    bird.vy += bird.gravity;
+                    bird.y += bird.vy;
+
+                    if (bird.y < 0) { bird.y = 0; bird.vy = 0; }
+                    if (bird.y + bird.h > H - 24) {
+                        playing = false;
+                        footEl.textContent = 'Game Over! Skor: ' + score + ' — Klik atau Spasi untuk main lagi';
+                    }
+
+                    if (frameCnt % 120 === 0) spawnPipe();
+
+                    for (var i = 0; i < pipes.length; i++) {
+                        var p = pipes[i];
+                        p.x -= 1.5;
+
+                        var bx = bird.x, by = bird.y, bw = bird.w, bh = bird.h;
+                        if (bx + bw > p.x && bx < p.x + p.w) {
+                            if (by < p.top || by + bh > H - p.bottom) {
+                                playing = false;
+                                footEl.textContent = 'Game Over! Skor: ' + score + ' — Klik atau Spasi untuk main lagi';
+                                for(var k=0;k<10;k++) particles.push({ x: bx+bw/2, y: by+bh/2, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5, life: 1, color: '#facc15', s: 3 });
+                            }
+                        }
+
+                        if (!p.passed && p.x + p.w < bx) {
+                            p.passed = true;
+                            score++;
+                            scoreEl.textContent = String(score);
+                        }
+                    }
+
+                    if (pipes.length > 0 && pipes[0].x < -pipes[0].w) {
+                        pipes.shift();
+                    }
+                } else if (bird.y < H - 24) {
+                    bird.vy += bird.gravity;
+                    bird.y += bird.vy;
+                    if (bird.y > H - 24) bird.y = H - 24;
+                }
+
+                for (var i = particles.length - 1; i >= 0; i--) {
+                    var p = particles[i];
+                    p.x += p.vx; p.y += p.vy;
+                    p.life -= 0.05;
+                    if (p.life <= 0) particles.splice(i, 1);
+                }
+
+                draw();
+                raf = requestAnimationFrame(tick);
+            }
+
+            function onKey(e) {
+                if (!active) return;
+                var k = e.key.toLowerCase();
+                if (k === ' ' || k === 'spacebar' || k === 'arrowup') {
+                    if (e.type === 'keydown') doJump();
+                    e.preventDefault();
+                } else if (k === 'escape' && e.type === 'keydown') {
+                    close();
+                }
+            }
+
+            function onClick(e) {
+                if (!active) return;
+                doJump();
+            }
+
+            function open() {
+                modal.classList.add('open');
+                active = true;
+                initGame();
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(tick);
+                document.addEventListener('keydown', onKey);
+                canvas.addEventListener('mousedown', onClick);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                active = false;
+                playing = false;
+                cancelAnimationFrame(raf);
+                document.removeEventListener('keydown', onKey);
+                canvas.removeEventListener('mousedown', onClick);
+            }
+
+            resetBtn.addEventListener('click', function() { if(active) initGame(); });
+            closeBtn.addEventListener('click', close);
+            modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+
+            var clicks = 0, t = null;
+            title.addEventListener('click', function(e) {
+                e.preventDefault();
+                clicks++;
+                clearTimeout(t);
+                t = setTimeout(function() { clicks = 0; }, 700);
+                if (clicks >= 9) { clicks = 0; open(); }
             });
         })();
     </script>
