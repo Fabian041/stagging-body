@@ -736,6 +736,117 @@
             min-height: 2px;
         }
 
+        /* 🥚 easter egg: minesweeper di section heatmap */
+        .ov-ms {
+            padding: 6px 0 2px;
+        }
+
+        .ov-ms__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .ov-ms__hint {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #d97706;
+        }
+
+        .ov-ms__hud {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ov-ms__counter {
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+            font-weight: 800;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 9px;
+            color: #dc2626;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .ov-ms__btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .ov-ms__btn:hover {
+            background: var(--bg);
+        }
+
+        .ov-ms__btn.on {
+            background: #d97706;
+            border-color: #d97706;
+            color: #fff;
+        }
+
+        .ov-ms__grid {
+            display: grid;
+            gap: 3px;
+            justify-content: center;
+            margin: 2px auto 12px;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .ov-ms__cell {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            line-height: 1;
+            cursor: pointer;
+            user-select: none;
+            border: none;
+            padding: 0;
+        }
+
+        .ov-ms__cell.cov:hover {
+            filter: brightness(1.08);
+        }
+
+        .ov-ms__cell.rev {
+            background: var(--bg);
+            cursor: default;
+        }
+
+        .ov-ms__cell.mine {
+            background: #dc2626 !important;
+            color: #fff;
+        }
+
+        .ov-ms__foot {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 600;
+        }
+
         @media (max-width: 1100px) {
             .ov-kpis {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -874,7 +985,8 @@
         <div class="ov-row">
             <div class="ov-panel">
                 <div class="ov-panel__head ov-panel__head--activity">
-                    <div class="ov-panel__title"><i class="fas fa-clock"></i> Jam Tersibuk — Aktivitas Pulling &amp;
+                    <div class="ov-panel__title" id="ovHeatmapTitle" style="user-select:none;"><i
+                            class="fas fa-clock"></i> Jam Tersibuk — Aktivitas Pulling &amp;
                         Produksi (hari × jam)</div>
                     <div class="ov-activity-tabs" role="group" aria-label="Filter heatmap activity">
                         <button type="button" class="ov-activity-tab" data-activity-mode="produksi">Prod</button>
@@ -886,6 +998,25 @@
                     <div id="ovActivityLegend" class="ov-activity-legend"></div>
                     <div id="ovHourlyChart" class="ov-loading ov-chart-loading">Memuat grafik</div>
                     <div id="ovActivityInsight" class="ov-activity-insight" hidden></div>
+                    {{-- 🥚 easter egg: minesweeper (muncul kalau judul diklik 5x cepat) --}}
+                    <div id="ovMinesweeper" class="ov-ms" hidden>
+                        <div class="ov-ms__head">
+                            <span class="ov-ms__hint">Easter egg · Minesweeper</span>
+                            <div class="ov-ms__hud">
+                                <span class="ov-ms__counter"><i class="fas fa-flag"></i> <span
+                                        id="ovMsCount">18</span></span>
+                                <button type="button" class="ov-ms__btn" id="ovMsFlag" title="Mode tandai ranjau"
+                                    aria-label="Mode tandai ranjau"><i class="fas fa-flag"></i></button>
+                                <button type="button" class="ov-ms__btn" id="ovMsReset" title="Main lagi"
+                                    aria-label="Main lagi"><i class="fas fa-face-smile"></i></button>
+                                <button type="button" class="ov-ms__btn" id="ovMsClose" title="Kembali ke heatmap"
+                                    aria-label="Kembali ke heatmap"><i class="fas fa-xmark"></i></button>
+                            </div>
+                        </div>
+                        <div class="ov-ms__grid" id="ovMsGrid"></div>
+                        <div class="ov-ms__foot" id="ovMsFoot">Klik kiri buka · klik kanan / tombol bendera tandai ranjau
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2043,6 +2174,244 @@
                 document.addEventListener('visibilitychange', function() {
                     if (!document.hidden) refresh();
                 });
+            });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: klik judul heatmap 5x cepat → Minesweeper. Chart ApexCharts asli tetap utuh di belakang.
+        (function() {
+            var title = document.getElementById('ovHeatmapTitle');
+            var ms = document.getElementById('ovMinesweeper');
+            if (!title || !ms) return;
+
+            var ROWS = 8,
+                COLS = 12,
+                MINES = 18;
+            var heat = ['#fef3c7', '#fde68a', '#fbbf24', '#f59e0b', '#d97706'];
+            var numColor = {
+                1: '#185FA5',
+                2: '#3B6D11',
+                3: '#A32D2D',
+                4: '#26215C',
+                5: '#854F0B',
+                6: '#0F6E56',
+                7: '#444441',
+                8: '#5F5E5A'
+            };
+            var gridEl = document.getElementById('ovMsGrid');
+            var countEl = document.getElementById('ovMsCount');
+            var footEl = document.getElementById('ovMsFoot');
+            var flagBtn = document.getElementById('ovMsFlag');
+            var resetBtn = document.getElementById('ovMsReset');
+            var closeBtn = document.getElementById('ovMsClose');
+            var hideIds = ['ovHourlyChart', 'ovActivityLegend', 'ovActivityInsight'];
+            var board, started, over, won, flags, flagMode, shade, built = false;
+
+            gridEl.style.gridTemplateColumns = 'repeat(' + COLS + ', 28px)';
+
+            function init() {
+                board = [];
+                shade = [];
+                for (var r = 0; r < ROWS; r++) {
+                    board.push([]);
+                    shade.push([]);
+                    for (var c = 0; c < COLS; c++) {
+                        board[r].push({ mine: false, rev: false, flag: false, n: 0 });
+                        shade[r].push(heat[Math.floor(Math.random() * heat.length)]);
+                    }
+                }
+                started = false;
+                over = false;
+                won = false;
+                flags = 0;
+                flagMode = false;
+                flagBtn.classList.remove('on');
+                footEl.textContent = 'Klik kiri buka · klik kanan / tombol bendera tandai ranjau';
+                render();
+                updateHud();
+            }
+
+            function neigh(r, c) {
+                var out = [];
+                for (var dr = -1; dr <= 1; dr++)
+                    for (var dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        var nr = r + dr,
+                            nc = c + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) out.push([nr, nc]);
+                    }
+                return out;
+            }
+
+            function placeMines(sr, sc) {
+                var safe = {};
+                safe[sr + ',' + sc] = 1;
+                neigh(sr, sc).forEach(function(p) {
+                    safe[p[0] + ',' + p[1]] = 1;
+                });
+                var placed = 0;
+                while (placed < MINES) {
+                    var r = Math.floor(Math.random() * ROWS),
+                        c = Math.floor(Math.random() * COLS);
+                    if (board[r][c].mine || safe[r + ',' + c]) continue;
+                    board[r][c].mine = true;
+                    placed++;
+                }
+                for (var r2 = 0; r2 < ROWS; r2++)
+                    for (var c2 = 0; c2 < COLS; c2++) {
+                        if (board[r2][c2].mine) continue;
+                        board[r2][c2].n = neigh(r2, c2).filter(function(p) {
+                            return board[p[0]][p[1]].mine;
+                        }).length;
+                    }
+            }
+
+            function reveal(r, c) {
+                var cell = board[r][c];
+                if (over || won || cell.flag || cell.rev) return;
+                if (!started) {
+                    placeMines(r, c);
+                    started = true;
+                }
+                cell.rev = true;
+                if (cell.mine) {
+                    over = true;
+                    revealMines();
+                    footEl.textContent = 'Boom! Kena ranjau jam sibuk — klik wajah buat main lagi.';
+                    render();
+                    updateHud();
+                    return;
+                }
+                if (cell.n === 0) {
+                    var stack = [[r, c]];
+                    while (stack.length) {
+                        var cur = stack.pop();
+                        neigh(cur[0], cur[1]).forEach(function(p) {
+                            var nb = board[p[0]][p[1]];
+                            if (!nb.rev && !nb.flag && !nb.mine) {
+                                nb.rev = true;
+                                if (nb.n === 0) stack.push(p);
+                            }
+                        });
+                    }
+                }
+                checkWin();
+                render();
+                updateHud();
+            }
+
+            function toggleFlag(r, c) {
+                var cell = board[r][c];
+                if (over || won || cell.rev) return;
+                cell.flag = !cell.flag;
+                flags += cell.flag ? 1 : -1;
+                render();
+                updateHud();
+            }
+
+            function revealMines() {
+                for (var r = 0; r < ROWS; r++)
+                    for (var c = 0; c < COLS; c++)
+                        if (board[r][c].mine) board[r][c].rev = true;
+            }
+
+            function checkWin() {
+                var ok = true;
+                for (var r = 0; r < ROWS; r++)
+                    for (var c = 0; c < COLS; c++) {
+                        var x = board[r][c];
+                        if (!x.mine && !x.rev) ok = false;
+                    }
+                if (ok) {
+                    won = true;
+                    footEl.textContent = 'Mantap! Semua jam aman dipetakan. Heatmap bersih dari ranjau.';
+                }
+            }
+
+            function updateHud() {
+                countEl.textContent = Math.max(0, MINES - flags);
+                var ic = resetBtn.querySelector('i');
+                ic.className = won ? 'fas fa-trophy' : (over ? 'fas fa-face-frown' : 'fas fa-face-smile');
+            }
+
+            function render() {
+                gridEl.innerHTML = '';
+                for (var r = 0; r < ROWS; r++)
+                    for (var c = 0; c < COLS; c++) {
+                        (function(r, c) {
+                            var cell = board[r][c];
+                            var el = document.createElement('button');
+                            el.type = 'button';
+                            el.className = 'ov-ms__cell';
+                            if (cell.rev) {
+                                if (cell.mine) {
+                                    el.className += ' rev mine';
+                                    el.innerHTML = '<i class="fas fa-bomb"></i>';
+                                } else {
+                                    el.className += ' rev';
+                                    if (cell.n > 0) {
+                                        el.textContent = cell.n;
+                                        el.style.color = numColor[cell.n];
+                                    }
+                                }
+                            } else {
+                                el.className += ' cov';
+                                el.style.background = shade[r][c];
+                                if (cell.flag) el.innerHTML = '<i class="fas fa-flag" style="color:#dc2626"></i>';
+                            }
+                            el.addEventListener('click', function() {
+                                flagMode ? toggleFlag(r, c) : reveal(r, c);
+                            });
+                            el.addEventListener('contextmenu', function(e) {
+                                e.preventDefault();
+                                toggleFlag(r, c);
+                            });
+                            gridEl.appendChild(el);
+                        })(r, c);
+                    }
+            }
+
+            function activate() {
+                hideIds.forEach(function(id) {
+                    var e = document.getElementById(id);
+                    if (e) e.style.display = 'none';
+                });
+                ms.hidden = false;
+                if (!built) {
+                    built = true;
+                    init();
+                }
+            }
+
+            function deactivate() {
+                ms.hidden = true;
+                hideIds.forEach(function(id) {
+                    var e = document.getElementById(id);
+                    if (e) e.style.display = '';
+                });
+            }
+
+            flagBtn.addEventListener('click', function() {
+                flagMode = !flagMode;
+                flagBtn.classList.toggle('on', flagMode);
+            });
+            resetBtn.addEventListener('click', init);
+            closeBtn.addEventListener('click', deactivate);
+
+            // trigger: 5 klik cepat di judul (reset hitungan kalau jeda > 700ms)
+            var clicks = 0,
+                t = null;
+            title.addEventListener('click', function() {
+                clicks++;
+                clearTimeout(t);
+                t = setTimeout(function() {
+                    clicks = 0;
+                }, 700);
+                if (clicks >= 5) {
+                    clicks = 0;
+                    activate();
+                }
             });
         })();
     </script>
