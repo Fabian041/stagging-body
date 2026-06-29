@@ -1116,9 +1116,25 @@
         }
     }
 
+    // cache hasil alamat chute (master data statis) → unit ke-2 dst dari part yang sama tidak nembak server lagi
+    var chuteCache = {};
+
+    function applyChute(c) {
+        $('#chute-display').text(c.alamat_chute || '-');
+        if (c.back_no) {
+            $('#backno-display').text(c.back_no);
+        }
+    }
+
     function fetchAlamatChute(loadingList, customerPart, internalPart) {
         if (!loadingList || !customerPart) {
             $('#chute-display').text('-');
+            return;
+        }
+
+        var key = loadingList + '|' + customerPart + '|' + (internalPart || '');
+        if (chuteCache[key]) {
+            applyChute(chuteCache[key]);
             return;
         }
 
@@ -1133,10 +1149,12 @@
             },
             dataType: 'json',
             success: function(resp) {
-                $('#chute-display').text(resp?.alamat_chute || '-');
-                if (resp?.back_no) {
-                    $('#backno-display').text(resp.back_no);
-                }
+                // cache hanya saat sukses (jangan cache error jaringan)
+                chuteCache[key] = {
+                    alamat_chute: resp?.alamat_chute || null,
+                    back_no: resp?.back_no || null
+                };
+                applyChute(chuteCache[key]);
             },
             error: function() {
                 $('#chute-display').text('-');
