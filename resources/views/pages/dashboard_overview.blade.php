@@ -847,6 +847,95 @@
             font-weight: 600;
         }
 
+        /* 🥚 easter egg: space impact ala Nokia (Konami: ↑↑↓↓←→←→ B A) */
+        .ov-si-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1090;
+            padding: 16px;
+        }
+
+        .ov-si-modal.open {
+            display: flex;
+        }
+
+        .ov-si__card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            width: 100%;
+            max-width: 560px;
+            overflow: hidden;
+        }
+
+        .ov-si__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ov-si__hint {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #6b8e23;
+        }
+
+        .ov-si__hud {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ov-si__btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .ov-si__btn:hover {
+            background: var(--bg);
+        }
+
+        .ov-si__screen {
+            margin: 16px;
+            padding: 10px;
+            background: #2b3a1e;
+            border-radius: 8px;
+        }
+
+        #ovSiCanvas {
+            width: 100%;
+            display: block;
+            image-rendering: pixelated;
+            border-radius: 3px;
+            touch-action: none;
+        }
+
+        .ov-si__foot {
+            padding: 0 16px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
         /* 🥚 easter egg: snake di judul utama */
         .ov-snake-modal {
             position: fixed;
@@ -1407,6 +1496,23 @@
                 <canvas id="ovSnakeCanvas" width="400" height="300"></canvas>
             </div>
             <div class="ov-snake__foot" id="ovSnakeFoot">Panah / WASD · makan titik biru · jangan tabrak dinding &amp; ekor</div>
+        </div>
+    </div>
+
+    {{-- 🥚 easter egg: space impact (muncul kalau Konami code ditekan: ↑↑↓↓←→←→ B A) --}}
+    <div class="ov-si-modal" id="ovSiModal" role="dialog" aria-modal="true" aria-label="Space Impact game">
+        <div class="ov-si__card">
+            <div class="ov-si__head">
+                <span class="ov-si__hint">Easter egg · Space Impact</span>
+                <div class="ov-si__hud">
+                    <button type="button" class="ov-si__btn" id="ovSiReset" title="Main lagi" aria-label="Main lagi"><i
+                            class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="ov-si__btn" id="ovSiClose" title="Tutup" aria-label="Tutup"><i
+                            class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="ov-si__screen"><canvas id="ovSiCanvas" width="140" height="60"></canvas></div>
+            <div class="ov-si__foot">↑↓←→ / WASD gerak · tembak otomatis · bos tiap level ke-3</div>
         </div>
     </div>
 
@@ -4125,6 +4231,209 @@
                 t = setTimeout(function() { clicks = 0; }, 700);
                 if (clicks >= 9) { clicks = 0; open(); }
             });
+        })();
+    </script>
+
+    <script>
+        // 🥚 Easter egg: Konami code (↑↑↓↓←→←→ B A) → Space Impact ala Nokia. Modal terpisah, nol efek ke chart.
+        (function() {
+            var modal = document.getElementById('ovSiModal');
+            var cv = document.getElementById('ovSiCanvas');
+            if (!modal || !cv) return;
+            var ctx = cv.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            var GW = 140,
+                GH = 60,
+                BG = '#a7cf94',
+                FG = '#1f2d12';
+
+            var FONT = {
+                '0': ['XXX', 'X X', 'X X', 'X X', 'XXX'], '1': [' X ', 'XX ', ' X ', ' X ', 'XXX'],
+                '2': ['XXX', '  X', 'XXX', 'X  ', 'XXX'], '3': ['XXX', '  X', 'XXX', '  X', 'XXX'],
+                '4': ['X X', 'X X', 'XXX', '  X', '  X'], '5': ['XXX', 'X  ', 'XXX', '  X', 'XXX'],
+                '6': ['XXX', 'X  ', 'XXX', 'X X', 'XXX'], '7': ['XXX', '  X', '  X', '  X', '  X'],
+                '8': ['XXX', 'X X', 'XXX', 'X X', 'XXX'], '9': ['XXX', 'X X', 'XXX', '  X', 'XXX'],
+                'A': ['XXX', 'X X', 'XXX', 'X X', 'X X'], 'B': ['XX ', 'X X', 'XX ', 'X X', 'XX '],
+                'D': ['XX ', 'X X', 'X X', 'X X', 'XX '], 'E': ['XXX', 'X  ', 'XXX', 'X  ', 'XXX'],
+                'G': [' XX', 'X  ', 'X X', 'X X', ' XX'], 'I': ['XXX', ' X ', ' X ', ' X ', 'XXX'],
+                'L': ['X  ', 'X  ', 'X  ', 'X  ', 'XXX'], 'M': ['X X', 'XXX', 'XXX', 'X X', 'X X'],
+                'O': ['XXX', 'X X', 'X X', 'X X', 'XXX'], 'P': ['XX ', 'X X', 'XX ', 'X  ', 'X  '],
+                'R': ['XX ', 'X X', 'XX ', 'X X', 'X X'], 'S': ['XXX', 'X  ', 'XXX', '  X', 'XXX'],
+                'T': ['XXX', ' X ', ' X ', ' X ', ' X '], 'V': ['X X', 'X X', 'X X', 'X X', ' X '],
+                'Y': ['X X', 'X X', ' X ', ' X ', ' X '], ' ': ['   ', '   ', '   ', '   ', '   ']
+            };
+            var SPR_SHIP = ['XX    ', 'XXXX  ', 'XXXXXX', 'XXXX  ', 'XX    '];
+            var SPR_E0 = [' XX X', 'XXXXX', ' XXX ', 'XXXXX', ' XX X'];
+            var SPR_E1 = ['  XX', ' XXX', 'XXXX', ' XXX', '  XX'];
+            var SPR_E2 = [' XXXX ', 'XXXXXX', 'XX  XX', 'XXXXXX', 'XXXXXX', ' XXXX '];
+            var HEART = [' X X ', 'XXXXX', 'XXXXX', ' XXX ', '  X  '];
+
+            var state = 'ready',
+                player, bullets, enemies, ebullets, boss, score, level, kills, need, spawnT, banner, bannerT, terr, scrollA, last;
+            var active = false,
+                rafId = null,
+                keys = {};
+
+            function px(x, y, w, h) { ctx.fillRect(x | 0, y | 0, w || 1, h || 1); }
+
+            function spr(b, x, y) { for (var r = 0; r < b.length; r++) for (var c = 0; c < b[r].length; c++) if (b[r][c] === 'X') px(x + c, y + r); }
+
+            function text(s, x, y) { s = String(s); for (var i = 0; i < s.length; i++) { var g = FONT[s[i]] || FONT[' ']; for (var r = 0; r < 5; r++) for (var c = 0; c < 3; c++) if (g[r][c] === 'X') px(x + i * 4 + c, y + r); } }
+
+            function textW(s) { return String(s).length * 4 - 1; }
+
+            function disc(cx, cy, rad) { for (var y = -rad; y <= rad; y++) for (var x = -rad; x <= rad; x++) if (x * x + y * y <= rad * rad) px(cx + x, cy + y); }
+
+            function genH(h) { h += Math.random() * 4 - 2; return Math.max(3, Math.min(16, h)); }
+
+            function reset() {
+                player = { x: 14, y: 28, w: 6, h: 5, sp: 52, lives: 5, fire: 0, inv: 0 };
+                bullets = []; enemies = []; ebullets = []; boss = null;
+                score = 0; level = 1; kills = 0; need = 6; spawnT = 600;
+                banner = 'LEVEL 1'; bannerT = 1300;
+                terr = []; var h = 8; for (var i = 0; i < GW + 2; i++) { h = genH(h); terr.push(Math.round(h)); } scrollA = 0;
+            }
+
+            function bannerSet(t, ms) { banner = t; bannerT = ms || 1200; }
+
+            function spawn() {
+                var t = Math.random();
+                if (level >= 4 && t < 0.25) enemies.push({ x: GW + 6, y: 6 + Math.random() * 34, w: 6, h: 6, sp: 16 + level * 3, hp: 3, b: SPR_E2, pts: 30 });
+                else if (t < 0.45) enemies.push({ x: GW + 6, y: 6 + Math.random() * 36, w: 4, h: 5, sp: 38 + level * 5, hp: 1, b: SPR_E1, pts: 15 });
+                else enemies.push({ x: GW + 6, y: 6 + Math.random() * 36, w: 5, h: 5, sp: 24 + level * 4, hp: 1, b: SPR_E0, pts: 10 });
+            }
+
+            function spawnBoss() { boss = { x: GW - 30, y: 24, r: 11, dir: 1, sp: 22 + level * 3, hp: 20 + level * 8, max: 20 + level * 8, shoot: 700 }; bannerSet('BOSS', 1400); }
+
+            function nextLevel() { level++; kills = 0; need = 5 + level * 2; if (level % 3 === 0) spawnBoss(); else bannerSet('LEVEL ' + level, 1100); }
+
+            function hitB(ax, ay, aw, ah, b) { return ax < b.x + b.w && ax + aw > b.x && ay < b.y + b.h && ay + ah > b.y; }
+
+            function keyOn(a, b) { return keys[a] || keys[b]; }
+
+            function update(dt) {
+                var d = dt / 1000;
+                scrollA += 22 * d; while (scrollA >= 1) { terr.shift(); terr.push(Math.round(genH(terr[terr.length - 1]))); scrollA -= 1; }
+                var mx = (keyOn('ArrowRight', 'd') ? 1 : 0) - (keyOn('ArrowLeft', 'a') ? 1 : 0);
+                var my = (keyOn('ArrowDown', 's') ? 1 : 0) - (keyOn('ArrowUp', 'w') ? 1 : 0);
+                player.x = Math.max(3, Math.min(GW * 0.5, player.x + mx * player.sp * d));
+                player.y = Math.max(3, Math.min(42, player.y + my * player.sp * d));
+                if (player.inv > 0) player.inv -= dt;
+                player.fire -= dt;
+                if (player.fire <= 0) { bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115 }); player.fire = 230; }
+                for (var i = 0; i < bullets.length; i++) bullets[i].x += bullets[i].sp * d;
+                bullets = bullets.filter(function(b) { return b.x < GW + 4; });
+                if (!boss) { spawnT -= dt; if (spawnT <= 0) { spawn(); spawnT = Math.max(420, 1400 - level * 110); } }
+                for (var j = 0; j < enemies.length; j++) enemies[j].x -= enemies[j].sp * d;
+                enemies = enemies.filter(function(e) { return e.x + e.w > -4; });
+                if (boss) {
+                    boss.y += boss.dir * boss.sp * d;
+                    if (boss.y < 14) boss.dir = 1;
+                    if (boss.y > 44) boss.dir = -1;
+                    boss.shoot -= dt;
+                    if (boss.shoot <= 0) { ebullets.push({ x: boss.x - boss.r, y: boss.y, sp: 60 + level * 8 }); boss.shoot = Math.max(420, 1000 - level * 40); }
+                }
+                for (var k = 0; k < ebullets.length; k++) ebullets[k].x -= ebullets[k].sp * d;
+                ebullets = ebullets.filter(function(b) { return b.x > -4; });
+                for (var bi = 0; bi < bullets.length; bi++) {
+                    var b = bullets[bi];
+                    for (var ei = 0; ei < enemies.length; ei++) {
+                        var e = enemies[ei];
+                        if (e.hp > 0 && hitB(b.x, b.y, 3, 1, e)) { e.hp--; b.x = GW + 99; if (e.hp <= 0) { score += e.pts; kills++; } break; }
+                    }
+                    if (boss && boss.hp > 0 && b.x > boss.x - boss.r && b.y > boss.y - boss.r && b.y < boss.y + boss.r) { boss.hp--; b.x = GW + 99; if (boss.hp <= 0) { score += 150 + level * 20; boss = null; nextLevel(); } }
+                }
+                enemies = enemies.filter(function(e) { return e.hp > 0; });
+                bullets = bullets.filter(function(b) { return b.x < GW + 4; });
+
+                function dmg() { if (player.inv > 0) return; player.lives--; player.inv = 1300; if (player.lives <= 0) { state = 'over'; bannerSet('GAME OVER', 9e9); } }
+                for (var ci = 0; ci < enemies.length; ci++) if (hitB(player.x, player.y, player.w, player.h, enemies[ci])) { enemies[ci].hp = 0; dmg(); }
+                enemies = enemies.filter(function(e) { return e.hp > 0; });
+                for (var di = 0; di < ebullets.length; di++) { var eb = ebullets[di]; if (player.x < eb.x + 3 && player.x + player.w > eb.x && player.y < eb.y + 2 && player.y + player.h > eb.y) { eb.x = -99; dmg(); } }
+                ebullets = ebullets.filter(function(b) { return b.x > -4; });
+                if (boss && Math.abs((player.x + 3) - boss.x) < boss.r && Math.abs((player.y + 2) - boss.y) < boss.r) dmg();
+                if (!boss && kills >= need) nextLevel();
+                if (bannerT > 0) bannerT -= dt;
+            }
+
+            function bigText(s, x, y) { s = String(s); for (var i = 0; i < s.length; i++) { var g = FONT[s[i]] || FONT[' ']; for (var r = 0; r < 5; r++) for (var c = 0; c < 3; c++) if (g[r][c] === 'X') px(x + i * 8 + c * 2, y + r * 2, 2, 2); } }
+
+            function draw() {
+                ctx.fillStyle = BG; ctx.fillRect(0, 0, GW, GH);
+                ctx.fillStyle = FG;
+                for (var i = 0; i < GW; i++) { var ht = terr[i] || 4; px(i, GH - ht, 1, ht); }
+                for (var bi = 0; bi < bullets.length; bi++) px(bullets[bi].x, bullets[bi].y, 3, 1);
+                for (var ei = 0; ei < ebullets.length; ei++) px(ebullets[ei].x, ebullets[ei].y, 3, 2);
+                for (var en = 0; en < enemies.length; en++) spr(enemies[en].b, enemies[en].x | 0, enemies[en].y | 0);
+                if (boss) {
+                    disc(boss.x | 0, boss.y | 0, boss.r);
+                    for (var a = 0; a < 8; a++) { var an = a / 8 * 6.283; px((boss.x + Math.cos(an) * (boss.r + 1)) | 0, (boss.y + Math.sin(an) * (boss.r + 1)) | 0, 2, 2); }
+                    ctx.fillStyle = BG; disc((boss.x - boss.r * 0.45) | 0, (boss.y - 2) | 0, 3);
+                    ctx.fillStyle = FG; px((boss.x - boss.r * 0.45) | 0, (boss.y - 2) | 0, 2, 2);
+                    px(GW / 2 - 22, 4, 44, 1);
+                    ctx.fillStyle = BG; px(GW / 2 - 22 + Math.ceil(44 * boss.hp / boss.max), 4, 44 - Math.ceil(44 * boss.hp / boss.max), 1);
+                    ctx.fillStyle = FG;
+                }
+                if (!(player.inv > 0 && (performance.now() / 90 | 0) % 2)) spr(SPR_SHIP, player.x | 0, player.y | 0);
+                spr(HEART, 2, 2); text(('0' + player.lives).slice(-2), 9, 2);
+                text(('0000' + score).slice(-5), GW - 21, 2);
+                if (bannerT > 0 || state === 'over') {
+                    var w = textW(banner) * 2;
+                    ctx.fillStyle = BG; ctx.fillRect(GW / 2 - w / 2 - 3, GH / 2 - 8, w + 6, 14);
+                    ctx.fillStyle = FG; bigText(banner, GW / 2 - w / 2, GH / 2 - 5);
+                    if (state === 'over') text('SCORE ' + score, GW / 2 - textW('SCORE ' + score) / 2, GH / 2 + 10);
+                }
+            }
+
+            function start() { reset(); state = 'play'; last = performance.now(); }
+
+            function loop(now) {
+                var dt = Math.min(40, now - (last || now));
+                last = now;
+                if (state === 'play') update(dt);
+                draw();
+                if (active) rafId = requestAnimationFrame(loop);
+            }
+
+            function activate() {
+                if (active) return;
+                active = true;
+                modal.classList.add('open');
+                start();
+                rafId = requestAnimationFrame(loop);
+            }
+
+            function deactivate() {
+                active = false;
+                modal.classList.remove('open');
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            var KON = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+            var kbuf = [];
+            document.addEventListener('keydown', function(e) {
+                if (active) {
+                    if (e.key === 'Escape') { deactivate(); return; }
+                    keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = 1;
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].indexOf(e.key) !== -1) e.preventDefault();
+                    return;
+                }
+                var k = e.key.toLowerCase();
+                kbuf.push(k);
+                if (kbuf.length > KON.length) kbuf.shift();
+                if (kbuf.length === KON.length && KON.every(function(v, i) { return kbuf[i] === v; })) { kbuf = []; activate(); }
+            });
+            document.addEventListener('keyup', function(e) { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = 0; });
+            cv.addEventListener('pointermove', function(e) {
+                if (!active || state !== 'play') return;
+                var r = cv.getBoundingClientRect();
+                player.x = Math.max(3, Math.min(GW * 0.5, (e.clientX - r.left) * GW / r.width - 3));
+                player.y = Math.max(3, Math.min(42, (e.clientY - r.top) * GH / r.height - 2));
+            });
+            document.getElementById('ovSiReset').addEventListener('click', start);
+            document.getElementById('ovSiClose').addEventListener('click', deactivate);
+            modal.addEventListener('click', function(e) { if (e.target === modal) deactivate(); });
         })();
     </script>
 @endsection
