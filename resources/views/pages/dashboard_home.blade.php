@@ -313,6 +313,12 @@
             --icon-color: #B91C1C;
         }
 
+        .accent-success {
+            --card-accent: #059669;
+            --icon-bg: #D1FAE5;
+            --icon-color: #047857;
+        }
+
         @media (max-width: 991.98px) {
             .bella-stats {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -467,7 +473,7 @@
                         Body Electronic Logistic <span>Application</span>
                     </h2>
                     <div class="bella-hero-sub">
-                        Satu workspace untuk mengakses aktivitas PPIC, Production, dan Evaluation
+                        Satu workspace untuk mengakses aktivitas PPIC, Production, Quality, dan Evaluation
                         dengan tampilan yang lebih rapi, cepat, dan konsisten.
                     </div>
                 </div>
@@ -489,7 +495,7 @@
                         'title' => 'PPIC - Delivery',
                         'icon' => 'fa-warehouse',
                         'color' => 'primary',
-                        'desc' => 'Preparation Monitoring, Preparation Detail, dan Kanban Reset.',
+                        'desc' => 'Preparation Monitoring, Scan Detail, dan Kanban Reset.',
                         'buttons' => [
                             [
                                 'route' => 'dashboard.delivery',
@@ -499,7 +505,7 @@
                             ],
                             [
                                 'route' => 'loadingList.index',
-                                'label' => 'Preparation Detail',
+                                'label' => 'Scan Detail',
                                 'icon' => 'fa-list',
                                 'type' => 'outline',
                             ],
@@ -553,6 +559,26 @@
                         ],
                     ],
                     [
+                        'title' => 'Quality',
+                        'icon' => 'fa-clipboard-check',
+                        'color' => 'success',
+                        'desc' => 'Digitalisasi QC Gate R1: scan kanban dan scan detail.',
+                        'buttons' => [
+                            [
+                                'route' => 'quality.scan',
+                                'label' => 'Scan Kanban',
+                                'icon' => 'fa-barcode',
+                                'type' => 'solid',
+                            ],
+                            [
+                                'route' => 'loadingList.index',
+                                'label' => 'Scan Detail',
+                                'icon' => 'fa-list-ul',
+                                'type' => 'outline',
+                            ],
+                        ],
+                    ],
+                    [
                         'title' => 'Master Data',
                         'icon' => 'fa-database',
                         'color' => 'danger',
@@ -591,7 +617,7 @@
 
                             <div class="bella-action-list {{ count($menu['buttons']) === 1 ? 'single' : '' }}">
                                 @foreach ($menu['buttons'] as $btn)
-                                    <a href="{{ route($btn['route']) }}"
+                                    <a href="{{ isset($btn['route']) ? route($btn['route']) : $btn['url'] }}"
                                         class="bella-action {{ $btn['type'] === 'solid' ? 'bella-action-primary' : 'bella-action-outline' }}">
                                         <i class="fas {{ $btn['icon'] }}"></i>
                                         <span>{{ $btn['label'] }}</span>

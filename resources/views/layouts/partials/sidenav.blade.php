@@ -64,7 +64,7 @@
             <a class="sb-sub-item {{ $loadingListDetailActive ? 'active' : '' }}"
                 href="{{ route('loadingList.index') }}">
                 <i class="fas fa-truck-loading"></i>
-                Preparation Detail
+                Scan Detail
             </a>
             <a class="sb-sub-item {{ request()->is('pulling/manual') ? 'active' : '' }}"
                 href="{{ route('pulling.manual') }}">
@@ -147,6 +147,30 @@
                 href="{{ route('pulling.master-alamat-chute') }}">
                 <i class="fas fa-map-marker-alt"></i>
                 Alamat Chute
+            </a>
+        </div>
+
+        {{-- ── Quality ── --}}
+        @php
+            $qualityActive = request()->routeIs('quality.*');
+        @endphp
+
+        <div class="sb-item {{ $qualityActive ? 'open' : '' }}" data-has-sub>
+            <i class="fas fa-clipboard-check sb-icon"></i>
+            <span class="sb-item-label">Quality</span>
+            <i class="fas fa-chevron-right sb-chevron"></i>
+            <span class="sb-item-tooltip">Quality</span>
+        </div>
+        <div class="sb-submenu">
+            <a class="sb-sub-item {{ request()->routeIs('quality.pareto') ? 'active' : '' }}"
+                href="{{ route('quality.pareto') }}">
+                <i class="fas fa-chart-bar"></i>
+                Reject & Pareto
+            </a>
+            <a class="sb-sub-item {{ request()->routeIs('quality.history') || request()->routeIs('quality.show') ? 'active' : '' }}"
+                href="{{ route('quality.history') }}">
+                <i class="fas fa-list-ul"></i>
+                Detail Scan
             </a>
         </div>
 

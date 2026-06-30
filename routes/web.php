@@ -20,6 +20,7 @@ use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PisController;
+use App\Http\Controllers\QualityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -254,6 +255,20 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/direct', [ProductionController::class, 'direct'])
             ->middleware(['dea.token'])
             ->name('production.direct.index');
+    });
+
+    // Quality QC Gate R1
+    Route::prefix('quality')->name('quality.')->group(function () {
+        Route::get('/', [QualityController::class, 'index'])->name('index');
+        Route::get('/scan', [QualityController::class, 'scan'])->name('scan');
+        Route::post('/lookup-kanban', [QualityController::class, 'lookupKanban'])->name('lookupKanban');
+        Route::post('/inspection', [QualityController::class, 'storeInspection'])->name('storeInspection');
+        Route::get('/history', [QualityController::class, 'history'])->name('history');
+        Route::get('/history/export/excel', [QualityController::class, 'exportHistory'])->name('history.export');
+        Route::get('/history/{inspection}/export', [QualityController::class, 'exportInspection'])->name('show.export');
+        Route::get('/history/{inspection}', [QualityController::class, 'show'])->name('show');
+        Route::get('/pareto', [QualityController::class, 'pareto'])->name('pareto');
+        Route::post('/approval/{inspection}', [QualityController::class, 'approval'])->name('approval');
     });
 
     //Validation
