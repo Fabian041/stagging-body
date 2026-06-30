@@ -322,7 +322,7 @@
 
         // Akses cepat ditampilkan saat palette dibuka (sebelum mengetik)
         const fastRoutes = [
-            { label: 'Preparation Detail', url: '{{ route('loadingList.index') }}', icon: 'fa-truck-loading' },
+            { label: 'Scan Detail', url: '{{ route('loadingList.index') }}', icon: 'fa-truck-loading' },
             { label: 'Production Result', url: '{{ route('dashboard.prodResult') }}', icon: 'fa-chart-line' },
             { label: 'Production Stock', url: '{{ route('dashboard.productionStock') }}', icon: 'fa-box' },
             { label: 'Alamat Chute', url: '{{ route('pulling.master-alamat-chute') }}', icon: 'fa-map-marker-alt' },
