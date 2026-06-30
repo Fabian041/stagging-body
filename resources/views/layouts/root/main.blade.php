@@ -90,13 +90,13 @@
             height: 100vh;
             z-index: 100;
             transition: width .25s cubic-bezier(.4, 0, .2, 1), transform .25s cubic-bezier(.4, 0, .2, 1);
-            border-right: 1px solid var(--border);
-            box-shadow: 2px 0 12px rgba(41, 71, 149, .06);
+            border-right: 1px solid #eef1f6;
+            box-shadow: 2px 0 16px rgba(41, 71, 149, .05);
             overflow: visible;
         }
 
         #sidebar-wrapper.collapsed {
-            width: 54px;
+            width: 68px;
         }
 
         /* Hide labels when collapsed */
@@ -115,7 +115,52 @@
 
         #sidebar-wrapper.collapsed .sb-item {
             justify-content: center;
-            padding: 8px 0;
+            width: 44px;
+            height: 40px;
+            margin: 4px auto;
+            padding: 0;
+            border-radius: 12px;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item i.sb-icon {
+            font-size: 16px;
+            width: auto;
+            opacity: .7;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item:hover i.sb-icon,
+        #sidebar-wrapper.collapsed .sb-item.active i.sb-icon,
+        #sidebar-wrapper.collapsed .sb-item.open i.sb-icon {
+            opacity: 1;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item.active::before {
+            display: none;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item[data-has-sub] .sb-item-tooltip {
+            display: none !important;
+        }
+
+        /* Flyout submenu saat collapsed — dipasang via JS sebagai position:fixed (lolos dari overflow .sb-nav) */
+        #sidebar-wrapper.collapsed .sb-submenu.sb-flyout {
+            display: block !important;
+            position: fixed !important;
+            width: auto;
+            min-width: 196px;
+            max-width: 240px;
+            padding: 6px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 14px 34px rgba(41, 71, 149, .18);
+            z-index: 3000;
+        }
+
+        #sidebar-wrapper.collapsed .sb-submenu.sb-flyout .sb-sub-item {
+            padding: 8px 11px;
+            border-radius: 8px;
+            font-size: 12.5px;
         }
 
         #sidebar-wrapper.collapsed .sb-logo {
@@ -275,7 +320,7 @@
 
         /* Nav */
         .sb-nav {
-            padding: 0 8px;
+            padding: 0 10px;
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
@@ -286,27 +331,27 @@
         }
 
         .sb-section-label {
-            padding: 10px 8px 3px;
+            padding: 14px 12px 6px;
             font-size: 9.5px;
-            font-weight: 700;
-            color: var(--text-muted);
+            font-weight: 600;
+            color: #9aa5b8;
             text-transform: uppercase;
-            letter-spacing: .1em;
+            letter-spacing: .12em;
             white-space: nowrap;
         }
 
         .sb-item {
             display: flex;
             align-items: center;
-            gap: 9px;
-            padding: 8px 10px;
-            border-radius: 6px;
+            gap: 11px;
+            padding: 9px 12px;
+            border-radius: 11px;
             cursor: pointer;
             font-size: 12.5px;
             font-weight: 500;
-            color: var(--text-muted);
-            transition: .15s;
-            margin-bottom: 1px;
+            color: #5b6b85;
+            transition: background .15s, color .15s;
+            margin-bottom: 3px;
             position: relative;
             white-space: nowrap;
             overflow: hidden;
@@ -314,37 +359,34 @@
         }
 
         .sb-item:hover {
-            background: var(--bg);
-            color: var(--text);
+            background: #f4f7fb;
+            color: #1A2340;
             text-decoration: none;
         }
 
         .sb-item.active {
-            background: #EEF2FF;
-            color: var(--navy);
+            background: #EAF4FD;
+            color: #0b6aa3;
+            font-weight: 600;
         }
 
         .sb-item.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 55%;
-            background: var(--sky);
-            border-radius: 0 2px 2px 0;
+            display: none;
         }
 
         .sb-item i.sb-icon {
-            width: 15px;
-            font-size: 13px;
+            width: 16px;
+            font-size: 14px;
             flex-shrink: 0;
-            opacity: .6;
+            opacity: .55;
             text-align: center;
         }
 
-        .sb-item.active i.sb-icon,
+        .sb-item.active i.sb-icon {
+            opacity: 1;
+            color: #0097D8;
+        }
+
         .sb-item.open i.sb-icon {
             opacity: 1;
         }
@@ -373,7 +415,7 @@
         /* Submenu */
         .sb-submenu {
             display: none;
-            padding: 2px 0 4px 24px;
+            padding: 2px 0 6px 14px;
         }
 
         .sb-item.open+.sb-submenu {
@@ -383,15 +425,15 @@
         .sb-sub-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 5px;
+            gap: 9px;
+            padding: 8px 11px;
+            border-radius: 9px;
             font-size: 12px;
             font-weight: 400;
-            color: var(--text-muted);
+            color: #6b7894;
             text-decoration: none;
-            transition: .12s;
-            margin-bottom: 1px;
+            transition: background .12s, color .12s;
+            margin-bottom: 2px;
             position: relative;
             white-space: nowrap;
             overflow: hidden;
@@ -412,27 +454,19 @@
         }
 
         .sb-sub-item:hover {
-            background: var(--bg);
-            color: var(--text);
+            background: #f4f7fb;
+            color: #1A2340;
             text-decoration: none;
         }
 
         .sb-sub-item.active {
-            color: var(--navy);
+            color: #0b6aa3;
             font-weight: 600;
-            background: #EEF2FF;
+            background: #EAF4FD;
         }
 
         .sb-sub-item.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 55%;
-            background: var(--sky);
-            border-radius: 0 2px 2px 0;
+            display: none;
         }
 
         .sb-sub-item i {
@@ -726,7 +760,7 @@
         }
 
         #main-wrapper.sidebar-collapsed {
-            margin-left: 54px;
+            margin-left: 68px;
         }
 
         #main-content {
@@ -1381,6 +1415,45 @@
                     if (!wasOpen) item.classList.add('open');
                 });
             });
+
+            /* ---- Flyout submenu saat sidebar collapsed (hover ikon → submenu mengambang & bisa diklik) ---- */
+            (function() {
+                var hideTimer = null;
+                document.querySelectorAll('.sb-item[data-has-sub]').forEach(function(item) {
+                    var sub = item.nextElementSibling;
+                    if (!sub || !sub.classList.contains('sb-submenu')) return;
+
+                    function show() {
+                        if (!sidebar.classList.contains('collapsed')) return;
+                        clearTimeout(hideTimer);
+                        // tutup flyout lain
+                        document.querySelectorAll('.sb-submenu.sb-flyout').forEach(function(f) {
+                            if (f !== sub) {
+                                f.classList.remove('sb-flyout');
+                                f.removeAttribute('style');
+                            }
+                        });
+                        var r = item.getBoundingClientRect();
+                        sub.classList.add('sb-flyout');
+                        sub.style.left = (r.right + 8) + 'px';
+                        var sh = sub.offsetHeight;
+                        var top = r.top - 6;
+                        if (top + sh > window.innerHeight - 8) top = Math.max(8, window.innerHeight - sh - 8);
+                        sub.style.top = top + 'px';
+                    }
+
+                    function hide() {
+                        hideTimer = setTimeout(function() {
+                            sub.classList.remove('sb-flyout');
+                            sub.removeAttribute('style');
+                        }, 140);
+                    }
+                    item.addEventListener('mouseenter', show);
+                    item.addEventListener('mouseleave', hide);
+                    sub.addEventListener('mouseenter', function() { clearTimeout(hideTimer); });
+                    sub.addEventListener('mouseleave', hide);
+                });
+            })();
 
             /* Auto-open active parent */
             document.querySelectorAll('.sb-sub-item.active').forEach(function(sub) {

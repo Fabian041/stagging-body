@@ -1378,7 +1378,7 @@
         <div class="ov-row ov-row--2">
             <div class="ov-panel">
                 <div class="ov-panel__head">
-                    <div class="ov-panel__title" id="ovProdTitle" style="cursor:default;user-select:none;"><i class="fas fa-industry"></i> Produksi per Line</div>
+                    <div class="ov-panel__title"><i class="fas fa-industry"></i> Produksi per Line</div>
                 </div>
                 <div class="ov-panel__body" id="ovProdByLine"><div class="ov-loading">Memuat data</div></div>
             </div>
