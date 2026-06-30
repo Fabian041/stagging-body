@@ -36,8 +36,7 @@
                 request()->is('dashboard/receiving*') ||
                 request()->is('dashboard/delivery') ||
                 request()->is('loading-list*') ||
-                request()->is('pulling/manual') ||
-                request()->is('pulling/master-alamat-chute');
+                request()->is('pulling/manual');
         @endphp
 
         <div class="sb-item {{ $ppicActive ? 'open' : '' }}" data-has-sub>
@@ -131,25 +130,6 @@
             </a>
         </div>
 
-         <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
-            <i class="fas fa-database sb-icon"></i>
-            <span class="sb-item-label">Master Data</span>
-            <i class="fas fa-chevron-right sb-chevron"></i>
-            <span class="sb-item-tooltip">Master Data</span>
-        </div>
-        <div class="sb-submenu">
-            <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
-                href="{{ route('pis.master') }}">
-                <i class="fas fa-database"></i>
-                Master Data PIS
-            </a>
-            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
-                href="{{ route('pulling.master-alamat-chute') }}">
-                <i class="fas fa-map-marker-alt"></i>
-                Alamat Chute
-            </a>
-        </div>
-
         {{-- ── Quality ── --}}
         @php
             $qualityActive = request()->routeIs('quality.*');
@@ -162,6 +142,11 @@
             <span class="sb-item-tooltip">Quality</span>
         </div>
         <div class="sb-submenu">
+            <a class="sb-sub-item {{ request()->routeIs('quality.scan') ? 'active' : '' }}"
+                href="{{ route('quality.scan') }}">
+                <i class="fas fa-barcode"></i>
+                Scan Quality
+            </a>
             <a class="sb-sub-item {{ request()->routeIs('quality.pareto') ? 'active' : '' }}"
                 href="{{ route('quality.pareto') }}">
                 <i class="fas fa-chart-bar"></i>
@@ -171,6 +156,34 @@
                 href="{{ route('quality.history') }}">
                 <i class="fas fa-list-ul"></i>
                 Detail Scan
+            </a>
+        </div>
+
+        {{-- ── Master Data ── --}}
+        @php
+            $masterActive =
+                request()->routeIs('pis.master') ||
+                request()->routeIs('pis.edit') ||
+                request()->routeIs('pis.preview') ||
+                request()->routeIs('pulling.master-alamat-chute*');
+        @endphp
+
+        <div class="sb-item {{ $masterActive ? 'open' : '' }}" data-has-sub>
+            <i class="fas fa-database sb-icon"></i>
+            <span class="sb-item-label">Master Data</span>
+            <i class="fas fa-chevron-right sb-chevron"></i>
+            <span class="sb-item-tooltip">Master Data</span>
+        </div>
+        <div class="sb-submenu">
+            <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
+                href="{{ route('pis.master') }}">
+                <i class="fas fa-database"></i>
+                Master Data PIS
+            </a>
+            <a class="sb-sub-item {{ request()->routeIs('pulling.master-alamat-chute*') ? 'active' : '' }}"
+                href="{{ route('pulling.master-alamat-chute') }}">
+                <i class="fas fa-map-marker-alt"></i>
+                Alamat Chute
             </a>
         </div>
 
