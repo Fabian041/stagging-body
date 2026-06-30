@@ -757,6 +757,11 @@
             transition: margin-left .25s cubic-bezier(.4, 0, .2, 1);
             overflow-x: hidden;
             min-width: 0;
+            background:
+                radial-gradient(420px 150px at 16px 42px, rgba(0, 151, 216, .055), transparent 72%),
+                radial-gradient(520px 160px at 84% 36px, rgba(124, 58, 237, .04), transparent 74%),
+                linear-gradient(180deg, rgba(255, 255, 255, .18) 0%, rgba(240, 244, 249, 0) 150px),
+                var(--bg);
         }
 
         #main-wrapper.sidebar-collapsed {
@@ -989,41 +994,93 @@
             position: sticky;
             top: 0;
             z-index: 80;
-            min-height: 68px;
-            padding: 0 24px;
+            height: auto;
+            padding: 12px 18px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 18px;
-            background: rgba(255, 255, 255, .88);
-            backdrop-filter: blur(18px) saturate(180%);
-            -webkit-backdrop-filter: blur(18px) saturate(180%);
-            border-bottom: 1px solid rgba(221, 227, 239, .92);
-            box-shadow: 0 10px 32px rgba(41, 71, 149, .08);
+            gap: 12px;
+            background: transparent;
+            border-bottom: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        #topbar > * {
+            pointer-events: auto;
+        }
+
+        /* aurora tipis di belakang pod biar efek kaca (frost) kelihatan walau konten terang */
+        #topbar::before {
+            content: '';
+            position: absolute;
+            inset: -18px 0 -72px;
+            z-index: -1;
+            pointer-events: none;
+            background:
+                radial-gradient(340px 110px at 18% 34%, rgba(0, 151, 216, .095), transparent 74%),
+                radial-gradient(420px 120px at 82% 30%, rgba(124, 58, 237, .06), transparent 76%);
+            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 58%, transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 58%, transparent 100%);
         }
 
         .tb-left,
         .tb-right {
             display: flex;
             align-items: center;
-            gap: 12px;
             min-width: 0;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .45);
+            -webkit-backdrop-filter: blur(20px) saturate(185%);
+            backdrop-filter: blur(20px) saturate(185%);
+            border: 1px solid rgba(255, 255, 255, .85);
+            box-shadow: 0 8px 28px rgba(41, 71, 149, .12), inset 0 1px 0 rgba(255, 255, 255, .55);
         }
 
         .tb-left {
-            flex: 1;
+            flex: 0 1 auto;
+            gap: 10px;
+            padding: 7px 16px 7px 9px;
         }
 
         .tb-right {
             flex-shrink: 0;
+            gap: 5px;
+            padding: 6px 7px;
         }
 
-        .tb-page-title {
-            font-size: 18px;
-            font-weight: 850;
-            line-height: 1.15;
-            letter-spacing: -.04em;
+        .tb-crumb {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12.5px;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .tb-crumb-home {
+            color: #8a97ad;
+            font-size: 12px;
+        }
+
+        .tb-crumb-sep {
+            color: #c2cad8;
+            font-size: 8px;
+        }
+
+        .tb-crumb-parent {
+            color: #7a86a0;
+            font-weight: 500;
+        }
+
+        .tb-crumb-cur {
             color: #1A2340;
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .tb-page-sub {
@@ -1035,15 +1092,15 @@
 
         /* Search */
         .tb-search {
-            width: 260px;
-            height: 40px;
+            width: 230px;
+            height: 36px;
             display: flex;
             align-items: center;
             gap: 9px;
-            padding: 0 14px;
-            border-radius: 14px;
-            background: #F0F4F9;
-            border: 1px solid #DDE3EF;
+            padding: 0 13px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .5);
+            border: 1px solid rgba(15, 23, 42, .07);
             transition: all .18s ease;
         }
 
@@ -1100,6 +1157,22 @@
             transform: translateY(-1px);
         }
 
+        /* di dalam pod kanan: ikon dibuat flat (pod-nya yang jadi permukaan kaca) */
+        .tb-right .tb-icon-btn {
+            width: 36px;
+            height: 36px;
+            background: transparent;
+            border: 1px solid transparent !important;
+            box-shadow: none;
+        }
+
+        .tb-right .tb-icon-btn:hover {
+            background: rgba(0, 112, 183, .10);
+            border-color: transparent !important;
+            color: #0070B7;
+            transform: none;
+        }
+
         .tb-notif-dot {
             position: absolute;
             top: 9px;
@@ -1115,36 +1188,34 @@
         /* Divider */
         .tb-divider {
             width: 1px;
-            height: 28px;
-            background: #DDE3EF;
-            margin: 0 2px;
+            height: 22px;
+            background: rgba(15, 23, 42, .1);
+            margin: 0 3px;
         }
 
         /* User pill */
         .tb-user-pill {
             position: relative;
-            height: 42px;
+            height: 36px;
             display: inline-flex;
             align-items: center;
-            gap: 9px;
-            padding: 5px 12px 5px 5px;
+            gap: 8px;
+            padding: 4px 10px 4px 4px;
             border-radius: 999px;
-            background: #F8FAFF;
-            border: 1px solid #DDE3EF;
+            background: transparent;
+            border: 1px solid transparent;
             cursor: pointer;
             transition: all .18s ease;
-            box-shadow: 0 8px 20px rgba(41, 71, 149, .05);
         }
 
         .tb-user-pill:hover {
-            background: #FFFFFF;
-            border-color: rgba(0, 112, 183, .30);
-            box-shadow: 0 12px 28px rgba(41, 71, 149, .10);
+            background: rgba(0, 112, 183, .08);
+            border-color: transparent;
         }
 
         .tb-user-pill-av {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             border-radius: 999px;
             display: flex;
             align-items: center;
@@ -1284,8 +1355,7 @@
         /* Mobile responsive */
         @media (max-width: 768px) {
             #topbar {
-                min-height: 62px;
-                padding: 0 14px;
+                padding: 10px 12px;
             }
 
             .tb-right {
@@ -1463,6 +1533,34 @@
                     if (trigger) trigger.classList.add('open');
                 }
             });
+
+            /* Breadcrumb pod topbar dari menu aktif */
+            (function() {
+                var box = document.getElementById('tbCrumb');
+                if (!box) return;
+                var clean = function(s) { return (s || '').replace(/\s+/g, ' ').trim(); };
+                var crumbs = [];
+                var sub = document.querySelector('#sidebar-wrapper .sb-sub-item.active');
+                if (sub) {
+                    var menu = sub.closest('.sb-submenu');
+                    var parent = menu ? menu.previousElementSibling : null;
+                    var plabel = parent ? parent.querySelector('.sb-item-label') : null;
+                    if (plabel) crumbs.push(clean(plabel.textContent));
+                    crumbs.push(clean(sub.textContent));
+                } else {
+                    var item = document.querySelector('#sidebar-wrapper .sb-item.active');
+                    var ilabel = item ? item.querySelector('.sb-item-label') : null;
+                    crumbs.push(ilabel ? clean(ilabel.textContent) : 'Dashboard');
+                }
+                var html = '<i class="fas fa-home tb-crumb-home"></i>';
+                crumbs.forEach(function(c, i) {
+                    var last = i === crumbs.length - 1;
+                    html += '<i class="fas fa-chevron-right tb-crumb-sep"></i>';
+                    html += '<span class="' + (last ? 'tb-crumb-cur' : 'tb-crumb-parent') + '">' +
+                        c.replace(/[<>&]/g, '') + '</span>';
+                });
+                box.innerHTML = html;
+            })();
 
             /* ---- Topbar user dropdown ---- */
             var pill = document.querySelector('.tb-user-pill');

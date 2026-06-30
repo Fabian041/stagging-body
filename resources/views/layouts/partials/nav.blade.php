@@ -7,12 +7,13 @@
             <i class="fas fa-bars"></i>
         </button>
 
-        {{-- Page title (rendered by each page via @section or just static) --}}
+        {{-- Breadcrumb (di-set otomatis dari menu aktif via JS) --}}
         <div class="d-none d-md-block">
-            {{-- <div class="tb-page-title">{{ $pageTitle ?? 'Dashboard' }}</div> --}}
-            @if (!empty($pageSubtitle))
-                <div class="tb-page-sub">{{ $pageSubtitle }}</div>
-            @endif
+            <div class="tb-crumb" id="tbCrumb">
+                <i class="fas fa-home tb-crumb-home"></i>
+                <i class="fas fa-chevron-right tb-crumb-sep"></i>
+                <span class="tb-crumb-cur">Dashboard</span>
+            </div>
         </div>
     </div>
 
