@@ -3941,9 +3941,21 @@
             var SPR_E1 = ['  XX', ' XXX', 'XXXX', ' XXX', '  XX'];
             var SPR_E2 = [' XXXX ', 'XXXXXX', 'XX  XX', 'XXXXXX', 'XXXXXX', ' XXXX '];
             var HEART = [' X X ', 'XXXXX', 'XXXXX', ' XXX ', '  X  '];
+            var SPR_DRAGON_HEAD = [
+                '      X       X   ',
+                '     XX      XX   ',
+                '    XXX     XXX   ',
+                '   XXXXXXXXXXXXX  ',
+                '  XX  X  XXXXXX   ',
+                ' XXXXXXXXXXXXXXXXX',
+                'XXXXXXXXXXXXXXXXXX',
+                '    XXXXX         ',
+                '   XXXXXXXXX      ',
+                '    XXXXXX        '
+            ];
 
             var state = 'ready',
-                player, bullets, enemies, ebullets, boss, score, level, kills, need, spawnT, banner, bannerT, terr, scrollA, last;
+                player, bullets, enemies, ebullets, powerups, bosses, score, level, kills, need, spawnT, banner, bannerT, terr, scrollA, last;
             var active = false,
                 rafId = null,
                 keys = {};
@@ -3961,8 +3973,8 @@
             function genH(h) { h += Math.random() * 4 - 2; return Math.max(3, Math.min(16, h)); }
 
             function reset() {
-                player = { x: 14, y: 28, w: 6, h: 5, sp: 52, lives: 5, fire: 0, inv: 0 };
-                bullets = []; enemies = []; ebullets = []; boss = null;
+                player = { x: 14, y: 28, w: 6, h: 5, sp: 52, lives: 5, fire: 0, inv: 0, power: 1, hasLaser: false, laserCd: 0, laserActive: 0 };
+                bullets = []; enemies = []; ebullets = []; powerups = []; bosses = [];
                 score = 0; level = 1; kills = 0; need = 6; spawnT = 600;
                 banner = 'LEVEL 1'; bannerT = 1300;
                 terr = []; var h = 8; for (var i = 0; i < GW + 2; i++) { h = genH(h); terr.push(Math.round(h)); } scrollA = 0;
@@ -3977,9 +3989,11 @@
                 else enemies.push({ x: GW + 6, y: 6 + Math.random() * 36, w: 5, h: 5, sp: 24 + level * 4, hp: 1, b: SPR_E0, pts: 10 });
             }
 
-            function spawnBoss() { boss = { x: GW - 30, y: 24, r: 11, dir: 1, sp: 22 + level * 3, hp: 20 + level * 8, max: 20 + level * 8, shoot: 700 }; bannerSet('BOSS', 1400); }
+            function spawnBoss() { bosses = [{ x: GW - 30, y: 24, r: 11, dir: 1, sp: 22 + level * 3, hp: 20 + level * 8, max: 20 + level * 8, shoot: 700 }]; bannerSet('BOSS', 1400); }
 
-            function nextLevel() { level++; kills = 0; need = 5 + level * 2; if (level % 3 === 0) spawnBoss(); else bannerSet('LEVEL ' + level, 1100); }
+            function spawnDragon() { bosses = [{ x: GW - 30, y: 24, r: 10, dir: 1, sp: 35 + level * 3, hp: 40 + level * 10, max: 40 + level * 10, shoot: 500, type: 'dragon' }]; bannerSet('DRAGON BOSS', 1500); }
+
+            function nextLevel() { level++; kills = 0; need = 5 + level * 2; if (level === 5) spawnDragon(); else if (level % 3 === 0) spawnBoss(); else bannerSet('LEVEL ' + level, 1100); }
 
             function hitB(ax, ay, aw, ah, b) { return ax < b.x + b.w && ax + aw > b.x && ay < b.y + b.h && ay + ah > b.y; }
 
@@ -3994,39 +4008,161 @@
                 player.y = Math.max(3, Math.min(42, player.y + my * player.sp * d));
                 if (player.inv > 0) player.inv -= dt;
                 player.fire -= dt;
-                if (player.fire <= 0) { bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115 }); player.fire = 230; }
-                for (var i = 0; i < bullets.length; i++) bullets[i].x += bullets[i].sp * d;
-                bullets = bullets.filter(function(b) { return b.x < GW + 4; });
-                if (!boss) { spawnT -= dt; if (spawnT <= 0) { spawn(); spawnT = Math.max(420, 1400 - level * 110); } }
+                if (player.fire <= 0) { 
+                    bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: 0 }); 
+                    if (player.power >= 2) {
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: -25 });
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: 25 });
+                    }
+                    if (player.power >= 3) {
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: -50 });
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: 50 });
+                    }
+                    player.fire = 230; 
+                }
+                for (var i = 0; i < bullets.length; i++) {
+                    bullets[i].x += bullets[i].sp * d;
+                    if (bullets[i].dy) bullets[i].y += bullets[i].dy * d;
+                }
+                bullets = bullets.filter(function(b) { return b.x < GW + 4 && b.y > 0 && b.y < GH; });
+                
+                if (bosses.length === 0) { spawnT -= dt; if (spawnT <= 0) { spawn(); spawnT = Math.max(420, 1400 - level * 110); } }
+                
                 for (var j = 0; j < enemies.length; j++) enemies[j].x -= enemies[j].sp * d;
                 enemies = enemies.filter(function(e) { return e.x + e.w > -4; });
-                if (boss) {
-                    boss.y += boss.dir * boss.sp * d;
-                    if (boss.y < 14) boss.dir = 1;
-                    if (boss.y > 44) boss.dir = -1;
-                    boss.shoot -= dt;
-                    if (boss.shoot <= 0) { ebullets.push({ x: boss.x - boss.r, y: boss.y, sp: 60 + level * 8 }); boss.shoot = Math.max(420, 1000 - level * 40); }
+                
+                for (var bsi = 0; bsi < bosses.length; bsi++) {
+                    var bs = bosses[bsi];
+                    bs.y += bs.dir * bs.sp * d;
+                    if (bs.y < 14) bs.dir = 1;
+                    if (bs.y > 44) bs.dir = -1;
+                    bs.shoot -= dt;
+                    if (bs.shoot <= 0) { 
+                        if (bs.type === 'dragon') {
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 70 + level * 8, dy: -15 });
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 70 + level * 8, dy: 0 });
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 70 + level * 8, dy: 15 });
+                            if (bs.enraged) {
+                                var tx = bs.x + 70;
+                                var ty = bs.y + Math.sin(performance.now() / 150 + 5) * 12;
+                                ebullets.push({ x: tx, y: ty, sp: 90 + level * 8, dy: -25 });
+                                ebullets.push({ x: tx, y: ty, sp: 90 + level * 8, dy: 25 });
+                            }
+                            bs.shoot = Math.max(300, 800 - level * 40);
+                        } else {
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 60 + level * 8, dy: 0 }); 
+                            bs.shoot = Math.max(420, 1000 - level * 40); 
+                        }
+                    }
                 }
-                for (var k = 0; k < ebullets.length; k++) ebullets[k].x -= ebullets[k].sp * d;
-                ebullets = ebullets.filter(function(b) { return b.x > -4; });
+                
+                for (var k = 0; k < ebullets.length; k++) {
+                    ebullets[k].x -= ebullets[k].sp * d;
+                    if (ebullets[k].dy) ebullets[k].y += ebullets[k].dy * d;
+                }
+                ebullets = ebullets.filter(function(b) { return b.x > -4 && b.y > 0 && b.y < GH; });
+                
+                if (player.hasLaser) {
+                    player.laserCd -= dt;
+                    if (player.laserCd <= 0) {
+                        player.laserActive = 200;
+                        player.laserCd = 4000;
+                        var l_x = player.x + player.w;
+                        var l_y = player.y + 1;
+                        for (var ei = 0; ei < enemies.length; ei++) {
+                            var e = enemies[ei];
+                            if (e.hp > 0 && hitB(l_x, l_y, GW, 3, e)) {
+                                e.hp -= 5;
+                                if (e.hp <= 0) { score += e.pts; kills++; }
+                            }
+                        }
+                        for (var bsi = 0; bsi < bosses.length; bsi++) {
+                            var bs = bosses[bsi];
+                            if (bs.hp > 0 && hitB(l_x, l_y, GW, 3, {x: bs.x - bs.r, y: bs.y - bs.r, w: bs.r * 2, h: bs.r * 2})) {
+                                var oldHp = bs.hp;
+                                bs.hp -= 5;
+                                var half = Math.floor(bs.max / 2);
+                                if (oldHp > half && bs.hp <= half) {
+                                    if (bs.type === 'dragon' && !bs.enraged) {
+                                        bs.enraged = true; bs.sp *= 1.5; bs.shoot = 200;
+                                    } else if (bs.type !== 'dragon' && bs.r > 7) {
+                                        bs.r = 7; bs.sp *= 1.3; bs.hp += 5;
+                                        bosses.push({ x: bs.x, y: bs.y + 15, r: 7, dir: -bs.dir, sp: bs.sp, hp: bs.hp, max: bs.max, shoot: bs.shoot });
+                                    }
+                                }
+                                if (bs.hp <= 0) { score += 150 + level * 20; bs.dead = true; }
+                            }
+                        }
+                    }
+                }
+                if (player.laserActive > 0) player.laserActive -= dt;
+
+                for (var pi = 0; pi < powerups.length; pi++) {
+                    powerups[pi].x -= 30 * d;
+                    if (hitB(player.x, player.y, player.w, player.h, powerups[pi])) {
+                        if (powerups[pi].type === 'laser') {
+                            player.hasLaser = true;
+                            player.laserCd = 0;
+                        } else {
+                            player.power = Math.min(3, player.power + 1);
+                        }
+                        powerups[pi].x = -99;
+                        score += 50;
+                    }
+                }
+                powerups = powerups.filter(function(p) { return p.x > -4; });
+
                 for (var bi = 0; bi < bullets.length; bi++) {
                     var b = bullets[bi];
                     for (var ei = 0; ei < enemies.length; ei++) {
                         var e = enemies[ei];
-                        if (e.hp > 0 && hitB(b.x, b.y, 3, 1, e)) { e.hp--; b.x = GW + 99; if (e.hp <= 0) { score += e.pts; kills++; } break; }
+                        if (e.hp > 0 && hitB(b.x, b.y, 3, 1, e)) { 
+                            e.hp--; b.x = GW + 99; 
+                            if (e.hp <= 0) { 
+                                score += e.pts; kills++; 
+                                if (Math.random() < 0.15) powerups.push({ x: e.x, y: e.y, w: 5, h: 5, type: Math.random() < 0.3 ? 'laser' : 'spread' });
+                            } 
+                            break; 
+                        }
                     }
-                    if (boss && boss.hp > 0 && b.x > boss.x - boss.r && b.y > boss.y - boss.r && b.y < boss.y + boss.r) { boss.hp--; b.x = GW + 99; if (boss.hp <= 0) { score += 150 + level * 20; boss = null; nextLevel(); } }
+                    for (var bsi = 0; bsi < bosses.length; bsi++) {
+                        var bs = bosses[bsi];
+                        if (bs.hp > 0 && b.x > bs.x - bs.r && b.y > bs.y - bs.r && b.y < bs.y + bs.r) { 
+                            bs.hp--; b.x = GW + 99; 
+                            if (bs.hp === Math.floor(bs.max / 2)) {
+                                if (bs.type === 'dragon' && !bs.enraged) {
+                                    bs.enraged = true;
+                                    bs.sp *= 1.5;
+                                    bs.shoot = 200;
+                                } else if (bs.type !== 'dragon' && bs.r > 7) {
+                                    bs.r = 7; bs.sp *= 1.3; bs.hp += 5;
+                                    bosses.push({ x: bs.x, y: bs.y + 15, r: 7, dir: -bs.dir, sp: bs.sp, hp: bs.hp, max: bs.max, shoot: bs.shoot });
+                                }
+                            }
+                            if (bs.hp <= 0) { 
+                                score += 150 + level * 20; 
+                                bs.dead = true; 
+                            } 
+                        }
+                    }
                 }
                 enemies = enemies.filter(function(e) { return e.hp > 0; });
-                bullets = bullets.filter(function(b) { return b.x < GW + 4; });
+                var oldLen = bosses.length;
+                bosses = bosses.filter(function(bs) { return !bs.dead; });
+                if (oldLen > 0 && bosses.length === 0) {
+                    nextLevel();
+                }
 
-                function dmg() { if (player.inv > 0) return; player.lives--; player.inv = 1300; if (player.lives <= 0) { state = 'over'; bannerSet('GAME OVER', 9e9); } }
+                function dmg() { if (player.inv > 0) return; player.lives--; player.inv = 1300; player.power = 1; player.hasLaser = false; if (player.lives <= 0) { state = 'over'; bannerSet('GAME OVER', 9e9); } }
                 for (var ci = 0; ci < enemies.length; ci++) if (hitB(player.x, player.y, player.w, player.h, enemies[ci])) { enemies[ci].hp = 0; dmg(); }
                 enemies = enemies.filter(function(e) { return e.hp > 0; });
                 for (var di = 0; di < ebullets.length; di++) { var eb = ebullets[di]; if (player.x < eb.x + 3 && player.x + player.w > eb.x && player.y < eb.y + 2 && player.y + player.h > eb.y) { eb.x = -99; dmg(); } }
                 ebullets = ebullets.filter(function(b) { return b.x > -4; });
-                if (boss && Math.abs((player.x + 3) - boss.x) < boss.r && Math.abs((player.y + 2) - boss.y) < boss.r) dmg();
-                if (!boss && kills >= need) nextLevel();
+                for (var bsi = 0; bsi < bosses.length; bsi++) {
+                    var bs = bosses[bsi];
+                    if (Math.abs((player.x + 3) - bs.x) < bs.r && Math.abs((player.y + 2) - bs.y) < bs.r) dmg();
+                }
+                if (bosses.length === 0 && kills >= need) nextLevel();
                 if (bannerT > 0) bannerT -= dt;
             }
 
@@ -4039,17 +4175,66 @@
                 for (var bi = 0; bi < bullets.length; bi++) px(bullets[bi].x, bullets[bi].y, 3, 1);
                 for (var ei = 0; ei < ebullets.length; ei++) px(ebullets[ei].x, ebullets[ei].y, 3, 2);
                 for (var en = 0; en < enemies.length; en++) spr(enemies[en].b, enemies[en].x | 0, enemies[en].y | 0);
-                if (boss) {
-                    disc(boss.x | 0, boss.y | 0, boss.r);
-                    for (var a = 0; a < 8; a++) { var an = a / 8 * 6.283; px((boss.x + Math.cos(an) * (boss.r + 1)) | 0, (boss.y + Math.sin(an) * (boss.r + 1)) | 0, 2, 2); }
-                    ctx.fillStyle = BG; disc((boss.x - boss.r * 0.45) | 0, (boss.y - 2) | 0, 3);
-                    ctx.fillStyle = FG; px((boss.x - boss.r * 0.45) | 0, (boss.y - 2) | 0, 2, 2);
-                    px(GW / 2 - 22, 4, 44, 1);
-                    ctx.fillStyle = BG; px(GW / 2 - 22 + Math.ceil(44 * boss.hp / boss.max), 4, 44 - Math.ceil(44 * boss.hp / boss.max), 1);
+                
+                if (player.laserActive > 0) {
+                    var l_x = player.x + player.w;
+                    var l_y = player.y + 1;
+                    if ((performance.now() / 30 | 0) % 2 === 0) px(l_x, l_y, GW, 3);
+                    else px(l_x, l_y + 1, GW, 1);
+                }
+
+                for (var pi = 0; pi < powerups.length; pi++) {
+                    var pu = powerups[pi];
+                    px(pu.x | 0, pu.y | 0, 5, 5);
+                    ctx.fillStyle = BG; px((pu.x + 1) | 0, (pu.y + 1) | 0, 3, 3);
+                    ctx.fillStyle = FG; 
+                    if (pu.type === 'laser') px((pu.x + 1) | 0, (pu.y + 2) | 0, 3, 1);
+                    else px((pu.x + 2) | 0, (pu.y + 2) | 0, 1, 1);
+                }
+
+                for (var bsi = 0; bsi < bosses.length; bsi++) {
+                    var bs = bosses[bsi];
+                    
+                    if (bs.type === 'dragon') {
+                        for (var d_i = 10; d_i >= 1; d_i--) {
+                            var dr = Math.max(2, Math.round(bs.r - d_i * 0.7));
+                            var dx = (bs.x + d_i * 7) | 0;
+                            var dy = (bs.y + Math.sin(performance.now() / 150 + d_i * 0.5) * 12) | 0;
+                            ctx.fillStyle = FG;
+                            disc(dx, dy, dr);
+                            ctx.fillStyle = BG; 
+                            disc(dx, dy, Math.max(1, dr - 2)); 
+                            ctx.fillStyle = FG;
+                            px(dx - 1, dy - 1, 2, 2);
+                            px(dx, dy - dr - 2, 2, 3);
+                            px(dx + 1, dy - dr - 3, 1, 1);
+                            if (d_i === 10) {
+                                px(dx + dr, dy - 4, 2, 8);
+                                px(dx + dr + 2, dy - 2, 2, 4);
+                            }
+                        }
+                        ctx.fillStyle = BG; disc(bs.x | 0, bs.y | 0, bs.r - 1); ctx.fillStyle = FG;
+                        spr(SPR_DRAGON_HEAD, bs.x - 9, bs.y - 5);
+                    } else {
+                        disc(bs.x | 0, bs.y | 0, bs.r);
+                        for (var a = 0; a < 8; a++) { var an = a / 8 * 6.283; px((bs.x + Math.cos(an) * (bs.r + 1)) | 0, (bs.y + Math.sin(an) * (bs.r + 1)) | 0, 2, 2); }
+                        ctx.fillStyle = BG; disc((bs.x - bs.r * 0.45) | 0, (bs.y - 2) | 0, 3);
+                        ctx.fillStyle = FG; px((bs.x - bs.r * 0.45) | 0, (bs.y - 2) | 0, 2, 2);
+                    }
+                    
+                    var hw = bs.r > 7 ? 44 : 20;
+                    var hx = bs.r > 7 ? GW / 2 - 22 : bs.x - 10;
+                    var hy = bs.r > 7 ? 4 : bs.y - bs.r - 4;
+                    px(hx, hy, hw, 1);
+                    ctx.fillStyle = BG; px(hx + Math.ceil(hw * bs.hp / bs.max), hy, hw - Math.ceil(hw * bs.hp / bs.max), 1);
                     ctx.fillStyle = FG;
                 }
                 if (!(player.inv > 0 && (performance.now() / 90 | 0) % 2)) spr(SPR_SHIP, player.x | 0, player.y | 0);
                 spr(HEART, 2, 2); text(('0' + player.lives).slice(-2), 9, 2);
+                if (player.hasLaser) {
+                    var cdP = Math.max(0, player.laserCd / 4000);
+                    px(2, GH - 7, 20, 5); ctx.fillStyle = BG; px(3, GH - 6, 18, 3); ctx.fillStyle = FG; px(3, GH - 5, Math.round(18 * (1 - cdP)), 1);
+                }
                 text(('0000' + score).slice(-5), GW - 21, 2);
                 if (bannerT > 0 || state === 'over') {
                     var w = textW(banner) * 2;
