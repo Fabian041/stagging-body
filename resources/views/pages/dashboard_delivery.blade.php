@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-                 * BELLA DESIGN SYSTEM — Shell overrides for this page
-                 * =================================================== */
+                     * BELLA DESIGN SYSTEM — Shell overrides for this page
+                     * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -366,8 +366,8 @@
         }
 
         /* ====================================================
-                 * GANTT CHART — kept exactly as original, do not touch
-                 * ==================================================== */
+                     * GANTT CHART — kept exactly as original, do not touch
+                     * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -811,6 +811,36 @@
             color: #1a1d21;
         }
 
+        .timeline-heading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .timeline-late-summary {
+            display: inline-flex;
+            align-items: center;
+            max-width: min(52vw, 520px);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+            background: #fff7f7;
+            color: #991b1b;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .timeline-late-summary.is-empty {
+            border-color: #d1fae5;
+            background: #f0fdf4;
+            color: #15803d;
+        }
+
         .delivery-timeline-card .timeline-menu-btn {
             border: none;
             background: transparent;
@@ -1165,7 +1195,7 @@
             transform: translateY(-50%);
             padding: 1px 5px;
             border-radius: 4px;
-            background: rgba(127, 29, 29, .92);
+            background: #dc3545;
             color: #fff;
             font-size: 8px;
             font-weight: 800;
@@ -1186,6 +1216,17 @@
             margin-left: 3px;
             transform: none;
             vertical-align: middle;
+        }
+
+        .weekly-prep-bar.is-prep-late {
+            background: #dc3545 !important;
+        }
+
+        .delivery-timeline-card .gantt-grid-row.is-row-highlight .gantt-grid-cell,
+        .delivery-weekly-card tr.is-row-highlight>td {
+            background: #fff7ed !important;
+            box-shadow: inset 0 0 0 2px rgba(245, 158, 11, .28);
+            transition: background .22s ease, box-shadow .22s ease;
         }
 
         .prep-late-detail {
@@ -1404,6 +1445,7 @@
         }
 
         @container weekly-bar (max-width: 52px) {
+
             .delivery-timeline-card .weekly-prep-bar .gantt-bar-pct,
             .delivery-timeline-card .weekly-truck-pill .gantt-bar-pct {
                 display: none;
@@ -1587,8 +1629,8 @@
             overflow: visible;
         }
 
-        .delivery-weekly-card .weekly-prep-bar > span,
-        .delivery-weekly-card .weekly-truck-pill > span {
+        .delivery-weekly-card .weekly-prep-bar>span,
+        .delivery-weekly-card .weekly-truck-pill>span {
             font-size: 9px;
             font-weight: 700;
             color: #2f3542;
@@ -1777,7 +1819,11 @@
                     {{-- Gantt timeline --}}
                     <div class="delivery-timeline-card mb-2" id="deliveryTimelineCard">
                         <div class="timeline-card-header d-flex justify-content-between align-items-center">
-                            <h2 class="timeline-title">Timeline delivery</h2>
+                            <div class="timeline-heading">
+                                <h2 class="timeline-title">Timeline delivery</h2>
+                                <span class="timeline-late-summary is-empty" id="timelineLateSummary">Tidak ada prep
+                                    telat</span>
+                            </div>
                             <button type="button" class="timeline-menu-btn" aria-label="Menu"
                                 title="Menu">&#8942;</button>
                         </div>
@@ -1793,6 +1839,10 @@
                                 <li>
                                     <span class="legend-dot" style="background: var(--dm-yellow);"></span>
                                     Belum selesai (&lt; 100%)
+                                </li>
+                                <li>
+                                    <span class="legend-dot" style="background: #dc3545;"></span>
+                                    Prep telat
                                 </li>
                                 <li>
                                     <span class="legend-offset-swatch is-offset-h-minus"></span>
@@ -1825,8 +1875,9 @@
 
                     {{-- Weekly card --}}
                     <div class="delivery-weekly-card mb-2 d-none" id="deliveryWeeklyCard">
-                        <div class="weekly-card-header">
+                        <div class="weekly-card-header d-flex justify-content-between align-items-center">
                             <h2 class="weekly-title">Ringkasan mingguan delivery</h2>
+                            <span class="timeline-late-summary is-empty" id="weeklyLateSummary">Tidak ada prep telat</span>
                         </div>
                         <div class="weekly-card-body">
                             <div class="weekly-axis-header">
@@ -2865,6 +2916,7 @@
             function getAllChartRowsForLookup() {
                 var seen = {};
                 var out = [];
+
                 function pushRow(r) {
                     if (!r) {
                         return;
@@ -2909,6 +2961,7 @@
 
             function rebuildLoadingListPresenceIndex() {
                 loadingListPresenceIndex = {};
+
                 function ingest(row) {
                     if (!rowHasLoadingListData(row)) {
                         return;
@@ -3053,6 +3106,7 @@
             function collectWeeklyPrepBarsForCustomer(cust, rows, slots) {
                 var out = [];
                 var rendered = {};
+
                 function pushBar(row, span) {
                     if (!span) {
                         return;
@@ -3112,7 +3166,8 @@
                     return shouldShowPrepMorningContinuation(r, viewDateStr);
                 });
                 return sourceRows.map(function(row) {
-                    var layout = computePrepMorningContinuationLayout(getRowPrepEndClock(row), ganttHourWindow);
+                    var layout = computePrepMorningContinuationLayout(getRowPrepEndClock(row),
+                        ganttHourWindow);
                     if (!layout) {
                         return null;
                     }
@@ -3194,7 +3249,8 @@
                     if (!barHtml) {
                         return;
                     }
-                    $(this).find('.gantt-grid-track-lane').first().find('.gantt-track').first().append(barHtml);
+                    $(this).find('.gantt-grid-track-lane').first().find('.gantt-track').first().append(
+                        barHtml);
                 });
             }
 
@@ -3217,7 +3273,8 @@
                         return;
                     }
                     var prepLayout = computePrepBarLayoutForRow(row, ganttHourWindow);
-                    var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch || {},
+                    var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac,
+                        overdueLatch || {},
                         prepLayout);
                     var lateInfo = buildPrepLateInfo(row, prepStatus);
                     var progressWidthC = prepStatus.progressWidth;
@@ -3234,15 +3291,19 @@
                         prepEndDayOffsetLabel: row.prep_end_day_offset_label ||
                             formatPrepDayOffsetLabel(getRowPrepEndDayOffset(row)),
                         prepEndClock: contLayout.prepEndClock,
-                        displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
+                        displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(
+                            row) * 10) / 10,
                         blockedByPrior: prepStatus.isBlocked,
                         lateInfo: lateInfo
                     }).replace(/"/g, '&quot;');
                     segs.forEach(function(seg) {
-                        html += '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation' +
+                        html +=
+                            '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation' +
                             (lateInfo.isLate ? ' is-prep-late' : '') + '" style="left:' +
-                            seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 / ganttHourWindow) +
-                            '%;--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;" title="' +
+                            seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 /
+                            ganttHourWindow) +
+                            '%;--cross-day-label:&quot;' + escapeAttr(crossDayLabel) +
+                            '&quot;" title="' +
                             contTitle + '"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
@@ -3252,13 +3313,15 @@
                         html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(
                             row.delivery_date)) + '"';
                         if (lateInfo.isLate) {
-                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(lateInfo)) + '"';
+                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(
+                                lateInfo)) + '"';
                         }
                         html += '>';
                         html += buildGanttProgressStackHtml(progressWidthC, barClassC,
                             getGanttBarDisplayPct(row, prepStatus), prepLayout);
                         html += buildPrepLateBadgeHtml(lateInfo);
-                        html += '<span class="pill-meta"><span class="pill-avatar" style="opacity:.9">' +
+                        html +=
+                            '<span class="pill-meta"><span class="pill-avatar" style="opacity:.9">' +
                             escapeHtml(avC) + '</span></span></div>';
                     });
                 });
@@ -3450,7 +3513,7 @@
                 var pe = getRowPrepEndClock(row) || '';
                 var ct = (row.cycle_time != null) ? String(row.cycle_time).trim().substring(0, 5) : '';
                 return [dd, String(row.customer_id || ''), String(row.customer_name || ''), String(row
-                        .cycle_name || ''), ps, pe, ct].join('|');
+                    .cycle_name || ''), ps, pe, ct].join('|');
             }
 
             function resolveRowFinishPrepDeadlineMs(row) {
@@ -3554,7 +3617,8 @@
                 var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
                 var latePullingItems = getRowLatePullingItems(row);
                 var progressLate = deadlineMs != null && rawPct < 100 && Date.now() >= deadlineMs;
-                var latchedLate = !!(prepStatus && prepStatus.isOverdue) && !progressLate && !latePullingItems.length;
+                var latchedLate = !!(prepStatus && prepStatus.isOverdue) && !progressLate && !latePullingItems
+                    .length;
                 var maxDelayMs = 0;
                 latePullingItems.forEach(function(item) {
                     maxDelayMs = Math.max(maxDelayMs, item.delayMs || 0);
@@ -3603,7 +3667,8 @@
                 if (!lateInfo || !lateInfo.isLate) {
                     return '';
                 }
-                var label = lateInfo.delayLabel || (lateInfo.items && lateInfo.items.length ? lateInfo.items.length +
+                var label = lateInfo.delayLabel || (lateInfo.items && lateInfo.items.length ? lateInfo.items
+                    .length +
                     ' LL' : 'Telat');
                 return '<span class="prep-late-badge">' + escapeHtml(label) + '</span>';
             }
@@ -3658,6 +3723,68 @@
                 }
                 return '<span class="customer-late-note" title="' + escapeAttr(title) + '">' + count +
                     ' telat</span>';
+            }
+
+            function collectPrepLateSummary(rows) {
+                var latchMap = getOverdueLatchMap();
+                var customers = {};
+                var lateItems = {};
+                var fallbackItems = 0;
+                var maxDelayMs = 0;
+                var seenRows = {};
+                (rows || []).forEach(function(row) {
+                    if (!row || !rowHasConfiguredMasterCycle(row)) {
+                        return;
+                    }
+                    var rowKey = prepRowIdentityKey(row);
+                    if (seenRows[rowKey]) {
+                        return;
+                    }
+                    seenRows[rowKey] = true;
+                    var info = buildPrepLateInfo(row, {
+                        isOverdue: !!latchMap[rowOverdueLatchKey(row)]
+                    });
+                    if (!info.isLate) {
+                        return;
+                    }
+                    customers[row.customer_name || '-'] = true;
+                    maxDelayMs = Math.max(maxDelayMs, info.delayMs || 0);
+                    if (info.items && info.items.length) {
+                        info.items.forEach(function(item) {
+                            lateItems[(item.pdsNumber || '-') + '|' + (item.loadingList || '-')] =
+                                true;
+                        });
+                        return;
+                    }
+                    var refs = Array.isArray(row.loading_lists) && row.loading_lists.length ? row
+                        .loading_lists :
+                        (Array.isArray(row.pds_numbers) ? row.pds_numbers : []);
+                    if (!refs.length) {
+                        fallbackItems++;
+                        return;
+                    }
+                    refs.forEach(function(ref) {
+                        lateItems[(row.customer_id || '-') + '|' + String(ref)] = true;
+                    });
+                });
+                return {
+                    customerCount: Object.keys(customers).length,
+                    itemCount: Object.keys(lateItems).length + fallbackItems,
+                    maxDelayMs: maxDelayMs
+                };
+            }
+
+            function updateTimelineLateSummary() {
+                var rows = chartMergedByCustTime.length ? chartMergedByCustTime :
+                    filterRowsWithConfiguredMasterCycle(
+                        chartRows);
+                var summary = collectPrepLateSummary(rows);
+                var hasLate = summary.customerCount > 0;
+                var text = hasLate ?
+                    (summary.customerCount + ' customer telat · ' + summary.itemCount + ' LL telat' +
+                        (summary.maxDelayMs > 0 ? ' · terlama ' + formatDelayShort(summary.maxDelayMs) : '')) :
+                    'Tidak ada prep telat';
+                $('#timelineLateSummary, #weeklyLateSummary').text(text).toggleClass('is-empty', !hasLate);
             }
 
             function getRowFinishPrepClock(row) {
@@ -3843,15 +3970,18 @@
                         prepEnd = '-';
                     }
                     var prepRangeDisp = prepStart + ' – ' + prepEnd;
-                    var startOffLbl = r.prep_day_offset_label || formatPrepDayOffsetLabel(r.prep_day_offset || 0);
+                    var startOffLbl = r.prep_day_offset_label || formatPrepDayOffsetLabel(r
+                        .prep_day_offset || 0);
                     var endOffLbl = r.prep_end_day_offset_label || formatPrepDayOffsetLabel(
-                        r.prep_end_day_offset != null ? r.prep_end_day_offset : (r.prep_day_offset || 0));
+                        r.prep_end_day_offset != null ? r.prep_end_day_offset : (r.prep_day_offset || 0)
+                        );
                     var offsetDisp = startOffLbl;
                     if (endOffLbl !== startOffLbl) {
                         offsetDisp += ' → ' + endOffLbl;
                     }
                     if (r.prep_crosses_midnight) {
-                        offsetDisp += ' <span style="font-size:10px;color:var(--sky);">(lintas malam)</span>';
+                        offsetDisp +=
+                            ' <span style="font-size:10px;color:var(--sky);">(lintas malam)</span>';
                     }
                     var truckDisp = (r.truck_time && String(r.truck_time).length) ? formatClockDot(r
                         .truck_time) : '<span style="color:var(--text-muted);">-</span>';
@@ -3868,12 +3998,12 @@
                         '<td style="white-space:nowrap;">' +
                         (canManageMaster ?
                             ('<a class="act-btn primary btn-edit-master" data-id="' + r.id +
-                            '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:4px;">' +
-                            '<i class="fas fa-edit"></i> Edit</a>' +
-                            '<a class="act-btn danger btn-del-master" data-id="' + r.id +
-                            '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">' +
-                            '<i class="fas fa-trash"></i> Hapus</a>')
-                            : '<span style="color:var(--text-muted);">-</span>') +
+                                '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:4px;">' +
+                                '<i class="fas fa-edit"></i> Edit</a>' +
+                                '<a class="act-btn danger btn-del-master" data-id="' + r.id +
+                                '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">' +
+                                '<i class="fas fa-trash"></i> Hapus</a>') :
+                            '<span style="color:var(--text-muted);">-</span>') +
                         '</td>' +
                         '</tr>'
                     );
@@ -3927,9 +4057,11 @@
                             customerName || '-') + '</strong></div>' +
                         '<div class="master-cycle-swal-row"><span>Cycle</span><strong>' + escapeHtml(payload
                             .cycle_name || '-') + '</strong></div>' +
-                        '<div class="master-cycle-swal-row"><span>Prep</span><strong>' + escapeHtml(prepRange) +
+                        '<div class="master-cycle-swal-row"><span>Prep</span><strong>' + escapeHtml(
+                            prepRange) +
                         '</strong></div>' +
-                        '<div class="master-cycle-swal-row"><span>Offset</span><strong>' + escapeHtml(offsetText) +
+                        '<div class="master-cycle-swal-row"><span>Offset</span><strong>' + escapeHtml(
+                            offsetText) +
                         '</strong></div>' +
                         '<div class="master-cycle-swal-row"><span>ETA Truck</span><strong>' + escapeHtml(
                             formatClockDot(payload.truck_time)) + '</strong></div>' +
@@ -4068,7 +4200,8 @@
                         row.truck_time.substring(0, 5)) : '';
                     $('#mcyclePrepStart').val(prepStart);
                     $('#mcyclePrepEnd').val(prepEnd);
-                    $('#mcyclePrepDayOffset').val(String(row.prep_day_offset != null ? row.prep_day_offset : 0));
+                    $('#mcyclePrepDayOffset').val(String(row.prep_day_offset != null ? row
+                        .prep_day_offset : 0));
                     $('#mcycleTruckTime').val(etaTruck);
                     $('#mcycleCustomerId').val(row.customer_id != null ? String(row.customer_id) :
                         '');
@@ -4121,6 +4254,7 @@
                     return acc + (parseInt(r.total_done, 10) || 0);
                 }, 0);
                 $('#timelineTotalSum').text('Total: ' + sum);
+                updateTimelineLateSummary();
             }
 
             function buildWeeklyTooltip(details) {
@@ -4483,7 +4617,7 @@
                     text += ' · ' + cycles.length + ' cycle';
                 }
                 return '<span class="customer-unconfigured-note" title="' + escapeAttr(
-                    'Atur PREP di Master Cycle: ' + tipCycles) + '">' +
+                        'Atur PREP di Master Cycle: ' + tipCycles) + '">' +
                     escapeHtml(text) + '</span>';
             }
 
@@ -4599,6 +4733,7 @@
                 var viewDateStr = String(viewDate || '').trim();
                 var seen = {};
                 var rows = [];
+
                 function pushRow(r) {
                     if (!r || !rowHasConfiguredMasterCycle(r)) {
                         return;
@@ -4962,7 +5097,8 @@
                 gridHtml +=
                     '<div class="gantt-grid-cell gantt-grid-sticky-col gantt-grid-sticky-customer" style="font-weight:700;padding:0 10px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">' +
                     '<span>Customer</span>' +
-                    (viewDateLabel ? '<span style="font-size:9px;font-weight:600;color:var(--dm-muted);margin-top:2px;">Sumbu hari: ' +
+                    (viewDateLabel ?
+                        '<span style="font-size:9px;font-weight:600;color:var(--dm-muted);margin-top:2px;">Sumbu hari: ' +
                         escapeHtml(viewDateLabel) + '</span>' : '') +
                     '</div>';
                 gridHtml +=
@@ -4983,7 +5119,8 @@
                         if (dd === viewDate) {
                             return true;
                         }
-                        if (filterRange.from && filterRange.to && dd >= filterRange.from && dd <= filterRange.to) {
+                        if (filterRange.from && filterRange.to && dd >= filterRange.from && dd <=
+                            filterRange.to) {
                             return rowTouchesViewDate(row, viewDate);
                         }
                         return false;
@@ -4993,10 +5130,11 @@
                     var allBucketsForDate = deliveryBucketsForDate.slice();
                     var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
                     var unconfiguredHint = buildUnconfiguredTimelineHintHtml(allBucketsForDate);
-                    var lateSummary = buildCustomerPrepLateSummaryHtml(gateRows.length ? gateRows : prepBarItems.map(
-                        function(item) {
-                            return item.row;
-                        }));
+                    var lateSummary = buildCustomerPrepLateSummaryHtml(gateRows.length ? gateRows :
+                        prepBarItems.map(
+                            function(item) {
+                                return item.row;
+                            }));
                     gridHtml += '<div class="gantt-grid-row">';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer" data-customer-name="' +
@@ -5052,9 +5190,10 @@
                         var truckSegClass = 'truck';
                         if (row.truck_status === 'picked' && row.truck_picked_at) {
                             var actualTime = new Date(row.truck_picked_at);
-                            var scheduledTime = new Date(getTruckDisplayDate(row) + 'T' + normalizeClock(row.truck_time) + ':00');
+                            var scheduledTime = new Date(getTruckDisplayDate(row) + 'T' +
+                                normalizeClock(row.truck_time) + ':00');
                             var earlyThreshold = new Date(scheduledTime.getTime() - 15 * 60 * 1000);
-                            
+
                             if (actualTime > scheduledTime) {
                                 truckSegClass = 'truck-late';
                             } else if (actualTime < earlyThreshold) {
@@ -5066,13 +5205,16 @@
                             var truckComplete = isRowPrepKanbanComplete(row);
                             truckSegClass = truckComplete ? 'truck-complete' : 'truck';
                         }
-                        var truckTitle = buildGanttTooltip(row, buildTruckTooltipOpts(row)).replace(/"/g,
+                        var truckTitle = buildGanttTooltip(row, buildTruckTooltipOpts(row)).replace(
+                            /"/g,
                             '&quot;');
                         var truckLabel = 'C' + escapeHtml(String(rowCycleKey(row) || '?'));
-                        var truckExtraClass = (truckNextDay || truckCrossMidnight ? ' is-cross-day' : '') + ' ' +
+                        var truckExtraClass = (truckNextDay || truckCrossMidnight ?
+                                ' is-cross-day' : '') + ' ' +
                             getPrepOffsetCssClass(getRowPrepDayOffset(row));
                         gridHtml += '<div class="gantt-bar-wrap truck-pill' + truckExtraClass +
-                            '" style="left:' + truckLeftPct + '%;z-index:' + (2 + truckIdx) + ';" title="' +
+                            '" style="left:' + truckLeftPct + '%;z-index:' + (2 + truckIdx) +
+                            ';" title="' +
                             truckTitle + '"';
                         gridHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         gridHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
@@ -5080,7 +5222,8 @@
                             row.delivery_date)) + '"';
                         gridHtml += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(
                             row.delivery_date)) + '">';
-                        gridHtml += buildTruckBarStackHtml(truckSegClass, getRowRawProgressPct(row));
+                        gridHtml += buildTruckBarStackHtml(truckSegClass, getRowRawProgressPct(
+                        row));
                         gridHtml += buildPrepPillMetaHtml(row, truckLabel);
                         gridHtml += '</div>';
                     });
@@ -5135,6 +5278,16 @@
                 }
             }
 
+            function highlightPrepLateRow($bar) {
+                var $targets = $bar.hasClass('weekly-prep-bar') ?
+                    $bar.closest('tr').add($bar.closest('tr').next('tr')) :
+                    $bar.closest('.gantt-grid-row');
+                $targets.addClass('is-row-highlight');
+                setTimeout(function() {
+                    $targets.removeClass('is-row-highlight');
+                }, 2200);
+            }
+
             function buildPrepLateDetailHtml(info) {
                 var reasons = (info.reasons || []).map(function(reason) {
                     return '<span class="prep-late-detail__reason">' + escapeHtml(reason) + '</span>';
@@ -5149,7 +5302,8 @@
                 html += '<div><span>Progress</span><strong>' + escapeHtml(info.progressPct || 0) + '% (' +
                     escapeHtml(info.done || 0) + '/' + escapeHtml(info.target || 0) + ')</strong></div>';
                 html += '</div>';
-                html += '<div class="prep-late-detail__reasons">' + (reasons || '<span class="prep-late-detail__reason">Prep telat</span>') +
+                html += '<div class="prep-late-detail__reasons">' + (reasons ||
+                        '<span class="prep-late-detail__reason">Prep telat</span>') +
                     '</div>';
 
                 if (info.items && info.items.length) {
@@ -5181,7 +5335,7 @@
                 }
                 Swal.fire({
                     icon: 'warning',
-                    title: 'Detail Prep Telat',
+                    title: 'Detail Preparation Telat',
                     html: buildPrepLateDetailHtml(info),
                     width: 760,
                     confirmButtonText: 'Buka Loading List',
@@ -5194,6 +5348,8 @@
                 }).then(function(result) {
                     if (result.isConfirmed) {
                         openLoadingListFromBar($bar);
+                    } else {
+                        highlightPrepLateRow($bar);
                     }
                 });
             }
@@ -5242,7 +5398,8 @@
                 }
 
                 if (!chartRows.length) {
-                    $('#weeklyGanttContainer').html('<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
+                    $('#weeklyGanttContainer').html(
+                        '<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
                     updateTimelineTotal();
                     return;
                 }
@@ -5290,7 +5447,8 @@
 
                 // Header
                 html += '<thead><tr>';
-                html += '<th class="weekly-col-customer-head" style="text-align:left;padding-left:10px;">Customer</th>';
+                html +=
+                    '<th class="weekly-col-customer-head" style="text-align:left;padding-left:10px;">Customer</th>';
                 html += '<th class="weekly-col-type-head">TYPE</th>';
                 slots.forEach(function(slotDateStr) {
                     html += '<th class="weekly-col-day-head">' + weeklyDateLabel(slotDateStr) + '</th>';
@@ -5318,7 +5476,8 @@
                 custOrder.forEach(function(cust, custIdx) {
                     var rows = sortPrepRowsByOrder(custMap[cust] || []);
                     var rowsForBars = rows.filter(rowHasConfiguredMasterCycle);
-                    var weeklyLateSummary = buildCustomerPrepLateSummaryHtml(filterRowsInWeeklySlots(rowsForBars,
+                    var weeklyLateSummary = buildCustomerPrepLateSummaryHtml(filterRowsInWeeklySlots(
+                        rowsForBars,
                         slots));
                     var rowHeight = 136; // px – sama dengan daily
 
@@ -5353,23 +5512,27 @@
                         var row = item.row;
                         var span = item.span;
                         var anchorDate = span.anchorDate;
-                        var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[0]) :
+                        var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[
+                            0]) :
                             anchorDate;
                         var gateRows = getCustomerPrepRowsForSequentialGate(cust, gateDate);
                         var prepLayoutDaily = computePrepBarLayoutForRow(row, 24);
                         var weeklyCurrentFrac = (gateDate === todayStr) ? nowFrac : null;
-                        var prepStatus = resolvePrepBarStatus(row, gateRows, gateDate, weeklyCurrentFrac,
+                        var prepStatus = resolvePrepBarStatus(row, gateRows, gateDate,
+                            weeklyCurrentFrac,
                             weeklyOverdueLatch, prepLayoutDaily);
                         var lateInfo = buildPrepLateInfo(row, prepStatus);
                         var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
                         var pct = prepStatus.isBlocked ? 0 : rawPct;
                         var barColor = prepBarStatusToWeeklyColor(prepStatus, pct);
                         var cycleLbl = rowCycleKey(row) || '-';
-                        var prepRangeLbl = span.prepStart + (span.prepEnd ? '–' + span.prepEnd : '');
+                        var prepRangeLbl = span.prepStart + (span.prepEnd ? '–' + span.prepEnd :
+                        '');
                         var tipText = escapeAttr(buildGanttTooltip(row, {
                             prepRange: prepRangeLbl,
-                            prepDayOffsetLabel: row.prep_day_offset_label || formatPrepDayOffsetLabel(
-                                getRowPrepDayOffset(row)),
+                            prepDayOffsetLabel: row.prep_day_offset_label ||
+                                formatPrepDayOffsetLabel(
+                                    getRowPrepDayOffset(row)),
                             prepEndDayOffsetLabel: row.prep_end_day_offset_label ||
                                 formatPrepDayOffsetLabel(getRowPrepEndDayOffset(row)),
                             crossDayFromDate: span.crossesDays ? (span.anchorDate ||
@@ -5381,9 +5544,11 @@
                         }));
                         var av = 'C' + escapeHtml(String(cycleLbl).toUpperCase());
                         var crossClass = span.crossesDays ? ' is-cross-day' : '';
-                        var incomingClass = span.isIncomingFromPriorRange ? ' is-incoming-prior-range' : '';
+                        var incomingClass = span.isIncomingFromPriorRange ?
+                            ' is-incoming-prior-range' : '';
                         var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
-                        var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24), minPrepBarWidthPct);
+                        var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24),
+                            minPrepBarWidthPct);
                         html += '<div class="weekly-prep-bar' + crossClass + incomingClass +
                             (lateInfo.isLate ? ' is-prep-late' : '') + ' ' + offsetClass +
                             '" title="' + tipText + '" style="left:' +
@@ -5391,16 +5556,21 @@
                             'background:' + barColor + ';"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
-                        html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
-                        html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
+                        html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row
+                            .delivery_date)) + '"';
+                        html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row
+                            .delivery_date)) + '"';
                         if (lateInfo.isLate) {
-                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(lateInfo)) + '"';
+                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(
+                                lateInfo)) + '"';
                         }
                         html += '>';
                         var weeklyBarW = trackWidthPx * (barWidthPct / 100);
-                        var weeklyPctHtml = shouldShowGanttBarPct(weeklyBarW, pct) ? buildGanttBarPctHtml(pct) : '';
+                        var weeklyPctHtml = shouldShowGanttBarPct(weeklyBarW, pct) ?
+                            buildGanttBarPctHtml(pct) : '';
                         html += '<span>' +
-                            av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml + buildPrepLateBadgeHtml(lateInfo) +
+                            av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml +
+                            buildPrepLateBadgeHtml(lateInfo) +
                             '</span></div>';
                     });
                     if (nowDayIdx >= 0) {
@@ -5425,7 +5595,8 @@
                     slots.forEach(function(slotDateStr, dayIdx) {
                         var isToday = slotDateStr === todayStr;
                         var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
-                        html += '<td class="weekly-col-day" style="position:relative;padding:0;border:1px solid #eef0f3;height:' +
+                        html +=
+                            '<td class="weekly-col-day" style="position:relative;padding:0;border:1px solid #eef0f3;height:' +
                             (rowHeight / 2) +
                             'px;vertical-align:top;overflow:visible;' + bg + '">';
                         html += '<div style="position:relative;height:' + (rowHeight / 2) + 'px;">';
@@ -5434,7 +5605,8 @@
                             if (String(truckDisplayDate || '').trim() !== slotDateStr) {
                                 return;
                             }
-                            var truckTime = row.truck_time ? String(row.truck_time).substring(0, 5) : null;
+                            var truckTime = row.truck_time ? String(row.truck_time)
+                                .substring(0, 5) : null;
                             if (!truckTime) {
                                 return;
                             }
@@ -5444,11 +5616,14 @@
                             }
                             var leftPct = truckFrac * 100;
                             var pct = getRowRawProgressPct(row);
-                            var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' : '#f59e0b';
+                            var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' :
+                                '#f59e0b';
                             if (row.truck_status === 'picked' && row.truck_picked_at) {
                                 var actualTime = new Date(row.truck_picked_at);
-                                var scheduledTime = new Date(truckDisplayDate + 'T' + truckTime + ':00');
-                                var earlyThreshold = new Date(scheduledTime.getTime() - 15 * 60 * 1000);
+                                var scheduledTime = new Date(truckDisplayDate + 'T' +
+                                    truckTime + ':00');
+                                var earlyThreshold = new Date(scheduledTime.getTime() - 15 *
+                                    60 * 1000);
                                 if (actualTime > scheduledTime) {
                                     barColor = '#dc3545';
                                 } else if (actualTime < earlyThreshold) {
@@ -5460,26 +5635,32 @@
                             var truckNextDay = isTruckOnNextDay(row);
                             var truckCrossMidnight = isTruckCrossMidnight(row);
                             var cycleLblTruck = rowCycleKey(row) || '-';
-                            var tipText = escapeAttr(buildGanttTooltip(row, buildTruckTooltipOpts(row)) +
-                                ' | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
+                            var tipText = escapeAttr(buildGanttTooltip(row,
+                                    buildTruckTooltipOpts(row)) +
+                                ' | Done ' + (row.total_done || 0) + '/' + (row
+                                    .total_target || 0));
                             var truckBorder = (truckNextDay || truckCrossMidnight) ?
                                 'border:2px dashed #b86f00;' : '';
                             var av = 'C' + escapeHtml(String(cycleLblTruck).toUpperCase());
-                            html += '<div class="weekly-truck-pill" title="' + tipText + '" style="' +
+                            html += '<div class="weekly-truck-pill" title="' + tipText +
+                                '" style="' +
                                 'position:absolute;top:8px;height:22px;' +
                                 'left:' + leftPct + '%;width:48px;min-width:48px;' +
-                                'background:' + barColor + ';border-radius:4px;' + truckBorder +
+                                'background:' + barColor + ';border-radius:4px;' +
+                                truckBorder +
                                 'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
                                 'cursor:pointer;box-sizing:border-box;z-index:2;' +
                                 'display:flex;align-items:center;justify-content:center;padding:0 4px;' +
                                 '">' +
                                 '<span>' +
-                                av + (shouldShowGanttBarPct(48, pct) ? buildGanttBarPctHtml(pct) : '') + '</span>' +
+                                av + (shouldShowGanttBarPct(48, pct) ? buildGanttBarPctHtml(
+                                    pct) : '') + '</span>' +
                                 '</div>';
                         });
                         if (isToday) {
                             var nFrac2 = getCurrentDayFrac();
-                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac2 * 100) +
+                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac2 *
+                                    100) +
                                 '%;width:2px;background:rgb(67,53,220);transform:translateX(-50%);z-index:4;pointer-events:none;"></div>';
                         }
                         html += '</div></td>';
@@ -5499,8 +5680,9 @@
                         if (slotDateStr !== todayS) {
                             return;
                         }
-                        $('#weeklyGanttContainer [data-wday="' + dayIdx + '"] .weekly-now-line').css('left', (nFrac3 * 100) +
-                            '%');
+                        $('#weeklyGanttContainer [data-wday="' + dayIdx + '"] .weekly-now-line')
+                            .css('left', (nFrac3 * 100) +
+                                '%');
                     });
                 }, 1000);
 
@@ -5524,6 +5706,7 @@
                 }
                 $('#ganttContainer').empty();
                 destroyWeeklyChart();
+
                 function finishStackedChartLoad(res) {
                     chartRows = enrichChartRowsCollection(res.rows || []);
                     chartWeeklyPoints = enrichChartRowsCollection(res.weekly_points || []);
@@ -5533,7 +5716,8 @@
                     if (!chartRows.length && !chartRowsPrevDay.length) {
                         var msg = hint || 'Tidak ada data delivery untuk filter ini.';
                         $('#chartEmpty').removeClass('d-none').text(msg);
-                        $('#timelineTotalSum').text('Total: 0');
+                        chartMergedByCustTime = [];
+                        updateTimelineTotal();
                         return;
                     }
                     if (hint && !filterRowsWithConfiguredMasterCycle(chartRows).length) {
@@ -5573,26 +5757,27 @@
                         date: addDaysToDateStr(viewDateForAdj, 1)
                     });
                     var pending = 2;
+
                     function maybeFinishAdj() {
                         pending--;
                         if (pending <= 0) {
                             finishStackedChartLoad(res);
                         }
                     }
-                        $.get(stackedUrl, prevParams, function(prevRes) {
-                            chartRowsPrevDay = enrichChartRowsCollection(prevRes.rows || []);
-                            maybeFinishAdj();
-                        }).fail(function() {
-                            chartRowsPrevDay = [];
-                            maybeFinishAdj();
-                        });
-                        $.get(stackedUrl, nextParams, function(nextRes) {
-                            chartRowsNextDay = enrichChartRowsCollection(nextRes.rows || []);
-                            maybeFinishAdj();
-                        }).fail(function() {
-                            chartRowsNextDay = [];
-                            maybeFinishAdj();
-                        });
+                    $.get(stackedUrl, prevParams, function(prevRes) {
+                        chartRowsPrevDay = enrichChartRowsCollection(prevRes.rows || []);
+                        maybeFinishAdj();
+                    }).fail(function() {
+                        chartRowsPrevDay = [];
+                        maybeFinishAdj();
+                    });
+                    $.get(stackedUrl, nextParams, function(nextRes) {
+                        chartRowsNextDay = enrichChartRowsCollection(nextRes.rows || []);
+                        maybeFinishAdj();
+                    }).fail(function() {
+                        chartRowsNextDay = [];
+                        maybeFinishAdj();
+                    });
                 }).fail(function() {
                     $('#chartEmpty').removeClass('d-none').text('Gagal memuat Gantt.');
                     $('#timelineTotalSum').text('Total: 0');
