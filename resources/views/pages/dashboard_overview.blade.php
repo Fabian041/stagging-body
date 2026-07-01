@@ -215,6 +215,373 @@
             font-weight: 600;
         }
 
+        .ov-ai-widget {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 1060;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .ov-ai-fab,
+        .ov-ai-popover {
+            pointer-events: auto;
+        }
+
+        .ov-ai-fab {
+            width: auto;
+            height: 44px;
+            padding: 0 16px 0 12px;
+            border: 1px solid rgba(255, 255, 255, .50);
+            border-radius: 999px;
+            color: #fff;
+            background: #1498df;
+            box-shadow: 0 14px 32px rgba(20, 152, 223, .28), 0 0 0 5px rgba(20, 152, 223, .10);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: .01em;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease;
+        }
+
+        .ov-ai-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(20, 152, 223, .32), 0 0 0 6px rgba(20, 152, 223, .12);
+        }
+
+        .ov-ai-widget.is-open .ov-ai-fab {
+            transform: scale(.97);
+            box-shadow: 0 10px 24px rgba(20, 152, 223, .24), 0 0 0 4px rgba(20, 152, 223, .10);
+        }
+
+        .ov-ai-popover {
+            position: absolute;
+            right: 0;
+            bottom: 58px;
+            width: min(430px, calc(100vw - 28px));
+            max-height: min(640px, calc(100vh - 116px));
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(207, 232, 247, .86);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, .78);
+            box-shadow: 0 28px 70px rgba(15, 37, 87, .24);
+            -webkit-backdrop-filter: blur(18px) saturate(145%);
+            backdrop-filter: blur(18px) saturate(145%);
+            opacity: 0;
+            transform: translateY(18px) scale(.92);
+            transform-origin: right bottom;
+            pointer-events: none;
+            transition: opacity .22s ease, transform .34s cubic-bezier(.2, .9, .2, 1);
+        }
+
+        .ov-ai-widget.is-open .ov-ai-popover {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .ov-ai-head {
+            padding: 13px 14px;
+            border-bottom: 1px solid rgba(207, 232, 247, .82);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: rgba(248, 251, 255, .56);
+        }
+
+        .ov-ai-title {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--navy);
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .ov-ai-title i {
+            color: var(--primary);
+        }
+
+        .ov-ai-chat-icon {
+            width: 17px;
+            height: 17px;
+            color: #1498df;
+            flex: 0 0 auto;
+        }
+
+        .ov-ai-fab .ov-ai-chat-icon {
+            width: 18px;
+            height: 18px;
+            color: #fff;
+        }
+
+        .ov-ai-fab__label {
+            line-height: 1;
+        }
+
+        .ov-ai-chat-icon path {
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .ov-ai-chat-icon circle {
+            fill: currentColor;
+        }
+
+        .ov-ai-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 850;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .ov-ai-status::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .12);
+        }
+
+        .ov-ai-close {
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(207, 232, 247, .9);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .68);
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .ov-ai-body {
+            min-height: 0;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+        }
+
+        .ov-ai-chat {
+            height: clamp(230px, 42vh, 360px);
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            padding: 2px 4px 2px 0;
+        }
+
+        .ov-ai-msg {
+            max-width: 88%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(226, 232, 240, .86);
+            background: rgba(255, 255, 255, .82);
+            color: var(--text);
+            font-size: 12.5px;
+            line-height: 1.55;
+            font-weight: 600;
+            white-space: normal;
+        }
+
+        .ov-ai-msg--assistant {
+            align-self: flex-start;
+            border-color: rgba(191, 219, 254, .86);
+            background: rgba(248, 251, 255, .9);
+        }
+
+        .ov-ai-msg--user {
+            align-self: flex-end;
+            border-color: rgba(125, 211, 252, .86);
+            background: rgba(224, 242, 254, .92);
+            color: #075985;
+        }
+
+        .ov-ai-msg--typing {
+            padding: 8px 11px;
+            min-width: 42px;
+        }
+
+        .ov-ai-typing {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            height: 7px;
+        }
+
+        .ov-ai-typing span {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #94a3b8;
+            animation: ovAiTypingDot 1.25s infinite ease-in-out;
+        }
+
+        .ov-ai-typing span:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .ov-ai-typing span:nth-child(2) {
+            animation-delay: 0.18s;
+        }
+
+        .ov-ai-typing span:nth-child(3) {
+            animation-delay: 0.36s;
+        }
+
+        @keyframes ovAiTypingDot {
+            0%,
+            60%,
+            100% {
+                opacity: .35;
+                transform: translateY(0);
+            }
+
+            30% {
+                opacity: 1;
+                transform: translateY(-2px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ov-ai-typing span {
+                animation: ovAiTypingPulse 1.2s infinite ease-in-out;
+            }
+
+            @keyframes ovAiTypingPulse {
+                0%,
+                100% {
+                    opacity: .35;
+                }
+
+                50% {
+                    opacity: 1;
+                }
+            }
+        }
+
+        .ov-ai-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ov-ai-chip {
+            border: 1px solid rgba(191, 219, 254, .9);
+            background: rgba(255, 255, 255, .74);
+            color: var(--navy);
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 11.5px;
+            font-weight: 850;
+            cursor: pointer;
+            transition: .15s;
+        }
+
+        .ov-ai-chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .ov-ai-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ov-ai-form input {
+            min-width: 0;
+            flex: 1;
+            height: 38px;
+            border: 1px solid rgba(207, 232, 247, .95);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, .86);
+            color: var(--text);
+            font-size: 12.5px;
+            font-weight: 650;
+            padding: 0 11px;
+            outline: none;
+        }
+
+        .ov-ai-form input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
+        }
+
+        .ov-ai-send {
+            width: 40px;
+            height: 38px;
+            border: 0;
+            border-radius: 9px;
+            background: var(--primary);
+            color: #fff;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ov-ai-send:disabled,
+        .ov-ai-chip:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+            transform: none;
+        }
+
+        @media (max-width: 575.98px) {
+            .ov-ai-widget {
+                right: 14px;
+                bottom: 14px;
+            }
+
+            .ov-ai-fab {
+                height: 40px;
+                padding: 0 14px 0 11px;
+                font-size: 12px;
+                gap: 7px;
+            }
+
+            .ov-ai-fab .ov-ai-chat-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            .ov-ai-popover {
+                bottom: 52px;
+                width: calc(100vw - 28px);
+                max-height: calc(100vh - 92px);
+                border-radius: 14px;
+            }
+
+            .ov-ai-chat {
+                height: clamp(210px, 42vh, 320px);
+            }
+        }
+
         .ov-row {
             display: grid;
             gap: 14px;
@@ -1341,6 +1708,58 @@
             </a>
         </div>
 
+        {{-- ===== FLOATING ASK BELLA ===== --}}
+        <div class="ov-ai-widget" id="ovAiWidget">
+            <div class="ov-ai-popover" id="ovAiPopover" role="dialog" aria-modal="false" aria-labelledby="ovAiTitle" aria-hidden="true">
+                <div class="ov-ai-head">
+                    <div>
+                        <div class="ov-ai-title" id="ovAiTitle">
+                            <svg class="ov-ai-chat-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M5.5 5.25h13A3.25 3.25 0 0 1 21.75 8.5v5.25A3.25 3.25 0 0 1 18.5 17h-7.7l-5.05 3v-3.35A3.25 3.25 0 0 1 2.25 13.4V8.5A3.25 3.25 0 0 1 5.5 5.25Z" />
+                                <circle cx="8.25" cy="11.15" r="1" />
+                                <circle cx="12" cy="11.15" r="1" />
+                                <circle cx="15.75" cy="11.15" r="1" />
+                            </svg>
+                            Ask BELLA
+                        </div>
+                        <span class="ov-ai-status" id="ovAiStatus">Online</span>
+                    </div>
+                    <button type="button" class="ov-ai-close" id="ovAiClose" aria-label="Tutup Ask BELLA">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="ov-ai-body">
+                    <div class="ov-ai-chat" id="ovAiChat">
+                        <div class="ov-ai-msg ov-ai-msg--assistant">
+                            Data dashboard sudah siap. Tanya prioritas, risiko, root cause, atau langkah berikutnya.
+                        </div>
+                    </div>
+                    <div class="ov-ai-suggestions">
+                        <button type="button" class="ov-ai-chip" data-ai-question="Buat brief operasional singkat untuk periode ini.">Brief operasional</button>
+                        <button type="button" class="ov-ai-chip" data-ai-question="Apa prioritas 30 menit ke depan?">Prioritas 30 menit</button>
+                        <button type="button" class="ov-ai-chip" data-ai-question="Delivery atau loading list mana yang paling berisiko?">Delivery berisiko</button>
+                        <button type="button" class="ov-ai-chip" data-ai-question="Part understock mana yang paling perlu dicek?">Part berisiko</button>
+                        <button type="button" class="ov-ai-chip" data-ai-question="Apa kemungkinan root cause dari masalah utama di dashboard ini?">Root cause</button>
+                    </div>
+                    <form class="ov-ai-form" id="ovAiForm">
+                        <input type="text" id="ovAiInput" maxlength="700" placeholder="Tanya BELLA..." autocomplete="off">
+                        <button type="submit" class="ov-ai-send" id="ovAiSend" aria-label="Kirim pertanyaan">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <button type="button" class="ov-ai-fab" id="ovAiFab" aria-label="Buka Ask Bella" aria-controls="ovAiPopover" aria-expanded="false">
+                <svg class="ov-ai-chat-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M5.5 5.25h13A3.25 3.25 0 0 1 21.75 8.5v5.25A3.25 3.25 0 0 1 18.5 17h-7.7l-5.05 3v-3.35A3.25 3.25 0 0 1 2.25 13.4V8.5A3.25 3.25 0 0 1 5.5 5.25Z" />
+                    <circle cx="8.25" cy="11.15" r="1" />
+                    <circle cx="12" cy="11.15" r="1" />
+                    <circle cx="15.75" cy="11.15" r="1" />
+                </svg>
+                <span class="ov-ai-fab__label">ASK BELLA</span>
+            </button>
+        </div>
+
         {{-- ===== DELIVERY BERISIKO (#6) ===== --}}
         <div class="ov-row">
             <div class="ov-panel">
@@ -1580,10 +1999,13 @@
     <script>
         (function() {
             var DATA_URL = @json(route('dashboard.overview.data'));
+            var AI_URL = @json(route('dashboard.overview.ai'));
             var SLOT_URL = @json(route('dashboard.overview.slot'));
             var STOCK_URL = @json(route('dashboard.productionStock'));
             var LL_URL = @json(url('/loading-list'));
             var CHART_URL = @json(asset('assets/js/apexcharts.js'));
+            var csrfToken = document.querySelector('meta[name="csrf-token"]') ?
+                document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
             var initial = @json($d ?? null);
             var trendChart = null,
                 stockChart = null,
@@ -1592,6 +2014,8 @@
                 chartsLoading = null,
                 latestData = null,
                 activityMode = 'all',
+                aiBusy = false,
+                aiHistory = [],
                 requestId = 0;
 
             function esc(s) {
@@ -1660,6 +2084,141 @@
             function setHtml(id, v) {
                 var el = document.getElementById(id);
                 if (el) el.innerHTML = v;
+            }
+
+            function aiTextHtml(text) {
+                return esc(text).replace(/\n/g, '<br>');
+            }
+
+            function setAiStatus(text) {
+                var el = document.getElementById('ovAiStatus');
+                if (el) el.textContent = text;
+            }
+
+            function setAiBusy(active) {
+                aiBusy = active;
+                var send = document.getElementById('ovAiSend');
+                var input = document.getElementById('ovAiInput');
+                if (send) send.disabled = active;
+                if (input) input.disabled = active;
+                document.querySelectorAll('.ov-ai-chip').forEach(function(button) {
+                    button.disabled = active;
+                });
+                setAiStatus(active ? 'Mengetik' : 'Online');
+            }
+
+            function setAiOpen(open) {
+                var widget = document.getElementById('ovAiWidget');
+                var popover = document.getElementById('ovAiPopover');
+                var fab = document.getElementById('ovAiFab');
+                var input = document.getElementById('ovAiInput');
+                if (!widget) return;
+
+                widget.classList.toggle('is-open', open);
+                if (popover) popover.setAttribute('aria-hidden', open ? 'false' : 'true');
+                if (fab) {
+                    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    fab.setAttribute('aria-label', open ? 'Tutup Ask Bella' : 'Buka Ask Bella');
+                }
+                if (open && input) {
+                    setTimeout(function() {
+                        input.focus();
+                    }, 180);
+                }
+            }
+
+            function appendAiTyping() {
+                var chat = document.getElementById('ovAiChat');
+                if (!chat) return null;
+                var node = document.createElement('div');
+                node.className = 'ov-ai-msg ov-ai-msg--assistant ov-ai-msg--typing';
+                node.setAttribute('aria-label', 'BELLA sedang mengetik');
+                node.innerHTML = '<span class="ov-ai-typing" aria-hidden="true"><span></span><span></span><span></span></span>';
+                chat.appendChild(node);
+                chat.scrollTop = chat.scrollHeight;
+
+                return node;
+            }
+
+            function fillAiMessage(node, text) {
+                if (!node) return;
+                node.classList.remove('ov-ai-msg--typing');
+                node.removeAttribute('aria-label');
+                node.innerHTML = aiTextHtml(text);
+                var chat = document.getElementById('ovAiChat');
+                if (chat) chat.scrollTop = chat.scrollHeight;
+            }
+
+            function appendAiMessage(role, text) {
+                var chat = document.getElementById('ovAiChat');
+                if (!chat) return null;
+                var node = document.createElement('div');
+                node.className = 'ov-ai-msg ov-ai-msg--' + (role === 'user' ? 'user' : 'assistant');
+                node.innerHTML = aiTextHtml(text);
+                chat.appendChild(node);
+                chat.scrollTop = chat.scrollHeight;
+
+                return node;
+            }
+
+            function askAi(question) {
+                question = String(question || '').trim();
+                if (!question || aiBusy) return;
+
+                var input = document.getElementById('ovAiInput');
+                if (input) input.value = '';
+
+                var priorHistory = aiHistory.slice(-4);
+                var from = document.getElementById('ovFrom').value;
+                var to = document.getElementById('ovTo').value;
+                appendAiMessage('user', question);
+                aiHistory.push({
+                    role: 'user',
+                    content: question
+                });
+
+                setAiBusy(true);
+                var pending = appendAiTyping();
+
+                fetch(AI_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            question: question,
+                            history: priorHistory,
+                            from: from,
+                            to: to
+                        })
+                    })
+                    .then(function(r) {
+                        return r.json().then(function(payload) {
+                            return {
+                                ok: r.ok,
+                                payload: payload
+                            };
+                        });
+                    })
+                    .then(function(res) {
+                        if (!res.ok) throw new Error(res.payload.message || 'Gagal meminta analisis Groq.');
+                        var answer = res.payload.answer || 'Groq tidak mengembalikan jawaban.';
+                        fillAiMessage(pending, answer);
+                        aiHistory.push({
+                            role: 'assistant',
+                            content: answer
+                        });
+                    })
+                    .catch(function(error) {
+                        var message = error && error.message ? error.message : 'Gagal meminta analisis Groq.';
+                        fillAiMessage(pending, message);
+                    })
+                    .finally(function() {
+                        setAiBusy(false);
+                    });
             }
 
             function setFilterLoading(active) {
@@ -2260,7 +2819,7 @@
                         '<div class="ov-bar"><div class="ov-bar__fill" style="width:' + r.pct +
                         '%;background:' + col + ';"></div></div></td></tr>';
                 }).join('');
-                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Prep</th><th>ETA Truck</th><th>Status</th><th>Progress</th></tr></thead><tbody>' +
+                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Preparation</th><th>ETA Truck</th><th>Status</th><th>Progress</th></tr></thead><tbody>' +
                     body + '</tbody></table>';
             }
 
@@ -2639,11 +3198,36 @@
             }
 
             document.addEventListener('DOMContentLoaded', function() {
+                var aiFab = document.getElementById('ovAiFab');
+                if (aiFab) {
+                    aiFab.addEventListener('click', function() {
+                        var widget = document.getElementById('ovAiWidget');
+                        setAiOpen(!(widget && widget.classList.contains('is-open')));
+                    });
+                }
+                var aiClose = document.getElementById('ovAiClose');
+                if (aiClose) {
+                    aiClose.addEventListener('click', function() {
+                        setAiOpen(false);
+                    });
+                }
                 document.querySelectorAll('.ov-activity-tab').forEach(function(button) {
                     button.addEventListener('click', function() {
                         setActivityMode(button.getAttribute('data-activity-mode'));
                     });
                 });
+                document.querySelectorAll('.ov-ai-chip').forEach(function(button) {
+                    button.addEventListener('click', function() {
+                        askAi(button.getAttribute('data-ai-question'));
+                    });
+                });
+                var aiForm = document.getElementById('ovAiForm');
+                if (aiForm) {
+                    aiForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        askAi(document.getElementById('ovAiInput').value);
+                    });
+                }
                 setActivityMode(activityMode);
                 loadCharts();
                 if (initial && initial.kpi) {
@@ -2674,6 +3258,7 @@
                     if (e.target === slotModal) slotModal.classList.remove('open');
                 });
                 document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') setAiOpen(false);
                     if (e.key === 'Escape') slotModal.classList.remove('open');
                 });
                 // hemat query: refresh hanya saat tab aktif

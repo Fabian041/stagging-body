@@ -107,6 +107,55 @@
             line-height: 1.2;
         }
 
+        .prep-context-field.is-late {
+            border-color: #fecaca;
+            background: #fff5f5;
+        }
+
+        .prep-context-field.is-safe {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+
+        .prep-status-chip,
+        .prep-delta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            width: fit-content;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-size: 10.5px;
+            font-weight: 850;
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+
+        .prep-status-chip {
+            padding: 4px 7px;
+        }
+
+        .prep-delta-chip {
+            margin-top: 4px;
+            padding: 3px 6px;
+        }
+
+        .prep-status-chip.is-safe,
+        .prep-delta-chip.is-safe {
+            border-color: #bbf7d0;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .prep-status-chip.is-late,
+        .prep-delta-chip.is-late {
+            border-color: #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
         /* ===== TABLE CARD ===== */
         .bella-table-card {
             background: var(--card);
@@ -482,6 +531,41 @@
             font-size: 11px;
             color: var(--text-muted);
             margin-top: 8px;
+        }
+
+        .compare-prep-context {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .compare-prep-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card);
+            padding: 9px 10px;
+        }
+
+        .compare-prep-item span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 9.5px;
+            font-weight: 850;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .compare-prep-item strong {
+            display: block;
+            color: var(--navy);
+            font-size: 12.5px;
+            font-weight: 900;
+        }
+
+        .compare-table tbody tr.is-prep-late-row td {
+            background: #fff5f5;
         }
 
         /* Serial mono */
@@ -862,27 +946,6 @@
                 grid-template-columns: 1fr 1fr;
             }
 
-            .bella-info-field:nth-child(2n) {
-                border-right: none;
-            }
-
-            .bella-info-field:nth-child(3n) {
-                border-right: 1px solid var(--border);
-            }
-
-            .bella-info-field:nth-child(3n):nth-child(even) {
-                border-right: none;
-            }
-
-            .bella-info-field:nth-child(5),
-            .bella-info-field:nth-child(6) {
-                border-bottom: none;
-            }
-
-            .bella-info-field:nth-child(4) {
-                border-bottom: 1px solid var(--border);
-            }
-
             .compare-toolbar {
                 flex-direction: column;
                 align-items: stretch;
@@ -890,6 +953,10 @@
 
             .compare-controls {
                 flex-direction: column;
+            }
+
+            .compare-prep-context {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -933,6 +1000,12 @@
             }
         }
     </style>
+
+    @php
+        $prepContext = $prepContext ?? [];
+        $prepStatus = $prepContext['status'] ?? 'unknown';
+        $prepStatusClass = in_array($prepStatus, ['safe', 'late'], true) ? 'is-' . $prepStatus : '';
+    @endphp
 
     {{-- ===== INFO CARD ===== --}}
     <div class="bella-info-card">
@@ -984,6 +1057,35 @@
                     <div class="bella-info-text">
                         <label>Cycle</label>
                         <span class="info-val">{{ $loadingListDetail->cycle }}</span>
+                    </div>
+                </div>
+                <div class="bella-info-field">
+                    <div class="bella-info-icon" style="background:#E0F2FE;"><i class="fas fa-hourglass-half"
+                            style="color:var(--sky);"></i></div>
+                    <div class="bella-info-text">
+                        <label>Preparation Deadline</label>
+                        <span class="info-val">{{ $prepContext['deadline_label'] ?? '-' }}</span>
+                    </div>
+                </div>
+                <div class="bella-info-field">
+                    <div class="bella-info-icon" style="background:#EEF2FF;"><i class="fas fa-clock"
+                            style="color:var(--navy);"></i></div>
+                    <div class="bella-info-text">
+                        <label>Pulling Time</label>
+                        <span class="info-val">{{ $prepContext['pulling_label'] ?? '-' }}</span>
+                    </div>
+                </div>
+                <div class="bella-info-field prep-context-field {{ $prepStatusClass }}">
+                    <div class="bella-info-icon" style="background:#F8FAFC;"><i class="fas fa-stopwatch"
+                            style="color:var(--text-muted);"></i></div>
+                    <div class="bella-info-text">
+                        <label>Delta Preparation</label>
+                        <span class="info-val">
+                            <span class="prep-status-chip {{ $prepStatusClass }}">
+                                {{ $prepContext['delta_label'] ?? '-' }}
+                                {{ $prepContext['status_label'] ?? '' }}
+                            </span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1079,7 +1181,28 @@
                             <option value="match">Match</option>
                             <option value="missing_prod">Missing Production</option>
                             <option value="missing_pull">Missing Pulling</option>
+                            <option value="late_pull">Pulling Telat</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="compare-prep-context" id="comparePrepContext">
+                    <div class="compare-prep-item">
+                        <span>Preparation Deadline</span>
+                        <strong id="comparePrepDeadline">{{ $prepContext['deadline_label'] ?? '-' }}</strong>
+                    </div>
+                    <div class="compare-prep-item">
+                        <span>Latest Pulling</span>
+                        <strong id="comparePrepPulling">{{ $prepContext['pulling_label'] ?? '-' }}</strong>
+                    </div>
+                    <div class="compare-prep-item">
+                        <span>Delta</span>
+                        <strong>
+                            <span class="prep-status-chip {{ $prepStatusClass }}" id="comparePrepDelta">
+                                {{ $prepContext['delta_label'] ?? '-' }}
+                                {{ $prepContext['status_label'] ?? '' }}
+                            </span>
+                        </strong>
                     </div>
                 </div>
 
@@ -1101,7 +1224,8 @@
 
                 <p class="compare-note">
                     <i class="fas fa-info-circle" style="margin-right:4px;"></i>
-                    "Missing Production" artinya serial ada di pulling (checkout), tapi supply sebelumnya tidak ketemu.
+                    Delta dihitung dari waktu pulling dikurangi Preparation Deadline. "Missing Production" artinya serial ada
+                    di pulling (checkout), tapi supply sebelumnya tidak ketemu.
                 </p>
             </div>
 
@@ -1117,6 +1241,7 @@
 <script>
     $(document).ready(function() {
         const loadingList = "{{ $loadingListId }}";
+        const pagePrepContext = @json($prepContext);
         const requestOptions = {
             method: 'GET',
             headers: {
@@ -1207,14 +1332,59 @@
             return false;
         }
 
+        function prepDeltaClass(status) {
+            if (status === 'safe') return 'is-safe';
+            if (status === 'late') return 'is-late';
+            return '';
+        }
+
+        function prepDeltaText(item) {
+            if (!item) return '';
+            const label = item.prepDeltaLabel || item.prep_delta_label || '';
+            const status = item.prepStatusLabel || item.prep_status_label || '';
+            if (!label || label === '-') return '';
+            return `${label} ${status}`.trim();
+        }
+
+        function renderMutationRows(items, showPrepDelta = false) {
+            if (!items || !items.length) return '';
+
+            return items.map(item => {
+                const delta = showPrepDelta ? prepDeltaText(item) : '';
+                const deltaHtml = delta ?
+                    `<span class="prep-delta-chip ${prepDeltaClass(item.prepStatus)}">${escapeHtml(delta)}</span>` :
+                    '';
+
+                return `<div class="mut-row">${escapeHtml(item.text)}${deltaHtml}</div>`;
+            }).join('');
+        }
+
+        function updateComparePrepContext(ctx) {
+            ctx = ctx || pagePrepContext || {};
+            const statusClass = prepDeltaClass(ctx.status);
+            const deltaText = `${ctx.delta_label || '-'} ${ctx.status_label || ''}`.trim();
+
+            $('#comparePrepDeadline').text(ctx.deadline_label || '-');
+            $('#comparePrepPulling').text(ctx.pulling_label || '-');
+            $('#comparePrepDelta')
+                .removeClass('is-safe is-late')
+                .addClass(statusClass)
+                .text(deltaText || '-');
+        }
+
         function mutationItem(item) {
             const serial = String(item.serial_number || '').trim();
             if (!serial || isMaskedSerial(serial)) return null;
+            const deltaText = prepDeltaText(item);
 
             return {
                 mid: item.id || '',
                 serial,
-                text: `[${serial}] - [${item.date || 'N/A'}] (qty: ${item.qty || 0})`
+                text: `[${serial}] - [${item.date || 'N/A'}] (qty: ${item.qty || 0})`,
+                prepStatus: item.prep_status || 'unknown',
+                prepStatusLabel: item.prep_status_label || '',
+                prepDeltaLabel: item.prep_delta_label || '',
+                deltaText
             };
         }
 
@@ -1255,22 +1425,24 @@
 
             compareData.forEach(item => {
                 const prodText = (item.prodItems || []).map(x => x.text).join(' ');
-                const pullText = (item.pullItems || []).map(x => x.text).join(' ');
+                const pullText = (item.pullItems || []).map(x => `${x.text} ${x.deltaText || ''}`).join(' ');
                 const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
+                const hasLatePulling = (item.pullItems || []).some(x => x.prepStatus === 'late');
 
                 if (q && !joined.includes(q)) return;
                 if (filterMode === 'match' && item.status !== 'MATCH') return;
                 if (filterMode === 'missing_prod' && item.status !== 'MISSING_PROD') return;
                 if (filterMode === 'missing_pull' && item.status !== 'MISSING_PULL') return;
+                if (filterMode === 'late_pull' && !hasLatePulling) return;
 
                 shown++;
 
                 const prodHtml = (item.prodItems && item.prodItems.length) ?
-                    item.prodItems.map(x => `<div class="mut-row">${escapeHtml(x.text)}</div>`).join('') :
+                    renderMutationRows(item.prodItems) :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
                 const pullHtml = (item.pullItems && item.pullItems.length) ?
-                    item.pullItems.map(x => `<div class="mut-row">${escapeHtml(x.text)}</div>`).join('') :
+                    renderMutationRows(item.pullItems, true) :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
                 const actionHtml = (item.pullItems && item.pullItems.length) ?
@@ -1285,7 +1457,7 @@
                     '';
 
                 tbody.append(`
-                    <tr>
+                    <tr class="${hasLatePulling ? 'is-prep-late-row' : ''}">
                         <td style="text-align:center;">${shown}</td>
                         <td><span class="serial-mono">${item.serial}</span></td>
                         <td>${prodHtml}</td>
@@ -1417,6 +1589,7 @@
             $('#compareSearch').val('');
             $('#compareFilter').val('all');
             $('#compareMeta').text('Loading comparison...');
+            updateComparePrepContext(pagePrepContext);
             $('#compareTbody').html(
                 '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Loading data...</td></tr>'
             );
@@ -1428,6 +1601,7 @@
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {
+                    updateComparePrepContext(response.prep_context || pagePrepContext);
                     const pullItems = (response.pulling || []).map(mutationItem).filter(Boolean);
                     const prodItems = (response.production || []).map(mutationItem).filter(Boolean);
                     const pullMap = groupBySerial(pullItems);

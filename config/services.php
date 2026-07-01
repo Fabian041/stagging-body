@@ -31,4 +31,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'groq' => [
+        'key' => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL', 'llama-3.1-8b-instant'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'ca_bundle' => env('GROQ_CA_BUNDLE', is_file('C:/laragon/etc/ssl/cacert.pem') ? 'C:/laragon/etc/ssl/cacert.pem' : null),
+        // Batas estimasi token input (free tier llama-3.1-8b-instant ≈ 6000 TPM/request).
+        'max_prompt_tokens' => (int) env('GROQ_MAX_PROMPT_TOKENS', 5000),
+    ],
+
 ];

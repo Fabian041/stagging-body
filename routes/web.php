@@ -168,6 +168,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
         Route::get('/overview', [DashboardController::class, 'overview'])->name('dashboard.overview');
         Route::get('/overview/data', [DashboardController::class, 'overviewData'])->name('dashboard.overview.data');
+        Route::post('/overview/ai-analyst', [DashboardController::class, 'overviewAiAnalyst'])->name('dashboard.overview.ai');
         Route::get('/overview/slot', [DashboardController::class, 'overviewSlot'])->name('dashboard.overview.slot');
         Route::get('/stock/export', [DashboardController::class, 'exportStock'])->name('dashboard.stock.export');
         Route::get('/mutation/export', [DashboardController::class, 'exportMutation'])->name('dashboard.mutation.export');

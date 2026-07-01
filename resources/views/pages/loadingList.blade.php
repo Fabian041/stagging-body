@@ -1180,7 +1180,7 @@
             <div class="modal-header">
                 <h5 class="modal-title" id="loadingListModalLabel">
                     Loading Lists for PDS: <span id="modalPdsNumber"></span>
-                    <span class="bella-late-pulling-badge d-none" id="modalLatePullingBadge">Prep telat</span>
+                    <span class="bella-late-pulling-badge d-none" id="modalLatePullingBadge">Preparation telat</span>
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -1278,7 +1278,7 @@
             $('#latePullingContext')
                 .removeClass('d-none')
                 .html(
-                    '<div><strong>Highlight prep telat dari dashboard delivery</strong>' +
+                    '<div><strong>Highlight preparation telat dari dashboard delivery</strong>' +
                     '<small>PDS dan loading list terkait akan ditandai di tabel serta detail modal.</small></div>' +
                     '<span>' + escapeHtml(parts.join(' · ') || 'Aktif') + '</span>'
                 );
@@ -1416,7 +1416,7 @@
 
                         const pdsNumber = data || '-';
                         const badge = isLatePds(pdsNumber) ?
-                            '<span class="bella-late-pulling-badge">Prep telat</span>' : '';
+                            '<span class="bella-late-pulling-badge">Preparation telat</span>' : '';
 
                         return '<span class="bella-pds-cell"><span>' + escapeHtml(pdsNumber) +
                             '</span>' + badge + '</span>';
@@ -1694,7 +1694,7 @@
                             const isOpen = firstLateIndex >= 0 ? index === firstLateIndex : index === 0;
                             const lateClass = isLateDetail ? ' is-late-pulling-detail' : '';
                             const lateBadge = isLateDetail ?
-                                '<span class="bella-late-pulling-badge">Prep telat</span>' : '';
+                                '<span class="bella-late-pulling-badge">Preparation telat</span>' : '';
                             const lateNote = isLateDetail ?
                                 '<div class="bella-late-detail-note"><i class="fas fa-exclamation-circle"></i>Pulling sudah lewat batas preparation.</div>' :
                                 '';

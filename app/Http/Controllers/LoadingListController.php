@@ -693,11 +693,152 @@ class LoadingListController extends Controller
     public function detail(LoadingList $loadingList)
     {
         $loadingList->loadMissing('customer:id,name');
+        $prepContext = $this->resolveLoadingListPrepContext($loadingList);
 
         return view('pages.loadingListDetail', [
             'loadingListDetail' => $loadingList,
             'loadingListId' => $loadingList->id,
+            'prepContext' => $prepContext,
         ]);
+    }
+
+    private function resolveLoadingListPrepContext(LoadingList $loadingList): array
+    {
+        $context = [
+            'master_cycle_configured' => false,
+            'prep_range_label' => '-',
+            'deadline_iso' => null,
+            'deadline_label' => '-',
+            'pulling_iso' => null,
+            'pulling_label' => '-',
+            'delta_seconds' => null,
+            'delta_label' => '-',
+            'status' => 'unknown',
+            'status_label' => 'Belum ada pulling',
+        ];
+
+        $deadline = null;
+        $master = MasterCycle::query()
+            ->where('customer_id', (int) $loadingList->customer_id)
+            ->get()
+            ->first(function (MasterCycle $master) use ($loadingList) {
+                return $this->cycleLabelMatchesMaster($master->cycle_name, $loadingList->cycle);
+            });
+
+        if ($master && $loadingList->delivery_date) {
+            $meta = $this->formatMasterCycleForApi($master);
+            $absolute = $this->computePrepAbsoluteDatetimes(
+                Carbon::parse($loadingList->delivery_date)->toDateString(),
+                (int) ($meta['prep_day_offset'] ?? 0),
+                (int) ($meta['prep_end_day_offset'] ?? 0),
+                $meta['time'] ?? null,
+                $meta['prep_end_time'] ?? null
+            );
+
+            if (! empty($absolute['absolute_end_datetime'])) {
+                $deadline = Carbon::parse($absolute['absolute_end_datetime']);
+                $context['master_cycle_configured'] = true;
+                $context['deadline_iso'] = $deadline->toIso8601String();
+                $context['deadline_label'] = $this->formatPrepContextDateTime($deadline);
+                $context['prep_range_label'] = trim(($meta['time'] ?? '-').' - '.($meta['prep_end_time'] ?? '-'));
+            }
+        }
+
+        $pullingDate = null;
+        if ($loadingList->number) {
+            $pullingDate = DB::table('pullings')
+                ->where('customer_id', (int) $loadingList->customer_id)
+                ->where('loading_list', $loadingList->number)
+                ->whereNotNull('pulling_date')
+                ->max('pulling_date');
+        }
+        if (! $pullingDate && $loadingList->pds_number) {
+            $pullingDate = DB::table('pullings')
+                ->where('customer_id', (int) $loadingList->customer_id)
+                ->where('pds_number', $loadingList->pds_number)
+                ->whereNotNull('pulling_date')
+                ->max('pulling_date');
+        }
+
+        if ($pullingDate) {
+            $pulling = Carbon::parse($pullingDate);
+            $context['pulling_iso'] = $pulling->toIso8601String();
+            $context['pulling_label'] = $this->formatPrepContextDateTime($pulling);
+            $context = array_merge($context, $this->buildPrepDeltaPayload($pulling, $deadline));
+        } elseif ($deadline) {
+            $context['status_label'] = 'Belum ada pulling';
+        } else {
+            $context['status_label'] = 'Master cycle belum lengkap';
+        }
+
+        return $context;
+    }
+
+    private function buildPrepDeltaPayload(?Carbon $eventAt, ?Carbon $deadline): array
+    {
+        if (! $eventAt || ! $deadline) {
+            return [
+                'delta_seconds' => null,
+                'delta_label' => '-',
+                'status' => 'unknown',
+                'status_label' => 'Belum bisa dihitung',
+            ];
+        }
+
+        $deltaSeconds = $eventAt->getTimestamp() - $deadline->getTimestamp();
+
+        return [
+            'delta_seconds' => $deltaSeconds,
+            'delta_label' => $this->formatSignedDeltaSeconds($deltaSeconds),
+            'status' => $deltaSeconds > 0 ? 'late' : 'safe',
+            'status_label' => $deltaSeconds > 0 ? 'Telat' : 'Aman',
+        ];
+    }
+
+    private function buildMutationPrepDeltaPayload($eventAt, array $prepContext): array
+    {
+        if (empty($prepContext['deadline_iso']) || empty($eventAt)) {
+            return [
+                'prep_delta_seconds' => null,
+                'prep_delta_label' => '-',
+                'prep_status' => 'unknown',
+                'prep_status_label' => 'Belum bisa dihitung',
+            ];
+        }
+
+        $delta = $this->buildPrepDeltaPayload(
+            Carbon::parse($eventAt),
+            Carbon::parse($prepContext['deadline_iso'])
+        );
+
+        return [
+            'prep_delta_seconds' => $delta['delta_seconds'],
+            'prep_delta_label' => $delta['delta_label'],
+            'prep_status' => $delta['status'],
+            'prep_status_label' => $delta['status_label'],
+        ];
+    }
+
+    private function formatPrepContextDateTime(?Carbon $date): string
+    {
+        return $date ? $date->locale('id')->translatedFormat('d M, H.i') : '-';
+    }
+
+    private function formatSignedDeltaSeconds(int $seconds): string
+    {
+        $minutes = (int) round(abs($seconds) / 60);
+        $hours = intdiv($minutes, 60);
+        $mins = $minutes % 60;
+        $prefix = $seconds > 0 ? '+' : ($seconds < 0 ? '-' : '');
+
+        if ($hours > 0 && $mins > 0) {
+            return $prefix.$hours.'j '.$mins.'m';
+        }
+        if ($hours > 0) {
+            return $prefix.$hours.'j';
+        }
+
+        return $prefix.$minutes.'m';
     }
 
     public function getLoadingListDetail(LoadingList $loadingList)
@@ -727,14 +868,18 @@ class LoadingListController extends Controller
 
     public function getLoadingListDetailComparison(LoadingListDetail $detail)
     {
-        $detail->loadMissing('customerPart:id,internal_part_id');
+        $detail->loadMissing('customerPart:id,internal_part_id', 'loadingList.customer:id,name');
         $internalPartId = $detail->customerPart?->internal_part_id;
+        $prepContext = $detail->loadingList
+            ? $this->resolveLoadingListPrepContext($detail->loadingList)
+            : [];
         $start = $detail->created_at;
         $end = $detail->updated_at;
 
         if (! $internalPartId || ! $start || ! $end || $start->equalTo($end)) {
             return response()->json([
                 'detail_id' => $detail->id,
+                'prep_context' => $prepContext,
                 'pulling' => [],
                 'production' => [],
             ]);
@@ -764,13 +909,16 @@ class LoadingListController extends Controller
             ->get(['id', 'date', 'qty'])
             ->keyBy('id');
 
-        $pulling = $checkouts->map(function ($checkout) {
-            return [
+        $pulling = $checkouts->map(function ($checkout) use ($prepContext) {
+            $eventAt = $checkout->date ?: $checkout->created_at;
+
+            return array_merge([
                 'id' => $checkout->id,
                 'serial_number' => $checkout->serial_number,
                 'date' => $checkout->date,
+                'created_at' => $checkout->created_at,
                 'qty' => $checkout->qty,
-            ];
+            ], $this->buildMutationPrepDeltaPayload($eventAt, $prepContext));
         });
 
         $production = $checkouts->map(function ($checkout) use ($supplies) {
@@ -789,6 +937,7 @@ class LoadingListController extends Controller
 
         return response()->json([
             'detail_id' => $detail->id,
+            'prep_context' => $prepContext,
             'pulling' => $pulling,
             'production' => $production,
         ]);
@@ -2197,7 +2346,7 @@ class LoadingListController extends Controller
         if ($groupedData->isEmpty()) {
             $hint = 'Tidak ada loading list untuk filter ini. Samakan filter dengan halaman loading list.';
         } elseif ($totalBuckets > 0 && $configuredBucketCount === 0) {
-            $hint = 'Ada data loading list, tetapi semua cycle belum dikonfigurasi di Master Cycle. Customer tetap ditampilkan; atur waktu PREP di tab Master Cycle untuk menampilkan bar timeline.';
+            $hint = 'Ada data loading list, tetapi semua cycle belum dikonfigurasi di Master Cycle. Customer tetap ditampilkan; atur waktu Preparation di tab Master Cycle untuk menampilkan bar timeline.';
         }
 
         return response()->json([

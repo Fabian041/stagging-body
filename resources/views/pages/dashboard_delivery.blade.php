@@ -1947,7 +1947,7 @@
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="bella-form-label">Waktu Rentang Prep</label>
+                                        <label class="bella-form-label">Waktu Rentang Preparation</label>
                                         <div style="display:flex;align-items:center;gap:8px;">
                                             <input type="time" class="bella-form-control" id="mcyclePrepStart"
                                                 required step="60">
@@ -1958,7 +1958,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Hari Offset Prep</label>
+                                        <label class="bella-form-label">Hari Offset Preparation</label>
                                         <select class="bella-form-control" id="mcyclePrepDayOffset" required>
                                             <option value="0">H+0 (hari delivery)</option>
                                             <option value="-1">H-1</option>
@@ -2016,7 +2016,7 @@
                                         <th style="width:40px;">No</th>
                                         <th>Customer</th>
                                         <th>Cycle</th>
-                                        <th>Rentang Prep</th>
+                                        <th>Rentang Preparation</th>
                                         <th>Hari Offset</th>
                                         <th>ETA Truck</th>
                                         <th style="width:140px;">Aksi</th>
@@ -4046,7 +4046,7 @@
                             customerName || '-') + '</strong></div>' +
                         '<div class="master-cycle-swal-row"><span>Cycle</span><strong>' + escapeHtml(payload
                             .cycle_name || '-') + '</strong></div>' +
-                        '<div class="master-cycle-swal-row"><span>Prep</span><strong>' + escapeHtml(
+                        '<div class="master-cycle-swal-row"><span>Preparation</span><strong>' + escapeHtml(
                             prepRange) +
                         '</strong></div>' +
                         '<div class="master-cycle-swal-row"><span>Offset</span><strong>' + escapeHtml(
@@ -4253,7 +4253,7 @@
                 return details.map(function(d) {
                     return [
                         'Cycle ' + d.cycle_name,
-                        'Prep ' + d.prep_start + (d.prep_end !== '-' ? ' - ' + d.prep_end : ''),
+                        'Preparation ' + d.prep_start + (d.prep_end !== '-' ? ' - ' + d.prep_end : ''),
                         'ETA ' + d.truck_time,
                         'Progress ' + d.progress_pct + '%'
                     ].join(' | ');
@@ -4606,7 +4606,7 @@
                     text += ' · ' + cycles.length + ' cycle';
                 }
                 return '<span class="customer-unconfigured-note" title="' + escapeAttr(
-                        'Atur PREP di Master Cycle: ' + tipCycles) + '">' +
+                        'Atur Preparation di Master Cycle: ' + tipCycles) + '">' +
                     escapeHtml(text) + '</span>';
             }
 
@@ -4879,7 +4879,7 @@
                 var cycleLbl = rowCycleKey(row) || '?';
                 var parts = ['C' + cycleLbl, pct + '%'];
                 if (opts.prepRange) {
-                    parts.push('Prep ' + opts.prepRange);
+                    parts.push('Preparation ' + opts.prepRange);
                 }
                 if (opts.prepDayOffsetLabel && opts.prepDayOffsetLabel !== 'H+0') {
                     parts.push(opts.prepDayOffsetLabel);
@@ -5129,7 +5129,7 @@
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type">';
                     gridHtml +=
-                        '<div class="gantt-type-lane is-prep">PREP</div><div class="gantt-type-lane is-truck">TRUCK</div>';
+                        '<div class="gantt-type-lane is-prep">PREPARATION</div><div class="gantt-type-lane is-truck">TRUCK</div>';
                     gridHtml += '</div>';
                     gridHtml += '<div class="gantt-grid-cell gantt-grid-track-cell">';
                     gridHtml += '<div class="gantt-grid-track-split">';
@@ -5307,7 +5307,7 @@
                 html += '<div><span>Customer</span><strong>' + escapeHtml(info.customerName || '-') +
                     '</strong></div>';
                 html += '<div><span>Cycle</span><strong>' + escapeHtml(info.cycleName || '-') + '</strong></div>';
-                html += '<div><span>Finish Prep</span><strong>' + escapeHtml(info.prepDeadlineLabel || '-') +
+                html += '<div><span>Finish Preparation</span><strong>' + escapeHtml(info.prepDeadlineLabel || '-') +
                     '</strong></div>';
                 html += '<div><span>Progress</span><strong>' + escapeHtml(info.progressPct || 0) + '% (' +
                     escapeHtml(info.done || 0) + '/' + escapeHtml(info.target || 0) + ')</strong></div>';
@@ -5507,7 +5507,7 @@
                         'height:' + (rowHeight / 2) + 'px;' +
                         'text-align:center;vertical-align:middle;' +
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5c7f2b;' +
-                        '">PREP</td>';
+                        '">PREPARATION</td>';
                     // Lane PREP mingguan: satu track lintas semua hari (bar boleh melewati garis antarhari)
                     var prepLaneH = rowHeight / 2;
                     html += '<td colspan="' + nSlots + '" class="weekly-prep-lane-cell">';

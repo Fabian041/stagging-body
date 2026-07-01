@@ -19,6 +19,8 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -57,6 +59,106 @@ class DashboardController extends Controller
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ])->header('Cache-Control', 'private, max-age=30');
+    }
+
+    public function overviewAiAnalyst(Request $request)
+    {
+        $validated = $request->validate([
+            'question' => 'required|string|max:700',
+            'history' => 'array|max:8',
+            'history.*.role' => 'required_with:history|string|in:user,assistant',
+            'history.*.content' => 'required_with:history|string|max:1200',
+        ]);
+
+        $apiKey = (string) config('services.groq.key');
+        if ($apiKey === '') {
+            return response()->json([
+                'message' => 'GROQ_API_KEY belum diset di environment.',
+            ], 422);
+        }
+
+        [$from, $to] = $this->overviewRange($request);
+        $overview = $this->buildOverviewData($from, $to);
+        $question = trim($validated['question']);
+        $context = $this->buildSystemAiContext($overview, $from, $to, $question);
+        $history = collect($validated['history'] ?? [])
+            ->slice(-4)
+            ->map(fn ($item) => [
+                'role' => $item['role'],
+                'content' => Str::limit(trim((string) $item['content']), 800, ''),
+            ])
+            ->values()
+            ->all();
+
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => implode("\n", [
+                    'Kamu adalah BELLA, AI assistant operasional Body Plant.',
+                    'Jawab dalam Bahasa Indonesia yang ringkas, natural, dan actionable.',
+                    'Gunakan hanya data JSON system_context yang diberikan. Jangan mengarang data yang tidak ada.',
+                    'Jika data tidak cukup, sebutkan data mana yang belum tersedia.',
+                    'Kamu bisa menganalisis lintas sistem: dashboard, loading list, PDS, pulling, produksi, stok, PIS, receiving, quality, error, dan master data yang tersedia di konteks.',
+                    'Jika user meminta data detail yang tidak masuk konteks, minta filter yang lebih spesifik seperti nomor loading list/PDS/back number/customer/tanggal.',
+                    'Saat menyebut rekomendasi, jelaskan alasan singkatnya.',
+                ]),
+            ],
+            [
+                'role' => 'user',
+                'content' => "system_context:\n".$this->encodeAiContext($context),
+            ],
+        ];
+
+        foreach ($history as $item) {
+            $messages[] = $item;
+        }
+        $messages[] = [
+            'role' => 'user',
+            'content' => $question,
+        ];
+
+        $messages = $this->fitGroqMessages($messages, (int) config('services.groq.max_prompt_tokens', 5000));
+
+        $http = Http::withToken($apiKey)
+            ->acceptJson()
+            ->timeout(25);
+
+        $caBundle = (string) config('services.groq.ca_bundle');
+        if ($caBundle !== '' && is_file($caBundle)) {
+            $http = $http->withOptions(['verify' => $caBundle]);
+        }
+
+        try {
+            $response = $http
+                ->post(rtrim((string) config('services.groq.base_url'), '/').'/chat/completions', [
+                    'model' => (string) config('services.groq.model', 'llama-3.1-8b-instant'),
+                    'messages' => $messages,
+                    'temperature' => 0.25,
+                    'max_tokens' => 520,
+                ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Gagal menghubungi Groq: '.$e->getMessage(),
+            ], 502);
+        }
+
+        if ($response->failed()) {
+            return response()->json([
+                'message' => data_get($response->json(), 'error.message', 'Groq mengembalikan error.'),
+            ], 502);
+        }
+
+        $answer = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
+        if ($answer === '') {
+            $answer = 'Groq tidak mengembalikan jawaban. Coba tanyakan ulang dengan konteks yang lebih spesifik.';
+        }
+
+        return response()->json([
+            'answer' => $answer,
+            'model' => (string) data_get($response->json(), 'model', config('services.groq.model')),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+        ]);
     }
 
     /**
@@ -478,6 +580,589 @@ class DashboardController extends Controller
                 'atRisk' => $atRisk,
             ];
         });
+    }
+
+    private function buildOverviewAiContext(array $data, Carbon $from, Carbon $to): array
+    {
+        $pick = function ($items, array $fields, int $limit = 8): array {
+            return collect($items ?? [])
+                ->take($limit)
+                ->map(function ($item) use ($fields) {
+                    $row = [];
+                    foreach ($fields as $label => $path) {
+                        $row[$label] = data_get($item, $path);
+                    }
+
+                    return $row;
+                })
+                ->values()
+                ->all();
+        };
+
+        return [
+            'periode' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'generated_at' => now()->format('Y-m-d H:i:s'),
+            ],
+            'kpi' => $data['kpi'] ?? [],
+            'delta_vs_periode_sebelumnya' => $data['delta'] ?? [],
+            'error_rate_percent' => $data['errRate'] ?? 0,
+            'stock_summary' => $data['stock'] ?? [],
+            'heatmap_summary' => $data['heatmapSummary'] ?? [],
+            'trend_harian' => collect($data['trend'] ?? [])->take(31)->values()->all(),
+            'delivery_berisiko' => $pick($data['atRisk'] ?? [], [
+                'loading_list_id' => 'id',
+                'loading_list' => 'number',
+                'customer' => 'customer',
+                'cycle' => 'cycle',
+                'deadline_preparation' => 'deadline',
+                'eta_truck' => 'truck',
+                'remaining_minutes' => 'remaining',
+                'urgency' => 'urgency',
+                'actual' => 'actual',
+                'target' => 'total',
+                'progress_pct' => 'pct',
+            ], 10),
+            'preparation_per_customer' => $pick($data['prepByCustomer'] ?? [], [
+                'customer' => 'customer',
+                'total' => 'total',
+                'complete' => 'complete',
+                'pct' => 'pct',
+            ], 8),
+            'preparation_per_cycle' => $pick($data['prepByCycle'] ?? [], [
+                'cycle' => 'cycle',
+                'total' => 'total',
+                'complete' => 'complete',
+                'pct' => 'pct',
+            ], 10),
+            'produksi_per_line' => $pick($data['prodByLine'] ?? [], [
+                'line' => 'line',
+                'count' => 'c',
+            ], 8),
+            'part_paling_kurang_stok' => $pick($data['topUnder'] ?? [], [
+                'back_number' => 'back_number',
+                'line' => 'line',
+                'current_stock' => 'cur',
+                'standard_stock' => 'std',
+                'gap' => 'gap',
+            ], 8),
+            'error_per_area' => $pick($data['errByArea'] ?? [], [
+                'area' => 'area',
+                'count' => 'c',
+                'delta_percent' => 'delta',
+            ], 6),
+            'error_terbaru' => $pick($data['recentErrors'] ?? [], [
+                'area' => 'area',
+                'message' => 'message',
+                'expected' => 'expected',
+                'scanned' => 'scanned',
+                'date' => 'date',
+            ], 6),
+        ];
+    }
+
+    private function buildSystemAiContext(array $overview, Carbon $from, Carbon $to, string $question): array
+    {
+        $start = $from->copy()->startOfDay()->toDateTimeString();
+        $end = $to->copy()->endOfDay()->toDateTimeString();
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
+        $modules = $this->resolveAiModules($question);
+
+        $context = [
+            'scope' => [
+                'periode_filter' => ['from' => $fromDate, 'to' => $toDate],
+                'generated_at' => now()->format('Y-m-d H:i:s'),
+                'mode' => 'lintas sistem via query allowlist, bukan akses SQL bebas dari chat',
+                'catatan' => 'Ringkasan memakai periode dashboard; modul detail dimuat sesuai topik pertanyaan; search_hits mencari keyword lintas data utama.',
+                'modules_loaded' => $modules,
+            ],
+            'overview' => $this->buildOverviewAiContext($overview, $from, $to),
+            'modules' => [],
+            'search_hits' => $this->buildSystemAiSearchHits($question),
+        ];
+
+        if (in_array('loading_list_pds', $modules, true) && $this->aiTableExists('loading_lists')) {
+            $ll = DB::table('loading_lists as ll')
+                ->leftJoin('customers as c', 'c.id', '=', 'll.customer_id')
+                ->whereBetween('ll.delivery_date', [$start, $end]);
+
+            $context['modules']['loading_list_pds'] = [
+                'summary_periode' => [
+                    'total' => (clone $ll)->count(),
+                    'total_pds' => (clone $ll)->distinct('ll.pds_number')->count('ll.pds_number'),
+                    'truck_status' => $this->aiColumnExists('loading_lists', 'truck_status')
+                        ? $this->aiRows((clone $ll)->select('ll.truck_status', DB::raw('COUNT(*) as total'))->groupBy('ll.truck_status')->get())
+                        : [],
+                ],
+                'per_customer' => $this->aiRows((clone $ll)
+                    ->select(DB::raw('COALESCE(c.name, "Unknown") as customer'), DB::raw('COUNT(*) as total'))
+                    ->groupBy('c.name')
+                    ->orderByDesc('total')
+                    ->limit(8)
+                    ->get()),
+                'terbaru' => $this->aiRows((clone $ll)
+                    ->select('ll.number as loading_list', 'll.pds_number', 'll.cycle', 'll.delivery_date', 'll.shipping_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                    ->orderByDesc('ll.delivery_date')
+                    ->limit(8)
+                    ->get()),
+            ];
+
+            if ($this->aiTableExists('loading_list_details')) {
+                $context['modules']['loading_list_pds']['qty_periode'] = (array) DB::table('loading_lists as ll')
+                    ->join('loading_list_details as d', 'd.loading_list_id', '=', 'll.id')
+                    ->whereBetween('ll.delivery_date', [$start, $end])
+                    ->selectRaw('SUM(COALESCE(d.kanban_qty, 0)) as target_kanban, SUM(COALESCE(d.actual_kanban_qty, 0)) as actual_kanban, SUM(COALESCE(d.total_qty, 0)) as target_qty')
+                    ->first();
+            }
+        }
+
+        if (in_array('pulling', $modules, true) && $this->aiTableExists('pullings')) {
+            $pullings = DB::table('pullings as p')
+                ->leftJoin('customers as c', 'c.id', '=', 'p.customer_id')
+                ->whereBetween('p.pulling_date', [$start, $end]);
+
+            $context['modules']['pulling'] = [
+                'summary_periode' => [
+                    'total' => (clone $pullings)->count(),
+                    'total_pds' => (clone $pullings)->distinct('p.pds_number')->count('p.pds_number'),
+                    'total_loading_list' => (clone $pullings)->distinct('p.loading_list')->count('p.loading_list'),
+                ],
+                'per_customer' => $this->aiRows((clone $pullings)
+                    ->select(DB::raw('COALESCE(c.name, "Unknown") as customer'), DB::raw('COUNT(*) as total'))
+                    ->groupBy('c.name')
+                    ->orderByDesc('total')
+                    ->limit(8)
+                    ->get()),
+                'terbaru' => $this->aiRows((clone $pullings)
+                    ->select('p.loading_list', 'p.pds_number', 'p.cycle', 'p.pulling_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                    ->orderByDesc('p.pulling_date')
+                    ->limit(8)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('production_plan', $modules, true) && $this->aiTableExists('production_plans')) {
+            $plans = DB::table('production_plans as pp')
+                ->whereBetween('pp.plan_date', [$fromDate, $toDate]);
+
+            $context['modules']['production_plan'] = [
+                'summary_periode' => (array) (clone $plans)
+                    ->selectRaw('COUNT(*) as total_plan, SUM(order_qty) as order_qty, SUM(direct_pulling_qty) as direct_pulling_qty, SUM(stock_chute_qty) as stock_chute_qty')
+                    ->first(),
+                'per_line' => $this->aiRows((clone $plans)
+                    ->select('pp.line', DB::raw('COUNT(*) as total_plan'), DB::raw('SUM(pp.order_qty) as order_qty'), DB::raw('SUM(pp.direct_pulling_qty) as direct_pulling_qty'))
+                    ->groupBy('pp.line')
+                    ->orderByDesc('order_qty')
+                    ->limit(10)
+                    ->get()),
+                'plan_terbaru' => $this->aiRows((clone $plans)
+                    ->select('pp.plan_date', 'pp.line', 'pp.customer', 'pp.dock', 'pp.cycle', 'pp.back_no', 'pp.order_qty', 'pp.direct_pulling_qty', 'pp.delivery_time', 'pp.balance_time')
+                    ->orderByDesc('pp.plan_date')
+                    ->orderBy('pp.delivery_time')
+                    ->limit(8)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('production_actual_scan', $modules, true) && $this->aiTableExists('part_scans')) {
+            $scans = DB::table('part_scans as ps')
+                ->whereBetween('ps.scanned_at', [$start, $end]);
+
+            $context['modules']['production_actual_scan'] = [
+                'summary_periode' => [
+                    'total_scan' => (clone $scans)->count(),
+                    'unique_kanban' => (clone $scans)->distinct('ps.kanban_id')->count('ps.kanban_id'),
+                ],
+                'per_line_model' => $this->aiRows((clone $scans)
+                    ->select('ps.line', 'ps.model', DB::raw('COUNT(*) as total_scan'))
+                    ->groupBy('ps.line', 'ps.model')
+                    ->orderByDesc('total_scan')
+                    ->limit(10)
+                    ->get()),
+                'scan_terbaru' => $this->aiRows((clone $scans)
+                    ->select('ps.line', 'ps.model', 'ps.dandori_board', 'ps.last4', 'ps.scanned_at')
+                    ->orderByDesc('ps.scanned_at')
+                    ->limit(8)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('stock', $modules, true) && $this->aiTableExists('internal_parts') && $this->aiTableExists('production_stocks') && $this->aiColumnExists('internal_parts', 'standard_stock')) {
+            $stock = DB::table('internal_parts as ip')
+                ->leftJoin('lines as l', 'l.id', '=', 'ip.line_id')
+                ->leftJoin('production_stocks as ps', 'ps.internal_part_id', '=', 'ip.id');
+
+            $context['modules']['stock'] = [
+                'summary_latest' => (array) (clone $stock)
+                    ->selectRaw('COUNT(ip.id) as total_part, SUM(CASE WHEN COALESCE(ps.current_stock, 0) < COALESCE(ip.standard_stock, 0) THEN 1 ELSE 0 END) as under_stock, SUM(CASE WHEN COALESCE(ps.current_stock, 0) = COALESCE(ip.standard_stock, 0) THEN 1 ELSE 0 END) as low_stock, SUM(CASE WHEN COALESCE(ps.current_stock, 0) > COALESCE(ip.standard_stock, 0) THEN 1 ELSE 0 END) as in_stock')
+                    ->first(),
+                'understock_teratas' => $this->aiRows((clone $stock)
+                    ->select('ip.part_number', 'ip.back_number', 'ip.part_name', DB::raw('COALESCE(l.name, "-") as line'), DB::raw('COALESCE(ps.current_stock, 0) as current_stock'), 'ip.standard_stock', DB::raw('(COALESCE(ip.standard_stock, 0) - COALESCE(ps.current_stock, 0)) as gap'))
+                    ->whereRaw('COALESCE(ps.current_stock, 0) < COALESCE(ip.standard_stock, 0)')
+                    ->orderByDesc('gap')
+                    ->limit(10)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('pis', $modules, true) && $this->aiTableExists('pis_scans')) {
+            $pis = DB::table('pis_scans as ps')
+                ->leftJoin('customers as c', 'c.id', '=', 'ps.customer_id')
+                ->whereBetween('ps.delivery_date', [$start, $end]);
+
+            $context['modules']['pis'] = [
+                'summary_periode' => ['total_scan' => (clone $pis)->count()],
+                'terbaru' => $this->aiRows((clone $pis)
+                    ->select('ps.loading_list_number', 'ps.pds_number', 'ps.cycle', 'ps.delivery_date', 'ps.shipping_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                    ->orderByDesc('ps.delivery_date')
+                    ->limit(8)
+                    ->get()),
+            ];
+
+            if ($this->aiTableExists('pis_scan_details')) {
+                $context['modules']['pis']['qty_periode'] = (array) DB::table('pis_scans as ps')
+                    ->join('pis_scan_details as d', 'd.pis_scan_id', '=', 'ps.id')
+                    ->whereBetween('ps.delivery_date', [$start, $end])
+                    ->selectRaw('SUM(COALESCE(d.target_qty, 0)) as target_qty, SUM(COALESCE(d.scanned_qty, 0)) as scanned_qty, SUM(COALESCE(d.remaining_qty, 0)) as remaining_qty')
+                    ->first();
+            }
+        }
+
+        if (in_array('receiving', $modules, true) && $this->aiTableExists('receiving_logs')) {
+            $receiving = DB::table('receiving_logs as rl')
+                ->whereBetween('rl.expected_time', [$start, $end]);
+
+            $context['modules']['receiving'] = [
+                'summary_periode' => [
+                    'total_log' => (clone $receiving)->count(),
+                    'per_status' => $this->aiRows((clone $receiving)->select('rl.status', DB::raw('COUNT(*) as total'))->groupBy('rl.status')->orderBy('rl.status')->get()),
+                ],
+                'log_terbaru' => $this->aiRows((clone $receiving)
+                    ->select('rl.pick_list', 'rl.supplier_code', 'rl.expected_time', 'rl.status', 'rl.notified_at')
+                    ->orderByDesc('rl.expected_time')
+                    ->limit(8)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('quality', $modules, true) && $this->aiTableExists('quality_inspections')) {
+            $quality = DB::table('quality_inspections as qi')
+                ->whereBetween('qi.checked_at', [$start, $end]);
+
+            $context['modules']['quality'] = [
+                'summary_periode' => [
+                    'total_inspection' => (clone $quality)->count(),
+                    'per_judgement' => $this->aiRows((clone $quality)->select('qi.judgement', DB::raw('COUNT(*) as total'))->groupBy('qi.judgement')->orderByDesc('total')->get()),
+                    'per_approval' => $this->aiRows((clone $quality)->select('qi.approval_status', DB::raw('COUNT(*) as total'))->groupBy('qi.approval_status')->orderByDesc('total')->get()),
+                ],
+                'not_ok_terbaru' => $this->aiRows((clone $quality)
+                    ->select('qi.kanban_code', 'qi.check_type', 'qi.line', 'qi.shift', 'qi.pic', 'qi.part_name', 'qi.part_number', 'qi.back_number', 'qi.judgement', 'qi.approval_status', 'qi.checked_at')
+                    ->where('qi.judgement', '<>', 'OK')
+                    ->orderByDesc('qi.checked_at')
+                    ->limit(8)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('error_log', $modules, true) && $this->aiTableExists('error_logs')) {
+            $errors = DB::table('error_logs as el')
+                ->whereBetween('el.date', [$start, $end]);
+
+            $context['modules']['error_log'] = [
+                'summary_periode' => [
+                    'total_error' => (clone $errors)->count(),
+                    'per_area' => $this->aiRows((clone $errors)->select('el.area', DB::raw('COUNT(*) as total'))->groupBy('el.area')->orderByDesc('total')->limit(8)->get()),
+                ],
+                'terbaru' => $this->aiRows((clone $errors)
+                    ->select('el.area', 'el.message', 'el.expected', 'el.scanned', 'el.date')
+                    ->orderByDesc('el.date')
+                    ->limit(8)
+                    ->get()),
+            ];
+        }
+
+        if (in_array('mutation_stock_flow', $modules, true) && $this->aiTableExists('mutations')) {
+            $mutations = DB::table('mutations as m')
+                ->whereBetween('m.date', [$start, $end]);
+
+            $context['modules']['mutation_stock_flow'] = [
+                'summary_periode' => [
+                    'total_mutation' => (clone $mutations)->count(),
+                    'per_type' => $this->aiRows((clone $mutations)->select('m.type', DB::raw('COUNT(*) as total'), DB::raw('SUM(m.qty) as qty'))->groupBy('m.type')->orderByDesc('qty')->get()),
+                ],
+            ];
+        }
+
+        return $context;
+    }
+
+    private function resolveAiModules(string $question): array
+    {
+        $q = strtolower($question);
+        $map = [
+            'loading_list_pds' => ['loading list', 'loading-list', 'pds', 'delivery', 'shipping', 'truck', 'prep', 'ppic', 'll '],
+            'pulling' => ['pulling', 'pull '],
+            'production_plan' => ['production plan', 'plan produksi', 'order qty', 'dn number', 'balance time'],
+            'production_actual_scan' => ['part scan', 'kanban', 'dandori', 'scan produksi'],
+            'stock' => ['stock', 'stok', 'understock', 'back number', 'back no', 'part number'],
+            'pis' => ['pis', 'pis scan'],
+            'receiving' => ['receiving', 'receive', 'supplier', 'pick list'],
+            'quality' => ['quality', 'inspeksi', 'judgement', 'approval', 'not ok', 'ng '],
+            'error_log' => ['error', 'gagal', 'salah scan'],
+            'mutation_stock_flow' => ['mutation', 'mutasi', 'checkout', 'supply'],
+        ];
+
+        $modules = [];
+        foreach ($map as $module => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (str_contains($q, $keyword)) {
+                    $modules[] = $module;
+                    break;
+                }
+            }
+        }
+
+        if ($modules === []) {
+            return ['stock', 'error_log'];
+        }
+
+        return array_values(array_unique($modules));
+    }
+
+    private function encodeAiContext(array $context): string
+    {
+        return json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
+    }
+
+    private function compactAiContextForGroq(array $context, int $maxChars): array
+    {
+        $fits = fn (array $ctx) => strlen($this->encodeAiContext($ctx)) <= $maxChars;
+
+        if ($fits($context)) {
+            return $context;
+        }
+
+        unset($context['modules']);
+        if ($fits($context)) {
+            $context['scope']['catatan'] = ($context['scope']['catatan'] ?? '').' Modul detail di-skip agar muat limit token Groq.';
+
+            return $context;
+        }
+
+        if (isset($context['search_hits']['matches']) && is_array($context['search_hits']['matches'])) {
+            foreach ($context['search_hits']['matches'] as $key => $rows) {
+                $context['search_hits']['matches'][$key] = array_slice($rows, 0, 3);
+            }
+        }
+        if ($fits($context)) {
+            return $context;
+        }
+
+        if (isset($context['overview']['trend_harian']) && is_array($context['overview']['trend_harian'])) {
+            $context['overview']['trend_harian'] = array_slice($context['overview']['trend_harian'], -14);
+        }
+        foreach (['delivery_berisiko', 'preparation_per_customer', 'preparation_per_cycle', 'produksi_per_line', 'part_paling_kurang_stok', 'error_per_area', 'error_terbaru'] as $key) {
+            if (isset($context['overview'][$key]) && is_array($context['overview'][$key])) {
+                $context['overview'][$key] = array_slice($context['overview'][$key], 0, 4);
+            }
+        }
+        if ($fits($context)) {
+            return $context;
+        }
+
+        $context['overview'] = [
+            'periode' => $context['overview']['periode'] ?? [],
+            'kpi' => $context['overview']['kpi'] ?? [],
+            'delta_vs_periode_sebelumnya' => $context['overview']['delta_vs_periode_sebelumnya'] ?? [],
+            'stock_summary' => $context['overview']['stock_summary'] ?? [],
+            'error_rate_percent' => $context['overview']['error_rate_percent'] ?? 0,
+        ];
+        $context['scope']['catatan'] = 'Konteks dipadatkan karena melebihi limit token Groq. Minta filter lebih spesifik jika butuh detail.';
+
+        return $context;
+    }
+
+    private function estimateGroqTokens(array $messages): int
+    {
+        $chars = collect($messages)->sum(fn ($message) => strlen((string) ($message['content'] ?? '')));
+
+        return (int) ceil($chars / 3.2);
+    }
+
+    private function fitGroqMessages(array $messages, int $maxPromptTokens): array
+    {
+        if ($this->estimateGroqTokens($messages) <= $maxPromptTokens) {
+            return $messages;
+        }
+
+        $contextIndex = collect($messages)->search(fn ($message) => ($message['role'] ?? '') === 'user' && str_starts_with((string) ($message['content'] ?? ''), 'system_context:'));
+        if ($contextIndex !== false) {
+            $raw = substr((string) $messages[$contextIndex]['content'], strlen('system_context:'));
+            $context = json_decode(ltrim($raw), true);
+            if (is_array($context)) {
+                $budgetChars = max(4000, (int) (($maxPromptTokens - 900) * 3.2));
+                $messages[$contextIndex]['content'] = "system_context:\n".$this->encodeAiContext($this->compactAiContextForGroq($context, $budgetChars));
+            }
+        }
+
+        if ($this->estimateGroqTokens($messages) <= $maxPromptTokens) {
+            return $messages;
+        }
+
+        $system = array_shift($messages);
+        $question = array_pop($messages);
+        $messages = array_slice($messages, -2);
+        if ($system !== null) {
+            array_unshift($messages, $system);
+        }
+        if ($question !== null) {
+            $messages[] = $question;
+        }
+
+        return $messages;
+    }
+
+    private function buildSystemAiSearchHits(string $question): array
+    {
+        $terms = $this->aiSearchTerms($question);
+        if (empty($terms)) {
+            return ['terms' => [], 'matches' => []];
+        }
+
+        $applySearch = function ($query, array $columns) use ($terms) {
+            return $query->where(function ($where) use ($columns, $terms) {
+                foreach ($terms as $term) {
+                    $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term).'%';
+                    foreach ($columns as $column) {
+                        $where->orWhere($column, 'like', $like);
+                    }
+                }
+            });
+        };
+
+        $matches = [];
+
+        if ($this->aiTableExists('loading_lists')) {
+            $query = DB::table('loading_lists as ll')->leftJoin('customers as c', 'c.id', '=', 'll.customer_id');
+            $matches['loading_list_pds'] = $this->aiRows($applySearch($query, ['ll.number', 'll.pds_number', 'll.cycle', 'c.name'])
+                ->select('ll.number as loading_list', 'll.pds_number', 'll.cycle', 'll.delivery_date', 'll.shipping_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                ->orderByDesc('ll.delivery_date')
+                ->limit(8)
+                ->get());
+        }
+
+        if ($this->aiTableExists('pullings')) {
+            $query = DB::table('pullings as p')->leftJoin('customers as c', 'c.id', '=', 'p.customer_id');
+            $matches['pulling'] = $this->aiRows($applySearch($query, ['p.loading_list', 'p.pds_number', 'p.cycle', 'c.name'])
+                ->select('p.loading_list', 'p.pds_number', 'p.cycle', 'p.pulling_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                ->orderByDesc('p.pulling_date')
+                ->limit(8)
+                ->get());
+        }
+
+        if ($this->aiTableExists('internal_parts')) {
+            $query = DB::table('internal_parts as ip')->leftJoin('lines as l', 'l.id', '=', 'ip.line_id');
+            $matches['master_part_stock'] = $this->aiRows($applySearch($query, ['ip.part_number', 'ip.back_number', 'ip.part_name', 'l.name'])
+                ->leftJoin('production_stocks as ps', 'ps.internal_part_id', '=', 'ip.id')
+                ->select('ip.part_number', 'ip.back_number', 'ip.part_name', DB::raw('COALESCE(l.name, "-") as line'), DB::raw('COALESCE(ip.standard_stock, 0) as standard_stock'), DB::raw('COALESCE(ps.current_stock, 0) as current_stock'))
+                ->limit(8)
+                ->get());
+        }
+
+        if ($this->aiTableExists('production_plans')) {
+            $query = DB::table('production_plans as pp');
+            $matches['production_plan'] = $this->aiRows($applySearch($query, ['pp.line', 'pp.customer', 'pp.dock', 'pp.back_no', 'pp.dn_number'])
+                ->select('pp.plan_date', 'pp.line', 'pp.customer', 'pp.dock', 'pp.cycle', 'pp.back_no', 'pp.order_qty', 'pp.direct_pulling_qty', 'pp.delivery_time', 'pp.balance_time', 'pp.dn_number')
+                ->orderByDesc('pp.plan_date')
+                ->limit(8)
+                ->get());
+        }
+
+        if ($this->aiTableExists('pis_scans')) {
+            $query = DB::table('pis_scans as ps')->leftJoin('customers as c', 'c.id', '=', 'ps.customer_id');
+            $matches['pis'] = $this->aiRows($applySearch($query, ['ps.loading_list_number', 'ps.pds_number', 'ps.cycle', 'c.name'])
+                ->select('ps.loading_list_number', 'ps.pds_number', 'ps.cycle', 'ps.delivery_date', 'ps.shipping_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                ->orderByDesc('ps.delivery_date')
+                ->limit(8)
+                ->get());
+        }
+
+        if ($this->aiTableExists('quality_inspections')) {
+            $query = DB::table('quality_inspections as qi');
+            $matches['quality'] = $this->aiRows($applySearch($query, ['qi.kanban_code', 'qi.part_name', 'qi.part_number', 'qi.back_number', 'qi.line', 'qi.pic', 'qi.judgement', 'qi.approval_status'])
+                ->select('qi.kanban_code', 'qi.check_type', 'qi.line', 'qi.shift', 'qi.pic', 'qi.part_name', 'qi.part_number', 'qi.back_number', 'qi.judgement', 'qi.approval_status', 'qi.checked_at')
+                ->orderByDesc('qi.checked_at')
+                ->limit(8)
+                ->get());
+        }
+
+        if ($this->aiTableExists('error_logs')) {
+            $query = DB::table('error_logs as el');
+            $matches['error_log'] = $this->aiRows($applySearch($query, ['el.area', 'el.message', 'el.expected', 'el.scanned'])
+                ->select('el.area', 'el.message', 'el.expected', 'el.scanned', 'el.date')
+                ->orderByDesc('el.date')
+                ->limit(8)
+                ->get());
+        }
+
+        return ['terms' => $terms, 'matches' => array_filter($matches)];
+    }
+
+    private function aiSearchTerms(string $question): array
+    {
+        preg_match_all('/[A-Za-z0-9][A-Za-z0-9._-]{2,}/', $question, $matches);
+
+        $stopwords = [
+            'yang', 'dan', 'atau', 'untuk', 'dari', 'mana', 'apa', 'berapa', 'kenapa', 'coba', 'tolong', 'cek',
+            'data', 'hari', 'ini', 'besok', 'kemarin', 'status', 'loading', 'list', 'pds', 'part',
+            'preparation', 'pulling', 'produksi', 'production', 'stock', 'stok', 'error', 'quality', 'customer',
+        ];
+
+        return collect($matches[0] ?? [])
+            ->map(fn ($term) => trim((string) $term))
+            ->filter(fn ($term) => strlen($term) >= 3 && ! in_array(strtolower($term), $stopwords, true))
+            ->unique(fn ($term) => strtolower($term))
+            ->take(6)
+            ->values()
+            ->all();
+    }
+
+    private function aiRows($rows): array
+    {
+        return collect($rows)->map(fn ($row) => (array) $row)->values()->all();
+    }
+
+    private function aiTableExists(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function aiColumnExists(string $table, string $column): bool
+    {
+        try {
+            return Schema::hasColumn($table, $column);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function aiTableCount(string $table): ?int
+    {
+        if (! $this->aiTableExists($table)) {
+            return null;
+        }
+
+        try {
+            return DB::table($table)->count();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
