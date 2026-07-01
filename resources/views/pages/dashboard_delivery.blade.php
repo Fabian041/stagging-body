@@ -1142,6 +1142,125 @@
             text-overflow: ellipsis;
         }
 
+        .customer-late-note {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 6px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .prep-late-badge {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            z-index: 4;
+            transform: translateY(-50%);
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(127, 29, 29, .92);
+            color: #fff;
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: 0;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+        }
+
+        .gantt-bar-wrap.is-prep-late,
+        .weekly-prep-bar.is-prep-late {
+            cursor: pointer;
+        }
+
+        .weekly-prep-bar .prep-late-badge {
+            position: static;
+            display: inline-block;
+            margin-left: 3px;
+            transform: none;
+            vertical-align: middle;
+        }
+
+        .prep-late-detail {
+            text-align: left;
+            color: #1f2937;
+            font-size: 12px;
+        }
+
+        .prep-late-detail__meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .prep-late-detail__meta div,
+        .prep-late-detail__empty {
+            border: 1px solid #eef0f3;
+            border-radius: 6px;
+            padding: 7px 8px;
+            background: #fafafa;
+        }
+
+        .prep-late-detail__meta span {
+            display: block;
+        }
+
+        .prep-late-detail__meta span,
+        .prep-late-detail__table th {
+            color: #6b7280;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .prep-late-detail__table th {
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .prep-late-detail__reasons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 0 10px;
+        }
+
+        .prep-late-detail__reason {
+            display: inline-flex;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .prep-late-detail__table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .prep-late-detail__table th,
+        .prep-late-detail__table td {
+            padding: 7px 6px;
+            border-bottom: 1px solid #eef0f3;
+            vertical-align: top;
+        }
+
+        .prep-late-detail__table td:last-child {
+            font-weight: 800;
+            color: #b91c1c;
+            white-space: nowrap;
+        }
+
         .weekly-offset-badge {
             display: inline-block;
             margin-left: 3px;
@@ -2735,6 +2854,10 @@
                     progress_pct: wp.progress_pct,
                     total_done: wp.total_done,
                     total_target: wp.total_target,
+                    latest_pulling_date: wp.latest_pulling_date,
+                    pulling_items: wp.pulling_items || [],
+                    pds_numbers: wp.pds_numbers || [],
+                    loading_lists: wp.loading_lists || [],
                     ll_count: wp.ll_count != null ? wp.ll_count : (wp.total_target > 0 ? 1 : 0)
                 });
             }
@@ -3066,7 +3189,7 @@
                     if ($(this).hasClass('gantt-grid-header')) {
                         return;
                     }
-                    var cn = $(this).find('.gantt-grid-customer').first().text().trim();
+                    var cn = $(this).find('.gantt-grid-customer').first().attr('data-customer-name') || '';
                     var barHtml = buildPrepContinuationBarHtml(cn, contByCustomer, viewDate, overdueLatch);
                     if (!barHtml) {
                         return;
@@ -3096,6 +3219,7 @@
                     var prepLayout = computePrepBarLayoutForRow(row, ganttHourWindow);
                     var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch || {},
                         prepLayout);
+                    var lateInfo = buildPrepLateInfo(row, prepStatus);
                     var progressWidthC = prepStatus.progressWidth;
                     var barClassC = prepStatus.barClass;
                     var avC = 'C' + String(rowCycleKey(row) || '?').toUpperCase();
@@ -3111,10 +3235,12 @@
                             formatPrepDayOffsetLabel(getRowPrepEndDayOffset(row)),
                         prepEndClock: contLayout.prepEndClock,
                         displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
-                        blockedByPrior: prepStatus.isBlocked
+                        blockedByPrior: prepStatus.isBlocked,
+                        lateInfo: lateInfo
                     }).replace(/"/g, '&quot;');
                     segs.forEach(function(seg) {
-                        html += '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation" style="left:' +
+                        html += '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation' +
+                            (lateInfo.isLate ? ' is-prep-late' : '') + '" style="left:' +
                             seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 / ganttHourWindow) +
                             '%;--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;" title="' +
                             contTitle + '"';
@@ -3124,9 +3250,14 @@
                         html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(
                             row.delivery_date)) + '"';
                         html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(
-                            row.delivery_date)) + '">';
+                            row.delivery_date)) + '"';
+                        if (lateInfo.isLate) {
+                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(lateInfo)) + '"';
+                        }
+                        html += '>';
                         html += buildGanttProgressStackHtml(progressWidthC, barClassC,
                             getGanttBarDisplayPct(row, prepStatus), prepLayout);
+                        html += buildPrepLateBadgeHtml(lateInfo);
                         html += '<span class="pill-meta"><span class="pill-avatar" style="opacity:.9">' +
                             escapeHtml(avC) + '</span></span></div>';
                     });
@@ -3351,6 +3482,182 @@
             function isRowPastFinishPrepDeadline(row) {
                 var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
                 return deadlineMs != null && Date.now() >= deadlineMs;
+            }
+
+            function getRowPullingItems(row) {
+                var rawItems = Array.isArray(row && row.pulling_items) ? row.pulling_items : [];
+                if (!rawItems.length && row && (row.latest_pulling_date || row.pulling_date)) {
+                    rawItems = [{
+                        pds_number: Array.isArray(row.pds_numbers) ? row.pds_numbers[0] : '',
+                        loading_list: Array.isArray(row.loading_lists) ? row.loading_lists[0] : '',
+                        pulling_date: row.latest_pulling_date || row.pulling_date
+                    }];
+                }
+                return rawItems.map(function(item) {
+                    var rawDate = item && (item.pulling_date || item.latest_pulling_date);
+                    var ms = parseAbsoluteDatetimeLocal(rawDate);
+                    return {
+                        pdsNumber: item && item.pds_number ? String(item.pds_number) : '-',
+                        loadingList: item && item.loading_list ? String(item.loading_list) : '-',
+                        pullingDate: rawDate || '',
+                        pullingMs: isNaN(ms) ? null : ms
+                    };
+                }).filter(function(item) {
+                    return item.pullingMs != null;
+                });
+            }
+
+            function getRowLatePullingItems(row) {
+                var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
+                if (deadlineMs == null) {
+                    return [];
+                }
+                return getRowPullingItems(row).filter(function(item) {
+                    return item.pullingMs > deadlineMs;
+                }).map(function(item) {
+                    item.delayMs = item.pullingMs - deadlineMs;
+                    return item;
+                });
+            }
+
+            function isRowPullingPastFinishPrep(row) {
+                return getRowLatePullingItems(row).length > 0;
+            }
+
+            function formatDelayShort(delayMs) {
+                var minutes = Math.max(0, Math.round((parseInt(delayMs, 10) || 0) / 60000));
+                var hours = Math.floor(minutes / 60);
+                var mins = minutes % 60;
+                if (hours > 0 && mins > 0) {
+                    return '+' + hours + 'j ' + mins + 'm';
+                }
+                if (hours > 0) {
+                    return '+' + hours + 'j';
+                }
+                return '+' + minutes + 'm';
+            }
+
+            function formatDateTimeLabel(ms) {
+                if (ms == null) {
+                    return '-';
+                }
+                return new Date(ms).toLocaleString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            function buildPrepLateInfo(row, prepStatus) {
+                var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
+                var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
+                var latePullingItems = getRowLatePullingItems(row);
+                var progressLate = deadlineMs != null && rawPct < 100 && Date.now() >= deadlineMs;
+                var latchedLate = !!(prepStatus && prepStatus.isOverdue) && !progressLate && !latePullingItems.length;
+                var maxDelayMs = 0;
+                latePullingItems.forEach(function(item) {
+                    maxDelayMs = Math.max(maxDelayMs, item.delayMs || 0);
+                });
+                if (progressLate && deadlineMs != null) {
+                    maxDelayMs = Math.max(maxDelayMs, Date.now() - deadlineMs);
+                }
+                var reasons = [];
+                if (latePullingItems.length) {
+                    reasons.push('Pulling lewat Finish Prep');
+                }
+                if (progressLate) {
+                    reasons.push('Prep belum 100% saat lewat Finish Prep');
+                }
+                if (latchedLate) {
+                    reasons.push('Pernah lewat Finish Prep sebelum 100%');
+                }
+                return {
+                    isLate: reasons.length > 0,
+                    isPullingLate: latePullingItems.length > 0,
+                    isProgressLate: progressLate,
+                    reasons: reasons,
+                    delayMs: maxDelayMs,
+                    delayLabel: maxDelayMs > 0 ? formatDelayShort(maxDelayMs) : '',
+                    customerName: row.customer_name || '-',
+                    cycleName: row.cycle_name || '-',
+                    deliveryDate: formatLocalDateKey(row.delivery_date),
+                    prepDeadlineLabel: formatDateTimeLabel(deadlineMs),
+                    progressPct: rawPct,
+                    done: parseInt(row.total_done || 0, 10),
+                    target: parseInt(row.total_target || 0, 10),
+                    pdsNumbers: Array.isArray(row.pds_numbers) ? row.pds_numbers : [],
+                    loadingLists: Array.isArray(row.loading_lists) ? row.loading_lists : [],
+                    items: latePullingItems.map(function(item) {
+                        return {
+                            pdsNumber: item.pdsNumber,
+                            loadingList: item.loadingList,
+                            pullingLabel: formatDateTimeLabel(item.pullingMs),
+                            delayLabel: formatDelayShort(item.delayMs)
+                        };
+                    })
+                };
+            }
+
+            function buildPrepLateBadgeHtml(lateInfo) {
+                if (!lateInfo || !lateInfo.isLate) {
+                    return '';
+                }
+                var label = lateInfo.delayLabel || (lateInfo.items && lateInfo.items.length ? lateInfo.items.length +
+                    ' LL' : 'Telat');
+                return '<span class="prep-late-badge">' + escapeHtml(label) + '</span>';
+            }
+
+            function buildPrepLateTooltipParts(lateInfo) {
+                if (!lateInfo || !lateInfo.isLate) {
+                    return [];
+                }
+                var parts = lateInfo.reasons.slice();
+                if (lateInfo.delayLabel) {
+                    parts.push('Telat ' + lateInfo.delayLabel);
+                }
+                if (lateInfo.items && lateInfo.items.length) {
+                    parts.push(lateInfo.items.length + ' LL/PDS telat');
+                }
+                return parts;
+            }
+
+            function buildCustomerPrepLateSummaryHtml(rows) {
+                var seen = {};
+                var count = 0;
+                var maxDelayMs = 0;
+                var reasonMap = {};
+                var latchMap = getOverdueLatchMap();
+                (rows || []).forEach(function(row) {
+                    if (!row || !rowHasConfiguredMasterCycle(row)) {
+                        return;
+                    }
+                    var key = prepRowIdentityKey(row);
+                    if (seen[key]) {
+                        return;
+                    }
+                    seen[key] = true;
+                    var info = buildPrepLateInfo(row, {
+                        isOverdue: !!latchMap[rowOverdueLatchKey(row)]
+                    });
+                    if (!info.isLate) {
+                        return;
+                    }
+                    count++;
+                    maxDelayMs = Math.max(maxDelayMs, info.delayMs || 0);
+                    info.reasons.forEach(function(reason) {
+                        reasonMap[reason] = true;
+                    });
+                });
+                if (!count) {
+                    return '';
+                }
+                var title = Object.keys(reasonMap).join(' · ');
+                if (maxDelayMs > 0) {
+                    title += (title ? ' · ' : '') + 'terlama ' + formatDelayShort(maxDelayMs);
+                }
+                return '<span class="customer-late-note" title="' + escapeAttr(title) + '">' + count +
+                    ' telat</span>';
             }
 
             function getRowFinishPrepClock(row) {
@@ -4407,7 +4714,9 @@
                 var latchKey = rowOverdueLatchKey(row);
                 var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
                 var pastFinish = isRowPastFinishPrep(row, effectiveFrac);
-                var isOverdueNow = !beforeScheduledStart && progressWidth < 100 && pastFinish;
+                var pullingPastFinish = isRowPullingPastFinishPrep(row);
+                var isOverdueNow = !beforeScheduledStart && ((progressWidth < 100 && pastFinish) ||
+                    pullingPastFinish);
                 if (isOverdueNow) {
                     overdueLatch[latchKey] = true;
                 } else if (beforeScheduledStart) {
@@ -4457,6 +4766,9 @@
                 if (opts.blockedByPrior) {
                     parts.push('Menunggu cycle sebelumnya');
                 }
+                buildPrepLateTooltipParts(opts.lateInfo).forEach(function(part) {
+                    parts.push(part);
+                });
                 if (opts.truckCrossMidnight && opts.crossDayFromDate) {
                     parts.push(formatTruckCrossDayDateRangeLabel(opts.crossDayFromDate, opts.truckDisplayDate));
                 } else if (opts.crossDayFromDate) {
@@ -4493,6 +4805,7 @@
                     getPrepOffsetCssClass(getRowPrepDayOffset(row));
                 var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch,
                     prepLayout);
+                var lateInfo = buildPrepLateInfo(row, prepStatus);
                 var progressWidth = prepStatus.progressWidth;
                 var barClass = prepStatus.barClass;
                 var prepStartLbl = formatClockDot(getRowPrepStartClock(row));
@@ -4505,7 +4818,8 @@
                     prepEndDayOffsetLabel: getRowPrepEndOffsetLabel(row),
                     prepEndClock: getRowPrepEndClock(row),
                     displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
-                    blockedByPrior: prepStatus.isBlocked
+                    blockedByPrior: prepStatus.isBlocked,
+                    lateInfo: lateInfo
                 };
                 var crossDayFrom = getPrepCrossDaySourceDateKey(row);
                 var crossDayLabel = formatCrossDaySourceLabel(crossDayFrom);
@@ -4531,6 +4845,9 @@
                 if (isInstantPrep) {
                     prepExtraClass += ' is-instant';
                 }
+                if (lateInfo.isLate) {
+                    prepExtraClass += ' is-prep-late';
+                }
                 var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';';
                 if (isContinuationBar) {
                     inlineStyle += '--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;;';
@@ -4542,9 +4859,14 @@
                 html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
                 html += ' data-prep-offset="' + escapeAttr(String(getRowPrepDayOffset(row))) + '"';
                 html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
-                html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '">';
+                html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
+                if (lateInfo.isLate) {
+                    html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(lateInfo)) + '"';
+                }
+                html += '>';
                 html += buildGanttProgressStackHtml(progressWidth, barClass,
                     getGanttBarDisplayPct(row, prepStatus), prepLayout);
+                html += buildPrepLateBadgeHtml(lateInfo);
                 html += buildPrepPillMetaHtml(row, null, isContinuationBar ? 'opacity:.9' : '', {
                     isContinuation: isContinuationBar,
                     continuesTomorrow: prepLayout.continuesTomorrow
@@ -4671,10 +4993,15 @@
                     var allBucketsForDate = deliveryBucketsForDate.slice();
                     var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
                     var unconfiguredHint = buildUnconfiguredTimelineHintHtml(allBucketsForDate);
+                    var lateSummary = buildCustomerPrepLateSummaryHtml(gateRows.length ? gateRows : prepBarItems.map(
+                        function(item) {
+                            return item.row;
+                        }));
                     gridHtml += '<div class="gantt-grid-row">';
                     gridHtml +=
-                        '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer">' +
-                        escapeHtml(cn) + (unconfiguredHint || '') + '</div>';
+                        '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer" data-customer-name="' +
+                        escapeAttr(cn) + '">' +
+                        escapeHtml(cn) + lateSummary + (unconfiguredHint || '') + '</div>';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type">';
                     gridHtml +=
@@ -4796,16 +5123,101 @@
                 window.location.href = loadingListUrl + (qs ? '?' + qs : '');
             }
 
+            function parsePrepLateDetailFromBar($bar) {
+                var raw = $bar.attr('data-prep-late-detail') || '';
+                if (!raw.length) {
+                    return null;
+                }
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function buildPrepLateDetailHtml(info) {
+                var reasons = (info.reasons || []).map(function(reason) {
+                    return '<span class="prep-late-detail__reason">' + escapeHtml(reason) + '</span>';
+                }).join('');
+                var html = '<div class="prep-late-detail">';
+                html += '<div class="prep-late-detail__meta">';
+                html += '<div><span>Customer</span><strong>' + escapeHtml(info.customerName || '-') +
+                    '</strong></div>';
+                html += '<div><span>Cycle</span><strong>' + escapeHtml(info.cycleName || '-') + '</strong></div>';
+                html += '<div><span>Finish Prep</span><strong>' + escapeHtml(info.prepDeadlineLabel || '-') +
+                    '</strong></div>';
+                html += '<div><span>Progress</span><strong>' + escapeHtml(info.progressPct || 0) + '% (' +
+                    escapeHtml(info.done || 0) + '/' + escapeHtml(info.target || 0) + ')</strong></div>';
+                html += '</div>';
+                html += '<div class="prep-late-detail__reasons">' + (reasons || '<span class="prep-late-detail__reason">Prep telat</span>') +
+                    '</div>';
+
+                if (info.items && info.items.length) {
+                    html += '<table class="prep-late-detail__table"><thead><tr>' +
+                        '<th>PDS</th><th>Loading List</th><th>Pulling</th><th>Delay</th>' +
+                        '</tr></thead><tbody>';
+                    info.items.slice(0, 30).forEach(function(item) {
+                        html += '<tr><td>' + escapeHtml(item.pdsNumber || '-') + '</td><td>' +
+                            escapeHtml(item.loadingList || '-') + '</td><td>' +
+                            escapeHtml(item.pullingLabel || '-') + '</td><td>' +
+                            escapeHtml(item.delayLabel || '-') + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    var pds = (info.pdsNumbers || []).slice(0, 12).join(', ') || '-';
+                    var lls = (info.loadingLists || []).slice(0, 12).join(', ') || '-';
+                    html += '<div class="prep-late-detail__empty"><strong>PDS terdampak:</strong> ' +
+                        escapeHtml(pds) + '<br><strong>Loading list:</strong> ' + escapeHtml(lls) + '</div>';
+                }
+                html += '</div>';
+                return html;
+            }
+
+            function openPrepLateDetailFromBar($bar) {
+                var info = parsePrepLateDetailFromBar($bar);
+                if (!info) {
+                    openLoadingListFromBar($bar);
+                    return;
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Detail Prep Telat',
+                    html: buildPrepLateDetailHtml(info),
+                    width: 760,
+                    confirmButtonText: 'Buka Loading List',
+                    confirmButtonColor: '#dc3545',
+                    showCancelButton: true,
+                    cancelButtonText: 'Tutup',
+                    customClass: {
+                        popup: 'master-cycle-swal-popup'
+                    }
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        openLoadingListFromBar($bar);
+                    }
+                });
+            }
+
             $('#ganttContainer').on('click', '.gantt-bar-wrap', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                openLoadingListFromBar($(this));
+                var $bar = $(this);
+                if ($bar.hasClass('is-prep-late')) {
+                    openPrepLateDetailFromBar($bar);
+                    return;
+                }
+                openLoadingListFromBar($bar);
             });
 
             $('#weeklyGanttContainer').on('click', '.weekly-prep-bar', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                openLoadingListFromBar($(this));
+                var $bar = $(this);
+                if ($bar.hasClass('is-prep-late')) {
+                    openPrepLateDetailFromBar($bar);
+                    return;
+                }
+                openLoadingListFromBar($bar);
             });
 
             function resolveWeeklyDayColWidth(nSlots) {
@@ -4906,6 +5318,8 @@
                 custOrder.forEach(function(cust, custIdx) {
                     var rows = sortPrepRowsByOrder(custMap[cust] || []);
                     var rowsForBars = rows.filter(rowHasConfiguredMasterCycle);
+                    var weeklyLateSummary = buildCustomerPrepLateSummaryHtml(filterRowsInWeeklySlots(rowsForBars,
+                        slots));
                     var rowHeight = 136; // px – sama dengan daily
 
                     // ── Baris PREP ──
@@ -4916,6 +5330,7 @@
                         'font-size:12px;font-weight:500;padding:8px 10px;' +
                         'word-break:break-word;line-height:1.3;' +
                         '">' + escapeHtml(cust) +
+                        weeklyLateSummary +
                         buildUnconfiguredTimelineHintHtml(filterRowsInWeeklySlots(rows, slots)) +
                         '</td>';
                     // Kolom TYPE – PREP
@@ -4945,6 +5360,7 @@
                         var weeklyCurrentFrac = (gateDate === todayStr) ? nowFrac : null;
                         var prepStatus = resolvePrepBarStatus(row, gateRows, gateDate, weeklyCurrentFrac,
                             weeklyOverdueLatch, prepLayoutDaily);
+                        var lateInfo = buildPrepLateInfo(row, prepStatus);
                         var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
                         var pct = prepStatus.isBlocked ? 0 : rawPct;
                         var barColor = prepBarStatusToWeeklyColor(prepStatus, pct);
@@ -4960,25 +5376,32 @@
                                 getPrepCrossDaySourceDateKey(row)) : null,
                             weeklyCrossDaySpan: span.crossesDays && !span.anchorDate,
                             displayPct: pct,
-                            blockedByPrior: prepStatus.isBlocked
+                            blockedByPrior: prepStatus.isBlocked,
+                            lateInfo: lateInfo
                         }));
                         var av = 'C' + escapeHtml(String(cycleLbl).toUpperCase());
                         var crossClass = span.crossesDays ? ' is-cross-day' : '';
                         var incomingClass = span.isIncomingFromPriorRange ? ' is-incoming-prior-range' : '';
                         var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
                         var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24), minPrepBarWidthPct);
-                        html += '<div class="weekly-prep-bar' + crossClass + incomingClass + ' ' + offsetClass +
+                        html += '<div class="weekly-prep-bar' + crossClass + incomingClass +
+                            (lateInfo.isLate ? ' is-prep-late' : '') + ' ' + offsetClass +
                             '" title="' + tipText + '" style="left:' +
                             span.leftPct + '%;width:' + barWidthPct + '%;' +
                             'background:' + barColor + ';"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
                         html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
-                        html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '">';
+                        html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
+                        if (lateInfo.isLate) {
+                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(lateInfo)) + '"';
+                        }
+                        html += '>';
                         var weeklyBarW = trackWidthPx * (barWidthPct / 100);
                         var weeklyPctHtml = shouldShowGanttBarPct(weeklyBarW, pct) ? buildGanttBarPctHtml(pct) : '';
                         html += '<span>' +
-                            av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml + '</span></div>';
+                            av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml + buildPrepLateBadgeHtml(lateInfo) +
+                            '</span></div>';
                     });
                     if (nowDayIdx >= 0) {
                         var nowLeftInTrack = ((nowDayIdx + nowFrac) / nSlots) * 100;
