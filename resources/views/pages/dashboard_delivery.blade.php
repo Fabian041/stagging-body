@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-                     * BELLA DESIGN SYSTEM — Shell overrides for this page
-                     * =================================================== */
+                         * BELLA DESIGN SYSTEM — Shell overrides for this page
+                         * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -366,8 +366,8 @@
         }
 
         /* ====================================================
-                     * GANTT CHART — kept exactly as original, do not touch
-                     * ==================================================== */
+                         * GANTT CHART — kept exactly as original, do not touch
+                         * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -3301,7 +3301,7 @@
                             '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation' +
                             (lateInfo.isLate ? ' is-prep-late' : '') + '" style="left:' +
                             seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 /
-                            ganttHourWindow) +
+                                ganttHourWindow) +
                             '%;--cross-day-label:&quot;' + escapeAttr(crossDayLabel) +
                             '&quot;" title="' +
                             contTitle + '"';
@@ -3628,13 +3628,13 @@
                 }
                 var reasons = [];
                 if (latePullingItems.length) {
-                    reasons.push('Pulling lewat Finish Prep');
+                    reasons.push('Pulling lewat waktu Finish Preparation');
                 }
                 if (progressLate) {
-                    reasons.push('Prep belum 100% saat lewat Finish Prep');
+                    reasons.push('Preparation belum 100% saat lewat waktu Finish Preparation');
                 }
                 if (latchedLate) {
-                    reasons.push('Pernah lewat Finish Prep sebelum 100%');
+                    reasons.push('Pernah lewat waktu Finish Preparation sebelum 100%');
                 }
                 return {
                     isLate: reasons.length > 0,
@@ -3974,7 +3974,7 @@
                         .prep_day_offset || 0);
                     var endOffLbl = r.prep_end_day_offset_label || formatPrepDayOffsetLabel(
                         r.prep_end_day_offset != null ? r.prep_end_day_offset : (r.prep_day_offset || 0)
-                        );
+                    );
                     var offsetDisp = startOffLbl;
                     if (endOffLbl !== startOffLbl) {
                         offsetDisp += ' → ' + endOffLbl;
@@ -5223,7 +5223,7 @@
                         gridHtml += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(
                             row.delivery_date)) + '">';
                         gridHtml += buildTruckBarStackHtml(truckSegClass, getRowRawProgressPct(
-                        row));
+                            row));
                         gridHtml += buildPrepPillMetaHtml(row, truckLabel);
                         gridHtml += '</div>';
                     });
@@ -5513,7 +5513,7 @@
                         var span = item.span;
                         var anchorDate = span.anchorDate;
                         var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[
-                            0]) :
+                                0]) :
                             anchorDate;
                         var gateRows = getCustomerPrepRowsForSequentialGate(cust, gateDate);
                         var prepLayoutDaily = computePrepBarLayoutForRow(row, 24);
@@ -5527,7 +5527,7 @@
                         var barColor = prepBarStatusToWeeklyColor(prepStatus, pct);
                         var cycleLbl = rowCycleKey(row) || '-';
                         var prepRangeLbl = span.prepStart + (span.prepEnd ? '–' + span.prepEnd :
-                        '');
+                            '');
                         var tipText = escapeAttr(buildGanttTooltip(row, {
                             prepRange: prepRangeLbl,
                             prepDayOffsetLabel: row.prep_day_offset_label ||
