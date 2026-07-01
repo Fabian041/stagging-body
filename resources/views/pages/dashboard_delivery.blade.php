@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-                         * BELLA DESIGN SYSTEM — Shell overrides for this page
-                         * =================================================== */
+                             * BELLA DESIGN SYSTEM — Shell overrides for this page
+                             * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -366,8 +366,8 @@
         }
 
         /* ====================================================
-                         * GANTT CHART — kept exactly as original, do not touch
-                         * ==================================================== */
+                             * GANTT CHART — kept exactly as original, do not touch
+                             * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -1842,7 +1842,7 @@
                                 </li>
                                 <li>
                                     <span class="legend-dot" style="background: #dc3545;"></span>
-                                    Prep telat
+                                    Preparation telat
                                 </li>
                                 <li>
                                     <span class="legend-offset-swatch is-offset-h-minus"></span>
@@ -1877,7 +1877,8 @@
                     <div class="delivery-weekly-card mb-2 d-none" id="deliveryWeeklyCard">
                         <div class="weekly-card-header d-flex justify-content-between align-items-center">
                             <h2 class="weekly-title">Ringkasan mingguan delivery</h2>
-                            <span class="timeline-late-summary is-empty" id="weeklyLateSummary">Tidak ada prep telat</span>
+                            <span class="timeline-late-summary is-empty" id="weeklyLateSummary">Tidak ada preparation
+                                telat</span>
                         </div>
                         <div class="weekly-card-body">
                             <div class="weekly-axis-header">
@@ -3616,30 +3617,18 @@
                 var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
                 var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
                 var latePullingItems = getRowLatePullingItems(row);
-                var progressLate = deadlineMs != null && rawPct < 100 && Date.now() >= deadlineMs;
-                var latchedLate = !!(prepStatus && prepStatus.isOverdue) && !progressLate && !latePullingItems
-                    .length;
                 var maxDelayMs = 0;
                 latePullingItems.forEach(function(item) {
                     maxDelayMs = Math.max(maxDelayMs, item.delayMs || 0);
                 });
-                if (progressLate && deadlineMs != null) {
-                    maxDelayMs = Math.max(maxDelayMs, Date.now() - deadlineMs);
-                }
                 var reasons = [];
                 if (latePullingItems.length) {
                     reasons.push('Pulling lewat waktu Finish Preparation');
                 }
-                if (progressLate) {
-                    reasons.push('Preparation belum 100% saat lewat waktu Finish Preparation');
-                }
-                if (latchedLate) {
-                    reasons.push('Pernah lewat waktu Finish Preparation sebelum 100%');
-                }
                 return {
-                    isLate: reasons.length > 0,
+                    isLate: latePullingItems.length > 0,
                     isPullingLate: latePullingItems.length > 0,
-                    isProgressLate: progressLate,
+                    isProgressLate: false,
                     reasons: reasons,
                     delayMs: maxDelayMs,
                     delayLabel: maxDelayMs > 0 ? formatDelayShort(maxDelayMs) : '',
@@ -3783,7 +3772,7 @@
                 var text = hasLate ?
                     (summary.customerCount + ' customer telat · ' + summary.itemCount + ' LL telat' +
                         (summary.maxDelayMs > 0 ? ' · terlama ' + formatDelayShort(summary.maxDelayMs) : '')) :
-                    'Tidak ada prep telat';
+                    'Tidak ada preparation telat';
                 $('#timelineLateSummary, #weeklyLateSummary').text(text).toggleClass('is-empty', !hasLate);
             }
 
@@ -4847,17 +4836,14 @@
                 enrichRowAbsoluteDatetimes(row);
                 var beforeScheduledStart = row.absolute_start_ms != null && Date.now() < row.absolute_start_ms;
                 var latchKey = rowOverdueLatchKey(row);
-                var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
-                var pastFinish = isRowPastFinishPrep(row, effectiveFrac);
                 var pullingPastFinish = isRowPullingPastFinishPrep(row);
-                var isOverdueNow = !beforeScheduledStart && ((progressWidth < 100 && pastFinish) ||
-                    pullingPastFinish);
+                var isOverdueNow = !beforeScheduledStart && pullingPastFinish;
                 if (isOverdueNow) {
                     overdueLatch[latchKey] = true;
-                } else if (beforeScheduledStart) {
+                } else {
                     delete overdueLatch[latchKey];
                 }
-                var isOverdue = !beforeScheduledStart && !!overdueLatch[latchKey];
+                var isOverdue = isOverdueNow;
                 var barClass = progressWidth >= 100 ?
                     (isOverdue ? 'overdue' : 'ontime') :
                     (isOverdue ? 'overdue' : (progressWidth > 0 ? 'delay' : 'empty'));
@@ -5262,6 +5248,30 @@
                 if (deliveryDateTo) {
                     params.set('delivery_date_to', deliveryDateTo);
                 }
+
+                var lateInfo = parsePrepLateDetailFromBar($bar);
+                if (lateInfo) {
+                    var latePds = {};
+                    var lateLoadingLists = {};
+                    (lateInfo.items || []).forEach(function(item) {
+                        if (item.pdsNumber && item.pdsNumber !== '-') {
+                            latePds[item.pdsNumber] = true;
+                        }
+                        if (item.loadingList && item.loadingList !== '-') {
+                            lateLoadingLists[item.loadingList] = true;
+                        }
+                    });
+                    Object.keys(latePds).slice(0, 50).forEach(function(pdsNumber) {
+                        params.append('late_pds', pdsNumber);
+                    });
+                    Object.keys(lateLoadingLists).slice(0, 80).forEach(function(loadingList) {
+                        params.append('late_ll', loadingList);
+                    });
+                    if (Object.keys(latePds).length || Object.keys(lateLoadingLists).length) {
+                        params.set('highlight_late_pulling', '1');
+                    }
+                }
+
                 var qs = params.toString();
                 window.location.href = loadingListUrl + (qs ? '?' + qs : '');
             }
@@ -5303,7 +5313,7 @@
                     escapeHtml(info.done || 0) + '/' + escapeHtml(info.target || 0) + ')</strong></div>';
                 html += '</div>';
                 html += '<div class="prep-late-detail__reasons">' + (reasons ||
-                        '<span class="prep-late-detail__reason">Prep telat</span>') +
+                        '<span class="prep-late-detail__reason">Preparation telat</span>') +
                     '</div>';
 
                 if (info.items && info.items.length) {

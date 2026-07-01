@@ -199,6 +199,79 @@
             color: var(--navy);
         }
 
+        #loadingList tbody tr.is-late-pulling-row td {
+            background: #fff5f5 !important;
+            border-bottom-color: #fecaca !important;
+        }
+
+        #loadingList tbody tr.is-late-pulling-row:hover td {
+            background: #fff1f2 !important;
+        }
+
+        #loadingList tbody tr.is-late-pulling-row td:first-child {
+            color: #b91c1c !important;
+        }
+
+        .bella-pds-cell {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .bella-late-pulling-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            border: 1px solid #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 9.5px;
+            font-weight: 850;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            line-height: 1.35;
+            white-space: nowrap;
+        }
+
+        .bella-late-context {
+            margin: 12px 16px 0;
+            padding: 10px 12px;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            background: #fff5f5;
+            color: #991b1b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .bella-late-context strong {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 850;
+            color: #991b1b;
+        }
+
+        .bella-late-context span {
+            color: #b91c1c;
+            font-weight: 850;
+            white-space: nowrap;
+        }
+
+        .bella-late-context small {
+            display: block;
+            margin-top: 2px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
         /* Pagination */
         .bella-table-card .dataTables_wrapper .dataTables_paginate {
             padding: 10px 16px;
@@ -295,6 +368,12 @@
 
         .modal-title span {
             color: var(--sky) !important;
+        }
+
+        .modal-title .bella-late-pulling-badge {
+            margin-left: 8px;
+            color: #b91c1c !important;
+            vertical-align: middle;
         }
 
         .modal-header .close {
@@ -408,6 +487,38 @@
 
         .accordion-header.open+.acc-body-content {
             display: block;
+        }
+
+        .bella-acc-item.is-late-pulling-detail {
+            border-color: #fecaca;
+            box-shadow: inset 3px 0 0 #dc3545;
+        }
+
+        .bella-acc-item.is-late-pulling-detail .accordion-header {
+            background: #fff5f5;
+        }
+
+        .bella-acc-item.is-late-pulling-detail .accordion-header:hover,
+        .bella-acc-item.is-late-pulling-detail .accordion-header.open {
+            background: #fff1f2;
+        }
+
+        .bella-acc-item.is-late-pulling-detail .acc-title-text {
+            color: #b91c1c;
+        }
+
+        .bella-late-detail-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 9px;
+            margin-bottom: 12px;
+            border-radius: 7px;
+            border: 1px solid #fecaca;
+            background: #fff5f5;
+            color: #991b1b;
+            font-size: 11.5px;
+            font-weight: 750;
         }
 
         /* Info grid inside accordion */
@@ -921,6 +1032,11 @@
                 transform: none;
             }
 
+            .bella-late-context {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
             .loading-detail-search {
                 min-width: 0;
                 width: 100%;
@@ -1036,6 +1152,8 @@
             </div>
         </div>
 
+        <div class="bella-late-context d-none" id="latePullingContext"></div>
+
         <div class="table-responsive">
             <table class="table bella-table" id="loadingList" style="width: 100%">
                 <thead>
@@ -1062,6 +1180,7 @@
             <div class="modal-header">
                 <h5 class="modal-title" id="loadingListModalLabel">
                     Loading Lists for PDS: <span id="modalPdsNumber"></span>
+                    <span class="bella-late-pulling-badge d-none" id="modalLatePullingBadge">Prep telat</span>
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -1098,6 +1217,87 @@
         /* =========================================================
          * HELPERS
          * ======================================================= */
+        const pageParams = new URLSearchParams(window.location.search);
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char];
+            });
+        }
+
+        function escapeAttr(value) {
+            return escapeHtml(value);
+        }
+
+        function normalizeLateKey(value) {
+            return String(value == null ? '' : value).trim().toUpperCase();
+        }
+
+        function collectLateQueryKeys(name) {
+            const values = pageParams.getAll(name).concat(pageParams.getAll(name + '[]'));
+            const keys = [];
+
+            values.forEach(function(value) {
+                String(value || '').split(',').forEach(function(part) {
+                    const key = normalizeLateKey(part);
+                    if (key) keys.push(key);
+                });
+            });
+
+            return keys;
+        }
+
+        const latePdsSet = new Set(collectLateQueryKeys('late_pds'));
+        const lateLoadingListSet = new Set(collectLateQueryKeys('late_ll'));
+        const shouldHighlightLatePulling = pageParams.get('highlight_late_pulling') === '1' ||
+            latePdsSet.size > 0 ||
+            lateLoadingListSet.size > 0;
+        let lateRowsFocused = false;
+
+        function isLatePds(pdsNumber) {
+            return latePdsSet.has(normalizeLateKey(pdsNumber));
+        }
+
+        function isLateLoadingList(loadingListNumber) {
+            return lateLoadingListSet.has(normalizeLateKey(loadingListNumber));
+        }
+
+        function renderLatePullingContext() {
+            if (!shouldHighlightLatePulling) return;
+
+            const parts = [];
+            if (latePdsSet.size) parts.push(latePdsSet.size + ' PDS');
+            if (lateLoadingListSet.size) parts.push(lateLoadingListSet.size + ' Loading List');
+
+            $('#latePullingContext')
+                .removeClass('d-none')
+                .html(
+                    '<div><strong>Highlight prep telat dari dashboard delivery</strong>' +
+                    '<small>PDS dan loading list terkait akan ditandai di tabel serta detail modal.</small></div>' +
+                    '<span>' + escapeHtml(parts.join(' · ') || 'Aktif') + '</span>'
+                );
+        }
+
+        function focusLateRowsOnce() {
+            if (!shouldHighlightLatePulling || lateRowsFocused || !latePdsSet.size) return;
+
+            const $row = $('#loadingList tbody tr.is-late-pulling-row').first();
+            if (!$row.length) return;
+
+            lateRowsFocused = true;
+            setTimeout(function() {
+                $('html, body').animate({
+                    scrollTop: Math.max($row.offset().top - 140, 0)
+                }, 350);
+            }, 80);
+        }
+
         function getFilterCustomer() {
             const v = $('#customer').val();
             return (v && v !== '-- Select customer --') ? v : '';
@@ -1140,11 +1340,10 @@
 
         /* Apply query-string filters on load */
         (function applyQueryStringFilters() {
-            const params = new URLSearchParams(window.location.search);
-            const manifest = params.get('manifest') || params.get('pds_number');
-            const customer = params.get('customer');
-            const cycle = params.get('cycle');
-            const deliveryDate = params.get('delivery_date');
+            const manifest = pageParams.get('manifest') || pageParams.get('pds_number');
+            const customer = pageParams.get('customer');
+            const cycle = pageParams.get('cycle');
+            const deliveryDate = pageParams.get('delivery_date');
 
             if (manifest) {
                 $('#manifest').append(new Option(manifest, manifest, true, true));
@@ -1167,6 +1366,8 @@
             }
             if (deliveryDate) $('#date').val(deliveryDate);
         })();
+
+        renderLatePullingContext();
 
         $('#manifest').select2({
             placeholder: '-- Cari manifest --',
@@ -1209,7 +1410,17 @@
                 }
             },
             columns: [{
-                    data: 'pds_number'
+                    data: 'pds_number',
+                    render: function(data, type) {
+                        if (type !== 'display') return data;
+
+                        const pdsNumber = data || '-';
+                        const badge = isLatePds(pdsNumber) ?
+                            '<span class="bella-late-pulling-badge">Prep telat</span>' : '';
+
+                        return '<span class="bella-pds-cell"><span>' + escapeHtml(pdsNumber) +
+                            '</span>' + badge + '</span>';
+                    }
                 },
                 {
                     data: 'customer'
@@ -1240,6 +1451,7 @@
                 [10, 25, 100],
                 [10, 25, 100]
             ],
+            pageLength: shouldHighlightLatePulling ? 100 : 10,
             stateSave: true,
             stateDuration: 60 * 60,
             stateSaveParams: function(settings, data) {
@@ -1250,14 +1462,22 @@
                 data.columns.forEach(function(column) {
                     column.search.search = '';
                 });
-                if (data.scrollTop) {
+                if (shouldHighlightLatePulling) {
+                    data.start = 0;
+                    data.length = 100;
+                }
+                if (data.scrollTop && !shouldHighlightLatePulling) {
                     setTimeout(function() {
                         $(window).scrollTop(data.scrollTop);
                     }, 100);
                 }
             },
+            rowCallback: function(row, data) {
+                $(row).toggleClass('is-late-pulling-row', isLatePds(data && data.pds_number));
+            },
             drawCallback: function() {
                 updateDashboardSummary();
+                focusLateRowsOnce();
             }
         });
 
@@ -1415,6 +1635,7 @@
         $(document).on('click', '.show-loading-lists', function() {
             const pdsNumber = $(this).data('pds');
             $('#modalPdsNumber').text(pdsNumber);
+            $('#modalLatePullingBadge').toggleClass('d-none', !isLatePds(pdsNumber));
 
             // Spinner
             $('#loadingListAccordion').html(`
@@ -1450,6 +1671,10 @@
                                 inProgressList++;
                         });
 
+                        const firstLateIndex = response.loading_lists.findIndex(function(ll) {
+                            return isLateLoadingList(ll.number);
+                        });
+
                         html += `
                         <div class="loading-detail-toolbar">
                             <input type="text" class="loading-detail-search" id="loadingDetailSearch" placeholder="Search loading list, customer, cycle, or date...">
@@ -1465,6 +1690,14 @@
 
                         response.loading_lists.forEach(function(ll, index) {
                             const collapseId = 'acc-collapse-' + index;
+                            const isLateDetail = isLateLoadingList(ll.number);
+                            const isOpen = firstLateIndex >= 0 ? index === firstLateIndex : index === 0;
+                            const lateClass = isLateDetail ? ' is-late-pulling-detail' : '';
+                            const lateBadge = isLateDetail ?
+                                '<span class="bella-late-pulling-badge">Prep telat</span>' : '';
+                            const lateNote = isLateDetail ?
+                                '<div class="bella-late-detail-note"><i class="fas fa-exclamation-circle"></i>Pulling sudah lewat batas preparation.</div>' :
+                                '';
                             const pct = ll.total_kanban > 0 ?
                                 Math.round((ll.actual_kanban / ll.total_kanban) *
                                     100) : 0;
@@ -1486,37 +1719,39 @@
                             }
 
                             html += `
-                            <div class="bella-acc-item" data-keywords="${String(ll.number || '').toLowerCase()} ${String(ll.customer_name || '').toLowerCase()} ${String(ll.cycle || '').toLowerCase()} ${String(ll.delivery_date || '').toLowerCase()}">
-                                <div class="accordion-header compact ${index === 0 ? 'open' : ''}" data-target="${collapseId}">
+                            <div class="bella-acc-item${lateClass}" data-keywords="${escapeAttr(String(ll.number || '').toLowerCase() + ' ' + String(ll.customer_name || '').toLowerCase() + ' ' + String(ll.cycle || '').toLowerCase() + ' ' + String(ll.delivery_date || '').toLowerCase())}">
+                                <div class="accordion-header compact ${isOpen ? 'open' : ''}" data-target="${collapseId}">
                                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                                        <span class="acc-title-text">${ll.number}</span>
+                                        <span class="acc-title-text">${escapeHtml(ll.number || '-')}</span>
                                         <span class="${statusClass}">${statusText}</span>
+                                        ${lateBadge}
                                     </div>
                                     <div class="acc-meta-right">
-                                        <span class="acc-kanban-count">${ll.actual_kanban} / ${ll.total_kanban}</span>
+                                        <span class="acc-kanban-count">${escapeHtml(ll.actual_kanban || 0)} / ${escapeHtml(ll.total_kanban || 0)}</span>
                                         <div class="acc-mini-prog">
                                             <div class="acc-mini-prog-fill" style="width:${pct}%;background:${progColor};"></div>
                                         </div>
                                         <i class="fas fa-chevron-down acc-chevron-icon"></i>
                                     </div>
                                 </div>
-                                <div class="acc-body-content" id="${collapseId}" style="${index === 0 ? 'display:block;' : ''}">
+                                <div class="acc-body-content" id="${collapseId}" style="${isOpen ? 'display:block;' : ''}">
+                                    ${lateNote}
                                     <div class="quick-view-grid">
                                         <div class="quick-view-item">
                                             <label>Loading List</label>
-                                            <strong>${ll.number}</strong>
+                                            <strong>${escapeHtml(ll.number || '-')}</strong>
                                         </div>
                                         <div class="quick-view-item">
                                             <label>Customer</label>
-                                            <strong>${ll.customer_name || 'Not specified'}</strong>
+                                            <strong>${escapeHtml(ll.customer_name || 'Not specified')}</strong>
                                         </div>
                                         <div class="quick-view-item">
                                             <label>Cycle</label>
-                                            <strong>${ll.cycle || 'Not specified'}</strong>
+                                            <strong>${escapeHtml(ll.cycle || 'Not specified')}</strong>
                                         </div>
                                         <div class="quick-view-item">
                                             <label>Delivery Date</label>
-                                            <strong>${ll.delivery_date || 'Not specified'}</strong>
+                                            <strong>${escapeHtml(ll.delivery_date || 'Not specified')}</strong>
                                         </div>
                                     </div>
                                     <div class="acc-prog-section">
@@ -1548,6 +1783,11 @@
                     }
 
                     $('#loadingListAccordion').html(html);
+                    const $firstLateDetail = $('#loadingListAccordion .bella-acc-item.is-late-pulling-detail')
+                        .first();
+                    if ($firstLateDetail.length) {
+                        $('#loadingListScrollArea').scrollTop(Math.max($firstLateDetail.position().top - 8, 0));
+                    }
 
                     // Accordion toggle
                     $(document).off('click', '.accordion-header').on('click',
