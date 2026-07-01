@@ -1046,6 +1046,7 @@
         })();
     </script>
 
+    @include('layouts.partials.ui-polish')
     @yield('custom-script')
     @stack('scripts')
 </body>
