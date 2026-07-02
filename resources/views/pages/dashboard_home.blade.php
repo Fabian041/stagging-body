@@ -470,7 +470,7 @@
                 'sub' => [
                     ['label' => 'Preparation Monitoring', 'icon' => 'fa-chart-bar', 'route' => 'dashboard.delivery'],
                     ['label' => 'Absen Driver', 'icon' => 'fa-truck', 'route' => 'loadingList.driverAbsen'],
-                    ['label' => 'Scan Detail', 'icon' => 'fa-truck-loading', 'route' => 'loadingList.index'],
+                    ['label' => 'Preparation Detail', 'icon' => 'fa-truck-loading', 'route' => 'loadingList.index'],
                     ['label' => 'Kanban Reset', 'icon' => 'fa-sync-alt', 'route' => 'pulling.manual'],
                 ],
             ],

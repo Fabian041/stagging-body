@@ -24,7 +24,8 @@
         <div class="sb-section-label" style="margin-top: 16px;">Main Menu</div>
 
         {{-- ── Dashboard Overview ── --}}
-        <a class="sb-item {{ request()->is('dashboard/overview') ? 'active' : '' }}" href="{{ route('dashboard.overview') }}">
+        <a class="sb-item {{ request()->is('dashboard/overview') ? 'active' : '' }}"
+            href="{{ route('dashboard.overview') }}">
             <i class="fas fa-chart-pie sb-icon"></i>
             <span class="sb-item-label">Dashboard</span>
             <span class="sb-item-tooltip">Dashboard</span>
@@ -52,8 +53,9 @@
                 Preparation Monitoring
             </a>
             @php
-                $loadingListDetailActive = (request()->is('loading-list') || request()->is('loading-list/*'))
-                    && !request()->is('loading-list/absen-driver*');
+                $loadingListDetailActive =
+                    (request()->is('loading-list') || request()->is('loading-list/*')) &&
+                    !request()->is('loading-list/absen-driver*');
             @endphp
             <a class="sb-sub-item {{ request()->is('loading-list/absen-driver*') ? 'active' : '' }}"
                 href="{{ route('loadingList.driverAbsen') }}">
@@ -63,7 +65,7 @@
             <a class="sb-sub-item {{ $loadingListDetailActive ? 'active' : '' }}"
                 href="{{ route('loadingList.index') }}">
                 <i class="fas fa-truck-loading"></i>
-                Scan Detail
+                Preparation Detail
             </a>
             <a class="sb-sub-item {{ request()->is('pulling/manual') ? 'active' : '' }}"
                 href="{{ route('pulling.manual') }}">
