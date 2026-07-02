@@ -140,19 +140,21 @@ class DashboardController extends Controller
                 ]);
         } catch (\Throwable $e) {
             return response()->json([
-                'message' => 'Gagal menghubungi Groq: '.$e->getMessage(),
+                'message' => $this->humanizeGroqError($e->getMessage()),
             ], 502);
         }
 
         if ($response->failed()) {
+            $raw = (string) data_get($response->json(), 'error.message', 'Groq mengembalikan error.');
+
             return response()->json([
-                'message' => data_get($response->json(), 'error.message', 'Groq mengembalikan error.'),
+                'message' => $this->humanizeGroqError($raw, $response->status()),
             ], 502);
         }
 
         $answer = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
         if ($answer === '') {
-            $answer = 'Groq tidak mengembalikan jawaban. Coba tanyakan ulang dengan konteks yang lebih spesifik.';
+            $answer = 'Maaf, BELLA belum sempat menyusun jawabannya. Coba tanyakan ulang dengan pertanyaan yang lebih spesifik ya.';
         }
 
         return response()->json([
@@ -1226,6 +1228,61 @@ class DashboardController extends Controller
         }
 
         return array_values($actions);
+    }
+
+    private function humanizeGroqError(string $raw, int $status = 502): string
+    {
+        $msg = trim($raw);
+        $lower = strtolower($msg);
+
+        if (preg_match('/try again in ([\d.]+)\s*s/i', $msg, $m)) {
+            $seconds = max(1, (int) ceil((float) $m[1]));
+
+            return "Maaf ya, BELLA lagi agak penuh barusan. Coba tanya lagi sekitar {$seconds} detik—biasanya langsung lancar.";
+        }
+
+        if (str_contains($lower, 'rate limit')
+            || str_contains($lower, 'tokens per minute')
+            || str_contains($lower, 'tpm')
+            || str_contains($lower, 'too many requests')) {
+            return 'Maaf, BELLA lagi sibuk dipakai berkali-kali. Tunggu sebentar (~15 detik) lalu coba lagi ya.';
+        }
+
+        if (str_contains($lower, 'request too large')
+            || str_contains($lower, 'reduce your message size')
+            || str_contains($lower, 'context length')) {
+            return 'Pertanyaannya agak banyak datanya nih. Coba lebih spesifik—misalnya sebut nomor PDS, loading list, atau tanggal—supaya BELLA bisa bantu lebih cepat.';
+        }
+
+        if (str_contains($lower, 'invalid api key')
+            || str_contains($lower, 'incorrect api key')
+            || str_contains($lower, 'authentication')) {
+            return 'Sistem AI belum siap dipakai. Hubungi admin untuk cek konfigurasi API key-nya ya.';
+        }
+
+        if (str_contains($lower, 'timeout')
+            || str_contains($lower, 'timed out')
+            || str_contains($lower, 'curl error 28')) {
+            return 'BELLA agak lama merespons barusan. Coba kirim ulang pertanyaannya ya—koneksi mungkin sedang lambat.';
+        }
+
+        if (str_contains($lower, 'could not resolve host')
+            || str_contains($lower, 'connection refused')
+            || str_contains($lower, 'failed to connect')
+            || str_contains($lower, 'ssl')
+            || str_contains($lower, 'certificate')) {
+            return 'BELLA belum bisa nyambung ke server AI. Cek koneksi internet atau coba lagi sebentar ya.';
+        }
+
+        if ($status === 429) {
+            return 'Maaf, BELLA lagi agak penuh. Tunggu sebentar lalu coba tanya lagi ya.';
+        }
+
+        if ($status >= 500) {
+            return 'Ada kendala teknis di server AI barusan. Coba kirim ulang pertanyaannya—BELLA siap bantu.';
+        }
+
+        return 'Maaf, BELLA belum bisa memproses pertanyaan itu. Coba lagi sebentar ya.';
     }
 
     private function encodeAiContext(array $context): string

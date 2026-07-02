@@ -2366,8 +2366,8 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                         });
                     })
                     .then(function(res) {
-                        if (!res.ok) throw new Error(res.payload.message || 'Gagal meminta analisis Groq.');
-                        var answer = res.payload.answer || 'Groq tidak mengembalikan jawaban.';
+                        if (!res.ok) throw new Error(res.payload.message || 'Maaf, BELLA lagi ada kendala. Coba lagi sebentar ya.');
+                        var answer = res.payload.answer || 'Maaf, BELLA belum sempat menyusun jawabannya. Coba tanyakan ulang dengan lebih spesifik.';
                         fillAiMessage(pending, answer, res.payload.actions || []);
                         aiHistory.push({
                             role: 'assistant',
@@ -2375,7 +2375,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                         });
                     })
                     .catch(function(error) {
-                        var message = error && error.message ? error.message : 'Gagal meminta analisis Groq.';
+                        var message = error && error.message ? error.message : 'Maaf, BELLA belum bisa memproses pertanyaan itu. Coba lagi ya.';
                         fillAiMessage(pending, message);
                     })
                     .finally(function() {
