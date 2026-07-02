@@ -20,7 +20,7 @@ return new class extends Migration
 
             $table->foreign('part_id')
                 ->references('id')
-                ->on('master_parts')
+                ->on('internal_parts')
                 ->cascadeOnDelete();
         });
     }

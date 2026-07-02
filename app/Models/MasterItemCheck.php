@@ -17,7 +17,7 @@ class MasterItemCheck extends Model
 
     public function part()
     {
-        return $this->belongsTo(MasterPart::class, 'part_id');
+        return $this->belongsTo(InternalPart::class, 'part_id');
     }
 
     public function standards()
