@@ -1209,8 +1209,7 @@ class PullingController extends Controller
         }
 
         // check if kanban already scanned by production
-        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id);
-        if (!$kanbanAfterProd->first()) {
+        if (! KanbanAfterProd::where('kanban_id', $kanban->id)->exists()) {
             return response()->json([
                 'status' => 'notScanned',
                 'message' => 'Kanban belum discan produksi!'

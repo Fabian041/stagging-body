@@ -484,6 +484,82 @@
             }
         }
 
+        .ov-ai-md {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ov-ai-md__p {
+            margin: 0;
+        }
+
+        .ov-ai-md__h {
+            margin: 2px 0 0;
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--navy);
+        }
+
+        .ov-ai-md__ul {
+            margin: 2px 0;
+            padding-left: 18px;
+        }
+
+        .ov-ai-md__li {
+            margin: 2px 0;
+        }
+
+        .ov-ai-md__li--sub {
+            margin-left: 4px;
+            list-style: circle;
+        }
+
+        .ov-ai-md strong {
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .ov-ai-md em {
+            font-style: italic;
+        }
+
+        .ov-ai-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(191, 219, 254, .65);
+        }
+
+        .ov-ai-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(20, 152, 223, .35);
+            background: rgba(255, 255, 255, .92);
+            color: #0369a1;
+            font-size: 11px;
+            font-weight: 800;
+            text-decoration: none;
+            transition: .15s;
+        }
+
+        .ov-ai-action-btn:hover {
+            background: #1498df;
+            border-color: #1498df;
+            color: #fff;
+        }
+
+        .ov-ai-action-btn::after {
+            content: '→';
+            font-size: 10px;
+            opacity: .85;
+        }
+
         .ov-ai-suggestions {
             display: flex;
             flex-wrap: wrap;
@@ -2086,6 +2162,83 @@
                 if (el) el.innerHTML = v;
             }
 
+            function aiInlineMd(text) {
+                var s = esc(text);
+                s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                s = s.replace(/(^|[^*])\*([^*\n]+?)\*([^*]|$)/g, function(_, before, inner, after) {
+                    return before + '<em>' + inner + '</em>' + after;
+                });
+                return s;
+            }
+
+            function aiMessageHtml(text) {
+                var lines = String(text == null ? '' : text).split('\n');
+                var out = [];
+                var inUl = false;
+
+                function closeUl() {
+                    if (inUl) {
+                        out.push('</ul>');
+                        inUl = false;
+                    }
+                }
+
+                lines.forEach(function(line) {
+                    var trimmed = line.trim();
+                    if (!trimmed) {
+                        closeUl();
+                        return;
+                    }
+
+                    var heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+                    if (heading) {
+                        closeUl();
+                        out.push('<div class="ov-ai-md__h">' + aiInlineMd(heading[2]) + '</div>');
+                        return;
+                    }
+
+                    var bullet = trimmed.match(/^([\*\+\-])\s+(.+)$/);
+                    if (bullet) {
+                        if (!inUl) {
+                            out.push('<ul class="ov-ai-md__ul">');
+                            inUl = true;
+                        }
+                        var subClass = bullet[1] === '+' ? ' ov-ai-md__li--sub' : '';
+                        out.push('<li class="ov-ai-md__li' + subClass + '">' + aiInlineMd(bullet[2]) + '</li>');
+                        return;
+                    }
+
+                    var numbered = trimmed.match(/^\d+\.\s+(.+)$/);
+                    if (numbered) {
+                        if (!inUl) {
+                            out.push('<ul class="ov-ai-md__ul">');
+                            inUl = true;
+                        }
+                        out.push('<li class="ov-ai-md__li">' + aiInlineMd(numbered[1]) + '</li>');
+                        return;
+                    }
+
+                    closeUl();
+                    out.push('<p class="ov-ai-md__p">' + aiInlineMd(trimmed) + '</p>');
+                });
+
+                closeUl();
+                return out.join('');
+            }
+
+            function aiAssistantHtml(text, actions) {
+                var html = '<div class="ov-ai-md">' + aiMessageHtml(text) + '</div>';
+                if (actions && actions.length) {
+                    html += '<div class="ov-ai-actions">';
+                    actions.forEach(function(action) {
+                        if (!action || !action.url) return;
+                        html += '<a class="ov-ai-action-btn" href="' + esc(action.url) + '">' + esc(action.label || 'Buka halaman') + '</a>';
+                    });
+                    html += '</div>';
+                }
+                return html;
+            }
+
             function aiTextHtml(text) {
                 return esc(text).replace(/\n/g, '<br>');
             }
@@ -2140,11 +2293,11 @@
                 return node;
             }
 
-            function fillAiMessage(node, text) {
+            function fillAiMessage(node, text, actions) {
                 if (!node) return;
                 node.classList.remove('ov-ai-msg--typing');
                 node.removeAttribute('aria-label');
-                node.innerHTML = aiTextHtml(text);
+                node.innerHTML = aiAssistantHtml(text, actions);
                 var chat = document.getElementById('ovAiChat');
                 if (chat) chat.scrollTop = chat.scrollHeight;
             }
@@ -2206,7 +2359,7 @@
                     .then(function(res) {
                         if (!res.ok) throw new Error(res.payload.message || 'Gagal meminta analisis Groq.');
                         var answer = res.payload.answer || 'Groq tidak mengembalikan jawaban.';
-                        fillAiMessage(pending, answer);
+                        fillAiMessage(pending, answer, res.payload.actions || []);
                         aiHistory.push({
                             role: 'assistant',
                             content: answer

@@ -101,6 +101,7 @@ class DashboardController extends Controller
                     'Kamu bisa menganalisis lintas sistem: dashboard, loading list, PDS, pulling, produksi, stok, PIS, receiving, quality, error, dan master data yang tersedia di konteks.',
                     'Jika user meminta data detail yang tidak masuk konteks, minta filter yang lebih spesifik seperti nomor loading list/PDS/back number/customer/tanggal.',
                     'Saat menyebut rekomendasi, jelaskan alasan singkatnya.',
+                    'Format jawaban pakai Markdown sederhana: **tebal** untuk judul/label, bullet pakai "-" atau "*". Hindari simbol "+".',
                 ]),
             ],
             [
@@ -158,6 +159,7 @@ class DashboardController extends Controller
             'model' => (string) data_get($response->json(), 'model', config('services.groq.model')),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
+            'actions' => $this->buildAiActionLinks($question),
         ]);
     }
 
@@ -929,6 +931,38 @@ class DashboardController extends Controller
         }
 
         return array_values(array_unique($modules));
+    }
+
+    private function buildAiActionLinks(string $question): array
+    {
+        $catalog = [
+            'loading_list_pds' => ['label' => 'Loading List', 'url' => route('loadingList.index')],
+            'pulling' => ['label' => 'Pulling', 'url' => route('pulling.index')],
+            'production_plan' => ['label' => 'Production Plan', 'url' => route('dashboard.prodPlan')],
+            'production_actual_scan' => ['label' => 'Production', 'url' => route('production.index')],
+            'stock' => ['label' => 'Production Stock', 'url' => route('dashboard.productionStock')],
+            'pis' => ['label' => 'PIS Scan', 'url' => route('pis.scanList')],
+            'receiving' => ['label' => 'Receiving', 'url' => route('dashboard.receiving')],
+            'quality' => ['label' => 'Quality', 'url' => route('quality.index')],
+            'error_log' => ['label' => 'Error Log', 'url' => route('error.log')],
+            'mutation_stock_flow' => ['label' => 'Progress Pulling', 'url' => route('progressPulling.index')],
+        ];
+
+        $actions = [];
+        foreach ($this->resolveAiModules($question) as $module) {
+            if (isset($catalog[$module])) {
+                $actions[$catalog[$module]['url']] = $catalog[$module];
+            }
+        }
+
+        if ($actions === []) {
+            $actions[route('dashboard.overview')] = [
+                'label' => 'Dashboard Overview',
+                'url' => route('dashboard.overview'),
+            ];
+        }
+
+        return array_values($actions);
     }
 
     private function encodeAiContext(array $context): string
