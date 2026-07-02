@@ -67,7 +67,7 @@ class DashboardController extends Controller
             'question' => 'required|string|max:700',
             'history' => 'array|max:8',
             'history.*.role' => 'required_with:history|string|in:user,assistant',
-            'history.*.content' => 'required_with:history|string|max:1200',
+            'history.*.content' => 'required_with:history|string|max:5000',
         ]);
 
         $apiKey = (string) config('services.groq.key');

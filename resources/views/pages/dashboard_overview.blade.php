@@ -483,7 +483,7 @@
                 }
             }
         }
-
+First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 They spread out, now the chest. Swing the arms to the side, then slowly up again. Five 6 Chest spread widely 123456 Next model bends. First the last and back again, but then the right and back again. 123456 Now forward bends with bounces. And three times and nails in your hips bend backwards, then up again. 123456 Now sway your arms and twist your body. Right, right, right. The guy likes God. And once again. Right, left, 3456 feet together, nail parts and ways. Armstone. They still have shampoos. Arms up, arms down, 123456 now feet apart, then forward twice for the left foot. Next down to the right and back up again. Once again 23 456. Now rotate the whole body, just rest the arms and make a full circle in the same way the other way. Be sure to scratch those and muscles 4. Five 6 feet back together and now jumps 1234. 23456 arms and legs, 1234 arms and knees moving together. 123456 And we end with deep breaths. Slowly again and slowly out snakes. And one more time. 12345 678. 
         .ov-ai-md {
             display: flex;
             flex-direction: column;
@@ -2314,6 +2314,15 @@
                 return node;
             }
 
+            function compactAiHistory() {
+                return aiHistory.slice(-4).map(function(item) {
+                    return {
+                        role: item.role,
+                        content: limit(item.content, 800)
+                    };
+                });
+            }
+
             function askAi(question) {
                 question = String(question || '').trim();
                 if (!question || aiBusy) return;
@@ -2321,13 +2330,13 @@
                 var input = document.getElementById('ovAiInput');
                 if (input) input.value = '';
 
-                var priorHistory = aiHistory.slice(-4);
+                var priorHistory = compactAiHistory();
                 var from = document.getElementById('ovFrom').value;
                 var to = document.getElementById('ovTo').value;
                 appendAiMessage('user', question);
                 aiHistory.push({
                     role: 'user',
-                    content: question
+                    content: limit(question, 800)
                 });
 
                 setAiBusy(true);
@@ -2362,7 +2371,7 @@
                         fillAiMessage(pending, answer, res.payload.actions || []);
                         aiHistory.push({
                             role: 'assistant',
-                            content: answer
+                            content: limit(answer, 800)
                         });
                     })
                     .catch(function(error) {
