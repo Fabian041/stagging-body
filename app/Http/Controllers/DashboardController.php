@@ -99,6 +99,7 @@ class DashboardController extends Controller
                     'Gunakan hanya data JSON system_context yang diberikan. Jangan mengarang data yang tidak ada.',
                     'Jika data tidak cukup, sebutkan data mana yang belum tersedia.',
                     'Kamu bisa menganalisis lintas sistem: dashboard, loading list, PDS, pulling, produksi, stok, PIS, receiving, quality, error, dan master data yang tersedia di konteks.',
+                    'Jika system_context.preparation_deadline tersedia, jadikan itu sumber utama untuk pertanyaan deadline preparation. Telat preparation berarti pulling_date lebih besar dari deadline_preparation.',
                     'Jika user meminta data detail yang tidak masuk konteks, minta filter yang lebih spesifik seperti nomor loading list/PDS/back number/customer/tanggal.',
                     'Saat menyebut rekomendasi, jelaskan alasan singkatnya.',
                     'Format jawaban pakai Markdown sederhana: **tebal** untuk judul/label, bullet pakai "-" atau "*". Hindari simbol "+".',
@@ -685,6 +686,11 @@ class DashboardController extends Controller
             'search_hits' => $this->buildSystemAiSearchHits($question),
         ];
 
+        $preparationDeadline = $this->buildAiPreparationDeadlineContext($question);
+        if ($preparationDeadline !== null) {
+            $context['preparation_deadline'] = $preparationDeadline;
+        }
+
         if (in_array('loading_list_pds', $modules, true) && $this->aiTableExists('loading_lists')) {
             $ll = DB::table('loading_lists as ll')
                 ->leftJoin('customers as c', 'c.id', '=', 'll.customer_id')
@@ -900,11 +906,268 @@ class DashboardController extends Controller
         return $context;
     }
 
+    private function buildAiPreparationDeadlineContext(string $question): ?array
+    {
+        $q = Str::lower($question);
+        $mentionsPreparation = str_contains($q, 'preparation') || str_contains($q, 'prep');
+        $mentionsDeadline = str_contains($q, 'deadline')
+            || str_contains($q, 'telat')
+            || str_contains($q, 'terlambat')
+            || str_contains($q, 'lewat')
+            || str_contains($q, 'melewati');
+
+        if (! $mentionsPreparation || ! $mentionsDeadline || ! $this->aiTableExists('loading_lists') || ! $this->aiTableExists('master_cycles')) {
+            return null;
+        }
+
+        [$targetDate, $dateLabel] = $this->resolveAiQuestionDate($question);
+
+        $masters = \App\Models\MasterCycle::get(['customer_id', 'cycle_name', 'time', 'prep_end_time', 'prep_day_offset', 'prep_end_day_offset', 'truck_time']);
+        $masterExact = [];
+        $masterDigit = [];
+        $prepEndOffsets = [];
+        foreach ($masters as $master) {
+            $exactKey = ((int) $master->customer_id).'|'.$this->aiNormalizeCycleLabel($master->cycle_name);
+            $masterExact[$exactKey] = $master;
+            $digit = $this->aiCycleDigit($master->cycle_name);
+            if ($digit !== '') {
+                $masterDigit[((int) $master->customer_id).'|'.$digit] = $master;
+            }
+
+            if (! empty($master->time) && ! empty($master->prep_end_time)) {
+                $prepStart = substr((string) $master->time, 0, 5);
+                $prepEnd = substr((string) $master->prep_end_time, 0, 5);
+                $truckTime = $master->truck_time ? substr((string) $master->truck_time, 0, 5) : null;
+                $prepDayOffset = $this->aiResolvePrepDayOffset((int) ($master->prep_day_offset ?? 0), $prepStart, $truckTime);
+                $prepEndOffsets[] = $this->aiComputePrepEndDayOffset($prepDayOffset, $prepStart, $prepEnd);
+            }
+        }
+
+        $minOffset = $prepEndOffsets !== [] ? min($prepEndOffsets) : 0;
+        $maxOffset = $prepEndOffsets !== [] ? max($prepEndOffsets) : 0;
+        $lookback = $targetDate->copy()->subDays($maxOffset)->startOfDay();
+        $lookahead = $targetDate->copy()->subDays($minOffset)->endOfDay();
+
+        $loadingLists = DB::table('loading_lists as ll')
+            ->leftJoin('customers as c', 'c.id', '=', 'll.customer_id')
+            ->leftJoin('loading_list_details as d', 'd.loading_list_id', '=', 'll.id')
+            ->whereBetween('ll.delivery_date', [$lookback, $lookahead])
+            ->selectRaw('
+                ll.id,
+                ll.customer_id,
+                COALESCE(c.name, "-") as customer,
+                ll.number as loading_list,
+                ll.pds_number,
+                ll.cycle,
+                ll.delivery_date,
+                SUM(COALESCE(d.kanban_qty, 0)) as target_kanban,
+                SUM(COALESCE(d.actual_kanban_qty, 0)) as actual_kanban
+            ')
+            ->groupBy('ll.id', 'll.customer_id', 'c.name', 'll.number', 'll.pds_number', 'll.cycle', 'll.delivery_date')
+            ->get();
+
+        if ($loadingLists->isEmpty()) {
+            return $this->emptyAiPreparationDeadlineContext($targetDate, $dateLabel, 0);
+        }
+
+        $pullingByPds = collect();
+        $pdsNumbers = $loadingLists->pluck('pds_number')->filter()->unique()->values();
+        if ($pdsNumbers->isNotEmpty() && $this->aiTableExists('pullings')) {
+            $pullingByPds = DB::table('pullings')
+                ->select('customer_id', 'pds_number', 'loading_list', DB::raw('MAX(pulling_date) as latest_pulling_date'))
+                ->whereIn('pds_number', $pdsNumbers->all())
+                ->whereNotNull('pulling_date')
+                ->groupBy('customer_id', 'pds_number', 'loading_list')
+                ->get()
+                ->groupBy(fn ($row) => ((int) $row->customer_id).'|'.(string) $row->pds_number);
+        }
+
+        $lateItems = [];
+        $seenItems = [];
+        $matchedDeadlineRows = 0;
+        $unconfiguredRows = 0;
+
+        foreach ($loadingLists as $ll) {
+            $master = $masterExact[((int) $ll->customer_id).'|'.$this->aiNormalizeCycleLabel($ll->cycle)]
+                ?? ($masterDigit[((int) $ll->customer_id).'|'.$this->aiCycleDigit($ll->cycle)] ?? null);
+
+            if (! $master || empty($master->prep_end_time) || empty($ll->delivery_date)) {
+                $unconfiguredRows++;
+                continue;
+            }
+
+            $deadline = $this->aiPreparationDeadlineForLoadingList($ll->delivery_date, $master);
+            if (! $deadline || $deadline->toDateString() !== $targetDate->toDateString()) {
+                continue;
+            }
+
+            $matchedDeadlineRows++;
+            $pullingItems = $pullingByPds->get(((int) $ll->customer_id).'|'.(string) $ll->pds_number, collect());
+            foreach ($pullingItems as $pulling) {
+                $pullingDate = Carbon::parse($pulling->latest_pulling_date);
+                if (! $pullingDate->gt($deadline)) {
+                    continue;
+                }
+
+                $loadingListNumber = $pulling->loading_list ? (string) $pulling->loading_list : (string) $ll->loading_list;
+                $key = implode('|', [(string) $ll->pds_number, $loadingListNumber, $pullingDate->toIso8601String()]);
+                if (isset($seenItems[$key])) {
+                    continue;
+                }
+                $seenItems[$key] = true;
+
+                $delayMinutes = $deadline->diffInMinutes($pullingDate);
+                $targetKanban = (int) ($ll->target_kanban ?? 0);
+                $actualKanban = (int) ($ll->actual_kanban ?? 0);
+
+                $lateItems[] = [
+                    'customer' => (string) $ll->customer,
+                    'cycle' => (string) $ll->cycle,
+                    'pds_number' => (string) $ll->pds_number,
+                    'loading_list' => $loadingListNumber,
+                    'delivery_date' => Carbon::parse($ll->delivery_date)->toDateString(),
+                    'deadline_preparation' => $deadline->format('Y-m-d H:i:s'),
+                    'pulling_date' => $pullingDate->format('Y-m-d H:i:s'),
+                    'delay_minutes' => $delayMinutes,
+                    'delay_label' => $this->formatAiDelayLabel($delayMinutes),
+                    'actual_kanban' => $actualKanban,
+                    'target_kanban' => $targetKanban,
+                    'progress_pct' => $targetKanban > 0 ? round(($actualKanban / $targetKanban) * 100, 1) : 0,
+                ];
+            }
+        }
+
+        usort($lateItems, fn ($a, $b) => ($b['delay_minutes'] <=> $a['delay_minutes']));
+
+        return [
+            'target_date' => $targetDate->toDateString(),
+            'date_label' => $dateLabel,
+            'generated_at' => Carbon::now()->format('Y-m-d H:i:s'),
+            'definition' => 'Telat preparation = pulling_date lebih besar dari deadline_preparation / Finish Preparation.',
+            'matched_deadline_bucket_count' => $matchedDeadlineRows,
+            'unconfigured_bucket_count' => $unconfiguredRows,
+            'total_late_items' => count($lateItems),
+            'summary_by_customer' => collect($lateItems)
+                ->groupBy('customer')
+                ->map(fn ($rows, $customer) => ['customer' => $customer, 'late_items' => $rows->count()])
+                ->sortByDesc('late_items')
+                ->values()
+                ->all(),
+            'items' => array_slice($lateItems, 0, 30),
+            'is_truncated' => count($lateItems) > 30,
+        ];
+    }
+
+    private function emptyAiPreparationDeadlineContext(Carbon $targetDate, string $dateLabel, int $unconfiguredRows): array
+    {
+        return [
+            'target_date' => $targetDate->toDateString(),
+            'date_label' => $dateLabel,
+            'generated_at' => Carbon::now()->format('Y-m-d H:i:s'),
+            'definition' => 'Telat preparation = pulling_date lebih besar dari deadline_preparation / Finish Preparation.',
+            'matched_deadline_bucket_count' => 0,
+            'unconfigured_bucket_count' => $unconfiguredRows,
+            'total_late_items' => 0,
+            'summary_by_customer' => [],
+            'items' => [],
+            'is_truncated' => false,
+        ];
+    }
+
+    private function resolveAiQuestionDate(string $question): array
+    {
+        $q = Str::lower($question);
+        $today = Carbon::today();
+
+        if (preg_match('/\b(\d{4}-\d{2}-\d{2})\b/', $question, $match)) {
+            $date = Carbon::parse($match[1])->startOfDay();
+
+            return [$date, $date->toDateString()];
+        }
+
+        if (str_contains($q, 'kemarin')) {
+            return [$today->copy()->subDay(), 'kemarin'];
+        }
+
+        if (str_contains($q, 'besok')) {
+            return [$today->copy()->addDay(), 'besok'];
+        }
+
+        return [$today, 'hari ini'];
+    }
+
+    private function aiPreparationDeadlineForLoadingList($deliveryDate, $master): ?Carbon
+    {
+        $prepStart = $master->time ? substr((string) $master->time, 0, 5) : '';
+        $prepEnd = $master->prep_end_time ? substr((string) $master->prep_end_time, 0, 5) : '';
+        if ($prepStart === '' || $prepEnd === '') {
+            return null;
+        }
+
+        $truckTime = $master->truck_time ? substr((string) $master->truck_time, 0, 5) : null;
+        $prepDayOffset = $this->aiResolvePrepDayOffset((int) ($master->prep_day_offset ?? 0), $prepStart, $truckTime);
+        $prepEndDayOffset = $this->aiComputePrepEndDayOffset($prepDayOffset, $prepStart, $prepEnd);
+
+        return Carbon::parse($deliveryDate)
+            ->startOfDay()
+            ->addDays($prepEndDayOffset)
+            ->setTimeFromTimeString($prepEnd);
+    }
+
+    private function aiResolvePrepDayOffset(int $storedOffset, string $prepStart, ?string $truckTime): int
+    {
+        if ($truckTime !== null && $this->aiClockMinutes($prepStart) > $this->aiClockMinutes($truckTime)) {
+            return -1;
+        }
+
+        return max(-14, min(14, $storedOffset));
+    }
+
+    private function aiComputePrepEndDayOffset(int $prepDayOffset, string $prepStart, string $prepEnd): int
+    {
+        return $this->aiClockMinutes($prepEnd) <= $this->aiClockMinutes($prepStart)
+            ? $prepDayOffset + 1
+            : $prepDayOffset;
+    }
+
+    private function aiClockMinutes(string $clock): int
+    {
+        [$hour, $minute] = array_pad(explode(':', substr(trim($clock), 0, 5)), 2, '0');
+
+        return ((int) $hour * 60) + (int) $minute;
+    }
+
+    private function aiNormalizeCycleLabel($cycle): string
+    {
+        return Str::lower(trim((string) $cycle));
+    }
+
+    private function aiCycleDigit($cycle): string
+    {
+        preg_match('/\d+/', (string) $cycle, $match);
+
+        return $match[0] ?? '';
+    }
+
+    private function formatAiDelayLabel(int $minutes): string
+    {
+        $hours = intdiv($minutes, 60);
+        $mins = $minutes % 60;
+        if ($hours > 0 && $mins > 0) {
+            return '+'.$hours.'j '.$mins.'m';
+        }
+        if ($hours > 0) {
+            return '+'.$hours.'j';
+        }
+
+        return '+'.$minutes.'m';
+    }
+
     private function resolveAiModules(string $question): array
     {
         $q = strtolower($question);
         $map = [
-            'loading_list_pds' => ['loading list', 'loading-list', 'pds', 'delivery', 'shipping', 'truck', 'prep', 'ppic', 'll '],
+            'loading_list_pds' => ['loading list', 'loading-list', 'pds', 'delivery', 'shipping', 'truck', 'prep', 'preparation', 'deadline', 'telat', 'ppic', 'll '],
             'pulling' => ['pulling', 'pull '],
             'production_plan' => ['production plan', 'plan produksi', 'order qty', 'dn number', 'balance time'],
             'production_actual_scan' => ['part scan', 'kanban', 'dandori', 'scan produksi'],
