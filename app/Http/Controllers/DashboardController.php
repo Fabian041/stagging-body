@@ -99,8 +99,10 @@ class DashboardController extends Controller
                     '',
                     'ATURAN KETAT (wajib):',
                     '- Hanya gunakan angka, nama, dan status yang ADA persis di JSON system_context. Dilarang mengarang, mengestimasi, atau mengisi data kosong.',
-                    '- Jika field null, kosong, atau tidak ada di konteks, katakan jujur: "Data [X] belum tersedia di konteks saya."',
-                    '- Bedakan sumber: ringkasan_operasional/overview.kpi = agregat periode filter dashboard; modules.* = detail modul; search_hits = hasil pencarian keyword user.',
+                    '- Untuk pertanyaan ranking/terbanyak/paling banyak: prioritaskan insights.* dan modules.*.fokus_tanggal.ranking_by_qty — jawab langsung dari top_1 atau items[0].',
+                    '- Jangan buat daftar panjang modul/field yang "belum tersedia". Hanya sebut data spesifik yang benar-benar dibutuhkan user dan tidak ada di konteks.',
+                    '- petunjuk_data dan overview.kpi_labels hanya kamus arti field — BUKAN checklist yang wajib dilaporkan.',
+                    '- Bedakan sumber: insights = jawaban siap pakai; ringkasan_operasional/overview.kpi = agregat periode filter; modules.* = detail modul; search_hits = pencarian keyword.',
                     '- Untuk pertanyaan spesifik (nomor PDS, loading list, back number), prioritaskan search_hits.matches lalu modules terkait.',
                     '- Jangan menyebut Groq, API, token, atau istilah teknis backend.',
                     '',
@@ -707,9 +709,11 @@ class DashboardController extends Controller
             return $context;
         }
 
+        $insights = $context['insights'] ?? [];
         unset($context['modules']);
+        $context['insights'] = $insights;
         if ($fits($context)) {
-            $context['scope']['catatan'] = ($context['scope']['catatan'] ?? '').' Modul detail di-skip agar muat limit token Groq.';
+            $context['scope']['catatan'] = ($context['scope']['catatan'] ?? '').' Modul detail di-skip agar muat limit token Groq. Gunakan insights untuk pertanyaan umum.';
 
             return $context;
         }

@@ -17,17 +17,23 @@ class BellaContextBuilder
         $fromDate = $from->toDateString();
         $toDate = $to->toDateString();
         $modules = $this->expandRelatedModules($this->resolveModules($question));
+        [$focusDate, $focusLabel] = $this->resolveQuestionDate($question);
+        $loadingListQtyRanking = $this->buildLoadingListQtyRanking($focusDate);
 
         $context = [
             'scope' => [
                 'periode_filter' => ['from' => $fromDate, 'to' => $toDate],
                 'generated_at' => now()->format('Y-m-d H:i:s'),
                 'mode' => 'data operasional dari database Body Plant (bukan akses SQL bebas)',
-                'catatan' => 'Gunakan petunjuk_data untuk arti field. ringkasan_operasional selalu valid untuk periode filter. modules dimuat sesuai topik + modul terkait.',
+                'catatan' => 'Gunakan petunjuk_data hanya sebagai kamus arti field (bukan checklist). insights berisi jawaban siap pakai untuk pertanyaan umum. ringkasan_operasional = agregat periode filter dashboard.',
                 'modules_loaded' => $modules,
             ],
+            'insights' => $this->buildInsights($focusDate, $focusLabel, $loadingListQtyRanking),
             'petunjuk_data' => $this->dataDictionary(),
-            'ringkasan_operasional' => $this->buildOperationalSnapshot($overview, $from, $to),
+            'ringkasan_operasional' => array_merge(
+                $this->buildOperationalSnapshot($overview, $from, $to),
+                ['loading_list_qty_tertinggi' => $loadingListQtyRanking['top_1'] ?? null]
+            ),
             'overview' => $this->buildOverviewContext($overview, $from, $to),
             'modules' => [],
             'search_hits' => $this->buildSearchHits($question, $from, $to),
@@ -120,6 +126,12 @@ class BellaContextBuilder
                             ];
                         })
                 );
+
+                $context['modules']['loading_list_pds']['fokus_tanggal'] = [
+                    'label' => $focusLabel,
+                    'tanggal' => $focusDate->toDateString(),
+                    'ranking_by_qty' => $loadingListQtyRanking,
+                ];
             }
         }
 
@@ -717,6 +729,92 @@ class BellaContextBuilder
         ];
     }
 
+    private function buildLoadingListQtyRanking(Carbon $date, int $limit = 10): array
+    {
+        if (! $this->tableExists('loading_lists') || ! $this->tableExists('loading_list_details')) {
+            return [
+                'tanggal' => $date->toDateString(),
+                'urutan' => 'target_qty (SUM total_qty detail) tertinggi ke terendah',
+                'top_1' => null,
+                'items' => [],
+            ];
+        }
+
+        $start = $date->copy()->startOfDay()->toDateTimeString();
+        $end = $date->copy()->endOfDay()->toDateTimeString();
+
+        $items = DB::table('loading_lists as ll')
+            ->leftJoin('customers as c', 'c.id', '=', 'll.customer_id')
+            ->join('loading_list_details as d', 'd.loading_list_id', '=', 'll.id')
+            ->whereBetween('ll.delivery_date', [$start, $end])
+            ->selectRaw('
+                ll.id as loading_list_id,
+                ll.number as loading_list,
+                ll.pds_number,
+                ll.cycle,
+                COALESCE(c.name, "Unknown") as customer,
+                ll.delivery_date,
+                SUM(COALESCE(d.total_qty, 0)) as target_qty,
+                SUM(COALESCE(d.kanban_qty, 0)) as target_kanban,
+                SUM(COALESCE(d.actual_kanban_qty, 0)) as actual_kanban
+            ')
+            ->groupBy('ll.id', 'll.number', 'll.pds_number', 'll.cycle', 'c.name', 'll.delivery_date')
+            ->orderByDesc('target_qty')
+            ->limit($limit)
+            ->get()
+            ->map(function ($row) {
+                $targetKanban = (int) $row->target_kanban;
+                $actualKanban = (int) $row->actual_kanban;
+
+                return [
+                    'loading_list_id' => $row->loading_list_id,
+                    'loading_list' => $row->loading_list,
+                    'pds_number' => $row->pds_number,
+                    'cycle' => $row->cycle,
+                    'customer' => $row->customer,
+                    'delivery_date' => $this->formatDateValue($row->delivery_date),
+                    'target_qty' => (int) $row->target_qty,
+                    'target_kanban' => $targetKanban,
+                    'actual_kanban' => $actualKanban,
+                    'progress_pct' => $targetKanban > 0 ? round($actualKanban / $targetKanban * 100, 1) : 0,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'tanggal' => $date->toDateString(),
+            'urutan' => 'target_qty (SUM total_qty detail) tertinggi ke terendah',
+            'top_1' => $items[0] ?? null,
+            'items' => $items,
+        ];
+    }
+
+    private function buildInsights(Carbon $focusDate, string $focusLabel, array $loadingListQtyRanking): array
+    {
+        $top = $loadingListQtyRanking['top_1'] ?? null;
+
+        return [
+            'loading_list_qty' => [
+                'label_tanggal' => $focusLabel,
+                'tanggal' => $focusDate->toDateString(),
+                'ranking' => $loadingListQtyRanking,
+                'jawaban_singkat' => $top !== null
+                    ? sprintf(
+                        'Loading list qty tertinggi %s (%s): %s — target_qty %d (customer %s, cycle %s, PDS %s)',
+                        $focusLabel,
+                        $focusDate->toDateString(),
+                        $top['loading_list'],
+                        $top['target_qty'],
+                        $top['customer'],
+                        $top['cycle'],
+                        $top['pds_number']
+                    )
+                    : sprintf('Tidak ada loading list dengan delivery %s (%s).', $focusLabel, $focusDate->toDateString()),
+            ],
+        ];
+    }
+
     private function resolveQuestionDate(string $question): array
     {
         $q = Str::lower($question);
@@ -810,7 +908,7 @@ class BellaContextBuilder
     {
         $q = strtolower($question);
         $map = [
-            'loading_list_pds' => ['loading list', 'loading-list', 'pds', 'delivery', 'shipping', 'truck', 'prep', 'preparation', 'deadline', 'telat', 'ppic', 'll ', 'manifest', 'kanban', 'belum lengkap'],
+            'loading_list_pds' => ['loading list', 'loading-list', 'pds', 'delivery', 'shipping', 'truck', 'prep', 'preparation', 'deadline', 'telat', 'ppic', 'll ', 'manifest', 'kanban', 'belum lengkap', 'qty', 'quantity', 'paling banyak', 'terbanyak', 'terbesar', 'paling besar'],
             'pulling' => ['pulling', 'pull ', 'checkout'],
             'production_plan' => ['production plan', 'plan produksi', 'order qty', 'dn number', 'balance time', 'rencana produksi'],
             'production_actual_scan' => ['part scan', 'kanban', 'dandori', 'scan produksi', 'supply'],
