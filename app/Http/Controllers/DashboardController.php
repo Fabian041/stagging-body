@@ -31,7 +31,11 @@ class DashboardController extends Controller
 
     public function index()
     {
-        // Landing dashboard: jangan langsung menampilkan "Body Plant Stock Monitoring"
+        // "/" adalah portal guest. User yang sudah login (mampir ke /dashboard) diarahkan ke overview.
+        if (auth()->check()) {
+            return redirect()->route('dashboard.overview');
+        }
+
         return view('pages.dashboard_home');
     }
 
