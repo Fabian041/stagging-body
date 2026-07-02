@@ -89,6 +89,7 @@ class BellaContextBuilder
                         ->join('loading_list_details as d', 'd.loading_list_id', '=', 'll.id')
                         ->whereBetween('ll.delivery_date', [$start, $end])
                         ->selectRaw('
+                            ll.id as loading_list_id,
                             ll.number as loading_list,
                             ll.pds_number,
                             ll.cycle,
@@ -355,7 +356,7 @@ class BellaContextBuilder
         return $context;
     }
 
-    public function actionLinks(string $question): array
+    public function actionLinks(string $question, array $context = []): array
     {
         $catalog = [
             'loading_list_pds' => ['label' => 'Loading List', 'url' => route('loadingList.index')],
@@ -371,20 +372,88 @@ class BellaContextBuilder
         ];
 
         $actions = [];
-        foreach ($this->resolveModules($question) as $module) {
+        $seen = [];
+        $push = function (array $action) use (&$actions, &$seen): void {
+            $url = (string) ($action['url'] ?? '');
+            if ($url === '' || isset($seen[$url])) {
+                return;
+            }
+            $seen[$url] = true;
+            $actions[] = [
+                'label' => (string) ($action['label'] ?? 'Buka halaman'),
+                'url' => $url,
+            ];
+        };
+
+        $loadingListUrl = function ($row) use ($push): void {
+            $id = $row['loading_list_id'] ?? $row['id'] ?? null;
+            $number = $row['loading_list'] ?? $row['loading_list_number'] ?? $row['number'] ?? null;
+            $key = $id ?: $number;
+            if (! $key) {
+                return;
+            }
+            $push([
+                'label' => 'LL '.Str::limit((string) ($number ?: $key), 18, ''),
+                'url' => route('loadingList.detail', ['loadingList' => $key]),
+            ]);
+        };
+
+        $matches = $context['search_hits']['matches'] ?? [];
+        foreach (['loading_list_pds', 'pulling', 'pis'] as $bucket) {
+            foreach (($matches[$bucket] ?? []) as $row) {
+                if ($bucket === 'pis') {
+                    $loadingListUrl($row);
+                } else {
+                    $loadingListUrl($row);
+                }
+            }
+        }
+
+        foreach (($matches['master_part_stock'] ?? []) as $row) {
+            $back = trim((string) ($row['back_number'] ?? ''));
+            if ($back !== '') {
+                $push([
+                    'label' => 'Stok '.$back,
+                    'url' => route('dashboard.productionStock', ['back_number' => $back]),
+                ]);
+            }
+        }
+
+        foreach (($context['modules']['loading_list_pds']['belum_lengkap'] ?? []) as $row) {
+            $loadingListUrl($row);
+        }
+
+        foreach (($context['modules']['stock']['understock_teratas'] ?? []) as $row) {
+            $back = trim((string) ($row['back_number'] ?? ''));
+            if ($back !== '') {
+                $push([
+                    'label' => 'Stok '.$back,
+                    'url' => route('dashboard.productionStock', ['back_number' => $back]),
+                ]);
+            }
+        }
+
+        foreach (($context['overview']['delivery_berisiko'] ?? []) as $row) {
+            $loadingListUrl([
+                'loading_list_id' => $row['loading_list_id'] ?? null,
+                'loading_list' => $row['loading_list'] ?? null,
+            ]);
+        }
+
+        foreach ($this->expandRelatedModules($this->resolveModules($question)) as $module) {
             if (isset($catalog[$module])) {
-                $actions[$catalog[$module]['url']] = $catalog[$module];
+                $push($catalog[$module]);
             }
         }
 
         if ($actions === []) {
-            $actions[route('dashboard.overview')] = [
+            $push([
                 'label' => 'Dashboard Overview',
                 'url' => route('dashboard.overview'),
-            ];
+            ]);
         }
 
-        return array_values($actions);
+        return array_slice($actions, 0, 5);
     }
 
     private function buildOverviewContext(array $data, Carbon $from, Carbon $to): array
@@ -869,7 +938,7 @@ class BellaContextBuilder
         if ($this->tableExists('loading_lists')) {
             $query = DB::table('loading_lists as ll')->leftJoin('customers as c', 'c.id', '=', 'll.customer_id');
             $matches['loading_list_pds'] = $this->rows($applySearch($query, ['ll.number', 'll.pds_number', 'll.cycle', 'c.name'])
-                ->select('ll.number as loading_list', 'll.pds_number', 'll.cycle', 'll.delivery_date', 'll.shipping_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                ->select('ll.id as loading_list_id', 'll.number as loading_list', 'll.pds_number', 'll.cycle', 'll.delivery_date', 'll.shipping_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
                 ->orderByDesc('ll.delivery_date')
                 ->limit($limit)
                 ->get());
@@ -878,7 +947,7 @@ class BellaContextBuilder
         if ($this->tableExists('pullings')) {
             $query = DB::table('pullings as p')->leftJoin('customers as c', 'c.id', '=', 'p.customer_id');
             $matches['pulling'] = $this->rows($applySearch($query, ['p.loading_list', 'p.pds_number', 'p.cycle', 'c.name'])
-                ->select('p.loading_list', 'p.pds_number', 'p.cycle', 'p.pulling_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                ->select('p.loading_list as loading_list', 'p.pds_number', 'p.cycle', 'p.pulling_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
                 ->orderByDesc('p.pulling_date')
                 ->limit($limit)
                 ->get());

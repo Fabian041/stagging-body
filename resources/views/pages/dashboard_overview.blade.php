@@ -378,6 +378,76 @@
             cursor: pointer;
         }
 
+        .ov-ai-head__actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ov-ai-head-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(207, 232, 247, .9);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .68);
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .ov-ai-head-btn:hover,
+        .ov-ai-close:hover {
+            color: var(--primary);
+            border-color: rgba(20, 152, 223, .35);
+        }
+
+        .ov-ai-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-top: 3px;
+        }
+
+        .ov-ai-period {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .ov-ai-msg__tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .ov-ai-msg__tool,
+        .ov-ai-retry-btn {
+            border: 1px solid rgba(191, 219, 254, .9);
+            background: rgba(255, 255, 255, .82);
+            color: #0369a1;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 10.5px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .ov-ai-retry {
+            margin-top: 8px;
+        }
+
+        .ov-ai-retry-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
         .ov-ai-body {
             min-height: 0;
             padding: 12px;
@@ -1798,11 +1868,19 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                             </svg>
                             Ask BELLA
                         </div>
-                        <span class="ov-ai-status" id="ovAiStatus">Online</span>
+                        <div class="ov-ai-meta">
+                            <span class="ov-ai-status" id="ovAiStatus">Online</span>
+                            <span class="ov-ai-period" id="ovAiPeriod"></span>
+                        </div>
                     </div>
-                    <button type="button" class="ov-ai-close" id="ovAiClose" aria-label="Tutup Ask BELLA">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <div class="ov-ai-head__actions">
+                        <button type="button" class="ov-ai-head-btn" id="ovAiClear" title="Hapus chat" aria-label="Hapus chat">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button type="button" class="ov-ai-close" id="ovAiClose" aria-label="Tutup Ask BELLA">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="ov-ai-body">
                     <div class="ov-ai-chat" id="ovAiChat">
@@ -1810,12 +1888,8 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                             Data dashboard sudah siap. Tanya prioritas, risiko, root cause, atau langkah berikutnya.
                         </div>
                     </div>
-                    <div class="ov-ai-suggestions">
-                        <button type="button" class="ov-ai-chip" data-ai-question="Buat brief operasional singkat untuk periode ini.">Brief operasional</button>
-                        <button type="button" class="ov-ai-chip" data-ai-question="Apa prioritas 30 menit ke depan?">Prioritas 30 menit</button>
-                        <button type="button" class="ov-ai-chip" data-ai-question="Delivery atau loading list mana yang paling berisiko?">Delivery berisiko</button>
-                        <button type="button" class="ov-ai-chip" data-ai-question="Part understock mana yang paling perlu dicek?">Part berisiko</button>
-                        <button type="button" class="ov-ai-chip" data-ai-question="Apa kemungkinan root cause dari masalah utama di dashboard ini?">Root cause</button>
+                    <div class="ov-ai-suggestions" id="ovAiSuggestions">
+                        <div id="ovAiChips"></div>
                     </div>
                     <form class="ov-ai-form" id="ovAiForm">
                         <input type="text" id="ovAiInput" maxlength="700" placeholder="Tanya BELLA..." autocomplete="off">
@@ -2092,6 +2166,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 activityMode = 'all',
                 aiBusy = false,
                 aiHistory = [],
+                aiRetryTimer = null,
                 requestId = 0;
 
             function esc(s) {
@@ -2226,8 +2301,12 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 return out.join('');
             }
 
-            function aiAssistantHtml(text, actions) {
+            function aiAssistantHtml(text, actions, options) {
+                options = options || {};
                 var html = '<div class="ov-ai-md">' + aiMessageHtml(text) + '</div>';
+                if (options.showCopy !== false && text) {
+                    html += '<div class="ov-ai-msg__tools"><button type="button" class="ov-ai-msg__tool" data-copy-text="' + esc(text) + '">Salin</button></div>';
+                }
                 if (actions && actions.length) {
                     html += '<div class="ov-ai-actions">';
                     actions.forEach(function(action) {
@@ -2237,6 +2316,91 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                     html += '</div>';
                 }
                 return html;
+            }
+
+            function bindAiCopyTools(root) {
+                if (!root) return;
+                root.querySelectorAll('[data-copy-text]').forEach(function(button) {
+                    if (button.dataset.copyBound) return;
+                    button.dataset.copyBound = '1';
+                    button.addEventListener('click', function() {
+                        var text = button.getAttribute('data-copy-text') || '';
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(text).then(function() {
+                                button.textContent = 'Tersalin';
+                                setTimeout(function() { button.textContent = 'Salin'; }, 1500);
+                            });
+                        }
+                    });
+                });
+            }
+
+            function formatAiPeriod(from, to) {
+                if (!from || !to) return '';
+                if (from === to) return 'Data: ' + from;
+                return 'Data: ' + from + ' – ' + to;
+            }
+
+            function updateAiPeriod() {
+                var el = document.getElementById('ovAiPeriod');
+                var from = document.getElementById('ovFrom');
+                var to = document.getElementById('ovTo');
+                if (!el || !from || !to) return;
+                el.textContent = formatAiPeriod(from.value, to.value);
+            }
+
+            function updateAiChips(d) {
+                var wrap = document.getElementById('ovAiChips');
+                if (!wrap) return;
+                var k = (d && d.kpi) || {};
+                var chips = [];
+                var atRisk = ((d && d.atRisk) || []).length;
+                if (atRisk > 0) {
+                    chips.push({
+                        label: atRisk + ' delivery berisiko',
+                        q: 'Delivery atau loading list mana yang paling berisiko? Jelaskan prioritasnya.'
+                    });
+                }
+                if ((k.underStock || 0) > 0) {
+                    chips.push({
+                        label: k.underStock + ' part understock',
+                        q: 'Part understock mana yang paling perlu dicek sekarang?'
+                    });
+                }
+                if ((k.prepTotal || 0) > 0 && (k.prepPct || 0) < 100) {
+                    chips.push({
+                        label: 'Prep ' + (k.prepPct || 0) + '%',
+                        q: 'Loading list mana yang belum lengkap preparation?'
+                    });
+                }
+                if ((k.errPeriod || 0) > 0) {
+                    chips.push({
+                        label: k.errPeriod + ' error',
+                        q: 'Error apa yang paling sering dan di area mana?'
+                    });
+                }
+                chips.push({
+                    label: 'Brief operasional',
+                    q: 'Buat brief operasional singkat untuk periode ini.'
+                });
+                chips.push({
+                    label: 'Prioritas 30 menit',
+                    q: 'Apa prioritas operasional 30 menit ke depan?'
+                });
+                wrap.innerHTML = chips.slice(0, 5).map(function(chip) {
+                    return '<button type="button" class="ov-ai-chip" data-ai-question="' + esc(chip.q) + '">' + esc(chip.label) + '</button>';
+                }).join('');
+            }
+
+            function clearAiChat() {
+                if (aiRetryTimer) {
+                    clearInterval(aiRetryTimer);
+                    aiRetryTimer = null;
+                }
+                aiHistory = [];
+                var chat = document.getElementById('ovAiChat');
+                if (!chat) return;
+                chat.innerHTML = '<div class="ov-ai-msg ov-ai-msg--assistant">Chat dibersihkan. Tanya BELLA tentang data dashboard periode ini.</div>';
             }
 
             function aiTextHtml(text) {
@@ -2293,15 +2457,6 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 return node;
             }
 
-            function fillAiMessage(node, text, actions) {
-                if (!node) return;
-                node.classList.remove('ov-ai-msg--typing');
-                node.removeAttribute('aria-label');
-                node.innerHTML = aiAssistantHtml(text, actions);
-                var chat = document.getElementById('ovAiChat');
-                if (chat) chat.scrollTop = chat.scrollHeight;
-            }
-
             function appendAiMessage(role, text) {
                 var chat = document.getElementById('ovAiChat');
                 if (!chat) return null;
@@ -2323,24 +2478,80 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 });
             }
 
-            function askAi(question) {
+            function fillAiMessage(node, text, actions) {
+                if (!node) return;
+                node.classList.remove('ov-ai-msg--typing');
+                node.removeAttribute('aria-label');
+                node.innerHTML = aiAssistantHtml(text, actions, { showCopy: true });
+                bindAiCopyTools(node);
+                var chat = document.getElementById('ovAiChat');
+                if (chat) chat.scrollTop = chat.scrollHeight;
+            }
+
+            function fillAiError(node, message, retryAfter, question) {
+                if (!node) return;
+                if (aiRetryTimer) {
+                    clearInterval(aiRetryTimer);
+                    aiRetryTimer = null;
+                }
+                node.classList.remove('ov-ai-msg--typing');
+                node.removeAttribute('aria-label');
+                var html = '<div class="ov-ai-md"><p class="ov-ai-md__p">' + aiInlineMd(message) + '</p></div>';
+                html += '<div class="ov-ai-msg__tools"><button type="button" class="ov-ai-msg__tool" data-copy-text="' + esc(message) + '">Salin</button></div>';
+                if (retryAfter && question) {
+                    html += '<div class="ov-ai-retry"><button type="button" class="ov-ai-retry-btn" id="ovAiRetryBtn" disabled>Coba lagi (<span id="ovAiRetrySec">' + retryAfter + '</span>s)</button></div>';
+                }
+                node.innerHTML = html;
+                bindAiCopyTools(node);
+                if (!retryAfter || !question) return;
+                var sec = retryAfter;
+                var btn = node.querySelector('#ovAiRetryBtn');
+                var secEl = node.querySelector('#ovAiRetrySec');
+                aiRetryTimer = setInterval(function() {
+                    sec -= 1;
+                    if (secEl) secEl.textContent = String(Math.max(sec, 0));
+                    if (sec <= 0) {
+                        clearInterval(aiRetryTimer);
+                        aiRetryTimer = null;
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Coba lagi';
+                        }
+                    }
+                }, 1000);
+                if (btn) {
+                    var autoRetryId = setTimeout(function() {
+                        requestAi(question, { skipUserBubble: true, replaceNode: node });
+                    }, (retryAfter + 1) * 1000);
+                    btn.addEventListener('click', function() {
+                        if (btn.disabled) return;
+                        clearTimeout(autoRetryId);
+                        requestAi(question, { skipUserBubble: true, replaceNode: node });
+                    });
+                }
+            }
+
+            function requestAi(question, options) {
+                options = options || {};
                 question = String(question || '').trim();
                 if (!question || aiBusy) return;
 
                 var input = document.getElementById('ovAiInput');
-                if (input) input.value = '';
+                if (input && !options.skipUserBubble) input.value = '';
 
                 var priorHistory = compactAiHistory();
                 var from = document.getElementById('ovFrom').value;
                 var to = document.getElementById('ovTo').value;
-                appendAiMessage('user', question);
-                aiHistory.push({
-                    role: 'user',
-                    content: limit(question, 800)
-                });
+                if (!options.skipUserBubble) {
+                    appendAiMessage('user', question);
+                    aiHistory.push({
+                        role: 'user',
+                        content: limit(question, 800)
+                    });
+                }
 
                 setAiBusy(true);
-                var pending = appendAiTyping();
+                var pending = options.replaceNode || appendAiTyping();
 
                 fetch(AI_URL, {
                         method: 'POST',
@@ -2366,7 +2577,12 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                         });
                     })
                     .then(function(res) {
-                        if (!res.ok) throw new Error(res.payload.message || 'Maaf, BELLA lagi ada kendala. Coba lagi sebentar ya.');
+                        if (!res.ok) {
+                            var err = new Error(res.payload.message || 'Maaf, BELLA lagi ada kendala. Coba lagi sebentar ya.');
+                            err.retryAfter = res.payload.retry_after || null;
+                            err.rateLimited = !!res.payload.rate_limited;
+                            throw err;
+                        }
                         var answer = res.payload.answer || 'Maaf, BELLA belum sempat menyusun jawabannya. Coba tanyakan ulang dengan lebih spesifik.';
                         fillAiMessage(pending, answer, res.payload.actions || []);
                         aiHistory.push({
@@ -2376,11 +2592,20 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                     })
                     .catch(function(error) {
                         var message = error && error.message ? error.message : 'Maaf, BELLA belum bisa memproses pertanyaan itu. Coba lagi ya.';
-                        fillAiMessage(pending, message);
+                        var retryAfter = error && error.retryAfter ? error.retryAfter : null;
+                        if (retryAfter) {
+                            fillAiError(pending, message, retryAfter, question);
+                        } else {
+                            fillAiMessage(pending, message, []);
+                        }
                     })
                     .finally(function() {
                         setAiBusy(false);
                     });
+            }
+
+            function askAi(question) {
+                requestAi(question);
             }
 
             function setFilterLoading(active) {
@@ -3049,6 +3274,8 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 setHtml('ovErrByArea', renderErrByArea(d.errByArea));
                 setHtml('ovRecentErrors', renderRecentErrors(d.recentErrors));
                 setText('ovUpdated', new Date().toLocaleTimeString('id-ID'));
+                updateAiChips(d);
+                updateAiPeriod();
             }
 
             function loadCharts() {
@@ -3378,11 +3605,19 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                         setActivityMode(button.getAttribute('data-activity-mode'));
                     });
                 });
-                document.querySelectorAll('.ov-ai-chip').forEach(function(button) {
-                    button.addEventListener('click', function() {
-                        askAi(button.getAttribute('data-ai-question'));
+                var aiSuggestions = document.getElementById('ovAiSuggestions');
+                if (aiSuggestions) {
+                    aiSuggestions.addEventListener('click', function(e) {
+                        var chip = e.target.closest('.ov-ai-chip');
+                        if (chip) askAi(chip.getAttribute('data-ai-question'));
                     });
-                });
+                }
+                var aiClear = document.getElementById('ovAiClear');
+                if (aiClear) {
+                    aiClear.addEventListener('click', function() {
+                        clearAiChat();
+                    });
+                }
                 var aiForm = document.getElementById('ovAiForm');
                 if (aiForm) {
                     aiForm.addEventListener('submit', function(e) {
@@ -3404,13 +3639,22 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                     });
                 });
                 document.getElementById('ovFrom').addEventListener('change', function() {
+                    updateAiPeriod();
                     clearActivePreset();
                     refresh(true);
                 });
                 document.getElementById('ovTo').addEventListener('change', function() {
+                    updateAiPeriod();
                     clearActivePreset();
                     refresh(true);
                 });
+                updateAiPeriod();
+                if (new URLSearchParams(window.location.search).get('bella') === 'brief') {
+                    setAiOpen(true);
+                    setTimeout(function() {
+                        askAi('Buat brief operasional singkat untuk periode ini.');
+                    }, 500);
+                }
                 // modal drill-down: tutup via tombol, klik backdrop, atau Esc
                 var slotModal = document.getElementById('ovSlotModal');
                 document.getElementById('ovSlotClose').addEventListener('click', function() {

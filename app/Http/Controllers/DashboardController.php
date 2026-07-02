@@ -145,17 +145,16 @@ class DashboardController extends Controller
                     'max_tokens' => 520,
                 ]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'message' => $this->humanizeGroqError($e->getMessage()),
-            ], 502);
+            $err = $this->groqErrorPayload($e->getMessage());
+
+            return response()->json($err, 502);
         }
 
         if ($response->failed()) {
             $raw = (string) data_get($response->json(), 'error.message', 'Groq mengembalikan error.');
+            $err = $this->groqErrorPayload($raw, $response->status());
 
-            return response()->json([
-                'message' => $this->humanizeGroqError($raw, $response->status()),
-            ], 502);
+            return response()->json($err, 502);
         }
 
         $answer = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
@@ -168,7 +167,7 @@ class DashboardController extends Controller
             'model' => (string) data_get($response->json(), 'model', config('services.groq.model')),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
-            'actions' => $contextBuilder->actionLinks($question),
+            'actions' => $contextBuilder->actionLinks($question, $context),
         ]);
     }
 
@@ -591,6 +590,53 @@ class DashboardController extends Controller
                 'atRisk' => $atRisk,
             ];
         });
+    }
+
+    public function bellaNotifications()
+    {
+        $today = Carbon::today();
+        $cacheKey = 'bella_notifications_'.$today->toDateString();
+
+        $payload = Cache::remember($cacheKey, 300, function () use ($today) {
+            $overview = $this->buildOverviewData($today, $today);
+            $brief = app(\App\Services\Ai\BellaBriefService::class)->build($overview, $today);
+
+            return [
+                'notifications' => [$brief],
+                'generated_at' => now()->format('Y-m-d H:i:s'),
+            ];
+        });
+
+        return response()->json($payload)->header('Cache-Control', 'private, max-age=60');
+    }
+
+    private function groqErrorPayload(string $raw, int $status = 502): array
+    {
+        $retryAfter = $this->groqRetrySeconds($raw, $status);
+
+        return [
+            'message' => $this->humanizeGroqError($raw, $status),
+            'retry_after' => $retryAfter,
+            'rate_limited' => $retryAfter !== null,
+        ];
+    }
+
+    private function groqRetrySeconds(string $raw, int $status = 502): ?int
+    {
+        if (preg_match('/try again in ([\d.]+)\s*s/i', $raw, $m)) {
+            return max(1, (int) ceil((float) $m[1]));
+        }
+
+        $lower = strtolower($raw);
+        if ($status === 429
+            || str_contains($lower, 'rate limit')
+            || str_contains($lower, 'tokens per minute')
+            || str_contains($lower, 'tpm')
+            || str_contains($lower, 'too many requests')) {
+            return 15;
+        }
+
+        return null;
     }
 
     private function humanizeGroqError(string $raw, int $status = 502): string

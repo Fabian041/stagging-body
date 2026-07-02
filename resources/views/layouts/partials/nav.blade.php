@@ -33,10 +33,21 @@
             <i class="fas fa-search"></i>
         </button>
 
-        {{-- Notifications --}}
-        <div class="tb-icon-btn" title="Notifications" style="position:relative;">
-            <i class="fas fa-bell"></i>
-            <span class="tb-notif-dot"></span>
+        {{-- Notifications (BELLA brief) --}}
+        <div class="tb-notif-wrap" id="tbNotifWrap">
+            <button type="button" class="tb-icon-btn" id="tbNotifBtn" title="Notifikasi BELLA" aria-expanded="false" aria-controls="tbNotifPanel">
+                <i class="fas fa-bell"></i>
+                <span class="tb-notif-dot" id="tbNotifDot" hidden></span>
+            </button>
+            <div class="tb-notif-panel" id="tbNotifPanel" aria-hidden="true">
+                <div class="tb-notif-head">
+                    <span>Notifikasi</span>
+                    <button type="button" class="tb-notif-mark" id="tbNotifMarkRead" title="Tandai sudah dibaca">Tandai dibaca</button>
+                </div>
+                <div class="tb-notif-body" id="tbNotifBody">
+                    <div class="tb-notif-loading">Memuat brief BELLA...</div>
+                </div>
+            </div>
         </div>
 
         {{-- Settings --}}
@@ -182,6 +193,138 @@
 
     .tb-search-mobile {
         flex-shrink: 0;
+    }
+
+    .tb-notif-wrap {
+        position: relative;
+    }
+
+    .tb-notif-dot {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef4444;
+        border: 2px solid rgba(255, 255, 255, .9);
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, .35);
+    }
+
+    .tb-notif-panel {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        width: min(360px, calc(100vw - 24px));
+        max-height: 420px;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, .82);
+        background: linear-gradient(145deg, rgba(255, 255, 255, .92), rgba(255, 255, 255, .78));
+        box-shadow: 0 22px 60px rgba(15, 23, 42, .18), inset 0 1px 0 rgba(255, 255, 255, .62);
+        backdrop-filter: blur(22px) saturate(180%);
+        -webkit-backdrop-filter: blur(22px) saturate(180%);
+        z-index: 5000;
+    }
+
+    .tb-notif-wrap.open .tb-notif-panel {
+        display: flex;
+    }
+
+    .tb-notif-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(207, 232, 247, .75);
+        font-size: 12px;
+        font-weight: 900;
+        color: var(--navy, #0f2557);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .tb-notif-mark {
+        border: 0;
+        background: transparent;
+        color: var(--primary, #0070b7);
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .tb-notif-body {
+        overflow: auto;
+        padding: 10px;
+        max-height: 340px;
+    }
+
+    .tb-notif-loading,
+    .tb-notif-empty {
+        padding: 18px 12px;
+        text-align: center;
+        color: var(--text-muted, #6b7a99);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .tb-notif-item {
+        display: block;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(207, 232, 247, .75);
+        background: rgba(255, 255, 255, .62);
+        color: inherit;
+        text-decoration: none !important;
+        margin-bottom: 8px;
+        transition: .15s;
+    }
+
+    .tb-notif-item:hover {
+        border-color: rgba(20, 152, 223, .35);
+        background: rgba(224, 242, 254, .55);
+        transform: translateY(-1px);
+    }
+
+    .tb-notif-item__title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 900;
+        color: var(--navy, #0f2557);
+        margin-bottom: 6px;
+    }
+
+    .tb-notif-item__title i {
+        color: #f59e0b;
+    }
+
+    .tb-notif-item__summary {
+        font-size: 12px;
+        line-height: 1.55;
+        font-weight: 600;
+        color: var(--text, #1a2340);
+        white-space: pre-line;
+    }
+
+    .tb-notif-item__meta {
+        margin-top: 8px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text-muted, #6b7a99);
+    }
+
+    .tb-notif-item__cta {
+        display: inline-flex;
+        margin-top: 10px;
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--primary, #0070b7);
     }
 
     .tb-right .tb-icon-btn,
@@ -868,5 +1011,115 @@
                 if (a) window.location.href = a.getAttribute('href');
             }
         });
+    })();
+
+    // BELLA notifications — brief pagi di navbar
+    (function() {
+        var wrap = document.getElementById('tbNotifWrap');
+        var btn = document.getElementById('tbNotifBtn');
+        var panel = document.getElementById('tbNotifPanel');
+        var body = document.getElementById('tbNotifBody');
+        var dot = document.getElementById('tbNotifDot');
+        var markRead = document.getElementById('tbNotifMarkRead');
+        if (!wrap || !btn || !panel || !body) return;
+
+        var url = @json(route('dashboard.bella.notifications'));
+        var overviewUrl = @json(route('dashboard.overview'));
+        var readKey = 'bellaNotifReadDate';
+        var loaded = false;
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+
+        function todayKey() {
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function isUnread() {
+            try {
+                return localStorage.getItem(readKey) !== todayKey();
+            } catch (e) {
+                return true;
+            }
+        }
+
+        function setRead() {
+            try {
+                localStorage.setItem(readKey, todayKey());
+            } catch (e) {}
+            if (dot) dot.hidden = true;
+        }
+
+        function updateDot() {
+            if (dot) dot.hidden = !isUnread();
+        }
+
+        function setOpen(open) {
+            wrap.classList.toggle('open', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+            if (open && !loaded) loadNotifications();
+        }
+
+        function renderNotifications(items) {
+            if (!items || !items.length) {
+                body.innerHTML = '<div class="tb-notif-empty">Belum ada notifikasi hari ini.</div>';
+                return;
+            }
+            body.innerHTML = items.map(function(item) {
+                var href = item.ask_url || (overviewUrl + '?bella=brief');
+                return '<a class="tb-notif-item" href="' + esc(href) + '">' +
+                    '<div class="tb-notif-item__title"><i class="fas fa-sun"></i>' + esc(item.title || 'Brief BELLA') + '</div>' +
+                    '<div class="tb-notif-item__summary">' + esc(item.summary || '') + '</div>' +
+                    '<div class="tb-notif-item__meta">Diperbarui ' + esc(item.generated_at || '-') + '</div>' +
+                    '<span class="tb-notif-item__cta">Buka dashboard · Tanya BELLA →</span>' +
+                    '</a>';
+            }).join('');
+        }
+
+        function loadNotifications() {
+            body.innerHTML = '<div class="tb-notif-loading">Memuat brief BELLA...</div>';
+            fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    loaded = true;
+                    renderNotifications((data && data.notifications) || []);
+                    updateDot();
+                })
+                .catch(function() {
+                    body.innerHTML = '<div class="tb-notif-empty">Gagal memuat notifikasi.</div>';
+                });
+        }
+
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            setOpen(!wrap.classList.contains('open'));
+        });
+
+        if (markRead) {
+            markRead.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                setRead();
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!wrap.contains(e.target)) setOpen(false);
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') setOpen(false);
+        });
+
+        body.addEventListener('click', function(e) {
+            if (e.target.closest('.tb-notif-item')) setRead();
+        });
+
+        updateDot();
+        loadNotifications();
     })();
 </script>

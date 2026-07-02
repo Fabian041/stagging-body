@@ -424,7 +424,36 @@
 
         .compare-controls {
             display: flex;
+            align-items: center;
             gap: 8px;
+        }
+
+        .compare-download-btn {
+            height: 32px;
+            border: 1px solid #bfdbfe;
+            border-radius: var(--r-sm);
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 11.5px;
+            font-weight: 800;
+            padding: 0 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            white-space: nowrap;
+            transition: .15s;
+        }
+
+        .compare-download-btn:hover:not(:disabled) {
+            background: #dbeafe;
+            border-color: #93c5fd;
+        }
+
+        .compare-download-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
         }
 
         .compare-search-wrap {
@@ -953,6 +982,13 @@
 
             .compare-controls {
                 flex-direction: column;
+                align-items: stretch;
+            }
+
+            .compare-download-btn,
+            .compare-search-wrap,
+            .compare-filter-select {
+                width: 100%;
             }
 
             .compare-prep-context {
@@ -1172,6 +1208,10 @@
                 <div class="compare-toolbar">
                     <span class="compare-meta" id="compareMeta"></span>
                     <div class="compare-controls">
+                        <button type="button" class="compare-download-btn" id="compareDownload" disabled>
+                            <i class="fas fa-download"></i>
+                            Download
+                        </button>
                         <div class="compare-search-wrap">
                             <i class="fas fa-search"></i>
                             <input type="text" id="compareSearch" placeholder="Cari serial / tanggal / qty...">
@@ -1241,6 +1281,8 @@
 <script>
     $(document).ready(function() {
         const loadingList = "{{ $loadingListId }}";
+        const loadingListNumber = @json($loadingListDetail->number ?? 'loading-list');
+        const pdsNumber = @json($loadingListDetail->pds_number ?? 'pds');
         const pagePrepContext = @json($prepContext);
         const requestOptions = {
             method: 'GET',
@@ -1361,6 +1403,7 @@
 
         function updateComparePrepContext(ctx) {
             ctx = ctx || pagePrepContext || {};
+            compareCtx.prepContext = ctx;
             const statusClass = prepDeltaClass(ctx.status);
             const deltaText = `${ctx.delta_label || '-'} ${ctx.status_label || ''}`.trim();
 
@@ -1402,7 +1445,9 @@
          * ======================================================= */
         let compareData = [];
         let compareCtx = {
-            detailId: null
+            detailId: null,
+            partLabel: '-',
+            prepContext: pagePrepContext || {}
         };
 
         function statusBadgeClass(status) {
@@ -1417,24 +1462,37 @@
             return 'Missing Pulling';
         }
 
-        function rebuildCompareRows(filterText = '', filterMode = 'all') {
-            const q = (filterText || '').toLowerCase();
-            const tbody = $('#compareTbody');
-            tbody.empty();
-            let shown = 0;
+        function compareHasLatePulling(item) {
+            return (item.pullItems || []).some(x => x.prepStatus === 'late');
+        }
 
-            compareData.forEach(item => {
+        function filteredCompareRows(filterText = '', filterMode = 'all') {
+            const q = (filterText || '').toLowerCase();
+
+            return compareData.filter(item => {
                 const prodText = (item.prodItems || []).map(x => x.text).join(' ');
                 const pullText = (item.pullItems || []).map(x => `${x.text} ${x.deltaText || ''}`).join(' ');
                 const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
-                const hasLatePulling = (item.pullItems || []).some(x => x.prepStatus === 'late');
+                const hasLatePulling = compareHasLatePulling(item);
 
-                if (q && !joined.includes(q)) return;
-                if (filterMode === 'match' && item.status !== 'MATCH') return;
-                if (filterMode === 'missing_prod' && item.status !== 'MISSING_PROD') return;
-                if (filterMode === 'missing_pull' && item.status !== 'MISSING_PULL') return;
-                if (filterMode === 'late_pull' && !hasLatePulling) return;
+                if (q && !joined.includes(q)) return false;
+                if (filterMode === 'match' && item.status !== 'MATCH') return false;
+                if (filterMode === 'missing_prod' && item.status !== 'MISSING_PROD') return false;
+                if (filterMode === 'missing_pull' && item.status !== 'MISSING_PULL') return false;
+                if (filterMode === 'late_pull' && !hasLatePulling) return false;
 
+                return true;
+            });
+        }
+
+        function rebuildCompareRows(filterText = '', filterMode = 'all') {
+            const tbody = $('#compareTbody');
+            const rows = filteredCompareRows(filterText, filterMode);
+            tbody.empty();
+            let shown = 0;
+
+            rows.forEach(item => {
+                const hasLatePulling = compareHasLatePulling(item);
                 shown++;
 
                 const prodHtml = (item.prodItems && item.prodItems.length) ?
@@ -1475,6 +1533,78 @@
             }
 
             $('#compareMeta').text(`Shown: ${shown} / Total serial: ${compareData.length}`);
+            $('#compareDownload').prop('disabled', shown === 0);
+        }
+
+        function csvCell(value) {
+            return `"${String(value ?? '').replace(/"/g, '""')}"`;
+        }
+
+        function csvMutationText(items) {
+            return (items || [])
+                .map(item => [item.text, item.deltaText].filter(Boolean).join(' '))
+                .join(' | ');
+        }
+
+        function safeFilePart(value) {
+            return String(value || 'compare')
+                .trim()
+                .replace(/[^a-z0-9._-]+/gi, '-')
+                .replace(/^-+|-+$/g, '') || 'compare';
+        }
+
+        function downloadCompareCsv() {
+            const rows = filteredCompareRows($('#compareSearch').val(), $('#compareFilter').val());
+            if (!rows.length) {
+                notif('error', 'Tidak ada data compare untuk didownload.');
+                return;
+            }
+
+            const prep = compareCtx.prepContext || {};
+            const header = [
+                'No',
+                'Loading List',
+                'PDS',
+                'Part',
+                'Serial',
+                'Production',
+                'Pulling',
+                'Status',
+                'Pulling Telat Preparation',
+                'Preparation Deadline',
+                'Latest Pulling',
+                'Delta'
+            ];
+            const lines = [header.map(csvCell).join(',')];
+
+            rows.forEach((item, index) => {
+                lines.push([
+                    index + 1,
+                    loadingListNumber,
+                    pdsNumber,
+                    compareCtx.partLabel,
+                    item.serial,
+                    csvMutationText(item.prodItems),
+                    csvMutationText(item.pullItems),
+                    statusLabel(item.status),
+                    compareHasLatePulling(item) ? 'Ya' : 'Tidak',
+                    prep.deadline_label || '-',
+                    prep.pulling_label || '-',
+                    `${prep.delta_label || '-'} ${prep.status_label || ''}`.trim()
+                ].map(csvCell).join(','));
+            });
+
+            const blob = new Blob(['\ufeff' + lines.join('\r\n')], {
+                type: 'text/csv;charset=utf-8;'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `compare-kanban-${safeFilePart(loadingListNumber)}-${safeFilePart(compareCtx.partLabel)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
 
         /* =========================================================
@@ -1586,8 +1716,11 @@
             const row = table.row(tr).data();
 
             compareCtx.detailId = row.id;
+            compareCtx.partLabel = `${plainCellValue(row.cust_partno)}_${plainCellValue(row.int_partno)}`;
+            compareData = [];
             $('#compareSearch').val('');
             $('#compareFilter').val('all');
+            $('#compareDownload').prop('disabled', true);
             $('#compareMeta').text('Loading comparison...');
             updateComparePrepContext(pagePrepContext);
             $('#compareTbody').html(
@@ -1646,6 +1779,8 @@
         $('#compareFilter').on('change', function() {
             rebuildCompareRows($('#compareSearch').val(), $(this).val());
         });
+
+        $('#compareDownload').on('click', downloadCompareCsv);
 
         /* =========================================================
          * DELETE PULLING MUTATION
