@@ -1209,7 +1209,7 @@
                     <span class="compare-meta" id="compareMeta"></span>
                     <div class="compare-controls">
                         <button type="button" class="compare-download-btn" id="compareDownload" disabled>
-                            <i class="fas fa-download"></i>
+                            <i class="fas fa-file-excel"></i>
                             Download
                         </button>
                         <div class="compare-search-wrap">
@@ -1536,10 +1536,6 @@
             $('#compareDownload').prop('disabled', shown === 0);
         }
 
-        function csvCell(value) {
-            return `"${String(value ?? '').replace(/"/g, '""')}"`;
-        }
-
         function csvMutationText(items) {
             return (items || [])
                 .map(item => [item.text, item.deltaText].filter(Boolean).join(' '))
@@ -1553,7 +1549,7 @@
                 .replace(/^-+|-+$/g, '') || 'compare';
         }
 
-        function downloadCompareCsv() {
+        function downloadCompareTable() {
             const rows = filteredCompareRows($('#compareSearch').val(), $('#compareFilter').val());
             if (!rows.length) {
                 notif('error', 'Tidak ada data compare untuk didownload.');
@@ -1561,46 +1557,48 @@
             }
 
             const prep = compareCtx.prepContext || {};
-            const header = [
-                'No',
-                'Loading List',
-                'PDS',
-                'Part',
-                'Serial',
-                'Production',
-                'Pulling',
-                'Status',
-                'Pulling Telat Preparation',
-                'Preparation Deadline',
-                'Latest Pulling',
-                'Delta'
-            ];
-            const lines = [header.map(csvCell).join(',')];
+            const headers = ['No', 'Serial', 'Production', 'Pulling', 'Status', 'Pulling Telat Preparation'];
 
-            rows.forEach((item, index) => {
-                lines.push([
-                    index + 1,
-                    loadingListNumber,
-                    pdsNumber,
-                    compareCtx.partLabel,
-                    item.serial,
-                    csvMutationText(item.prodItems),
-                    csvMutationText(item.pullItems),
-                    statusLabel(item.status),
-                    compareHasLatePulling(item) ? 'Ya' : 'Tidak',
-                    prep.deadline_label || '-',
-                    prep.pulling_label || '-',
-                    `${prep.delta_label || '-'} ${prep.status_label || ''}`.trim()
-                ].map(csvCell).join(','));
-            });
+            const bodyRows = rows.map((item, index) => `
+                <tr>
+                    <td style="text-align:center;">${index + 1}</td>
+                    <td>${escapeHtml(item.serial)}</td>
+                    <td>${escapeHtml(csvMutationText(item.prodItems))}</td>
+                    <td>${escapeHtml(csvMutationText(item.pullItems))}</td>
+                    <td>${escapeHtml(statusLabel(item.status))}</td>
+                    <td style="text-align:center;">${compareHasLatePulling(item) ? 'Ya' : 'Tidak'}</td>
+                </tr>`).join('');
 
-            const blob = new Blob(['\ufeff' + lines.join('\r\n')], {
-                type: 'text/csv;charset=utf-8;'
+            const deltaText = `${prep.delta_label || '-'} ${prep.status_label || ''}`.trim();
+            const html =
+                `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head><meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, Helvetica, sans-serif; color: #1a2340; }
+                    h3 { margin: 0 0 4px; }
+                    .meta { font-size: 12px; color: #555; margin: 2px 0; }
+                    table { border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+                    th, td { border: 1px solid #b7c0d0; padding: 6px 9px; vertical-align: top; text-align: left; }
+                    th { background: #1f3b82; color: #ffffff; font-weight: bold; text-align: center; }
+                    tr:nth-child(even) td { background: #f4f7fb; }
+                </style></head>
+                <body>
+                    <h3>Compare Pulling vs Production</h3>
+                    <div class="meta">Loading List: ${escapeHtml(loadingListNumber)} &nbsp;|&nbsp; PDS: ${escapeHtml(pdsNumber)} &nbsp;|&nbsp; Part: ${escapeHtml(compareCtx.partLabel)}</div>
+                    <div class="meta">Preparation Deadline: ${escapeHtml(prep.deadline_label || '-')} &nbsp;|&nbsp; Latest Pulling: ${escapeHtml(prep.pulling_label || '-')} &nbsp;|&nbsp; Delta: ${escapeHtml(deltaText || '-')}</div>
+                    <table>
+                        <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                </body></html>`;
+
+            const blob = new Blob(['\ufeff' + html], {
+                type: 'application/vnd.ms-excel;charset=utf-8;'
             });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `compare-kanban-${safeFilePart(loadingListNumber)}-${safeFilePart(compareCtx.partLabel)}.csv`;
+            link.download = `compare-kanban-${safeFilePart(loadingListNumber)}-${safeFilePart(compareCtx.partLabel)}.xls`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1780,7 +1778,7 @@
             rebuildCompareRows($('#compareSearch').val(), $(this).val());
         });
 
-        $('#compareDownload').on('click', downloadCompareCsv);
+        $('#compareDownload').on('click', downloadCompareTable);
 
         /* =========================================================
          * DELETE PULLING MUTATION
