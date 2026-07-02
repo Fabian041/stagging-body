@@ -67,7 +67,7 @@
         /* ===== BODY ===== */
         .portal-body {
             width: 100%;
-            max-width: 1060px;
+            max-width: 1160px;
             margin: 0 auto;
             padding: 40px 30px;
         }
@@ -99,88 +99,103 @@
 
         .portal-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(2, 1fr);
+            align-items: start;
+            gap: 18px;
         }
 
-        /* ===== CARD ===== */
-        .lesson-card {
-            display: flex;
-            flex-direction: column;
-            min-height: 196px;
-            padding: 18px 20px 20px;
+        @media (max-width: 760px) {
+            .portal-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== MODULE CARD ===== */
+        .module-card {
+            padding: 16px;
             border-radius: 16px;
             border: 1px solid #ECEEF2;
             background: #fff;
-            text-decoration: none;
             box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
-            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
         }
 
-        .lesson-card:hover {
-            transform: translateY(-3px);
-            border-color: #D9DDE4;
-            box-shadow: 0 12px 28px rgba(16, 24, 40, .09);
-            text-decoration: none;
-        }
-
-        .lc-top {
+        .mc-head {
             display: flex;
-            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding-bottom: 13px;
+            border-bottom: 1px solid #EEF1F5;
         }
 
-        .lc-badge {
-            font-size: 10.5px;
-            font-weight: 700;
-            letter-spacing: .02em;
-            color: #5A6472;
-            background: #F1F2F4;
-            padding: 4px 10px;
-            border-radius: 999px;
-        }
-
-        .lc-title {
-            flex: 1;
+        .mc-icon {
+            width: 42px;
+            height: 42px;
+            flex: 0 0 42px;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            padding: 10px 4px;
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: -.02em;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #294795, #0070B7);
+            color: #fff;
+            font-size: 17px;
+            box-shadow: 0 8px 18px rgba(0, 112, 183, .22);
+        }
+
+        .mc-title {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: -.025em;
             color: #1F2430;
+            line-height: 1.15;
         }
 
-        .lc-foot {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .lc-icon {
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 9px;
-            background: #F5F6F8;
-            color: #6B7280;
-            font-size: 12.5px;
-        }
-
-        .lc-go {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
+        .mc-sub-count {
+            margin-top: 2px;
+            font-size: 11px;
             font-weight: 600;
             color: #9AA1AC;
-            transition: color .16s ease;
         }
 
-        .lesson-card:hover .lc-go {
+        .mc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .mc-tile {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 11px;
+            padding: 13px 14px;
+            border-radius: 11px;
+            border: 1px solid transparent;
+            background: #F4F7FB;
+            text-decoration: none;
+            transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+        }
+
+        .mc-tile:hover {
+            transform: translateY(-2px);
+            border-color: #CFE0F1;
+            background: #fff;
+            box-shadow: 0 10px 22px rgba(41, 71, 149, .10);
+            text-decoration: none;
+        }
+
+        .mc-tile i {
+            font-size: 15px;
+            color: #0070B7;
+            width: 22px;
+            flex: 0 0 22px;
+            text-align: center;
+        }
+
+        .mc-tile span {
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.25;
             color: #1F2430;
         }
 
@@ -232,10 +247,43 @@
 
     @php
         $menus = [
-            ['title' => 'PPIC · Delivery', 'icon' => 'fa-truck-loading', 'tag' => 'PPIC'],
-            ['title' => 'PPIC · Receiving', 'icon' => 'fa-dolly', 'tag' => 'PPIC'],
-            ['title' => 'Production', 'icon' => 'fa-industry', 'tag' => 'Produksi'],
-            ['title' => 'Quality', 'icon' => 'fa-clipboard-check', 'tag' => 'Quality'],
+            [
+                'title' => 'PPIC · Delivery',
+                'icon' => 'fa-warehouse',
+                'sub' => [
+                    ['label' => 'Preparation Monitoring', 'icon' => 'fa-chart-bar', 'route' => 'dashboard.delivery'],
+                    ['label' => 'Absen Driver', 'icon' => 'fa-truck', 'route' => 'loadingList.driverAbsen'],
+                    ['label' => 'Scan Detail', 'icon' => 'fa-truck-loading', 'route' => 'loadingList.index'],
+                    ['label' => 'Kanban Reset', 'icon' => 'fa-sync-alt', 'route' => 'pulling.manual'],
+                ],
+            ],
+            [
+                'title' => 'PPIC · Receiving',
+                'icon' => 'fa-dolly',
+                'sub' => [
+                    ['label' => 'Scanning', 'icon' => 'fa-barcode', 'route' => 'pis.index'],
+                    ['label' => 'Scan List', 'icon' => 'fa-list-alt', 'route' => 'pis.scanList'],
+                ],
+            ],
+            [
+                'title' => 'Production',
+                'icon' => 'fa-industry',
+                'sub' => [
+                    ['label' => 'Production Stock', 'icon' => 'fa-box', 'route' => 'dashboard.productionStock'],
+                    ['label' => 'Kanban Check', 'icon' => 'fa-clipboard-list', 'route' => 'dashboard.kbnCheck'],
+                    ['label' => 'Part Check', 'icon' => 'fa-cogs', 'route' => 'dashboard.partCheck'],
+                    ['label' => 'Production Result', 'icon' => 'fa-chart-line', 'route' => 'dashboard.prodResult'],
+                ],
+            ],
+            [
+                'title' => 'Quality',
+                'icon' => 'fa-clipboard-check',
+                'sub' => [
+                    ['label' => 'Scan Quality', 'icon' => 'fa-barcode', 'route' => 'quality.scan'],
+                    ['label' => 'Reject & Pareto', 'icon' => 'fa-chart-bar', 'route' => 'quality.pareto'],
+                    ['label' => 'Detail Scan', 'icon' => 'fa-list-ul', 'route' => 'quality.history'],
+                ],
+            ],
         ];
     @endphp
 
@@ -247,31 +295,42 @@
                         <img src="{{ asset('assets/img/bella.png') }}" alt="Bella">
                         <span>BELLA</span>
                     </div>
-                    <p class="portal-subtitle">Pilih salah satu modul untuk melanjutkan ke login.</p>
+                    <p class="portal-subtitle">Pilih salah satu modul untuk melanjutkan.</p>
                 </div>
-                <a href="{{ route('login.index') }}" class="portal-login">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </a>
+                @guest
+                    <a href="{{ route('login.index') }}" class="portal-login">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                @endguest
             </div>
 
             <div class="portal-grid">
                 @foreach ($menus as $m)
-                    <a href="{{ route('login.index') }}" class="lesson-card">
-                        <div class="lc-top">
-                            <span class="lc-badge">{{ $m['tag'] }}</span>
+                    <div class="module-card">
+                        <div class="mc-head">
+                            <span class="mc-icon"><i class="fas {{ $m['icon'] }}"></i></span>
+                            <div>
+                                <div class="mc-title">{{ $m['title'] }}</div>
+                                <div class="mc-sub-count">{{ count($m['sub']) }} menu</div>
+                            </div>
                         </div>
-                        <div class="lc-title">{{ $m['title'] }}</div>
-                        <div class="lc-foot">
-                            <span class="lc-icon"><i class="fas {{ $m['icon'] }}"></i></span>
-                            <span class="lc-go">Masuk <i class="fas fa-arrow-right"></i></span>
+                        <div class="mc-grid">
+                            @foreach ($m['sub'] as $s)
+                                <a href="{{ auth()->check() ? route($s['route']) : route('login.index') }}" class="mc-tile">
+                                    <i class="fas {{ $s['icon'] }}"></i>
+                                    <span>{{ $s['label'] }}</span>
+                                </a>
+                            @endforeach
                         </div>
-                    </a>
+                    </div>
                 @endforeach
             </div>
         </main>
     </div>
 
-    <a href="{{ route('login.index') }}" class="portal-info" title="Internal use only — login untuk mengakses modul">
-        <i class="fas fa-info"></i>
-    </a>
+    @guest
+        <a href="{{ route('login.index') }}" class="portal-info" title="Internal use only — login untuk mengakses modul">
+            <i class="fas fa-info"></i>
+        </a>
+    @endguest
 @endsection

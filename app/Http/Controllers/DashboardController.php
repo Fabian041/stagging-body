@@ -31,11 +31,7 @@ class DashboardController extends Controller
 
     public function index()
     {
-        // "/" adalah portal guest. User yang sudah login (mampir ke /dashboard) diarahkan ke overview.
-        if (auth()->check()) {
-            return redirect()->route('dashboard.overview');
-        }
-
+        // Portal (launcher) untuk semua. Blade sembunyikan tombol Login kalau sudah login.
         return view('pages.dashboard_home');
     }
 

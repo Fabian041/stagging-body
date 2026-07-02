@@ -33,8 +33,8 @@ use App\Http\Controllers\QualityController;
 |
 */
 
-// Root route - portal publik untuk guest (user login diarahkan ke /dashboard oleh middleware guest)
-Route::middleware(['guest'])->get('/', [DashboardController::class, 'index'])->name('home');
+// Root route - portal (launcher) untuk semua: guest & user login. Tombol Login hilang saat sudah login.
+Route::get('/', [DashboardController::class, 'index'])->name('home');
 
 // unauthencticated user
 Route::middleware(['guest'])->group(function () {

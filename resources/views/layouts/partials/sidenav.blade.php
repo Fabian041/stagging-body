@@ -2,7 +2,7 @@
 
     {{-- ===== LOGO ===== --}}
     <div class="sb-logo">
-        <a href="{{ route('dashboard.index') }}" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
+        <a href="{{ route('home') }}" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
             <div class="sb-logo-icon">
                 <i class="fas fa-bolt"></i>
             </div>
