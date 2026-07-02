@@ -64,6 +64,215 @@
             text-decoration: none;
         }
 
+        /* ===== USER PILL (authed) ===== */
+        .portal-user {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            height: 44px;
+            padding: 5px 12px 5px 5px;
+            border-radius: 999px;
+            background: #fff;
+            border: 1px solid #E3E9F3;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+        }
+
+        .portal-user:hover,
+        .portal-user:focus-within {
+            border-color: #CFE0F1;
+        }
+
+        .pu-avatar {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #294795, #0070B7);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+
+        .pu-name {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1F2430;
+        }
+
+        .pu-chev {
+            font-size: 10px;
+            color: #9AA1AC;
+            transition: transform .16s ease;
+        }
+
+        .portal-user:hover .pu-chev,
+        .portal-user:focus-within .pu-chev {
+            transform: rotate(180deg);
+        }
+
+        .portal-user-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 210px;
+            padding: 6px;
+            border-radius: 12px;
+            background: #fff;
+            border: 1px solid #E3E9F3;
+            box-shadow: 0 18px 44px rgba(16, 24, 40, .16);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(6px);
+            transition: opacity .16s ease, transform .16s ease, visibility .16s;
+            z-index: 20;
+        }
+
+        .portal-user:hover .portal-user-menu,
+        .portal-user:focus-within .portal-user-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .pu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 9px 11px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: #334155;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: left;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .pu-item i {
+            width: 16px;
+            text-align: center;
+            color: #7B8AA6;
+        }
+
+        .pu-item:hover {
+            background: #F1F5FB;
+            color: #0070B7;
+            text-decoration: none;
+        }
+
+        .pu-item:hover i {
+            color: #0070B7;
+        }
+
+        .pu-item.pu-danger {
+            color: #DC2626;
+        }
+
+        .pu-item.pu-danger i {
+            color: #DC2626;
+        }
+
+        .pu-item.pu-danger:hover {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+
+        .portal-user-menu form {
+            margin: 0;
+        }
+
+        /* ===== SEARCH ===== */
+        .portal-search {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            height: 46px;
+            margin: 0 0 22px;
+            padding: 0 14px;
+            border-radius: 12px;
+            border: 1px solid #E3E9F3;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+        }
+
+        .portal-search:focus-within {
+            border-color: #0070B7;
+            box-shadow: 0 0 0 3px rgba(0, 112, 183, .10);
+        }
+
+        .portal-search > i {
+            color: #9AA1AC;
+            font-size: 14px;
+        }
+
+        .portal-search input {
+            flex: 1;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #1F2430;
+        }
+
+        .portal-search input::placeholder {
+            color: #9AA1AC;
+            font-weight: 500;
+        }
+
+        .ps-clear {
+            flex: 0 0 auto;
+            width: 26px;
+            height: 26px;
+            border: 0;
+            border-radius: 8px;
+            background: #F1F2F4;
+            color: #6B7280;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ps-clear:hover {
+            background: #E5E7EB;
+            color: #1F2430;
+        }
+
+        .portal-noresult {
+            padding: 30px 0;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #8A929E;
+        }
+
+        .portal-noresult i {
+            margin-right: 6px;
+        }
+
+        .is-hidden {
+            display: none !important;
+        }
+
         /* ===== BODY ===== */
         .portal-body {
             width: 100%;
@@ -246,6 +455,14 @@
     </style>
 
     @php
+        $user = auth()->user();
+        $initials = 'U';
+        if ($user) {
+            $parts = preg_split('/\s+/', trim((string) $user->name));
+            $initials = strtoupper(mb_substr($parts[0] ?? '', 0, 1) . (count($parts) > 1 ? mb_substr(end($parts), 0, 1) : ''));
+            $initials = $initials !== '' ? $initials : 'U';
+        }
+
         $menus = [
             [
                 'title' => 'PPIC · Delivery',
@@ -302,11 +519,35 @@
                         <i class="fas fa-sign-in-alt"></i> Login
                     </a>
                 @endguest
+                @auth
+                    <div class="portal-user" tabindex="0">
+                        <span class="pu-avatar">{{ $initials }}</span>
+                        <span class="pu-name">{{ $user->name }}</span>
+                        <i class="fas fa-chevron-down pu-chev"></i>
+                        <div class="portal-user-menu">
+                            <a href="{{ route('dashboard.overview') }}" class="pu-item">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                            <form action="{{ route('logout.auth') }}" method="POST">
+                                @csrf
+                                <button type="submit" class="pu-item pu-danger">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                @endauth
+            </div>
+
+            <div class="portal-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="portalSearch" placeholder="Cari menu… (mis. stock, scan, kanban)" autocomplete="off" aria-label="Cari menu">
+                <button type="button" class="ps-clear" id="portalSearchClear" aria-label="Bersihkan pencarian" hidden><i class="fas fa-times"></i></button>
             </div>
 
             <div class="portal-grid">
                 @foreach ($menus as $m)
-                    <div class="module-card">
+                    <div class="module-card" data-title="{{ $m['title'] }}">
                         <div class="mc-head">
                             <span class="mc-icon"><i class="fas {{ $m['icon'] }}"></i></span>
                             <div>
@@ -325,6 +566,10 @@
                     </div>
                 @endforeach
             </div>
+
+            <div class="portal-noresult" id="portalNoResult" hidden>
+                <i class="fas fa-search"></i> Tidak ada menu yang cocok.
+            </div>
         </main>
     </div>
 
@@ -333,4 +578,51 @@
             <i class="fas fa-info"></i>
         </a>
     @endguest
+@endsection
+
+@section('custom-script')
+    <script>
+        (function () {
+            var input = document.getElementById('portalSearch');
+            if (!input) return;
+
+            var clearBtn = document.getElementById('portalSearchClear');
+            var noResult = document.getElementById('portalNoResult');
+            var cards = Array.prototype.slice.call(document.querySelectorAll('.module-card'));
+
+            function apply() {
+                var q = input.value.trim().toLowerCase();
+                if (clearBtn) clearBtn.hidden = q === '';
+                var anyVisible = false;
+
+                cards.forEach(function (card) {
+                    var title = (card.getAttribute('data-title') || '').toLowerCase();
+                    var tiles = Array.prototype.slice.call(card.querySelectorAll('.mc-tile'));
+                    var shown = 0;
+
+                    tiles.forEach(function (tile) {
+                        var label = (tile.textContent || '').trim().toLowerCase();
+                        var match = q === '' || label.indexOf(q) !== -1 || title.indexOf(q) !== -1;
+                        tile.classList.toggle('is-hidden', !match);
+                        if (match) shown++;
+                    });
+
+                    card.classList.toggle('is-hidden', shown === 0);
+                    if (shown > 0) anyVisible = true;
+                });
+
+                if (noResult) noResult.hidden = anyVisible || q === '';
+            }
+
+            input.addEventListener('input', apply);
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') { input.value = ''; apply(); }
+            });
+            if (clearBtn) clearBtn.addEventListener('click', function () {
+                input.value = '';
+                input.focus();
+                apply();
+            });
+        })();
+    </script>
 @endsection
