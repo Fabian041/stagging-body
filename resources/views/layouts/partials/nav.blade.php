@@ -309,7 +309,62 @@
         line-height: 1.55;
         font-weight: 600;
         color: var(--text, #1a2340);
-        white-space: pre-line;
+    }
+
+    .tb-notif-brief-list {
+        display: grid;
+        gap: 7px;
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .tb-notif-brief-row {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 8px;
+        align-items: flex-start;
+        padding: 8px 9px;
+        border: 1px solid rgba(207, 232, 247, .72);
+        border-radius: 10px;
+        background: rgba(248, 251, 255, .68);
+    }
+
+    .tb-notif-brief-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #0f5f94;
+        background: #e0f2fe;
+        font-size: 10px;
+    }
+
+    .tb-notif-brief-icon.is-preparation { color: #166534; background: #dcfce7; }
+    .tb-notif-brief-icon.is-pulling { color: #1d4ed8; background: #dbeafe; }
+    .tb-notif-brief-icon.is-production { color: #7c3aed; background: #ede9fe; }
+    .tb-notif-brief-icon.is-stock { color: #b45309; background: #fef3c7; }
+    .tb-notif-brief-icon.is-priority,
+    .tb-notif-brief-icon.is-error { color: #b91c1c; background: #fee2e2; }
+
+    .tb-notif-brief-copy {
+        min-width: 0;
+        color: var(--text, #1a2340);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .tb-notif-brief-label {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--text-muted, #6b7a99);
+        font-size: 9.5px;
+        font-weight: 900;
+        letter-spacing: .06em;
+        text-transform: uppercase;
     }
 
     .tb-notif-item__meta {
@@ -1034,6 +1089,39 @@
             });
         }
 
+        function briefLines(item) {
+            if (Array.isArray(item.bullets) && item.bullets.length) return item.bullets;
+            return String(item.summary || '')
+                .split(/\r?\n/)
+                .map(function(line) { return line.replace(/^\s*-\s*/, '').trim(); })
+                .filter(Boolean);
+        }
+
+        function briefKind(label) {
+            var key = String(label || '').toLowerCase();
+            if (key.indexOf('preparation') !== -1) return ['preparation', 'fas fa-clipboard-check'];
+            if (key.indexOf('pulling') !== -1) return ['pulling', 'fas fa-truck-loading'];
+            if (key.indexOf('produksi') !== -1 || key.indexOf('production') !== -1) return ['production', 'fas fa-industry'];
+            if (key.indexOf('stok') !== -1 || key.indexOf('stock') !== -1 || key.indexOf('part') !== -1) return ['stock', 'fas fa-boxes'];
+            if (key.indexOf('prioritas') !== -1) return ['priority', 'fas fa-exclamation'];
+            if (key.indexOf('error') !== -1) return ['error', 'fas fa-bug'];
+            return ['default', 'fas fa-circle'];
+        }
+
+        function renderBriefLine(line) {
+            var parts = String(line || '').split(':');
+            var label = parts.length > 1 ? parts.shift().trim() : 'Info';
+            var value = (parts.length ? parts.join(':') : line).trim();
+            var kind = briefKind(label);
+            return '<li class="tb-notif-brief-row">' +
+                '<span class="tb-notif-brief-icon is-' + kind[0] + '"><i class="' + kind[1] + '"></i></span>' +
+                '<span class="tb-notif-brief-copy">' +
+                    '<span class="tb-notif-brief-label">' + esc(label) + '</span>' +
+                    esc(value) +
+                '</span>' +
+                '</li>';
+        }
+
         function todayKey() {
             return new Date().toISOString().slice(0, 10);
         }
@@ -1071,9 +1159,13 @@
             }
             body.innerHTML = items.map(function(item) {
                 var href = item.ask_url || (overviewUrl + '?bella=brief');
+                var lines = briefLines(item);
+                var summary = lines.length
+                    ? '<ul class="tb-notif-brief-list">' + lines.map(renderBriefLine).join('') + '</ul>'
+                    : '<div class="tb-notif-item__summary">' + esc(item.summary || '') + '</div>';
                 return '<a class="tb-notif-item" href="' + esc(href) + '">' +
                     '<div class="tb-notif-item__title"><i class="fas fa-sun"></i>' + esc(item.title || 'Brief BELLA') + '</div>' +
-                    '<div class="tb-notif-item__summary">' + esc(item.summary || '') + '</div>' +
+                    summary +
                     '<div class="tb-notif-item__meta">Diperbarui ' + esc(item.generated_at || '-') + '</div>' +
                     '<span class="tb-notif-item__cta">Buka dashboard · Tanya BELLA →</span>' +
                     '</a>';
