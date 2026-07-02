@@ -760,6 +760,22 @@ class LoadingListController extends Controller
                 ->max('pulling_date');
         }
 
+        // Fallback: kalau tabel `pullings` kosong, ambil pulling terakhir dari mutasi checkout
+        // (sumber & scoping yang sama dengan modal Compare Kanban) supaya header konsisten.
+        if (! $pullingDate) {
+            $pullingDate = DB::table('loading_list_details as lld')
+                ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+                ->join('mutations as m', function ($join) {
+                    $join->on('m.internal_part_id', '=', 'cp.internal_part_id')
+                        ->where('m.type', '=', 'checkout')
+                        ->whereColumn('m.created_at', '>=', 'lld.created_at')
+                        ->whereColumn('m.created_at', '<=', 'lld.updated_at');
+                })
+                ->where('lld.loading_list_id', $loadingList->id)
+                ->selectRaw('MAX(COALESCE(m.date, m.created_at)) as latest')
+                ->value('latest');
+        }
+
         if ($pullingDate) {
             $pulling = Carbon::parse($pullingDate);
             $context['pulling_iso'] = $pulling->toIso8601String();
