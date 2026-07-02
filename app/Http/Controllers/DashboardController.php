@@ -96,13 +96,19 @@ class DashboardController extends Controller
                 'content' => implode("\n", [
                     'Kamu adalah BELLA, AI assistant operasional Body Plant.',
                     'Jawab dalam Bahasa Indonesia yang ringkas, natural, dan actionable.',
-                    'Gunakan hanya data JSON system_context yang diberikan. Jangan mengarang data yang tidak ada.',
-                    'Jika data tidak cukup, sebutkan data mana yang belum tersedia.',
-                    'Kamu bisa menganalisis lintas sistem: dashboard, loading list, PDS, pulling, produksi, stok, PIS, receiving, quality, error, dan master data yang tersedia di konteks.',
-                    'Jika system_context.preparation_deadline tersedia, jadikan itu sumber utama untuk pertanyaan deadline preparation. Telat preparation berarti pulling_date lebih besar dari deadline_preparation.',
-                    'Jika user meminta data detail yang tidak masuk konteks, minta filter yang lebih spesifik seperti nomor loading list/PDS/back number/customer/tanggal.',
-                    'Saat menyebut rekomendasi, jelaskan alasan singkatnya.',
-                    'Format jawaban pakai Markdown sederhana: **tebal** untuk judul/label, bullet pakai "-" atau "*". Hindari simbol "+".',
+                    '',
+                    'ATURAN KETAT (wajib):',
+                    '- Hanya gunakan angka, nama, dan status yang ADA persis di JSON system_context. Dilarang mengarang, mengestimasi, atau mengisi data kosong.',
+                    '- Jika field null, kosong, atau tidak ada di konteks, katakan jujur: "Data [X] belum tersedia di konteks saya."',
+                    '- Bedakan sumber: ringkasan_operasional/overview.kpi = agregat periode filter dashboard; modules.* = detail modul; search_hits = hasil pencarian keyword user.',
+                    '- Untuk pertanyaan spesifik (nomor PDS, loading list, back number), prioritaskan search_hits.matches lalu modules terkait.',
+                    '- Jangan menyebut Groq, API, token, atau istilah teknis backend.',
+                    '',
+                    'Kamu bisa menganalisis: dashboard, loading list, PDS, pulling, produksi, stok, PIS, receiving, quality, error, preparation deadline.',
+                    'Jika system_context.preparation_deadline tersedia, jadikan sumber utama untuk pertanyaan deadline preparation. Telat = pulling_date > deadline_preparation.',
+                    'Jika user minta detail di luar konteks, minta filter spesifik: nomor loading list/PDS/back number/customer/tanggal.',
+                    'Saat rekomendasi, sebut alasan singkat berdasarkan data konteks.',
+                    'Format jawaban: Markdown sederhana — **tebal** untuk label, bullet "-" atau "*". Hindari simbol "+".',
                 ]),
             ],
             [
@@ -135,7 +141,7 @@ class DashboardController extends Controller
                 ->post(rtrim((string) config('services.groq.base_url'), '/').'/chat/completions', [
                     'model' => (string) config('services.groq.model', 'llama-3.1-8b-instant'),
                     'messages' => $messages,
-                    'temperature' => 0.25,
+                    'temperature' => 0.15,
                     'max_tokens' => 520,
                 ]);
         } catch (\Throwable $e) {
@@ -662,15 +668,6 @@ class DashboardController extends Controller
             return $context;
         }
 
-        if (isset($context['search_hits']['matches']) && is_array($context['search_hits']['matches'])) {
-            foreach ($context['search_hits']['matches'] as $key => $rows) {
-                $context['search_hits']['matches'][$key] = array_slice($rows, 0, 3);
-            }
-        }
-        if ($fits($context)) {
-            return $context;
-        }
-
         if (isset($context['overview']['trend_harian']) && is_array($context['overview']['trend_harian'])) {
             $context['overview']['trend_harian'] = array_slice($context['overview']['trend_harian'], -14);
         }
@@ -690,6 +687,7 @@ class DashboardController extends Controller
             'stock_summary' => $context['overview']['stock_summary'] ?? [],
             'error_rate_percent' => $context['overview']['error_rate_percent'] ?? 0,
         ];
+        unset($context['petunjuk_data']);
         $context['scope']['catatan'] = 'Konteks dipadatkan karena melebihi limit token Groq. Minta filter lebih spesifik jika butuh detail.';
 
         return $context;
