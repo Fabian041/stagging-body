@@ -22,6 +22,7 @@ class BellaContextBuilder
         $loadingListQtyRanking = $this->buildLoadingListQtyRanking($focusDate);
         $questionPeriodMeta = $this->parseQuestionPeriod($question);
         $pullingZeroDays = $this->buildPullingZeroDaysInsight($from, $to);
+        $pullingMetrics = $this->buildPullingMetricsInsight($focusDate, $focusLabel, $question);
 
         $scope = [
             'periode_filter' => ['from' => $fromDate, 'to' => $toDate],
@@ -40,7 +41,7 @@ class BellaContextBuilder
 
         $context = [
             'scope' => $scope,
-            'insights' => $this->buildInsights($focusDate, $focusLabel, $loadingListQtyRanking, $pullingZeroDays),
+            'insights' => $this->buildInsights($focusDate, $focusLabel, $loadingListQtyRanking, $pullingZeroDays, $pullingMetrics, $question),
             'petunjuk_data' => $this->dataDictionary(),
             'referensi' => $this->buildReferenceData(),
             'ringkasan_operasional' => array_merge(
@@ -154,11 +155,18 @@ class BellaContextBuilder
                 ->whereBetween('p.pulling_date', [$start, $end]);
 
             $context['modules']['pulling'] = [
-                'catatan_metric' => 'Record di tabel pullings (bukan kanban checkout di overview.trend_harian.pulling).',
+                'catatan_metric' => 'Modul ini = tabel pullings (loading list yang di-pull). Untuk "berapa pulling" (checkout kanban), pakai insights.pulling_metrik.checkout_kanban atau mutations checkout.',
                 'summary_periode' => [
-                    'total' => (clone $pullings)->count(),
+                    'total_record' => (clone $pullings)->count(),
                     'total_pds' => (clone $pullings)->distinct('p.pds_number')->count('p.pds_number'),
-                    'total_loading_list' => (clone $pullings)->distinct('p.loading_list')->count('p.loading_list'),
+                    'total_loading_list_distinct' => (clone $pullings)->distinct('p.loading_list')->count('p.loading_list'),
+                ],
+                'fokus_tanggal' => [
+                    'label' => $focusLabel,
+                    'tanggal' => $focusDate->toDateString(),
+                    'loading_list_distinct' => $pullingMetrics['loading_list_di_pulling']['jumlah_distinct'],
+                    'total_record' => $pullingMetrics['loading_list_di_pulling']['jumlah_record'],
+                    'daftar_loading_list' => $pullingMetrics['loading_list_di_pulling']['daftar'],
                 ],
                 'per_customer' => $this->rows((clone $pullings)
                     ->select(DB::raw('COALESCE(c.name, "Unknown") as customer'), DB::raw('COUNT(*) as total'))
@@ -512,8 +520,8 @@ class BellaContextBuilder
                 'prepTotal' => 'Total loading list di periode (delivery date)',
                 'prepComplete' => 'Loading list preparation sudah 100% kanban',
                 'prepPct' => 'Persentase preparation lengkap',
-                'kanbanScanned' => 'Total mutasi checkout (kanban scan/pulling) di periode',
-                'pullingDone' => 'Total record pulling di periode',
+                'kanbanScanned' => 'Mutasi checkout kanban — ini istilah "pulling" standar (berapa pulling)',
+                'pullingDone' => 'Record tabel pullings — loading list yang di-pull (bukan jumlah checkout)',
                 'produksi' => 'Total mutasi supply (produksi) di periode',
                 'totalPart' => 'Jumlah part internal terdaftar',
                 'underStock' => 'Part dengan stok di bawah standard',
@@ -806,9 +814,16 @@ class BellaContextBuilder
         ];
     }
 
-    private function buildInsights(Carbon $focusDate, string $focusLabel, array $loadingListQtyRanking, array $pullingZeroDays): array
-    {
+    private function buildInsights(
+        Carbon $focusDate,
+        string $focusLabel,
+        array $loadingListQtyRanking,
+        array $pullingZeroDays,
+        array $pullingMetrics,
+        string $question
+    ): array {
         $top = $loadingListQtyRanking['top_1'] ?? null;
+        $intent = $this->resolvePullingQuestionIntent($question);
 
         return [
             'loading_list_qty' => [
@@ -828,8 +843,106 @@ class BellaContextBuilder
                     )
                     : sprintf('Tidak ada loading list dengan delivery %s (%s).', $focusLabel, $focusDate->toDateString()),
             ],
+            'pulling_metrik' => $pullingMetrics + [
+                'intent_terdeteksi' => $intent,
+                'rekomendasi_jawaban' => match ($intent) {
+                    'loading_list_di_pulling' => $pullingMetrics['loading_list_di_pulling']['jawaban_singkat'],
+                    'checkout_kanban' => $pullingMetrics['checkout_kanban']['jawaban_singkat'],
+                    default => null,
+                },
+            ],
             'pulling_hari_nol' => $pullingZeroDays,
         ];
+    }
+
+    private function buildPullingMetricsInsight(Carbon $focusDate, string $focusLabel, string $question): array
+    {
+        $start = $focusDate->copy()->startOfDay()->toDateTimeString();
+        $end = $focusDate->copy()->endOfDay()->toDateTimeString();
+        $dateStr = $focusDate->toDateString();
+
+        $checkoutCount = 0;
+        if ($this->tableExists('mutations')) {
+            $checkoutCount = (int) DB::table('mutations')
+                ->where('type', 'checkout')
+                ->whereBetween('date', [$start, $end])
+                ->count();
+        }
+
+        $pullingRecords = 0;
+        $loadingListDistinct = 0;
+        $daftar = [];
+        if ($this->tableExists('pullings')) {
+            $dayPullings = DB::table('pullings')->whereBetween('pulling_date', [$start, $end]);
+            $pullingRecords = (int) (clone $dayPullings)->count();
+            $loadingListDistinct = (int) (clone $dayPullings)
+                ->whereNotNull('loading_list')
+                ->where('loading_list', '!=', '')
+                ->distinct('loading_list')
+                ->count('loading_list');
+            $daftar = $this->formatRows(
+                DB::table('pullings as p')
+                    ->leftJoin('customers as c', 'c.id', '=', 'p.customer_id')
+                    ->whereBetween('p.pulling_date', [$start, $end])
+                    ->select('p.loading_list', 'p.pds_number', 'p.cycle', 'p.pulling_date', DB::raw('COALESCE(c.name, "Unknown") as customer'))
+                    ->orderByDesc('p.pulling_date')
+                    ->limit(20)
+                    ->get()
+            );
+        }
+
+        return [
+            'label_tanggal' => $focusLabel,
+            'tanggal' => $dateStr,
+            'routing' => [
+                'berapa_pulling' => 'Istilah "pulling" standar = checkout kanban (mutations type=checkout). Pakai checkout_kanban.total.',
+                'loading_list_di_pulling' => 'Pertanyaan menyebut loading list + pulling = tabel pullings, distinct loading_list. Pakai loading_list_di_pulling.jumlah_distinct.',
+            ],
+            'checkout_kanban' => [
+                'sumber' => 'mutations.type=checkout',
+                'label' => 'Pulling (checkout kanban)',
+                'total' => $checkoutCount,
+                'jawaban_singkat' => sprintf(
+                    'Pulling (checkout kanban) %s (%s): %d scan.',
+                    $focusLabel,
+                    $dateStr,
+                    $checkoutCount
+                ),
+            ],
+            'loading_list_di_pulling' => [
+                'sumber' => 'pullings.loading_list',
+                'label' => 'Loading list yang di-pull',
+                'jumlah_record' => $pullingRecords,
+                'jumlah_distinct' => $loadingListDistinct,
+                'daftar' => $daftar,
+                'jawaban_singkat' => sprintf(
+                    'Loading list yang di-pull %s (%s): %d LL (%d record di tabel pullings).',
+                    $focusLabel,
+                    $dateStr,
+                    $loadingListDistinct,
+                    $pullingRecords
+                ),
+            ],
+        ];
+    }
+
+    private function resolvePullingQuestionIntent(string $question): string
+    {
+        $q = Str::lower($question);
+
+        if (preg_match('/loading[\s-]*list|\bll\b|manifest/', $q) && preg_match('/pull|tarik|narik/', $q)) {
+            return 'loading_list_di_pulling';
+        }
+
+        if (str_contains($q, 'checkout') || str_contains($q, 'kanban') || preg_match('/mutasi.*checkout/', $q)) {
+            return 'checkout_kanban';
+        }
+
+        if (preg_match('/\bpull(ing)?\b|tarik|narik/', $q)) {
+            return 'checkout_kanban';
+        }
+
+        return 'both';
     }
 
     private function buildPullingZeroDaysInsight(Carbon $from, Carbon $to): array
@@ -840,7 +953,7 @@ class BellaContextBuilder
 
         if (! $this->tableExists('pullings')) {
             return [
-                'definisi' => 'Hari dengan jumlah 0 = tidak ada record di tabel pullings (bukan kanban checkout di trend_harian).',
+                'definisi' => 'Hari tanpa loading list di-pull (0 record di tabel pullings). Bukan hari tanpa checkout kanban.',
                 'periode' => ['from' => $fromDate, 'to' => $toDate],
                 'total_hari' => $totalDays,
                 'hari_tanpa_record' => [],
@@ -885,7 +998,7 @@ class BellaContextBuilder
             );
 
         return [
-            'definisi' => 'Hari dengan jumlah 0 = tidak ada record di tabel pullings (bukan kanban checkout di overview.trend_harian.pulling).',
+            'definisi' => 'Hari tanpa loading list di-pull (0 record di tabel pullings). Bukan hari tanpa checkout kanban.',
             'periode' => ['from' => $fromDate, 'to' => $toDate],
             'total_hari' => $totalDays,
             'hari_tanpa_record' => $zeroDays,
@@ -1219,10 +1332,12 @@ class BellaContextBuilder
     {
         return [
             'preparation' => 'Progress kanban loading list: actual_kanban vs target_kanban. Lengkap jika actual >= target.',
-            'pulling_record' => 'Record aktivitas di tabel pullings (kolom pulling_date). Satu record = satu aktivitas pull. Berbeda dari overview.trend_harian.pulling yang menghitung mutasi checkout/kanban scan.',
-            'pulling_hari_nol' => 'Hari tanpa satupun record di tabel pullings — lihat insights.pulling_hari_nol.hari_tanpa_record dan jawaban_singkat.',
-            'pulling' => 'Aktivitas pull part ke line; pulling_date = waktu pull (tabel pullings).',
-            'trend_harian_pulling' => 'Field overview.trend_harian[].pulling = jumlah mutasi checkout (kanban scan), BUKAN record tabel pullings.',
+            'istilah_pulling' => 'Dua arti wajib dibedakan: (1) "berapa pulling" / pulling saja = checkout kanban dari mutations type=checkout (insights.pulling_metrik.checkout_kanban); (2) "loading list yang di pulling/di-pull" = distinct loading_list di tabel pullings (insights.pulling_metrik.loading_list_di_pulling).',
+            'pulling_checkout' => 'Checkout kanban scan — sumber mutations.type=checkout. Ini jawaban default untuk pertanyaan "berapa pulling".',
+            'pulling_loading_list' => 'Loading list yang sudah di-pull — sumber tabel pullings (kolom loading_list, pulling_date).',
+            'pulling_hari_nol' => 'Hari tanpa record di tabel pullings (tidak ada LL di-pull). Bukan hari tanpa checkout kanban.',
+            'pulling' => 'Lihat istilah_pulling — "pulling" bisa berarti checkout kanban ATAU loading list di-pull tergantung konteks pertanyaan.',
+            'trend_harian_pulling' => 'Field overview.trend_harian[].pulling = checkout kanban (mutations), sama dengan istilah pulling standar.',
             'pis' => 'Part Inspection Sheet scan; target_qty/scanned_qty/remaining_qty dari pis_scan_details.',
             'stock' => 'Snapshot stok chute: current_stock vs standard_stock. under = di bawah standard.',
             'error_log' => 'Log error operasional per area (pulling, produksi, PIS, dll).',
@@ -1272,8 +1387,8 @@ class BellaContextBuilder
                 'pct_lengkap' => (int) ($kpi['prepPct'] ?? 0),
             ],
             'pulling' => [
-                'mutasi_checkout' => (int) ($kpi['kanbanScanned'] ?? 0),
-                'record_pulling' => (int) ($kpi['pullingDone'] ?? 0),
+                'checkout_kanban_periode' => (int) ($kpi['kanbanScanned'] ?? 0),
+                'record_tabel_pullings_periode' => (int) ($kpi['pullingDone'] ?? 0),
             ],
             'produksi' => [
                 'mutasi_supply' => (int) ($kpi['produksi'] ?? 0),
