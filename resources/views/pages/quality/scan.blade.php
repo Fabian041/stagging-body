@@ -1,4 +1,6 @@
-@extends('layouts.root.dashboard')
+@extends('layouts.root.auth')
+
+@section('title', 'Bella - Quality Scan')
 
 @section('main')
     <style>
@@ -15,7 +17,7 @@
             max-width: none;
             margin-left: calc(50% - 50vw + 14px);
             margin-right: calc(50% - 50vw + 14px);
-            margin-top: 0;
+            margin-top: 14px;
         }
 
         html,
