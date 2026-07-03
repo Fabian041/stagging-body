@@ -1252,13 +1252,28 @@ class BellaContextBuilder
 
         $stopwords = [
             'yang', 'dan', 'atau', 'untuk', 'dari', 'mana', 'apa', 'berapa', 'kenapa', 'coba', 'tolong', 'cek',
-            'data', 'hari', 'ini', 'besok', 'kemarin', 'status', 'loading', 'list', 'pds', 'part',
+            'data', 'hari', 'ini', 'besok', 'kemarin', 'lusa', 'sekarang', 'today', 'lalu', 'sebelumnya',
+            'status', 'loading', 'list', 'pds', 'part',
             'preparation', 'pulling', 'produksi', 'production', 'stock', 'stok', 'error', 'quality', 'customer',
+            // kata tanggal — jangan jadi keyword pencarian (tanggal sudah ditangani fokus tanggal)
+            'tanggal', 'bulan', 'tahun',
+            'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu', 'ahad',
+            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+            'januari', 'februari', 'pebruari', 'maret', 'april', 'mei', 'juni', 'juli',
+            'agustus', 'september', 'oktober', 'november', 'nopember', 'desember',
+            'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'agu', 'ags', 'agt', 'sep', 'sept', 'okt', 'nov', 'nop', 'des',
+            'january', 'february', 'march', 'may', 'june', 'july', 'august', 'october', 'december',
         ];
 
         return collect($matches[0] ?? [])
             ->map(fn ($term) => trim((string) $term))
-            ->filter(fn ($term) => strlen($term) >= 3 && ! in_array(strtolower($term), $stopwords, true))
+            ->filter(function ($term) use ($stopwords) {
+                $lower = strtolower($term);
+
+                return strlen($term) >= 3
+                    && ! in_array($lower, $stopwords, true)
+                    && ! preg_match('/^(19|20)\d{2}$/', $term); // buang tahun (mis. 2026)
+            })
             ->unique(fn ($term) => strtolower($term))
             ->take(6)
             ->values()
