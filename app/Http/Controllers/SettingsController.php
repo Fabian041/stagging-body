@@ -16,6 +16,18 @@ class SettingsController extends Controller
         'confirm_logout' => false,
         'sidebar_mode' => 'remember',
         'sidenav_theme' => 'light',
+        'fab_color' => 'blue',
+    ];
+
+    /** Pilihan warna tombol chat BELLA (floating). Key disimpan di preferences, hex dipakai layout. */
+    public const FAB_COLORS = [
+        'blue' => '#1498df',
+        'navy' => '#294795',
+        'teal' => '#0f9d8f',
+        'green' => '#16a34a',
+        'purple' => '#7c3aed',
+        'rose' => '#e11d48',
+        'slate' => '#334155',
     ];
 
     private const LANDING_PAGES = [
@@ -33,6 +45,7 @@ class SettingsController extends Controller
         return view('pages.settings', [
             'preferences' => $this->preferences($request),
             'landingPages' => self::LANDING_PAGES,
+            'fabColors' => self::FAB_COLORS,
             'canManageSystemSettings' => $request->user()->isSuperAdmin(),
         ]);
     }
@@ -52,6 +65,7 @@ class SettingsController extends Controller
                     'confirm_logout' => self::DEFAULTS['confirm_logout'],
                     'sidebar_mode' => self::DEFAULTS['sidebar_mode'],
                     'sidenav_theme' => self::DEFAULTS['sidenav_theme'],
+                    'fab_color' => self::DEFAULTS['fab_color'],
                 ]);
             }
 
@@ -66,6 +80,7 @@ class SettingsController extends Controller
             'confirm_logout' => ['required', 'boolean'],
             'sidebar_mode' => ['required', Rule::in(['remember', 'expanded', 'collapsed'])],
             'sidenav_theme' => ['required', Rule::in(['light', 'dark'])],
+            'fab_color' => ['required', Rule::in(array_keys(self::FAB_COLORS))],
         ];
 
         if ($canManageSystemSettings) {
@@ -84,6 +99,7 @@ class SettingsController extends Controller
             'confirm_logout' => $request->boolean('confirm_logout'),
             'sidebar_mode' => $validated['sidebar_mode'],
             'sidenav_theme' => $validated['sidenav_theme'],
+            'fab_color' => $validated['fab_color'],
         ];
 
         if ($canManageSystemSettings) {

@@ -6,6 +6,8 @@
     $showBellaAssistant = $overviewPreferences['bella_assistant_enabled'] ?? true;
     $bellaAnswerStyle = $overviewPreferences['bella_answer_style'] ?? 'concise';
     $bellaAnswerStyle = in_array($bellaAnswerStyle, ['concise', 'detailed'], true) ? $bellaAnswerStyle : 'concise';
+    $fabColorKey = $overviewPreferences['fab_color'] ?? 'blue';
+    $fabColor = \App\Http\Controllers\SettingsController::FAB_COLORS[$fabColorKey] ?? '#1498df';
 @endphp
 <style>
         .ov-wrap {
@@ -242,34 +244,29 @@
         }
 
         .ov-ai-fab {
-            width: auto;
-            height: 44px;
-            padding: 0 16px 0 12px;
+            width: 52px;
+            height: 52px;
+            padding: 0;
             border: 1px solid rgba(255, 255, 255, .50);
             border-radius: 999px;
             color: #fff;
-            background: #1498df;
-            box-shadow: 0 14px 32px rgba(20, 152, 223, .28), 0 0 0 5px rgba(20, 152, 223, .10);
+            background: var(--ov-fab, #1498df);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, .26), 0 0 0 5px rgba(15, 23, 42, .05);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            font-size: 13px;
-            font-weight: 800;
-            letter-spacing: .01em;
-            white-space: nowrap;
             cursor: pointer;
             transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease;
         }
 
         .ov-ai-fab:hover {
             transform: translateY(-2px);
-            box-shadow: 0 18px 38px rgba(20, 152, 223, .32), 0 0 0 6px rgba(20, 152, 223, .12);
+            box-shadow: 0 18px 38px rgba(15, 23, 42, .3), 0 0 0 6px rgba(15, 23, 42, .07);
         }
 
         .ov-ai-widget.is-open .ov-ai-fab {
             transform: scale(.97);
-            box-shadow: 0 10px 24px rgba(20, 152, 223, .24), 0 0 0 4px rgba(20, 152, 223, .10);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .22), 0 0 0 4px rgba(15, 23, 42, .06);
         }
 
         .ov-ai-popover {
@@ -334,8 +331,8 @@
         }
 
         .ov-ai-fab .ov-ai-chat-icon {
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
             color: #fff;
         }
 
@@ -715,15 +712,14 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
             }
 
             .ov-ai-fab {
-                height: 40px;
-                padding: 0 14px 0 11px;
-                font-size: 12px;
-                gap: 7px;
+                width: 48px;
+                height: 48px;
+                padding: 0;
             }
 
             .ov-ai-fab .ov-ai-chat-icon {
-                width: 16px;
-                height: 16px;
+                width: 20px;
+                height: 20px;
             }
 
             .ov-ai-popover {
@@ -1865,7 +1861,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
         </div>
 
         {{-- ===== FLOATING ASK BELLA ===== --}}
-        <div class="ov-ai-widget {{ $showBellaAssistant ? '' : 'ov-ai-widget--hidden' }}" id="ovAiWidget" data-ai-enabled="{{ $showBellaAssistant ? '1' : '0' }}">
+        <div class="ov-ai-widget {{ $showBellaAssistant ? '' : 'ov-ai-widget--hidden' }}" id="ovAiWidget" data-ai-enabled="{{ $showBellaAssistant ? '1' : '0' }}" style="--ov-fab: {{ $fabColor }};">
             <div class="ov-ai-popover" id="ovAiPopover" role="dialog" aria-modal="false" aria-labelledby="ovAiTitle" aria-hidden="true">
                 <div class="ov-ai-head">
                     <div>
@@ -1916,7 +1912,6 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                     <circle cx="12" cy="11.15" r="1" />
                     <circle cx="15.75" cy="11.15" r="1" />
                 </svg>
-                <span class="ov-ai-fab__label">ASK BELLA</span>
             </button>
         </div>
 

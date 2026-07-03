@@ -201,6 +201,94 @@
         gap: 10px;
     }
 
+    .settings-dirty {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-right: auto;
+        color: #b45309;
+        font-size: 12.5px;
+        font-weight: 800;
+    }
+
+    .settings-dirty i {
+        font-size: 7px;
+    }
+
+    .settings-btn.is-pending {
+        box-shadow: 0 0 0 3px rgba(0, 112, 183, .18);
+    }
+
+    .settings-btn.is-danger {
+        background: var(--danger);
+        color: #fff;
+    }
+
+    .settings-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 7200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+    }
+
+    .settings-modal.open {
+        display: flex;
+    }
+
+    .settings-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, .34);
+        backdrop-filter: blur(8px);
+    }
+
+    .settings-modal-card {
+        position: relative;
+        width: min(420px, 100%);
+        padding: 20px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid var(--border);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, .26);
+    }
+
+    .settings-modal-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fef3c7;
+        color: #b45309;
+        font-size: 18px;
+        margin-bottom: 12px;
+    }
+
+    .settings-modal-title {
+        margin: 0 0 6px;
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 850;
+    }
+
+    .settings-modal-copy {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.55;
+    }
+
+    .settings-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 9px;
+        margin-top: 18px;
+    }
+
     .settings-preview {
         display: grid;
         grid-template-columns: 210px minmax(0, 1fr);
@@ -337,6 +425,48 @@
         display: none;
     }
 
+    .settings-swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 2px;
+    }
+
+    .settings-swatch {
+        position: relative;
+    }
+
+    .settings-swatch input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .settings-swatch span {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: var(--sw);
+        color: #fff;
+        font-size: 15px;
+        cursor: pointer;
+        border: 2px solid transparent;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, .12);
+        transition: transform .14s ease, box-shadow .14s ease;
+    }
+
+    .settings-swatch span:hover {
+        transform: translateY(-2px);
+    }
+
+    .settings-swatch input:checked + span {
+        border-color: #0f172a;
+        box-shadow: 0 0 0 3px rgba(15, 23, 42, .12), 0 6px 14px rgba(15, 23, 42, .18);
+    }
+
     @media (max-width: 768px) {
         .settings-head {
             align-items: flex-start;
@@ -373,7 +503,7 @@
     </section>
 
     <section class="settings-panel">
-        <form action="{{ route('settings.update') }}" method="POST">
+        <form action="{{ route('settings.update') }}" method="POST" id="settingsForm">
             @csrf
             @method('PUT')
 
@@ -510,6 +640,23 @@
                     @enderror
                 </div>
 
+                <div class="settings-field">
+                    <span class="settings-label">Warna tombol BELLA</span>
+                    <div class="settings-swatches">
+                        @foreach ($fabColors as $key => $hex)
+                            <label class="settings-swatch" title="{{ ucfirst($key) }}">
+                                <input type="radio" name="fab_color" value="{{ $key }}" data-hex="{{ $hex }}"
+                                    {{ old('fab_color', $preferences['fab_color']) === $key ? 'checked' : '' }}>
+                                <span style="--sw: {{ $hex }}"><i class="fas fa-comment-dots"></i></span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <div class="settings-help">Warna tombol chat BELLA yang mengambang di Dashboard Overview.</div>
+                    @error('fab_color')
+                        <div class="settings-error">{{ $message }}</div>
+                    @enderror
+                </div>
+
                 <div class="settings-field is-full">
                     <span class="settings-label">Live Preview</span>
                     <div class="settings-preview" id="settingsPreview">
@@ -540,7 +687,10 @@
             </div>
 
             <div class="settings-actions">
-                <button type="submit" name="reset_preferences" value="1" class="settings-btn is-muted" formnovalidate>
+                <span class="settings-dirty" id="settingsDirty" hidden>
+                    <i class="fas fa-circle"></i> Perubahan belum disimpan
+                </span>
+                <button type="button" id="settingsResetOpen" class="settings-btn is-muted">
                     <i class="fas fa-undo"></i>
                     Reset Default
                 </button>
@@ -551,6 +701,36 @@
             </div>
         </form>
     </section>
+</div>
+
+<div class="settings-modal" id="settingsResetModal" aria-hidden="true">
+    <div class="settings-modal-backdrop" data-reset-close></div>
+    <div class="settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsResetTitle">
+        <div class="settings-modal-icon"><i class="fas fa-undo"></i></div>
+        <h2 class="settings-modal-title" id="settingsResetTitle">Reset ke default?</h2>
+        <div class="settings-modal-copy">Semua preference kamu dikembalikan ke pengaturan default. Perubahan yang belum disimpan juga ikut hilang.</div>
+        <div class="settings-modal-actions">
+            <button type="button" class="settings-btn is-muted" data-reset-close>Batal</button>
+            <button type="submit" name="reset_preferences" value="1" form="settingsForm" formnovalidate class="settings-btn is-danger">
+                <i class="fas fa-undo"></i> Ya, Reset
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="settings-modal" id="settingsLeaveModal" aria-hidden="true">
+    <div class="settings-modal-backdrop" data-leave-close></div>
+    <div class="settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsLeaveTitle">
+        <div class="settings-modal-icon"><i class="fas fa-sign-out-alt"></i></div>
+        <h2 class="settings-modal-title" id="settingsLeaveTitle">Keluar tanpa simpan?</h2>
+        <div class="settings-modal-copy">Ada perubahan preference yang belum disimpan. Kalau keluar sekarang, perubahannya hilang.</div>
+        <div class="settings-modal-actions">
+            <button type="button" class="settings-btn is-muted" data-leave-close>Tetap di sini</button>
+            <button type="button" class="settings-btn is-danger" id="settingsLeaveConfirm">
+                <i class="fas fa-sign-out-alt"></i> Keluar tanpa simpan
+            </button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -569,12 +749,139 @@
             preview.classList.toggle('is-collapsed', checkedValue('sidebar_mode') === 'collapsed');
             preview.classList.toggle('is-compact', checkedValue('table_density') === 'compact');
             preview.classList.toggle('is-bella-hidden', bella && !bella.checked);
+
+            var fab = document.querySelector('input[name="fab_color"]:checked');
+            var bellaBtn = preview.querySelector('.settings-preview-bella');
+            if (fab && bellaBtn) {
+                var hex = fab.getAttribute('data-hex');
+                if (hex) bellaBtn.style.background = hex;
+            }
         }
 
-        document.querySelectorAll('input[name="sidenav_theme"], input[name="sidebar_mode"], input[name="table_density"], input[name="bella_assistant_enabled"]').forEach(function(input) {
+        document.querySelectorAll('input[name="sidenav_theme"], input[name="sidebar_mode"], input[name="table_density"], input[name="bella_assistant_enabled"], input[name="fab_color"]').forEach(function(input) {
             input.addEventListener('change', syncPreview);
         });
         syncPreview();
+    })();
+
+    // Guard perubahan belum disimpan: modal in-app untuk reset & navigasi internal,
+    // native beforeunload hanya untuk hard-exit (tutup tab / refresh / back).
+    (function() {
+        var form = document.getElementById('settingsForm');
+        if (!form) return;
+
+        var hint = document.getElementById('settingsDirty');
+        var saveBtn = form.querySelector('.settings-actions .settings-btn:not(.is-muted)');
+        var saving = false;
+        var pendingUrl = null;
+        var pendingForm = null;
+
+        function serialize() {
+            var out = [];
+            form.querySelectorAll('input, select, textarea').forEach(function(el) {
+                if (!el.name) return;
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    out.push(el.name + '#' + el.value + '=' + (el.checked ? 1 : 0));
+                } else {
+                    out.push(el.name + '=' + el.value);
+                }
+            });
+            return out.join('&');
+        }
+
+        var initial = serialize();
+        function isDirty() { return !saving && serialize() !== initial; }
+
+        function refresh() {
+            var dirty = serialize() !== initial;
+            if (hint) hint.hidden = !dirty;
+            if (saveBtn) saveBtn.classList.toggle('is-pending', dirty);
+        }
+
+        form.addEventListener('input', refresh);
+        form.addEventListener('change', refresh);
+
+        function toggleModal(el, open) {
+            if (!el) return;
+            el.classList.toggle('open', open);
+            el.setAttribute('aria-hidden', open ? 'false' : 'true');
+        }
+
+        // Hard-exit (tutup tab / refresh / back) → prompt native (satu-satunya cara yang diizinkan browser)
+        window.addEventListener('beforeunload', function(e) {
+            if (isDirty()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // ===== Reset =====
+        var resetOpen = document.getElementById('settingsResetOpen');
+        var resetModal = document.getElementById('settingsResetModal');
+        if (resetOpen && resetModal) {
+            resetOpen.addEventListener('click', function() { toggleModal(resetModal, true); });
+            resetModal.addEventListener('click', function(e) {
+                if (e.target.closest('[data-reset-close]')) toggleModal(resetModal, false);
+            });
+        }
+
+        // ===== Keluar tanpa simpan (navigasi internal) =====
+        var leaveModal = document.getElementById('settingsLeaveModal');
+        var leaveConfirm = document.getElementById('settingsLeaveConfirm');
+
+        function closeLeave() {
+            toggleModal(leaveModal, false);
+            pendingUrl = null;
+            pendingForm = null;
+        }
+
+        if (leaveModal) {
+            leaveModal.addEventListener('click', function(e) {
+                if (e.target.closest('[data-leave-close]')) closeLeave();
+            });
+        }
+        if (leaveConfirm) {
+            leaveConfirm.addEventListener('click', function() {
+                saving = true; // lolos beforeunload
+                toggleModal(leaveModal, false);
+                if (pendingUrl) {
+                    window.location.href = pendingUrl;
+                } else if (pendingForm) {
+                    pendingForm.submit();
+                }
+            });
+        }
+
+        // Intercept klik link internal saat masih ada perubahan
+        document.addEventListener('click', function(e) {
+            if (!isDirty()) return;
+            var a = e.target.closest('a[href]');
+            if (!a) return;
+            var href = a.getAttribute('href') || '';
+            if (!href || href.charAt(0) === '#' || /^(javascript:|mailto:|tel:)/i.test(href)) return;
+            if (a.target === '_blank' || a.hasAttribute('download')) return;
+            e.preventDefault();
+            pendingUrl = a.href;
+            pendingForm = null;
+            toggleModal(leaveModal, true);
+        }, true);
+
+        // Intercept submit form LAIN (mis. logout); form settings sendiri dianggap "saving"
+        document.addEventListener('submit', function(e) {
+            if (e.target === form) { saving = true; return; }
+            if (!isDirty()) return;
+            e.preventDefault();
+            pendingForm = e.target;
+            pendingUrl = null;
+            toggleModal(leaveModal, true);
+        }, true);
+
+        // Esc menutup modal yang terbuka
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            if (resetModal && resetModal.classList.contains('open')) toggleModal(resetModal, false);
+            if (leaveModal && leaveModal.classList.contains('open')) closeLeave();
+        });
     })();
 </script>
 @endsection
