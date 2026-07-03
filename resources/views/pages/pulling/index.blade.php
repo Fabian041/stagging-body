@@ -3417,11 +3417,15 @@
 
                 processed = processed.trim().replace(/-/g, '').toUpperCase();
 
-                // Handle Suzuki special cases
-                if (charLength === 17 && processed.substr(10, 3) === '000') {
-                    processed = processed.slice(0, -3);
-                } else if (charLength === 15 && processed.slice(-3) === '000') {
-                    processed = processed.slice(0, -3);
+                // Handle Suzuki special cases — KHUSUS customer Suzuki.
+                // (Customer lain dengan char_length sama jangan ikut dipotong "000"-nya.)
+                const isSuzuki = (localStorage.getItem('customer') || '').toUpperCase().includes('SUZUKI');
+                if (isSuzuki) {
+                    if (charLength === 17 && processed.substr(10, 3) === '000') {
+                        processed = processed.slice(0, -3);
+                    } else if (charLength === 15 && processed.slice(-3) === '000') {
+                        processed = processed.slice(0, -3);
+                    }
                 }
 
                 return processed;
