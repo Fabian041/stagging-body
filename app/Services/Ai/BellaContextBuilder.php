@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\MasterCycle;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -30,6 +31,7 @@ class BellaContextBuilder
             ],
             'insights' => $this->buildInsights($focusDate, $focusLabel, $loadingListQtyRanking),
             'petunjuk_data' => $this->dataDictionary(),
+            'referensi' => $this->buildReferenceData(),
             'ringkasan_operasional' => array_merge(
                 $this->buildOperationalSnapshot($overview, $from, $to),
                 ['loading_list_qty_tertinggi' => $loadingListQtyRanking['top_1'] ?? null]
@@ -820,18 +822,63 @@ class BellaContextBuilder
         $q = Str::lower($question);
         $today = Carbon::today();
 
+        // Tanggal eksplisit YYYY-MM-DD
         if (preg_match('/\b(\d{4}-\d{2}-\d{2})\b/', $question, $match)) {
-            $date = Carbon::parse($match[1])->startOfDay();
+            try {
+                $date = Carbon::parse($match[1])->startOfDay();
 
-            return [$date, $date->toDateString()];
+                return [$date, $date->toDateString()];
+            } catch (\Throwable $e) {
+                // lanjut ke pola lain
+            }
         }
 
+        // "N hari (yang) lalu/sebelumnya"
+        if (preg_match('/(\d{1,3})\s*hari\s*(?:yang\s*)?(?:lalu|sebelumnya)/', $q, $m)) {
+            $date = $today->copy()->subDays((int) $m[1]);
+
+            return [$date, $m[1].' hari lalu'];
+        }
+
+        if (str_contains($q, 'kemarin lusa')) {
+            return [$today->copy()->subDays(2), 'kemarin lusa'];
+        }
+        if (str_contains($q, 'lusa')) {
+            return [$today->copy()->addDays(2), 'lusa'];
+        }
         if (str_contains($q, 'kemarin')) {
             return [$today->copy()->subDay(), 'kemarin'];
         }
-
-        if (str_contains($q, 'besok')) {
+        if (str_contains($q, 'besok') || str_contains($q, 'esok')) {
             return [$today->copy()->addDay(), 'besok'];
+        }
+
+        // "tanggal DD" pada bulan berjalan
+        if (preg_match('/tanggal\s*(\d{1,2})\b/', $q, $m)) {
+            $day = (int) $m[1];
+            if ($day >= 1 && $day <= 31) {
+                $date = $today->copy()->day(min($day, $today->daysInMonth))->startOfDay();
+
+                return [$date, $date->toDateString()];
+            }
+        }
+
+        // Nama hari → kejadian terakhir (≤ hari ini). "minggu" sengaja tidak dipetakan (ambigu dengan "minggu ini/lalu").
+        $days = [
+            'senin' => Carbon::MONDAY, 'monday' => Carbon::MONDAY,
+            'selasa' => Carbon::TUESDAY, 'tuesday' => Carbon::TUESDAY,
+            'rabu' => Carbon::WEDNESDAY, 'wednesday' => Carbon::WEDNESDAY,
+            'kamis' => Carbon::THURSDAY, 'thursday' => Carbon::THURSDAY,
+            'jumat' => Carbon::FRIDAY, 'friday' => Carbon::FRIDAY,
+            'sabtu' => Carbon::SATURDAY, 'saturday' => Carbon::SATURDAY,
+            'ahad' => Carbon::SUNDAY, 'sunday' => Carbon::SUNDAY,
+        ];
+        foreach ($days as $name => $dow) {
+            if (preg_match('/\b'.$name.'\b/', $q)) {
+                $date = $today->dayOfWeek === $dow ? $today->copy() : $today->copy()->previous($dow);
+
+                return [$date, $name];
+            }
         }
 
         return [$today, 'hari ini'];
@@ -908,16 +955,16 @@ class BellaContextBuilder
     {
         $q = strtolower($question);
         $map = [
-            'loading_list_pds' => ['loading list', 'loading-list', 'pds', 'delivery', 'shipping', 'truck', 'prep', 'preparation', 'deadline', 'telat', 'ppic', 'll ', 'manifest', 'kanban', 'belum lengkap', 'qty', 'quantity', 'paling banyak', 'terbanyak', 'terbesar', 'paling besar'],
-            'pulling' => ['pulling', 'pull ', 'checkout'],
-            'production_plan' => ['production plan', 'plan produksi', 'order qty', 'dn number', 'balance time', 'rencana produksi'],
-            'production_actual_scan' => ['part scan', 'kanban', 'dandori', 'scan produksi', 'supply'],
-            'stock' => ['stock', 'stok', 'understock', 'back number', 'back no', 'part number', 'chute'],
-            'pis' => ['pis', 'pis scan', 'packing', 'inspection sheet'],
-            'receiving' => ['receiving', 'receive', 'supplier', 'pick list'],
-            'quality' => ['quality', 'inspeksi', 'judgement', 'approval', 'not ok', 'ng ', 'qc'],
-            'error_log' => ['error', 'gagal', 'salah scan', 'masalah'],
-            'mutation_stock_flow' => ['mutation', 'mutasi', 'checkout', 'supply', 'aktivitas', 'heatmap'],
+            'loading_list_pds' => ['loading list', 'loading-list', 'll ', 'pds', 'delivery', 'shipping', 'kirim', 'muat', 'truck', 'dock', 'manifest', 'prep', 'preparation', 'persiapan', 'deadline', 'telat', 'terlambat', 'ppic', 'kanban', 'belum lengkap', 'qty', 'quantity', 'paling banyak', 'terbanyak', 'terbesar', 'paling besar'],
+            'pulling' => ['pulling', 'pull ', 'tarik', 'ditarik', 'narik', 'checkout'],
+            'production_plan' => ['production plan', 'plan produksi', 'plan ', 'rencana', 'jadwal', 'order qty', 'order ', 'dn number', 'dn ', 'balance time', 'target produksi'],
+            'production_actual_scan' => ['part scan', 'scan part', 'produksi', 'produski', 'output', 'hasil produksi', 'dandori', 'supply', 'aktual'],
+            'stock' => ['stock', 'stok', 'understock', 'inventory', 'inventori', 'persediaan', 'back number', 'back no', 'part number', 'chute'],
+            'pis' => ['pis', 'packing', 'inspection sheet', 'part inspection'],
+            'receiving' => ['receiving', 'receive', 'kedatangan', 'datang', 'material', 'supplier', 'pick list', 'incoming'],
+            'quality' => ['quality', 'kualitas', 'mutu', 'inspeksi', 'judgement', 'approval', 'not ok', 'ng ', 'reject', 'cacat', 'defect', 'checksheet', 'qc'],
+            'error_log' => ['error', 'gagal', 'salah', 'kesalahan', 'masalah', 'trouble', 'issue'],
+            'mutation_stock_flow' => ['mutation', 'mutasi', 'checkout', 'supply', 'aktivitas', 'heatmap', 'arus stok', 'flow'],
         ];
 
         $modules = [];
@@ -930,8 +977,9 @@ class BellaContextBuilder
             }
         }
 
+        // Pertanyaan umum/tak terklasifikasi: muat SEMUA modul (token-fitter otomatis memampatkan bila kegedean).
         if ($modules === []) {
-            return ['loading_list_pds', 'pulling', 'pis', 'stock', 'error_log'];
+            return array_keys($map);
         }
 
         return array_values(array_unique($modules));
@@ -969,8 +1017,33 @@ class BellaContextBuilder
             'error_log' => 'Log error operasional per area (pulling, produksi, PIS, dll).',
             'delivery_berisiko' => 'Loading list hari ini/besok yang belum 100% preparation + urgency deadline.',
             'search_hits' => 'Hasil pencarian keyword dari pertanyaan user — prioritas untuk pertanyaan spesifik.',
-            'fokus_tanggal' => 'Subset data untuk tanggal yang disebut user (hari ini/kemarin/besok/YYYY-MM-DD).',
+            'fokus_tanggal' => 'Subset data untuk tanggal yang disebut user (hari ini/kemarin/besok/lusa/nama hari/N hari lalu/tanggal DD/YYYY-MM-DD).',
+            'referensi' => 'Daftar nilai valid di sistem: line, customer, area error, judgement quality. Pakai untuk memetakan istilah user ke data & menjawab "apa saja X".',
         ];
+    }
+
+    /** Daftar nilai valid (line, customer, area error, judgement) agar model bisa memetakan istilah user ke data nyata. Di-cache 5 menit (nyaris statis). */
+    private function buildReferenceData(): array
+    {
+        return Cache::remember('bella_ai_reference_v1', 300, function () {
+            $ref = [];
+
+            if ($this->tableExists('lines')) {
+                $ref['lines'] = DB::table('lines')->orderBy('name')->limit(40)->pluck('name')->filter()->values()->all();
+            }
+            if ($this->tableExists('customers')) {
+                $ref['customers'] = DB::table('customers')->orderBy('name')->limit(60)->pluck('name')->filter()->values()->all();
+            }
+            if ($this->tableExists('error_logs')) {
+                $ref['error_areas'] = DB::table('error_logs')->select('area')->distinct()->orderBy('area')->limit(30)->pluck('area')->filter()->values()->all();
+            }
+            if ($this->tableExists('quality_inspections')) {
+                $ref['quality_judgements'] = DB::table('quality_inspections')->select('judgement')->distinct()->limit(15)->pluck('judgement')->filter()->values()->all();
+                $ref['quality_check_types'] = DB::table('quality_inspections')->select('check_type')->distinct()->limit(15)->pluck('check_type')->filter()->values()->all();
+            }
+
+            return array_filter($ref, fn ($items) => is_array($items) && count($items) > 0);
+        });
     }
 
     private function buildOperationalSnapshot(array $data, Carbon $from, Carbon $to): array
