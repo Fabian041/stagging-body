@@ -80,13 +80,23 @@ class DashboardController extends Controller
         [$from, $to] = $this->overviewRange($request);
         $question = trim($validated['question']);
 
-        // Kalau user menyebut tanggal spesifik (mis. "1 Juli 2026"), fokuskan SELURUH konteks ke tanggal itu —
-        // agar "berapa X di tanggal Y" terbaca dari agregat 1 hari, bukan blob periode 7 hari (yang bikin
-        // model bilang "gaada data" walau datanya ada di dalam periode).
-        $explicitDate = $contextBuilder->explicitQuestionDate($question);
-        if ($explicitDate !== null) {
-            $from = $explicitDate->copy()->startOfDay();
-            $to = $explicitDate->copy()->startOfDay();
+        // Periode relatif (bulan kemarin, minggu lalu, …) mengalahkan filter dashboard.
+        $questionPeriod = $contextBuilder->explicitQuestionPeriod($question);
+        if ($questionPeriod !== null) {
+            [$from, $to] = $questionPeriod;
+            $from = $from->copy()->startOfDay();
+            $to = $to->copy()->startOfDay();
+        } else {
+            // Tanggal tunggal (mis. "1 Juli 2026") → fokus 1 hari.
+            $explicitDate = $contextBuilder->explicitQuestionDate($question);
+            if ($explicitDate !== null) {
+                $from = $explicitDate->copy()->startOfDay();
+                $to = $explicitDate->copy()->startOfDay();
+            }
+        }
+
+        if ($from->diffInDays($to) > 45) {
+            $from = $to->copy()->subDays(45)->startOfDay();
         }
 
         $overview = $this->buildOverviewData($from, $to);
@@ -110,6 +120,7 @@ class DashboardController extends Controller
                     'ATURAN KETAT (wajib):',
                     '- Hanya gunakan angka, nama, dan status yang ADA persis di JSON system_context. Dilarang mengarang, mengestimasi, atau mengisi data kosong.',
                     '- Untuk pertanyaan ranking/terbanyak/paling banyak: prioritaskan insights.* dan modules.*.fokus_tanggal.ranking_by_qty — jawab langsung dari top_1 atau items[0].',
+                    '- Untuk pertanyaan pulling jumlah 0 / hari tanpa pulling: prioritaskan insights.pulling_hari_nol (hari_tanpa_record, jawaban_singkat). Ini record tabel pullings, BUKAN trend_harian.pulling (kanban checkout).',
                     '- Jangan buat daftar panjang modul/field yang "belum tersedia". Hanya sebut data spesifik yang benar-benar dibutuhkan user dan tidak ada di konteks.',
                     '- petunjuk_data dan overview.kpi_labels hanya kamus arti field — BUKAN checklist yang wajib dilaporkan.',
                     '- Bedakan sumber: insights = jawaban siap pakai; ringkasan_operasional/overview.kpi = agregat periode filter; modules.* = detail modul; search_hits = pencarian keyword; referensi = daftar nilai valid (line, customer, area error, judgement) untuk memetakan istilah user & menjawab "apa saja/daftar X".',

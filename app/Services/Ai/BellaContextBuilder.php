@@ -20,16 +20,27 @@ class BellaContextBuilder
         $modules = $this->expandRelatedModules($this->resolveModules($question));
         [$focusDate, $focusLabel] = $this->resolveQuestionDate($question);
         $loadingListQtyRanking = $this->buildLoadingListQtyRanking($focusDate);
+        $questionPeriodMeta = $this->parseQuestionPeriod($question);
+        $pullingZeroDays = $this->buildPullingZeroDaysInsight($from, $to);
+
+        $scope = [
+            'periode_filter' => ['from' => $fromDate, 'to' => $toDate],
+            'generated_at' => now()->format('Y-m-d H:i:s'),
+            'mode' => 'data operasional dari database Body Plant (bukan akses SQL bebas)',
+            'catatan' => 'Gunakan petunjuk_data hanya sebagai kamus arti field (bukan checklist). insights berisi jawaban siap pakai. scope.periode_pertanyaan = rentang waktu yang dimaksud user jika disebut (mis. bulan kemarin).',
+            'modules_loaded' => $modules,
+        ];
+        if ($questionPeriodMeta !== null) {
+            $scope['periode_pertanyaan'] = [
+                'label' => $questionPeriodMeta[2],
+                'from' => $fromDate,
+                'to' => $toDate,
+            ];
+        }
 
         $context = [
-            'scope' => [
-                'periode_filter' => ['from' => $fromDate, 'to' => $toDate],
-                'generated_at' => now()->format('Y-m-d H:i:s'),
-                'mode' => 'data operasional dari database Body Plant (bukan akses SQL bebas)',
-                'catatan' => 'Gunakan petunjuk_data hanya sebagai kamus arti field (bukan checklist). insights berisi jawaban siap pakai untuk pertanyaan umum. ringkasan_operasional = agregat periode filter dashboard.',
-                'modules_loaded' => $modules,
-            ],
-            'insights' => $this->buildInsights($focusDate, $focusLabel, $loadingListQtyRanking),
+            'scope' => $scope,
+            'insights' => $this->buildInsights($focusDate, $focusLabel, $loadingListQtyRanking, $pullingZeroDays),
             'petunjuk_data' => $this->dataDictionary(),
             'referensi' => $this->buildReferenceData(),
             'ringkasan_operasional' => array_merge(
@@ -143,6 +154,7 @@ class BellaContextBuilder
                 ->whereBetween('p.pulling_date', [$start, $end]);
 
             $context['modules']['pulling'] = [
+                'catatan_metric' => 'Record di tabel pullings (bukan kanban checkout di overview.trend_harian.pulling).',
                 'summary_periode' => [
                     'total' => (clone $pullings)->count(),
                     'total_pds' => (clone $pullings)->distinct('p.pds_number')->count('p.pds_number'),
@@ -163,8 +175,10 @@ class BellaContextBuilder
                     ->selectRaw('DATE(p.pulling_date) as tanggal, COUNT(*) as total')
                     ->groupBy('tanggal')
                     ->orderBy('tanggal')
-                    ->limit(14)
+                    ->limit(min(31, $from->diffInDays($to) + 1))
                     ->get()),
+                'hari_tanpa_record' => $pullingZeroDays['hari_tanpa_record'],
+                'jumlah_hari_nol' => $pullingZeroDays['jumlah_hari_nol'],
             ];
         }
 
@@ -792,7 +806,7 @@ class BellaContextBuilder
         ];
     }
 
-    private function buildInsights(Carbon $focusDate, string $focusLabel, array $loadingListQtyRanking): array
+    private function buildInsights(Carbon $focusDate, string $focusLabel, array $loadingListQtyRanking, array $pullingZeroDays): array
     {
         $top = $loadingListQtyRanking['top_1'] ?? null;
 
@@ -814,6 +828,70 @@ class BellaContextBuilder
                     )
                     : sprintf('Tidak ada loading list dengan delivery %s (%s).', $focusLabel, $focusDate->toDateString()),
             ],
+            'pulling_hari_nol' => $pullingZeroDays,
+        ];
+    }
+
+    private function buildPullingZeroDaysInsight(Carbon $from, Carbon $to): array
+    {
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
+        $totalDays = $from->diffInDays($to) + 1;
+
+        if (! $this->tableExists('pullings')) {
+            return [
+                'definisi' => 'Hari dengan jumlah 0 = tidak ada record di tabel pullings (bukan kanban checkout di trend_harian).',
+                'periode' => ['from' => $fromDate, 'to' => $toDate],
+                'total_hari' => $totalDays,
+                'hari_tanpa_record' => [],
+                'jumlah_hari_nol' => 0,
+                'hari_dengan_record' => [],
+                'jawaban_singkat' => 'Tabel pullings tidak tersedia di sistem.',
+            ];
+        }
+
+        $countsByDay = DB::table('pullings')
+            ->whereBetween('pulling_date', [$from->copy()->startOfDay()->toDateTimeString(), $to->copy()->endOfDay()->toDateTimeString()])
+            ->selectRaw('DATE(pulling_date) as tanggal, COUNT(*) as total')
+            ->groupBy('tanggal')
+            ->pluck('total', 'tanggal');
+
+        $zeroDays = [];
+        $nonZeroDays = [];
+        for ($cursor = $from->copy(); $cursor->lte($to); $cursor->addDay()) {
+            $key = $cursor->toDateString();
+            $total = (int) ($countsByDay[$key] ?? 0);
+            if ($total === 0) {
+                $zeroDays[] = $key;
+            } else {
+                $nonZeroDays[] = ['tanggal' => $key, 'total' => $total];
+            }
+        }
+
+        $zeroCount = count($zeroDays);
+        $listed = implode(', ', array_slice($zeroDays, 0, 31));
+        if ($zeroCount > 31) {
+            $listed .= ' …';
+        }
+
+        $jawaban = $zeroCount === 0
+            ? sprintf('Tidak ada hari dengan pulling = 0 record di periode %s–%s (semua %d hari punya minimal 1 record).', $fromDate, $toDate, $totalDays)
+            : sprintf(
+                'Ada %d hari dengan pulling = 0 record (tabel pullings) di periode %s–%s: %s',
+                $zeroCount,
+                $fromDate,
+                $toDate,
+                $listed
+            );
+
+        return [
+            'definisi' => 'Hari dengan jumlah 0 = tidak ada record di tabel pullings (bukan kanban checkout di overview.trend_harian.pulling).',
+            'periode' => ['from' => $fromDate, 'to' => $toDate],
+            'total_hari' => $totalDays,
+            'hari_tanpa_record' => $zeroDays,
+            'jumlah_hari_nol' => $zeroCount,
+            'hari_dengan_record' => $nonZeroDays,
+            'jawaban_singkat' => $jawaban,
         ];
     }
 
@@ -825,9 +903,90 @@ class BellaContextBuilder
     /** Tanggal spesifik yang disebut user (tertulis/angka/relatif/nama hari) — null jika tidak ada. */
     public function explicitQuestionDate(string $question): ?Carbon
     {
+        if ($this->parseQuestionPeriod($question) !== null) {
+            return null;
+        }
+
         $parsed = $this->parseQuestionDate($question);
 
         return $parsed === null ? null : $parsed[0];
+    }
+
+    /** Rentang waktu dari pertanyaan (bulan kemarin, minggu lalu, …) — null jika tidak ada. */
+    public function explicitQuestionPeriod(string $question): ?array
+    {
+        $parsed = $this->parseQuestionPeriod($question);
+        if ($parsed === null) {
+            return null;
+        }
+
+        return [$parsed[0], $parsed[1]];
+    }
+
+    /** Parse periode relatif dari pertanyaan → [from, to, label] atau null. */
+    private function parseQuestionPeriod(string $question): ?array
+    {
+        $q = Str::lower($question);
+        $today = Carbon::today();
+
+        if (preg_match('/bulan\s+(?:kemarin|lalu)/', $q)) {
+            $from = $today->copy()->subMonthNoOverflow()->startOfMonth()->startOfDay();
+            $to = $today->copy()->subMonthNoOverflow()->endOfMonth()->startOfDay();
+
+            return [$from, $to, 'bulan kemarin'];
+        }
+
+        if (preg_match('/bulan\s+ini/', $q)) {
+            return [$today->copy()->startOfMonth()->startOfDay(), $today->copy()->startOfDay(), 'bulan ini'];
+        }
+
+        if (preg_match('/minggu\s+(?:kemarin|lalu)/', $q)) {
+            $from = $today->copy()->subWeek()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            $to = $today->copy()->subWeek()->endOfWeek(Carbon::MONDAY)->startOfDay();
+
+            return [$from, $to, 'minggu lalu'];
+        }
+
+        if (preg_match('/minggu\s+ini/', $q)) {
+            return [$today->copy()->startOfWeek(Carbon::MONDAY)->startOfDay(), $today->copy()->startOfDay(), 'minggu ini'];
+        }
+
+        $months = $this->monthNameMap();
+        if (preg_match('/bulan\s+([a-z]{3,12})\.?(?:\s+(\d{4}))?\b/', $q, $m) && isset($months[$m[1]])) {
+            $year = isset($m[2]) && $m[2] !== '' ? (int) $m[2] : (int) $today->year;
+            $from = $this->safeDate($year, $months[$m[1]], 1);
+            if ($from) {
+                return [$from->copy()->startOfDay(), $from->copy()->endOfMonth()->startOfDay(), 'bulan '.$m[1].' '.$year];
+            }
+        }
+
+        if (preg_match('/\b(?:di|pada)\s+([a-z]{3,12})\.?(?:\s+(\d{4}))?\b/', $q, $m) && isset($months[$m[1]])) {
+            $year = isset($m[2]) && $m[2] !== '' ? (int) $m[2] : (int) $today->year;
+            $from = $this->safeDate($year, $months[$m[1]], 1);
+            if ($from) {
+                return [$from->copy()->startOfDay(), $from->copy()->endOfMonth()->startOfDay(), $m[1].' '.$year];
+            }
+        }
+
+        return null;
+    }
+
+    private function monthNameMap(): array
+    {
+        return [
+            'januari' => 1, 'jan' => 1, 'january' => 1,
+            'februari' => 2, 'pebruari' => 2, 'feb' => 2, 'february' => 2,
+            'maret' => 3, 'mar' => 3, 'march' => 3,
+            'april' => 4, 'apr' => 4,
+            'mei' => 5, 'may' => 5,
+            'juni' => 6, 'jun' => 6, 'june' => 6,
+            'juli' => 7, 'jul' => 7, 'july' => 7,
+            'agustus' => 8, 'agu' => 8, 'ags' => 8, 'agt' => 8, 'aug' => 8, 'august' => 8,
+            'september' => 9, 'sep' => 9, 'sept' => 9,
+            'oktober' => 10, 'okt' => 10, 'oct' => 10, 'october' => 10,
+            'november' => 11, 'nov' => 11, 'nop' => 11,
+            'desember' => 12, 'des' => 12, 'dec' => 12, 'december' => 12,
+        ];
     }
 
     /** Parse berbagai format tanggal dari pertanyaan → [Carbon, label] atau null. */
@@ -854,20 +1013,7 @@ class BellaContextBuilder
         }
 
         // "DD <bulan> [YYYY]" — bulan Indonesia/Inggris + singkatan
-        $months = [
-            'januari' => 1, 'jan' => 1, 'january' => 1,
-            'februari' => 2, 'pebruari' => 2, 'feb' => 2, 'february' => 2,
-            'maret' => 3, 'mar' => 3, 'march' => 3,
-            'april' => 4, 'apr' => 4,
-            'mei' => 5, 'may' => 5,
-            'juni' => 6, 'jun' => 6, 'june' => 6,
-            'juli' => 7, 'jul' => 7, 'july' => 7,
-            'agustus' => 8, 'agu' => 8, 'ags' => 8, 'agt' => 8, 'aug' => 8, 'august' => 8,
-            'september' => 9, 'sep' => 9, 'sept' => 9,
-            'oktober' => 10, 'okt' => 10, 'oct' => 10, 'october' => 10,
-            'november' => 11, 'nov' => 11, 'nop' => 11,
-            'desember' => 12, 'des' => 12, 'dec' => 12, 'december' => 12,
-        ];
+        $months = $this->monthNameMap();
         if (preg_match('/\b(\d{1,2})\s+([a-z]{3,12})\.?(?:\s+(\d{4}))?\b/', $q, $m) && isset($months[$m[2]])) {
             $year = isset($m[3]) && $m[3] !== '' ? (int) $m[3] : (int) $today->year;
             $d = $this->safeDate($year, $months[$m[2]], (int) $m[1]);
@@ -1073,13 +1219,17 @@ class BellaContextBuilder
     {
         return [
             'preparation' => 'Progress kanban loading list: actual_kanban vs target_kanban. Lengkap jika actual >= target.',
-            'pulling' => 'Aktivitas pull part ke line; pulling_date = waktu pull.',
+            'pulling_record' => 'Record aktivitas di tabel pullings (kolom pulling_date). Satu record = satu aktivitas pull. Berbeda dari overview.trend_harian.pulling yang menghitung mutasi checkout/kanban scan.',
+            'pulling_hari_nol' => 'Hari tanpa satupun record di tabel pullings — lihat insights.pulling_hari_nol.hari_tanpa_record dan jawaban_singkat.',
+            'pulling' => 'Aktivitas pull part ke line; pulling_date = waktu pull (tabel pullings).',
+            'trend_harian_pulling' => 'Field overview.trend_harian[].pulling = jumlah mutasi checkout (kanban scan), BUKAN record tabel pullings.',
             'pis' => 'Part Inspection Sheet scan; target_qty/scanned_qty/remaining_qty dari pis_scan_details.',
             'stock' => 'Snapshot stok chute: current_stock vs standard_stock. under = di bawah standard.',
             'error_log' => 'Log error operasional per area (pulling, produksi, PIS, dll).',
             'delivery_berisiko' => 'Loading list hari ini/besok yang belum 100% preparation + urgency deadline.',
             'search_hits' => 'Hasil pencarian keyword dari pertanyaan user — prioritas untuk pertanyaan spesifik.',
             'fokus_tanggal' => 'Subset data untuk tanggal yang disebut user (hari ini/kemarin/besok/lusa/nama hari/N hari lalu/tanggal DD/YYYY-MM-DD).',
+            'periode_pertanyaan' => 'Rentang waktu dari pertanyaan user (bulan kemarin, minggu lalu, bulan ini, bulan <nama>) — scope.periode_pertanyaan + insights memakai rentang ini.',
             'referensi' => 'Daftar nilai valid di sistem: line, customer, area error, judgement quality. Pakai untuk memetakan istilah user ke data & menjawab "apa saja X".',
         ];
     }
