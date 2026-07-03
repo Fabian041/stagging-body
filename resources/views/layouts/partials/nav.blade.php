@@ -1,7 +1,8 @@
 @php
     $navPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
     $showBellaBrief = $navPreferences['bella_brief_notifications'] ?? true;
-    $canAccessSettings = auth()->check() && auth()->user()->isSuperAdmin();
+    $canAccessSettings = auth()->check();
+    $canManageUsers = auth()->check() && auth()->user()->isSuperAdmin();
 @endphp
 
 <div id="topbar">
@@ -9,7 +10,7 @@
     {{-- ===== LEFT: mobile toggle + page title ===== --}}
     <div class="tb-left">
         {{-- Mobile hamburger --}}
-        <button id="mobile-menu-btn" class="tb-icon-btn d-lg-none" style="border:none;flex-shrink:0;" title="Open menu">
+        <button id="mobile-menu-btn" class="tb-icon-btn d-lg-none" style="border:none;flex-shrink:0;" title="Open menu" aria-controls="sidebar-wrapper" aria-expanded="false">
             <i class="fas fa-bars"></i>
         </button>
 
@@ -92,6 +93,11 @@
                     @if ($canAccessSettings)
                         <a href="{{ route('settings.index') }}" class="tb-dd-item">
                             <i class="fas fa-cog"></i> Settings
+                        </a>
+                    @endif
+                    @if ($canManageUsers)
+                        <a href="{{ route('manage-users.index') }}" class="tb-dd-item">
+                            <i class="fas fa-users-cog"></i> Manage User
                         </a>
                     @endif
                     <div class="tb-dd-divider"></div>
@@ -241,7 +247,8 @@
         z-index: 5000;
     }
 
-    .tb-notif-wrap.open .tb-notif-panel {
+    .tb-notif-wrap.open .tb-notif-panel,
+    .tb-notif-panel.is-open {
         display: flex;
     }
 
@@ -286,6 +293,7 @@
 
     .tb-notif-item {
         display: block;
+        min-width: 0;
         padding: 12px;
         border-radius: 12px;
         border: 1px solid rgba(207, 232, 247, .75);
@@ -306,6 +314,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        min-width: 0;
         font-size: 12.5px;
         font-weight: 900;
         color: var(--navy, #0f2557);
@@ -321,6 +330,7 @@
         line-height: 1.55;
         font-weight: 600;
         color: var(--text, #1a2340);
+        overflow-wrap: anywhere;
     }
 
     .tb-notif-brief-list {
@@ -367,6 +377,7 @@
         font-size: 12px;
         font-weight: 700;
         line-height: 1.35;
+        overflow-wrap: anywhere;
     }
 
     .tb-notif-brief-label {
@@ -384,6 +395,7 @@
         font-size: 10.5px;
         font-weight: 700;
         color: var(--text-muted, #6b7a99);
+        overflow-wrap: anywhere;
     }
 
     .tb-notif-item__cta {
@@ -392,6 +404,7 @@
         font-size: 11px;
         font-weight: 800;
         color: var(--primary, #0070b7);
+        overflow-wrap: anywhere;
     }
 
     .tb-right .tb-icon-btn,
@@ -810,6 +823,22 @@
     }
 
     @media (max-width: 768px) {
+        body > .tb-notif-panel {
+            position: fixed;
+            top: 86px;
+            left: 12px;
+            right: 12px;
+            width: auto;
+            max-height: min(72vh, 560px);
+            border-radius: 14px;
+            transform: none;
+            z-index: 7200;
+        }
+
+        body > .tb-notif-panel .tb-notif-body {
+            max-height: calc(min(72vh, 560px) - 48px);
+        }
+
         .gsp-panel {
             width: calc(100% - 20px);
             margin-top: 70px;
@@ -1090,6 +1119,7 @@
         var markRead = document.getElementById('tbNotifMarkRead');
         if (!wrap || !btn || !panel || !body) return;
 
+        var panelHome = panel.parentNode;
         var url = @json(route('dashboard.bella.notifications'));
         var overviewUrl = @json(route('dashboard.overview'));
         var readKey = 'bellaNotifReadDate';
@@ -1157,8 +1187,23 @@
             if (dot) dot.hidden = !isUnread();
         }
 
+        function isMobileNotif() {
+            return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function syncPanelHost() {
+            if (isMobileNotif()) {
+                if (panel.parentNode !== document.body) document.body.appendChild(panel);
+                return;
+            }
+
+            if (panel.parentNode !== panelHome) panelHome.appendChild(panel);
+        }
+
         function setOpen(open) {
+            syncPanelHost();
             wrap.classList.toggle('open', open);
+            panel.classList.toggle('is-open', open);
             btn.setAttribute('aria-expanded', open ? 'true' : 'false');
             panel.setAttribute('aria-hidden', open ? 'false' : 'true');
             if (open && !loaded) loadNotifications();
@@ -1200,7 +1245,7 @@
 
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            setOpen(!wrap.classList.contains('open'));
+            setOpen(!panel.classList.contains('is-open'));
         });
 
         if (markRead) {
@@ -1212,11 +1257,15 @@
         }
 
         document.addEventListener('click', function(e) {
-            if (!wrap.contains(e.target)) setOpen(false);
+            if (!wrap.contains(e.target) && !panel.contains(e.target)) setOpen(false);
         });
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') setOpen(false);
+        });
+
+        window.addEventListener('resize', function() {
+            syncPanelHost();
         });
 
         body.addEventListener('click', function(e) {

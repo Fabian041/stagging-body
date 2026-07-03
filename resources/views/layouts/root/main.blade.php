@@ -533,6 +533,66 @@
             flex-shrink: 0;
         }
 
+        body.pref-sidenav-dark #sidebar-wrapper {
+            background: #111827;
+            border-right-color: rgba(148, 163, 184, .18);
+            box-shadow: 2px 0 18px rgba(15, 23, 42, .22);
+        }
+
+        body.pref-sidenav-dark .sb-logo,
+        body.pref-sidenav-dark .sb-bottom {
+            border-color: rgba(148, 163, 184, .16);
+        }
+
+        body.pref-sidenav-dark .sb-logo-text,
+        body.pref-sidenav-dark .sb-user-name {
+            color: #F8FAFC;
+        }
+
+        body.pref-sidenav-dark .sb-logo-sub,
+        body.pref-sidenav-dark .sb-user-role,
+        body.pref-sidenav-dark .sb-section-label {
+            color: #94A3B8;
+        }
+
+        body.pref-sidenav-dark .sb-user {
+            background: rgba(15, 23, 42, .72);
+            border-color: rgba(148, 163, 184, .18);
+        }
+
+        body.pref-sidenav-dark .sb-user:hover {
+            background: rgba(30, 41, 59, .9);
+            border-color: rgba(56, 189, 248, .32);
+        }
+
+        body.pref-sidenav-dark .sb-item,
+        body.pref-sidenav-dark .sb-sub-item {
+            color: #CBD5E1;
+        }
+
+        body.pref-sidenav-dark .sb-item:hover,
+        body.pref-sidenav-dark .sb-sub-item:hover {
+            background: rgba(30, 41, 59, .82);
+            color: #F8FAFC;
+        }
+
+        body.pref-sidenav-dark .sb-item.active,
+        body.pref-sidenav-dark .sb-sub-item.active {
+            background: rgba(14, 165, 233, .16);
+            color: #7DD3FC;
+        }
+
+        body.pref-sidenav-dark .sb-chevron,
+        body.pref-sidenav-dark .sb-item i.sb-icon {
+            color: #94A3B8;
+        }
+
+        body.pref-sidenav-dark .sb-submenu.sb-flyout {
+            background: #111827;
+            border-color: rgba(148, 163, 184, .22);
+            box-shadow: 0 18px 42px rgba(15, 23, 42, .36);
+        }
+
         /* ===== TOPBAR (glassmorphism) ===== */
         #topbar {
             background: rgba(255, 255, 255, .82);
@@ -819,12 +879,20 @@
                 width: var(--sidebar-w) !important;
             }
 
+            #sidebar-wrapper .sb-toggle {
+                display: none !important;
+            }
+
             body.mobile-open #sidebar-wrapper {
                 transform: translateX(0);
             }
 
             body.mobile-open #sidebar-overlay {
                 display: block;
+            }
+
+            body.mobile-open {
+                overflow: hidden;
             }
 
             #main-wrapper {
@@ -1516,18 +1584,23 @@
         : '';
     $layoutSidebarMode = $layoutPreferences['sidebar_mode'] ?? 'remember';
     $layoutSidebarMode = in_array($layoutSidebarMode, ['remember', 'expanded', 'collapsed'], true) ? $layoutSidebarMode : 'remember';
+    $layoutSidenavTheme = $layoutPreferences['sidenav_theme'] ?? 'light';
+    $layoutSidenavTheme = in_array($layoutSidenavTheme, ['light', 'dark'], true) ? $layoutSidenavTheme : 'light';
+    $layoutSidenavThemeClass = $layoutSidenavTheme === 'dark' ? 'pref-sidenav-dark' : '';
+    $layoutBodyClass = trim($layoutDensityClass.' '.$layoutSidenavThemeClass);
 @endphp
 
-<body class="{{ $layoutDensityClass }}"
+<body class="{{ $layoutBodyClass }}"
     data-confirm-logout="{{ !empty($layoutPreferences['confirm_logout']) ? '1' : '0' }}"
-    data-sidebar-mode="{{ $layoutSidebarMode }}">
+    data-sidebar-mode="{{ $layoutSidebarMode }}"
+    data-sidenav-theme="{{ $layoutSidenavTheme }}">
     <div class="app-wrapper">
 
         {{-- SIDEBAR --}}
         @include('layouts.partials.sidenav')
 
         {{-- Mobile overlay --}}
-        <div id="sidebar-overlay" onclick="document.body.classList.remove('mobile-open')"></div>
+        <div id="sidebar-overlay"></div>
 
         {{-- MAIN WRAPPER --}}
         <div id="main-wrapper">
@@ -1665,6 +1738,9 @@
                 if (sidebarMode === 'remember') {
                     shouldCollapse = localStorage.getItem('bella_sb_collapsed') === '1';
                 }
+                if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+                    shouldCollapse = false;
+                }
                 if (shouldCollapse) {
                     sidebar.classList.add('collapsed');
                     mainWrap.classList.add('sidebar-collapsed');
@@ -1773,11 +1849,43 @@
 
             /* ---- Mobile sidebar ---- */
             var mobileBtn = document.getElementById('mobile-menu-btn');
+            var sidebarOverlay = document.getElementById('sidebar-overlay');
+            var isMobileSidebar = function() {
+                return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+            };
+            function setMobileSidebar(open) {
+                document.body.classList.toggle('mobile-open', open);
+                if (mobileBtn) mobileBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            function syncMobileSidebarState() {
+                if (isMobileSidebar()) {
+                    sidebar.classList.remove('collapsed');
+                    mainWrap.classList.remove('sidebar-collapsed');
+                } else {
+                    setMobileSidebar(false);
+                }
+            }
             if (mobileBtn) {
+                mobileBtn.setAttribute('aria-expanded', 'false');
                 mobileBtn.addEventListener('click', function() {
-                    document.body.classList.toggle('mobile-open');
+                    setMobileSidebar(!document.body.classList.contains('mobile-open'));
                 });
             }
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    setMobileSidebar(false);
+                });
+            }
+            sidebar.querySelectorAll('a.sb-item, a.sb-sub-item').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (isMobileSidebar()) setMobileSidebar(false);
+                });
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') setMobileSidebar(false);
+            });
+            window.addEventListener('resize', syncMobileSidebarState);
+            syncMobileSidebarState();
         })();
     </script>
 

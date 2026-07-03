@@ -197,11 +197,17 @@
             <span class="sb-item-tooltip">Profile</span>
         </a>
 
+        <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+            <i class="fas fa-cog sb-icon"></i>
+            <span class="sb-item-label">Settings</span>
+            <span class="sb-item-tooltip">Settings</span>
+        </a>
+
         @if (auth()->check() && auth()->user()->isSuperAdmin())
-            <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
-                <i class="fas fa-cog sb-icon"></i>
-                <span class="sb-item-label">Settings</span>
-                <span class="sb-item-tooltip">Settings</span>
+            <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}" href="{{ route('manage-users.index') }}">
+                <i class="fas fa-users-cog sb-icon"></i>
+                <span class="sb-item-label">Manage User</span>
+                <span class="sb-item-tooltip">Manage User</span>
             </a>
         @endif
 

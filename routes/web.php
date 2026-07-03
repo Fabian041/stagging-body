@@ -23,6 +23,7 @@ use App\Http\Controllers\PisController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QualityController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\ManageUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -142,6 +143,14 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::get('/settings', [SettingsController::class, 'index'])->middleware('can:access-settings')->name('settings.index');
     Route::put('/settings/preferences', [SettingsController::class, 'update'])->middleware('can:access-settings')->name('settings.update');
+    Route::prefix('manage-users')->name('manage-users.')->middleware('can:manage-users')->group(function () {
+        Route::get('/', [ManageUserController::class, 'index'])->name('index');
+        Route::post('/', [ManageUserController::class, 'store'])->name('store');
+        Route::put('/{user}', [ManageUserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [ManageUserController::class, 'destroy'])->name('destroy');
+        Route::get('/template/download', [ManageUserController::class, 'template'])->name('template');
+        Route::post('/bulk-upload', [ManageUserController::class, 'bulkUpload'])->name('bulk-upload');
+    });
 
     // kanban
     Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');

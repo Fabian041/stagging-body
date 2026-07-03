@@ -27,7 +27,7 @@ class AuthServiceProvider extends ServiceProvider
 
         // Admin selalu lolos semua gate, kecuali gate khusus super admin.
         Gate::before(function ($user, $ability) {
-            if ($ability === 'access-settings') {
+            if (in_array($ability, ['access-settings', 'manage-users'], true)) {
                 return null;
             }
 
@@ -35,6 +35,10 @@ class AuthServiceProvider extends ServiceProvider
         });
 
         Gate::define('access-settings', function ($user) {
+            return true;
+        });
+
+        Gate::define('manage-users', function ($user) {
             return $user->isSuperAdmin();
         });
 
