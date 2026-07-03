@@ -20,7 +20,9 @@ use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PisController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QualityController;
+use App\Http\Controllers\SettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -135,6 +137,11 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout.auth');
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::get('/settings', [SettingsController::class, 'index'])->middleware('can:access-settings')->name('settings.index');
+    Route::put('/settings/preferences', [SettingsController::class, 'update'])->middleware('can:access-settings')->name('settings.update');
 
     // kanban
     Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');

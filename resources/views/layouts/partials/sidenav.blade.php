@@ -191,6 +191,20 @@
 
         <div class="sb-section-label" style="margin-top:6px;">System</div>
 
+        <a class="sb-item {{ request()->routeIs('profile.*') ? 'active' : '' }}" href="{{ route('profile.show') }}">
+            <i class="far fa-user sb-icon"></i>
+            <span class="sb-item-label">Profile</span>
+            <span class="sb-item-tooltip">Profile</span>
+        </a>
+
+        @if (auth()->check() && auth()->user()->isSuperAdmin())
+            <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+                <i class="fas fa-cog sb-icon"></i>
+                <span class="sb-item-label">Settings</span>
+                <span class="sb-item-tooltip">Settings</span>
+            </a>
+        @endif
+
         {{-- ── Error Log ── --}}
         <a class="sb-item {{ request()->is('error/log') ? 'active' : '' }}" href="{{ route('error.log') }}">
             <i class="fas fa-exclamation-circle sb-icon"></i>
@@ -201,18 +215,26 @@
     </nav>
 
     {{-- ===== USER CARD (dipindah ke bawah) ===== --}}
+    @php
+        $sidebarUser = auth()->user();
+        $sidebarName = $sidebarUser ? $sidebarUser->name : 'Guest';
+        $sidebarRole = $sidebarUser ? ($sidebarUser->role ?? 'User') : 'Not logged in';
+        $sidebarRoleParts = array_values(array_filter(preg_split('/[\s_-]+/', (string) $sidebarRole) ?: []));
+        $sidebarBadge = count($sidebarRoleParts) > 1
+            ? implode('', array_map(fn ($part) => strtoupper(substr($part, 0, 1)), $sidebarRoleParts))
+            : strtoupper(substr((string) $sidebarRole, 0, 5));
+    @endphp
     <div class="sb-user-wrap">
         <div class="sb-user">
-            <div class="sb-avatar">
-                {{ auth()->check() ? strtoupper(substr(auth()->user()->name, 0, 2)) : 'GS' }}
+            <div class="sb-avatar" title="{{ $sidebarName }}">
+                {{ $sidebarUser ? strtoupper(substr($sidebarName, 0, 2)) : 'GS' }}
             </div>
-            <div style="min-width:0;flex:1;">
-                <div class="sb-user-name">{{ auth()->check() ? auth()->user()->name : 'Guest' }}</div>
-                <div class="sb-user-role">{{ auth()->check() ? auth()->user()->role ?? 'User' : 'Not logged in' }}
-                </div>
+            <div class="sb-user-meta">
+                <div class="sb-user-name" title="{{ $sidebarName }}">{{ $sidebarName }}</div>
+                <div class="sb-user-role" title="{{ $sidebarRole }}">{{ $sidebarRole }}</div>
             </div>
-            @if (auth()->check())
-                <div class="sb-user-badge">{{ strtoupper(auth()->user()->role ?? 'USR') }}</div>
+            @if ($sidebarUser)
+                <div class="sb-user-badge" title="{{ $sidebarRole }}">{{ $sidebarBadge }}</div>
             @endif
         </div>
     </div>

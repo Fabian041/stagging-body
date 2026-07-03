@@ -1,3 +1,9 @@
+@php
+    $navPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
+    $showBellaBrief = $navPreferences['bella_brief_notifications'] ?? true;
+    $canAccessSettings = auth()->check() && auth()->user()->isSuperAdmin();
+@endphp
+
 <div id="topbar">
 
     {{-- ===== LEFT: mobile toggle + page title ===== --}}
@@ -33,27 +39,31 @@
             <i class="fas fa-search"></i>
         </button>
 
-        {{-- Notifications (BELLA brief) --}}
-        <div class="tb-notif-wrap" id="tbNotifWrap">
-            <button type="button" class="tb-icon-btn" id="tbNotifBtn" title="Notifikasi BELLA" aria-expanded="false" aria-controls="tbNotifPanel">
-                <i class="fas fa-bell"></i>
-                <span class="tb-notif-dot" id="tbNotifDot" hidden></span>
-            </button>
-            <div class="tb-notif-panel" id="tbNotifPanel" aria-hidden="true">
-                <div class="tb-notif-head">
-                    <span>Notifikasi</span>
-                    <button type="button" class="tb-notif-mark" id="tbNotifMarkRead" title="Tandai sudah dibaca">Tandai dibaca</button>
-                </div>
-                <div class="tb-notif-body" id="tbNotifBody">
-                    <div class="tb-notif-loading">Memuat brief BELLA...</div>
+        @if ($showBellaBrief)
+            {{-- Notifications (BELLA brief) --}}
+            <div class="tb-notif-wrap" id="tbNotifWrap">
+                <button type="button" class="tb-icon-btn" id="tbNotifBtn" title="Notifikasi BELLA" aria-expanded="false" aria-controls="tbNotifPanel">
+                    <i class="fas fa-bell"></i>
+                    <span class="tb-notif-dot" id="tbNotifDot" hidden></span>
+                </button>
+                <div class="tb-notif-panel" id="tbNotifPanel" aria-hidden="true">
+                    <div class="tb-notif-head">
+                        <span>Notifikasi</span>
+                        <button type="button" class="tb-notif-mark" id="tbNotifMarkRead" title="Tandai sudah dibaca">Tandai dibaca</button>
+                    </div>
+                    <div class="tb-notif-body" id="tbNotifBody">
+                        <div class="tb-notif-loading">Memuat brief BELLA...</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        @endif
 
-        {{-- Settings --}}
-        <a href="features-settings.html" class="tb-icon-btn" title="Settings">
-            <i class="fas fa-cog"></i>
-        </a>
+        @if ($canAccessSettings)
+            {{-- Settings --}}
+            <a href="{{ route('settings.index') }}" class="tb-icon-btn" title="Settings">
+                <i class="fas fa-cog"></i>
+            </a>
+        @endif
 
         <div class="tb-divider"></div>
 
@@ -76,12 +86,14 @@
                 </div>
 
                 @if (auth()->check())
-                    <a href="features-profile.html" class="tb-dd-item">
+                    <a href="{{ route('profile.show') }}" class="tb-dd-item">
                         <i class="far fa-user"></i> Profile
                     </a>
-                    <a href="features-settings.html" class="tb-dd-item">
-                        <i class="fas fa-cog"></i> Settings
-                    </a>
+                    @if ($canAccessSettings)
+                        <a href="{{ route('settings.index') }}" class="tb-dd-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    @endif
                     <div class="tb-dd-divider"></div>
                     <form action="{{ route('logout.auth') }}" method="POST">
                         @csrf

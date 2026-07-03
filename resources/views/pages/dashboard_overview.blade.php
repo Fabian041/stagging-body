@@ -1,7 +1,13 @@
 @extends('layouts.root.main')
 
 @section('main')
-    <style>
+@php
+    $overviewPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
+    $showBellaAssistant = $overviewPreferences['bella_assistant_enabled'] ?? true;
+    $bellaAnswerStyle = $overviewPreferences['bella_answer_style'] ?? 'concise';
+    $bellaAnswerStyle = in_array($bellaAnswerStyle, ['concise', 'detailed'], true) ? $bellaAnswerStyle : 'concise';
+@endphp
+<style>
         .ov-wrap {
             width: 100%;
             margin: 0 auto;
@@ -224,6 +230,10 @@
             align-items: flex-end;
             gap: 12px;
             pointer-events: none;
+        }
+
+        .ov-ai-widget--hidden {
+            display: none !important;
         }
 
         .ov-ai-fab,
@@ -1855,7 +1865,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
         </div>
 
         {{-- ===== FLOATING ASK BELLA ===== --}}
-        <div class="ov-ai-widget" id="ovAiWidget">
+        <div class="ov-ai-widget {{ $showBellaAssistant ? '' : 'ov-ai-widget--hidden' }}" id="ovAiWidget" data-ai-enabled="{{ $showBellaAssistant ? '1' : '0' }}">
             <div class="ov-ai-popover" id="ovAiPopover" role="dialog" aria-modal="false" aria-labelledby="ovAiTitle" aria-hidden="true">
                 <div class="ov-ai-head">
                     <div>
@@ -2150,6 +2160,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
         (function() {
             var DATA_URL = @json(route('dashboard.overview.data'));
             var AI_URL = @json(route('dashboard.overview.ai'));
+            var AI_ANSWER_STYLE = @json($bellaAnswerStyle);
             var SLOT_URL = @json(route('dashboard.overview.slot'));
             var STOCK_URL = @json(route('dashboard.productionStock'));
             var LL_URL = @json(url('/loading-list'));
@@ -2564,6 +2575,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                         body: JSON.stringify({
                             question: question,
                             history: priorHistory,
+                            answer_style: AI_ANSWER_STYLE,
                             from: from,
                             to: to
                         })

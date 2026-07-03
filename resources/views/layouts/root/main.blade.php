@@ -120,6 +120,11 @@
             margin: 4px auto;
             padding: 0;
             border-radius: 12px;
+            overflow: visible;
+        }
+
+        #sidebar-wrapper.collapsed .sb-nav {
+            overflow: visible;
         }
 
         #sidebar-wrapper.collapsed .sb-item i.sb-icon {
@@ -269,6 +274,8 @@
             border: 1px solid var(--border);
             cursor: default;
             transition: .2s;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .sb-user:hover {
@@ -291,18 +298,28 @@
             box-shadow: 0 2px 6px rgba(41, 71, 149, .25);
         }
 
+        .sb-user-meta {
+            min-width: 0;
+            flex: 1 1 auto;
+            overflow: hidden;
+        }
+
         .sb-user-name {
             font-size: 12.5px;
             font-weight: 700;
             color: var(--text);
             line-height: 1.2;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sb-user-role {
             font-size: 10px;
             color: var(--text-muted);
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sb-user-badge {
@@ -315,7 +332,7 @@
             color: #fff;
             letter-spacing: .03em;
             white-space: nowrap;
-            flex-shrink: 0;
+            flex: 0 0 auto;
         }
 
         /* Nav */
@@ -505,7 +522,7 @@
             border-right-color: #1A2340;
         }
 
-        #sidebar-wrapper.collapsed .sb-item:hover .sb-item-tooltip {
+        #sidebar-wrapper.collapsed .sb-item:not([data-has-sub]):hover .sb-item-tooltip {
             display: block;
         }
 
@@ -1385,10 +1402,125 @@
                 width: 220px;
             }
         }
+
+        .logout-confirm-shell {
+            position: fixed;
+            inset: 0;
+            z-index: 7000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity .18s ease, visibility .18s ease;
+        }
+
+        .logout-confirm-shell.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .logout-confirm-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, .28);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+
+        .logout-confirm-card {
+            position: relative;
+            width: min(420px, 100%);
+            border: 1px solid rgba(255, 255, 255, .72);
+            border-radius: 14px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(255, 255, 255, .76));
+            box-shadow: 0 28px 80px rgba(15, 23, 42, .22), inset 0 1px 0 rgba(255, 255, 255, .74);
+            padding: 18px;
+            transform: translateY(10px) scale(.98);
+            transition: transform .18s ease;
+        }
+
+        .logout-confirm-shell.open .logout-confirm-card {
+            transform: translateY(0) scale(1);
+        }
+
+        .logout-confirm-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FEE2E2;
+            color: #DC2626;
+            font-size: 16px;
+        }
+
+        .logout-confirm-title {
+            margin: 14px 0 5px;
+            color: var(--text);
+            font-size: 18px;
+            font-weight: 850;
+        }
+
+        .logout-confirm-copy {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 650;
+            line-height: 1.55;
+        }
+
+        .logout-confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 9px;
+            margin-top: 18px;
+        }
+
+        .logout-confirm-btn {
+            min-height: 38px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 14px;
+            background: #fff;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background .16s ease, color .16s ease, transform .16s ease;
+        }
+
+        .logout-confirm-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .logout-confirm-btn.danger {
+            border-color: rgba(220, 38, 38, .18);
+            background: #DC2626;
+            color: #fff;
+        }
+
+        .logout-confirm-btn.danger:hover {
+            background: #B91C1C;
+        }
     </style>
 </head>
 
-<body>
+@php
+    $layoutPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
+    $layoutDensityClass = ($layoutPreferences['table_density'] ?? 'comfortable') === 'compact'
+        ? 'pref-density-compact'
+        : '';
+    $layoutSidebarMode = $layoutPreferences['sidebar_mode'] ?? 'remember';
+    $layoutSidebarMode = in_array($layoutSidebarMode, ['remember', 'expanded', 'collapsed'], true) ? $layoutSidebarMode : 'remember';
+@endphp
+
+<body class="{{ $layoutDensityClass }}"
+    data-confirm-logout="{{ !empty($layoutPreferences['confirm_logout']) ? '1' : '0' }}"
+    data-sidebar-mode="{{ $layoutSidebarMode }}">
     <div class="app-wrapper">
 
         {{-- SIDEBAR --}}
@@ -1414,6 +1546,21 @@
                 <span></span>
             </footer>
 
+        </div>
+    </div>
+
+    <div class="logout-confirm-shell" id="logoutConfirm" aria-hidden="true">
+        <div class="logout-confirm-backdrop" data-logout-close></div>
+        <div class="logout-confirm-card" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle">
+            <div class="logout-confirm-icon">
+                <i class="fas fa-sign-out-alt"></i>
+            </div>
+            <h2 class="logout-confirm-title" id="logoutConfirmTitle">Logout dari BELLA?</h2>
+            <div class="logout-confirm-copy">Sesi kamu akan ditutup dan perlu login ulang untuk masuk kembali.</div>
+            <div class="logout-confirm-actions">
+                <button type="button" class="logout-confirm-btn" data-logout-close>Batal</button>
+                <button type="button" class="logout-confirm-btn danger" id="logoutConfirmSubmit">Logout</button>
+            </div>
         </div>
     </div>
 
@@ -1453,9 +1600,53 @@
 
     <script>
         (function() {
+            if (document.body.getAttribute('data-confirm-logout') !== '1') return;
+            var modal = document.getElementById('logoutConfirm');
+            var submitBtn = document.getElementById('logoutConfirmSubmit');
+            var pendingForm = null;
+            if (!modal || !submitBtn) return;
+
+            function open(form) {
+                pendingForm = form;
+                modal.classList.add('open');
+                modal.setAttribute('aria-hidden', 'false');
+                setTimeout(function() { submitBtn.focus(); }, 40);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden', 'true');
+                pendingForm = null;
+            }
+
+            document.addEventListener('submit', function(e) {
+                var form = e.target;
+                if (!form || !form.matches('form[action*="/logout"]')) return;
+                e.preventDefault();
+                open(form);
+            });
+
+            modal.addEventListener('click', function(e) {
+                if (e.target.closest('[data-logout-close]')) close();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('open')) close();
+            });
+
+            submitBtn.addEventListener('click', function() {
+                if (!pendingForm) return;
+                submitBtn.disabled = true;
+                pendingForm.submit();
+            });
+        })();
+
+        (function() {
             var sidebar = document.getElementById('sidebar-wrapper');
             var mainWrap = document.getElementById('main-wrapper');
             var toggleBtn = document.getElementById('sb-toggle-btn');
+            var sidebarMode = document.body.getAttribute('data-sidebar-mode') || 'remember';
+            if (!sidebar || !mainWrap) return;
 
             /* ---- Collapse toggle ---- */
             if (toggleBtn) {
@@ -1463,12 +1654,18 @@
                     var c = sidebar.classList.toggle('collapsed');
                     mainWrap.classList.toggle('sidebar-collapsed', c);
                     try {
-                        localStorage.setItem('bella_sb_collapsed', c ? '1' : '0');
+                        if (sidebarMode === 'remember') {
+                            localStorage.setItem('bella_sb_collapsed', c ? '1' : '0');
+                        }
                     } catch (e) {}
                 });
             }
             try {
-                if (localStorage.getItem('bella_sb_collapsed') === '1') {
+                var shouldCollapse = sidebarMode === 'collapsed';
+                if (sidebarMode === 'remember') {
+                    shouldCollapse = localStorage.getItem('bella_sb_collapsed') === '1';
+                }
+                if (shouldCollapse) {
                     sidebar.classList.add('collapsed');
                     mainWrap.classList.add('sidebar-collapsed');
                 }

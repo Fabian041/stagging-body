@@ -68,6 +68,7 @@ class DashboardController extends Controller
             'history' => 'array|max:8',
             'history.*.role' => 'required_with:history|string|in:user,assistant',
             'history.*.content' => 'required_with:history|string|max:5000',
+            'answer_style' => 'nullable|string|in:concise,detailed',
         ]);
 
         $apiKey = (string) config('services.groq.key');
@@ -79,6 +80,10 @@ class DashboardController extends Controller
 
         [$from, $to] = $this->overviewRange($request);
         $question = trim($validated['question']);
+        $answerStyle = $validated['answer_style'] ?? 'concise';
+        $styleInstruction = $answerStyle === 'detailed'
+            ? 'Jawab dalam Bahasa Indonesia yang lebih detail, tetap natural, actionable, dan tidak mengarang data.'
+            : 'Jawab dalam Bahasa Indonesia yang ringkas, natural, dan actionable.';
 
         // Periode relatif (bulan kemarin, minggu lalu, …) mengalahkan filter dashboard.
         $questionPeriod = $contextBuilder->explicitQuestionPeriod($question);
@@ -115,7 +120,7 @@ class DashboardController extends Controller
                 'role' => 'system',
                 'content' => implode("\n", [
                     'Kamu adalah BELLA, AI assistant operasional Body Plant.',
-                    'Jawab dalam Bahasa Indonesia yang ringkas, natural, dan actionable.',
+                    $styleInstruction,
                     '',
                     'ATURAN KETAT (wajib):',
                     '- Hanya gunakan angka, nama, dan status yang ADA persis di JSON system_context. Dilarang mengarang, mengestimasi, atau mengisi data kosong.',
@@ -166,7 +171,7 @@ class DashboardController extends Controller
                     'model' => (string) config('services.groq.model', 'llama-3.1-8b-instant'),
                     'messages' => $messages,
                     'temperature' => 0.15,
-                    'max_tokens' => 520,
+                    'max_tokens' => $answerStyle === 'detailed' ? 760 : 520,
                 ]);
         } catch (\Throwable $e) {
             $err = $this->groqErrorPayload($e->getMessage());

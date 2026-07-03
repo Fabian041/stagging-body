@@ -128,6 +128,20 @@
         font-weight: 700;
     }
 
+    body.pref-density-compact #main-content table.bella-table th,
+    body.pref-density-compact #main-content table.bella-table td,
+    body.pref-density-compact #main-content table.dataTable thead th,
+    body.pref-density-compact #main-content table.dataTable tbody td,
+    body.pref-density-compact #main-content table.table thead th,
+    body.pref-density-compact #main-content table.table tbody td,
+    body.pref-density-compact .main-content table.dataTable thead th,
+    body.pref-density-compact .main-content table.dataTable tbody td,
+    body.pref-density-compact .main-content table.table thead th,
+    body.pref-density-compact .main-content table.table tbody td {
+        padding-top: 7px !important;
+        padding-bottom: 7px !important;
+    }
+
     #main-content .dataTables_wrapper .dataTables_filter input,
     #main-content .dataTables_wrapper .dataTables_length select,
     #main-content .form-control,
