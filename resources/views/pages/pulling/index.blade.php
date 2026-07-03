@@ -367,6 +367,183 @@
         text-align: center;
     }
 
+    .pulling-confirm-modal .modal-content {
+        border-radius: 14px;
+        border: 1px solid rgba(221, 227, 239, .9);
+        box-shadow: 0 24px 70px rgba(26, 35, 64, .22);
+        overflow: hidden;
+    }
+
+    .pulling-confirm-modal__body {
+        padding: 26px;
+    }
+
+    .pulling-confirm-modal__icon {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 14px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--danger, #DC2626);
+        background: var(--danger-light, #FEE2E2);
+        font-size: 24px;
+    }
+
+    .pulling-confirm-modal__title {
+        margin: 0 0 8px;
+        color: var(--text, #1A2340);
+        font-size: 20px;
+        font-weight: 900;
+        text-align: center;
+    }
+
+    .pulling-confirm-modal__message {
+        margin: 0;
+        color: var(--text-muted, #6B7A99);
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.55;
+        text-align: center;
+    }
+
+    .pulling-confirm-modal__actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        padding: 0 26px 26px;
+    }
+
+    .pulling-confirm-modal__actions .btn {
+        min-width: 112px;
+        min-height: 42px;
+    }
+
+    .pulling-scan-notif {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(15, 23, 42, .12);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity .16s ease, visibility .16s ease;
+    }
+
+    .pulling-scan-notif.is-visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .pulling-scan-notif-card {
+        --notif-accent: var(--primary, #0070B7);
+        --notif-bg: linear-gradient(135deg, #E8F4FD 0%, #F6FBFF 100%);
+        --notif-icon-bg: rgba(255, 255, 255, .72);
+        --notif-title: #315F92;
+        --notif-text: #123A63;
+        width: min(680px, calc(100vw - 32px));
+        min-height: 208px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 44px 30px;
+        border-radius: 14px;
+        border: 0;
+        background: var(--notif-bg);
+        box-shadow: 0 24px 70px rgba(26, 35, 64, .24), inset 0 1px 0 rgba(255, 255, 255, .75);
+        backdrop-filter: blur(18px) saturate(160%);
+        -webkit-backdrop-filter: blur(18px) saturate(160%);
+        transform: translateY(10px) scale(.98);
+        transition: transform .16s ease;
+    }
+
+    .pulling-scan-notif.is-visible .pulling-scan-notif-card {
+        transform: translateY(0) scale(1);
+    }
+
+    .pulling-scan-notif-card.is-success {
+        --notif-accent: var(--success, #16A34A);
+        --notif-bg: linear-gradient(135deg, #DCFCE7 0%, #F0FDF4 100%);
+        --notif-title: #166534;
+        --notif-text: #14532D;
+    }
+
+    .pulling-scan-notif-card.is-error {
+        --notif-accent: var(--danger, #DC2626);
+        --notif-bg: linear-gradient(135deg, #FEE2E2 0%, #FFF1F2 100%);
+        --notif-title: #B91C1C;
+        --notif-text: #7F1D1D;
+    }
+
+    .pulling-scan-notif-card.is-warning {
+        --notif-accent: var(--warning, #D97706);
+        --notif-bg: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%);
+        --notif-title: #92400E;
+        --notif-text: #78350F;
+    }
+
+    .pulling-scan-notif-copy {
+        min-width: 0;
+        text-align: center;
+    }
+
+    .pulling-scan-notif-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--notif-accent);
+        background: var(--notif-icon-bg);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
+        font-size: 30px;
+    }
+
+    .pulling-scan-notif-title {
+        margin-bottom: 6px;
+        color: var(--notif-title);
+        font-size: 13px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+
+    .pulling-scan-notif-message {
+        color: var(--notif-text);
+        font-size: clamp(26px, 3vw, 38px);
+        font-weight: 900;
+        line-height: 1.18;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 576px) {
+        .pulling-scan-notif-card {
+            gap: 12px;
+            min-height: 180px;
+            padding: 34px 18px;
+            border-radius: 12px;
+        }
+
+        .pulling-scan-notif-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            font-size: 22px;
+        }
+
+        .pulling-scan-notif-message {
+            font-size: 23px;
+        }
+    }
+
     .bg-default {
         background: var(--primary-light, #E8F4FD) !important;
         border: 1px solid #c5dff0 !important;
@@ -850,13 +1027,14 @@
         </div>
     </div>
 
-    <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog"
-        aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content" id="divNotif" style="border-radius: 15px !important;">
-                <div class="modal-body text-center">
-                    <span style="color: white; font-size: 30pt" id="notif">Error</span>
-                </div>
+    <div id="notifModal" class="pulling-scan-notif" hidden aria-hidden="true" aria-live="assertive">
+        <div class="pulling-scan-notif-card is-info" id="divNotif" role="status">
+            <div class="pulling-scan-notif-icon" id="notifIcon">
+                <i class="fas fa-info"></i>
+            </div>
+            <div class="pulling-scan-notif-copy">
+                <div class="pulling-scan-notif-title" id="notifTitle">Info</div>
+                <div class="pulling-scan-notif-message" id="notif">Info</div>
             </div>
         </div>
     </div>
@@ -875,6 +1053,25 @@
         </div>
     </div>
     {{-- end of modal --}}
+
+    <div class="modal fade pulling-modal pulling-confirm-modal" id="pullingConfirmModal" tabindex="-1" role="dialog"
+        aria-hidden="true" data-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="pulling-confirm-modal__body">
+                    <div class="pulling-confirm-modal__icon" id="pullingConfirmIcon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h5 class="pulling-confirm-modal__title" id="pullingConfirmTitle">Konfirmasi</h5>
+                    <p class="pulling-confirm-modal__message" id="pullingConfirmMessage">Lanjutkan aksi ini?</p>
+                </div>
+                <div class="pulling-confirm-modal__actions">
+                    <button type="button" class="btn btn-light" data-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger" id="pullingConfirmOk">Lanjutkan</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <audio id="ok-sound">
         <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg">
@@ -952,11 +1149,16 @@
     var loadingListNumber = [];
     const inFlightLL = new Set();
     // flag selesai: tandai LL yang SUDAH beres proses agar tidak bisa discan lagi
-    const doneKey = (ll) => `ll_done_${ll}`;
-    const isLLDone = (ll) => (localStorage.getItem(doneKey(ll)) === '1');
+    const doneKey = (ll) => `llDone_${ll}`;
+    const legacyDoneKey = (ll) => `ll_done_${ll}`;
+    const isLLDone = (ll) => (
+        localStorage.getItem(doneKey(ll)) === '1' ||
+        localStorage.getItem(legacyDoneKey(ll)) === '1'
+    );
     const markLLDone = (ll) => {
         try {
             localStorage.setItem(doneKey(ll), '1');
+            localStorage.removeItem(legacyDoneKey(ll));
         } catch (e) {}
     };
 
@@ -1076,11 +1278,14 @@
 
     // retrieve the loading list number from localStorage
     function getLoadingListNumber() {
-
+        loadingListNumber = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key.startsWith("ll_")) {
-                loadingListNumber.push(extractLoadingListNumber(key));
+            if (key.startsWith("ll_") && !key.startsWith("ll_done_")) {
+                const number = extractLoadingListNumber(key);
+                if (number && !loadingListNumber.includes(number)) {
+                    loadingListNumber.push(number);
+                }
             }
         }
         // Return a default value if no loading list number is found
@@ -1487,24 +1692,50 @@
             .addClass('bg-danger');
     }
 
+    let notifTimer = null;
+
     function notif(color, text) {
-        let modal = $('#notifModal');
-        let textNotif = $('#notif');
-        if (color == "error") {
-            textNotif.text(text);
-            $('#divNotif').css("background-color", "#FF2A00");
-            $('#notifModal').modal('show');
-            setTimeout(() => {
-                $('#notifModal').modal('hide');
-            }, 1000);
-        } else {
-            textNotif.text(text);
-            $('#divNotif').css("background-color", "#32a852");
-            $('#notifModal').modal('show');
-            setTimeout(() => {
-                $('#notifModal').modal('hide');
-            }, 1000);
+        const type = String(color || 'info').toLowerCase().trim();
+        const message = String(text == null ? '' : text);
+        const variant = type.indexOf('error') === 0 || type === 'danger' ?
+            'error' :
+            (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info'));
+        const meta = {
+            success: ['Berhasil', 'fas fa-check'],
+            error: ['Gagal', 'fas fa-exclamation'],
+            warning: ['Perhatian', 'fas fa-exclamation-triangle'],
+            info: ['Info', 'fas fa-info']
+        } [variant];
+        const modal = document.getElementById('notifModal');
+        const card = document.getElementById('divNotif');
+        const icon = document.getElementById('notifIcon');
+        const title = document.getElementById('notifTitle');
+        const messageEl = document.getElementById('notif');
+
+        if (!modal || !card || !icon || !title || !messageEl) {
+            console[type.indexOf('error') === 0 ? 'error' : 'log'](message);
+            return;
         }
+
+        clearTimeout(notifTimer);
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        card.className = 'pulling-scan-notif-card is-' + variant;
+        icon.innerHTML = '<i class="' + meta[1] + '"></i>';
+        title.textContent = meta[0];
+        messageEl.textContent = message;
+
+        requestAnimationFrame(function() {
+            modal.classList.add('is-visible');
+        });
+
+        notifTimer = setTimeout(function() {
+            modal.classList.remove('is-visible');
+            modal.setAttribute('aria-hidden', 'true');
+            setTimeout(function() {
+                if (!modal.classList.contains('is-visible')) modal.hidden = true;
+            }, 180);
+        }, variant === 'success' ? 1900 : 2800);
     }
 
     function loadingListModal() {
@@ -2409,6 +2640,40 @@
             });
         }
 
+        let pullingConfirmAction = null;
+
+        function showPullingConfirm(options) {
+            const config = Object.assign({
+                title: 'Konfirmasi',
+                message: 'Lanjutkan aksi ini?',
+                confirmText: 'Lanjutkan',
+                confirmClass: 'btn-danger',
+                icon: 'fas fa-exclamation-triangle',
+                onConfirm: null
+            }, options || {});
+
+            pullingConfirmAction = config.onConfirm;
+            $('#pullingConfirmTitle').text(config.title);
+            $('#pullingConfirmMessage').text(config.message);
+            $('#pullingConfirmIcon').html('<i class="' + config.icon + '"></i>');
+            $('#pullingConfirmOk')
+                .attr('class', 'btn ' + config.confirmClass)
+                .text(config.confirmText);
+            $('#pullingConfirmModal').modal('show');
+        }
+
+        $('#pullingConfirmOk').on('click', function() {
+            const action = pullingConfirmAction;
+            pullingConfirmAction = null;
+            $('#pullingConfirmModal').modal('hide');
+            if (typeof action === 'function') action();
+        });
+
+        $('#pullingConfirmModal').on('hidden.bs.modal', function() {
+            pullingConfirmAction = null;
+            $('#code').focus();
+        });
+
         $('#delay').on('click', function() {
             $(this).prop('disabled', true).css({
                 color: '#B91C1C',
@@ -2419,39 +2684,46 @@
             window.location.reload();
         });
 
-        $('#close-skid').on('click', function() {
-            if (!confirm("Are you sure you want to change the skid?")) {
-                return; // Stop execution if user cancels
-            }
+        $(document).on('click', '#close-skid', function() {
+            const button = this;
+            showPullingConfirm({
+                title: 'Ganti Skid?',
+                message: 'Nomor skid akan diganti untuk proses pulling berikutnya.',
+                confirmText: 'Ganti Skid',
+                confirmClass: 'btn-warning',
+                onConfirm: function() {
+                    let skid = parseInt(localStorage.getItem('skid')) || 1;
+                    let skidDisplay = $('#skid-display');
 
-            let skid = parseInt(localStorage.getItem('skid')) || 1; // Default to 1 if not set
-            let skidDisplay = $('#skid-display');
+                    if (skid === 1) {
+                        skid++;
+                        localStorage.setItem('skid', skid);
+                    } else if (skid === 2) {
+                        skid--;
+                        localStorage.setItem('skid', skid);
+                    }
 
-            if (skid === 1) {
-                skid++; // Increment first
-                localStorage.setItem('skid', skid); // Store updated value
-            } else if (skid === 2) {
-                skid--; // Decrement first
-                localStorage.setItem('skid', skid); // Store updated value
-            }
-
-            skidDisplay.text(skid);
-            $(this).text(`Close Skid ${skid}`);
-            setInterval(() => {
-                $('#code').focus();
-            }, 1000);
+                    skidDisplay.text(skid);
+                    $(button).text(`Close Skid ${skid}`);
+                    setInterval(() => {
+                        $('#code').focus();
+                    }, 1000);
+                }
+            });
         });
 
         $('#hardReset').on('click', function() {
-            // Display a confirmation dialog
-            var confirmReset = confirm('Yakin akan reset? semua data akan hilang');
-
-            // If the user confirms, proceed with clearing storage and reload the page
-            if (confirmReset) {
-                clearLocalStorage();
-                deleteAllIndexedDB();
-                location.reload();
-            }
+            showPullingConfirm({
+                title: 'Reset Semua Data?',
+                message: 'Semua data scan lokal dan IndexedDB akan dihapus. Aksi ini tidak bisa dibatalkan.',
+                confirmText: 'Reset',
+                confirmClass: 'btn-danger',
+                onConfirm: function() {
+                    clearLocalStorage();
+                    deleteAllIndexedDB();
+                    location.reload();
+                }
+            });
         });
 
         $('#done').on('click', function() {
