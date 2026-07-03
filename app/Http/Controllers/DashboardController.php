@@ -78,8 +78,17 @@ class DashboardController extends Controller
         }
 
         [$from, $to] = $this->overviewRange($request);
-        $overview = $this->buildOverviewData($from, $to);
         $question = trim($validated['question']);
+
+        // Kalau user menyebut tanggal spesifik (mis. "16 Juni 2026") yang di luar periode filter,
+        // arahkan seluruh konteks ke tanggal itu supaya datanya tetap kebaca (bukan "gaada data").
+        $explicitDate = $contextBuilder->explicitQuestionDate($question);
+        if ($explicitDate !== null && ($explicitDate->lt($from) || $explicitDate->gt($to))) {
+            $from = $explicitDate->copy()->startOfDay();
+            $to = $explicitDate->copy()->startOfDay();
+        }
+
+        $overview = $this->buildOverviewData($from, $to);
         $context = $contextBuilder->build($overview, $from, $to, $question);
         $history = collect($validated['history'] ?? [])
             ->slice(-4)

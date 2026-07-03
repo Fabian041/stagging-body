@@ -819,25 +819,66 @@ class BellaContextBuilder
 
     private function resolveQuestionDate(string $question): array
     {
+        return $this->parseQuestionDate($question) ?? [Carbon::today(), 'hari ini'];
+    }
+
+    /** Tanggal spesifik yang disebut user (tertulis/angka/relatif/nama hari) — null jika tidak ada. */
+    public function explicitQuestionDate(string $question): ?Carbon
+    {
+        $parsed = $this->parseQuestionDate($question);
+
+        return $parsed === null ? null : $parsed[0];
+    }
+
+    /** Parse berbagai format tanggal dari pertanyaan → [Carbon, label] atau null. */
+    private function parseQuestionDate(string $question): ?array
+    {
         $q = Str::lower($question);
         $today = Carbon::today();
 
-        // Tanggal eksplisit YYYY-MM-DD
-        if (preg_match('/\b(\d{4}-\d{2}-\d{2})\b/', $question, $match)) {
-            try {
-                $date = Carbon::parse($match[1])->startOfDay();
+        // ISO: YYYY-MM-DD
+        if (preg_match('/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/', $question, $m)) {
+            $d = $this->safeDate((int) $m[1], (int) $m[2], (int) $m[3]);
+            if ($d) {
+                return [$d, $d->toDateString()];
+            }
+        }
 
-                return [$date, $date->toDateString()];
-            } catch (\Throwable $e) {
-                // lanjut ke pola lain
+        // Angka DD-MM-YYYY / DD/MM/YY(YY) / DD.MM.YYYY (day-first, konvensi Indonesia)
+        if (preg_match('#\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})\b#', $q, $m)) {
+            $year = (int) $m[3] < 100 ? (int) $m[3] + 2000 : (int) $m[3];
+            $d = $this->safeDate($year, (int) $m[2], (int) $m[1]);
+            if ($d) {
+                return [$d, $d->toDateString()];
+            }
+        }
+
+        // "DD <bulan> [YYYY]" — bulan Indonesia/Inggris + singkatan
+        $months = [
+            'januari' => 1, 'jan' => 1, 'january' => 1,
+            'februari' => 2, 'pebruari' => 2, 'feb' => 2, 'february' => 2,
+            'maret' => 3, 'mar' => 3, 'march' => 3,
+            'april' => 4, 'apr' => 4,
+            'mei' => 5, 'may' => 5,
+            'juni' => 6, 'jun' => 6, 'june' => 6,
+            'juli' => 7, 'jul' => 7, 'july' => 7,
+            'agustus' => 8, 'agu' => 8, 'ags' => 8, 'agt' => 8, 'aug' => 8, 'august' => 8,
+            'september' => 9, 'sep' => 9, 'sept' => 9,
+            'oktober' => 10, 'okt' => 10, 'oct' => 10, 'october' => 10,
+            'november' => 11, 'nov' => 11, 'nop' => 11,
+            'desember' => 12, 'des' => 12, 'dec' => 12, 'december' => 12,
+        ];
+        if (preg_match('/\b(\d{1,2})\s+([a-z]{3,12})\.?(?:\s+(\d{4}))?\b/', $q, $m) && isset($months[$m[2]])) {
+            $year = isset($m[3]) && $m[3] !== '' ? (int) $m[3] : (int) $today->year;
+            $d = $this->safeDate($year, $months[$m[2]], (int) $m[1]);
+            if ($d) {
+                return [$d, $d->toDateString()];
             }
         }
 
         // "N hari (yang) lalu/sebelumnya"
         if (preg_match('/(\d{1,3})\s*hari\s*(?:yang\s*)?(?:lalu|sebelumnya)/', $q, $m)) {
-            $date = $today->copy()->subDays((int) $m[1]);
-
-            return [$date, $m[1].' hari lalu'];
+            return [$today->copy()->subDays((int) $m[1]), $m[1].' hari lalu'];
         }
 
         if (str_contains($q, 'kemarin lusa')) {
@@ -855,11 +896,9 @@ class BellaContextBuilder
 
         // "tanggal DD" pada bulan berjalan
         if (preg_match('/tanggal\s*(\d{1,2})\b/', $q, $m)) {
-            $day = (int) $m[1];
-            if ($day >= 1 && $day <= 31) {
-                $date = $today->copy()->day(min($day, $today->daysInMonth))->startOfDay();
-
-                return [$date, $date->toDateString()];
+            $d = $this->safeDate((int) $today->year, (int) $today->month, (int) $m[1]);
+            if ($d) {
+                return [$d, $d->toDateString()];
             }
         }
 
@@ -875,13 +914,33 @@ class BellaContextBuilder
         ];
         foreach ($days as $name => $dow) {
             if (preg_match('/\b'.$name.'\b/', $q)) {
-                $date = $today->dayOfWeek === $dow ? $today->copy() : $today->copy()->previous($dow);
+                $d = $today->dayOfWeek === $dow ? $today->copy() : $today->copy()->previous($dow);
 
-                return [$date, $name];
+                return [$d, $name];
             }
         }
 
-        return [$today, 'hari ini'];
+        return null;
+    }
+
+    /** Bentuk Carbon valid (tolak overflow seperti 31 Feb / bulan > 12) atau null. */
+    private function safeDate(int $year, int $month, int $day): ?Carbon
+    {
+        if ($month < 1 || $month > 12 || $day < 1 || $day > 31 || $year < 2000 || $year > 2100) {
+            return null;
+        }
+
+        try {
+            $d = Carbon::create($year, $month, $day, 0, 0, 0);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (! $d instanceof Carbon || $d->day !== $day || $d->month !== $month || $d->year !== $year) {
+            return null;
+        }
+
+        return $d->startOfDay();
     }
 
     private function preparationDeadlineForLoadingList($deliveryDate, $master): ?Carbon
