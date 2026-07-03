@@ -80,10 +80,11 @@ class DashboardController extends Controller
         [$from, $to] = $this->overviewRange($request);
         $question = trim($validated['question']);
 
-        // Kalau user menyebut tanggal spesifik (mis. "16 Juni 2026") yang di luar periode filter,
-        // arahkan seluruh konteks ke tanggal itu supaya datanya tetap kebaca (bukan "gaada data").
+        // Kalau user menyebut tanggal spesifik (mis. "1 Juli 2026"), fokuskan SELURUH konteks ke tanggal itu —
+        // agar "berapa X di tanggal Y" terbaca dari agregat 1 hari, bukan blob periode 7 hari (yang bikin
+        // model bilang "gaada data" walau datanya ada di dalam periode).
         $explicitDate = $contextBuilder->explicitQuestionDate($question);
-        if ($explicitDate !== null && ($explicitDate->lt($from) || $explicitDate->gt($to))) {
+        if ($explicitDate !== null) {
             $from = $explicitDate->copy()->startOfDay();
             $to = $explicitDate->copy()->startOfDay();
         }

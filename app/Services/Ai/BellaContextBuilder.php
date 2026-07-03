@@ -893,6 +893,9 @@ class BellaContextBuilder
         if (str_contains($q, 'besok') || str_contains($q, 'esok')) {
             return [$today->copy()->addDay(), 'besok'];
         }
+        if (str_contains($q, 'hari ini') || str_contains($q, 'today') || str_contains($q, 'sekarang')) {
+            return [$today->copy(), 'hari ini'];
+        }
 
         // "tanggal DD" pada bulan berjalan
         if (preg_match('/tanggal\s*(\d{1,2})\b/', $q, $m)) {
