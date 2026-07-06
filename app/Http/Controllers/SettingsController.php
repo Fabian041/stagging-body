@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
@@ -42,11 +44,15 @@ class SettingsController extends Controller
 
     public function index(Request $request)
     {
+        $canManageDeviceSessions = $request->user()->can('manage-device-sessions');
+
         return view('pages.settings', [
             'preferences' => $this->preferences($request),
             'landingPages' => self::LANDING_PAGES,
             'fabColors' => self::FAB_COLORS,
             'canManageSystemSettings' => $request->user()->isSuperAdmin(),
+            'canManageDeviceSessions' => $canManageDeviceSessions,
+            'deviceSessions' => $canManageDeviceSessions ? $this->deviceSessions() : collect(),
         ]);
     }
 
@@ -117,8 +123,311 @@ class SettingsController extends Controller
         return back()->with('settings_success', 'Preferences berhasil disimpan.');
     }
 
+    public function deviceHeartbeat(Request $request)
+    {
+        $validated = $request->validate([
+            'device_id' => ['required', 'string', 'max:100'],
+            'current_page' => ['nullable', 'string', 'max:255'],
+            'timezone' => ['nullable', 'string', 'max:80'],
+            'screen_size' => ['nullable', 'string', 'max:40'],
+            'language' => ['nullable', 'string', 'max:40'],
+            'online' => ['nullable', 'boolean'],
+        ]);
+
+        $now = now();
+        $existing = DB::table('device_sessions')
+            ->where('device_id', $validated['device_id'])
+            ->first();
+        $pageChanged = $existing && ($existing->current_page !== ($validated['current_page'] ?? null));
+
+        $payload = [
+            'user_id' => $request->user()->id,
+            'current_page' => $validated['current_page'] ?? null,
+            'timezone' => $validated['timezone'] ?? null,
+            'ip_address' => $request->ip(),
+            'screen_size' => $validated['screen_size'] ?? null,
+            'language' => $validated['language'] ?? null,
+            'is_online_reported' => $request->boolean('online', true),
+            'user_agent' => substr((string) $request->userAgent(), 0, 1000),
+            'last_seen_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if ($existing) {
+            if ((int) $existing->user_id !== (int) $request->user()->id) {
+                $payload['reset_requested_at'] = null;
+                $payload['reset_requested_by'] = null;
+                $payload['reset_applied_at'] = null;
+                $this->recordDeviceEvent($existing->id, $request->user()->id, 'user_changed', 'Device dipakai oleh user berbeda');
+            }
+
+            DB::table('device_sessions')
+                ->where('device_id', $validated['device_id'])
+                ->update($payload + [
+                    'heartbeat_count' => DB::raw('heartbeat_count + 1'),
+                ]);
+
+            if ($pageChanged) {
+                $this->recordDeviceEvent($existing->id, $request->user()->id, 'page_changed', 'Pindah ke '.$payload['current_page']);
+            }
+        } else {
+            $deviceId = DB::table('device_sessions')->insertGetId($payload + [
+                'device_id' => $validated['device_id'],
+                'heartbeat_count' => 1,
+                'created_at' => $now,
+            ]);
+            $this->recordDeviceEvent($deviceId, $request->user()->id, 'registered', 'Device terdaftar');
+        }
+
+        $device = DB::table('device_sessions')
+            ->where('device_id', $validated['device_id'])
+            ->first(['reset_requested_at', 'reset_applied_at']);
+
+        return response()->json([
+            'reset_required' => $this->resetPending($device),
+        ]);
+    }
+
+    public function deviceResetApplied(Request $request)
+    {
+        $validated = $request->validate([
+            'device_id' => ['required', 'string', 'max:100'],
+        ]);
+
+        $session = DB::table('device_sessions')
+            ->where('device_id', $validated['device_id'])
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        DB::table('device_sessions')
+            ->where('device_id', $validated['device_id'])
+            ->where('user_id', $request->user()->id)
+            ->update([
+                'reset_applied_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if ($session) {
+            $this->recordDeviceEvent($session->id, $request->user()->id, 'reset_applied', 'Reset local data diterapkan');
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function reportDeviceError(Request $request)
+    {
+        $validated = $request->validate([
+            'device_id' => ['required', 'string', 'max:100'],
+            'message' => ['required', 'string', 'max:500'],
+            'source' => ['nullable', 'string', 'max:255'],
+            'line' => ['nullable', 'integer'],
+            'column' => ['nullable', 'integer'],
+        ]);
+
+        $session = DB::table('device_sessions')
+            ->where('device_id', $validated['device_id'])
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if ($session) {
+            DB::table('device_sessions')
+                ->where('id', $session->id)
+                ->update([
+                    'last_error_message' => $validated['message'],
+                    'last_error_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            $this->recordDeviceEvent($session->id, $request->user()->id, 'client_error', $validated['message'], [
+                'source' => $validated['source'] ?? null,
+                'line' => $validated['line'] ?? null,
+                'column' => $validated['column'] ?? null,
+            ]);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function updateDeviceLabel(Request $request, int $device)
+    {
+        $validated = $request->validate([
+            'device_label' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $label = trim($validated['device_label'] ?? '');
+        $session = DB::table('device_sessions')->where('id', $device)->first();
+        abort_if(! $session, 404);
+
+        DB::table('device_sessions')
+            ->where('id', $device)
+            ->update([
+                'device_label' => $label !== '' ? $label : null,
+                'updated_at' => now(),
+            ]);
+
+        $this->recordDeviceEvent($device, $request->user()->id, 'label_updated', $label !== '' ? 'Label device diubah menjadi '.$label : 'Label device dikosongkan');
+
+        return back()->with('settings_success', 'Label device berhasil disimpan.');
+    }
+
+    public function resetDevice(Request $request, int $device)
+    {
+        $session = DB::table('device_sessions')->where('id', $device)->first();
+        abort_if(! $session, 404);
+
+        DB::table('device_sessions')
+            ->where('id', $device)
+            ->update([
+                'reset_requested_at' => now(),
+                'reset_requested_by' => $request->user()->id,
+                'reset_applied_at' => null,
+                'reset_count' => DB::raw('reset_count + 1'),
+                'updated_at' => now(),
+            ]);
+
+        $this->recordDeviceEvent($device, $request->user()->id, 'reset_requested', 'Reset local data diminta');
+
+        return back()->with('settings_success', 'Reset device dikirim. Device akan clear data lokal saat heartbeat berikutnya.');
+    }
+
+    public function deleteDevice(int $device)
+    {
+        $session = DB::table('device_sessions')->where('id', $device)->first();
+        abort_if(! $session, 404);
+
+        DB::table('device_sessions')->where('id', $device)->delete();
+
+        return back()->with('settings_success', 'Device berhasil dihapus dari monitoring.');
+    }
+
+    public function deviceMonitor(Request $request)
+    {
+        $deviceSessions = $this->deviceSessions();
+        $html = view('pages.partials.device-monitoring', [
+            'deviceSessions' => $deviceSessions,
+        ])->render();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'html' => $html,
+                'pending_count' => $deviceSessions->where('reset_pending', true)->count(),
+                'updated_at' => now()->format('H:i:s'),
+            ]);
+        }
+
+        return $html;
+    }
+
     private function preferences(Request $request): array
     {
         return array_merge(self::DEFAULTS, $request->user()->preferences ?? []);
+    }
+
+    private function deviceSessions()
+    {
+        $devices = DB::table('device_sessions')
+            ->join('users', 'users.id', '=', 'device_sessions.user_id')
+            ->leftJoin('users as reset_users', 'reset_users.id', '=', 'device_sessions.reset_requested_by')
+            ->where(function ($query) {
+                $query->where('device_sessions.last_seen_at', '>=', now()->subDay())
+                    ->orWhere(function ($pending) {
+                        $pending->whereNotNull('device_sessions.reset_requested_at')
+                            ->where(function ($reset) {
+                                $reset->whereNull('device_sessions.reset_applied_at')
+                                    ->orWhereColumn('device_sessions.reset_requested_at', '>', 'device_sessions.reset_applied_at');
+                            });
+                    });
+            })
+            ->select([
+                'device_sessions.*',
+                'users.name as user_name',
+                'users.email as user_email',
+                'users.role as user_role',
+                'reset_users.name as reset_by_name',
+            ])
+            ->orderByDesc('device_sessions.last_seen_at')
+            ->limit(80)
+            ->get();
+
+        $events = DB::table('device_session_events')
+            ->whereIn('device_session_id', $devices->pluck('id'))
+            ->orderByDesc('created_at')
+            ->limit(400)
+            ->get()
+            ->groupBy('device_session_id');
+
+        return $devices
+            ->map(function ($device) {
+                $lastSeen = $device->last_seen_at ? Carbon::parse($device->last_seen_at) : null;
+                $resetRequested = $device->reset_requested_at ? Carbon::parse($device->reset_requested_at) : null;
+                $resetApplied = $device->reset_applied_at ? Carbon::parse($device->reset_applied_at) : null;
+                $lastError = $device->last_error_at ? Carbon::parse($device->last_error_at) : null;
+
+                $device->is_online = $lastSeen && $lastSeen->gt(now()->subMinutes(2));
+                $device->last_seen_label = $lastSeen ? $lastSeen->diffForHumans() : '-';
+                $device->last_seen_at_label = $lastSeen ? $lastSeen->format('d M Y H:i:s') : '-';
+                $device->last_error_label = $lastError ? $lastError->diffForHumans() : null;
+                $device->reset_pending = $resetRequested && (! $resetApplied || $resetRequested->gt($resetApplied));
+                $device->device_short = substr($device->device_id, 0, 8);
+                $device->browser_label = $this->browserLabel($device->user_agent);
+                $device->display_label = $device->device_label ?: 'Device #'.$device->device_short;
+
+                return $device;
+            })
+            ->map(function ($device) use ($events) {
+                $device->events = ($events->get($device->id) ?? collect())
+                    ->take(6)
+                    ->map(function ($event) {
+                        $event->time_label = Carbon::parse($event->created_at)->diffForHumans();
+                        return $event;
+                    });
+
+                return $device;
+            });
+    }
+
+    private function resetPending($device): bool
+    {
+        if (! $device || ! $device->reset_requested_at) {
+            return false;
+        }
+
+        if (! $device->reset_applied_at) {
+            return true;
+        }
+
+        return Carbon::parse($device->reset_requested_at)->gt(Carbon::parse($device->reset_applied_at));
+    }
+
+    private function recordDeviceEvent(int $deviceId, ?int $userId, string $type, string $message, array $meta = []): void
+    {
+        DB::table('device_session_events')->insert([
+            'device_session_id' => $deviceId,
+            'user_id' => $userId,
+            'type' => $type,
+            'message' => substr($message, 0, 255),
+            'meta' => $meta ? json_encode($meta) : null,
+            'created_at' => now(),
+        ]);
+    }
+
+    private function browserLabel(?string $userAgent): string
+    {
+        $ua = (string) $userAgent;
+
+        if (stripos($ua, 'Edg/') !== false) {
+            return 'Microsoft Edge';
+        }
+        if (stripos($ua, 'Chrome/') !== false) {
+            return 'Chrome';
+        }
+        if (stripos($ua, 'Firefox/') !== false) {
+            return 'Firefox';
+        }
+        if (stripos($ua, 'Safari/') !== false) {
+            return 'Safari';
+        }
+
+        return 'Unknown browser';
     }
 }

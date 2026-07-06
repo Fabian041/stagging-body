@@ -763,6 +763,7 @@
     <script src="{{ asset('assets/modules/izitoast/js/iziToast.min.js') }}"></script>
     <script src="{{ asset('assets/js/stisla.js') }}"></script>
 
+    @include('layouts.partials.device-heartbeat')
     @yield('custom-script')
 
     <script src="{{ asset('assets/js/scripts.js') }}"></script>

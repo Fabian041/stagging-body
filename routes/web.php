@@ -143,6 +143,21 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::get('/settings', [SettingsController::class, 'index'])->middleware('can:access-settings')->name('settings.index');
     Route::put('/settings/preferences', [SettingsController::class, 'update'])->middleware('can:access-settings')->name('settings.update');
+    Route::get('/settings/devices/monitor', [SettingsController::class, 'deviceMonitor'])
+        ->middleware('can:manage-device-sessions')
+        ->name('settings.devices.monitor');
+    Route::post('/settings/devices/heartbeat', [SettingsController::class, 'deviceHeartbeat'])->name('settings.devices.heartbeat');
+    Route::post('/settings/devices/reset-applied', [SettingsController::class, 'deviceResetApplied'])->name('settings.devices.reset-applied');
+    Route::post('/settings/devices/error', [SettingsController::class, 'reportDeviceError'])->name('settings.devices.error');
+    Route::post('/settings/devices/{device}/label', [SettingsController::class, 'updateDeviceLabel'])
+        ->middleware('can:manage-device-sessions')
+        ->name('settings.devices.label');
+    Route::post('/settings/devices/{device}/reset', [SettingsController::class, 'resetDevice'])
+        ->middleware('can:manage-device-sessions')
+        ->name('settings.devices.reset');
+    Route::delete('/settings/devices/{device}', [SettingsController::class, 'deleteDevice'])
+        ->middleware('can:manage-device-sessions')
+        ->name('settings.devices.delete');
     Route::prefix('manage-users')->name('manage-users.')->middleware('can:manage-users')->group(function () {
         Route::get('/', [ManageUserController::class, 'index'])->name('index');
         Route::post('/', [ManageUserController::class, 'store'])->name('store');

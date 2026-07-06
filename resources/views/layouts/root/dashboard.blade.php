@@ -712,6 +712,7 @@
     <script src={{ asset('assets/js/scripts.js') }}></script>
     <script src={{ asset('assets/js/custom.js') }}></script>
 
+    @include('layouts.partials.device-heartbeat')
     @include('layouts.partials.ui-polish')
     @yield('custom-script')
     @stack('scripts')

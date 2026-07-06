@@ -314,6 +314,121 @@
         color: #1A2340 !important;
     }
 
+    .pulling-history-accordion {
+        border: 1px solid var(--border, #DDE3EF);
+        border-radius: 8px;
+        background: #f8fafc;
+        overflow: hidden;
+    }
+
+    .pulling-history-toggle {
+        width: 100%;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: .7rem .85rem;
+        border: 0;
+        background: transparent;
+        color: var(--text, #1A2340);
+        font: inherit;
+        font-weight: 800;
+        text-align: left;
+    }
+
+    .pulling-history-toggle:focus,
+    .pulling-history-toggle:active {
+        outline: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .pulling-history-accordion.is-open {
+        border-color: transparent;
+    }
+
+    .pulling-history-toggle__main,
+    .pulling-history-toggle__meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .pulling-history-toggle__main i {
+        color: var(--primary, #0070B7);
+    }
+
+    .pulling-history-toggle__meta i {
+        color: var(--text-muted, #6B7A99);
+        transition: transform .16s ease;
+    }
+
+    .pulling-history-accordion.is-open .pulling-history-toggle__meta i {
+        transform: rotate(180deg);
+    }
+
+    .pulling-history-body {
+        border-top: 0;
+        padding: .75rem;
+        background: #fff;
+    }
+
+    .pulling-history-list {
+        display: grid;
+        gap: 8px;
+        max-height: 220px;
+        overflow: auto;
+    }
+
+    .pulling-history-item {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr);
+        gap: 9px;
+        align-items: center;
+        padding: .55rem .65rem;
+        border: 0;
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+
+    .pulling-history-item.is-success {
+        background: #f0fdf4;
+    }
+
+    .pulling-history-icon {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        color: var(--primary, #0070B7);
+        background: var(--primary-light, #E8F4FD);
+        font-size: 13px;
+    }
+
+    .pulling-history-item.is-success .pulling-history-icon {
+        color: var(--success, #16A34A);
+        background: var(--success-light, #DCFCE7);
+    }
+
+    .pulling-history-main {
+        display: block;
+        color: var(--text, #1A2340);
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    .pulling-history-meta {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-muted, #6B7A99);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
     .pulling-skid-bar {
         display: flex;
         align-items: center;
@@ -1004,6 +1119,31 @@
                             <span id="pullingStatus"></span>
                         </span>
                     </div>
+
+                    <div class="pulling-history-accordion" id="scanHistoryAccordion">
+                        <button type="button" class="pulling-history-toggle" id="scanHistoryToggle"
+                            aria-expanded="false" aria-controls="scanHistoryBody">
+                            <span class="pulling-history-toggle__main">
+                                <i class="fas fa-history"></i>
+                                <span>Scan History</span>
+                            </span>
+                            <span class="pulling-history-toggle__meta">
+                                <span class="pulling-count-badge" id="scanHistoryCount">0</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </span>
+                        </button>
+                        <div class="pulling-history-body" id="scanHistoryBody" hidden>
+                            <div class="pulling-history-list" id="scanHistoryList">
+                                <div class="pulling-history-item">
+                                    <span class="pulling-history-icon"><i class="fas fa-link"></i></span>
+                                    <span class="pulling-history-copy">
+                                        <span class="pulling-history-main">Belum ada pasangan kanban</span>
+                                        <span class="pulling-history-meta">Scan customer lalu internal kanban</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1537,7 +1677,7 @@
                         $('#chute-display').text('-');
                         $('#backno-display').text('-');
                         localStorage.removeItem('customerPart');
-                        if (typeof pullingQuantity === 'function') pullingQuantity();
+                        if (typeof incrementPullingQuantity === 'function') incrementPullingQuantity(1);
                         db2.close();
                     };
                 };
@@ -1691,6 +1831,72 @@
         $('#tmmin-indicator')
             .addClass('bg-danger');
     }
+
+    const SCAN_HISTORY_KEY = 'pulling_scan_pair_history';
+
+    function loadScanHistory() {
+        try {
+            const history = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
+            return Array.isArray(history) ? history.slice(0, 6) : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    const scanHistoryState = loadScanHistory();
+
+    function renderScanHistory() {
+        const list = document.getElementById('scanHistoryList');
+        const count = document.getElementById('scanHistoryCount');
+        if (!list || !count) return;
+
+        count.textContent = scanHistoryState.length;
+        list.innerHTML = '';
+
+        if (!scanHistoryState.length) {
+            list.innerHTML =
+                '<div class="pulling-history-item"><span class="pulling-history-icon"><i class="fas fa-link"></i></span><span class="pulling-history-copy"><span class="pulling-history-main">Belum ada pasangan kanban</span><span class="pulling-history-meta">Scan customer lalu internal kanban</span></span></div>';
+            return;
+        }
+
+        scanHistoryState.forEach(function(item) {
+            const row = document.createElement('div');
+            row.className = 'pulling-history-item is-success';
+            row.innerHTML =
+                '<span class="pulling-history-icon"><i class="fas fa-link"></i></span><span class="pulling-history-copy"><span class="pulling-history-main"></span><span class="pulling-history-meta"></span></span>';
+            row.querySelector('.pulling-history-main').textContent = 'Kanban Customer: ' + item.customer;
+            row.querySelector('.pulling-history-meta').textContent = 'Kanban Internal: ' + item.internal +
+                ' · Serial: ' + item.serial;
+            list.appendChild(row);
+        });
+    }
+
+    function pushScanPairHistory(customer, internal, serial) {
+        scanHistoryState.unshift({
+            customer: String(customer || '-').trim() || '-',
+            internal: String(internal || '-').trim() || '-',
+            serial: String(serial || '-').trim() || '-'
+        });
+        scanHistoryState.splice(6);
+        localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(scanHistoryState));
+        renderScanHistory();
+    }
+
+    renderScanHistory();
+
+    $(document).on('click', '#scanHistoryToggle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const wrap = document.getElementById('scanHistoryAccordion');
+        const body = document.getElementById('scanHistoryBody');
+        if (!wrap || !body) return;
+
+        const open = body.hidden;
+        body.hidden = !open;
+        wrap.classList.toggle('is-open', open);
+        this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
 
     let notifTimer = null;
 
@@ -1970,6 +2176,37 @@
         }
     }
 
+    function setPullingQuantityDisplay(totalActual, totalTarget) {
+        localStorage.setItem('pulling_total_actual', String(totalActual));
+        localStorage.setItem('pulling_total_target', String(totalTarget));
+        $('#pullingQty').text(`${totalActual}/${totalTarget}`);
+
+        if (totalActual == 0) {
+            $('#pullingStatusContainer').addClass('bg-danger');
+            $('#pullingStatus').text(' - Ayo Pulling!')
+        } else if (totalActual > 0 && totalActual < totalTarget) {
+            $('#pullingStatusContainer').removeClass('bg-danger');
+            $('#pullingStatusContainer').addClass('bg-warning');
+            $('#pullingStatus').text(' - Belum Lengkap!')
+        } else {
+            $('#pullingStatusContainer').removeClass('bg-warning');
+            $('#pullingStatusContainer').addClass('bg-success');
+            $('#pullingStatus').text(' - Pulling Selesai!')
+        }
+    }
+
+    function incrementPullingQuantity(deltaActual) {
+        const actual = parseInt(localStorage.getItem('pulling_total_actual') || '', 10);
+        const target = parseInt(localStorage.getItem('pulling_total_target') || '', 10);
+
+        if (Number.isNaN(actual) || Number.isNaN(target)) {
+            pullingQuantity();
+            return;
+        }
+
+        setPullingQuantityDisplay(actual + deltaActual, target);
+    }
+
     function pullingQuantity() {
         let pds = localStorage.getItem('pds_local');
         // initialize database
@@ -1996,22 +2233,7 @@
 
                     cursor.continue();
                 } else {
-                    // display the total and target
-                    $('#pullingQty').text(`${totalActual}/${totalTarget}`);
-
-                    // check qty for pulling statuss
-                    if (totalActual == 0) {
-                        $('#pullingStatusContainer').addClass('bg-danger');
-                        $('#pullingStatus').text(' - Ayo Pulling!')
-                    } else if (totalActual > 0 && totalActual < totalTarget) {
-                        $('#pullingStatusContainer').removeClass('bg-danger');
-                        $('#pullingStatusContainer').addClass('bg-warning');
-                        $('#pullingStatus').text(' - Belum Lengkap!')
-                    } else {
-                        $('#pullingStatusContainer').removeClass('bg-warning');
-                        $('#pullingStatusContainer').addClass('bg-success');
-                        $('#pullingStatus').text(' - Pulling Selesai!')
-                    }
+                    setPullingQuantityDisplay(totalActual, totalTarget);
                 }
             }
 
@@ -3010,8 +3232,9 @@
                         $('#backno-display').text('-');
                         $('#indicator').removeClass('bg-danger bg-warning').addClass('bg-success');
                         resetIndicator();
-                        pullingQuantity();
+                        incrementPullingQuantity(1);
                         okSound();
+                        pushScanPairHistory(customer, internal.trimEnd(), seri);
                         localStorage.removeItem('customerPart');
                     };
 
@@ -3691,14 +3914,14 @@
 
                 // Handle Suzuki special cases — KHUSUS customer Suzuki.
                 // (Customer lain dengan char_length sama jangan ikut dipotong "000"-nya.)
-                const isSuzuki = (localStorage.getItem('customer') || '').toUpperCase().includes('SUZUKI');
-                if (isSuzuki) {
-                    if (charLength === 17 && processed.substr(10, 3) === '000') {
-                        processed = processed.slice(0, -3);
-                    } else if (charLength === 15 && processed.slice(-3) === '000') {
-                        processed = processed.slice(0, -3);
-                    }
-                }
+                // const isSuzuki = (localStorage.getItem('customer') || '').toUpperCase().includes('SUZUKI');
+                // if (isSuzuki) {
+                //     if (charLength === 17 && processed.substr(10, 3) === '000') {
+                //         processed = processed.slice(0, -3);
+                //     } else if (charLength === 15 && processed.slice(-3) === '000') {
+                //         processed = processed.slice(0, -3);
+                //     }
+                // }
 
                 return processed;
             }
@@ -3740,37 +3963,31 @@
                     try {
                         const transaction = database.transaction(['loadingList'], 'readonly');
                         const objectStore = transaction.objectStore('loadingList');
-                        let found = false;
+                        const getRequest = objectStore.get(processedCode);
 
-                        objectStore.openCursor().onsuccess = (event) => {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                // console.log('Checking record:', record.customer, 'against',
-                                //     processedCode);
-                                if (processedCode === record.customer) {
-                                    found = true;
-                                    if (record.seri.length >= record.total_qty) {
-                                        this.showError('Part number sudah complete!', () => {
-                                            if (typeof fullfilledSound === 'function')
-                                                fullfilledSound();
-                                        });
-                                        this.setIndicator('danger');
-                                    } else {
-                                        this.updateKanbanDisplay(record, processedCode,
-                                            originalCode);
-                                    }
-                                }
-                                cursor.continue();
-                            } else if (!found) {
+                        getRequest.onsuccess = (event) => {
+                            const record = event.target.result;
+                            if (!record) {
                                 this.showError('Kanban tidak dikenali / sesuai!', () => {
                                     if (typeof unknownSound === 'function') unknownSound();
                                 });
+                                return;
                             }
+
+                            if (record.seri.length >= record.total_qty) {
+                                this.showError('Part number sudah complete!', () => {
+                                    if (typeof fullfilledSound === 'function')
+                                        fullfilledSound();
+                                });
+                                this.setIndicator('danger');
+                                return;
+                            }
+
+                            this.updateKanbanDisplay(record, processedCode, originalCode);
                         };
 
-                        objectStore.openCursor().onerror = (event) => {
-                            console.error('Cursor error:', event.target.error);
+                        getRequest.onerror = (event) => {
+                            console.error('Get request error:', event.target.error);
                             this.showError('Error membaca database');
                         };
 
@@ -3957,35 +4174,32 @@
                     try {
                         const transaction = database.transaction(['loadingList'], 'readonly');
                         const objectStore = transaction.objectStore('loadingList');
-                        let found = false;
+                        const getRequest = objectStore.get(code);
 
-                        objectStore.openCursor().onsuccess = (event) => {
-                            const cursor = event.target.result;
-                            if (cursor) {
-                                const record = cursor.value;
-                                if (code === record.customer) {
-                                    found = true;
-                                    if (record.seri.length >= record.total_qty) {
-                                        this.showError('Part number sudah complete!', () => {
-                                            if (typeof fullfilledSound === 'function')
-                                                fullfilledSound();
-                                        });
-                                        this.setIndicator('danger');
-                                    } else {
-                                        this.updateKanbanDisplay(record, code);
-                                    }
-                                }
-                                cursor.continue();
-                            } else if (!found) {
+                        getRequest.onsuccess = (event) => {
+                            const record = event.target.result;
+                            if (!record) {
                                 this.showError('Kanban tidak sesuai!', () => {
                                     if (typeof notMatchSound === 'function')
                                         notMatchSound();
                                 });
+                                return;
                             }
+
+                            if (record.seri.length >= record.total_qty) {
+                                this.showError('Part number sudah complete!', () => {
+                                    if (typeof fullfilledSound === 'function')
+                                        fullfilledSound();
+                                });
+                                this.setIndicator('danger');
+                                return;
+                            }
+
+                            this.updateKanbanDisplay(record, code);
                         };
 
-                        objectStore.openCursor().onerror = (event) => {
-                            // console.error('Cursor error:', event.target.error);
+                        getRequest.onerror = (event) => {
+                            // console.error('Get request error:', event.target.error);
                             this.showError('Error membaca database');
                         };
 

@@ -67,6 +67,274 @@
         font-weight: 750;
     }
 
+    .settings-section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .settings-section-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 850;
+    }
+
+    .settings-section-copy {
+        margin-top: 4px;
+        color: var(--text-muted);
+        font-size: 12.5px;
+        font-weight: 650;
+    }
+
+    .settings-device-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+    }
+
+    .settings-device-row {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 238px;
+        padding: 14px;
+        border: 1px solid #edf1f7;
+        border-radius: 8px;
+        background: #fbfdff;
+    }
+
+    .settings-device-user {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .settings-device-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .settings-device-name {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 850;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .settings-device-meta,
+    .settings-device-page,
+    .settings-device-time {
+        color: var(--text-muted);
+        font-size: 11.5px;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+
+    .settings-device-page {
+        color: #51617a;
+    }
+
+    .settings-device-main {
+        display: grid;
+        gap: 10px;
+    }
+
+    .settings-device-stat {
+        min-width: 0;
+    }
+
+    .settings-device-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: auto;
+    }
+
+    .settings-device-actions > .settings-btn {
+        grid-column: 1 / -1;
+    }
+
+    .settings-device-actions form {
+        min-width: 0;
+    }
+
+    .settings-device-actions .settings-btn {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .settings-device-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 850;
+    }
+
+    .settings-device-status i {
+        font-size: 7px;
+    }
+
+    .settings-device-status.is-online {
+        background: var(--success-light);
+        color: #166534;
+    }
+
+    .settings-device-status.is-pending {
+        margin-top: 6px;
+        background: var(--warning-light);
+        color: #92400e;
+    }
+
+    .settings-device-label-form {
+        display: flex;
+        gap: 7px;
+        margin-top: 9px;
+    }
+
+    .settings-device-label-input {
+        min-width: 0;
+        flex: 1;
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 0 10px;
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        outline: none;
+    }
+
+    .settings-icon-btn {
+        width: 34px;
+        height: 34px;
+        border: 0;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .settings-modal-card.is-device {
+        width: min(980px, 100%);
+        max-height: calc(100vh - 34px);
+        overflow: auto;
+    }
+
+    .settings-device-modal-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .settings-device-modal-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .settings-health-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 9px;
+        margin-top: 11px;
+    }
+
+    .settings-health-card {
+        padding: 10px;
+        border: 1px solid #edf1f7;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .settings-health-label {
+        color: var(--text-muted);
+        font-size: 10.5px;
+        font-weight: 850;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .settings-health-value {
+        margin-top: 4px;
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+
+    .settings-timeline {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .settings-timeline-title {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 850;
+    }
+
+    .settings-timeline-item {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+    }
+
+    .settings-timeline-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary-light);
+        color: var(--primary);
+        font-size: 10px;
+    }
+
+    .settings-timeline-message {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+
+    .settings-timeline-time {
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .settings-empty {
+        padding: 18px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 700;
+        text-align: center;
+    }
+
     .settings-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -222,6 +490,21 @@
     .settings-btn.is-danger {
         background: var(--danger);
         color: #fff;
+    }
+
+    .settings-btn.is-danger-outline {
+        border: 1px solid rgba(220, 38, 38, .35);
+        background: #fff;
+        color: var(--danger);
+    }
+
+    .settings-btn.is-danger-outline:hover {
+        background: rgba(220, 38, 38, .08);
+    }
+
+    .settings-btn:disabled {
+        cursor: not-allowed;
+        opacity: .58;
     }
 
     .settings-modal {
@@ -467,6 +750,18 @@
         box-shadow: 0 0 0 3px rgba(15, 23, 42, .12), 0 6px 14px rgba(15, 23, 42, .18);
     }
 
+    @media (min-width: 1280px) {
+        .settings-device-list {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (min-width: 1680px) {
+        .settings-device-list {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+    }
+
     @media (max-width: 768px) {
         .settings-head {
             align-items: flex-start;
@@ -480,6 +775,18 @@
 
         .settings-preview {
             grid-template-columns: 1fr;
+        }
+
+        .settings-section-head {
+            flex-direction: column;
+        }
+
+        .settings-health-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .settings-device-row {
+            align-items: stretch;
         }
     }
 </style>
@@ -701,7 +1008,43 @@
             </div>
         </form>
     </section>
+
+    @if ($canManageDeviceSessions)
+        @include('pages.partials.device-monitoring', ['deviceSessions' => $deviceSessions])
+    @endif
 </div>
+
+@if ($canManageDeviceSessions)
+    <div class="settings-modal" id="settingsDeviceResetModal" aria-hidden="true">
+        <div class="settings-modal-backdrop" data-device-reset-close></div>
+        <div class="settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsDeviceResetTitle">
+            <div class="settings-modal-icon"><i class="fas fa-broom"></i></div>
+            <h2 class="settings-modal-title" id="settingsDeviceResetTitle">Reset device?</h2>
+            <div class="settings-modal-copy">Device akan clear data lokal saat heartbeat berikutnya. Gunakan untuk device yang cache atau data lokalnya bermasalah.</div>
+            <div class="settings-modal-actions">
+                <button type="button" class="settings-btn is-muted" data-device-reset-close>Batal</button>
+                <button type="button" class="settings-btn is-danger" id="settingsDeviceResetConfirm">
+                    <i class="fas fa-broom"></i> Reset Device
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-modal" id="settingsDeviceDeleteModal" aria-hidden="true">
+        <div class="settings-modal-backdrop" data-device-delete-close></div>
+        <div class="settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsDeviceDeleteTitle">
+            <div class="settings-modal-icon"><i class="fas fa-trash"></i></div>
+            <h2 class="settings-modal-title" id="settingsDeviceDeleteTitle">Hapus device?</h2>
+            <div class="settings-modal-copy">Device akan dihapus dari monitoring. Jika browser device masih aktif, heartbeat berikutnya bisa mendaftarkannya lagi.</div>
+            <div class="settings-modal-actions">
+                <button type="button" class="settings-btn is-muted" data-device-delete-close>Batal</button>
+                <button type="button" class="settings-btn is-danger" id="settingsDeviceDeleteConfirm">
+                    <i class="fas fa-trash"></i> Hapus Device
+                </button>
+            </div>
+        </div>
+    </div>
+@endif
 
 <div class="settings-modal" id="settingsResetModal" aria-hidden="true">
     <div class="settings-modal-backdrop" data-reset-close></div>
@@ -762,6 +1105,171 @@
             input.addEventListener('change', syncPreview);
         });
         syncPreview();
+    })();
+
+    (function() {
+        function toggleModal(el, open) {
+            if (!el) return;
+            el.classList.toggle('open', open);
+            el.setAttribute('aria-hidden', open ? 'false' : 'true');
+        }
+
+        document.addEventListener('click', function(e) {
+            var openBtn = e.target.closest('[data-device-modal-open]');
+            if (openBtn) {
+                toggleModal(document.getElementById(openBtn.getAttribute('data-device-modal-open')), true);
+                return;
+            }
+
+            if (e.target.closest('[data-device-modal-close]')) {
+                toggleModal(e.target.closest('.settings-modal'), false);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            document.querySelectorAll('.settings-modal.open').forEach(function(modal) {
+                if (modal.id && modal.id.indexOf('deviceModal') === 0) toggleModal(modal, false);
+            });
+        });
+    })();
+
+    (function() {
+        function bindDeviceConfirm(formSelector, modalId, closeSelector, confirmId) {
+            var modal = document.getElementById(modalId);
+            var confirm = document.getElementById(confirmId);
+            var pendingForm = null;
+            var confirmedForm = null;
+
+            function toggleModal(open) {
+                if (!modal) return;
+                modal.classList.toggle('open', open);
+                modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+            }
+
+            function closeModal() {
+                pendingForm = null;
+                toggleModal(false);
+            }
+
+            document.addEventListener('submit', function(e) {
+                if (!e.target.matches(formSelector)) return;
+                if (e.target === confirmedForm) {
+                    confirmedForm = null;
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                pendingForm = e.target;
+                if (confirm) confirm.disabled = false;
+                toggleModal(true);
+            }, true);
+
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target.closest(closeSelector)) closeModal();
+                });
+            }
+
+            if (confirm) {
+                confirm.addEventListener('click', function() {
+                    if (!pendingForm) return;
+                    confirmedForm = pendingForm;
+                    confirm.disabled = true;
+                    if (pendingForm.requestSubmit) {
+                        pendingForm.requestSubmit();
+                    } else {
+                        pendingForm.submit();
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal && modal.classList.contains('open')) closeModal();
+            });
+        }
+
+        bindDeviceConfirm('[data-device-reset-form]', 'settingsDeviceResetModal', '[data-device-reset-close]', 'settingsDeviceResetConfirm');
+        bindDeviceConfirm('[data-device-delete-form]', 'settingsDeviceDeleteModal', '[data-device-delete-close]', 'settingsDeviceDeleteConfirm');
+    })();
+
+    (function() {
+        var inFlight = false;
+        var lastSuccessAt = Date.now();
+        var reloadKey = 'settings_device_monitor_scroll';
+
+        try {
+            var restoreScroll = sessionStorage.getItem(reloadKey);
+            if (restoreScroll) {
+                sessionStorage.removeItem(reloadKey);
+                window.scrollTo(0, parseInt(restoreScroll, 10) || 0);
+            }
+        } catch (e) {}
+
+        function shouldSkip() {
+            return document.hidden
+                || inFlight
+                || document.querySelector('#settingsDeviceResetModal.open, #settingsDeviceDeleteModal.open, #settingsResetModal.open, #settingsLeaveModal.open')
+                || (document.activeElement && document.activeElement.closest('[data-device-monitor-section] input, [data-device-monitor-section] textarea, [data-device-monitor-section] select'));
+        }
+
+        function hasPendingReset() {
+            return !!document.querySelector('[data-device-reset-pending]');
+        }
+
+        function reloadForSync() {
+            if (!hasPendingReset()) return;
+            try { sessionStorage.setItem(reloadKey, String(window.scrollY || 0)); } catch (e) {}
+            window.location.reload();
+        }
+
+        function refreshDeviceMonitoring(force) {
+            var current = document.querySelector('[data-device-monitor-section]');
+            if (!current || (!force && shouldSkip())) return;
+
+            inFlight = true;
+            var openDeviceModal = document.querySelector('.settings-modal.open[id^="deviceModal"]');
+            var openDeviceModalId = openDeviceModal ? openDeviceModal.id : '';
+            var url = new URL(current.getAttribute('data-device-monitor-url'), window.location.origin);
+            url.searchParams.set('_device_monitor', Date.now());
+
+            fetch(url.toString(), {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(function(response) { return response.ok ? response.json() : null; })
+                .then(function(data) {
+                    if (!data || !data.html || (!force && shouldSkip())) return;
+                    current = document.querySelector('[data-device-monitor-section]');
+                    if (current) {
+                        current.outerHTML = data.html;
+                        lastSuccessAt = Date.now();
+                        if (openDeviceModalId) {
+                            var freshModal = document.getElementById(openDeviceModalId);
+                            if (freshModal) {
+                                freshModal.classList.add('open');
+                                freshModal.setAttribute('aria-hidden', 'false');
+                            }
+                        }
+                    }
+                })
+                .catch(function() { reloadForSync(); })
+                .finally(function() { inFlight = false; });
+        }
+
+        refreshDeviceMonitoring(true);
+        setInterval(function() {
+            refreshDeviceMonitoring(false);
+            if (hasPendingReset() && Date.now() - lastSuccessAt > 15000) reloadForSync();
+        }, 5000);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) refreshDeviceMonitoring(true);
+        });
     })();
 
     // Guard perubahan belum disimpan: modal in-app untuk reset & navigasi internal,
@@ -869,6 +1377,7 @@
         // Intercept submit form LAIN (mis. logout); form settings sendiri dianggap "saving"
         document.addEventListener('submit', function(e) {
             if (e.target === form) { saving = true; return; }
+            if (e.target.matches('[data-device-reset-form], [data-device-delete-form]')) { saving = true; return; }
             if (!isDirty()) return;
             e.preventDefault();
             pendingForm = e.target;
