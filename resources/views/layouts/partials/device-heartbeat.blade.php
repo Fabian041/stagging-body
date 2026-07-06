@@ -12,6 +12,9 @@
         var heartbeatIntervalMs = isPullingPage ? 60000 : 30000;
         var initialHeartbeatDelayMs = isPullingPage ? 5000 : 0;
 
+        // Device monitoring KHUSUS halaman scanner pulling (route /pulling). Di luar itu, tidak melacak apa pun.
+        if (window.location.pathname !== '/pulling') return;
+
         function readCookie(name) {
             return document.cookie.split('; ').reduce(function(value, part) {
                 var pair = part.split('=');

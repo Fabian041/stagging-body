@@ -134,6 +134,11 @@ class SettingsController extends Controller
             'online' => ['nullable', 'boolean'],
         ]);
 
+        // Device monitoring khusus scanner pulling (route /pulling) — abaikan heartbeat dari halaman lain.
+        if (($validated['current_page'] ?? '') !== '/pulling') {
+            return response()->json(['reset_required' => false]);
+        }
+
         $now = now();
         $existing = DB::table('device_sessions')
             ->where('device_id', $validated['device_id'])
@@ -161,11 +166,16 @@ class SettingsController extends Controller
                 $this->recordDeviceEvent($existing->id, $request->user()->id, 'user_changed', 'Device dipakai oleh user berbeda');
             }
 
+            $updatePayload = $payload + [
+                'heartbeat_count' => DB::raw('heartbeat_count + 1'),
+            ];
+            if ($existing->scanner_no === null) {
+                $updatePayload['scanner_no'] = (int) (DB::table('device_sessions')->max('scanner_no') ?? 0) + 1;
+            }
+
             DB::table('device_sessions')
                 ->where('device_id', $validated['device_id'])
-                ->update($payload + [
-                    'heartbeat_count' => DB::raw('heartbeat_count + 1'),
-                ]);
+                ->update($updatePayload);
 
             if ($pageChanged) {
                 $this->recordDeviceEvent($existing->id, $request->user()->id, 'page_changed', 'Pindah ke '.$payload['current_page']);
@@ -174,6 +184,7 @@ class SettingsController extends Controller
             $deviceId = DB::table('device_sessions')->insertGetId($payload + [
                 'device_id' => $validated['device_id'],
                 'heartbeat_count' => 1,
+                'scanner_no' => (int) (DB::table('device_sessions')->max('scanner_no') ?? 0) + 1,
                 'created_at' => $now,
             ]);
             $this->recordDeviceEvent($deviceId, $request->user()->id, 'registered', 'Device terdaftar');
@@ -328,6 +339,7 @@ class SettingsController extends Controller
         $devices = DB::table('device_sessions')
             ->join('users', 'users.id', '=', 'device_sessions.user_id')
             ->leftJoin('users as reset_users', 'reset_users.id', '=', 'device_sessions.reset_requested_by')
+            ->where('device_sessions.current_page', '/pulling')
             ->where(function ($query) {
                 $query->where('device_sessions.last_seen_at', '>=', now()->subDay())
                     ->orWhere(function ($pending) {
@@ -370,7 +382,8 @@ class SettingsController extends Controller
                 $device->reset_pending = $resetRequested && (! $resetApplied || $resetRequested->gt($resetApplied));
                 $device->device_short = substr($device->device_id, 0, 8);
                 $device->browser_label = $this->browserLabel($device->user_agent);
-                $device->display_label = $device->device_label ?: 'Device #'.$device->device_short;
+                $device->display_label = $device->device_label
+                    ?: ($device->scanner_no ? 'Scanner #'.$device->scanner_no : 'Device #'.$device->device_short);
 
                 return $device;
             })

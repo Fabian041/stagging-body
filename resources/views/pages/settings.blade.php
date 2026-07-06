@@ -89,6 +89,39 @@
         font-weight: 650;
     }
 
+    .settings-section-head-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .settings-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--success-light);
+        color: #166534;
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: .04em;
+    }
+
+    .settings-live .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #16a34a;
+        animation: settings-live-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes settings-live-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .35; }
+    }
+
     .settings-device-list {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

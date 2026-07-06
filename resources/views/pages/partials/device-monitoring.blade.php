@@ -2,11 +2,12 @@
     <div class="settings-section-head">
         <div>
             <h2 class="settings-section-title">Device Monitoring</h2>
-            <div class="settings-section-copy">Pantau device aktif dan reset local data untuk device tertentu. Auto-refresh 5 dtk saat tab aktif.</div>
+            <div class="settings-section-copy">Pantau device aktif dan reset local data untuk device tertentu.</div>
         </div>
-        <span class="settings-device-status">
-            {{ $deviceSessions->count() }} device
-        </span>
+        <div class="settings-section-head-right">
+            <span class="settings-live"><span class="dot"></span> LIVE</span>
+            <span class="settings-device-status">{{ $deviceSessions->count() }} device</span>
+        </div>
     </div>
 
     <div class="settings-device-list">
