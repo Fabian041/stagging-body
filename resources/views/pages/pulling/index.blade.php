@@ -1541,7 +1541,8 @@
             req.onerror = () => reject(new Error(`Gagal buka DB "${dbName}"`));
             req.onsuccess = (ev) => {
                 const db = ev.target.result;
-                const missingStore = REQUIRED_IDB_STORES.some((storeName) => !db.objectStoreNames.contains(storeName));
+                const missingStore = REQUIRED_IDB_STORES.some((storeName) => !db.objectStoreNames.contains(
+                    storeName));
                 if (!missingStore) return resolve(db);
 
                 const nextVersion = (db.version || 1) + 1;
@@ -1633,7 +1634,8 @@
                     seen.add(value);
                     rows.push({
                         serial: value,
-                        loading_list_number: cursor.value?.loading_list_number || record?.loading_list_number,
+                        loading_list_number: cursor.value?.loading_list_number || record
+                            ?.loading_list_number,
                         scanned_at: cursor.value?.scanned_at || null
                     });
                 }
@@ -1698,7 +1700,8 @@
             // 3) Update IDB lokal: simpan serial ringan + seri legacy untuk UI lama
             await new Promise((resolve, reject) => {
                 openPullingDB(dbName).then((db) => {
-                    const tx = db.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                    const tx = db.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME],
+                        'readwrite');
                     const st = tx.objectStore(STORE_NAME);
                     const serialStore = tx.objectStore(SERIAL_STORE_NAME);
                     const summaryStore = tx.objectStore(SUMMARY_STORE_NAME);
@@ -1719,7 +1722,8 @@
                             return reject(new Error('Record hilang di IDB'));
                         }
                         if (!Array.isArray(data.seri)) data.seri = [];
-                        const currentCount = parseInt(data.scanned_count ?? data.seri.length, 10) || 0;
+                        const currentCount = parseInt(data.scanned_count ?? data.seri.length,
+                            10) || 0;
                         if (currentCount >= (data.total_qty || 0)) {
                             return reject(new Error('Part sudah complete'));
                         }
@@ -1737,15 +1741,19 @@
 
                         const summaryRequest = summaryStore.get(SUMMARY_KEY);
                         summaryRequest.onsuccess = () => {
-                            const actual = parseInt(localStorage.getItem('pulling_total_actual') || '0', 10) || 0;
-                            const target = parseInt(localStorage.getItem('pulling_total_target') || data.total_qty || '0',
+                            const actual = parseInt(localStorage.getItem(
+                                'pulling_total_actual') || '0', 10) || 0;
+                            const target = parseInt(localStorage.getItem(
+                                    'pulling_total_target') || data.total_qty || '0',
                                 10) || 0;
                             const summary = summaryRequest.result || {
                                 totalActual: actual,
                                 totalTarget: target
                             };
-                            summary.totalActual = (parseInt(summary.totalActual || 0, 10) || 0) + 1;
-                            summary.totalTarget = parseInt(summary.totalTarget || target, 10) || target;
+                            summary.totalActual = (parseInt(summary.totalActual || 0, 10) ||
+                                0) + 1;
+                            summary.totalTarget = parseInt(summary.totalTarget || target,
+                                10) || target;
                             summary.updatedAt = Date.now();
                             summaryStore.put(summary, SUMMARY_KEY);
                         };
@@ -1768,7 +1776,8 @@
                     const g2 = st2.get(customerPart);
                     g2.onsuccess = () => {
                         const latest = g2.result || rec;
-                        const nowLen = parseInt(latest?.scanned_count ?? latest?.seri?.length ?? ((rec?.seri?.length || 0) + 1),
+                        const nowLen = parseInt(latest?.scanned_count ?? latest?.seri?.length ?? ((rec?.seri
+                                ?.length || 0) + 1),
                             10) || 0;
                         $('#qty-display').text(`${nowLen}/${latest?.total_qty ?? rec.total_qty}`);
                         if (typeof successIndicator === 'function') successIndicator();
@@ -2017,7 +2026,8 @@
             transaction.oncomplete = function() {
                 database.close();
                 const history = rows
-                    .sort((a, b) => (parseInt(b.scanned_at || 0, 10) || 0) - (parseInt(a.scanned_at || 0, 10) || 0))
+                    .sort((a, b) => (parseInt(b.scanned_at || 0, 10) || 0) - (parseInt(a.scanned_at || 0,
+                        10) || 0))
                     .slice(0, SCAN_HISTORY_LIMIT)
                     .map((item) => ({
                         customer: String(item.customer_part || '-').trim() || '-',
@@ -2909,7 +2919,8 @@
 
                         getRequest.onsuccess = (event) => {
                             try {
-                                const merged = mergeLoadingListItem(event.target.result, item, data.number);
+                                const merged = mergeLoadingListItem(event.target.result,
+                                    item, data.number);
 
                                 if (merged.shouldPut) {
                                     objectStore.put(merged.record, key);
@@ -3312,7 +3323,8 @@
                     const scanRows = await getScanRowsForPart(database, record);
                     const buckets = loadingListBucketEntries(record);
                     const fallbackTarget = parseInt(record.total_qty || 0, 10) || 0;
-                    const totalTarget = buckets.reduce((sum, bucket) => sum + bucket.target, 0) || fallbackTarget;
+                    const totalTarget = buckets.reduce((sum, bucket) => sum + bucket.target, 0) ||
+                        fallbackTarget;
 
                     if (scanRows.length < totalTarget) {
                         complete = false;
@@ -3320,7 +3332,8 @@
                     }
 
                     scanRows.forEach((row) => {
-                        const loadingListNumber = row.loading_list_number || record.loading_list_number;
+                        const loadingListNumber = row.loading_list_number || record
+                            .loading_list_number;
                         if (!loadingListNumber) return;
 
                         const item = {
@@ -3367,7 +3380,8 @@
                         };
 
                         deleteRequest.onerror = function(event) {
-                            notif('error', event?.target?.error?.message || 'Gagal menghapus database lokal');
+                            notif('error', event?.target?.error?.message ||
+                                'Gagal menghapus database lokal');
                         };
 
                         if (finishRows.length === 0) {
@@ -3386,13 +3400,16 @@
                                 dataType: 'json',
                                 success: function() {
                                     storedRows += 1;
-                                    if (storedRows === finishRows.length) {
+                                    if (storedRows === finishRows
+                                        .length) {
                                         localStorage.clear();
                                         window.location.reload();
                                     }
                                 },
                                 error: function(xhr) {
-                                    notif('error', xhr.responseJSON?.message || xhr.statusText);
+                                    notif('error', xhr.responseJSON
+                                        ?.message || xhr
+                                        .statusText);
                                 }
                             });
                         });
@@ -3467,7 +3484,8 @@
             let scannedCount = parseInt(cursor.scanned_count ?? arraySeri.length, 10) || 0;
 
             // === Validasi: internal & customer harus dalam objek yang sama
-            isSameObject = String(cursor.customer || '').trim() === String(localStorage.getItem('customerPart') || '').trim() &&
+            isSameObject = String(cursor.customer || '').trim() === String(localStorage.getItem(
+                    'customerPart') || '').trim() &&
                 String(cursor.internal || '').trim() === String(internal || '').trim();
 
             if (!isSameObject) {
@@ -3518,11 +3536,14 @@
                         cursor.actual_qty = scannedCount;
                         const buckets = ensureLoadingListBuckets(cursor);
                         if (buckets[loadingList]) {
-                            buckets[loadingList].scanned = Math.max(0, pullingInt(buckets[loadingList].scanned) - 1);
+                            buckets[loadingList].scanned = Math.max(0, pullingInt(buckets[
+                                loadingList].scanned) - 1);
                         }
                         countApplied = false;
                     };
-                    const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                    const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME,
+                        SUMMARY_STORE_NAME
+                    ], 'readwrite');
                     const objectStore = transaction.objectStore(STORE_NAME);
                     const serialStore = transaction.objectStore(SERIAL_STORE_NAME);
                     const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
@@ -3541,8 +3562,10 @@
 
                     const summaryRequest = summaryStore.get(SUMMARY_KEY);
                     summaryRequest.onsuccess = function() {
-                        const actual = parseInt(localStorage.getItem('pulling_total_actual') || '0', 10) || 0;
-                        const target = parseInt(localStorage.getItem('pulling_total_target') || totalQty || '0', 10) || 0;
+                        const actual = parseInt(localStorage.getItem('pulling_total_actual') || '0',
+                            10) || 0;
+                        const target = parseInt(localStorage.getItem('pulling_total_target') ||
+                            totalQty || '0', 10) || 0;
                         const summary = summaryRequest.result || {
                             totalActual: actual,
                             totalTarget: target
@@ -3680,7 +3703,8 @@
                     }
 
                     try {
-                        const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME], 'readwrite');
+                        const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME],
+                            'readwrite');
                         const objectStore = transaction.objectStore(STORE_NAME);
                         const serialStore = transaction.objectStore(SERIAL_STORE_NAME);
 
@@ -3698,8 +3722,10 @@
                         cursor.serials_indexed_at = Date.now();
                         objectStore.put(cursor, primaryKey);
                         transaction.oncomplete = resolve;
-                        transaction.onerror = () => reject(transaction.error || new Error('Gagal index serial lama'));
-                        transaction.onabort = () => reject(transaction.error || new Error('Gagal index serial lama'));
+                        transaction.onerror = () => reject(transaction.error || new Error(
+                            'Gagal index serial lama'));
+                        transaction.onabort = () => reject(transaction.error || new Error(
+                            'Gagal index serial lama'));
                     } catch (error) {
                         reject(error);
                     }
@@ -4271,7 +4297,8 @@
 
                         getRequest.onsuccess = (event) => {
                             try {
-                                const merged = mergeLoadingListItem(event.target.result, item, data.number);
+                                const merged = mergeLoadingListItem(event.target.result,
+                                    item, data.number);
 
                                 if (merged.shouldPut) {
                                     objectStore.put(merged.record, key);
@@ -4310,14 +4337,14 @@
 
                 // Handle Suzuki special cases — KHUSUS customer Suzuki.
                 // (Customer lain dengan char_length sama jangan ikut dipotong "000"-nya.)
-                // const isSuzuki = (localStorage.getItem('customer') || '').toUpperCase().includes('SUZUKI');
-                // if (isSuzuki) {
-                //     if (charLength === 17 && processed.substr(10, 3) === '000') {
-                //         processed = processed.slice(0, -3);
-                //     } else if (charLength === 15 && processed.slice(-3) === '000') {
-                //         processed = processed.slice(0, -3);
-                //     }
-                // }
+                const isSuzuki = (localStorage.getItem('customer') || '').toUpperCase().includes('SUZUKI');
+                if (isSuzuki) {
+                    if (charLength === 17 && processed.substr(10, 3) === '000') {
+                        processed = processed.slice(0, -3);
+                    } else if (charLength === 15 && processed.slice(-3) === '000') {
+                        processed = processed.slice(0, -3);
+                    }
+                }
 
                 return processed;
             }
@@ -4371,7 +4398,8 @@
                             }
 
                             const seriList = Array.isArray(record.seri) ? record.seri : [];
-                            const scannedCount = parseInt(record.scanned_count ?? seriList.length, 10) || 0;
+                            const scannedCount = parseInt(record.scanned_count ?? seriList.length,
+                                10) || 0;
                             if (scannedCount >= record.total_qty) {
                                 this.showError('Part number sudah complete!', () => {
                                     if (typeof fullfilledSound === 'function')
@@ -4483,7 +4511,8 @@
                                     customerPart, seri);
                             } else {
                                 this.showError('Kanban tidak ditemukan!', () => {
-                                    if (typeof unknownSound === 'function') unknownSound();
+                                    if (typeof unknownSound === 'function')
+                                        unknownSound();
                                 });
                                 database.close();
                             }
@@ -4572,7 +4601,8 @@
                             }
 
                             const seriList = Array.isArray(record.seri) ? record.seri : [];
-                            const scannedCount = parseInt(record.scanned_count ?? seriList.length, 10) || 0;
+                            const scannedCount = parseInt(record.scanned_count ?? seriList.length,
+                                10) || 0;
                             if (scannedCount >= record.total_qty) {
                                 this.showError('Part number sudah complete!', () => {
                                     if (typeof fullfilledSound === 'function')
