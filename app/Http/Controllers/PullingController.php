@@ -1137,6 +1137,57 @@ class PullingController extends Controller
             $result = [];
         }
 
+        $detailUpdates = [];
+
+        foreach ($data as $row) {
+            $loadingListId = LoadingList::select('id', 'customer_id')
+                ->where('number', $row->loading_list_number)
+                ->first();
+
+            if (! $loadingListId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Loading list {$row->loading_list_number} tidak ditemukan.",
+                ], 422);
+            }
+
+            $items = array_values((array) $row->items);
+            $kanbans = array_count_values(array_column($items, 'part_number_cust'));
+
+            foreach ($kanbans as $kanban_cust => $actual_scanned) {
+                $customerPart = $this->findCustomerPartForLoadingList(
+                    $loadingListId->customer_id,
+                    $row->loading_list_number,
+                    $kanban_cust
+                );
+
+                if (! $customerPart) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Part customer {$kanban_cust} tidak ditemukan.",
+                    ], 422);
+                }
+
+                $kanbanQty = LoadingListDetail::select('id', 'kanban_qty')
+                    ->where('loading_list_id', $loadingListId->id)
+                    ->where('customer_part_id', $customerPart->id)
+                    ->first();
+
+                if (! $kanbanQty) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Detail part {$customerPart->part_number} tidak ditemukan di loading list {$row->loading_list_number}.",
+                    ], 422);
+                }
+
+                $detailUpdates[] = [
+                    'id' => $kanbanQty->id,
+                    'actual_scanned' => $actual_scanned,
+                    'kanban_qty' => $kanbanQty->kanban_qty,
+                ];
+            }
+        }
+
         // initialize new client
         $client = new Client([
             'verify' => false, // Temporarily disabling SSL verification
@@ -1144,14 +1195,14 @@ class PullingController extends Controller
 
         // post data
         try {
-            for ($i = 0; $i < count($data); $i++) {
+            foreach ($data as $row) {
                 $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
                     'headers' => [
                         'Content-Type' => 'application/json',
                         'Accept' => 'application/json',
                         'Authorization' => 'Bearer ' . $token,
                     ],
-                    'json' => $data[$i],
+                    'json' => $row,
                 ]);
             }
         } catch (\Throwable $th) {
@@ -1161,56 +1212,12 @@ class PullingController extends Controller
             ], 502);
         }
 
-        for ($i = 0; $i < count($data); $i++) {
-            foreach ($data[$i]->items as $key => $value) {
-                // get actual kanban scanned based on same kanban cust for all cust
-                $kanbans = array_count_values(array_column(json_decode(json_encode($data[$i]->items), true), 'part_number_cust'));
-
-                foreach ($kanbans as $kanban_cust => $actual_scanned) {
-                    $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $data[$i]->loading_list_number)->first();
-
-                    if (! $loadingListId) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => "Loading list {$data[$i]->loading_list_number} tidak ditemukan.",
-                        ], 422);
-                    }
-
-                    $convertedPartNumber = $this->convertCustomerPartNumber($kanban_cust, $loadingListId->customer_id);
-
-                    // get customer part id
-                    $customerPart = CustomerPart::select('id')
-                        ->where('part_number', $convertedPartNumber)
-                        ->where('customer_id', $loadingListId->customer_id)
-                        ->first();
-
-                    if (! $customerPart) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => "Part customer {$convertedPartNumber} tidak ditemukan.",
-                        ], 422);
-                    }
-
-                    // get kanban_qty
-                    $kanban_qty = LoadingListDetail::select('id', 'kanban_qty')
-                        ->where('loading_list_id', $loadingListId->id)
-                        ->where('customer_part_id', $customerPart->id)
-                        ->first();
-
-                    if (! $kanban_qty) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => "Detail part {$convertedPartNumber} tidak ditemukan di loading list {$data[$i]->loading_list_number}.",
-                        ], 422);
-                    }
-
-                    if ($actual_scanned < $kanban_qty->kanban_qty) {
-                        $kanban_qty->update([
-                            'actual_kanban_qty' => $actual_scanned
-                        ]);
-                    }
-                }
-            };
+        foreach ($detailUpdates as $update) {
+            if ($update['actual_scanned'] < $update['kanban_qty']) {
+                LoadingListDetail::where('id', $update['id'])->update([
+                    'actual_kanban_qty' => $update['actual_scanned'],
+                ]);
+            }
         }
 
         return response()->json(['status' => 'success']);

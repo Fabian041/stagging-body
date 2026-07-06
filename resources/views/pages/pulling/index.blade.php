@@ -1582,20 +1582,40 @@
         });
     }
 
-    function getSerialsForPart(database, customerPart, fallbackSerials = []) {
-        return new Promise((resolve, reject) => {
-            const serials = [];
-            const seen = new Set();
+    function fallbackScanRowsForRecord(record, seen = new Set()) {
+        const rows = [];
+        const fallbackSerials = Array.isArray(record?.seri) ? record.seri : [];
+        const buckets = loadingListBucketEntries(record);
+        let bucketIndex = 0;
+        let bucketUsed = 0;
 
-            fallbackSerials.forEach((serial) => {
-                const value = String(serial || '').trim();
-                if (value && !seen.has(value)) {
-                    seen.add(value);
-                    serials.push(value);
-                }
+        fallbackSerials.forEach((serial) => {
+            const value = String(serial || '').trim();
+            if (!value || seen.has(value)) return;
+
+            while (buckets[bucketIndex] && bucketUsed >= buckets[bucketIndex].target) {
+                bucketIndex += 1;
+                bucketUsed = 0;
+            }
+
+            const bucket = buckets[bucketIndex] || buckets[0];
+            rows.push({
+                serial: value,
+                loading_list_number: bucket?.number || record?.loading_list_number,
+                scanned_at: null
             });
+            seen.add(value);
+            bucketUsed += 1;
+        });
 
-            const prefix = `${String(customerPart || '').trim()}|`;
+        return rows;
+    }
+
+    function getScanRowsForPart(database, record) {
+        return new Promise((resolve, reject) => {
+            const rows = [];
+            const seen = new Set();
+            const prefix = `${String(record?.customer || '').trim()}|`;
             const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
             const transaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
             const request = transaction.objectStore(SERIAL_STORE_NAME).openCursor(range);
@@ -1603,14 +1623,19 @@
             request.onsuccess = function(event) {
                 const cursor = event.target.result;
                 if (!cursor) {
-                    resolve(serials);
+                    rows.sort((a, b) => pullingInt(a.scanned_at) - pullingInt(b.scanned_at));
+                    resolve(rows.concat(fallbackScanRowsForRecord(record, seen)));
                     return;
                 }
 
                 const value = String(cursor.value?.serial || '').trim();
                 if (value && !seen.has(value)) {
                     seen.add(value);
-                    serials.push(value);
+                    rows.push({
+                        serial: value,
+                        loading_list_number: cursor.value?.loading_list_number || record?.loading_list_number,
+                        scanned_at: cursor.value?.scanned_at || null
+                    });
                 }
                 cursor.continue();
             };
@@ -3284,38 +3309,30 @@
                 };
 
                 for (const record of records) {
-                    const legacySerials = Array.isArray(record.seri) ? record.seri : [];
-                    const serials = await getSerialsForPart(database, record.customer, legacySerials);
+                    const scanRows = await getScanRowsForPart(database, record);
                     const buckets = loadingListBucketEntries(record);
                     const fallbackTarget = parseInt(record.total_qty || 0, 10) || 0;
                     const totalTarget = buckets.reduce((sum, bucket) => sum + bucket.target, 0) || fallbackTarget;
 
-                    if (serials.length < totalTarget) {
+                    if (scanRows.length < totalTarget) {
                         complete = false;
                         break;
                     }
 
-                    const targetBuckets = buckets.length ? buckets : [{
-                        number: record.loading_list_number,
-                        target: totalTarget
-                    }];
-                    let offset = 0;
+                    scanRows.forEach((row) => {
+                        const loadingListNumber = row.loading_list_number || record.loading_list_number;
+                        if (!loadingListNumber) return;
 
-                    targetBuckets.forEach((bucket) => {
-                        const loadingListNumber = bucket.number;
-                        const bucketSerials = serials.slice(offset, offset + bucket.target);
-                        offset += bucket.target;
-
-                        const items = bucketSerials.map((serial) => ({
+                        const item = {
                             part_number_internal: record.internal,
                             part_number_customer: record.customer,
-                            serial_number: serial
-                        }));
+                            serial_number: row.serial
+                        };
 
                         if (loadingListPayload.hasOwnProperty(loadingListNumber)) {
-                            loadingListPayload[loadingListNumber].push(...items);
+                            loadingListPayload[loadingListNumber].push(item);
                         } else {
-                            loadingListPayload[loadingListNumber] = items;
+                            loadingListPayload[loadingListNumber] = [item];
                         }
 
                         addFinishRow(loadingListNumber);
