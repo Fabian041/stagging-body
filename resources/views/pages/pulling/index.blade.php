@@ -2324,6 +2324,113 @@
         }
     }
 
+    function pullingInt(value) {
+        return parseInt(value ?? 0, 10) || 0;
+    }
+
+    function loadingListSources(record) {
+        if (!record) return [];
+
+        const sources = Array.isArray(record.source_loading_lists) ?
+            record.source_loading_lists.map(String) : [];
+
+        if (!sources.length && record.loading_list_number) {
+            sources.push(String(record.loading_list_number));
+        }
+
+        return sources;
+    }
+
+    function mergeLoadingListItem(existing, item, loadingListNumber) {
+        const source = String(loadingListNumber);
+        const sources = loadingListSources(existing);
+
+        if (sources.includes(source)) {
+            return {
+                record: existing,
+                shouldPut: false
+            };
+        }
+
+        const targetQty = pullingInt(item.total_kanban_qty);
+        const actualQty = pullingInt(item.actual_kanban_qty);
+
+        if (existing) {
+            const scannedCount = pullingInt(existing.scanned_count ?? existing.seri?.length ?? existing.actual_qty);
+
+            existing.total_qty = pullingInt(existing.total_qty) + targetQty;
+            existing.scanned_count = scannedCount + actualQty;
+            existing.actual_qty = pullingInt(existing.actual_qty ?? scannedCount) + actualQty;
+            existing.source_loading_lists = sources.concat(source);
+            existing.seri = Array.isArray(existing.seri) ? existing.seri : [];
+
+            return {
+                record: existing,
+                shouldPut: true
+            };
+        }
+
+        return {
+            record: {
+                key: item.part_number_cust,
+                loading_list_number: loadingListNumber,
+                internal: item.part_number_int,
+                customer: item.part_number_cust,
+                qty_per_kbn: targetQty ? item.total_qty / targetQty : 0,
+                actual_qty: actualQty,
+                scanned_count: actualQty,
+                total_qty: targetQty,
+                source_loading_lists: [source],
+                seri: []
+            },
+            shouldPut: true
+        };
+    }
+
+    function refreshPullingSummaryFromRecords(database) {
+        return new Promise((resolve, reject) => {
+            let totalActual = 0;
+            let totalTarget = 0;
+            const readTransaction = database.transaction([STORE_NAME], 'readonly');
+            const objectStore = readTransaction.objectStore(STORE_NAME);
+            const cursorRequest = objectStore.openCursor();
+
+            cursorRequest.onsuccess = function(event) {
+                const cursor = event.target.result;
+
+                if (cursor) {
+                    const record = cursor.value;
+                    totalActual += pullingInt(record.scanned_count ?? record.seri?.length);
+                    totalTarget += pullingInt(record.total_qty);
+                    cursor.continue();
+                }
+            };
+
+            cursorRequest.onerror = () => reject(cursorRequest.error);
+
+            readTransaction.oncomplete = () => {
+                const writeTransaction = database.transaction([SUMMARY_STORE_NAME], 'readwrite');
+                const summaryStore = writeTransaction.objectStore(SUMMARY_STORE_NAME);
+
+                summaryStore.put({
+                    totalActual,
+                    totalTarget,
+                    updatedAt: Date.now()
+                }, SUMMARY_KEY);
+
+                writeTransaction.oncomplete = () => {
+                    setPullingQuantityDisplay(totalActual, totalTarget);
+                    resolve();
+                };
+                writeTransaction.onerror = () => reject(writeTransaction.error);
+                writeTransaction.onabort = () => reject(writeTransaction.error);
+            };
+
+            readTransaction.onerror = () => reject(readTransaction.error);
+            readTransaction.onabort = () => reject(readTransaction.error);
+        });
+    }
+
     function incrementPullingQuantity(deltaActual) {
         const actual = parseInt(localStorage.getItem('pulling_total_actual') || '', 10);
         const target = parseInt(localStorage.getItem('pulling_total_target') || '', 10);
@@ -2694,9 +2801,8 @@
             }
 
             async populateDatabase(database, data) {
-                const transaction = database.transaction([STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                const transaction = database.transaction([STORE_NAME], 'readwrite');
                 const objectStore = transaction.objectStore(STORE_NAME);
-                const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
                 const transactionDone = new Promise((resolve, reject) => {
                     transaction.oncomplete = resolve;
                     transaction.onerror = () => reject(transaction.error);
@@ -2710,20 +2816,12 @@
 
                         getRequest.onsuccess = (event) => {
                             try {
-                                if (!event.target.result) {
-                                    objectStore.put({
-                                        key,
-                                        loading_list_number: data.number,
-                                        internal: item.part_number_int,
-                                        customer: item.part_number_cust,
-                                        qty_per_kbn: item.total_qty / item
-                                            .total_kanban_qty,
-                                        actual_qty: item.actual_kanban_qty,
-                                        scanned_count: item.actual_kanban_qty,
-                                        total_qty: item.total_kanban_qty,
-                                        seri: []
-                                    }, key);
+                                const merged = mergeLoadingListItem(event.target.result, item, data.number);
+
+                                if (merged.shouldPut) {
+                                    objectStore.put(merged.record, key);
                                 }
+
                                 resolve();
                             } catch (error) {
                                 reject(error);
@@ -2734,22 +2832,9 @@
                     });
                 });
 
-                const totalTarget = data.items.reduce((sum, item) => {
-                    return sum + (parseInt(item.total_kanban_qty || 0, 10) || 0);
-                }, 0);
-                const totalActual = data.items.reduce((sum, item) => {
-                    return sum + (parseInt(item.actual_kanban_qty || 0, 10) || 0);
-                }, 0);
-
-                summaryStore.put({
-                    totalActual,
-                    totalTarget,
-                    updatedAt: Date.now()
-                }, SUMMARY_KEY);
-
                 await Promise.all(promises);
-                setPullingQuantityDisplay(totalActual, totalTarget);
                 await transactionDone;
+                await refreshPullingSummaryFromRecords(database);
             }
 
             async storeLoadingListDetails(ll, items) {
@@ -4065,9 +4150,8 @@
             }
 
             async populateDatabase(database, data) {
-                const transaction = database.transaction([STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                const transaction = database.transaction([STORE_NAME], 'readwrite');
                 const objectStore = transaction.objectStore(STORE_NAME);
-                const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
                 const transactionDone = new Promise((resolve, reject) => {
                     transaction.oncomplete = resolve;
                     transaction.onerror = () => reject(transaction.error);
@@ -4075,46 +4159,31 @@
                 });
 
                 const promises = data.items.map(item => {
-                    return new Promise((resolve) => {
+                    return new Promise((resolve, reject) => {
                         const key = item.part_number_cust;
                         const getRequest = objectStore.get(key);
 
                         getRequest.onsuccess = (event) => {
-                            if (!event.target.result) {
-                                objectStore.put({
-                                    key,
-                                    loading_list_number: data.number,
-                                    internal: item.part_number_int,
-                                    customer: item.part_number_cust,
-                                    qty_per_kbn: item.total_qty / item
-                                        .total_kanban_qty,
-                                    actual_qty: item.actual_kanban_qty,
-                                    scanned_count: item.actual_kanban_qty,
-                                    total_qty: item.total_kanban_qty,
-                                    seri: []
-                                }, key);
+                            try {
+                                const merged = mergeLoadingListItem(event.target.result, item, data.number);
+
+                                if (merged.shouldPut) {
+                                    objectStore.put(merged.record, key);
+                                }
+
+                                resolve();
+                            } catch (error) {
+                                reject(error);
                             }
-                            resolve();
                         };
+
+                        getRequest.onerror = () => reject(getRequest.error);
                     });
                 });
 
-                const totalTarget = data.items.reduce((sum, item) => {
-                    return sum + (parseInt(item.total_kanban_qty || 0, 10) || 0);
-                }, 0);
-                const totalActual = data.items.reduce((sum, item) => {
-                    return sum + (parseInt(item.actual_kanban_qty || 0, 10) || 0);
-                }, 0);
-
-                summaryStore.put({
-                    totalActual,
-                    totalTarget,
-                    updatedAt: Date.now()
-                }, SUMMARY_KEY);
-
                 await Promise.all(promises);
-                setPullingQuantityDisplay(totalActual, totalTarget);
                 await transactionDone;
+                await refreshPullingSummaryFromRecords(database);
             }
 
             handleCustomerKanban(code) {
