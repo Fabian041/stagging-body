@@ -1886,10 +1886,65 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
             border-color: #fed7aa;
         }
 
-        .ov-scan-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        .ov-scan-carousel {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ov-scan-carousel::before,
+        .ov-scan-carousel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            z-index: 2;
+            width: 46px;
+            pointer-events: none;
+        }
+
+        .ov-scan-carousel::before {
+            left: 0;
+            background: linear-gradient(90deg, var(--card), rgba(255, 255, 255, 0));
+        }
+
+        .ov-scan-carousel::after {
+            right: 0;
+            background: linear-gradient(270deg, var(--card), rgba(255, 255, 255, 0));
+        }
+
+        .ov-scan-track {
+            display: flex;
+            width: max-content;
+            animation: ovScanMarquee 28s linear infinite;
+            will-change: transform;
+        }
+
+        .ov-scan-carousel:hover .ov-scan-track {
+            animation-play-state: paused;
+        }
+
+        .ov-scan-carousel:not(.is-moving) .ov-scan-track {
+            animation: none;
+        }
+
+        .ov-scan-group {
+            display: flex;
             gap: 10px;
+            padding-right: 10px;
+        }
+
+        .ov-scan-group .ov-scan-item {
+            flex: 0 0 clamp(300px, 32vw, 560px);
+            width: clamp(300px, 32vw, 560px);
+        }
+
+        @keyframes ovScanMarquee {
+            from {
+                transform: translateX(0);
+            }
+            to {
+                transform: translateX(-50%);
+            }
         }
 
         .ov-scan-item {
@@ -1908,6 +1963,53 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
         .ov-scan-item.is-online {
             background: #f0fdf4;
             border-color: #bbf7d0;
+        }
+
+        .ov-scan-item.is-status-changed {
+            --ov-status-wash: rgba(20, 152, 223, .14);
+            animation: ovScanStatusPop .9s ease both;
+        }
+
+        .ov-scan-item.is-status-online {
+            --ov-status-wash: rgba(22, 163, 74, .16);
+        }
+
+        .ov-scan-item.is-status-offline {
+            --ov-status-wash: rgba(100, 116, 139, .16);
+        }
+
+        .ov-scan-item.is-status-changed::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: var(--ov-status-wash);
+            pointer-events: none;
+            animation: ovScanStatusWash .9s ease both;
+        }
+
+        @keyframes ovScanStatusPop {
+            0% {
+                transform: scale(.98);
+            }
+            42% {
+                transform: scale(1.015);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes ovScanStatusWash {
+            0% {
+                opacity: 0;
+            }
+            35% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
         }
 
         .ov-scan-avatar {
@@ -2053,6 +2155,11 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 grid-template-columns: 1fr;
             }
 
+            .ov-scan-group .ov-scan-item {
+                flex-basis: min(82vw, 420px);
+                width: min(82vw, 420px);
+            }
+
             .ov-scan-item {
                 grid-template-columns: 38px minmax(0, 1fr);
             }
@@ -2067,6 +2174,20 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 flex-direction: column;
             }
 
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ov-scan-track {
+                animation: none !important;
+            }
+
+            .ov-scan-item.is-status-changed {
+                animation: none !important;
+            }
+
+            .ov-scan-item.is-status-changed::after {
+                display: none;
+            }
         }
     </style>
 
@@ -2457,6 +2578,7 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 aiBusy = false,
                 aiHistory = [],
                 aiRetryTimer = null,
+                scannerStatusCache = null,
                 requestId = 0;
 
             function esc(s) {
@@ -3474,8 +3596,37 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 var pct = total ? Math.round((online / total) * 100) : 0;
 
                 if (!list.length) {
+                    scannerStatusCache = {};
                     return '<div class="ov-scan-empty"><i class="fas fa-barcode"></i><span>Belum ada scanner pulling terpantau.</span></div>';
                 }
+
+                var previousStatuses = scannerStatusCache;
+                var nextStatuses = {};
+                var cards = list.map(function(s) {
+                    var isOnline = !!s.online;
+                    var name = s.name || 'Scanner';
+                    var userName = s.user_name || '-';
+                    var userNpk = s.user_npk ? 'NPK ' + s.user_npk : '';
+                    var key = name + '|' + (s.user_npk || userName);
+                    var changed = previousStatuses &&
+                        Object.prototype.hasOwnProperty.call(previousStatuses, key) &&
+                        previousStatuses[key] !== isOnline;
+                    nextStatuses[key] = isOnline;
+                    return '<div class="ov-scan-item ' + (isOnline ? 'is-online ' : '') +
+                        (changed ? 'is-status-changed ' + (isOnline ? 'is-status-online' : 'is-status-offline') : '') + '">' +
+                        '<div class="ov-scan-avatar" aria-hidden="true"><i class="fas fa-barcode"></i></div>' +
+                        '<div class="ov-scan-main">' +
+                        '<span class="ov-scan-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
+                        '<span class="ov-scan-user" title="' + esc(userName) + '">' +
+                        '<i class="far fa-user"></i><span>' + esc(userName) + '</span>' +
+                        (userNpk ? '<small>' + esc(userNpk) + '</small>' : '') +
+                        '</span>' +
+                        '<span class="ov-scan-seen"><i class="far fa-clock"></i>' + esc(s.last_seen || '-') + '</span>' +
+                        '</div>' +
+                        '<span class="ov-scan-status ' + (isOnline ? 'is-online' : '') + '">' + (isOnline ? 'Online' : 'Offline') + '</span>' +
+                        '</div>';
+                }).join('');
+                scannerStatusCache = nextStatuses;
 
                 return '<div class="ov-scan-shell">' +
                     '<div class="ov-scan-summary">' +
@@ -3483,24 +3634,12 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                     '<div class="ov-scan-stat ov-scan-stat--offline"><span>Offline</span><strong>' + offline + '</strong></div>' +
                     '<div class="ov-scan-stat"><span>Kesiapan</span><strong>' + pct + '%</strong></div>' +
                     '</div>' +
-                    '<div class="ov-scan-grid">' + list.map(function(s) {
-                        var isOnline = !!s.online;
-                        var name = s.name || 'Scanner';
-                        var userName = s.user_name || '-';
-                        var userNpk = s.user_npk ? 'NPK ' + s.user_npk : '';
-                        return '<div class="ov-scan-item ' + (isOnline ? 'is-online' : '') + '">' +
-                            '<div class="ov-scan-avatar" aria-hidden="true"><i class="fas fa-barcode"></i></div>' +
-                            '<div class="ov-scan-main">' +
-                            '<span class="ov-scan-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
-                            '<span class="ov-scan-user" title="' + esc(userName) + '">' +
-                            '<i class="far fa-user"></i><span>' + esc(userName) + '</span>' +
-                            (userNpk ? '<small>' + esc(userNpk) + '</small>' : '') +
-                            '</span>' +
-                            '<span class="ov-scan-seen"><i class="far fa-clock"></i>' + esc(s.last_seen || '-') + '</span>' +
-                            '</div>' +
-                            '<span class="ov-scan-status ' + (isOnline ? 'is-online' : '') + '">' + (isOnline ? 'Online' : 'Offline') + '</span>' +
-                            '</div>';
-                    }).join('') + '</div>' +
+                    '<div class="ov-scan-carousel ' + (list.length > 1 ? 'is-moving' : '') + '">' +
+                    '<div class="ov-scan-track">' +
+                    '<div class="ov-scan-group">' + cards + '</div>' +
+                    (list.length > 1 ? '<div class="ov-scan-group" aria-hidden="true">' + cards + '</div>' : '') +
+                    '</div>' +
+                    '</div>' +
                     '</div>';
             }
 
