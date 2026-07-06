@@ -58,7 +58,44 @@ class DashboardController extends Controller
         return response()->json($this->buildOverviewData($from, $to) + [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
+            'scanners' => $request->user()->can('manage-device-sessions') ? $this->scannerSummary() : null,
         ])->header('Cache-Control', 'private, max-age=30');
+    }
+
+    /** Ringkasan status device scanner pulling (panel monitoring ringkas di overview). */
+    private function scannerSummary(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('device_sessions')) {
+            return ['online' => 0, 'total' => 0, 'list' => []];
+        }
+
+        $devices = DB::table('device_sessions')
+            ->where('current_page', '/pulling')
+            ->where('last_seen_at', '>=', now()->subDay())
+            ->orderByDesc('last_seen_at')
+            ->limit(24)
+            ->get(['device_id', 'device_label', 'scanner_no', 'last_seen_at']);
+
+        $online = 0;
+        $list = $devices->map(function ($d) use (&$online) {
+            $lastSeen = $d->last_seen_at ? Carbon::parse($d->last_seen_at) : null;
+            $isOnline = $lastSeen && $lastSeen->gt(now()->subMinutes(2));
+            if ($isOnline) {
+                $online++;
+            }
+
+            return [
+                'name' => $d->device_label
+                    ?: ($d->scanner_no ? 'Scanner #'.$d->scanner_no : 'Scanner #'.substr($d->device_id, 0, 6)),
+                'online' => $isOnline,
+                'last_seen' => $lastSeen ? $lastSeen->diffForHumans() : '-',
+            ];
+        })->all();
+
+        // online dulu (usort stabil di PHP 8 → urutan last_seen dalam grup dipertahankan)
+        usort($list, fn ($a, $b) => $b['online'] <=> $a['online']);
+
+        return ['online' => $online, 'total' => count($list), 'list' => $list];
     }
 
     public function overviewAiAnalyst(Request $request, BellaContextBuilder $contextBuilder)

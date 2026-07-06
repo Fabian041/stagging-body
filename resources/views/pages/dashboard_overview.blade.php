@@ -807,6 +807,57 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
             padding: 4px 8px;
         }
 
+        .ov-scan-count {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-muted);
+        }
+
+        .ov-scan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .ov-scan-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg);
+        }
+
+        .ov-scan-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            flex-shrink: 0;
+        }
+
+        .ov-scan-dot.is-online {
+            background: #16a34a;
+        }
+
+        .ov-scan-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .ov-scan-seen {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
         .ov-loading {
             min-height: 72px;
             display: flex;
@@ -1925,6 +1976,19 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 <div class="ov-panel__body ov-panel__body--tight" id="ovAtRisk"><div class="ov-loading">Memuat data</div></div>
             </div>
         </div>
+
+        {{-- ===== SCANNER PULLING (device monitoring ringkas) ===== --}}
+        @can('manage-device-sessions')
+            <div class="ov-row">
+                <div class="ov-panel">
+                    <div class="ov-panel__head">
+                        <div class="ov-panel__title"><i class="fas fa-desktop"></i> Scanner Pulling</div>
+                        <span class="ov-scan-count" id="ovScanCount">—</span>
+                    </div>
+                    <div class="ov-panel__body" id="ovScanners"><div class="ov-loading">Memuat data</div></div>
+                </div>
+            </div>
+        @endcan
 
         {{-- ===== Trend + Stock ===== --}}
         <div class="ov-row ov-row--2a">
@@ -3182,6 +3246,18 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 return neg ? ('lewat ' + s) : (s + ' lagi');
             }
 
+            function renderScanners(sc) {
+                var list = (sc && sc.list) || [];
+                if (!list.length) return '<div class="ov-empty">Belum ada scanner aktif.</div>';
+                return '<div class="ov-scan-grid">' + list.map(function(s) {
+                    return '<div class="ov-scan-item">' +
+                        '<span class="ov-scan-dot ' + (s.online ? 'is-online' : '') + '"></span>' +
+                        '<span class="ov-scan-name">' + esc(s.name || '-') + '</span>' +
+                        '<span class="ov-scan-seen">' + esc(s.last_seen || '-') + '</span>' +
+                        '</div>';
+                }).join('') + '</div>';
+            }
+
             function renderAtRisk(rows) {
                 if (!rows || !rows.length)
                 return '<div class="ov-empty">Tidak ada delivery berisiko hari ini/besok. 👍</div>';
@@ -3280,6 +3356,9 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
                 setHtml('ovTopUnder', renderTopUnder(d.topUnder));
                 setHtml('ovErrByArea', renderErrByArea(d.errByArea));
                 setHtml('ovRecentErrors', renderRecentErrors(d.recentErrors));
+                var sc = d.scanners || { online: 0, total: 0, list: [] };
+                setText('ovScanCount', sc.total ? (sc.online + '/' + sc.total + ' online') : '—');
+                setHtml('ovScanners', renderScanners(sc));
                 setText('ovUpdated', new Date().toLocaleTimeString('id-ID'));
                 updateAiChips(d);
                 updateAiPeriod();
