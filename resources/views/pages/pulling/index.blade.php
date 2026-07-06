@@ -1521,24 +1521,100 @@
     });
 
     const STORE_NAME = 'loadingList';
+    const SERIAL_STORE_NAME = 'scanSerials';
+    const SUMMARY_STORE_NAME = 'scanSummary';
+    const SUMMARY_KEY = 'current';
+    const REQUIRED_IDB_STORES = [STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME];
 
-    function openDBEnsureStore(dbName, storeName) {
+    function ensurePullingStores(database) {
+        REQUIRED_IDB_STORES.forEach((storeName) => {
+            if (!database.objectStoreNames.contains(storeName)) {
+                const store = database.createObjectStore(storeName);
+                if (storeName === STORE_NAME) store.createIndex('loadingListDetail', 'seri');
+            }
+        });
+    }
+
+    function openPullingDB(dbName) {
         return new Promise((resolve, reject) => {
             const req = indexedDB.open(dbName);
             req.onerror = () => reject(new Error(`Gagal buka DB "${dbName}"`));
             req.onsuccess = (ev) => {
                 const db = ev.target.result;
-                if (db.objectStoreNames.contains(storeName)) return resolve(db);
+                const missingStore = REQUIRED_IDB_STORES.some((storeName) => !db.objectStoreNames.contains(storeName));
+                if (!missingStore) return resolve(db);
+
                 const nextVersion = (db.version || 1) + 1;
                 db.close();
                 const req2 = indexedDB.open(dbName, nextVersion);
-                req2.onupgradeneeded = (e) => {
-                    const db2 = e.target.result;
-                    if (!db2.objectStoreNames.contains(storeName)) db2.createObjectStore(storeName);
-                };
+                req2.onupgradeneeded = (e) => ensurePullingStores(e.target.result);
                 req2.onsuccess = (e) => resolve(e.target.result);
-                req2.onerror = () => reject(new Error(`Upgrade DB gagal buat store "${storeName}"`));
+                req2.onerror = () => reject(new Error('Upgrade DB pulling gagal'));
             };
+        });
+    }
+
+    function openDBEnsureStore(dbName) {
+        return openPullingDB(dbName);
+    }
+
+    function scanSerialKey(customerPart, serial) {
+        return `${String(customerPart || '').trim()}|${String(serial || '').trim()}`;
+    }
+
+    function getAllLoadingListRecords(database) {
+        return new Promise((resolve, reject) => {
+            const records = [];
+            const transaction = database.transaction([STORE_NAME], 'readonly');
+            const request = transaction.objectStore(STORE_NAME).openCursor();
+
+            request.onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (!cursor) {
+                    resolve(records);
+                    return;
+                }
+
+                records.push(cursor.value);
+                cursor.continue();
+            };
+            request.onerror = () => reject(request.error || new Error('Gagal membaca loading list lokal'));
+        });
+    }
+
+    function getSerialsForPart(database, customerPart, fallbackSerials = []) {
+        return new Promise((resolve, reject) => {
+            const serials = [];
+            const seen = new Set();
+
+            fallbackSerials.forEach((serial) => {
+                const value = String(serial || '').trim();
+                if (value && !seen.has(value)) {
+                    seen.add(value);
+                    serials.push(value);
+                }
+            });
+
+            const prefix = `${String(customerPart || '').trim()}|`;
+            const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+            const transaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
+            const request = transaction.objectStore(SERIAL_STORE_NAME).openCursor(range);
+
+            request.onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (!cursor) {
+                    resolve(serials);
+                    return;
+                }
+
+                const value = String(cursor.value?.serial || '').trim();
+                if (value && !seen.has(value)) {
+                    seen.add(value);
+                    serials.push(value);
+                }
+                cursor.continue();
+            };
+            request.onerror = () => reject(request.error || new Error('Gagal membaca serial scan'));
         });
     }
 
@@ -1574,33 +1650,8 @@
             const dbName = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber');
             if (!dbName) throw new Error('DB belum siap. Scan Loading List dulu.');
 
-            // 1) Ambil record dari IDB → butuh internal & loading_list_number
-            const rec = await new Promise((resolve, reject) => {
-                const req = indexedDB.open(dbName);
-                req.onerror = () => reject(new Error(`Gagal buka DB ${dbName}`));
-                req.onsuccess = (ev) => {
-                    const db = ev.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        const names = Array.from(db.objectStoreNames || []);
-                        db.close();
-                        return reject(new Error(
-                            `Store "${STORE_NAME}" tidak ada. Tersedia: ${names.join(', ')}`));
-                    }
-                    const tx = db.transaction([STORE_NAME], 'readonly');
-                    const st = tx.objectStore(STORE_NAME);
-                    const g = st.get(customerPart);
-                    g.onsuccess = () => {
-                        const r = g.result;
-                        db.close();
-                        r ? resolve(r) : reject(new Error(
-                            `Part "${customerPart}" tidak ada di IDB`));
-                    };
-                    g.onerror = (e) => {
-                        db.close();
-                        reject(e?.target?.error || new Error('Gagal ambil record'));
-                    };
-                };
-            });
+            // 1) Ambil record dari IDB -> butuh internal & loading_list_number
+            const rec = await getPartRecordFromIDB(customerPart);
 
             const internalPart = String(rec.internal || '').trim();
             const loadingList = rec.loading_list_number;
@@ -1619,42 +1670,65 @@
             });
             if (!res || res.status !== 'success') throw new Error(res?.message || 'Store gagal');
 
-            // 3) Update IDB lokal: push placeholder ke array seri agar counter lokal naik
+            // 3) Update IDB lokal: simpan serial ringan + seri legacy untuk UI lama
             await new Promise((resolve, reject) => {
-                const req = indexedDB.open(dbName);
-                req.onerror = () => reject(new Error(`Gagal buka DB ${dbName}`));
-                req.onsuccess = (ev) => {
-                    const db = ev.target.result;
-                    const tx = db.transaction([STORE_NAME], 'readwrite');
+                openPullingDB(dbName).then((db) => {
+                    const tx = db.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
                     const st = tx.objectStore(STORE_NAME);
+                    const serialStore = tx.objectStore(SERIAL_STORE_NAME);
+                    const summaryStore = tx.objectStore(SUMMARY_STORE_NAME);
                     const g = st.get(customerPart);
+
+                    tx.oncomplete = () => {
+                        db.close();
+                        resolve();
+                    };
+                    tx.onerror = (event) => {
+                        db.close();
+                        reject(event?.target?.error || new Error('Gagal simpan IDB'));
+                    };
+
                     g.onsuccess = () => {
                         const data = g.result;
                         if (!data) {
-                            db.close();
                             return reject(new Error('Record hilang di IDB'));
                         }
                         if (!Array.isArray(data.seri)) data.seri = [];
-                        if (data.seri.length >= (data.total_qty || 0)) {
-                            db.close();
+                        const currentCount = parseInt(data.scanned_count ?? data.seri.length, 10) || 0;
+                        if (currentCount >= (data.total_qty || 0)) {
                             return reject(new Error('Part sudah complete'));
                         }
-                        data.seri.push(`AUTO-DIRECT-${Date.now()}`);
-                        const p = st.put(data, customerPart);
-                        p.onsuccess = () => {
-                            db.close();
-                            resolve();
+                        const serial = `AUTO-DIRECT-${Date.now()}`;
+                        data.scanned_count = currentCount + 1;
+                        data.actual_qty = data.scanned_count;
+                        serialStore.put({
+                            customer_part: customerPart,
+                            internal: internalPart,
+                            serial,
+                            loading_list_number: loadingList,
+                            scanned_at: Date.now()
+                        }, scanSerialKey(customerPart, serial));
+
+                        const summaryRequest = summaryStore.get(SUMMARY_KEY);
+                        summaryRequest.onsuccess = () => {
+                            const actual = parseInt(localStorage.getItem('pulling_total_actual') || '0', 10) || 0;
+                            const target = parseInt(localStorage.getItem('pulling_total_target') || data.total_qty || '0',
+                                10) || 0;
+                            const summary = summaryRequest.result || {
+                                totalActual: actual,
+                                totalTarget: target
+                            };
+                            summary.totalActual = (parseInt(summary.totalActual || 0, 10) || 0) + 1;
+                            summary.totalTarget = parseInt(summary.totalTarget || target, 10) || target;
+                            summary.updatedAt = Date.now();
+                            summaryStore.put(summary, SUMMARY_KEY);
                         };
-                        p.onerror = (e) => {
-                            db.close();
-                            reject(e?.target?.error || new Error('Gagal simpan IDB'));
-                        };
+                        st.put(data, customerPart);
                     };
                     g.onerror = (e) => {
-                        db.close();
                         reject(e?.target?.error || new Error('Gagal ambil record'));
                     };
-                };
+                }).catch(reject);
             });
 
             // 4) Update UI minimal (qty naik, indikator hijau, bersihkan panel customer)
@@ -1668,7 +1742,8 @@
                     const g2 = st2.get(customerPart);
                     g2.onsuccess = () => {
                         const latest = g2.result || rec;
-                        const nowLen = (latest?.seri?.length || (rec?.seri?.length || 0) + 1);
+                        const nowLen = parseInt(latest?.scanned_count ?? latest?.seri?.length ?? ((rec?.seri?.length || 0) + 1),
+                            10) || 0;
                         $('#qty-display').text(`${nowLen}/${latest?.total_qty ?? rec.total_qty}`);
                         if (typeof successIndicator === 'function') successIndicator();
                         if (typeof tmminSuccessIndicator === 'function') tmminSuccessIndicator();
@@ -1833,17 +1908,28 @@
     }
 
     const SCAN_HISTORY_KEY = 'pulling_scan_pair_history';
+    const SCAN_HISTORY_LIMIT = 6;
+
+    function scanHistoryStorageKey() {
+        const pds = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber') || 'global';
+        return `${SCAN_HISTORY_KEY}_${pds}`;
+    }
 
     function loadScanHistory() {
         try {
-            const history = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
-            return Array.isArray(history) ? history.slice(0, 6) : [];
+            const raw = localStorage.getItem(scanHistoryStorageKey()) || localStorage.getItem(SCAN_HISTORY_KEY) || '[]';
+            const history = JSON.parse(raw);
+            return Array.isArray(history) ? history.slice(0, SCAN_HISTORY_LIMIT) : [];
         } catch (_) {
             return [];
         }
     }
 
     const scanHistoryState = loadScanHistory();
+
+    function saveScanHistory() {
+        localStorage.setItem(scanHistoryStorageKey(), JSON.stringify(scanHistoryState));
+    }
 
     function renderScanHistory() {
         const list = document.getElementById('scanHistoryList');
@@ -1877,12 +1963,55 @@
             internal: String(internal || '-').trim() || '-',
             serial: String(serial || '-').trim() || '-'
         });
-        scanHistoryState.splice(6);
-        localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(scanHistoryState));
+        scanHistoryState.splice(SCAN_HISTORY_LIMIT);
+        saveScanHistory();
         renderScanHistory();
     }
 
     renderScanHistory();
+
+    function hydrateScanHistoryFromIndexedDB() {
+        const dbName = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber');
+        if (!dbName) return;
+
+        openPullingDB(dbName).then((database) => {
+            const rows = [];
+            const transaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
+            const request = transaction.objectStore(SERIAL_STORE_NAME).openCursor();
+
+            request.onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (!cursor) return;
+
+                const item = cursor.value || {};
+                if (item.serial) rows.push(item);
+                cursor.continue();
+            };
+
+            transaction.oncomplete = function() {
+                database.close();
+                const history = rows
+                    .sort((a, b) => (parseInt(b.scanned_at || 0, 10) || 0) - (parseInt(a.scanned_at || 0, 10) || 0))
+                    .slice(0, SCAN_HISTORY_LIMIT)
+                    .map((item) => ({
+                        customer: String(item.customer_part || '-').trim() || '-',
+                        internal: String(item.internal || '-').trim() || '-',
+                        serial: String(item.serial || '-').trim() || '-'
+                    }));
+
+                if (!history.length) return;
+                scanHistoryState.splice(0, scanHistoryState.length, ...history);
+                saveScanHistory();
+                renderScanHistory();
+            };
+
+            transaction.onerror = function() {
+                database.close();
+            };
+        }).catch(() => {});
+    }
+
+    hydrateScanHistoryFromIndexedDB();
 
     $(document).on('click', '#scanHistoryToggle', function(e) {
         e.preventDefault();
@@ -2207,51 +2336,75 @@
         setPullingQuantityDisplay(actual + deltaActual, target);
     }
 
-    function pullingQuantity() {
-        let pds = localStorage.getItem('pds_local');
-        // initialize database
-        request = window.indexedDB.open(pds);
-
-        // transaction 
+    function recalculatePullingQuantity(database) {
         let totalActual = 0;
         let totalTarget = 0;
-        request.onsuccess = function(event) {
-            const database = event.target.result;
-            const transaction = database.transaction(["loadingList"], 'readonly');
-            const objectStore = transaction.objectStore("loadingList");
+        const transaction = database.transaction([STORE_NAME], 'readonly');
+        const objectStore = transaction.objectStore(STORE_NAME);
 
-            objectStore.openCursor().onsuccess = function(event) {
-                let cursor = event.target.result;
-                if (cursor) {
-                    const record = cursor.value;
-
-                    // get total seri scanned
-                    totalActual += parseInt(record.seri.length);
-
-                    // get total target
-                    totalTarget += parseInt(record.total_qty);
-
-                    cursor.continue();
-                } else {
-                    setPullingQuantityDisplay(totalActual, totalTarget);
-                }
-            }
-
-            objectStore.openCursor().onerror = function(event) {
-                notif('error', event.message);
+        const cursorRequest = objectStore.openCursor();
+        cursorRequest.onsuccess = function(event) {
+            let cursor = event.target.result;
+            if (cursor) {
+                const record = cursor.value;
+                totalActual += parseInt(record.scanned_count ?? record.seri?.length ?? 0, 10) || 0;
+                totalTarget += parseInt(record.total_qty || 0, 10) || 0;
+                cursor.continue();
                 return;
             }
 
-            // Close the db when the transaction is done
-            transaction.oncomplete = function() {
-                database.close();
-            };
-        }
+            setPullingQuantityDisplay(totalActual, totalTarget);
+        };
 
-        request.onerror = function(event) {
-            notif('error', 'Failed to connect to database!')
-            return;
-        }
+        cursorRequest.onerror = function(event) {
+            notif('error', event.message);
+        };
+
+        transaction.oncomplete = function() {
+            try {
+                const writeTransaction = database.transaction([SUMMARY_STORE_NAME], 'readwrite');
+                writeTransaction.objectStore(SUMMARY_STORE_NAME).put({
+                    totalActual,
+                    totalTarget,
+                    updatedAt: Date.now()
+                }, SUMMARY_KEY);
+                writeTransaction.oncomplete = () => database.close();
+                writeTransaction.onerror = () => database.close();
+            } catch (error) {
+                database.close();
+            }
+        };
+    }
+
+    function pullingQuantity() {
+        const pds = localStorage.getItem('pds_local');
+        if (!pds) return;
+
+        openPullingDB(pds).then((database) => {
+            const transaction = database.transaction([SUMMARY_STORE_NAME], 'readonly');
+            const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
+            const summaryRequest = summaryStore.get(SUMMARY_KEY);
+
+            summaryRequest.onsuccess = function() {
+                const summary = summaryRequest.result;
+                const totalActual = parseInt(summary?.totalActual, 10);
+                const totalTarget = parseInt(summary?.totalTarget, 10);
+
+                if (!Number.isNaN(totalActual) && !Number.isNaN(totalTarget)) {
+                    setPullingQuantityDisplay(totalActual, totalTarget);
+                    database.close();
+                    return;
+                }
+
+                recalculatePullingQuantity(database);
+            };
+
+            summaryRequest.onerror = function() {
+                recalculatePullingQuantity(database);
+            };
+        }).catch(() => {
+            notif('error', 'Failed to connect to database!');
+        });
     }
 
     function refreshToken() {
@@ -2532,38 +2685,23 @@
             }
 
             async initializeDatabase(data) {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(data.pds_number);
-
-                    request.onupgradeneeded = (event) => {
-                        const database = event.target.result;
-                        if (!database.objectStoreNames.contains('loadingList')) {
-                            const objectStore = database.createObjectStore('loadingList');
-                            objectStore.createIndex('loadingListDetail', 'seri');
-                        }
-                    };
-
-                    request.onsuccess = async (event) => {
-                        try {
-                            const database = event.target.result;
-                            await this.populateDatabase(database, data);
-                            database.close();
-                            resolve();
-                        } catch (error) {
-                            reject(error);
-                        }
-                    };
-
-                    request.onerror = () => {
-                        console.log("Database error:", request.error);
-                        reject(request.error);
-                    };
-                });
+                const database = await openPullingDB(data.pds_number);
+                try {
+                    await this.populateDatabase(database, data);
+                } finally {
+                    database.close();
+                }
             }
 
             async populateDatabase(database, data) {
-                const transaction = database.transaction(['loadingList'], 'readwrite');
-                const objectStore = transaction.objectStore('loadingList');
+                const transaction = database.transaction([STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                const objectStore = transaction.objectStore(STORE_NAME);
+                const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
+                const transactionDone = new Promise((resolve, reject) => {
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error);
+                    transaction.onabort = () => reject(transaction.error);
+                });
 
                 const promises = data.items.map(item => {
                     return new Promise((resolve, reject) => {
@@ -2581,6 +2719,7 @@
                                         qty_per_kbn: item.total_qty / item
                                             .total_kanban_qty,
                                         actual_qty: item.actual_kanban_qty,
+                                        scanned_count: item.actual_kanban_qty,
                                         total_qty: item.total_kanban_qty,
                                         seri: []
                                     }, key);
@@ -2595,7 +2734,22 @@
                     });
                 });
 
+                const totalTarget = data.items.reduce((sum, item) => {
+                    return sum + (parseInt(item.total_kanban_qty || 0, 10) || 0);
+                }, 0);
+                const totalActual = data.items.reduce((sum, item) => {
+                    return sum + (parseInt(item.actual_kanban_qty || 0, 10) || 0);
+                }, 0);
+
+                summaryStore.put({
+                    totalActual,
+                    totalTarget,
+                    updatedAt: Date.now()
+                }, SUMMARY_KEY);
+
                 await Promise.all(promises);
+                setPullingQuantityDisplay(totalActual, totalTarget);
+                await transactionDone;
             }
 
             async storeLoadingListDetails(ll, items) {
@@ -2948,152 +3102,122 @@
             });
         });
 
-        $('#done').on('click', function() {
-            let loadingList = getLoadingListNumber();
-            let pds = localStorage.getItem('pds_local');
-            let formData = new FormData();
-            request = window.indexedDB.open(pds);
+        $('#done').on('click', async function() {
+            const pds = localStorage.getItem('pds_local');
+            if (!pds) {
+                notif('error', 'Database lokal belum siap!');
+                return;
+            }
 
-            // transaction
-            request.onsuccess = function(event) {
-                const database = event.target.result;
-                const transaction = database.transaction(["loadingList"], 'readonly');
-                const objectStore = transaction.objectStore("loadingList");
-                let loadingList = {};
-                let flag = true;
+            let database = null;
 
-                objectStore.openCursor().onsuccess = function(event) {
-                    let cursor = event.target.result;
-                    if (cursor) {
-                        const record = cursor.value;
-                        // check if the loading list is fullfilled by check each array seri
-                        if (record.seri.length < record.total_qty) {
-                            flag = false;
+            try {
+                database = await openPullingDB(pds);
+                const records = await getAllLoadingListRecords(database);
+                const loadingListPayload = {};
+                const finishRows = [];
+                const seenLoadingLists = new Set();
+                let complete = records.length > 0;
+
+                for (const record of records) {
+                    const legacySerials = Array.isArray(record.seri) ? record.seri : [];
+                    const serials = await getSerialsForPart(database, record.customer, legacySerials);
+                    const target = parseInt(record.total_qty || 0, 10) || 0;
+
+                    if (serials.length < target) {
+                        complete = false;
+                        break;
+                    }
+
+                    const items = serials.map((serial) => ({
+                        part_number_internal: record.internal,
+                        part_number_customer: record.customer,
+                        serial_number: serial
+                    }));
+
+                    const loadingListNumber = record.loading_list_number;
+                    if (loadingListPayload.hasOwnProperty(loadingListNumber)) {
+                        loadingListPayload[loadingListNumber].push(...items);
+                    } else {
+                        loadingListPayload[loadingListNumber] = items;
+                    }
+
+                    if (!seenLoadingLists.has(loadingListNumber)) {
+                        seenLoadingLists.add(loadingListNumber);
+                        finishRows.push({
+                            customer: localStorage.getItem('customer'),
+                            loadingList: loadingListNumber,
+                            pdsNumber: localStorage.getItem('pdsNumber'),
+                            cycle: localStorage.getItem('cycle'),
+                        });
+                    }
+                }
+
+                database.close();
+                database = null;
+
+                if (!complete) {
+                    notif('error', 'loading list belum lengkap!');
+                    uncompleteLlSound();
+                    setTimeout(() => $('#code').focus(), 1000);
+                    return;
+                }
+
+                $.ajax({
+                    type: 'GET',
+                    url: "{{ route('pulling.post') }}",
+                    _token: "{{ csrf_token() }}",
+                    data: {
+                        loadingList: loadingListPayload,
+                        token: token
+                    },
+                    dataType: 'json',
+                    success: function() {
+                        const deleteRequest = indexedDB.deleteDatabase(pds);
+
+                        deleteRequest.onsuccess = function() {
+                            notif('success', 'Pulling berhasil!');
+                            finishPullingSound();
+                        };
+
+                        deleteRequest.onerror = function(event) {
+                            notif('error', event?.target?.error?.message || 'Gagal menghapus database lokal');
+                        };
+
+                        if (finishRows.length === 0) {
+                            localStorage.clear();
+                            window.location.reload();
                             return;
                         }
 
-                        let items = [];
-                        for (let i = 0; i < record.seri.length; i++) {
-                            let item = {
-                                part_number_internal: record.internal,
-                                part_number_customer: record.customer,
-                                serial_number: record.seri[i]
-                            };
-                            items.push(item);
-                        }
-
-                        // store in loading list array
-                        const loadingListNumber = record.loading_list_number;
-                        if (loadingList.hasOwnProperty(loadingListNumber)) {
-                            loadingList[loadingListNumber].push(...items);
-                        } else {
-                            loadingList[loadingListNumber] = items;
-                        }
-
-                        cursor.continue();
-                    }
-                }
-
-                // when transaction complete
-                transaction.oncomplete = function() {
-                    if (flag) {
-                        // send loading list data to backend
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ route('pulling.post') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: {
-                                loadingList: loadingList,
-                                token: token
-                            },
-                            dataType: 'json',
-                            success: function(data) {
-                                const deleteRequest = indexedDB.deleteDatabase(pds);
-
-                                deleteRequest.onsuccess = function() {
-                                    notif('success', 'Pulling berhasil!');
-                                    finishPullingSound();
-                                };
-
-                                deleteRequest.onerror = function(event) {
-                                    notif('error: ', event);
-                                };
-                            },
-                            error: function(xhr) {
-                                notif('error', xhr.statusText);
-                            }
-                        });
-
-                        let ll = [];
-                        let data = [];
-
-                        // initialize database
-                        request = window.indexedDB.open(pds);
-
-                        request.onsuccess = function(event) {
-                            const database = event.target.result;
-                            const transaction = database.transaction(["loadingList"],
-                                'readonly');
-                            const objectStore = transaction.objectStore("loadingList");
-
-                            objectStore.openCursor().onsuccess = function(event) {
-                                let cursor = event.target.result;
-                                if (cursor) {
-
-                                    // check each loading list
-                                    if (!ll.includes(cursor.value
-                                            .loading_list_number)) {
-                                        ll.push(cursor.value.loading_list_number);
+                        let storedRows = 0;
+                        finishRows.forEach((row) => {
+                            $.ajax({
+                                type: 'GET',
+                                url: "{{ route('pulling.store') }}",
+                                _token: "{{ csrf_token() }}",
+                                data: row,
+                                dataType: 'json',
+                                success: function() {
+                                    storedRows += 1;
+                                    if (storedRows === finishRows.length) {
+                                        localStorage.clear();
+                                        window.location.reload();
                                     }
-
-                                    cursor.continue();
-                                } else {
-                                    for (let index = 0; index < ll.length; index++) {
-                                        item = {
-                                            customer: localStorage.getItem(
-                                                'customer'),
-                                            loadingList: ll[index],
-                                            pdsNumber: localStorage.getItem(
-                                                'pdsNumber'),
-                                            cycle: localStorage.getItem('cycle'),
-                                        }
-                                        data.push(item)
-                                    }
-                                    for (let index = 0; index < data.length; index++) {
-                                        $.ajax({
-                                            type: 'GET',
-                                            url: "{{ route('pulling.store') }}",
-                                            _token: "{{ csrf_token() }}",
-                                            data: {
-                                                customer: data[index].customer,
-                                                loadingList: data[index]
-                                                    .loadingList,
-                                                pdsNumber: data[index]
-                                                    .pdsNumber,
-                                                cycle: data[index].cycle
-                                            },
-                                            dataType: 'json',
-                                            success: function(data) {
-                                                localStorage.clear();
-                                                window.location.reload();
-                                            },
-                                            error: function(xhr) {
-                                                notif('error', xhr
-                                                    .statusText);
-                                            }
-                                        });
-                                    }
+                                },
+                                error: function(xhr) {
+                                    notif('error', xhr.statusText);
                                 }
-                            }
-                        }
-                    } else {
-                        notif('error', 'loading list belum lengkap!');
-                        uncompleteLlSound();
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
+                            });
+                        });
+                    },
+                    error: function(xhr) {
+                        notif('error', xhr.statusText);
                     }
-                }
+                });
+            } catch (error) {
+                if (database) database.close();
+                notif('error', error?.message || 'Gagal membaca data pulling lokal');
             }
         });
 
@@ -3150,15 +3274,15 @@
                 }, 1000);
             };
 
-            // === Validasi: internal & customer harus dalam objek yang sama
-            for (const key in cursor) {
-                if (cursor[key] === localStorage.getItem('customerPart')) {
-                    if (Object.values(cursor).includes(internal.trimEnd())) {
-                        isSameObject = true;
-                        break;
-                    }
-                }
+            if (!Array.isArray(arraySeri)) {
+                arraySeri = [];
+                cursor.seri = arraySeri;
             }
+            let scannedCount = parseInt(cursor.scanned_count ?? arraySeri.length, 10) || 0;
+
+            // === Validasi: internal & customer harus dalam objek yang sama
+            isSameObject = String(cursor.customer || '').trim() === String(localStorage.getItem('customerPart') || '').trim() &&
+                String(cursor.internal || '').trim() === String(internal || '').trim();
 
             if (!isSameObject) {
                 handleError('Kanban tidak sesuai!', {
@@ -3172,60 +3296,76 @@
                 return;
             }
 
-            // === Validasi: seri duplikat
-            if (arraySeri.includes(seri)) {
+            const duplicateSerialError = () => {
                 handleError('Seri kanban sudah discan!', {
                     expected: 'Seri unik (belum pernah discan)',
                     scanned: `Seri=${seri}`,
                     playSound: false
                 });
                 alreadyScanSound();
-                return;
-            }
+            };
 
-            // === Validasi: quantity sudah penuh
-            if (arraySeri.length >= totalQty) {
-                handleError('Part number sudah complete!', {
-                    expected: `Qty <= ${totalQty}`,
-                    scanned: `Attempt push, current=${arraySeri.length}`,
-                    playSound: false
-                });
-                fullfilledSound();
-                return;
-            }
-
-            // === Update IndexedDB setelah validasi backend OK
-            const updateIndexedDB = () => {
-                // tambah seri sementara
-                arraySeri.push(seri);
-
-                if (!database.objectStoreNames.contains('loadingList')) {
-                    const availableStores = Array.from(database.objectStoreNames);
-
-                    if (availableStores.length > 0) {
-                        const storeName = availableStores[0];
-                        const transaction = database.transaction([storeName], 'readwrite');
-                        const objectStore = transaction.objectStore(storeName);
-                        performUpdate(transaction, objectStore, storeName);
-                    } else {
-                        handleError('No object stores found in database!', {
-                            expected: 'Tersedia store "loadingList"',
-                            scanned: 'Tidak ada store sama sekali'
-                        });
-                        arraySeri.pop();
-                        return;
-                    }
-                } else {
-                    const transaction = database.transaction(['loadingList'], 'readwrite');
-                    const objectStore = transaction.objectStore('loadingList');
-                    performUpdate(transaction, objectStore, 'loadingList');
+            let updateIndexedDB = () => {};
+            const continueAfterSerialCheck = () => {
+                // === Validasi: quantity sudah penuh
+                if (scannedCount >= totalQty) {
+                    handleError('Part number sudah complete!', {
+                        expected: `Qty <= ${totalQty}`,
+                        scanned: `Attempt push, current=${scannedCount}`,
+                        playSound: false
+                    });
+                    fullfilledSound();
+                    return false;
                 }
 
-                function performUpdate(transaction, objectStore, storeName) {
+                // === Update IndexedDB setelah validasi backend OK
+                updateIndexedDB = () => {
+                    scannedCount += 1;
+                    cursor.scanned_count = scannedCount;
+                    cursor.actual_qty = scannedCount;
+                    let countApplied = true;
+                    const rollbackLocalCount = () => {
+                        if (!countApplied) return;
+                        scannedCount -= 1;
+                        cursor.scanned_count = scannedCount;
+                        cursor.actual_qty = scannedCount;
+                        countApplied = false;
+                    };
+                    const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                    const objectStore = transaction.objectStore(STORE_NAME);
+                    const serialStore = transaction.objectStore(SERIAL_STORE_NAME);
+                    const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
+                    transaction.oncomplete = () => database.close();
+                    performUpdate(transaction, objectStore, serialStore, summaryStore);
+                };
+
+                function performUpdate(transaction, objectStore, serialStore, summaryStore) {
+                    serialStore.put({
+                        customer_part: primaryKey,
+                        internal: String(internal || '').trim(),
+                        serial: String(seri || '').trim(),
+                        loading_list_number: loadingList,
+                        scanned_at: Date.now()
+                    }, scanSerialKey(primaryKey, seri));
+
+                    const summaryRequest = summaryStore.get(SUMMARY_KEY);
+                    summaryRequest.onsuccess = function() {
+                        const actual = parseInt(localStorage.getItem('pulling_total_actual') || '0', 10) || 0;
+                        const target = parseInt(localStorage.getItem('pulling_total_target') || totalQty || '0', 10) || 0;
+                        const summary = summaryRequest.result || {
+                            totalActual: actual,
+                            totalTarget: target
+                        };
+                        summary.totalActual = (parseInt(summary.totalActual || 0, 10) || 0) + 1;
+                        summary.totalTarget = parseInt(summary.totalTarget || target, 10) || target;
+                        summary.updatedAt = Date.now();
+                        summaryStore.put(summary, SUMMARY_KEY);
+                    };
+
                     const putRequest = objectStore.put(cursor, primaryKey);
 
                     putRequest.onsuccess = function() {
-                        $('#qty-display').text(`${arraySeri.length}/${totalQty}`);
+                        $('#qty-display').text(`${scannedCount}/${totalQty}`);
                         $('#int-display').text(internal);
                         $('#cust-display').text('-');
                         $('#chute-display').text('-');
@@ -3241,100 +3381,173 @@
                     putRequest.onerror = function(event) {
                         const err = event?.target?.error?.message || 'Put request failed';
                         handleError('Gagal menyimpan data ke database lokal!', {
-                            expected: `IDB put ke store "${storeName}" key=${primaryKey}`,
+                            expected: `IDB put ke store "${STORE_NAME}" key=${primaryKey}`,
                             scanned: err
                         });
-                        arraySeri.pop();
+                        rollbackLocalCount();
                     };
 
                     transaction.onerror = function(event) {
                         const err = event?.target?.error?.message || 'Transaction failed';
                         handleError('Transaction failed!', {
-                            expected: `IDB transaksi write ke store "${storeName}"`,
+                            expected: `IDB transaksi write ke store "${STORE_NAME}"`,
                             scanned: err
                         });
-                        arraySeri.pop();
+                        rollbackLocalCount();
+                        database.close();
                     };
+                }
+
+                return true;
+            };
+
+            const requestMutation = () => {
+                // === Request ke backend terlebih dahulu
+                try {
+                    $.ajax({
+                        type: 'GET',
+                        url: "{{ route('pulling.mutation') }}",
+                        _token: "{{ csrf_token() }}",
+                        data: {
+                            loadingList: loadingList,
+                            internalPart: internal.trimEnd(),
+                            customerPart: localStorage.getItem('customerPart'),
+                            serialNumber: seri,
+                            qty_per_kbn: qty_per_kbn
+                        },
+                        contentType: 'application/json',
+                        success: function(data) {
+                            if (data.status == 'success') {
+                                // eDCL opsional
+                                if (localStorage.getItem('char_total') == 10000) {
+                                    $.ajax({
+                                        type: 'GET',
+                                        url: "{{ url('/edcl/store') }}/" +
+                                            skid + '/' + manifest + '/' + itemNo + '/' +
+                                            seqNo + '/' + barcodecomplete + '/' +
+                                            originalBarcode + '/' + loadingList + '/' +
+                                            localStorage.getItem('customer'),
+                                        _token: "{{ csrf_token() }}",
+                                        dataType: 'json',
+                                        success: function(response) {
+                                            if (response.status == 'success') {
+                                                updateIndexedDB();
+                                                tmminSuccessIndicator();
+                                            } else {
+                                                handleError(response.message ||
+                                                    'eDCL gagal', {
+                                                        expected: 'eDCL success',
+                                                        scanned: JSON.stringify(
+                                                            response),
+                                                        playSound: false
+                                                    });
+                                                tmminErrorIndicator();
+                                            }
+                                        },
+                                        error: function(xhr) {
+                                            const msg = xhrMessage(xhr);
+                                            handleError(msg, {
+                                                expected: 'HTTP 200 OK dari eDCL',
+                                                scanned: `HTTP ${xhr.status}`
+                                            });
+                                        }
+                                    });
+                                } else {
+                                    // tanpa eDCL
+                                    updateIndexedDB();
+                                }
+                            } else {
+                                handleError(data.message || 'Validasi backend gagal', {
+                                    expected: 'Response success dari mutation',
+                                    scanned: JSON.stringify(data),
+                                    playSound: (data.status == 'notExists')
+                                });
+                                if (data.status == 'notExists') notExist();
+                            }
+                        },
+                        error: function(xhr) {
+                            const msg = xhrMessage(xhr);
+                            handleError(msg, {
+                                expected: 'HTTP 200 OK dari mutation',
+                                scanned: `HTTP ${xhr.status}`
+                            });
+                        }
+                    });
+                } catch (error) {
+                    handleError('An error occurred. Please try again.', {
+                        expected: 'AJAX berjalan sukses',
+                        scanned: error?.message || String(error)
+                    });
                 }
             };
 
-            // === Request ke backend terlebih dahulu
-            try {
-                $.ajax({
-                    type: 'GET',
-                    url: "{{ route('pulling.mutation') }}",
-                    _token: "{{ csrf_token() }}",
-                    data: {
-                        loadingList: loadingList,
-                        internalPart: internal.trimEnd(),
-                        customerPart: localStorage.getItem('customerPart'),
-                        serialNumber: seri,
-                        qty_per_kbn: qty_per_kbn
-                    },
-                    contentType: 'application/json',
-                    success: function(data) {
-                        if (data.status == 'success') {
-                            // eDCL opsional
-                            if (localStorage.getItem('char_total') == 10000) {
-                                $.ajax({
-                                    type: 'GET',
-                                    url: "{{ url('/edcl/store') }}/" +
-                                        skid + '/' + manifest + '/' + itemNo + '/' +
-                                        seqNo + '/' + barcodecomplete + '/' +
-                                        originalBarcode + '/' + loadingList + '/' +
-                                        localStorage.getItem('customer'),
-                                    _token: "{{ csrf_token() }}",
-                                    dataType: 'json',
-                                    success: function(response) {
-                                        if (response.status == 'success') {
-                                            updateIndexedDB();
-                                            tmminSuccessIndicator();
-                                        } else {
-                                            handleError(response.message ||
-                                                'eDCL gagal', {
-                                                    expected: 'eDCL success',
-                                                    scanned: JSON.stringify(
-                                                        response),
-                                                    playSound: false
-                                                });
-                                            tmminErrorIndicator();
-                                        }
-                                    },
-                                    error: function(xhr) {
-                                        const msg = xhrMessage(xhr);
-                                        handleError(msg, {
-                                            expected: 'HTTP 200 OK dari eDCL',
-                                            scanned: `HTTP ${xhr.status}`
-                                        });
-                                    }
-                                });
-                            } else {
-                                // tanpa eDCL
-                                updateIndexedDB();
-                            }
-                        } else {
-                            handleError(data.message || 'Validasi backend gagal', {
-                                expected: 'Response success dari mutation',
-                                scanned: JSON.stringify(data),
-                                playSound: (data.status == 'notExists')
-                            });
-                            if (data.status == 'notExists') notExist();
-                        }
-                    },
-                    error: function(xhr) {
-                        const msg = xhrMessage(xhr);
-                        handleError(msg, {
-                            expected: 'HTTP 200 OK dari mutation',
-                            scanned: `HTTP ${xhr.status}`
+            const ensureLegacySerialsIndexed = () => {
+                return new Promise((resolve, reject) => {
+                    if (!arraySeri.length || cursor.serials_indexed_at) {
+                        resolve();
+                        return;
+                    }
+
+                    try {
+                        const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME], 'readwrite');
+                        const objectStore = transaction.objectStore(STORE_NAME);
+                        const serialStore = transaction.objectStore(SERIAL_STORE_NAME);
+
+                        arraySeri.forEach((existingSerial) => {
+                            serialStore.put({
+                                customer_part: primaryKey,
+                                internal: String(internal || '').trim(),
+                                serial: String(existingSerial || '').trim(),
+                                loading_list_number: loadingList,
+                                scanned_at: null,
+                                migrated: true
+                            }, scanSerialKey(primaryKey, existingSerial));
                         });
+
+                        cursor.serials_indexed_at = Date.now();
+                        objectStore.put(cursor, primaryKey);
+                        transaction.oncomplete = resolve;
+                        transaction.onerror = () => reject(transaction.error || new Error('Gagal index serial lama'));
+                        transaction.onabort = () => reject(transaction.error || new Error('Gagal index serial lama'));
+                    } catch (error) {
+                        reject(error);
                     }
                 });
-            } catch (error) {
-                handleError('An error occurred. Please try again.', {
-                    expected: 'AJAX berjalan sukses',
+            };
+
+            ensureLegacySerialsIndexed().then(() => {
+                try {
+                    const duplicateTransaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
+                    const duplicateRequest = duplicateTransaction.objectStore(SERIAL_STORE_NAME)
+                        .get(scanSerialKey(primaryKey, seri));
+
+                    duplicateRequest.onsuccess = function() {
+                        if (duplicateRequest.result) {
+                            duplicateSerialError();
+                            return;
+                        }
+
+                        if (continueAfterSerialCheck()) requestMutation();
+                    };
+
+                    duplicateRequest.onerror = function() {
+                        handleError('Error membaca data serial', {
+                            expected: `Serial store ${SERIAL_STORE_NAME}`,
+                            scanned: String(seri || '')
+                        });
+                    };
+                } catch (error) {
+                    handleError('Error akses database serial', {
+                        expected: `Store ${SERIAL_STORE_NAME}`,
+                        scanned: error?.message || String(error)
+                    });
+                }
+            }).catch((error) => {
+                handleError('Error akses database serial', {
+                    expected: `Store ${SERIAL_STORE_NAME}`,
                     scanned: error?.message || String(error)
                 });
-            }
+            });
         }
 
         function checkKanban(seri, internal) {
@@ -3843,31 +4056,23 @@
             }
 
             async initializeDatabase(data) {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(data.pds_number);
-
-                    request.onupgradeneeded = (event) => {
-                        const database = event.target.result;
-                        if (!database.objectStoreNames.contains('loadingList')) {
-                            const objectStore = database.createObjectStore('loadingList');
-                            objectStore.createIndex('loadingListDetail', 'seri');
-                        }
-                    };
-
-                    request.onsuccess = async (event) => {
-                        const database = event.target.result;
-                        await this.populateDatabase(database, data);
-                        database.close();
-                        resolve();
-                    };
-
-                    request.onerror = () => reject(request.error);
-                });
+                const database = await openPullingDB(data.pds_number);
+                try {
+                    await this.populateDatabase(database, data);
+                } finally {
+                    database.close();
+                }
             }
 
             async populateDatabase(database, data) {
-                const transaction = database.transaction(['loadingList'], 'readwrite');
-                const objectStore = transaction.objectStore('loadingList');
+                const transaction = database.transaction([STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
+                const objectStore = transaction.objectStore(STORE_NAME);
+                const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
+                const transactionDone = new Promise((resolve, reject) => {
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error);
+                    transaction.onabort = () => reject(transaction.error);
+                });
 
                 const promises = data.items.map(item => {
                     return new Promise((resolve) => {
@@ -3884,6 +4089,7 @@
                                     qty_per_kbn: item.total_qty / item
                                         .total_kanban_qty,
                                     actual_qty: item.actual_kanban_qty,
+                                    scanned_count: item.actual_kanban_qty,
                                     total_qty: item.total_kanban_qty,
                                     seri: []
                                 }, key);
@@ -3893,7 +4099,22 @@
                     });
                 });
 
+                const totalTarget = data.items.reduce((sum, item) => {
+                    return sum + (parseInt(item.total_kanban_qty || 0, 10) || 0);
+                }, 0);
+                const totalActual = data.items.reduce((sum, item) => {
+                    return sum + (parseInt(item.actual_kanban_qty || 0, 10) || 0);
+                }, 0);
+
+                summaryStore.put({
+                    totalActual,
+                    totalTarget,
+                    updatedAt: Date.now()
+                }, SUMMARY_KEY);
+
                 await Promise.all(promises);
+                setPullingQuantityDisplay(totalActual, totalTarget);
+                await transactionDone;
             }
 
             handleCustomerKanban(code) {
@@ -3974,7 +4195,9 @@
                                 return;
                             }
 
-                            if (record.seri.length >= record.total_qty) {
+                            const seriList = Array.isArray(record.seri) ? record.seri : [];
+                            const scannedCount = parseInt(record.scanned_count ?? seriList.length, 10) || 0;
+                            if (scannedCount >= record.total_qty) {
                                 this.showError('Part number sudah complete!', () => {
                                     if (typeof fullfilledSound === 'function')
                                         fullfilledSound();
@@ -4071,25 +4294,14 @@
                     return;
                 }
 
-                const request = indexedDB.open(databaseName);
-
-                request.onsuccess = (event) => {
-                    const database = event.target.result;
-
-                    // Check if objectStore exists
-                    if (!database.objectStoreNames.contains('loadingList')) {
-                        // console.error('Object store "loadingList" not found');
-                        this.showError('Database belum di-initialize. Scan loading list dulu!');
-                        database.close();
-                        return;
-                    }
-
+                openPullingDB(databaseName).then((database) => {
                     try {
-                        const transaction = database.transaction(['loadingList'], 'readwrite');
-                        const objectStore = transaction.objectStore('loadingList');
+                        const transaction = database.transaction([STORE_NAME], 'readonly');
+                        const objectStore = transaction.objectStore(STORE_NAME);
                         const customerPart = localStorage.getItem('customerPart');
+                        const getRequest = objectStore.get(customerPart);
 
-                        objectStore.get(customerPart).onsuccess = (event) => {
+                        getRequest.onsuccess = (event) => {
                             const record = event.target.result;
                             if (record) {
                                 this.checkInternalAndCustomer(database, record, internal,
@@ -4102,7 +4314,7 @@
                             }
                         };
 
-                        objectStore.get(customerPart).onerror = (event) => {
+                        getRequest.onerror = (event) => {
                             // console.error('Get request error:', event.target.error);
                             this.showError('Error membaca data kanban');
                             database.close();
@@ -4118,12 +4330,10 @@
                         this.showError('Error akses database');
                         database.close();
                     }
-                };
-
-                request.onerror = (event) => {
+                }).catch((event) => {
                     // console.error('Database open error:', event.target.error);
                     this.showError('Error membuka database');
-                };
+                });
             }
 
             handleMMKIKanban(code) {
@@ -4186,7 +4396,9 @@
                                 return;
                             }
 
-                            if (record.seri.length >= record.total_qty) {
+                            const seriList = Array.isArray(record.seri) ? record.seri : [];
+                            const scannedCount = parseInt(record.scanned_count ?? seriList.length, 10) || 0;
+                            if (scannedCount >= record.total_qty) {
                                 this.showError('Part number sudah complete!', () => {
                                     if (typeof fullfilledSound === 'function')
                                         fullfilledSound();
@@ -4245,7 +4457,9 @@
                 $('#backno-display').text('-');
                 fetchAlamatChute(record.loading_list_number, record.customer, record.internal);
                 $('#int-display').text('-');
-                $('#qty-display').text(`${record.seri.length}/${record.total_qty}`);
+                const seriList = Array.isArray(record.seri) ? record.seri : [];
+                const scannedCount = parseInt(record.scanned_count ?? seriList.length, 10) || 0;
+                $('#qty-display').text(`${scannedCount}/${record.total_qty}`);
 
                 this.setIndicator('warning');
                 this.resetIndicator();
