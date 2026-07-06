@@ -1537,8 +1537,15 @@
 
     function openPullingDB(dbName) {
         return new Promise((resolve, reject) => {
+            if (!dbName) {
+                reject(new Error('Nama DB pulling kosong'));
+                return;
+            }
+
             const req = indexedDB.open(dbName);
+            req.onupgradeneeded = (e) => ensurePullingStores(e.target.result);
             req.onerror = () => reject(new Error(`Gagal buka DB "${dbName}"`));
+            req.onblocked = () => reject(new Error(`DB "${dbName}" tertahan tab lain`));
             req.onsuccess = (ev) => {
                 const db = ev.target.result;
                 const missingStore = REQUIRED_IDB_STORES.some((storeName) => !db.objectStoreNames.contains(
@@ -1551,6 +1558,7 @@
                 req2.onupgradeneeded = (e) => ensurePullingStores(e.target.result);
                 req2.onsuccess = (e) => resolve(e.target.result);
                 req2.onerror = () => reject(new Error('Upgrade DB pulling gagal'));
+                req2.onblocked = () => reject(new Error('Upgrade DB pulling tertahan tab lain'));
             };
         });
     }
@@ -1768,9 +1776,7 @@
             // 4) Update UI minimal (qty naik, indikator hijau, bersihkan panel customer)
             try {
                 // Ambil ulang rec untuk hitung panjang terbaru (opsional, boleh perkiraan +1)
-                const req2 = indexedDB.open(dbName);
-                req2.onsuccess = (ev) => {
-                    const db2 = ev.target.result;
+                openPullingDB(dbName).then((db2) => {
                     const tx2 = db2.transaction([STORE_NAME], 'readonly');
                     const st2 = tx2.objectStore(STORE_NAME);
                     const g2 = st2.get(customerPart);
@@ -1790,7 +1796,7 @@
                         if (typeof incrementPullingQuantity === 'function') incrementPullingQuantity(1);
                         db2.close();
                     };
-                };
+                }).catch(() => {});
             } catch (_) {}
         } catch (err) {
             if (typeof notif === 'function') notif('error', err?.message || String(err));
@@ -2179,20 +2185,22 @@
 
 
     function checkLoadingList() {
-        let pds = localStorage.getItem('pds_local');
-        let ll = [];
-        // initialize database
-        request = window.indexedDB.open(pds);
+        const pds = localStorage.getItem('pds_local');
+        if (!pds) {
+            $('#total-ll').text(0);
+            return;
+        }
 
-        request.onsuccess = function(event) {
-            const database = event.target.result;
-            const transaction = database.transaction(["loadingList"], 'readonly');
-            const objectStore = transaction.objectStore("loadingList");
+        const ll = [];
 
-            objectStore.openCursor().onsuccess = function(event) {
+        openPullingDB(pds).then((database) => {
+            const transaction = database.transaction([STORE_NAME], 'readonly');
+            const objectStore = transaction.objectStore(STORE_NAME);
+            const cursorRequest = objectStore.openCursor();
+
+            cursorRequest.onsuccess = function(event) {
                 let cursor = event.target.result;
                 if (cursor) {
-
                     // check each loading list
                     if (!ll.includes(cursor.value.loading_list_number)) {
                         ll.push(cursor.value.loading_list_number);
@@ -2204,30 +2212,32 @@
                 }
             }
 
-            // Close the db when the transaction is done
             transaction.oncomplete = function() {
                 database.close();
             };
 
-            objectStore.openCursor().onerror = function(event) {
-                notif('error', event.message);
-                return;
-            }
-        }
+            cursorRequest.onerror = function(event) {
+                notif('error', event?.target?.error?.message || 'Gagal membaca loading list');
+            };
+        }).catch(() => {
+            $('#total-ll').text(0);
+        });
     }
 
     // Function to get the Skid data (either Skid 1 or Skid 2)
     function getSkidData(skidId) {
         return new Promise(function(resolve, reject) {
-            let pds = localStorage.getItem('pds_local');
-            let request = window.indexedDB.open(pds);
+            const pds = localStorage.getItem('pds_local');
+            if (!pds) {
+                resolve([]);
+                return;
+            }
 
-            request.onsuccess = function(event) {
-                const database = event.target.result;
-                const transaction = database.transaction(["loadingList"], 'readonly');
-                const objectStore = transaction.objectStore("loadingList");
-
+            openPullingDB(pds).then((database) => {
+                const transaction = database.transaction([STORE_NAME], 'readonly');
+                const objectStore = transaction.objectStore(STORE_NAME);
                 let allData = [];
+
                 objectStore.openCursor().onsuccess = function(event) {
                     let cursor = event.target.result;
                     if (cursor) {
@@ -2263,11 +2273,10 @@
                 transaction.onerror = function(event) {
                     reject("Error reading IndexedDB: " + event.target.error);
                 };
-            };
-
-            request.onerror = function(event) {
-                reject("Failed to open IndexedDB: " + event.target.error);
-            };
+                transaction.oncomplete = function() {
+                    database.close();
+                };
+            }).catch(reject);
         });
     }
 
@@ -4363,27 +4372,10 @@
                     return;
                 }
 
-                const request = indexedDB.open(databaseName);
-
-                request.onsuccess = (event) => {
-                    const database = event.target.result;
-
-                    // Debug: Check database info
-                    // console.log('Database opened:', database.name);
-                    // console.log('Available object stores:', Array.from(database.objectStoreNames));
-
-                    // Check if objectStore exists before creating transaction
-                    if (!database.objectStoreNames.contains('loadingList')) {
-                        console.error('Object store "loadingList" not found in database');
-                        // console.log('Database version:', database.version);
-                        this.showError('Database belum di-initialize. Scan loading list dulu!');
-                        database.close();
-                        return;
-                    }
-
+                openPullingDB(databaseName).then((database) => {
                     try {
-                        const transaction = database.transaction(['loadingList'], 'readonly');
-                        const objectStore = transaction.objectStore('loadingList');
+                        const transaction = database.transaction([STORE_NAME], 'readonly');
+                        const objectStore = transaction.objectStore(STORE_NAME);
                         const getRequest = objectStore.get(processedCode);
 
                         getRequest.onsuccess = (event) => {
@@ -4429,12 +4421,10 @@
                         this.showError('Error akses database');
                         database.close();
                     }
-                };
-
-                request.onerror = (event) => {
-                    console.error('Database open error:', event.target.error);
+                }).catch((error) => {
+                    console.error('Database open error:', error);
                     this.showError('Error membuka database');
-                };
+                });
             }
 
             handleKanbanBarcode(code) {
@@ -4570,22 +4560,10 @@
                     return;
                 }
 
-                const request = indexedDB.open(databaseName);
-
-                request.onsuccess = (event) => {
-                    const database = event.target.result;
-
-                    // Check if objectStore exists
-                    if (!database.objectStoreNames.contains('loadingList')) {
-                        // console.error('Object store "loadingList" not found');
-                        this.showError('Database belum di-initialize. Scan loading list dulu!');
-                        database.close();
-                        return;
-                    }
-
+                openPullingDB(databaseName).then((database) => {
                     try {
-                        const transaction = database.transaction(['loadingList'], 'readonly');
-                        const objectStore = transaction.objectStore('loadingList');
+                        const transaction = database.transaction([STORE_NAME], 'readonly');
+                        const objectStore = transaction.objectStore(STORE_NAME);
                         const getRequest = objectStore.get(code);
 
                         getRequest.onsuccess = (event) => {
@@ -4632,12 +4610,10 @@
                         this.showError('Error akses database');
                         database.close();
                     }
-                };
-
-                request.onerror = (event) => {
-                    // console.error('Database open error:', event.target.error);
+                }).catch((error) => {
+                    // console.error('Database open error:', error);
                     this.showError('Error membuka database');
-                };
+                });
             }
 
             handleLogout() {
