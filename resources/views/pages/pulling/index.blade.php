@@ -2627,9 +2627,7 @@
             success: function(response) {
                 if (response.success) {
                     notif('success', 'Successfully refreshed token');
-                    setInterval(() => {
-                        $('#code').focus();
-                    }, 1000);
+                    setTimeout(() => window.location.reload(), 600);
                 } else {
                     notif("error", response.message);
                 }
