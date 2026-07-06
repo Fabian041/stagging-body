@@ -70,11 +70,19 @@ class DashboardController extends Controller
         }
 
         $devices = DB::table('device_sessions')
-            ->where('current_page', '/pulling')
-            ->where('last_seen_at', '>=', now()->subDay())
-            ->orderByDesc('last_seen_at')
+            ->join('users', 'users.id', '=', 'device_sessions.user_id')
+            ->where('device_sessions.current_page', '/pulling')
+            ->where('device_sessions.last_seen_at', '>=', now()->subDay())
+            ->orderByDesc('device_sessions.last_seen_at')
             ->limit(24)
-            ->get(['device_id', 'device_label', 'scanner_no', 'last_seen_at']);
+            ->get([
+                'device_sessions.device_id',
+                'device_sessions.device_label',
+                'device_sessions.scanner_no',
+                'device_sessions.last_seen_at',
+                'users.name as user_name',
+                'users.npk as user_npk',
+            ]);
 
         $online = 0;
         $list = $devices->map(function ($d) use (&$online) {
@@ -87,6 +95,8 @@ class DashboardController extends Controller
             return [
                 'name' => $d->device_label
                     ?: ($d->scanner_no ? 'Scanner #'.$d->scanner_no : 'Scanner #'.substr($d->device_id, 0, 6)),
+                'user_name' => $d->user_name ?: '-',
+                'user_npk' => $d->user_npk ?: null,
                 'online' => $isOnline,
                 'last_seen' => $lastSeen ? $lastSeen->diffForHumans() : '-',
             ];

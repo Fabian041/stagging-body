@@ -1824,6 +1824,213 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
         #ovFlappyCanvas { border-radius: 8px; border: 1px solid var(--border); display: block; max-width: 100%; height: auto; cursor: pointer; }
         .ov-flappy__foot { padding: 10px 16px 14px; font-size: 12px; color: var(--text-muted); text-align: center; font-weight: 600; }
 
+        .ov-scan-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 850;
+            white-space: nowrap;
+        }
+
+        .ov-scan-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ov-scan-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .ov-scan-stat {
+            min-width: 0;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .ov-scan-stat span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .ov-scan-stat strong {
+            display: block;
+            margin-top: 4px;
+            color: var(--navy);
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .ov-scan-stat--online {
+            background: #ecfdf5;
+            border-color: #bbf7d0;
+        }
+
+        .ov-scan-stat--offline {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        .ov-scan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 10px;
+        }
+
+        .ov-scan-item {
+            position: relative;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 11px;
+            min-height: 72px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .ov-scan-item.is-online {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .ov-scan-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0f2fe;
+            color: var(--primary);
+            font-size: 15px;
+            box-shadow: inset 0 0 0 1px rgba(2, 132, 199, .12);
+        }
+
+        .ov-scan-item.is-online .ov-scan-avatar {
+            background: #dcfce7;
+            color: #15803d;
+            box-shadow: inset 0 0 0 1px rgba(22, 163, 74, .13);
+        }
+
+        .ov-scan-main {
+            min-width: 0;
+        }
+
+        .ov-scan-name {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--navy);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .ov-scan-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            margin-top: 4px;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .ov-scan-user span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ov-scan-user small {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .ov-scan-seen {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .ov-scan-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            border-radius: 8px;
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .ov-scan-status::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .ov-scan-status.is-online {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .ov-scan-empty {
+            min-height: 118px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 12px;
+            font-weight: 750;
+        }
+
+        .ov-scan-empty i {
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #e0f2fe;
+            color: var(--primary);
+            font-size: 15px;
+        }
+
         @media (max-width: 1100px) {
             .ov-kpis {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1840,6 +2047,19 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
         @media (max-width: 575.98px) {
             .ov-kpis {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .ov-scan-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .ov-scan-item {
+                grid-template-columns: 38px minmax(0, 1fr);
+            }
+
+            .ov-scan-status {
+                grid-column: 1 / -1;
+                justify-content: center;
             }
 
             .ov-panel__head--activity {
@@ -3248,14 +3468,40 @@ First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 The
 
             function renderScanners(sc) {
                 var list = (sc && sc.list) || [];
-                if (!list.length) return '<div class="ov-empty">Belum ada scanner aktif.</div>';
-                return '<div class="ov-scan-grid">' + list.map(function(s) {
-                    return '<div class="ov-scan-item">' +
-                        '<span class="ov-scan-dot ' + (s.online ? 'is-online' : '') + '"></span>' +
-                        '<span class="ov-scan-name">' + esc(s.name || '-') + '</span>' +
-                        '<span class="ov-scan-seen">' + esc(s.last_seen || '-') + '</span>' +
-                        '</div>';
-                }).join('') + '</div>';
+                var online = parseInt((sc && sc.online) || 0) || 0;
+                var total = parseInt((sc && sc.total) || list.length) || 0;
+                var offline = Math.max(total - online, 0);
+                var pct = total ? Math.round((online / total) * 100) : 0;
+
+                if (!list.length) {
+                    return '<div class="ov-scan-empty"><i class="fas fa-barcode"></i><span>Belum ada scanner pulling terpantau.</span></div>';
+                }
+
+                return '<div class="ov-scan-shell">' +
+                    '<div class="ov-scan-summary">' +
+                    '<div class="ov-scan-stat ov-scan-stat--online"><span>Online</span><strong>' + online + '</strong></div>' +
+                    '<div class="ov-scan-stat ov-scan-stat--offline"><span>Offline</span><strong>' + offline + '</strong></div>' +
+                    '<div class="ov-scan-stat"><span>Kesiapan</span><strong>' + pct + '%</strong></div>' +
+                    '</div>' +
+                    '<div class="ov-scan-grid">' + list.map(function(s) {
+                        var isOnline = !!s.online;
+                        var name = s.name || 'Scanner';
+                        var userName = s.user_name || '-';
+                        var userNpk = s.user_npk ? 'NPK ' + s.user_npk : '';
+                        return '<div class="ov-scan-item ' + (isOnline ? 'is-online' : '') + '">' +
+                            '<div class="ov-scan-avatar" aria-hidden="true"><i class="fas fa-barcode"></i></div>' +
+                            '<div class="ov-scan-main">' +
+                            '<span class="ov-scan-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
+                            '<span class="ov-scan-user" title="' + esc(userName) + '">' +
+                            '<i class="far fa-user"></i><span>' + esc(userName) + '</span>' +
+                            (userNpk ? '<small>' + esc(userNpk) + '</small>' : '') +
+                            '</span>' +
+                            '<span class="ov-scan-seen"><i class="far fa-clock"></i>' + esc(s.last_seen || '-') + '</span>' +
+                            '</div>' +
+                            '<span class="ov-scan-status ' + (isOnline ? 'is-online' : '') + '">' + (isOnline ? 'Online' : 'Offline') + '</span>' +
+                            '</div>';
+                    }).join('') + '</div>' +
+                    '</div>';
             }
 
             function renderAtRisk(rows) {
