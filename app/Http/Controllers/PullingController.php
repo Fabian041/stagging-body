@@ -1108,10 +1108,17 @@ class PullingController extends Controller
 
     public function post(Request $request)
     {
-        $loadingLists = $request->loadingList;
-        $token = $request->token;
+        $loadingLists = $request->input('loadingList', []);
+        $token = $request->input('token');
         $data = [];
         $result = [];
+
+        if (! is_array($loadingLists) || empty($loadingLists)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data loading list kosong.',
+            ], 422);
+        }
 
         // loop the loading list & restructure the array
         foreach ($loadingLists as $loadingList => $items) {
@@ -1136,15 +1143,22 @@ class PullingController extends Controller
         ]);
 
         // post data
-        for ($i = 0; $i < count($data); $i++) {
-            $response = $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                    'Authorization' => 'Bearer ' . $token,
-                ],
-                'json' => $data[$i],
-            ]);
+        try {
+            for ($i = 0; $i < count($data); $i++) {
+                $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                        'Accept' => 'application/json',
+                        'Authorization' => 'Bearer ' . $token,
+                    ],
+                    'json' => $data[$i],
+                ]);
+            }
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $th->getMessage(),
+            ], 502);
         }
 
         for ($i = 0; $i < count($data); $i++) {
@@ -1155,6 +1169,13 @@ class PullingController extends Controller
                 foreach ($kanbans as $kanban_cust => $actual_scanned) {
                     $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $data[$i]->loading_list_number)->first();
 
+                    if (! $loadingListId) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "Loading list {$data[$i]->loading_list_number} tidak ditemukan.",
+                        ], 422);
+                    }
+
                     $convertedPartNumber = $this->convertCustomerPartNumber($kanban_cust, $loadingListId->customer_id);
 
                     // get customer part id
@@ -1163,11 +1184,25 @@ class PullingController extends Controller
                         ->where('customer_id', $loadingListId->customer_id)
                         ->first();
 
+                    if (! $customerPart) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "Part customer {$convertedPartNumber} tidak ditemukan.",
+                        ], 422);
+                    }
+
                     // get kanban_qty
-                    $kanban_qty = LoadingListDetail::select('kanban_qty')
+                    $kanban_qty = LoadingListDetail::select('id', 'kanban_qty')
                         ->where('loading_list_id', $loadingListId->id)
                         ->where('customer_part_id', $customerPart->id)
                         ->first();
+
+                    if (! $kanban_qty) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "Detail part {$convertedPartNumber} tidak ditemukan di loading list {$data[$i]->loading_list_number}.",
+                        ], 422);
+                    }
 
                     if ($actual_scanned < $kanban_qty->kanban_qty) {
                         $kanban_qty->update([
@@ -1178,7 +1213,7 @@ class PullingController extends Controller
             };
         }
 
-        return ['status' => $response];
+        return response()->json(['status' => 'success']);
     }
 
     public function kanbanCheck(Request $request)

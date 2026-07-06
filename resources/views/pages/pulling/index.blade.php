@@ -1654,7 +1654,7 @@
             const rec = await getPartRecordFromIDB(customerPart);
 
             const internalPart = String(rec.internal || '').trim();
-            const loadingList = rec.loading_list_number;
+            const loadingList = nextLoadingListForScan(rec);
             if (!internalPart || !loadingList) throw new Error('Mapping internal/LL tidak ditemukan');
 
             // 2) Panggil backend untuk increment actual_kanban_qty (single scan)
@@ -1701,6 +1701,7 @@
                         const serial = `AUTO-DIRECT-${Date.now()}`;
                         data.scanned_count = currentCount + 1;
                         data.actual_qty = data.scanned_count;
+                        incrementLoadingListBucket(data, loadingList);
                         serialStore.put({
                             customer_part: customerPart,
                             internal: internalPart,
@@ -2341,6 +2342,62 @@
         return sources;
     }
 
+    function seedLoadingListBuckets(record) {
+        const sources = loadingListSources(record);
+        const buckets = {};
+        const total = pullingInt(record?.total_qty);
+        let remainingScanned = pullingInt(record?.scanned_count ?? record?.seri?.length ?? record?.actual_qty);
+
+        sources.forEach((source, index) => {
+            const target = Math.floor(total / sources.length) + (index < (total % sources.length) ? 1 : 0);
+            const scanned = Math.min(target, remainingScanned);
+            remainingScanned -= scanned;
+            buckets[source] = {
+                target,
+                scanned
+            };
+        });
+
+        return buckets;
+    }
+
+    function ensureLoadingListBuckets(record) {
+        if (!record) return {};
+
+        if (!record.loading_list_buckets || Array.isArray(record.loading_list_buckets)) {
+            record.loading_list_buckets = seedLoadingListBuckets(record);
+        }
+
+        return record.loading_list_buckets;
+    }
+
+    function loadingListBucketEntries(record) {
+        const buckets = ensureLoadingListBuckets(record);
+        return loadingListSources(record)
+            .filter((source) => buckets[source])
+            .map((source) => ({
+                number: source,
+                target: pullingInt(buckets[source].target),
+                scanned: pullingInt(buckets[source].scanned)
+            }))
+            .filter((entry) => entry.target > 0);
+    }
+
+    function nextLoadingListForScan(record) {
+        const entries = loadingListBucketEntries(record);
+        const next = entries.find((entry) => entry.scanned < entry.target) || entries[0];
+        return next?.number || record?.loading_list_number;
+    }
+
+    function incrementLoadingListBucket(record, loadingListNumber) {
+        const key = String(loadingListNumber || '');
+        const buckets = ensureLoadingListBuckets(record);
+
+        if (key && buckets[key]) {
+            buckets[key].scanned = pullingInt(buckets[key].scanned) + 1;
+        }
+    }
+
     function mergeLoadingListItem(existing, item, loadingListNumber) {
         const source = String(loadingListNumber);
         const sources = loadingListSources(existing);
@@ -2357,11 +2414,16 @@
 
         if (existing) {
             const scannedCount = pullingInt(existing.scanned_count ?? existing.seri?.length ?? existing.actual_qty);
+            const buckets = ensureLoadingListBuckets(existing);
 
             existing.total_qty = pullingInt(existing.total_qty) + targetQty;
             existing.scanned_count = scannedCount + actualQty;
             existing.actual_qty = pullingInt(existing.actual_qty ?? scannedCount) + actualQty;
             existing.source_loading_lists = sources.concat(source);
+            buckets[source] = {
+                target: targetQty,
+                scanned: actualQty
+            };
             existing.seri = Array.isArray(existing.seri) ? existing.seri : [];
 
             return {
@@ -2381,6 +2443,12 @@
                 scanned_count: actualQty,
                 total_qty: targetQty,
                 source_loading_lists: [source],
+                loading_list_buckets: {
+                    [source]: {
+                        target: targetQty,
+                        scanned: actualQty
+                    }
+                },
                 seri: []
             },
             shouldPut: true
@@ -3203,39 +3271,55 @@
                 const finishRows = [];
                 const seenLoadingLists = new Set();
                 let complete = records.length > 0;
+                const addFinishRow = (loadingListNumber) => {
+                    if (seenLoadingLists.has(loadingListNumber)) return;
+
+                    seenLoadingLists.add(loadingListNumber);
+                    finishRows.push({
+                        customer: localStorage.getItem('customer'),
+                        loadingList: loadingListNumber,
+                        pdsNumber: localStorage.getItem('pdsNumber'),
+                        cycle: localStorage.getItem('cycle'),
+                    });
+                };
 
                 for (const record of records) {
                     const legacySerials = Array.isArray(record.seri) ? record.seri : [];
                     const serials = await getSerialsForPart(database, record.customer, legacySerials);
-                    const target = parseInt(record.total_qty || 0, 10) || 0;
+                    const buckets = loadingListBucketEntries(record);
+                    const fallbackTarget = parseInt(record.total_qty || 0, 10) || 0;
+                    const totalTarget = buckets.reduce((sum, bucket) => sum + bucket.target, 0) || fallbackTarget;
 
-                    if (serials.length < target) {
+                    if (serials.length < totalTarget) {
                         complete = false;
                         break;
                     }
 
-                    const items = serials.map((serial) => ({
-                        part_number_internal: record.internal,
-                        part_number_customer: record.customer,
-                        serial_number: serial
-                    }));
+                    const targetBuckets = buckets.length ? buckets : [{
+                        number: record.loading_list_number,
+                        target: totalTarget
+                    }];
+                    let offset = 0;
 
-                    const loadingListNumber = record.loading_list_number;
-                    if (loadingListPayload.hasOwnProperty(loadingListNumber)) {
-                        loadingListPayload[loadingListNumber].push(...items);
-                    } else {
-                        loadingListPayload[loadingListNumber] = items;
-                    }
+                    targetBuckets.forEach((bucket) => {
+                        const loadingListNumber = bucket.number;
+                        const bucketSerials = serials.slice(offset, offset + bucket.target);
+                        offset += bucket.target;
 
-                    if (!seenLoadingLists.has(loadingListNumber)) {
-                        seenLoadingLists.add(loadingListNumber);
-                        finishRows.push({
-                            customer: localStorage.getItem('customer'),
-                            loadingList: loadingListNumber,
-                            pdsNumber: localStorage.getItem('pdsNumber'),
-                            cycle: localStorage.getItem('cycle'),
-                        });
-                    }
+                        const items = bucketSerials.map((serial) => ({
+                            part_number_internal: record.internal,
+                            part_number_customer: record.customer,
+                            serial_number: serial
+                        }));
+
+                        if (loadingListPayload.hasOwnProperty(loadingListNumber)) {
+                            loadingListPayload[loadingListNumber].push(...items);
+                        } else {
+                            loadingListPayload[loadingListNumber] = items;
+                        }
+
+                        addFinishRow(loadingListNumber);
+                    });
                 }
 
                 database.close();
@@ -3291,13 +3375,13 @@
                                     }
                                 },
                                 error: function(xhr) {
-                                    notif('error', xhr.statusText);
+                                    notif('error', xhr.responseJSON?.message || xhr.statusText);
                                 }
                             });
                         });
                     },
                     error: function(xhr) {
-                        notif('error', xhr.statusText);
+                        notif('error', xhr.responseJSON?.message || xhr.statusText);
                     }
                 });
             } catch (error) {
@@ -3312,7 +3396,7 @@
         let total = 0;
 
         function checkInternalAndCustomer(database, cursor, internal, primaryKey, seri) {
-            let loadingList = cursor['loading_list_number'];
+            let loadingList = nextLoadingListForScan(cursor);
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];
             let arraySeri = cursor['seri'];
@@ -3408,12 +3492,17 @@
                     scannedCount += 1;
                     cursor.scanned_count = scannedCount;
                     cursor.actual_qty = scannedCount;
+                    incrementLoadingListBucket(cursor, loadingList);
                     let countApplied = true;
                     const rollbackLocalCount = () => {
                         if (!countApplied) return;
                         scannedCount -= 1;
                         cursor.scanned_count = scannedCount;
                         cursor.actual_qty = scannedCount;
+                        const buckets = ensureLoadingListBuckets(cursor);
+                        if (buckets[loadingList]) {
+                            buckets[loadingList].scanned = Math.max(0, pullingInt(buckets[loadingList].scanned) - 1);
+                        }
                         countApplied = false;
                     };
                     const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME], 'readwrite');
