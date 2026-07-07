@@ -2154,32 +2154,86 @@
         }, 1500);
     }
 
-    function customerCheck(customer, pds = null) {
-        return new Promise(function(resolve, reject) {
-            let url = "{{ url('pulling/customer-check') }}/" + customer;
+    const customerMetaRequests = {};
+    const CUSTOMER_META_CACHE_PREFIX = 'pulling_customer_meta:';
 
-            if (pds) {
-                url += '/' + encodeURIComponent(pds); // tanpa tanda tanya
-            }
+    function customerMetaCacheKey(customer, pds = null) {
+        return `${CUSTOMER_META_CACHE_PREFIX}${String(customer || '').trim()}|${String(pds || '').trim()}`;
+    }
 
+    function getCachedCustomerMeta(customer, pds = null) {
+        try {
+            const cached = localStorage.getItem(customerMetaCacheKey(customer, pds));
+            return cached ? JSON.parse(cached) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function setCachedCustomerMeta(customer, pds = null, data) {
+        try {
+            localStorage.setItem(customerMetaCacheKey(customer, pds), JSON.stringify(data));
+        } catch (e) {}
+    }
+
+    function applyCustomerMeta(data, updateDisplay = true) {
+        if (updateDisplay) {
+            $('#customer-display').text(data.customer);
+            localStorage.setItem('customer', data.customer);
+        }
+
+        localStorage.setItem('char_first', data.first);
+        localStorage.setItem('char_length', data.length);
+        localStorage.setItem('char_total', data.total);
+    }
+
+    function fetchCustomerMeta(customer, pds = null) {
+        const cacheKey = customerMetaCacheKey(customer, pds);
+        const cached = getCachedCustomerMeta(customer, pds);
+
+        if (cached?.status === 'success') {
+            return Promise.resolve(cached);
+        }
+
+        if (customerMetaRequests[cacheKey]) {
+            return customerMetaRequests[cacheKey];
+        }
+
+        let url = "{{ url('pulling/customer-check') }}/" + customer;
+        if (pds) {
+            url += '/' + encodeURIComponent(pds);
+        }
+
+        customerMetaRequests[cacheKey] = new Promise(function(resolve, reject) {
             $.ajax({
                 type: 'GET',
                 url: url,
                 dataType: 'json',
                 success: function(data) {
-                    console.log(data);
                     if (data.status === 'success') {
-                        $('#customer-display').text(data.customer);
-                        localStorage.setItem('customer', data.customer);
-                        resolve();
+                        setCachedCustomerMeta(customer, pds, data);
+                        resolve(data);
                     } else {
                         reject(data.message || 'Unknown error');
                     }
                 },
                 error: function(xhr) {
-                    reject(new Error(xhr.statusText));
+                    reject(new Error(xhr.statusText || 'Gagal membaca data customer'));
                 }
             });
+        });
+
+        customerMetaRequests[cacheKey].then(
+            () => delete customerMetaRequests[cacheKey],
+            () => delete customerMetaRequests[cacheKey]
+        );
+
+        return customerMetaRequests[cacheKey];
+    }
+
+    function customerCheck(customer, pds = null) {
+        return fetchCustomerMeta(customer, pds).then(function(data) {
+            applyCustomerMeta(data, true);
         });
     }
 
@@ -2281,33 +2335,14 @@
     }
 
     function customerCharStore(customer, pds = null) {
-        // Buat URL dengan path segment, tanpa tanda tanya
-        let url = "{{ url('pulling/customer-check') }}/" + customer;
-        if (pds) {
-            url += '/' + encodeURIComponent(pds);
-        }
-
-        $.ajax({
-            type: 'GET',
-            url: url,
-            dataType: 'json',
-            success: function(data) {
-                console.log(data);
-                if (data.status === 'success') {
-                    // save all data about customer in local storage
-                    localStorage.setItem('char_first', data.first);
-                    localStorage.setItem('char_length', data.length);
-                    localStorage.setItem('char_total', data.total);
-                } else {
-                    notif('error', data.message);
-                    loadingListModal();
-                }
-            },
-            error: function(xhr) {
-                notif('error', xhr.statusText); // karena di sini ga pakai promise
+        return fetchCustomerMeta(customer, pds)
+            .then(function(data) {
+                applyCustomerMeta(data, false);
+            })
+            .catch(function(error) {
+                notif('error', error?.message || error);
                 loadingListModal();
-            }
-        });
+            });
     }
 
     function errorStore(message = null, expected = null, scanned = null) {
@@ -4150,7 +4185,7 @@
                     await this.storeLoadingListDetails(ll, data.items);
 
                     progressCb?.('Finalisasi...');
-                    await this.customerCheck(customer_code);
+                    await this.customerCheck(customer_code, pds_number);
                     this.pullingQuantity();
                     this.checkLoadingList();
                     this.customerCharStore(customer_code, pds_number);
@@ -4631,10 +4666,10 @@
                 }
             }
 
-            async customerCheck(customerCode) {
+            async customerCheck(customerCode, pdsNumber = null) {
                 return new Promise((resolve, reject) => {
                     if (typeof customerCheck === 'function') {
-                        customerCheck(customerCode).then(resolve).catch(reject);
+                        customerCheck(customerCode, pdsNumber).then(resolve).catch(reject);
                     } else {
                         resolve();
                     }
