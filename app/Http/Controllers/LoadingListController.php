@@ -1235,7 +1235,7 @@ class LoadingListController extends Controller
 
         $internalParts = InternalPart::whereIn('part_number', $internalNumbers)
             ->get(['id', 'part_number'])
-            ->keyBy('part_number');
+            ->keyBy(fn ($part) => trim((string) $part->part_number));
 
         $resolved = [];
         foreach ($validated['items'] as $item) {
