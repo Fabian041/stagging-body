@@ -1302,13 +1302,64 @@
         } catch (e) {}
     };
 
+    function normalizeLoadingListNumber(number) {
+        return String(number || '').trim();
+    }
+
+    function loadingListDomId(number) {
+        return `loadingListContainer-${normalizeLoadingListNumber(number).replace(/[^A-Za-z0-9_-]/g, '')}`;
+    }
+
+    function hasLoadingListChip(number) {
+        const normalized = normalizeLoadingListNumber(number);
+        if (!normalized) return false;
+
+        return $('#list .pulling-ll-chip span').filter(function() {
+            return normalizeLoadingListNumber($(this).text()) === normalized;
+        }).length > 0;
+    }
+
     function pullingLlMarkup(number, liId) {
-        const id = liId || 'loadingListContainer';
+        const normalized = normalizeLoadingListNumber(number);
+        const id = liId || loadingListDomId(normalized);
         return `<li class="pulling-ll-item" id="${id}">
             <div class="pulling-ll-chip" id="loadingList">
-                <span id="loadingList-display">${number}</span>
+                <span id="loadingList-display">${normalized}</span>
             </div>
         </li>`;
+    }
+
+    function appendLoadingListChip(number) {
+        const normalized = normalizeLoadingListNumber(number);
+        if (!normalized || hasLoadingListChip(normalized)) return false;
+
+        $('#loadingListContainerSample').remove();
+        $('#list').append(pullingLlMarkup(normalized));
+
+        return true;
+    }
+
+    function replaceTileWithLoadingListChip(tileId, number) {
+        const normalized = normalizeLoadingListNumber(number);
+        const $tile = $(`#${tileId}`);
+        if (!normalized) {
+            $tile.remove();
+            return false;
+        }
+
+        if (hasLoadingListChip(normalized)) {
+            $tile.remove();
+            return false;
+        }
+
+        $('#loadingListContainerSample').remove();
+        if ($tile.length) {
+            $tile.replaceWith(pullingLlMarkup(normalized));
+        } else {
+            $('#list').append(pullingLlMarkup(normalized));
+        }
+
+        return true;
     }
 
     function pullingSkidMarkup(skid) {
@@ -1862,11 +1913,8 @@
         checkLoadingList();
         // iterate local storage
         for (key in loadingList) {
-            // remove example display
-            $('#loadingListContainerSample').remove();
-
             // loading list display
-            $('#list').append(pullingLlMarkup(loadingList[key]));
+            appendLoadingListChip(loadingList[key]);
 
             pullingQuantity();
             $('#customer-display').text(customer);
@@ -2743,9 +2791,11 @@
             }
 
             async processLoadingList(inputValue) {
+                const loadingListNumber = inputValue.substr(0, 11) + ' A';
+                let ownsLoadingListNumber = false;
+
                 try {
                     const loadingList = this.getLoadingListNumber();
-                    const loadingListNumber = inputValue.substr(0, 11) + ' A';
 
                     // kalau sudah “done”, jangan lanjut
                     if (isLLDone(loadingListNumber)) {
@@ -2759,6 +2809,7 @@
                         return;
                     }
                     inFlightLL.add(loadingListNumber);
+                    ownsLoadingListNumber = true;
 
                     // kalau sudah ada di localStorage (header sudah tersimpan) → tolak
                     if (this.getLoadingListNumber().includes(loadingListNumber)) {
@@ -2788,7 +2839,7 @@
                     }
 
                     // proses lanjut (spinner tetap on, nanti di-update pesannya di method berikut)
-                    await this.processLoadingListResponse(response.data);
+                    await this.processLoadingListResponse(response.data, loadingListNumber);
 
                     // kalau sukses dan mau tutup modal
                     this.hideModal();
@@ -2798,6 +2849,7 @@
                     this.handleAjaxError(error);
                 } finally {
                     // pastikan spinner dimatikan & input difokuskan
+                    if (ownsLoadingListNumber) inFlightLL.delete(loadingListNumber);
                     this.hideLoading();
                     this?.focusCodeInput?.();
                 }
@@ -2815,7 +2867,7 @@
                 });
             }
 
-            async processLoadingListResponse(data) {
+            async processLoadingListResponse(data, requestedNumber = '') {
                 // validasi dulu
                 const validationResult = this.validateLoadingList(data);
                 if (!validationResult.isValid) {
@@ -2832,6 +2884,17 @@
                     delivery_date,
                     shipping_date
                 } = data;
+
+                let ownsCanonicalNumber = false;
+                if ((ll !== requestedNumber && inFlightLL.has(ll)) || this.getLoadingListNumber().includes(ll) ||
+                    hasLoadingListChip(ll) || isLLDone(ll)) {
+                    this.showError('Loading list sudah discan!', () => {
+                        if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                    });
+                    return;
+                }
+                inFlightLL.add(ll);
+                ownsCanonicalNumber = true;
 
                 try {
                     this.setLoadingMessage('Menyimpan header...');
@@ -2853,15 +2916,15 @@
                     this.setLoadingMessage('Finalisasi...');
                     await this.performAdditionalProcessing(data);
 
-                    markLLDone(loadingListNumber);
-                    inFlightLL.delete(loadingListNumber);
+                    markLLDone(ll);
+                    if (ownsCanonicalNumber) inFlightLL.delete(ll);
 
                 } catch (error) {
                     console.error('Error processing loading list:', error);
                     this.showError('Gagal memproses loading list');
                 } finally {
                     // fokus input akan dipanggil di finally processLoadingList (luar)
-                    inFlightLL.delete(loadingListNumber);
+                    if (ownsCanonicalNumber) inFlightLL.delete(ll);
                     this.hideLoading();
                     this?.focusCodeInput?.();
                 }
@@ -2952,8 +3015,7 @@
             }
 
             updateLoadingListUI(data) {
-                $('#loadingListContainerSample').remove();
-                $('#list').append(pullingLlMarkup(data.number));
+                appendLoadingListChip(data.number);
             }
 
             async initializeDatabase(data) {
@@ -4041,7 +4103,7 @@
             // final: ganti tile progress jadi markup LAMA-mu (biru)
             replaceTileWithFinalOriginal(key, number) {
                 const id = this.getTileIdByKey(key);
-                $(`#${id}`).replaceWith(pullingLlMarkup(number));
+                replaceTileWithLoadingListChip(id, number);
                 this.tileByKey.delete(key);
             }
 
@@ -4094,11 +4156,23 @@
 
             async handleLoadingList(code) {
                 const formattedCode = code.substr(0, 11) + ' A';
-                const tileId = this.ensureProgressTile(formattedCode, 'Mengambil data loading list...');
+                let canonicalNumber = formattedCode;
+                let ownsFormattedCode = false;
+                let ownsCanonicalNumber = false;
+                const formattedInFlight = inFlightLL.has(formattedCode);
+                const tileId = formattedInFlight ? this.getTileIdByKey(formattedCode) : this.ensureProgressTile(
+                    formattedCode, 'Mengambil data loading list...');
 
                 try {
+                    if (formattedInFlight) {
+                        this.showError('Loading list ini sedang diproses...');
+                        return;
+                    }
+                    inFlightLL.add(formattedCode);
+                    ownsFormattedCode = true;
+
                     const loadingList = this.getLoadingListNumber();
-                    if (loadingList.includes(formattedCode)) {
+                    if (loadingList.includes(formattedCode) || hasLoadingListChip(formattedCode)) {
                         this.setProgressTileError(tileId, 'Sudah discan', {
                             autoRemove: true,
                             delay: 1200
@@ -4118,11 +4192,34 @@
                         return;
                     }
 
-                    await this.processLoadingListData(
+                    canonicalNumber = response?.data?.number || formattedCode;
+                    if ((canonicalNumber !== formattedCode && inFlightLL.has(canonicalNumber)) ||
+                        this.getLoadingListNumber().includes(canonicalNumber) || hasLoadingListChip(
+                            canonicalNumber) || isLLDone(canonicalNumber)) {
+                        this.setProgressTileError(tileId, 'Sudah discan', {
+                            autoRemove: true,
+                            delay: 1200
+                        });
+                        this.showError('Loading list sudah discan!', () => {
+                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                        });
+                        return;
+                    }
+                    inFlightLL.add(canonicalNumber);
+                    ownsCanonicalNumber = true;
+
+                    const processed = await this.processLoadingListData(
                         response.data,
                         (msg) => this.setProgressTile(tileId, msg),
                         /* tileId not needed here now */
                     );
+                    if (!processed) {
+                        this.setProgressTileError(tileId, $(`#${tileId}-text`).text() || 'Gagal memproses', {
+                            autoRemove: true,
+                            delay: 1500
+                        });
+                        return;
+                    }
 
                     // sukses → replace dengan markup lama (biru)
                     this.replaceTileWithFinalOriginal(formattedCode, response.data.number);
@@ -4132,6 +4229,9 @@
                         autoRemove: true
                     });
                     this.showError('Connection Error');
+                } finally {
+                    if (ownsFormattedCode) inFlightLL.delete(formattedCode);
+                    if (ownsCanonicalNumber) inFlightLL.delete(canonicalNumber);
                 }
             }
 
@@ -4162,7 +4262,7 @@
                     this.showError('Loading list tidak sesuai!', () => {
                         if (typeof notMatchLlSound === 'function') notMatchLlSound();
                     });
-                    return;
+                    return false;
                 }
 
                 try {
@@ -4191,10 +4291,12 @@
                     this.customerCharStore(customer_code, pds_number);
 
                     this.focusInput();
+                    return true;
 
                 } catch (error) {
                     progressCb?.('Gagal memproses');
                     this.showError('Gagal memproses loading list');
+                    return false;
                 }
             }
 
