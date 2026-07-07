@@ -1008,6 +1008,7 @@ class PullingController extends Controller
             $customerPart = DB::table('customer_parts')
                 ->where('internal_part_id', $internalPart->id)
                 ->where('part_number', $convertedPartNumber)
+                ->where('customer_id', $loadingList->customer_id)
                 ->select('id', 'back_number')
                 ->first();
 

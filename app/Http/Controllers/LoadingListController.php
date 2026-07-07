@@ -1153,6 +1153,7 @@ class LoadingListController extends Controller
         $customerPartId = DB::table('customer_parts')
                         ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
                         ->select('customer_parts.id')
+                        ->where('customer_parts.customer_id', $loadingListId->customer_id)
                         ->where('internal_parts.part_number', $internalPart)
                         ->where('customer_parts.part_number', $convertedPartNumber)
                         ->first();
@@ -1262,6 +1263,7 @@ class LoadingListController extends Controller
         if (! empty($internalIds) && ! empty($convertedNumbers)) {
             DB::table('customer_parts')
                 ->select('id', 'internal_part_id', 'part_number')
+                ->where('customer_id', $loadingList->customer_id)
                 ->whereIn('internal_part_id', $internalIds)
                 ->whereIn('part_number', $convertedNumbers)
                 ->get()
@@ -1345,6 +1347,7 @@ class LoadingListController extends Controller
         $customerPartId = DB::table('customer_parts')
                         ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
                         ->select('customer_parts.id')
+                        ->where('customer_parts.customer_id', $loadingListId->customer_id)
                         ->where('internal_parts.part_number', $internalPart)
                         ->where('customer_parts.part_number', $convertedPartNumber)
                         ->first();
