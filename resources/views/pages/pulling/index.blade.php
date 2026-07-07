@@ -2647,6 +2647,26 @@
         });
     }
 
+    function getCsrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || "{{ csrf_token() }}";
+    }
+
+    function storeLoadingListDetailsBulk(ll, items) {
+        return $.ajax({
+            type: 'POST',
+            url: "{{ route('loadingList.storeDetails') }}",
+            headers: {
+                'X-CSRF-TOKEN': getCsrfToken()
+            },
+            contentType: 'application/json',
+            dataType: 'json',
+            data: JSON.stringify({
+                loadingList: ll,
+                items
+            })
+        });
+    }
+
     $(document).ready(function() {
         initApp();
         $('#code').focus();
@@ -2949,61 +2969,24 @@
             }
 
             async storeLoadingListDetails(ll, items) {
-                const promises = items.map((item, index) => {
-                    const qtyPerKbn = item.total_qty / item.total_kanban_qty;
-
-                    return new Promise((resolve, reject) => {
-                        setTimeout(() => {
-                            $.ajax({
-                                type: 'GET',
-                                url: `/loading-list/storeDetail/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qtyPerKbn}/${item.total_qty}/${item.actual_kanban_qty}`,
-                                dataType: 'json',
-                                success: (response) => {
-                                    console.log('Detail stored:',
-                                        response.status, response
-                                        .message);
-                                    resolve(response);
-                                },
-                                error: (xhr) => {
-                                    console.error('Detail store error:',
-                                        xhr);
-
-                                    if (xhr.status === 0) {
-                                        reject(new Error(
-                                            'Network error storing detail'
-                                        ));
-                                    } else {
-                                        // Log error but don't stop the process
-                                        console.warn(
-                                            `Failed to store detail for ${item.part_number_cust}, continuing...`
-                                        );
-                                        this.showError(
-                                            'Scan ulang loading list'
-                                        );
-                                        resolve({
-                                            status: 'error',
-                                            item: item
-                                                .part_number_cust
-                                        });
-                                    }
-                                }
-                            });
-                        }, 200); // Original timeout
-                    });
-                });
-
                 try {
-                    const results = await Promise.all(promises);
-                    const failures = results.filter(result => result?.status === 'error');
+                    const response = await storeLoadingListDetailsBulk(ll, items);
+                    const failures = response?.failed || [];
 
                     if (failures.length > 0) {
-                        console.warn(`${failures.length} detail items failed to store`);
+                        console.warn(`${failures.length} detail items failed to store:`, failures);
                     }
 
-                    return results;
-                } catch (error) {
-                    console.error('Critical error storing details:', error);
-                    throw error;
+                    return response;
+                } catch (xhr) {
+                    console.error('Critical error storing details:', xhr);
+
+                    if (xhr.status === 0) {
+                        throw new Error('Network error storing detail');
+                    }
+
+                    this.showError('Gagal menyimpan detail loading list. Koneksi bermasalah.');
+                    throw new Error(xhr.responseJSON?.message || xhr.statusText || 'Gagal menyimpan detail loading list');
                 }
             }
 
@@ -4206,63 +4189,24 @@
             }
 
             async storeLoadingListDetails(ll, items) {
-                const promises = items.map((item, index) => {
-                    const qtyPerKbn = item.total_qty / item.total_kanban_qty;
-
-                    return new Promise((resolve, reject) => {
-                        setTimeout(() => {
-                            $.ajax({
-                                type: 'GET',
-                                url: `/loading-list/storeDetail/${ll}/${item.part_number_cust}/${item.part_number_int}/${item.total_kanban_qty}/${qtyPerKbn}/${item.total_qty}/${item.actual_kanban_qty}`,
-                                dataType: 'json',
-                                success: (response) => {
-                                    // console.log(
-                                    //     `Stored detail for ${item.part_number_cust}: ${response.status}`
-                                    // );
-                                    resolve(response);
-                                },
-                                error: (xhr, status, error) => {
-                                    // console.error(
-                                    //     `Failed to store detail for ${item.part_number_cust}:`,
-                                    //     xhr);
-
-                                    if (xhr.status === 0) {
-                                        reject(new Error(
-                                            `Network error storing ${item.part_number_cust}`
-                                        ));
-                                    } else {
-                                        console.warn(
-                                            `Server error ${xhr.status} for ${item.part_number_cust}, continuing...`
-                                        );
-                                        resolve({
-                                            status: 'error',
-                                            item: item
-                                                .part_number_cust,
-                                            error: xhr
-                                                .responseJSON
-                                                ?.errors ||
-                                                error
-                                        });
-                                    }
-                                }
-                            });
-                        }, index * 200); // Using 200ms delay like original
-                    });
-                });
-
                 try {
-                    const results = await Promise.all(promises);
-                    const failures = results.filter(result => result && result.status === 'error');
+                    const response = await storeLoadingListDetailsBulk(ll, items);
+                    const failures = response?.failed || [];
 
                     if (failures.length > 0) {
                         console.warn(`${failures.length} items failed to store:`, failures);
                     }
 
-                    return results;
-                } catch (error) {
-                    // console.error('Critical error storing loading list details:', error);
+                    return response;
+                } catch (xhr) {
+                    console.error('Critical error storing loading list details:', xhr);
+
+                    if (xhr.status === 0) {
+                        throw new Error('Network error storing detail');
+                    }
+
                     this.showError('Gagal menyimpan detail loading list. Koneksi bermasalah.');
-                    throw error;
+                    throw new Error(xhr.responseJSON?.message || xhr.statusText || 'Gagal menyimpan detail loading list');
                 }
             }
 
