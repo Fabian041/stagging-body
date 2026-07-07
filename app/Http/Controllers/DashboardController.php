@@ -635,6 +635,7 @@ class DashboardController extends Controller
                         'pct' => (int) ($l->total_kanban ?? 0) > 0 ? (int) round(($l->actual_kanban ?? 0) / $l->total_kanban * 100) : 0,
                     ];
                 })
+                ->filter(fn ($row) => in_array($row->urgency, ['overdue', 'urgent', 'soon'], true))
                 ->sortBy('sortKey')
                 ->take(10)
                 ->values();
