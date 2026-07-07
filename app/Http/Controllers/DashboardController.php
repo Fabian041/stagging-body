@@ -72,7 +72,7 @@ class DashboardController extends Controller
         $devices = DB::table('device_sessions')
             ->join('users', 'users.id', '=', 'device_sessions.user_id')
             ->where('device_sessions.current_page', '/pulling')
-            ->where('device_sessions.last_seen_at', '>=', now()->subDay())
+            ->where('device_sessions.last_seen_at', '>=', now()->subHours(3))
             ->orderByDesc('device_sessions.last_seen_at')
             ->limit(24)
             ->get([

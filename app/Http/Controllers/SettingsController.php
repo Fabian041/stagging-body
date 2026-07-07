@@ -340,16 +340,7 @@ class SettingsController extends Controller
             ->join('users', 'users.id', '=', 'device_sessions.user_id')
             ->leftJoin('users as reset_users', 'reset_users.id', '=', 'device_sessions.reset_requested_by')
             ->where('device_sessions.current_page', '/pulling')
-            ->where(function ($query) {
-                $query->where('device_sessions.last_seen_at', '>=', now()->subDay())
-                    ->orWhere(function ($pending) {
-                        $pending->whereNotNull('device_sessions.reset_requested_at')
-                            ->where(function ($reset) {
-                                $reset->whereNull('device_sessions.reset_applied_at')
-                                    ->orWhereColumn('device_sessions.reset_requested_at', '>', 'device_sessions.reset_applied_at');
-                            });
-                    });
-            })
+            ->where('device_sessions.last_seen_at', '>=', now()->subHours(3))
             ->select([
                 'device_sessions.*',
                 'users.name as user_name',
