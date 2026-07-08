@@ -83,11 +83,29 @@
         gap: 8px;
     }
 
+    .pulling-toolbar form {
+        margin: 0;
+    }
+
     .pulling-toolbar .btn {
         min-height: 38px;
         padding: 0 16px;
         font-size: 13px;
         font-weight: 600;
+    }
+
+    .pulling-page .btn-logout {
+        color: #B91C1C !important;
+        background-color: #FEECEC;
+        border-color: #F8CACA;
+    }
+
+    .pulling-page .btn-logout:hover,
+    .pulling-page .btn-logout:focus,
+    .pulling-page .btn-logout:active {
+        color: #fff !important;
+        background-color: #DC2626;
+        border-color: #DC2626;
     }
 
     .pulling-page .btn-danger,
@@ -1007,6 +1025,12 @@
                 <div class="pulling-toolbar">
                     <button type="button" class="btn btn-warning" id="refreshTokenBtn">Refresh</button>
                     <button type="button" class="btn btn-danger" id="hardReset">Reset</button>
+                    <form id="pullingLogoutForm" action="{{ route('logout.auth') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-logout">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </form>
                 </div>
             </header>
 
@@ -3326,6 +3350,26 @@
             $('#code').focus();
         });
 
+        $(document).on('submit', '#pullingLogoutForm', function(event) {
+            const form = this;
+            if (form.dataset.confirmed === '1') {
+                return;
+            }
+
+            event.preventDefault();
+            showPullingConfirm({
+                title: 'Logout dari BELLA?',
+                message: 'Sesi pulling akan ditutup dan kamu perlu login ulang untuk lanjut bekerja.',
+                confirmText: 'Logout',
+                confirmClass: 'btn-danger',
+                icon: 'fas fa-sign-out-alt',
+                onConfirm: function() {
+                    form.dataset.confirmed = '1';
+                    form.submit();
+                }
+            });
+        });
+
         $('#delay').on('click', function() {
             $(this).prop('disabled', true).css({
                 color: '#B91C1C',
@@ -4698,9 +4742,19 @@
             }
 
             handleLogout() {
+                const existingForm = document.getElementById('pullingLogoutForm');
+                if (existingForm) {
+                    if (typeof existingForm.requestSubmit === 'function') {
+                        existingForm.requestSubmit();
+                    } else {
+                        existingForm.submit();
+                    }
+                    return;
+                }
+
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/logout';
+                form.action = @json(route('logout.auth'));
 
                 const csrfToken = document.createElement('input');
                 csrfToken.type = 'hidden';
