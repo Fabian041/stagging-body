@@ -1343,31 +1343,28 @@ class LoadingListController extends Controller
 
         $convertedPartNumber = $this->convertCustomerPartNumber($customerPart, $loadingListId->customer_id);
 
-        // get customer part id
-        $customerPartId = DB::table('customer_parts')
-                        ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
-                        ->select('customer_parts.id')
-                        ->where('customer_parts.customer_id', $loadingListId->customer_id)
-                        ->where('internal_parts.part_number', $internalPart)
-                        ->where('customer_parts.part_number', $convertedPartNumber)
+        // get current actual kanban qty from the exact loading-list detail row
+        $currentQty = LoadingListDetail::query()
+                        ->from('loading_list_details as lld')
+                        ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+                        ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
+                        ->select('lld.kanban_qty', 'lld.actual_kanban_qty', 'lld.loading_list_id', 'lld.customer_part_id')
+                        ->where('lld.loading_list_id', $loadingListId->id)
+                        ->where('cp.customer_id', $loadingListId->customer_id)
+                        ->where('ip.part_number', $internalPart)
+                        ->where('cp.part_number', $convertedPartNumber)
                         ->first();
 
-        if (! $customerPartId) {
+        if (! $currentQty) {
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer tidak terdaftar!',
+                'message' => 'Part number customer / loading list tidak sesuai!',
                 'data' => [
                     'int' => $internalPart,
                     'cust' => $convertedPartNumber,
                 ],
             ];
         }
-
-        // get current actual kanban qty
-        $currentQty = LoadingListDetail::select('kanban_qty', 'actual_kanban_qty', 'loading_list_id')
-                        ->where('loading_list_id', $loadingListId->id)
-                        ->where('customer_part_id', $customerPartId->id)
-                        ->first();
 
         $actualQty = (int) $currentQty->actual_kanban_qty;
         $targetQty = (int) $currentQty->kanban_qty;
@@ -1379,7 +1376,7 @@ class LoadingListController extends Controller
             if ($actualQty < $targetQty) {
                 // update actual kanban quantity or scanned kanban quantity
                 LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                                ->where('customer_part_id', $customerPartId->id)
+                                ->where('customer_part_id', $currentQty->customer_part_id)
                                 ->update([
                                     'actual_kanban_qty' => $actualQty + 1,
                                 ]);

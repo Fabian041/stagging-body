@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-                             * BELLA DESIGN SYSTEM — Shell overrides for this page
-                             * =================================================== */
+                                 * BELLA DESIGN SYSTEM — Shell overrides for this page
+                                 * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -366,8 +366,8 @@
         }
 
         /* ====================================================
-                             * GANTT CHART — kept exactly as original, do not touch
-                             * ==================================================== */
+                                 * GANTT CHART — kept exactly as original, do not touch
+                                 * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -1461,6 +1461,28 @@
             gap: 8px;
         }
 
+        .delivery-timeline-card .timeline-card-legend {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px 18px;
+            padding: 12px 16px;
+            border-top: 1px solid #eef0f3;
+            background: #ffffff;
+        }
+
+        .delivery-timeline-card .legend-group {
+            min-width: 0;
+        }
+
+        .delivery-timeline-card .legend-title {
+            margin-bottom: 7px;
+            color: #1f2a44;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
         .delivery-timeline-card .legend-timeline {
             display: flex;
             flex-wrap: wrap;
@@ -1483,6 +1505,12 @@
             height: 10px;
             border-radius: 50%;
             flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .delivery-timeline-card .timeline-card-legend {
+                grid-template-columns: 1fr;
+            }
         }
 
         .delivery-timeline-card .timeline-total {
@@ -1827,48 +1855,46 @@
                             <button type="button" class="timeline-menu-btn" aria-label="Menu"
                                 title="Menu">&#8942;</button>
                         </div>
+                        <div class="timeline-card-legend">
+                            <div class="legend-group">
+                                <div class="legend-title">Preparation :</div>
+                                <ul class="legend-timeline">
+                                    <li>
+                                        <span class="legend-dot" style="background: var(--dm-complete);"></span>
+                                        Hijau : Close Pulling
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: var(--dm-yellow);"></span>
+                                        Kuning : On Progress Pulling (On Plan)
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: #dc3545;"></span>
+                                        Merah : Delay Pulling
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="legend-group">
+                                <div class="legend-title">Truck :</div>
+                                <ul class="legend-timeline">
+                                    <li>
+                                        <span class="legend-dot" style="background: #166534;"></span>
+                                        Hijau Tua : Sudah Pick Up (On Time)
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: #f97316;"></span>
+                                        Orange : Delay Pick Up
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: #991b1b;"></span>
+                                        Merah Tua : Delay Delivery
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                         <div class="gantt-wrap" id="ganttWrap">
                             <div id="ganttContainer"></div>
                         </div>
-                        <div class="timeline-card-footer d-flex justify-content-between align-items-center">
-                            <ul class="legend-timeline">
-                                <li>
-                                    <span class="legend-dot" style="background: var(--dm-complete);"></span>
-                                    Progress 100%
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: var(--dm-yellow);"></span>
-                                    Belum selesai (&lt; 100%)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #dc3545;"></span>
-                                    Preparation telat
-                                </li>
-                                <li>
-                                    <span class="legend-offset-swatch is-offset-h-minus"></span>
-                                    H-1 (hari sebelum delivery)
-                                </li>
-                                <li>
-                                    <span class="legend-offset-swatch is-offset-h-zero"></span>
-                                    H+0 (hari delivery)
-                                </li>
-                                <li>
-                                    <span class="legend-offset-swatch is-offset-h-plus"></span>
-                                    H+1 (hari setelah delivery)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #22c55e;"></span>
-                                    Truck On Time (Hijau)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #eab308;"></span>
-                                    Truck Early (Kuning)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #dc3545;"></span>
-                                    Truck Telat (Merah)
-                                </li>
-                            </ul>
+                        <div class="timeline-card-footer d-flex justify-content-end align-items-center">
                             <div class="timeline-total" id="timelineTotalSum">Total: 0</div>
                         </div>
                     </div>
