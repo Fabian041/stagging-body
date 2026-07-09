@@ -1114,16 +1114,16 @@ class PullingController extends Controller
                 ]);
             }
 
-            if (Mutation::where('internal_part_id', $internalPart->id)
-                ->where('serial_number', $data['serialNumber'])
-                ->where('type', 'checkout')
-                ->exists()
-            ) {
-                return response()->json([
-                    'status' => 'duplicate',
-                    'message' => 'Seri kanban sudah discan!',
-                ]);
-            }
+            // if (Mutation::where('internal_part_id', $internalPart->id)
+            //     ->where('serial_number', $data['serialNumber'])
+            //     ->where('type', 'checkout')
+            //     ->exists()
+            // ) {
+            //     return response()->json([
+            //         'status' => 'duplicate',
+            //         'message' => 'Seri kanban sudah discan!',
+            //     ]);
+            // }
 
             // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
             if ((int)$lld->actual_kanban_qty >= (int)$lld->kanban_qty) {
