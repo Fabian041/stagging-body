@@ -1066,22 +1066,30 @@
                                         .trim();
                                     if (!serial) return;
 
-                                    const serialKey = scanSerialKey(group.key, serial);
-                                    const existingRequest = serialStore.get(serialKey);
-                                    existingRequest.onsuccess = function(event) {
+                                    const serialKey = scanSerialKey(group.key,
+                                        serial);
+                                    const existingRequest = serialStore.get(
+                                        serialKey);
+                                    existingRequest.onsuccess = function(
+                                    event) {
                                         if (event.target.result) return;
 
                                         serialStore.put({
-                                            customer_part: group.customer,
+                                            customer_part: group
+                                                .customer,
                                             part_key: group.key,
-                                            internal: group.internal,
+                                            internal: group
+                                                .internal,
                                             serial,
                                             loading_list_number: loadingList ||
-                                                record.loading_list_number,
-                                            scanned_at: pullingInt(item
+                                                record
+                                                .loading_list_number,
+                                            scanned_at: pullingInt(
+                                                item
                                                 ?.scanned_at),
                                             synced_from_mutation: true,
-                                            verified_from_mutation: item?.verified === true
+                                            verified_from_mutation: item
+                                                ?.verified === true
                                         }, serialKey);
                                     };
                                 });
@@ -2681,7 +2689,8 @@
                     return;
                 }
 
-                const submitPayload = localSubmitRows > 0 && Object.keys(loadingListPayload).length > 0;
+                const submitPayload = localSubmitRows > 0 && Object.keys(loadingListPayload)
+                    .length > 0;
                 const finishLocalPulling = function() {
                     const deleteRequest = indexedDB.deleteDatabase(pds);
 
@@ -3262,6 +3271,11 @@
                         handler: 'handleLogout'
                     },
                     {
+                        test: () => this.isMmkiFamilyCustomer() && !localStorage.getItem(
+                            'customerPart'),
+                        handler: 'handleMMKIKanban'
+                    },
+                    {
                         test: (code) => this.isKanbanBarcode(code),
                         handler: 'handleKanbanBarcode'
                     },
@@ -3269,11 +3283,6 @@
                         test: (code) => code.length === parseInt(localStorage.getItem('char_total') ||
                             '0'),
                         handler: 'handleCustomerKanban'
-                    },
-                    {
-                        test: () => ['MMKI', 'SENOPATI', 'FUJITRANS'].includes(localStorage.getItem(
-                            'customer')),
-                        handler: 'handleMMKIKanban'
                     },
                     {
                         test: () => localStorage.getItem('customer') === 'TB INA',
@@ -3407,6 +3416,11 @@
             isKanbanBarcode(code) {
                 const kanbanLengths = [218, 220, 230, 241, 242];
                 return kanbanLengths.includes(code.length);
+            }
+
+            isMmkiFamilyCustomer() {
+                const customer = (localStorage.getItem('customer') || '').toUpperCase();
+                return ['MMKI', 'SENOPATI', 'FUJITRANS'].some((name) => customer.includes(name));
             }
 
             async handleLoadingList(code) {
@@ -3901,10 +3915,9 @@
                     try {
                         const transaction = database.transaction([STORE_NAME], 'readonly');
                         const objectStore = transaction.objectStore(STORE_NAME);
-                        const getRequest = objectStore.get(code);
 
-                        getRequest.onsuccess = (event) => {
-                            const record = event.target.result;
+                        findPartRecordInStore(objectStore, code).then((match) => {
+                            const record = match?.record;
                             if (!record) {
                                 this.showError('Kanban tidak sesuai!', () => {
                                     if (typeof notMatchSound === 'function')
@@ -3926,13 +3939,12 @@
                                 return;
                             }
 
-                            this.updateKanbanDisplay(record, code);
-                        };
-
-                        getRequest.onerror = (event) => {
-                            // console.error('Get request error:', event.target.error);
+                            this.updateKanbanDisplay(record, record.customer || code, code);
+                        }).catch((event) => {
+                            console.error('Get request error:', event?.target?.error ||
+                                event);
                             this.showError('Error membaca database');
-                        };
+                        });
 
                         transaction.onerror = (event) => {
                             // console.error('Transaction error:', event.target.error);
