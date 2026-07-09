@@ -143,6 +143,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::get('/settings', [SettingsController::class, 'index'])->middleware('can:access-settings')->name('settings.index');
     Route::put('/settings/preferences', [SettingsController::class, 'update'])->middleware('can:access-settings')->name('settings.update');
+    Route::get('/manage-devices', [SettingsController::class, 'devices'])
+        ->middleware('can:manage-device-sessions')
+        ->name('manage-devices.index');
     Route::get('/settings/devices/monitor', [SettingsController::class, 'deviceMonitor'])
         ->middleware('can:manage-device-sessions')
         ->name('settings.devices.monitor');
@@ -345,6 +348,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/store', [PullingController::class, 'store'])->name('pulling.store');
         Route::get('/post', [PullingController::class, 'post'])->name('pulling.post');
         Route::get('/mutation', [PullingController::class, 'mutation'])->name('pulling.mutation');
+        Route::get('/scan-history', [PullingController::class, 'scanHistory'])->name('pulling.scan-history');
 
         Route::get('/alamat-chute', [PullingController::class, 'getAlamatChute'])
             ->name('pulling.alamat-chute');
