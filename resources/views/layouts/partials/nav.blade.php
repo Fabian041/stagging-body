@@ -2,6 +2,7 @@
     $navPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
     $showBellaBrief = $navPreferences['bella_brief_notifications'] ?? true;
     $canAccessSettings = auth()->check();
+    $canManageDevices = auth()->check() && auth()->user()->can('manage-device-sessions');
     $canManageUsers = auth()->check() && auth()->user()->isSuperAdmin();
 @endphp
 
@@ -93,6 +94,11 @@
                     @if ($canAccessSettings)
                         <a href="{{ route('settings.index') }}" class="tb-dd-item">
                             <i class="fas fa-cog"></i> Settings
+                        </a>
+                    @endif
+                    @if ($canManageDevices)
+                        <a href="{{ route('manage-devices.index') }}" class="tb-dd-item">
+                            <i class="fas fa-barcode"></i> Manage Device
                         </a>
                     @endif
                     @if ($canManageUsers)

@@ -203,6 +203,14 @@
             <span class="sb-item-tooltip">Settings</span>
         </a>
 
+        @can('manage-device-sessions')
+            <a class="sb-item {{ request()->routeIs('manage-devices.*') ? 'active' : '' }}" href="{{ route('manage-devices.index') }}">
+                <i class="fas fa-barcode sb-icon"></i>
+                <span class="sb-item-label">Manage Device</span>
+                <span class="sb-item-tooltip">Manage Device</span>
+            </a>
+        @endcan
+
         @if (auth()->check() && auth()->user()->isSuperAdmin())
             <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}" href="{{ route('manage-users.index') }}">
                 <i class="fas fa-users-cog sb-icon"></i>

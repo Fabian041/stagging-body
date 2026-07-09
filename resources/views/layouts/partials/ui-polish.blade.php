@@ -31,20 +31,6 @@
         color: var(--primary, #0070B7);
     }
 
-    #sidebar-wrapper .sb-item.active::before,
-    #sidebar-wrapper .sb-sub-item.active::before {
-        content: '';
-        display: block !important;
-        position: absolute;
-        left: 6px;
-        top: 9px;
-        bottom: 9px;
-        width: 3px;
-        border-radius: 999px;
-        background: linear-gradient(180deg, #0097D8, #0070B7);
-        box-shadow: 0 0 12px rgba(0, 151, 216, .32);
-    }
-
     #sidebar-wrapper .sb-item.active i.sb-icon,
     #sidebar-wrapper .sb-sub-item.active i {
         color: var(--primary, #0070B7);
