@@ -44,15 +44,18 @@ class SettingsController extends Controller
 
     public function index(Request $request)
     {
-        $canManageDeviceSessions = $request->user()->can('manage-device-sessions');
-
         return view('pages.settings', [
             'preferences' => $this->preferences($request),
             'landingPages' => self::LANDING_PAGES,
             'fabColors' => self::FAB_COLORS,
             'canManageSystemSettings' => $request->user()->isSuperAdmin(),
-            'canManageDeviceSessions' => $canManageDeviceSessions,
-            'deviceSessions' => $canManageDeviceSessions ? $this->deviceSessions() : collect(),
+        ]);
+    }
+
+    public function devices()
+    {
+        return view('pages.manage_devices', [
+            'deviceSessions' => $this->deviceSessions(),
         ]);
     }
 
