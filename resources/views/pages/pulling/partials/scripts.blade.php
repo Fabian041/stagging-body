@@ -342,6 +342,17 @@
         return `${String(customerPart || '').trim()}|${String(serial || '').trim()}`;
     }
 
+    function comparableCustomerPart(value) {
+        return String(value || '').trim().replace(/[-\s]/g, '').toUpperCase();
+    }
+
+    function recordQuantityIdentityKey(record, loadingListNumber = '') {
+        const loadingList = String(loadingListNumber || record?.loading_list_number || '').trim();
+        const customer = comparableCustomerPart(record?.customer || recordCustomerIdentity(record));
+        const internal = String(recordInternalIdentity(record) || record?.internal || '').trim();
+        return `${loadingList}|${customer}|${internal}`;
+    }
+
     function loadingListPartKey(customerPart, internalPart = '') {
         const customer = String(customerPart || '').trim();
         const internal = String(internalPart || '').trim();
@@ -440,8 +451,10 @@
     function selectPreferredPartMatch(matches) {
         const compositeMatches = matches.filter((match) => isCompositePartKey(match.key || match.record?.key));
         const pool = compositeMatches.length ? compositeMatches : matches;
-        return pool.find((match) => recordScannedCount(match.record) < pullingInt(match.record?.total_qty)) ||
-            pool[0] || null;
+
+        return pool
+            .slice()
+            .sort((a, b) => recordDedupeScore(b.record) - recordDedupeScore(a.record))[0] || null;
     }
 
     function findPartRecordInStore(objectStore, customerPart, internalPart = '') {
@@ -464,7 +477,7 @@
                     record.key = key;
                 }
 
-                const sameCustomer = String(record.customer || '').trim() === customer;
+                const sameCustomer = comparableCustomerPart(record.customer) === comparableCustomerPart(customer);
                 const sameInternal = !internal || String(record.internal || '').trim() === internal;
                 if (sameCustomer && sameInternal) {
                     matches.push({
@@ -1660,6 +1673,120 @@
                 scanned: pullingInt(buckets[source].scanned)
             }))
             .filter((entry) => entry.target > 0);
+    }
+
+    function partQuantityFromRecord(record) {
+        const entries = loadingListBucketEntries(record);
+        const bucketTarget = entries.reduce((sum, entry) => sum + pullingInt(entry.target), 0);
+        const bucketActual = entries.reduce((sum, entry) => sum + pullingInt(entry.scanned), 0);
+        const rawActual = Math.max(
+            pullingInt(record?.scanned_count),
+            pullingInt(record?.actual_qty),
+            Array.isArray(record?.seri) ? record.seri.length : 0
+        );
+        const target = bucketTarget || pullingInt(record?.total_qty);
+        const actual = Math.max(bucketActual, rawActual);
+
+        return {
+            actual: cappedPullingCount(actual, target),
+            target
+        };
+    }
+
+    function updatePartQuantityDisplay(record) {
+        const qty = partQuantityFromRecord(record);
+        $('#qty-display').text(`${qty.actual}/${qty.target}`);
+        return qty;
+    }
+
+    function refreshPartQuantityDisplayFromIndexedDB(record) {
+        const dbName = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber');
+        if (!dbName || !record) return;
+
+        const customer = String(record.customer || '').trim();
+        const customerComparable = comparableCustomerPart(customer);
+        const internal = String(record.internal || '').trim();
+        const keys = new Set([
+            recordStorageKey(record),
+            loadingListPartKey(customer, internal),
+            customer
+        ].map((key) => String(key || '').trim()).filter(Boolean));
+        const baseQty = partQuantityFromRecord(record);
+        let serialCount = 0;
+        const quantityMap = new Map();
+        const addQuantity = (key, actual, target) => {
+            const previous = quantityMap.get(key) || {
+                actual: 0,
+                target: 0
+            };
+            quantityMap.set(key, {
+                actual: Math.max(previous.actual, cappedPullingCount(actual, target)),
+                target: Math.max(previous.target, target)
+            });
+        };
+
+        openPullingDB(dbName).then((database) => {
+            const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME], 'readonly');
+            const recordRequest = transaction.objectStore(STORE_NAME).openCursor();
+            const serialRequest = transaction.objectStore(SERIAL_STORE_NAME).openCursor();
+
+            recordRequest.onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (!cursor) return;
+
+                const item = cursor.value || {};
+                const sameCustomer = comparableCustomerPart(item.customer) === customerComparable;
+                const sameInternal = !internal || String(item.internal || '').trim() === internal;
+
+                if (sameCustomer && sameInternal) {
+                    const entries = loadingListBucketEntries(item);
+                    if (entries.length) {
+                        entries.forEach((entry) => {
+                            addQuantity(recordQuantityIdentityKey(item, entry.number), entry.scanned, entry.target);
+                        });
+                    } else {
+                        addQuantity(recordQuantityIdentityKey(item), recordScannedCount(item), item.total_qty);
+                    }
+                }
+
+                cursor.continue();
+            };
+
+            serialRequest.onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (!cursor) return;
+
+                const item = cursor.value || {};
+                const itemPartKey = String(item.part_key || '').trim();
+                const samePartKey = itemPartKey && keys.has(itemPartKey);
+                const samePartFields = comparableCustomerPart(item.customer_part) === customerComparable &&
+                    (!internal || String(item.internal || '').trim() === internal);
+
+                if (samePartKey || samePartFields) serialCount += 1;
+                cursor.continue();
+            };
+
+            transaction.oncomplete = function() {
+                database.close();
+                if (comparableCustomerPart(localStorage.getItem('customerPart')) !== customerComparable) return;
+
+                const aggregateQty = Array.from(quantityMap.values()).reduce((carry, row) => ({
+                    actual: carry.actual + pullingInt(row.actual),
+                    target: carry.target + pullingInt(row.target)
+                }), {
+                    actual: 0,
+                    target: 0
+                });
+                const target = aggregateQty.target || baseQty.target;
+                const actual = cappedPullingCount(Math.max(baseQty.actual, aggregateQty.actual, serialCount),
+                    target);
+                $('#qty-display').text(`${actual}/${target}`);
+            };
+
+            transaction.onerror = function() {
+                database.close();
+            };
+        }).catch(() => {});
     }
 
     function nextLoadingListForScan(record) {
@@ -3727,6 +3854,8 @@
                     return;
                 }
 
+                await hydrateScanHistoryFromMutations();
+
                 openPullingDB(databaseName).then((database) => {
                     try {
                         const transaction = database.transaction([STORE_NAME], 'readonly');
@@ -3741,11 +3870,10 @@
                                 return;
                             }
 
-                            const seriList = Array.isArray(record.seri) ? record.seri : [];
-                            const scannedCount = parseInt(record.scanned_count ?? seriList
-                                .length,
-                                10) || 0;
-                            if (scannedCount >= record.total_qty) {
+                            this.updateKanbanDisplay(record, processedCode, originalCode);
+
+                            const qty = partQuantityFromRecord(record);
+                            if (qty.target > 0 && qty.actual >= qty.target) {
                                 this.showError('Part number sudah complete!', () => {
                                     if (typeof fullfilledSound === 'function')
                                         fullfilledSound();
@@ -3753,8 +3881,6 @@
                                 this.setIndicator('danger');
                                 return;
                             }
-
-                            this.updateKanbanDisplay(record, processedCode, originalCode);
                         }).catch((event) => {
                             console.error('Get request error:', event?.target?.error ||
                                 event);
@@ -3902,7 +4028,7 @@
                 this.processCustomerSpecificKanban(processed.trimEnd(), 'TTI INDONESIA');
             }
 
-            processCustomerSpecificKanban(code, customerType) {
+            async processCustomerSpecificKanban(code, customerType) {
                 console.log(`Processing ${customerType} kanban:`, code);
                 const databaseName = this.getCurrentPDS();
 
@@ -3910,6 +4036,8 @@
                     this.showError('Database name tidak ditemukan. Scan loading list dulu!');
                     return;
                 }
+
+                await hydrateScanHistoryFromMutations();
 
                 openPullingDB(databaseName).then((database) => {
                     try {
@@ -3926,11 +4054,10 @@
                                 return;
                             }
 
-                            const seriList = Array.isArray(record.seri) ? record.seri : [];
-                            const scannedCount = parseInt(record.scanned_count ?? seriList
-                                .length,
-                                10) || 0;
-                            if (scannedCount >= record.total_qty) {
+                            this.updateKanbanDisplay(record, record.customer || code, code);
+
+                            const qty = partQuantityFromRecord(record);
+                            if (qty.target > 0 && qty.actual >= qty.target) {
                                 this.showError('Part number sudah complete!', () => {
                                     if (typeof fullfilledSound === 'function')
                                         fullfilledSound();
@@ -3938,8 +4065,6 @@
                                 this.setIndicator('danger');
                                 return;
                             }
-
-                            this.updateKanbanDisplay(record, record.customer || code, code);
                         }).catch((event) => {
                             console.error('Get request error:', event?.target?.error ||
                                 event);
@@ -3996,9 +4121,8 @@
                 $('#backno-display').text('-');
                 fetchAlamatChute(record.loading_list_number, record.customer, record.internal);
                 $('#int-display').text('-');
-                const seriList = Array.isArray(record.seri) ? record.seri : [];
-                const scannedCount = parseInt(record.scanned_count ?? seriList.length, 10) || 0;
-                $('#qty-display').text(`${scannedCount}/${record.total_qty}`);
+                updatePartQuantityDisplay(record);
+                refreshPartQuantityDisplayFromIndexedDB(record);
 
                 this.setIndicator('warning');
                 this.resetIndicator();
