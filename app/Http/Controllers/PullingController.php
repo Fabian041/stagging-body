@@ -179,9 +179,32 @@ class PullingController extends Controller
         return null;
     }
 
-    private function formatCustomerPartForDeaPost(string $customerPart): string
+    private function isTmminCustomer(int $customerId): bool
     {
-        return strtoupper(str_replace(['-', ' '], '', trim($customerPart)));
+        static $tmminCustomerIds = null;
+
+        if ($tmminCustomerIds === null) {
+            $tmminCustomerIds = Customer::query()
+                ->where('name', 'like', '%TMMIN%')
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        return in_array($customerId, $tmminCustomerIds, true);
+    }
+
+    private function formatCustomerPartForDeaPost(string $customerPart, int $customerId, bool $hasLocalDetail): string
+    {
+        $partNumber = strtoupper(trim($customerPart));
+
+        if ($this->isTmminCustomer($customerId)) {
+            return str_replace(['-', ' '], '', $partNumber);
+        }
+
+        return $hasLocalDetail
+            ? $partNumber
+            : strtoupper(str_replace(['-', ' '], '', $partNumber));
     }
 
     private function findCustomerPartForLoadingList(
@@ -1451,9 +1474,11 @@ class PullingController extends Controller
                     $internalPartNumber
                 );
 
-                $items[$index]['part_number_cust'] = $deaItem['part_number_cust']
-                    ?? $localDetail?->part_number
-                    ?? $this->formatCustomerPartForDeaPost($customerPartNumber);
+                $items[$index]['part_number_cust'] = $this->formatCustomerPartForDeaPost(
+                    $deaItem['part_number_cust'] ?? $localDetail?->part_number ?? $customerPartNumber,
+                    (int) $loadingListId->customer_id,
+                    $deaItem !== null || $localDetail !== null
+                );
                 $items[$index]['part_number_int'] = $deaItem['part_number_int'] ?? $internalPartNumber;
             }
 
