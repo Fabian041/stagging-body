@@ -1474,11 +1474,12 @@ class PullingController extends Controller
                     $internalPartNumber
                 );
 
-                $items[$index]['part_number_cust'] = $this->formatCustomerPartForDeaPost(
-                    $deaItem['part_number_cust'] ?? $localDetail?->part_number ?? $customerPartNumber,
-                    (int) $loadingListId->customer_id,
-                    $deaItem !== null || $localDetail !== null
-                );
+                $items[$index]['part_number_cust'] = $deaItem['part_number_cust']
+                    ?? $this->formatCustomerPartForDeaPost(
+                        $localDetail?->part_number ?? $customerPartNumber,
+                        (int) $loadingListId->customer_id,
+                        $localDetail !== null
+                    );
                 $items[$index]['part_number_int'] = $deaItem['part_number_int'] ?? $internalPartNumber;
             }
 
