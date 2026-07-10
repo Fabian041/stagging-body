@@ -744,6 +744,37 @@ class LoadingListController extends Controller
             }
         }
 
+        $pullingDate = $this->resolveScopedLoadingListPullingDate($loadingList)
+            ?: $this->resolveFallbackPullingDate($loadingList);
+
+        $context = $this->applyPrepContextPullingDate($context, $pullingDate);
+
+        return $context;
+    }
+
+    private function resolveScopedLoadingListPullingDate(LoadingList $loadingList): ?string
+    {
+        if (! $loadingList->id) {
+            return null;
+        }
+
+        $latest = DB::table('loading_list_details as lld')
+            ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+            ->join('mutations as m', function ($join) {
+                $join->on('m.internal_part_id', '=', 'cp.internal_part_id')
+                    ->where('m.type', '=', 'checkout')
+                    ->whereColumn('m.created_at', '>=', 'lld.created_at')
+                    ->whereColumn('m.created_at', '<=', 'lld.updated_at');
+            })
+            ->where('lld.loading_list_id', $loadingList->id)
+            ->selectRaw('MAX(COALESCE(m.date, m.created_at)) as latest')
+            ->value('latest');
+
+        return $latest ? (string) $latest : null;
+    }
+
+    private function resolveFallbackPullingDate(LoadingList $loadingList): ?string
+    {
         $pullingDate = null;
         if ($loadingList->number) {
             $pullingDate = DB::table('pullings')
@@ -760,32 +791,32 @@ class LoadingListController extends Controller
                 ->max('pulling_date');
         }
 
-        // Fallback: kalau tabel `pullings` kosong, ambil pulling terakhir dari mutasi checkout
-        // (sumber & scoping yang sama dengan modal Compare Kanban) supaya header konsisten.
-        if (! $pullingDate) {
-            $pullingDate = DB::table('loading_list_details as lld')
-                ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
-                ->join('mutations as m', function ($join) {
-                    $join->on('m.internal_part_id', '=', 'cp.internal_part_id')
-                        ->where('m.type', '=', 'checkout')
-                        ->whereColumn('m.created_at', '>=', 'lld.created_at')
-                        ->whereColumn('m.created_at', '<=', 'lld.updated_at');
-                })
-                ->where('lld.loading_list_id', $loadingList->id)
-                ->selectRaw('MAX(COALESCE(m.date, m.created_at)) as latest')
-                ->value('latest');
-        }
+        return $pullingDate ? (string) $pullingDate : null;
+    }
+
+    private function applyPrepContextPullingDate(array $context, $pullingDate): array
+    {
+        $context['pulling_iso'] = null;
+        $context['pulling_label'] = '-';
+        $context['delta_seconds'] = null;
+        $context['delta_label'] = '-';
+        $context['status'] = 'unknown';
 
         if ($pullingDate) {
             $pulling = Carbon::parse($pullingDate);
+            $deadline = ! empty($context['deadline_iso'])
+                ? Carbon::parse($context['deadline_iso'])
+                : null;
+
             $context['pulling_iso'] = $pulling->toIso8601String();
             $context['pulling_label'] = $this->formatPrepContextDateTime($pulling);
-            $context = array_merge($context, $this->buildPrepDeltaPayload($pulling, $deadline));
-        } elseif ($deadline) {
-            $context['status_label'] = 'Belum ada pulling';
-        } else {
-            $context['status_label'] = 'Master cycle belum lengkap';
+
+            return array_merge($context, $this->buildPrepDeltaPayload($pulling, $deadline));
         }
+
+        $context['status_label'] = ! empty($context['deadline_iso'])
+            ? 'Belum ada pulling'
+            : 'Master cycle belum lengkap';
 
         return $context;
     }
@@ -919,6 +950,12 @@ class LoadingListController extends Controller
             ->whereBetween('checkout.created_at', [$start, $end])
             ->orderBy('checkout.created_at')
             ->get();
+
+        $detailPullingDate = $checkouts
+            ->map(fn ($checkout) => $checkout->date ?: $checkout->created_at)
+            ->filter()
+            ->max();
+        $prepContext = $this->applyPrepContextPullingDate($prepContext, $detailPullingDate);
 
         $supplies = DB::table('mutations')
             ->whereIn('id', $checkouts->pluck('supply_id')->filter()->unique()->values()->all())
@@ -2051,6 +2088,26 @@ class LoadingListController extends Controller
             })
             ->get();
 
+        $scopedPullingByLoadingListId = collect();
+        $loadingListIds = $rawLists->pluck('id')->filter()->unique()->values();
+        if ($loadingListIds->isNotEmpty()) {
+            $scopedPullingByLoadingListId = DB::table('loading_list_details as lld')
+                ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+                ->join('mutations as m', function ($join) {
+                    $join->on('m.internal_part_id', '=', 'cp.internal_part_id')
+                        ->where('m.type', '=', 'checkout')
+                        ->whereColumn('m.created_at', '>=', 'lld.created_at')
+                        ->whereColumn('m.created_at', '<=', 'lld.updated_at');
+                })
+                ->whereIn('lld.loading_list_id', $loadingListIds->all())
+                ->select('lld.loading_list_id', DB::raw('MAX(COALESCE(m.date, m.created_at)) as latest_pulling_date'))
+                ->groupBy('lld.loading_list_id')
+                ->get()
+                ->mapWithKeys(function ($row) {
+                    return [(int) $row->loading_list_id => (string) $row->latest_pulling_date];
+                });
+        }
+
         $pullingByPds = collect();
         $pdsNumbers = $rawLists->pluck('pds_number')->filter()->unique()->values();
         if ($pdsNumbers->isNotEmpty()) {
@@ -2067,7 +2124,7 @@ class LoadingListController extends Controller
 
         $groupedData = $rawLists
             ->groupBy('pds_number')
-            ->map(function ($loadingLists, $pdsNumber) use ($pullingByPds) {
+            ->map(function ($loadingLists, $pdsNumber) use ($pullingByPds, $scopedPullingByLoadingListId) {
                 /** @var LoadingList $firstLoadingList */
                 $firstLoadingList = $loadingLists->first();
                 $totalKanban = (int) $loadingLists->sum('total_kanban');
@@ -2075,8 +2132,36 @@ class LoadingListController extends Controller
                 $cycle = $loadingLists->groupBy('cycle')->sortByDesc(function ($items) {
                     return $items->count();
                 })->keys()->first();
+                $scopedPullingItems = $loadingLists
+                    ->map(function ($loadingList) use ($pdsNumber, $scopedPullingByLoadingListId) {
+                        $latest = $scopedPullingByLoadingListId->get((int) $loadingList->id);
+                        if (! $latest) {
+                            return null;
+                        }
+
+                        return [
+                            'pds_number' => (string) $pdsNumber,
+                            'loading_list' => $loadingList->number ? (string) $loadingList->number : null,
+                            'pulling_date' => Carbon::parse($latest)->toIso8601String(),
+                        ];
+                    })
+                    ->filter()
+                    ->values();
+                $scopedLoadingLists = $scopedPullingItems
+                    ->pluck('loading_list')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
                 $pullingKey = ((int) $firstLoadingList->customer_id).'|'.(string) $pdsNumber;
-                $pullingItems = $pullingByPds->get($pullingKey, collect())
+                $fallbackPullingItems = $pullingByPds->get($pullingKey, collect())
+                    ->filter(function ($row) use ($scopedPullingItems, $scopedLoadingLists) {
+                        if (! $row->loading_list) {
+                            return $scopedPullingItems->isEmpty();
+                        }
+
+                        return ! in_array((string) $row->loading_list, $scopedLoadingLists, true);
+                    })
                     ->map(function ($row) use ($pdsNumber) {
                         return [
                             'pds_number' => (string) $pdsNumber,
@@ -2085,6 +2170,7 @@ class LoadingListController extends Controller
                         ];
                     })
                     ->values();
+                $pullingItems = $scopedPullingItems->concat($fallbackPullingItems)->values();
                 $latestPullingDate = $pullingItems->pluck('pulling_date')->max();
 
                 return (object) [
