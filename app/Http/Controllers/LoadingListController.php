@@ -2092,15 +2092,10 @@ class LoadingListController extends Controller
         $loadingListIds = $rawLists->pluck('id')->filter()->unique()->values();
         if ($loadingListIds->isNotEmpty()) {
             $scopedPullingByLoadingListId = DB::table('loading_list_details as lld')
-                ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
-                ->join('mutations as m', function ($join) {
-                    $join->on('m.internal_part_id', '=', 'cp.internal_part_id')
-                        ->where('m.type', '=', 'checkout')
-                        ->whereColumn('m.created_at', '>=', 'lld.created_at')
-                        ->whereColumn('m.created_at', '<=', 'lld.updated_at');
-                })
                 ->whereIn('lld.loading_list_id', $loadingListIds->all())
-                ->select('lld.loading_list_id', DB::raw('MAX(COALESCE(m.date, m.created_at)) as latest_pulling_date'))
+                ->where('lld.actual_kanban_qty', '>', 0)
+                ->whereColumn('lld.updated_at', '>', 'lld.created_at')
+                ->select('lld.loading_list_id', DB::raw('MAX(lld.updated_at) as latest_pulling_date'))
                 ->groupBy('lld.loading_list_id')
                 ->get()
                 ->mapWithKeys(function ($row) {
