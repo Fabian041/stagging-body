@@ -216,6 +216,30 @@ class PullingController extends Controller
             ->first(['id', 'back_number', 'internal_part_id', 'part_number']);
     }
 
+    private function findLoadingListDetailForPost(
+        int $loadingListId,
+        int $customerId,
+        string $loadingListNumber,
+        string $customerPart,
+        string $internalPart
+    ) {
+        $customerCandidates = $this->customerPartNumberCandidates($loadingListNumber, $customerPart);
+
+        return LoadingListDetail::query()
+            ->from('loading_list_details as lld')
+            ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+            ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
+            ->where('lld.loading_list_id', $loadingListId)
+            ->where('cp.customer_id', $customerId)
+            ->whereIn('cp.part_number', $customerCandidates)
+            ->where('ip.part_number', trim($internalPart))
+            ->first([
+                'lld.id',
+                'lld.kanban_qty',
+                'cp.part_number',
+            ]);
+    }
+
     /**
      * Back no & part name hanya dari part internal (bukan customer_parts.back_number).
      *
@@ -1419,7 +1443,17 @@ class PullingController extends Controller
                     ], 422);
                 }
 
-                $items[$index]['part_number_cust'] = $deaItem['part_number_cust'] ?? $this->formatCustomerPartForDeaPost($customerPartNumber);
+                $localDetail = $this->findLoadingListDetailForPost(
+                    $loadingListId->id,
+                    $loadingListId->customer_id,
+                    $row->loading_list_number,
+                    $customerPartNumber,
+                    $internalPartNumber
+                );
+
+                $items[$index]['part_number_cust'] = $deaItem['part_number_cust']
+                    ?? $localDetail?->part_number
+                    ?? $this->formatCustomerPartForDeaPost($customerPartNumber);
                 $items[$index]['part_number_int'] = $deaItem['part_number_int'] ?? $internalPartNumber;
             }
 
@@ -1443,24 +1477,13 @@ class PullingController extends Controller
             }
 
             foreach ($kanbans as $kanban) {
-                $customerCandidates = $this->customerPartNumberCandidates(
+                $kanbanQty = $this->findLoadingListDetailForPost(
+                    $loadingListId->id,
+                    $loadingListId->customer_id,
                     $row->loading_list_number,
-                    $kanban['customer']
+                    $kanban['customer'],
+                    $kanban['internal']
                 );
-
-                $kanbanQty = LoadingListDetail::query()
-                    ->from('loading_list_details as lld')
-                    ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
-                    ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
-                    ->where('lld.loading_list_id', $loadingListId->id)
-                    ->where('cp.customer_id', $loadingListId->customer_id)
-                    ->whereIn('cp.part_number', $customerCandidates)
-                    ->where('ip.part_number', $kanban['internal'])
-                    ->first([
-                        'lld.id',
-                        'lld.kanban_qty',
-                        'cp.part_number',
-                    ]);
 
                 if (! $kanbanQty) {
                     return response()->json([
