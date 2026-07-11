@@ -1636,7 +1636,7 @@
 
     function isIndexedSerialDuplicateActive(scanRow) {
         const scannedAt = serialScanTimestamp(scanRow?.scanned_at);
-        return !scannedAt || (Date.now() - scannedAt) < SERIAL_DUPLICATE_WINDOW_MS;
+        return scannedAt > 0 && (Date.now() - scannedAt) < SERIAL_DUPLICATE_WINDOW_MS;
     }
 
     function loadingListSources(record) {
