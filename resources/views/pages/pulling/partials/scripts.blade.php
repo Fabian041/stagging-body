@@ -1634,9 +1634,22 @@
         return Number.isNaN(parsedValue) ? 0 : parsedValue;
     }
 
+    function isSameLocalDate(leftTimestamp, rightTimestamp) {
+        const left = new Date(leftTimestamp);
+        const right = new Date(rightTimestamp);
+
+        return left.getFullYear() === right.getFullYear() &&
+            left.getMonth() === right.getMonth() &&
+            left.getDate() === right.getDate();
+    }
+
     function isIndexedSerialDuplicateActive(scanRow) {
         const scannedAt = serialScanTimestamp(scanRow?.scanned_at);
-        return scannedAt > 0 && (Date.now() - scannedAt) < SERIAL_DUPLICATE_WINDOW_MS;
+        const now = Date.now();
+
+        return scannedAt > 0 &&
+            isSameLocalDate(scannedAt, now) &&
+            (now - scannedAt) < SERIAL_DUPLICATE_WINDOW_MS;
     }
 
     function loadingListSources(record) {
