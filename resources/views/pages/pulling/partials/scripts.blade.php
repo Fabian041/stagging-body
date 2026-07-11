@@ -295,6 +295,7 @@
     const SUMMARY_STORE_NAME = 'scanSummary';
     const SUMMARY_KEY = 'current';
     const SUMMARY_VERSION = 3;
+    const SERIAL_DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
     const REQUIRED_IDB_STORES = [STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME];
 
     function ensurePullingStores(database) {
@@ -621,7 +622,7 @@
             if (legacyRecord) rows.push(...fallbackScanRowsForRecord(legacyRecord, seen));
         }
 
-        rows.sort((a, b) => pullingInt(a.scanned_at) - pullingInt(b.scanned_at));
+        rows.sort((a, b) => serialScanTimestamp(a.scanned_at) - serialScanTimestamp(b.scanned_at));
         return rows.concat(fallbackScanRowsForRecord(record, seen));
     }
 
@@ -1097,8 +1098,7 @@
                                             loading_list_number: loadingList ||
                                                 record
                                                 .loading_list_number,
-                                            scanned_at: pullingInt(
-                                                item
+                                            scanned_at: serialScanTimestamp(item
                                                 ?.scanned_at),
                                             synced_from_mutation: true,
                                             verified_from_mutation: item
@@ -1619,6 +1619,24 @@
 
     function pullingInt(value) {
         return parseInt(value ?? 0, 10) || 0;
+    }
+
+    function serialScanTimestamp(value) {
+        if (value === null || value === undefined || value === '') return 0;
+
+        const numericValue = Number(value);
+        if (Number.isFinite(numericValue) && numericValue > 0) {
+            if (numericValue >= 1000000000000) return numericValue;
+            if (numericValue >= 1000000000) return numericValue * 1000;
+        }
+
+        const parsedValue = Date.parse(String(value));
+        return Number.isNaN(parsedValue) ? 0 : parsedValue;
+    }
+
+    function isIndexedSerialDuplicateActive(scanRow) {
+        const scannedAt = serialScanTimestamp(scanRow?.scanned_at);
+        return !scannedAt || (Date.now() - scannedAt) < SERIAL_DUPLICATE_WINDOW_MS;
     }
 
     function loadingListSources(record) {
@@ -3229,7 +3247,8 @@
                         .get(scanSerialKey(primaryKey, seri));
 
                     duplicateRequest.onsuccess = function() {
-                        if (duplicateRequest.result) {
+                        const existingScan = duplicateRequest.result;
+                        if (existingScan && isIndexedSerialDuplicateActive(existingScan)) {
                             duplicateSerialError();
                             return;
                         }
