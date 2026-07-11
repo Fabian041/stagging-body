@@ -2080,6 +2080,17 @@
         });
     }
 
+    function formatLoadingListDetailFailureMessage(failures) {
+        const list = Array.isArray(failures) ? failures : [];
+        const first = list[0] || {};
+        const extra = list.length > 1 ? ` (+${list.length - 1} lainnya)` : '';
+        const cust = first.cust || '-';
+        const intPart = first.int || '-';
+        const reason = first.reason || 'master part tidak ditemukan';
+
+        return `MASTER PART TIDAK LENGKAP. ${list.length} detail gagal disimpan${extra}. Cust: ${cust} | Int: ${intPart} | ${reason}`;
+    }
+
     $(document).ready(function() {
         initApp();
         $('#code').focus();
@@ -2413,6 +2424,7 @@
 
                     if (failures.length > 0) {
                         console.warn(`${failures.length} detail items failed to store:`, failures);
+                        this.showError(formatLoadingListDetailFailureMessage(failures));
                     }
 
                     return response;
@@ -3731,6 +3743,7 @@
 
                     if (failures.length > 0) {
                         console.warn(`${failures.length} items failed to store:`, failures);
+                        this.showError(formatLoadingListDetailFailureMessage(failures));
                     }
 
                     return response;
