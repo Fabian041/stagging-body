@@ -197,14 +197,16 @@
             <span class="sb-item-tooltip">Profile</span>
         </a>
 
-        <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+        <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+            href="{{ route('settings.index') }}">
             <i class="fas fa-cog sb-icon"></i>
             <span class="sb-item-label">Settings</span>
             <span class="sb-item-tooltip">Settings</span>
         </a>
 
         @can('manage-device-sessions')
-            <a class="sb-item {{ request()->routeIs('manage-devices.*') ? 'active' : '' }}" href="{{ route('manage-devices.index') }}">
+            <a class="sb-item {{ request()->routeIs('manage-devices.*') ? 'active' : '' }}"
+                href="{{ route('manage-devices.index') }}">
                 <i class="fas fa-barcode sb-icon"></i>
                 <span class="sb-item-label">Manage Device</span>
                 <span class="sb-item-tooltip">Manage Device</span>
@@ -212,7 +214,8 @@
         @endcan
 
         @if (auth()->check() && auth()->user()->isSuperAdmin())
-            <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}" href="{{ route('manage-users.index') }}">
+            <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}"
+                href="{{ route('manage-users.index') }}">
                 <i class="fas fa-users-cog sb-icon"></i>
                 <span class="sb-item-label">Manage User</span>
                 <span class="sb-item-tooltip">Manage User</span>
@@ -232,11 +235,12 @@
     @php
         $sidebarUser = auth()->user();
         $sidebarName = $sidebarUser ? $sidebarUser->name : 'Guest';
-        $sidebarRole = $sidebarUser ? ($sidebarUser->role ?? 'User') : 'Not logged in';
+        $sidebarRole = $sidebarUser ? $sidebarUser->role ?? 'User' : 'Not logged in';
         $sidebarRoleParts = array_values(array_filter(preg_split('/[\s_-]+/', (string) $sidebarRole) ?: []));
-        $sidebarBadge = count($sidebarRoleParts) > 1
-            ? implode('', array_map(fn ($part) => strtoupper(substr($part, 0, 1)), $sidebarRoleParts))
-            : strtoupper(substr((string) $sidebarRole, 0, 5));
+        $sidebarBadge =
+            count($sidebarRoleParts) > 1
+                ? implode('', array_map(fn($part) => strtoupper(substr($part, 0, 1)), $sidebarRoleParts))
+                : strtoupper(substr((string) $sidebarRole, 0, 5));
     @endphp
     <div class="sb-user-wrap">
         <div class="sb-user">
@@ -256,10 +260,6 @@
     {{-- ===== BOTTOM: version ===== --}}
     <div class="sb-bottom">
         <div style="padding:6px 10px;display:flex;align-items:center;gap:8px;">
-            <div
-                style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);">
-            </div>
-            <span class="sb-item-label" style="font-size:11px;color:var(--text-muted);">System online · v1.0</span>
         </div>
     </div>
 
