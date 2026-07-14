@@ -2771,6 +2771,58 @@
             });
         }
 
+        const PULLING_PENDING_DB_DELETE_KEY = 'pulling_pending_db_delete';
+
+        function deleteIndexedDBInBackground(databaseName) {
+            if (!databaseName) return;
+
+            try {
+                const deleteRequest = indexedDB.deleteDatabase(databaseName);
+
+                deleteRequest.onsuccess = function() {
+                    try {
+                        if (sessionStorage.getItem(PULLING_PENDING_DB_DELETE_KEY) === databaseName) {
+                            sessionStorage.removeItem(PULLING_PENDING_DB_DELETE_KEY);
+                        }
+                    } catch (error) {}
+                };
+
+                deleteRequest.onerror = function(event) {
+                    console.warn('Gagal cleanup IndexedDB background:', databaseName, event?.target?.error);
+                };
+
+                deleteRequest.onblocked = function() {
+                    console.warn('Cleanup IndexedDB tertunda karena database masih dipakai:', databaseName);
+                };
+            } catch (error) {
+                console.warn('Gagal memulai cleanup IndexedDB:', databaseName, error);
+            }
+        }
+
+        function queuePullingDatabaseCleanup(databaseName) {
+            if (!databaseName) return;
+
+            try {
+                sessionStorage.setItem(PULLING_PENDING_DB_DELETE_KEY, databaseName);
+            } catch (error) {}
+
+            deleteIndexedDBInBackground(databaseName);
+        }
+
+        function cleanupQueuedPullingDatabase() {
+            let databaseName = '';
+
+            try {
+                databaseName = sessionStorage.getItem(PULLING_PENDING_DB_DELETE_KEY) || '';
+            } catch (error) {}
+
+            if (databaseName) {
+                deleteIndexedDBInBackground(databaseName);
+            }
+        }
+
+        cleanupQueuedPullingDatabase();
+
         let pullingConfirmAction = null;
 
         function showPullingConfirm(options) {
@@ -3156,44 +3208,36 @@
                     .length > 0;
                 const finishLocalPulling = function() {
                     return new Promise((resolve, reject) => {
-                        const deleteRequest = indexedDB.deleteDatabase(pds);
+                        if (finishRows.length === 0) {
+                            resolve();
+                            return;
+                        }
 
-                        deleteRequest.onsuccess = function() {
-                            if (finishRows.length === 0) {
-                                resolve();
-                                return;
-                            }
-
-                            let storedRows = 0;
-                            finishRows.forEach((row) => {
-                                $.ajax({
-                                    type: 'GET',
-                                    url: "{{ route('pulling.store') }}",
-                                    _token: "{{ csrf_token() }}",
-                                    data: row,
-                                    dataType: 'json',
-                                    success: function() {
-                                        storedRows += 1;
-                                        if (storedRows === finishRows
-                                            .length) {
-                                            resolve();
-                                        }
-                                    },
-                                    error: reject
-                                });
+                        let storedRows = 0;
+                        finishRows.forEach((row) => {
+                            $.ajax({
+                                type: 'GET',
+                                url: "{{ route('pulling.store') }}",
+                                _token: "{{ csrf_token() }}",
+                                data: row,
+                                dataType: 'json',
+                                success: function() {
+                                    storedRows += 1;
+                                    if (storedRows === finishRows
+                                        .length) {
+                                        resolve();
+                                    }
+                                },
+                                error: reject
                             });
-                        };
-
-                        deleteRequest.onerror = function(event) {
-                            reject(event?.target?.error || new Error(
-                                'Gagal menghapus database lokal'));
-                        };
+                        });
                     });
                 };
 
                 const finishWithSuccess = async function(message) {
                     finishSucceeded = true;
                     stopPullingDoneProgress(false);
+                    queuePullingDatabaseCleanup(pds);
                     await pullingDelay(700);
                     $('#finishProgressModal').modal('hide');
                     await pullingDelay(250);
