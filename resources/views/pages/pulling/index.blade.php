@@ -190,6 +190,37 @@
         </div>
     </div>
 
+    <div class="modal fade pulling-modal pulling-finish-modal" id="finishProgressModal" tabindex="-1" role="dialog"
+        aria-hidden="true" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="pulling-finish-progress pulling-finish-progress--timeline" id="finishProgress"
+                    style="--finish-progress: 0%;" aria-live="polite">
+                    <div class="pulling-finish-progress__head">
+                        <span class="pulling-finish-progress__title">
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span id="finishProgressTitle">Memproses pulling...</span>
+                        </span>
+                        <span class="pulling-finish-progress__time" id="finishElapsed">0ms</span>
+                    </div>
+                    <div class="pulling-finish-progress__bar" aria-hidden="true"><span></span></div>
+                    <div class="pulling-finish-progress__steps">
+                        <div class="pulling-finish-step" data-finish-stage="sync"><span>Sync scan</span><strong>Menunggu</strong></div>
+                        <div class="pulling-finish-step" data-finish-stage="local"><span>Baca lokal</span><strong>Menunggu</strong></div>
+                        <div class="pulling-finish-step" data-finish-stage="validate"><span>Validasi qty</span><strong>Menunggu</strong></div>
+                        <div class="pulling-finish-step" data-finish-stage="dea"><span>Kirim DEA</span><strong>Menunggu</strong></div>
+                        <div class="pulling-finish-step" data-finish-stage="store"><span>Simpan status</span><strong>Menunggu</strong></div>
+                    </div>
+                </div>
+                <div class="pulling-finish-modal__actions">
+                    <button type="button" class="btn btn-light" id="finishProgressClose" data-dismiss="modal" hidden>
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- confirmation modal --}}
     <div class="modal fade pulling-modal" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2"
         tabindex="-1" data-backdrop="static">

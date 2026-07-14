@@ -329,6 +329,318 @@
         }
     }
 
+    .pulling-finish-progress {
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+        padding: .9rem;
+        border: 1px solid #BFE4FF;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #F4FAFF 0%, #EEF8FF 100%);
+        box-shadow: 0 12px 30px rgba(0, 112, 183, .08);
+    }
+
+    .pulling-finish-modal .modal-dialog {
+        width: min(92vw, 420px);
+        max-width: 420px;
+    }
+
+    .pulling-finish-modal .modal-content {
+        border: 0;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+        overflow: hidden;
+    }
+
+    .pulling-finish-modal .pulling-finish-progress {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 1rem 1rem .9rem;
+    }
+
+    .pulling-finish-modal__actions {
+        display: flex;
+        justify-content: center;
+        padding: 0 1rem 1rem;
+        background: #EEF8FF;
+    }
+
+    .pulling-finish-modal__actions .btn {
+        min-width: 120px;
+        min-height: 42px;
+        border-radius: 8px;
+        font-weight: 800;
+    }
+
+    .pulling-finish-progress[hidden] {
+        display: none !important;
+    }
+
+    .pulling-finish-progress__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .pulling-finish-progress__title {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        min-width: 0;
+        font-size: .92rem;
+        font-weight: 800;
+        color: var(--text, #1A2340);
+    }
+
+    .pulling-finish-progress__title .spinner-border {
+        width: 1rem;
+        height: 1rem;
+        color: var(--primary, #0070B7);
+    }
+
+    .pulling-finish-progress:not(.is-running) .pulling-finish-progress__title .spinner-border {
+        display: none;
+    }
+
+    .pulling-finish-progress__time {
+        flex: 0 0 auto;
+        padding: .24rem .5rem;
+        border-radius: 6px;
+        background: #fff;
+        color: var(--primary, #0070B7);
+        font-size: .78rem;
+        font-weight: 800;
+    }
+
+    .pulling-finish-progress__steps {
+        --step-dot-size: 1.85rem;
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: .35rem;
+        padding-top: .2rem;
+        counter-reset: finish-step;
+    }
+
+    .pulling-finish-progress__steps::before,
+    .pulling-finish-progress__steps::after {
+        content: "";
+        position: absolute;
+        top: calc(.2rem + (var(--step-dot-size) / 2));
+        left: 10%;
+        right: 10%;
+        height: 4px;
+        border-radius: 999px;
+    }
+
+    .pulling-finish-progress__steps::before {
+        background: #D7E7F5;
+    }
+
+    .pulling-finish-progress__steps::after {
+        width: var(--finish-progress, 0%);
+        max-width: 80%;
+        background: linear-gradient(90deg, #22C55E 0%, var(--primary, #0070B7) 100%);
+        transition: width .24s ease;
+        z-index: 1;
+    }
+
+    .pulling-finish-step {
+        counter-increment: finish-step;
+        position: relative;
+        z-index: 2;
+        min-width: 0;
+        padding: 2.35rem .25rem 0;
+        text-align: center;
+        color: var(--text-muted, #6B7A99);
+    }
+
+    .pulling-finish-step::before {
+        content: counter(finish-step);
+        position: absolute;
+        top: .2rem;
+        left: 50%;
+        width: var(--step-dot-size);
+        height: var(--step-dot-size);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transform: translateX(-50%);
+        border: 3px solid #D7E7F5;
+        border-radius: 999px;
+        background: #fff;
+        color: #6B7A99;
+        font-size: .78rem;
+        font-weight: 900;
+        box-shadow: 0 0 0 4px #EEF8FF;
+        transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+    }
+
+    .pulling-finish-step span,
+    .pulling-finish-step strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .pulling-finish-step span {
+        font-size: .72rem;
+        font-weight: 800;
+        line-height: 1.15;
+    }
+
+    .pulling-finish-step strong {
+        margin-top: .2rem;
+        font-size: .74rem;
+        color: inherit;
+    }
+
+    .pulling-finish-step.is-active {
+        color: #075985;
+    }
+
+    .pulling-finish-step.is-active::before {
+        content: "";
+        border-color: var(--primary, #0070B7);
+        background:
+            radial-gradient(circle, var(--primary, #0070B7) 0 32%, transparent 34%),
+            #fff;
+        color: var(--primary, #0070B7);
+        transform: translateX(-50%) scale(1.06);
+    }
+
+    .pulling-finish-step.is-done {
+        color: #166534;
+    }
+
+    .pulling-finish-step.is-done::before {
+        content: "\2713";
+        border-color: #22C55E;
+        background: #22C55E;
+        color: #fff;
+    }
+
+    .pulling-finish-step.is-skipped {
+        color: #64748B;
+    }
+
+    .pulling-finish-step.is-skipped::before {
+        content: "\2013";
+        border-color: #CBD5E1;
+        background: #F8FAFC;
+        color: #64748B;
+    }
+
+    .pulling-finish-step.is-error {
+        color: #991B1B;
+    }
+
+    .pulling-finish-step.is-error::before {
+        content: "!";
+        border-color: #EF4444;
+        background: #EF4444;
+        color: #fff;
+    }
+
+    @media (max-width: 640px) {
+        .pulling-finish-progress__steps {
+            gap: .2rem;
+        }
+
+        .pulling-finish-step span {
+            font-size: .64rem;
+        }
+
+        .pulling-finish-step strong {
+            font-size: .68rem;
+        }
+    }
+
+    /* ===== Finish loading — Opsi A: timeline vertikal (override stepper horizontal) ===== */
+    .pulling-finish-progress--timeline {
+        gap: .85rem;
+    }
+
+    .pulling-finish-progress__bar {
+        height: 6px;
+        border-radius: 999px;
+        background: #E3EEF8;
+        overflow: hidden;
+    }
+
+    .pulling-finish-progress__bar>span {
+        display: block;
+        height: 100%;
+        width: calc(var(--finish-progress, 0%) / .8);
+        border-radius: 999px;
+        background: linear-gradient(90deg, #22C55E, var(--primary, #0070B7));
+        transition: width .3s ease;
+    }
+
+    .pulling-finish-progress--timeline.is-failed .pulling-finish-progress__bar>span {
+        background: #EF4444;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-progress__steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        grid-template-columns: none;
+        padding-top: 0;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-progress__steps::before,
+    .pulling-finish-progress--timeline .pulling-finish-progress__steps::after {
+        display: none;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-step {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        padding: .55rem .15rem;
+        text-align: left;
+        border-bottom: 1px solid #EEF3F8;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-step:last-child {
+        border-bottom: 0;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-step::before {
+        position: static;
+        transform: none;
+        flex: 0 0 auto;
+        width: 1.55rem;
+        height: 1.55rem;
+        margin: 0;
+        font-size: .82rem;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-step.is-active::before {
+        transform: none;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-step span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin: 0;
+        font-size: .92rem;
+    }
+
+    .pulling-finish-progress--timeline .pulling-finish-step strong {
+        flex: 0 0 auto;
+        margin: 0;
+        font-size: .82rem;
+    }
+
     .pulling-status-wrap {
         margin-top: .75rem;
     }

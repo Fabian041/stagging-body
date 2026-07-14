@@ -2913,6 +2913,154 @@
             });
         }
 
+        function pullingDelay(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        const PULLING_DONE_STAGE_ORDER = ['sync', 'local', 'validate', 'dea', 'store'];
+        const PULLING_DONE_STAGE_LABELS = {
+            sync: 'Sync scan',
+            local: 'Baca lokal',
+            validate: 'Validasi qty',
+            dea: 'Kirim DEA',
+            store: 'Simpan status'
+        };
+        let pullingDoneProgressStartedAt = 0;
+        let pullingDoneProgressStage = null;
+        let pullingDoneProgressStageStartedAt = 0;
+        let pullingDoneProgressTimer = null;
+
+        function pullingDoneNow() {
+            return window.performance && typeof window.performance.now === 'function' ?
+                window.performance.now() :
+                Date.now();
+        }
+
+        function pullingDoneDuration(ms) {
+            const value = Math.max(0, Number(ms) || 0);
+            if (value < 1000) return `${Math.round(value)}ms`;
+            return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)}s`;
+        }
+
+        function pullingDoneStageElement(stage) {
+            return $(`.pulling-finish-step[data-finish-stage="${stage}"]`);
+        }
+
+        function setPullingDoneProgressFill(stage) {
+            const index = PULLING_DONE_STAGE_ORDER.indexOf(stage);
+            const max = PULLING_DONE_STAGE_ORDER.length - 1;
+            const percent = index < 0 || max <= 0 ? 0 : Math.round((index / max) * 100);
+            $('#finishProgress').css('--finish-progress', `${percent * .8}%`);
+        }
+
+        function updatePullingDoneElapsed() {
+            if (!pullingDoneProgressStartedAt) return;
+
+            const now = pullingDoneNow();
+            $('#finishElapsed').text(pullingDoneDuration(now - pullingDoneProgressStartedAt));
+
+            if (pullingDoneProgressStage) {
+                pullingDoneStageElement(pullingDoneProgressStage)
+                    .find('strong')
+                    .text(pullingDoneDuration(now - pullingDoneProgressStageStartedAt));
+            }
+        }
+
+        function resetPullingDoneProgress(title = 'Mengecek data...') {
+            pullingDoneProgressStartedAt = pullingDoneNow();
+            pullingDoneProgressStage = null;
+            pullingDoneProgressStageStartedAt = 0;
+
+            $('#finishProgress')
+                .prop('hidden', false)
+                .addClass('is-running')
+                .removeClass('is-failed')
+                .css('--finish-progress', '0%');
+            $('#finishProgressClose').prop('hidden', true);
+            $('#finishProgressModal').modal({
+                backdrop: 'static',
+                keyboard: false,
+                show: true
+            });
+            $('#finishProgressTitle').text(title);
+            $('.pulling-finish-step')
+                .removeClass('is-active is-done is-skipped is-error')
+                .find('strong')
+                .text('Menunggu');
+
+            clearInterval(pullingDoneProgressTimer);
+            pullingDoneProgressTimer = setInterval(updatePullingDoneElapsed, 500);
+            updatePullingDoneElapsed();
+        }
+
+        function setPullingDoneProgressStage(stage, message) {
+            if (!pullingDoneProgressStartedAt) resetPullingDoneProgress(message);
+            if (pullingDoneProgressStage && pullingDoneProgressStage !== stage) {
+                completePullingDoneProgressStage(pullingDoneProgressStage);
+            }
+
+            pullingDoneProgressStage = stage;
+            pullingDoneProgressStageStartedAt = pullingDoneNow();
+            $('#finishProgressTitle').text(message || PULLING_DONE_STAGE_LABELS[stage] || 'Memproses...');
+            setPullingDoneProgressFill(stage);
+            pullingDoneStageElement(stage)
+                .removeClass('is-done is-skipped is-error')
+                .addClass('is-active')
+                .find('strong')
+                .text('0ms');
+            updatePullingDoneElapsed();
+        }
+
+        function completePullingDoneProgressStage(stage = pullingDoneProgressStage, state = 'done', text = null) {
+            if (!stage) return;
+
+            const isActiveStage = pullingDoneProgressStage === stage;
+            const duration = isActiveStage && pullingDoneProgressStageStartedAt ?
+                pullingDoneDuration(pullingDoneNow() - pullingDoneProgressStageStartedAt) :
+                null;
+
+            pullingDoneStageElement(stage)
+                .removeClass('is-active is-done is-skipped is-error')
+                .addClass(`is-${state}`)
+                .find('strong')
+                .text(text || duration || 'Selesai');
+            setPullingDoneProgressFill(stage);
+
+            if (isActiveStage) {
+                pullingDoneProgressStage = null;
+                pullingDoneProgressStageStartedAt = 0;
+            }
+        }
+
+        function skipPullingDoneProgressStage(stage, text = 'Lewat') {
+            completePullingDoneProgressStage(stage, 'skipped', text);
+        }
+
+        function failPullingDoneProgress(message = 'Gagal memproses') {
+            if (pullingDoneProgressStage) {
+                completePullingDoneProgressStage(pullingDoneProgressStage, 'error');
+            }
+            $('#finishProgress').addClass('is-failed');
+            $('#finishProgressTitle').text(message);
+        }
+
+        function stopPullingDoneProgress(showClose = true) {
+            clearInterval(pullingDoneProgressTimer);
+            pullingDoneProgressTimer = null;
+            $('#finishProgress').removeClass('is-running');
+            $('#finishProgressClose').prop('hidden', !showClose);
+            updatePullingDoneElapsed();
+        }
+
+        function setPullingDoneStage(stage, message) {
+            setPullingDoneLoading(true, message);
+            setPullingDoneProgressStage(stage, message);
+        }
+
+        $('#finishProgressModal').on('hidden.bs.modal', function() {
+            setTimeout(() => $('#code').focus(), 150);
+        });
+
         $('#done').on('click', async function() {
             if ($(this).hasClass('is-loading')) return;
 
@@ -2923,13 +3071,16 @@
             }
 
             let database = null;
+            let finishSucceeded = false;
+            resetPullingDoneProgress('Mengecek data...');
             setPullingDoneLoading(true, 'Mengecek data...');
 
             try {
-                setPullingDoneLoading(true, 'Sinkronisasi scan...');
+                setPullingDoneStage('sync', 'Sinkronisasi scan...');
                 await hydrateScanHistoryFromMutations();
+                completePullingDoneProgressStage('sync');
 
-                setPullingDoneLoading(true, 'Membaca scan lokal...');
+                setPullingDoneStage('local', 'Membaca scan lokal...');
                 database = await openPullingDB(pds);
                 const records = await getAllLoadingListRecords(database);
                 const loadingListPayload = {};
@@ -2948,6 +3099,9 @@
                         cycle: localStorage.getItem('cycle'),
                     });
                 };
+
+                completePullingDoneProgressStage('local');
+                setPullingDoneStage('validate', 'Validasi qty...');
 
                 for (const record of records) {
                     const scanRows = await getScanRowsForPart(database, record);
@@ -2989,11 +3143,14 @@
                 database.close();
                 database = null;
                 if (!complete) {
+                    completePullingDoneProgressStage('validate', 'error', 'Belum lengkap');
+                    $('#finishProgressTitle').text('Loading list belum lengkap');
                     notif('error', 'loading list belum lengkap!');
                     uncompleteLlSound();
                     setTimeout(() => $('#code').focus(), 1000);
                     return;
                 }
+                completePullingDoneProgressStage('validate');
 
                 const submitPayload = localSubmitRows > 0 && Object.keys(loadingListPayload)
                     .length > 0;
@@ -3002,13 +3159,7 @@
                         const deleteRequest = indexedDB.deleteDatabase(pds);
 
                         deleteRequest.onsuccess = function() {
-                            notif('success', submitPayload ? 'Pulling berhasil!' :
-                                'Pulling sudah complete dari scanner lain.');
-                            finishPullingSound();
-
                             if (finishRows.length === 0) {
-                                localStorage.clear();
-                                window.location.reload();
                                 resolve();
                                 return;
                             }
@@ -3025,8 +3176,6 @@
                                         storedRows += 1;
                                         if (storedRows === finishRows
                                             .length) {
-                                            localStorage.clear();
-                                            window.location.reload();
                                             resolve();
                                         }
                                     },
@@ -3042,13 +3191,29 @@
                     });
                 };
 
+                const finishWithSuccess = async function(message) {
+                    finishSucceeded = true;
+                    stopPullingDoneProgress(false);
+                    await pullingDelay(700);
+                    $('#finishProgressModal').modal('hide');
+                    await pullingDelay(250);
+                    notif('success', message);
+                    finishPullingSound();
+                    await pullingDelay(900);
+                    localStorage.clear();
+                    window.location.reload();
+                };
+
                 if (!submitPayload) {
-                    setPullingDoneLoading(true, 'Menyelesaikan pulling...');
+                    skipPullingDoneProgressStage('dea', 'Tidak perlu');
+                    setPullingDoneStage('store', 'Menyelesaikan pulling...');
                     await finishLocalPulling();
+                    completePullingDoneProgressStage('store');
+                    await finishWithSuccess('Pulling sudah complete dari scanner lain.');
                     return;
                 }
 
-                setPullingDoneLoading(true, 'Mengirim ke DEA...');
+                setPullingDoneStage('dea', 'Mengirim ke DEA...');
                 await pullingAjaxJson({
                     type: 'GET',
                     url: "{{ route('pulling.post') }}",
@@ -3059,9 +3224,12 @@
                     },
                     dataType: 'json'
                 });
+                completePullingDoneProgressStage('dea');
 
-                setPullingDoneLoading(true, 'Menyimpan status...');
+                setPullingDoneStage('store', 'Menyimpan status...');
                 await finishLocalPulling();
+                completePullingDoneProgressStage('store');
+                await finishWithSuccess('Pulling berhasil!');
             } catch (error) {
                 const message = error?.responseJSON?.message ||
                     error?.target?.error?.message ||
@@ -3069,9 +3237,11 @@
                     error?.statusText ||
                     'Gagal membaca data pulling lokal';
 
+                failPullingDoneProgress('Gagal memproses pulling');
                 notif('error', message);
             } finally {
                 if (database) database.close();
+                stopPullingDoneProgress(!finishSucceeded);
                 setPullingDoneLoading(false);
                 setTimeout(() => $('#code').focus(), 250);
             }
