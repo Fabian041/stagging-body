@@ -140,7 +140,7 @@ class PullingController extends Controller
 
     private function fetchDeaLoadingListItems(Client $client, string $token, string $loadingListNumber): array
     {
-        $response = $client->get("https://dea-dev.aiia.co.id/api/v1/loading-lists/{$loadingListNumber}", [
+        $response = $client->get('https://dea-dev.aiia.co.id/api/v1/loading-lists/'.rawurlencode($loadingListNumber), [
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer '.$token,
@@ -150,6 +150,80 @@ class PullingController extends Controller
         $payload = json_decode((string) $response->getBody(), true);
 
         return data_get($payload, 'items', data_get($payload, 'data.items', [])) ?: [];
+    }
+
+    /**
+     * Endpoint DEA butuh karakter tambahan setelah nomor loading list.
+     * Nomor lokal tetap tanpa suffix untuk lookup database internal.
+     *
+     * @return array<int, string>
+     */
+    private function deaLoadingListNumberCandidates(string $loadingListNumber): array
+    {
+        $number = trim($loadingListNumber);
+
+        return array_values(array_unique(array_filter([
+            "{$number}z",
+            $number,
+        ])));
+    }
+
+    private function deaPostMatchCount(array $deaItems, string $localLoadingListNumber, array $items): int
+    {
+        $matched = 0;
+
+        foreach ($items as $item) {
+            if ($this->findDeaKanbanItemForPost(
+                $deaItems,
+                $localLoadingListNumber,
+                trim((string) data_get($item, 'part_number_cust', '')),
+                trim((string) data_get($item, 'part_number_int', ''))
+            )) {
+                $matched++;
+            }
+        }
+
+        return $matched;
+    }
+
+    /**
+     * @return array{0: array<int, mixed>, 1: string}
+     */
+    private function fetchBestDeaLoadingListItemsForPost(
+        Client $client,
+        string $token,
+        string $localLoadingListNumber,
+        array $items
+    ): array {
+        $bestItems = [];
+        $bestNumber = $localLoadingListNumber;
+        $bestMatched = -1;
+        $lastError = null;
+
+        foreach ($this->deaLoadingListNumberCandidates($localLoadingListNumber) as $candidate) {
+            try {
+                $deaItems = $this->fetchDeaLoadingListItems($client, $token, $candidate);
+                $matched = $this->deaPostMatchCount($deaItems, $localLoadingListNumber, $items);
+
+                if ($matched > $bestMatched) {
+                    $bestItems = $deaItems;
+                    $bestNumber = $candidate;
+                    $bestMatched = $matched;
+                }
+
+                if ($matched >= count($items)) {
+                    break;
+                }
+            } catch (\Throwable $th) {
+                $lastError = $th;
+            }
+        }
+
+        if ($bestMatched < 0) {
+            throw $lastError ?: new \RuntimeException("Loading list {$localLoadingListNumber} tidak ditemukan di DEA.");
+        }
+
+        return [$bestItems, $bestNumber];
     }
 
     private function findDeaKanbanItemForPost(
@@ -1422,14 +1496,22 @@ class PullingController extends Controller
                 ], 422);
             }
 
-            $deaItems = [];
+            $items = array_values((array) $row->items);
             try {
-                $deaItems = $this->fetchDeaLoadingListItems($client, (string) $token, $row->loading_list_number);
+                [$deaItems, $deaLoadingListNumber] = $this->fetchBestDeaLoadingListItemsForPost(
+                    $client,
+                    (string) $token,
+                    $row->loading_list_number,
+                    $items
+                );
+                $row->dea_loading_list_number = $deaLoadingListNumber;
             } catch (\Throwable $th) {
-                $deaItems = [];
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Gagal membaca detail loading list {$row->loading_list_number} dari DEA: ".$th->getMessage(),
+                ], 502);
             }
 
-            $items = array_values((array) $row->items);
             foreach ($items as $index => $item) {
                 $customerPartNumber = trim((string) data_get($item, 'part_number_cust', ''));
                 $internalPartNumber = trim((string) data_get($item, 'part_number_int', ''));
@@ -1511,13 +1593,17 @@ class PullingController extends Controller
         // post data
         try {
             foreach ($data as $row) {
+                $postRow = clone $row;
+                $postRow->loading_list_number = $row->dea_loading_list_number ?? $row->loading_list_number;
+                unset($postRow->dea_loading_list_number);
+
                 $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
                     'headers' => [
                         'Content-Type' => 'application/json',
                         'Accept' => 'application/json',
                         'Authorization' => 'Bearer ' . $token,
                     ],
-                    'json' => $row,
+                    'json' => $postRow,
                 ]);
             }
         } catch (\GuzzleHttp\Exception\RequestException $th) {
