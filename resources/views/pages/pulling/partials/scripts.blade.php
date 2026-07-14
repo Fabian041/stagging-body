@@ -2927,7 +2927,7 @@
                         if (!loadingListNumber) return;
 
                         addFinishRow(loadingListNumber);
-                        if (row.synced_from_mutation && !row.verified_from_mutation) return;
+                        if (row.synced_from_mutation) return;
                         if (!row.synced_from_mutation) localSubmitRows += 1;
 
                         const item = {
