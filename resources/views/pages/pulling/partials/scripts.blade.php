@@ -1293,7 +1293,54 @@
         });
     }
 
-    hydrateScanHistoryFromMutations();
+    let scanHistoryBackgroundSyncTimer = null;
+    let scanHistoryBackgroundSyncPromise = null;
+    let scanHistoryBackgroundSyncedAt = 0;
+    const SCAN_HISTORY_BACKGROUND_SYNC_INTERVAL_MS = 15000;
+
+    function refreshActiveCustomerQuantityFromIndexedDB() {
+        const customerPart = localStorage.getItem('customerPart');
+        if (!customerPart) return;
+
+        getPartRecordFromIDB(customerPart)
+            .then((record) => {
+                if (comparableCustomerPart(localStorage.getItem('customerPart')) !== comparableCustomerPart(record?.customer)) {
+                    return;
+                }
+
+                updatePartQuantityDisplay(record);
+                refreshPartQuantityDisplayFromIndexedDB(record);
+            })
+            .catch(() => {});
+    }
+
+    function scheduleScanHistoryBackgroundSync(delay = 250) {
+        if (scanHistoryBackgroundSyncTimer || scanHistoryBackgroundSyncPromise) return;
+
+        scanHistoryBackgroundSyncTimer = setTimeout(() => {
+            scanHistoryBackgroundSyncTimer = null;
+
+            if (Date.now() - scanHistoryBackgroundSyncedAt < SCAN_HISTORY_BACKGROUND_SYNC_INTERVAL_MS) {
+                return;
+            }
+
+            scanHistoryBackgroundSyncPromise = hydrateScanHistoryFromMutations()
+                .then((synced) => {
+                    scanHistoryBackgroundSyncedAt = Date.now();
+                    if (synced) refreshActiveCustomerQuantityFromIndexedDB();
+                })
+                .catch(() => {})
+                .finally(() => {
+                    scanHistoryBackgroundSyncPromise = null;
+                });
+        }, delay);
+    }
+
+    hydrateScanHistoryFromMutations()
+        .then(() => {
+            scanHistoryBackgroundSyncedAt = Date.now();
+        })
+        .catch(() => {});
 
     $(document).on('click', '#scanHistoryToggle', function(e) {
         e.preventDefault();
@@ -3955,8 +4002,6 @@
                     return;
                 }
 
-                await hydrateScanHistoryFromMutations();
-
                 openPullingDB(databaseName).then((database) => {
                     try {
                         const transaction = database.transaction([STORE_NAME], 'readonly');
@@ -3972,6 +4017,7 @@
                             }
 
                             this.updateKanbanDisplay(record, processedCode, originalCode);
+                            scheduleScanHistoryBackgroundSync(isDirectOn() ? 2000 : 250);
 
                             const qty = partQuantityFromRecord(record);
                             if (qty.target > 0 && qty.actual >= qty.target) {
@@ -4138,8 +4184,6 @@
                     return;
                 }
 
-                await hydrateScanHistoryFromMutations();
-
                 openPullingDB(databaseName).then((database) => {
                     try {
                         const transaction = database.transaction([STORE_NAME], 'readonly');
@@ -4156,6 +4200,7 @@
                             }
 
                             this.updateKanbanDisplay(record, record.customer || code, code);
+                            scheduleScanHistoryBackgroundSync(isDirectOn() ? 2000 : 250);
 
                             const qty = partQuantityFromRecord(record);
                             if (qty.target > 0 && qty.actual >= qty.target) {
