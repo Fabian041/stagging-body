@@ -2877,7 +2877,45 @@
             });
         });
 
+        function setPullingDoneLoading(isLoading, message = 'Memproses pulling...') {
+            const $done = $('#done');
+            if (!$done.data('idle-html')) {
+                $done.data('idle-html', $done.html());
+            }
+
+            if (isLoading) {
+                $done
+                    .prop('disabled', true)
+                    .addClass('is-loading')
+                    .attr('aria-busy', 'true')
+                    .html(`
+                        <span class="spinner-border pulling-done-spinner" role="status" aria-hidden="true"></span>
+                        <span class="pulling-done-label">${message}</span>
+                    `);
+                $('#delay, #hardReset, #refreshTokenBtn, #code').prop('disabled', true);
+                return;
+            }
+
+            $done
+                .prop('disabled', false)
+                .removeClass('is-loading')
+                .removeAttr('aria-busy')
+                .html($done.data('idle-html'));
+            $('#delay, #hardReset, #refreshTokenBtn, #code').prop('disabled', false);
+        }
+
+        function pullingAjaxJson(options) {
+            return new Promise((resolve, reject) => {
+                $.ajax(Object.assign({}, options, {
+                    success: resolve,
+                    error: reject
+                }));
+            });
+        }
+
         $('#done').on('click', async function() {
+            if ($(this).hasClass('is-loading')) return;
+
             const pds = localStorage.getItem('pds_local');
             if (!pds) {
                 notif('error', 'Database lokal belum siap!');
@@ -2885,9 +2923,13 @@
             }
 
             let database = null;
+            setPullingDoneLoading(true, 'Mengecek data...');
 
             try {
+                setPullingDoneLoading(true, 'Sinkronisasi scan...');
                 await hydrateScanHistoryFromMutations();
+
+                setPullingDoneLoading(true, 'Membaca scan lokal...');
                 database = await openPullingDB(pds);
                 const records = await getAllLoadingListRecords(database);
                 const loadingListPayload = {};
@@ -2956,56 +2998,58 @@
                 const submitPayload = localSubmitRows > 0 && Object.keys(loadingListPayload)
                     .length > 0;
                 const finishLocalPulling = function() {
-                    const deleteRequest = indexedDB.deleteDatabase(pds);
+                    return new Promise((resolve, reject) => {
+                        const deleteRequest = indexedDB.deleteDatabase(pds);
 
-                    deleteRequest.onsuccess = function() {
-                        notif('success', submitPayload ? 'Pulling berhasil!' :
-                            'Pulling sudah complete dari scanner lain.');
-                        finishPullingSound();
-                    };
+                        deleteRequest.onsuccess = function() {
+                            notif('success', submitPayload ? 'Pulling berhasil!' :
+                                'Pulling sudah complete dari scanner lain.');
+                            finishPullingSound();
 
-                    deleteRequest.onerror = function(event) {
-                        notif('error', event?.target?.error?.message ||
-                            'Gagal menghapus database lokal');
-                    };
-
-                    if (finishRows.length === 0) {
-                        localStorage.clear();
-                        window.location.reload();
-                        return;
-                    }
-
-                    let storedRows = 0;
-                    finishRows.forEach((row) => {
-                        $.ajax({
-                            type: 'GET',
-                            url: "{{ route('pulling.store') }}",
-                            _token: "{{ csrf_token() }}",
-                            data: row,
-                            dataType: 'json',
-                            success: function() {
-                                storedRows += 1;
-                                if (storedRows === finishRows
-                                    .length) {
-                                    localStorage.clear();
-                                    window.location.reload();
-                                }
-                            },
-                            error: function(xhr) {
-                                notif('error', xhr.responseJSON
-                                    ?.message || xhr
-                                    .statusText);
+                            if (finishRows.length === 0) {
+                                localStorage.clear();
+                                window.location.reload();
+                                resolve();
+                                return;
                             }
-                        });
+
+                            let storedRows = 0;
+                            finishRows.forEach((row) => {
+                                $.ajax({
+                                    type: 'GET',
+                                    url: "{{ route('pulling.store') }}",
+                                    _token: "{{ csrf_token() }}",
+                                    data: row,
+                                    dataType: 'json',
+                                    success: function() {
+                                        storedRows += 1;
+                                        if (storedRows === finishRows
+                                            .length) {
+                                            localStorage.clear();
+                                            window.location.reload();
+                                            resolve();
+                                        }
+                                    },
+                                    error: reject
+                                });
+                            });
+                        };
+
+                        deleteRequest.onerror = function(event) {
+                            reject(event?.target?.error || new Error(
+                                'Gagal menghapus database lokal'));
+                        };
                     });
                 };
 
                 if (!submitPayload) {
-                    finishLocalPulling();
+                    setPullingDoneLoading(true, 'Menyelesaikan pulling...');
+                    await finishLocalPulling();
                     return;
                 }
 
-                $.ajax({
+                setPullingDoneLoading(true, 'Mengirim ke DEA...');
+                await pullingAjaxJson({
                     type: 'GET',
                     url: "{{ route('pulling.post') }}",
                     _token: "{{ csrf_token() }}",
@@ -3013,15 +3057,23 @@
                         loadingList: loadingListPayload,
                         token: token
                     },
-                    dataType: 'json',
-                    success: finishLocalPulling,
-                    error: function(xhr) {
-                        notif('error', xhr.responseJSON?.message || xhr.statusText);
-                    }
+                    dataType: 'json'
                 });
+
+                setPullingDoneLoading(true, 'Menyimpan status...');
+                await finishLocalPulling();
             } catch (error) {
+                const message = error?.responseJSON?.message ||
+                    error?.target?.error?.message ||
+                    error?.message ||
+                    error?.statusText ||
+                    'Gagal membaca data pulling lokal';
+
+                notif('error', message);
+            } finally {
                 if (database) database.close();
-                notif('error', error?.message || 'Gagal membaca data pulling lokal');
+                setPullingDoneLoading(false);
+                setTimeout(() => $('#code').focus(), 250);
             }
         });
 

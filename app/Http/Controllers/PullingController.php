@@ -1498,13 +1498,12 @@ class PullingController extends Controller
 
             $items = array_values((array) $row->items);
             try {
-                [$deaItems, $deaLoadingListNumber] = $this->fetchBestDeaLoadingListItemsForPost(
+                [$deaItems] = $this->fetchBestDeaLoadingListItemsForPost(
                     $client,
                     (string) $token,
                     $row->loading_list_number,
                     $items
                 );
-                $row->dea_loading_list_number = $deaLoadingListNumber;
             } catch (\Throwable $th) {
                 return response()->json([
                     'status' => 'error',
@@ -1593,17 +1592,14 @@ class PullingController extends Controller
         // post data
         try {
             foreach ($data as $row) {
-                $postRow = clone $row;
-                $postRow->loading_list_number = $row->dea_loading_list_number ?? $row->loading_list_number;
-                unset($postRow->dea_loading_list_number);
-
+                // Detail DEA bisa butuh suffix untuk dibaca, tapi POST /kanbans memvalidasi nomor LL asli.
                 $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
                     'headers' => [
                         'Content-Type' => 'application/json',
                         'Accept' => 'application/json',
                         'Authorization' => 'Bearer ' . $token,
                     ],
-                    'json' => $postRow,
+                    'json' => $row,
                 ]);
             }
         } catch (\GuzzleHttp\Exception\RequestException $th) {

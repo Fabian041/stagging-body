@@ -119,7 +119,9 @@
 
                     <div class="pulling-actions">
                         <button type="button" class="btn btn-danger" id="delay">Delay</button>
-                        <button type="button" class="btn btn-success" id="done">Selesai</button>
+                        <button type="button" class="btn btn-success" id="done">
+                            <span class="pulling-done-label">Selesai</span>
+                        </button>
                     </div>
 
                     <div class="text-center pulling-status-wrap">

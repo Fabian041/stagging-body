@@ -287,9 +287,46 @@
 
     .pulling-actions .btn {
         height: 3.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
         font-size: 1.05rem;
         font-weight: 700;
         border-radius: 8px;
+        transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+
+    .pulling-page #done.is-loading {
+        cursor: wait;
+        opacity: .92;
+        box-shadow: 0 10px 22px rgba(34, 197, 94, .18);
+        animation: pulling-done-pulse 1.1s ease-in-out infinite;
+    }
+
+    .pulling-page #done.is-loading,
+    .pulling-page #done.is-loading:hover,
+    .pulling-page #done.is-loading:focus {
+        color: #fff !important;
+        background-color: #16a34a;
+        border-color: #16a34a;
+    }
+
+    .pulling-page #done .pulling-done-spinner {
+        width: 1rem;
+        height: 1rem;
+        border-width: .14rem;
+    }
+
+    @keyframes pulling-done-pulse {
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-1px);
+        }
     }
 
     .pulling-status-wrap {
