@@ -1,5 +1,5 @@
 // ponytail: bump versi ini tiap kali daftar precache berubah -> cache lama otomatis dihapus di 'activate'.
-const CACHE = 'bella-cache-v2';
+const CACHE = 'bella-cache-v3';
 
 // Aset statis saja. JANGAN pernah precache '/' atau HTML apa pun:
 // navigasi halaman harus selalu dari network (kalau di-cache, redirect/HTML basi bikin ERR_FAILED).

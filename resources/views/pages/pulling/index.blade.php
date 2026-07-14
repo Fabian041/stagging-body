@@ -1,6 +1,11 @@
 @extends('layouts.root.auth')
 
-<link rel="stylesheet" href="{{ asset('assets/css/page/pulling-index.css') }}">
+@php
+    $pullingCssPath = public_path('assets/css/page/pulling-index.css');
+    $pullingCssVersion = file_exists($pullingCssPath) ? filemtime($pullingCssPath) : time();
+@endphp
+
+<link rel="stylesheet" href="{{ asset('assets/css/page/pulling-index.css') }}?v={{ $pullingCssVersion }}">
 
 @section('main')
     <div class="pulling-page">
