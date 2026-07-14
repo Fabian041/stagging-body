@@ -678,6 +678,7 @@
             if (!res || res.status !== 'success') throw new Error(res?.message || 'Store gagal');
 
             // 3) Update IDB lokal: simpan serial ringan + seri legacy untuk UI lama
+            let directSerial = '';
             await new Promise((resolve, reject) => {
                 openPullingDB(dbName).then((db) => {
                     const tx = db.transaction([STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME],
@@ -708,6 +709,7 @@
                             return reject(new Error('Part sudah complete'));
                         }
                         const serial = `AUTO-DIRECT-${Date.now()}`;
+                        directSerial = serial;
                         data.scanned_count = currentCount + 1;
                         data.actual_qty = data.scanned_count;
                         incrementLoadingListBucket(data, loadingList);
@@ -748,6 +750,10 @@
                     };
                 }).catch(reject);
             });
+
+            if (directSerial && typeof pushScanPairHistory === 'function') {
+                pushScanPairHistory(customerPart, internalPart, directSerial);
+            }
 
             // 4) Update UI minimal (qty naik, indikator hijau, bersihkan panel customer)
             try {
@@ -942,6 +948,7 @@
     }
 
     const scanHistoryState = loadScanHistory();
+    let scanHistoryTotalCount = scanHistoryState.length;
 
     function normalizeScanHistoryItems(items) {
         const seen = new Set();
@@ -969,15 +976,26 @@
         localStorage.setItem(scanHistoryStorageKey(), JSON.stringify(scanHistoryState));
     }
 
-    function setScanHistory(items) {
+    function scanHistoryTotalFromSync(syncRows, fallback = 0) {
+        const total = (Array.isArray(syncRows) ? syncRows : []).reduce((sum, row) => {
+            const scanned = pullingInt(row?.scanned_count);
+            if (scanned > 0) return sum + scanned;
+            return sum + (Array.isArray(row?.serials) ? row.serials.length : 0);
+        }, 0);
+
+        return total || fallback;
+    }
+
+    function setScanHistory(items, totalCount = null) {
         const history = normalizeScanHistoryItems(items);
-        if (!history.length) return false;
+        const parsedTotal = parseInt(totalCount, 10);
+        scanHistoryTotalCount = Number.isNaN(parsedTotal) ? history.length : Math.max(0, parsedTotal);
 
         scanHistoryState.splice(0, scanHistoryState.length, ...history);
         saveScanHistory();
         renderScanHistory();
 
-        return true;
+        return history.length > 0;
     }
 
     function syncIndexedDBFromMutation(syncRows, allowedLoadingLists = []) {
@@ -1153,7 +1171,7 @@
         const count = document.getElementById('scanHistoryCount');
         if (!list || !count) return;
 
-        count.textContent = scanHistoryState.length;
+        count.textContent = scanHistoryTotalCount;
         list.innerHTML = '';
 
         if (!scanHistoryState.length) {
@@ -1180,48 +1198,51 @@
             internal: String(internal || '-').trim() || '-',
             serial: String(serial || '-').trim() || '-',
             scanned_at: Date.now()
-        }].concat(scanHistoryState));
+        }].concat(scanHistoryState), scanHistoryTotalCount + 1);
     }
 
     renderScanHistory();
 
     function hydrateScanHistoryFromIndexedDB() {
         const dbName = localStorage.getItem('pds_local') || localStorage.getItem('pdsNumber');
-        if (!dbName) return;
+        if (!dbName) return Promise.resolve(false);
 
-        openPullingDB(dbName).then((database) => {
-            const rows = [];
-            const transaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
-            const request = transaction.objectStore(SERIAL_STORE_NAME).openCursor();
+        return openPullingDB(dbName).then((database) => {
+            return new Promise((resolve) => {
+                const rows = [];
+                const transaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
+                const request = transaction.objectStore(SERIAL_STORE_NAME).openCursor();
 
-            request.onsuccess = function(event) {
-                const cursor = event.target.result;
-                if (!cursor) return;
+                request.onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (!cursor) return;
 
-                const item = cursor.value || {};
-                if (item.serial) rows.push(item);
-                cursor.continue();
-            };
+                    const item = cursor.value || {};
+                    if (item.serial) rows.push(item);
+                    cursor.continue();
+                };
 
-            transaction.oncomplete = function() {
-                database.close();
-                const history = rows
-                    .sort((a, b) => (parseInt(b.scanned_at || 0, 10) || 0) - (parseInt(a.scanned_at || 0,
-                        10) || 0))
-                    .slice(0, SCAN_HISTORY_LIMIT)
-                    .map((item) => ({
-                        customer: String(item.customer_part || '-').trim() || '-',
-                        internal: String(item.internal || '-').trim() || '-',
-                        serial: String(item.serial || '-').trim() || '-'
-                    }));
+                transaction.oncomplete = function() {
+                    database.close();
+                    const history = rows
+                        .sort((a, b) => (parseInt(b.scanned_at || 0, 10) || 0) - (parseInt(a.scanned_at || 0,
+                            10) || 0))
+                        .slice(0, SCAN_HISTORY_LIMIT)
+                        .map((item) => ({
+                            customer: String(item.customer_part || '-').trim() || '-',
+                            internal: String(item.internal || '-').trim() || '-',
+                            serial: String(item.serial || '-').trim() || '-'
+                        }));
 
-                setScanHistory(history);
-            };
+                    resolve(setScanHistory(history, rows.length));
+                };
 
-            transaction.onerror = function() {
-                database.close();
-            };
-        }).catch(() => {});
+                transaction.onerror = function() {
+                    database.close();
+                    resolve(false);
+                };
+            });
+        }).catch(() => false);
     }
 
     hydrateScanHistoryFromIndexedDB();
@@ -1247,14 +1268,23 @@
                     limit: SCAN_HISTORY_LIMIT
                 },
                 success: function(data) {
-                    if (data?.status === 'success' && Array.isArray(data.history) && data.history
-                        .length) {
-                        setScanHistory(data.history);
+                    const hasRemoteHistory = data?.status === 'success' && Array.isArray(data.history);
+                    if (hasRemoteHistory) {
+                        setScanHistory(data.history, scanHistoryTotalFromSync(data?.sync, data.history.length));
                     }
 
                     syncIndexedDBFromMutation(data?.sync, loadingLists)
-                        .then(resolve)
-                        .catch(() => resolve(false));
+                        .then((synced) => {
+                            if (!synced) {
+                                resolve(hasRemoteHistory);
+                                return;
+                            }
+
+                            hydrateScanHistoryFromIndexedDB()
+                                .then(() => resolve(true))
+                                .catch(() => resolve(true));
+                        })
+                        .catch(() => resolve(hasRemoteHistory));
                 },
                 error: function() {
                     resolve(false);
@@ -2122,6 +2152,14 @@
         return `MASTER PART TIDAK LENGKAP. ${list.length} detail gagal disimpan${extra}. Cust: ${cust} | Int: ${intPart} | ${reason}`;
     }
 
+    function createLoadingListDetailFailureError(failures) {
+        const error = new Error(formatLoadingListDetailFailureMessage(failures));
+        error.loadingListDetailFailed = true;
+        error.pullingAlreadyNotified = true;
+        error.failures = failures;
+        return error;
+    }
+
     $(document).ready(function() {
         initApp();
         $('#code').focus();
@@ -2281,6 +2319,9 @@
                     await this.storeLoadingList(ll, pds_number, cycle, customer_code, delivery_date,
                         shipping_date);
 
+                    this.setLoadingMessage('Menyimpan detail item...');
+                    await this.storeLoadingListDetails(ll, data.items);
+
                     this.setLoadingMessage('Menyimpan data lokal...');
                     this.storeLocalData(data);
 
@@ -2290,8 +2331,6 @@
                     this.setLoadingMessage('Menyiapkan IndexedDB...');
                     await this.initializeDatabase(data);
 
-                    this.setLoadingMessage('Menyimpan detail item...');
-                    await this.storeLoadingListDetails(ll, data.items);
                     await hydrateScanHistoryFromMutations([ll]);
 
                     this.setLoadingMessage('Finalisasi...');
@@ -2302,7 +2341,9 @@
 
                 } catch (error) {
                     console.error('Error processing loading list:', error);
-                    this.showError('Gagal memproses loading list');
+                    if (!error?.pullingAlreadyNotified) {
+                        this.showError(error?.message || 'Gagal memproses loading list');
+                    }
                 } finally {
                     // fokus input akan dipanggil di finally processLoadingList (luar)
                     if (ownsCanonicalNumber) inFlightLL.delete(ll);
@@ -2455,11 +2496,17 @@
 
                     if (failures.length > 0) {
                         console.warn(`${failures.length} detail items failed to store:`, failures);
-                        this.showError(formatLoadingListDetailFailureMessage(failures));
+                        const error = createLoadingListDetailFailureError(failures);
+                        this.showError(error.message);
+                        throw error;
                     }
 
                     return response;
                 } catch (xhr) {
+                    if (xhr?.pullingAlreadyNotified) {
+                        throw xhr;
+                    }
+
                     console.error('Critical error storing details:', xhr);
 
                     if (xhr.status === 0) {
@@ -3712,6 +3759,9 @@
                     await this.storeLoadingList(ll, pds_number, cycle, customer_code, delivery_date,
                         shipping_date);
 
+                    progressCb?.('Menyimpan detail item...');
+                    await this.storeLoadingListDetails(ll, data.items);
+
                     progressCb?.('Menyimpan data lokal...');
                     this.storeLoadingListData(data);
 
@@ -3723,8 +3773,6 @@
                     progressCb?.('Menyiapkan IndexedDB...');
                     await this.initializeDatabase(data);
 
-                    progressCb?.('Menyimpan detail item...');
-                    await this.storeLoadingListDetails(ll, data.items);
                     await hydrateScanHistoryFromMutations([ll]);
 
                     progressCb?.('Finalisasi...');
@@ -3738,7 +3786,9 @@
 
                 } catch (error) {
                     progressCb?.('Gagal memproses');
-                    this.showError('Gagal memproses loading list');
+                    if (!error?.pullingAlreadyNotified) {
+                        this.showError(error?.message || 'Gagal memproses loading list');
+                    }
                     return false;
                 }
             }
@@ -3775,11 +3825,17 @@
 
                     if (failures.length > 0) {
                         console.warn(`${failures.length} items failed to store:`, failures);
-                        this.showError(formatLoadingListDetailFailureMessage(failures));
+                        const error = createLoadingListDetailFailureError(failures);
+                        this.showError(error.message);
+                        throw error;
                     }
 
                     return response;
                 } catch (xhr) {
+                    if (xhr?.pullingAlreadyNotified) {
+                        throw xhr;
+                    }
+
                     console.error('Critical error storing loading list details:', xhr);
 
                     if (xhr.status === 0) {
