@@ -593,13 +593,15 @@
                     return;
                 }
 
-                if (value && !seen.has(value)) {
-                    seen.add(value);
+                const allowDuplicateSerial = cursor.value?.allow_duplicate_serial === true;
+                if (value && (allowDuplicateSerial || !seen.has(value))) {
+                    if (!allowDuplicateSerial) seen.add(value);
                     rows.push({
                         serial: value,
                         loading_list_number: cursor.value?.loading_list_number || record
                             ?.loading_list_number,
                         scanned_at: cursor.value?.scanned_at || null,
+                        allow_duplicate_serial: allowDuplicateSerial,
                         synced_from_mutation: cursor.value?.synced_from_mutation === true,
                         verified_from_mutation: cursor.value?.verified_from_mutation === true
                     });
@@ -752,7 +754,9 @@
             });
 
             if (directSerial && typeof pushScanPairHistory === 'function') {
-                pushScanPairHistory(customerPart, internalPart, directSerial);
+                pushScanPairHistory(customerPart, internalPart, directSerial, {
+                    actualAlreadyIncremented: false
+                });
             }
 
             // 4) Update UI minimal (qty naik, indikator hijau, bersihkan panel customer)
@@ -959,11 +963,13 @@
                 internal: String(item?.internal || '-').trim() || '-',
                 serial: String(item?.serial || '-').trim() || '-',
                 loading_list: String(item?.loading_list || item?.loading_list_number || '').trim(),
-                scanned_at: parseInt(item?.scanned_at || 0, 10) || 0
+                scanned_at: parseInt(item?.scanned_at || 0, 10) || 0,
+                allowDuplicateSerial: item?.allow_duplicate_serial === true || item?.allowDuplicateSerial === true
             }))
             .filter((item) => item.serial !== '-')
             .filter((item) => {
-                const key = `${item.customer}|${item.internal}|${item.serial}`;
+                const baseKey = `${item.customer}|${item.internal}|${item.serial}`;
+                const key = item.allowDuplicateSerial ? `${baseKey}|${item.scanned_at}` : baseKey;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
@@ -986,10 +992,22 @@
         return total || fallback;
     }
 
-    function setScanHistory(items, totalCount = null) {
-        const history = normalizeScanHistoryItems(items);
+    function currentPullingActualCount() {
+        const raw = localStorage.getItem('pulling_total_actual');
+        if (raw === null || raw === '') return null;
+
+        const actual = parseInt(raw, 10);
+        return Number.isNaN(actual) ? null : Math.max(0, actual);
+    }
+
+    function setScanHistory(items, totalCount = null, options = {}) {
+        const actual = currentPullingActualCount();
+        const clampToActual = options?.clampToActual !== false && actual !== null && actual > 0;
+        const history = normalizeScanHistoryItems(items)
+            .slice(0, clampToActual ? actual : SCAN_HISTORY_LIMIT);
         const parsedTotal = parseInt(totalCount, 10);
-        scanHistoryTotalCount = Number.isNaN(parsedTotal) ? history.length : Math.max(0, parsedTotal);
+        const nextTotal = Number.isNaN(parsedTotal) ? history.length : Math.max(0, parsedTotal);
+        scanHistoryTotalCount = clampToActual ? Math.min(nextTotal, actual) : nextTotal;
 
         scanHistoryState.splice(0, scanHistoryState.length, ...history);
         saveScanHistory();
@@ -1192,13 +1210,16 @@
         });
     }
 
-    function pushScanPairHistory(customer, internal, serial) {
+    function pushScanPairHistory(customer, internal, serial, options = {}) {
         setScanHistory([{
             customer: String(customer || '-').trim() || '-',
             internal: String(internal || '-').trim() || '-',
             serial: String(serial || '-').trim() || '-',
+            allowDuplicateSerial: options?.allowDuplicateSerial === true,
             scanned_at: Date.now()
-        }].concat(scanHistoryState), scanHistoryTotalCount + 1);
+        }].concat(scanHistoryState), scanHistoryTotalCount + 1, {
+            clampToActual: options?.actualAlreadyIncremented !== false
+        });
     }
 
     renderScanHistory();
@@ -1231,7 +1252,8 @@
                         .map((item) => ({
                             customer: String(item.customer_part || '-').trim() || '-',
                             internal: String(item.internal || '-').trim() || '-',
-                            serial: String(item.serial || '-').trim() || '-'
+                            serial: String(item.serial || '-').trim() || '-',
+                            allowDuplicateSerial: item.allow_duplicate_serial === true
                         }));
 
                     resolve(setScanHistory(history, rows.length));
@@ -3296,16 +3318,19 @@
         var code = $('#code');
         let total = 0;
 
-        function checkInternalAndCustomer(database, cursor, internal, primaryKey, seri) {
+        function checkInternalAndCustomer(database, cursor, internal, primaryKey, seri, options = {}) {
             let loadingList = nextLoadingListForScan(cursor);
             let customer = cursor['customer'];
             let qty_per_kbn = cursor['qty_per_kbn'];
             let arraySeri = cursor['seri'];
             let totalQty = cursor['total_qty'];
+            const allowDuplicateSerial = options?.allowDuplicateSerial === true;
+            const barcodeLoadingList = String(options?.barcodeLoadingList || '').trim();
+            const scanCustomerPart = String(options?.customerPart || localStorage.getItem('customerPart') || '').trim();
             let isSameObject = false;
             let skid = localStorage.getItem('skid');
             let originalBarcode = localStorage.getItem('originalCustomerPart');
-            let barcodecomplete = localStorage.getItem('customerPart');
+            let barcodecomplete = scanCustomerPart;
             let manifest, itemNo, seqNo;
 
             if (localStorage.getItem('char_total') == 39) {
@@ -3351,13 +3376,12 @@
             let scannedCount = parseInt(cursor.scanned_count ?? arraySeri.length, 10) || 0;
 
             // === Validasi: internal & customer harus dalam objek yang sama
-            isSameObject = String(cursor.customer || '').trim() === String(localStorage.getItem(
-                    'customerPart') || '').trim() &&
+            isSameObject = String(cursor.customer || '').trim() === scanCustomerPart &&
                 String(cursor.internal || '').trim() === String(internal || '').trim();
 
             if (!isSameObject) {
                 handleError('Kanban tidak sesuai!', {
-                    expected: `Internal & Customer satu objek (internal: ${internal.trimEnd()}, customer: ${localStorage.getItem('customerPart')})`,
+                    expected: `Internal & Customer satu objek (internal: ${internal.trimEnd()}, customer: ${scanCustomerPart})`,
                     scanned: `Cursor keys match? ${Object.keys(cursor).length} keys`
                 });
                 localStorage.setItem('status', 'true');
@@ -3419,16 +3443,22 @@
                 };
 
                 function performUpdate(transaction, objectStore, serialStore, summaryStore) {
+                    const serialKey = allowDuplicateSerial ?
+                        `${scanSerialKey(primaryKey, seri)}|${Date.now()}|${Math.random().toString(36).slice(2, 8)}` :
+                        scanSerialKey(primaryKey, seri);
+
                     serialStore.put({
                         customer_part: customer,
                         part_key: primaryKey,
                         internal: String(internal || '').trim(),
                         serial: String(seri || '').trim(),
                         loading_list_number: loadingList,
+                        barcode_loading_list_number: barcodeLoadingList || null,
+                        allow_duplicate_serial: allowDuplicateSerial,
                         scanned_at: Date.now(),
                         synced_from_mutation: false,
                         verified_from_mutation: false
-                    }, scanSerialKey(primaryKey, seri));
+                    }, serialKey);
 
                     const summaryRequest = summaryStore.get(SUMMARY_KEY);
                     summaryRequest.onsuccess = function() {
@@ -3459,7 +3489,9 @@
                         resetIndicator();
                         incrementPullingQuantity(1);
                         okSound();
-                        pushScanPairHistory(customer, internal.trimEnd(), seri);
+                        pushScanPairHistory(customer, internal.trimEnd(), seri, {
+                            allowDuplicateSerial
+                        });
                         localStorage.removeItem('customerPart');
                     };
 
@@ -3496,7 +3528,7 @@
                         data: {
                             loadingList: loadingList,
                             internalPart: internal.trimEnd(),
-                            customerPart: localStorage.getItem('customerPart'),
+                            customerPart: scanCustomerPart,
                             serialNumber: seri,
                             qty_per_kbn: qty_per_kbn
                         },
@@ -3542,9 +3574,13 @@
                                     updateIndexedDB();
                                 }
                             } else if (data.status == 'duplicate') {
-                                duplicateSerialError();
-                                hydrateScanHistoryFromMutations();
-                                database.close();
+                                if (allowDuplicateSerial) {
+                                    updateIndexedDB();
+                                } else {
+                                    duplicateSerialError();
+                                    hydrateScanHistoryFromMutations();
+                                    database.close();
+                                }
                             } else {
                                 handleError(data.message || 'Validasi backend gagal', {
                                     expected: 'Response success dari mutation',
@@ -3614,6 +3650,11 @@
             };
 
             ensureLegacySerialsIndexed().then(() => {
+                if (allowDuplicateSerial) {
+                    if (continueAfterSerialCheck()) requestMutation();
+                    return;
+                }
+
                 try {
                     const duplicateTransaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
                     const duplicateRequest = duplicateTransaction.objectStore(SERIAL_STORE_NAME)
@@ -3802,6 +3843,15 @@
                         handler: 'handleLogout'
                     },
                     {
+                        test: (code) => this.isEmbeddedLoadingListKanbanCandidate(code),
+                        handler: 'handleKanbanBarcode'
+                    },
+                    {
+                        test: (code) => !localStorage.getItem('customerPart') && Boolean(this
+                            .extractCustomerPartFromCustomerKanban(code)),
+                        handler: 'handleCustomerKanban'
+                    },
+                    {
                         test: () => this.isMmkiFamilyCustomer() && !localStorage.getItem(
                             'customerPart'),
                         handler: 'handleMMKIKanban'
@@ -3932,11 +3982,14 @@
             }
 
             processBarcode(code) {
-                console.log(`Processing barcode: ${code} (length: ${code.length})`);
+                const scannedCode = String(code || '').trim();
+                if (!scannedCode) return;
 
-                const pattern = this.patterns.find(p => p.test(code));
+                console.log(`Processing barcode: ${scannedCode} (length: ${scannedCode.length})`);
+
+                const pattern = this.patterns.find(p => p.test(scannedCode));
                 if (pattern) {
-                    this[pattern.handler](code);
+                    this[pattern.handler](scannedCode);
                 } else {
                     this.showError("Kanban tidak dikenali!", () => {
                         if (typeof unknownSound === 'function') unknownSound();
@@ -3947,6 +4000,14 @@
             isKanbanBarcode(code) {
                 const kanbanLengths = [218, 220, 230, 241, 242];
                 return kanbanLengths.includes(code.length);
+            }
+
+            hasEmbeddedLoadingListKanban(code) {
+                return Boolean(this.extractEmbeddedLoadingListKanbanData(code));
+            }
+
+            isEmbeddedLoadingListKanbanCandidate(code) {
+                return /C\d{3}A\d{6}/.test(String(code || '').toUpperCase());
             }
 
             isMmkiFamilyCustomer() {
@@ -4227,13 +4288,21 @@
                 this.findKanbanInDatabase(processedCode, code);
             }
 
+            extractCustomerPartFromCustomerKanban(code) {
+                return String(code || '').toUpperCase().match(/\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{2,3}/)?.[0] ||
+                    null;
+            }
+
             processCustomerCode(code) {
                 let processed = code;
                 const charLength = parseInt(localStorage.getItem('char_length') || '0');
                 const charFirst = parseInt(localStorage.getItem('char_first') || '0');
+                const charTotal = parseInt(localStorage.getItem('char_total') || '0');
 
-                if (charLength > 0) {
+                if (charLength > 0 && (!charTotal || code.length === charTotal)) {
                     processed = code.substr(charFirst, charLength);
+                } else {
+                    processed = this.extractCustomerPartFromCustomerKanban(code) || processed;
                 }
 
                 processed = processed.trim().replace(/-/g, '').toUpperCase();
@@ -4332,10 +4401,17 @@
                 const kanbanData = this.extractKanbanData(code.toUpperCase());
                 if (kanbanData) {
                     this.processInternalKanban(kanbanData);
+                } else {
+                    this.showError("Kanban tidak dikenali!", () => {
+                        if (typeof unknownSound === 'function') unknownSound();
+                    });
                 }
             }
 
             extractKanbanData(code) {
+                const embedded = this.extractEmbeddedLoadingListKanbanData(code);
+                if (embedded) return embedded;
+
                 const patterns = {
                     230: {
                         internal: [41, 19],
@@ -4368,9 +4444,43 @@
                 };
             }
 
+            extractEmbeddedLoadingListKanbanData(code) {
+                const text = String(code || '').trim().toUpperCase();
+                const loadingListMatch = text.match(/C\d{3}A\d{6}/);
+                if (!loadingListMatch) return null;
+
+                const beforeLoadingList = text.slice(0, loadingListMatch.index);
+                const afterLoadingList = text.slice(loadingListMatch.index + loadingListMatch[0].length);
+                const internalMatch = text.match(/[A-Z]{0,3}0?(\d{6}-\d{5}(?:-[A-Z0-9]{1,3})?)/);
+                const serialMatch = beforeLoadingList.match(/\b[A-Z0-9]{3,8}\s+(\d{5})\s+\d{10,}\s*$/);
+                const compactSerialMatch = beforeLoadingList.match(/.*(\d{5})1\d{12,}\s*$/);
+                const serialFallback = beforeLoadingList.match(/\b\d{5}\b/g) || [];
+                const customerPart = (afterLoadingList.match(/\b[A-Z0-9-]{5,30}\b/g) || [])
+                    .find((part) => /[A-Z]/.test(part) && /\d/.test(part) && !/^SE\d[A-Z0-9]*$/.test(part)) ||
+                    localStorage.getItem('customerPart');
+
+                if (!internalMatch || (!serialMatch && !compactSerialMatch && !serialFallback.length) || !
+                    customerPart) return null;
+
+                const serial = (serialMatch && serialMatch[1]) ||
+                    (compactSerialMatch && compactSerialMatch[1]) ||
+                    serialFallback[serialFallback.length - 1];
+
+                return {
+                    internal: internalMatch[1],
+                    seri: serial.length === 5 && serial.startsWith('0') ? serial.slice(1) : serial,
+                    customerPart,
+                    barcodeLoadingList: loadingListMatch[0],
+                    allowDuplicateSerial: true
+                };
+            }
+
             processInternalKanban({
                 internal,
-                seri
+                seri,
+                customerPart = null,
+                barcodeLoadingList = null,
+                allowDuplicateSerial = false
             }) {
                 const databaseName = this.getCurrentPDS();
 
@@ -4383,12 +4493,22 @@
                     try {
                         const transaction = database.transaction([STORE_NAME], 'readonly');
                         const objectStore = transaction.objectStore(STORE_NAME);
-                        const customerPart = localStorage.getItem('customerPart');
-                        findPartRecordInStore(objectStore, customerPart, internal).then((match) => {
+                        const expectedCustomerPart = customerPart || localStorage.getItem('customerPart');
+                        findPartRecordInStore(objectStore, expectedCustomerPart, internal).then((match) => {
                             const record = match?.record;
                             if (record) {
+                                const matchedCustomerPart = record.customer || expectedCustomerPart;
+                                if (customerPart && matchedCustomerPart) {
+                                    localStorage.setItem('customerPart', matchedCustomerPart);
+                                    localStorage.setItem('originalCustomerPart', customerPart);
+                                }
+
                                 this.checkInternalAndCustomer(database, record, internal,
-                                    match.key || recordStorageKey(record), seri);
+                                    match.key || recordStorageKey(record), seri, {
+                                        customerPart: matchedCustomerPart,
+                                        barcodeLoadingList,
+                                        allowDuplicateSerial
+                                    });
                             } else {
                                 this.showError('Kanban tidak ditemukan!', () => {
                                     if (typeof unknownSound === 'function')
@@ -4419,7 +4539,12 @@
             }
 
             handleMMKIKanban(code) {
-                this.processCustomerSpecificKanban(code.trimEnd(), 'MMKI');
+                const totalLength = parseInt(localStorage.getItem('char_total') || '0', 10) || 0;
+                const processed = totalLength > 0 && code.length === totalLength ?
+                    this.processCustomerCode(code) :
+                    code.trimEnd();
+
+                this.processCustomerSpecificKanban(processed, 'MMKI');
             }
 
             handleTBINAKanban(code) {
@@ -4571,9 +4696,9 @@
                 return typeof getLoadingListNumber === 'function' ? getLoadingListNumber() : [];
             }
 
-            checkInternalAndCustomer(database, record, internal, customerPart, seri) {
+            checkInternalAndCustomer(database, record, internal, customerPart, seri, options = {}) {
                 if (typeof checkInternalAndCustomer === 'function') {
-                    checkInternalAndCustomer(database, record, internal, customerPart, seri);
+                    checkInternalAndCustomer(database, record, internal, customerPart, seri, options);
                 }
             }
 
