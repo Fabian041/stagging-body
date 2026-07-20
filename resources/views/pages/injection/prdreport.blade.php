@@ -592,6 +592,7 @@
             return;
         }
 
+        const moldCode = localStorage.getItem(STORAGE_KEYS.moldCode) || '-';
         const scannedParts = getCycleScannedParts().map(partNumber => normalizePartNumber(partNumber));
         const cards = parts.map((item) => {
             const partNumber = typeof item === 'string' ? item : (item.part_number || item.internal_part_number || item.internal || '-');
@@ -611,7 +612,7 @@
         $('#pis').html(`
             <div class="mold-parts-panel">
                 <div class="mold-parts-heading">
-                    <h2 class="text-dark mb-0">Part Anggota Mold</h2>
+                    <h2 class="text-dark mb-0">${escapeHtml(moldCode)}</h2>
                     <span class="mold-cycle-badge">Cycle ${getCycleNumber()}</span>
                 </div>
                 <div class="mold-parts-grid">${cards}</div>
