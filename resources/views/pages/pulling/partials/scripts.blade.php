@@ -295,7 +295,6 @@
     const SUMMARY_STORE_NAME = 'scanSummary';
     const SUMMARY_KEY = 'current';
     const SUMMARY_VERSION = 3;
-    const SERIAL_DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
     const REQUIRED_IDB_STORES = [STORE_NAME, SERIAL_STORE_NAME, SUMMARY_STORE_NAME];
 
     function ensurePullingStores(database) {
@@ -339,8 +338,10 @@
         return openPullingDB(dbName);
     }
 
-    function scanSerialKey(customerPart, serial) {
-        return `${String(customerPart || '').trim()}|${String(serial || '').trim()}`;
+    function scanSerialKey(customerPart, serial, scanEventId = '') {
+        const baseKey = `${String(customerPart || '').trim()}|${String(serial || '').trim()}`;
+        const eventId = String(scanEventId || '').trim();
+        return eventId ? `${baseKey}|${eventId}` : baseKey;
     }
 
     function comparableCustomerPart(value) {
@@ -515,7 +516,7 @@
         });
     }
 
-    function fallbackScanRowsForRecord(record, seen = new Set()) {
+    function fallbackScanRowsForRecord(record, seenSerials = new Set()) {
         const rows = [];
         const fallbackSerials = Array.isArray(record?.seri) ? record.seri : [];
         const buckets = loadingListBucketEntries(record);
@@ -524,7 +525,7 @@
 
         fallbackSerials.forEach((serial) => {
             const value = String(serial || '').trim();
-            if (!value || seen.has(value)) return;
+            if (!value || seenSerials.has(value)) return;
 
             while (buckets[bucketIndex] && bucketUsed >= buckets[bucketIndex].target) {
                 bucketIndex += 1;
@@ -537,7 +538,7 @@
                 loading_list_number: bucket?.number || record?.loading_list_number,
                 scanned_at: null
             });
-            seen.add(value);
+            seenSerials.add(value);
             bucketUsed += 1;
         });
 
@@ -571,7 +572,8 @@
         });
     }
 
-    function getScanRowsByKey(database, record, key, seen = new Set(), matchInternal = false) {
+    function getScanRowsByKey(database, record, key, seenEvents = new Set(), seenSerials = new Set(),
+        matchInternal = false) {
         return new Promise((resolve, reject) => {
             const rows = [];
             const internal = String(record?.internal || '').trim();
@@ -594,10 +596,14 @@
                     return;
                 }
 
-                if (value && !seen.has(value)) {
-                    seen.add(value);
+                const eventId = String(cursor.value?.scan_event_id || cursor.value?.mutation_id || '').trim();
+                const identity = eventId ? `event:${eventId}` : `legacy:${key}|${value}`;
+                if (value && !seenEvents.has(identity)) {
+                    seenEvents.add(identity);
+                    seenSerials.add(value);
                     rows.push({
                         serial: value,
+                        scan_event_id: eventId,
                         loading_list_number: cursor.value?.loading_list_number || record
                             ?.loading_list_number,
                         scanned_at: cursor.value?.scanned_at || null,
@@ -612,19 +618,20 @@
     }
 
     async function getScanRowsForPart(database, record) {
-        const seen = new Set();
+        const seenEvents = new Set();
+        const seenSerials = new Set();
         const currentKey = recordStorageKey(record);
-        const rows = await getScanRowsByKey(database, record, currentKey, seen);
+        const rows = await getScanRowsByKey(database, record, currentKey, seenEvents, seenSerials);
         const legacyKey = String(record?.customer || '').trim();
 
         if (legacyKey && legacyKey !== currentKey) {
-            rows.push(...await getScanRowsByKey(database, record, legacyKey, seen, true));
+            rows.push(...await getScanRowsByKey(database, record, legacyKey, seenEvents, seenSerials, true));
             const legacyRecord = await getLegacyPartRecord(database, record);
-            if (legacyRecord) rows.push(...fallbackScanRowsForRecord(legacyRecord, seen));
+            if (legacyRecord) rows.push(...fallbackScanRowsForRecord(legacyRecord, seenSerials));
         }
 
         rows.sort((a, b) => serialScanTimestamp(a.scanned_at) - serialScanTimestamp(b.scanned_at));
-        return rows.concat(fallbackScanRowsForRecord(record, seen));
+        return rows.concat(fallbackScanRowsForRecord(record, seenSerials));
     }
 
     function getPartRecordFromIDB(customerPart) {
@@ -960,11 +967,14 @@
                 internal: String(item?.internal || '-').trim() || '-',
                 serial: String(item?.serial || '-').trim() || '-',
                 loading_list: String(item?.loading_list || item?.loading_list_number || '').trim(),
-                scanned_at: parseInt(item?.scanned_at || 0, 10) || 0
+                scanned_at: parseInt(item?.scanned_at || 0, 10) || 0,
+                scan_event_id: String(item?.scan_event_id || item?.mutation_id || '').trim()
             }))
             .filter((item) => item.serial !== '-')
             .filter((item) => {
-                const key = `${item.customer}|${item.internal}|${item.serial}`;
+                const key = item.scan_event_id ?
+                    `event:${item.scan_event_id}` :
+                    `${item.customer}|${item.internal}|${item.serial}|${item.scanned_at || 'legacy'}`;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
@@ -1094,37 +1104,29 @@
                             }
 
                             (Array.isArray(row.serials) ? row.serials : []).forEach(
-                                (item) => {
+                                (item, index) => {
                                     const serial = String(item?.serial || '')
                                         .trim();
                                     if (!serial) return;
 
+                                    const scanEventId = String(item?.mutation_id || item
+                                        ?.scan_event_id || item?.scanned_at || index).trim();
                                     const serialKey = scanSerialKey(group.key,
-                                        serial);
-                                    const existingRequest = serialStore.get(
-                                        serialKey);
-                                    existingRequest.onsuccess = function(
-                                        event) {
-                                        if (event.target.result) return;
-
-                                        serialStore.put({
-                                            customer_part: group
-                                                .customer,
-                                            part_key: group.key,
-                                            internal: group
-                                                .internal,
-                                            serial,
-                                            loading_list_number: loadingList ||
-                                                record
-                                                .loading_list_number,
-                                            scanned_at: serialScanTimestamp(
-                                                item
-                                                ?.scanned_at),
-                                            synced_from_mutation: true,
-                                            verified_from_mutation: item
-                                                ?.verified === true
-                                        }, serialKey);
-                                    };
+                                        serial, scanEventId);
+                                    serialStore.delete(scanSerialKey(group.key, serial));
+                                    serialStore.put({
+                                        customer_part: group.customer,
+                                        part_key: group.key,
+                                        internal: group.internal,
+                                        serial,
+                                        scan_event_id: scanEventId,
+                                        mutation_id: item?.mutation_id || null,
+                                        loading_list_number: loadingList || record
+                                            .loading_list_number,
+                                        scanned_at: serialScanTimestamp(item?.scanned_at),
+                                        synced_from_mutation: true,
+                                        verified_from_mutation: item?.verified === true
+                                    }, serialKey);
                                 });
                         });
 
@@ -1194,12 +1196,13 @@
         });
     }
 
-    function pushScanPairHistory(customer, internal, serial) {
+    function pushScanPairHistory(customer, internal, serial, scanEventId = '') {
         setScanHistory([{
             customer: String(customer || '-').trim() || '-',
             internal: String(internal || '-').trim() || '-',
             serial: String(serial || '-').trim() || '-',
-            scanned_at: Date.now()
+            scanned_at: Date.now(),
+            scan_event_id: String(scanEventId || '').trim()
         }].concat(scanHistoryState), scanHistoryTotalCount + 1);
     }
 
@@ -1234,7 +1237,9 @@
                         .map((item) => ({
                             customer: String(item.customer_part || '-').trim() || '-',
                             internal: String(item.internal || '-').trim() || '-',
-                            serial: String(item.serial || '-').trim() || '-'
+                            serial: String(item.serial || '-').trim() || '-',
+                            scanned_at: parseInt(item.scanned_at || 0, 10) || 0,
+                            scan_event_id: String(item.scan_event_id || item.mutation_id || '').trim()
                         }));
 
                     resolve(setScanHistory(history, rows.length));
@@ -1715,24 +1720,6 @@
 
         const parsedValue = Date.parse(String(value));
         return Number.isNaN(parsedValue) ? 0 : parsedValue;
-    }
-
-    function isSameLocalDate(leftTimestamp, rightTimestamp) {
-        const left = new Date(leftTimestamp);
-        const right = new Date(rightTimestamp);
-
-        return left.getFullYear() === right.getFullYear() &&
-            left.getMonth() === right.getMonth() &&
-            left.getDate() === right.getDate();
-    }
-
-    function isIndexedSerialDuplicateActive(scanRow) {
-        const scannedAt = serialScanTimestamp(scanRow?.scanned_at);
-        const now = Date.now();
-
-        return scannedAt > 0 &&
-            isSameLocalDate(scannedAt, now) &&
-            (now - scannedAt) < SERIAL_DUPLICATE_WINDOW_MS;
     }
 
     function loadingListSources(record) {
@@ -3378,17 +3365,8 @@
                 return;
             }
 
-            const duplicateSerialError = () => {
-                handleError('Seri kanban sudah discan!', {
-                    expected: 'Seri unik (belum pernah discan)',
-                    scanned: `Seri=${seri}`,
-                    playSound: false
-                });
-                alreadyScanSound();
-            };
-
             let updateIndexedDB = () => {};
-            const continueAfterSerialCheck = () => {
+            const continueAfterQuantityCheck = () => {
                 // === Validasi: quantity sudah penuh
                 if (scannedCount >= totalQty) {
                     handleError('Part number sudah complete!', {
@@ -3401,7 +3379,7 @@
                 }
 
                 // === Update IndexedDB setelah validasi backend OK
-                updateIndexedDB = () => {
+                updateIndexedDB = (scanEventId = '') => {
                     scannedCount += 1;
                     cursor.scanned_count = scannedCount;
                     cursor.actual_qty = scannedCount;
@@ -3426,20 +3404,23 @@
                     const serialStore = transaction.objectStore(SERIAL_STORE_NAME);
                     const summaryStore = transaction.objectStore(SUMMARY_STORE_NAME);
                     transaction.oncomplete = () => database.close();
-                    performUpdate(transaction, objectStore, serialStore, summaryStore);
+                    performUpdate(transaction, objectStore, serialStore, summaryStore, scanEventId);
                 };
 
-                function performUpdate(transaction, objectStore, serialStore, summaryStore) {
+                function performUpdate(transaction, objectStore, serialStore, summaryStore, scanEventId) {
+                    const eventId = String(scanEventId || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
                     serialStore.put({
                         customer_part: customer,
                         part_key: primaryKey,
                         internal: String(internal || '').trim(),
                         serial: String(seri || '').trim(),
+                        scan_event_id: eventId,
+                        mutation_id: scanEventId || null,
                         loading_list_number: loadingList,
                         scanned_at: Date.now(),
                         synced_from_mutation: false,
                         verified_from_mutation: false
-                    }, scanSerialKey(primaryKey, seri));
+                    }, scanSerialKey(primaryKey, seri, eventId));
 
                     const summaryRequest = summaryStore.get(SUMMARY_KEY);
                     summaryRequest.onsuccess = function() {
@@ -3470,7 +3451,7 @@
                         resetIndicator();
                         incrementPullingQuantity(1);
                         okSound();
-                        pushScanPairHistory(customer, internal.trimEnd(), seri);
+                        pushScanPairHistory(customer, internal.trimEnd(), seri, eventId);
                         localStorage.removeItem('customerPart');
                     };
 
@@ -3527,7 +3508,7 @@
                                         dataType: 'json',
                                         success: function(response) {
                                             if (response.status == 'success') {
-                                                updateIndexedDB();
+                                                updateIndexedDB(data.scan_event_id);
                                                 tmminSuccessIndicator();
                                             } else {
                                                 handleError(response.message ||
@@ -3550,19 +3531,17 @@
                                     });
                                 } else {
                                     // tanpa eDCL
-                                    updateIndexedDB();
+                                    updateIndexedDB(data.scan_event_id);
                                 }
-                            } else if (data.status == 'duplicate') {
-                                duplicateSerialError();
-                                hydrateScanHistoryFromMutations();
-                                database.close();
                             } else {
                                 handleError(data.message || 'Validasi backend gagal', {
                                     expected: 'Response success dari mutation',
                                     scanned: JSON.stringify(data),
-                                    playSound: (data.status == 'notExists')
+                                    playSound: !['notExists', 'alreadyPulled'].includes(data
+                                        .status)
                                 });
                                 if (data.status == 'notExists') notExist();
+                                if (data.status == 'alreadyPulled') alreadyPulledSound();
                                 database.close();
                             }
                         },
@@ -3584,122 +3563,7 @@
                 }
             };
 
-            const ensureLegacySerialsIndexed = () => {
-                return new Promise((resolve, reject) => {
-                    if (!arraySeri.length || cursor.serials_indexed_at) {
-                        resolve();
-                        return;
-                    }
-
-                    try {
-                        const transaction = database.transaction([STORE_NAME, SERIAL_STORE_NAME],
-                            'readwrite');
-                        const objectStore = transaction.objectStore(STORE_NAME);
-                        const serialStore = transaction.objectStore(SERIAL_STORE_NAME);
-
-                        arraySeri.forEach((existingSerial) => {
-                            serialStore.put({
-                                customer_part: customer,
-                                part_key: primaryKey,
-                                internal: String(internal || '').trim(),
-                                serial: String(existingSerial || '').trim(),
-                                loading_list_number: loadingList,
-                                scanned_at: null,
-                                migrated: true,
-                                synced_from_mutation: false,
-                                verified_from_mutation: false
-                            }, scanSerialKey(primaryKey, existingSerial));
-                        });
-
-                        cursor.serials_indexed_at = Date.now();
-                        objectStore.put(cursor, primaryKey);
-                        transaction.oncomplete = resolve;
-                        transaction.onerror = () => reject(transaction.error || new Error(
-                            'Gagal index serial lama'));
-                        transaction.onabort = () => reject(transaction.error || new Error(
-                            'Gagal index serial lama'));
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            };
-
-            ensureLegacySerialsIndexed().then(() => {
-                try {
-                    const duplicateTransaction = database.transaction([SERIAL_STORE_NAME], 'readonly');
-                    const duplicateRequest = duplicateTransaction.objectStore(SERIAL_STORE_NAME)
-                        .get(scanSerialKey(primaryKey, seri));
-
-                    duplicateRequest.onsuccess = function() {
-                        const existingScan = duplicateRequest.result;
-                        if (existingScan && isIndexedSerialDuplicateActive(existingScan)) {
-                            duplicateSerialError();
-                            return;
-                        }
-
-                        if (continueAfterSerialCheck()) requestMutation();
-                    };
-
-                    duplicateRequest.onerror = function() {
-                        handleError('Error membaca data serial', {
-                            expected: `Serial store ${SERIAL_STORE_NAME}`,
-                            scanned: String(seri || '')
-                        });
-                    };
-                } catch (error) {
-                    handleError('Error akses database serial', {
-                        expected: `Store ${SERIAL_STORE_NAME}`,
-                        scanned: error?.message || String(error)
-                    });
-                }
-            }).catch((error) => {
-                handleError('Error akses database serial', {
-                    expected: `Store ${SERIAL_STORE_NAME}`,
-                    scanned: error?.message || String(error)
-                });
-            });
-        }
-
-        function checkKanban(seri, internal) {
-            $.ajax({
-                type: 'GET',
-                url: '/kanban/check',
-                _token: "{{ csrf_token() }}",
-                data: {
-                    seri: seri,
-                    internal: internal.trimEnd()
-                },
-                dataType: 'json',
-                success: function(data) {
-                    if (data.status == 'success') {
-                        console.log(data.status);
-                    } else if (data.status == 'partNotExist') {
-                        notif('error', data.message)
-                        partNotExistSound();
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
-                        return false;
-                    } else if (data.status == 'kanbanNotExist') {
-                        notif('error', data.message)
-                        kanbanNotExistSound();
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
-                        return false;
-                    } else if (data.status == 'notScanned') {
-                        notif('error', data.message)
-                        notScannedSound();
-                        setInterval(() => {
-                            $('#code').focus();
-                        }, 1000);
-                        return false;
-                    }
-                },
-                error: function(xhr) {
-                    console.log(xhr.getResponse);
-                }
-            });
+            if (continueAfterQuantityCheck()) requestMutation();
         }
 
         class ScannerInput {
