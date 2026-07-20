@@ -844,28 +844,117 @@ class ProductionController extends Controller
     public function storePartScan(Request $r)
     {
         $r->validate([
-            'line'    => ['required', 'string', 'max:32'],
-            'model'   => ['required', 'string', 'max:128'],
-            'barcode' => ['required', 'string'],
-            'dandori' => ['nullable', 'string', 'max:128'],
+            'line'        => ['required', 'string', 'max:32'],
+            'model'       => ['required', 'string', 'max:128'],
+            'barcode'     => ['required', 'string'],
+            'dandori'     => ['nullable', 'string', 'max:128'],
+            'back_number' => ['nullable', 'string', 'max:32'],
         ]);
 
-        $line    = $r->line;
-        $model   = $r->model;
-        $barcode = $r->barcode;
-        $dandori = $r->dandori;
+        $line       = trim($r->line);
+        $model      = trim($r->model);
+        $barcode    = strtoupper(trim($r->barcode));
+        $dandori    = $r->dandori ? trim($r->dandori) : null;
+        $backNumber = strtoupper(trim($r->back_number ?? ''));
+
+        $barcodeLength = strlen($barcode);
+
+        $allowedPart22BackNumbers = [
+            'SPKV',
+            'SPKW',
+            'SPKX',
+            'SPKY',
+            'SPKZ',
+            'SPL1',
+            'SPL2',
+            'SPL3',
+            'SPL4',
+            'SPL5',
+            'SPL6',
+            'SPL7',
+        ];
+
+        if (!in_array($barcodeLength, [22, 27], true)) {
+            return response()->json([
+                'status'  => 'invalid',
+                'message' => 'Panjang barcode part tidak valid. Hanya menerima 22 atau 27 digit.',
+            ], 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validasi barcode 22 digit
+        |--------------------------------------------------------------------------
+        */
+        if ($barcodeLength === 22) {
+            if (!$backNumber) {
+                return response()->json([
+                    'status'  => 'invalid',
+                    'message' => 'Back number wajib dikirim untuk scan part 22 digit.',
+                ], 422);
+            }
+
+            if (!in_array($backNumber, $allowedPart22BackNumbers, true)) {
+                return response()->json([
+                    'status'  => 'invalid',
+                    'message' => 'Barcode part 22 digit hanya berlaku untuk model SPKV sampai SPL7.',
+                ], 422);
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validasi barcode 27 digit
+        |--------------------------------------------------------------------------
+        */
+        if ($barcodeLength === 27) {
+            if (!$backNumber) {
+                return response()->json([
+                    'status'  => 'invalid',
+                    'message' => 'Back number wajib dikirim untuk scan part 27 digit.',
+                ], 422);
+            }
+
+            $last4           = strtoupper(substr($barcode, -4));
+            $prefixBackNumber = substr($backNumber, 0, 2);
+
+            $rules = [
+                'KMOU' => 'SP',
+                'KMOT' => 'KP',
+            ];
+
+            if (
+                !isset($rules[$last4]) ||
+                $rules[$last4] !== $prefixBackNumber
+            ) {
+                return response()->json([
+                    'status'  => 'invalid',
+                    'message' => 'Barcode part tidak sesuai dengan back number.',
+                ], 422);
+            }
+        }
 
         $today = Carbon::today();
 
-        // Dedupe: per line + barcode + tanggal
-        $exists = ScannedPart::where('line', $line)
-            ->where('barcode', $barcode)
-            ->whereDate('scan_date', $today)
-            ->exists();
+        /*
+        |--------------------------------------------------------------------------
+        | Cek duplicate hanya untuk barcode selain 22 digit
+        |--------------------------------------------------------------------------
+        | Barcode 22 digit boleh discan dan disimpan berulang kali.
+        */
+        if ($barcodeLength !== 22) {
+            $exists = ScannedPart::where('line', $line)
+                ->where('barcode', $barcode)
+                ->whereDate('scan_date', $today)
+                ->exists();
 
-        // if ($exists) {
-        //     return response()->json(['status' => 'duplicate']);
-        // }
+            if ($exists) {
+                return response()->json([
+                    'status'  => 'duplicate',
+                    'message' => 'Barcode part sudah pernah discan.',
+                ]);
+            }
+        }
 
         ScannedPart::create([
             'line'          => $line,
@@ -873,19 +962,17 @@ class ProductionController extends Controller
             'dandori_board' => $dandori,
             'barcode'       => $barcode,
             'last4'         => strtoupper(substr($barcode, -4)),
-            'scan_date'     => $today,   // penanda batch harian
+            'scan_date'     => $today,
             'scanned_at'    => now(),
-            'kanban_id'     => null
+            'kanban_id'     => null,
         ]);
 
-        // ACTUAL = hanya yang belum ter-assign kanban (batch aktif)
         $actual = ScannedPart::where('line', $line)
             ->where('model', $model)
             ->whereDate('scan_date', $today)
             ->whereNull('kanban_id')
             ->count();
 
-        // Target dikelola FE, jadi server tidak mengembalikan/menentukan target.
         return response()->json([
             'status' => 'ok',
             'actual' => $actual,
@@ -897,14 +984,17 @@ class ProductionController extends Controller
         $r->validate([
             'line'     => ['required', 'string', 'max:32'],
             'model'    => ['required', 'string', 'max:128'],
-            'internal' => ['required', 'string'],      // k.internal (string)
+            'internal' => ['required', 'string'],
             'seri'     => ['required', 'string', 'max:10'],
             'limit'    => ['nullable', 'integer', 'min:1'],
         ]);
 
-        // 1) ambil internal_part_id dari string internal yang dikirim FE
-        // sesuaikan kolom pencarian: umumnya "internal" / "part_number" / "code" tergantung tabelmu
-        $internalPart = InternalPart::where('part_number', $r->internal)->first();
+        $line     = trim($r->line);
+        $model    = trim($r->model);
+        $internal = trim($r->internal);
+        $seri     = trim($r->seri);
+
+        $internalPart = InternalPart::where('part_number', $internal)->first();
 
         if (!$internalPart) {
             return response()->json([
@@ -913,9 +1003,8 @@ class ProductionController extends Controller
             ], 422);
         }
 
-        // 2) cari kanban berdasarkan internal_part_id + seri
         $kanban = Kanban::where('internal_part_id', $internalPart->id)
-            ->where('serial_number', $r->seri)
+            ->where('serial_number', $seri)
             ->latest('id')
             ->first();
 
@@ -928,15 +1017,14 @@ class ProductionController extends Controller
 
         $today = Carbon::today();
 
-        // 3) ambil scanned part yang masih aktif (belum punya kanban_id)
-        $baseQuery = ScannedPart::where('line', $r->line)
-            ->where('model', $r->model)
+        $baseQuery = ScannedPart::where('line', $line)
+            ->where('model', $model)
             ->whereDate('scan_date', $today)
             ->whereNull('kanban_id')
             ->orderBy('scanned_at', 'asc');
 
-        $ids = $r->filled('limit') && (int)$r->limit > 0
-            ? $baseQuery->limit((int)$r->limit)->pluck('id')
+        $ids = $r->filled('limit') && (int) $r->limit > 0
+            ? $baseQuery->limit((int) $r->limit)->pluck('id')
             : $baseQuery->pluck('id');
 
         if ($ids->isEmpty()) {
@@ -948,7 +1036,9 @@ class ProductionController extends Controller
         }
 
         DB::transaction(function () use ($ids, $kanban) {
-            ScannedPart::whereIn('id', $ids)->update(['kanban_id' => $kanban->id]);
+            ScannedPart::whereIn('id', $ids)->update([
+                'kanban_id' => $kanban->id
+            ]);
         });
 
         return response()->json([

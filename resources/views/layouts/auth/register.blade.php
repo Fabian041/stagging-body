@@ -68,17 +68,33 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="department">Department</label>
+                        <select id="department" class="form-control @error('department') is-invalid @enderror"
+                            name="department" tabindex="4" required>
+                            <option value="" disabled {{ old('department') ? '' : 'selected' }}>Pilih department</option>
+                            @foreach ($departments ?? [] as $department)
+                                <option value="{{ $department }}" {{ old('department') === $department ? 'selected' : '' }}>
+                                    {{ strtoupper($department) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('department')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
                         <div class="login-password-row">
                             <label for="password" class="mb-0">Password</label>
                         </div>
                         <input id="password" type="password" class="form-control @error('password') is-invalid @enderror"
-                            name="password" tabindex="4" required placeholder="Buat password">
+                            name="password" tabindex="5" required placeholder="Buat password">
                         @error('password')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
-                    <button type="submit" class="btn btn-primary login-submit" tabindex="5">
+                    <button type="submit" class="btn btn-primary login-submit" tabindex="6">
                         <span>Register</span>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -121,7 +137,7 @@
             $('#npk').keypress(function(e) {
                 if (e.keyCode === 124) {
                     e.preventDefault();
-                    $('#password').focus();
+                    $('#department').focus();
                 }
             });
         });

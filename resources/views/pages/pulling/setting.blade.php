@@ -513,9 +513,11 @@
                     </div>
 
                     <div class="seq-actions">
+                        @can('manage-master')
                         <button type="button" id="openAddModal" class="btn btn-outline-primary">
                             <i class="fas fa-plus me-2"></i> Add Item
                         </button>
+                        @endcan
 
                         <button type="button" id="loadItemsBtn" class="btn btn-primary">
                             <i class="fas fa-search me-2"></i> Load Production
@@ -543,6 +545,7 @@
 
                     <div id="itemsContainer" class="mb-3"></div>
 
+                    @can('manage-master')
                     <div class="d-flex justify-content-end gap-2 p-3">
                         <button id="saveOrderBtn" class="btn btn-success mr-2">
                             <i class="fas fa-save me-2"></i> Save Production Sequence
@@ -550,6 +553,7 @@
                         <button id="resetChangesBtn" class="btn btn-outline-danger" style="display:none;">Reset All
                             Changes</button>
                     </div>
+                    @endcan
                 </div>
 
             </div>

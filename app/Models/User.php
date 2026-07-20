@@ -38,5 +38,24 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'preferences' => 'array',
     ];
+
+    /**
+     * Cek apakah role user termasuk salah satu dari daftar yang diberikan.
+     */
+    public function hasRole(string ...$roles): bool
+    {
+        return in_array($this->role, $roles, true);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin', 'super_admin');
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
 }

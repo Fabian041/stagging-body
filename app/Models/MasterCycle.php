@@ -14,6 +14,8 @@ class MasterCycle extends Model
         'cycle_name',
         'time',
         'prep_end_time',
+        'prep_day_offset',
+        'prep_end_day_offset',
         'truck_time',
     ];
 

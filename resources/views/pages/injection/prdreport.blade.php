@@ -103,6 +103,132 @@
         background: #ffffff;
         border-color: var(--border, #DDE3EF);
     }
+
+    .mold-parts-panel {
+        width: 100%;
+        max-width: 760px;
+        margin: 0 auto;
+    }
+
+    .mold-parts-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .mold-cycle-badge {
+        flex: 0 0 auto;
+        padding: .55rem .9rem;
+        color: #294795;
+        font-size: .8rem;
+        font-weight: 800;
+        background: #e8f4fd;
+        border: 1px solid #b9dcf3;
+        border-radius: 999px;
+    }
+
+    .mold-parts-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .mold-part-card {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 135px;
+        padding: 1.25rem;
+        color: #ffffff;
+        font-size: clamp(1.5rem, 3vw, 2.4rem);
+        font-weight: 900;
+        letter-spacing: .04em;
+        text-align: center;
+        border: 3px solid transparent;
+        border-radius: 14px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+        transition: background .2s ease, border-color .2s ease, transform .2s ease;
+    }
+
+    .mold-part-card.is-pending {
+        background: linear-gradient(135deg, #b91c1c, #ef4444);
+        border-color: #fecaca;
+    }
+
+    .mold-part-card.is-scanned {
+        background: linear-gradient(135deg, #15803d, #22c55e);
+        border-color: #bbf7d0;
+        transform: translateY(-2px);
+    }
+
+    .notif-dialog {
+        width: calc(100% - 2rem);
+        max-width: 440px;
+        margin-right: auto;
+        margin-left: auto;
+    }
+
+    #divNotif {
+        overflow: hidden;
+        color: #ffffff;
+        border: 0;
+        border-radius: 16px;
+        box-shadow: 0 20px 55px rgba(15, 23, 42, .28);
+    }
+
+    #divNotif.is-success {
+        background: linear-gradient(135deg, #15803d, #22c55e);
+    }
+
+    #divNotif.is-error {
+        background: linear-gradient(135deg, #b91c1c, #ef4444);
+    }
+
+    .notif-modal-body {
+        padding: 2rem 1.75rem;
+    }
+
+    .notif-modal-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 58px;
+        height: 58px;
+        margin-bottom: 1rem;
+        color: #ffffff;
+        font-size: 1.65rem;
+        background: rgba(255, 255, 255, .18);
+        border: 1px solid rgba(255, 255, 255, .35);
+        border-radius: 50%;
+    }
+
+    #notifTitle {
+        margin-bottom: .55rem;
+        color: #ffffff !important;
+        font-size: 1.25rem;
+        font-weight: 900;
+    }
+
+    #notif {
+        display: block;
+        color: rgba(255, 255, 255, .95);
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.6;
+    }
+
+    @media (max-width: 575.98px) {
+        .mold-parts-heading {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .mold-parts-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
 </style>
 
 <div class="modern-shell">
@@ -171,10 +297,14 @@
 
 {{-- modal notif --}}
 <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content" id="divNotif" style="border-radius: 12px !important;">
-            <div class="modal-body text-center">
-                <span style="color: white; font-size: 30pt" id="notif">Error!</span>
+    <div class="modal-dialog modal-dialog-centered notif-dialog" role="document">
+        <div class="modal-content is-error" id="divNotif" role="alert" aria-live="assertive">
+            <div class="modal-body text-center notif-modal-body">
+                <span class="notif-modal-icon" aria-hidden="true">
+                    <i class="fas fa-times" id="notifIcon"></i>
+                </span>
+                <h5 id="notifTitle">Scan Gagal</h5>
+                <span id="notif">Terjadi kesalahan saat memproses barcode.</span>
             </div>
         </div>
     </div>
@@ -278,6 +408,7 @@
     let endTime;
     let timePerBoxInterval;
     let isProcessingScan = false;
+    let notifTimeout = null;
 
     const { STORAGE_KEYS, ROUTES, csrfToken, playAudio, normalizePartNumber, getLineName, getMoldParts, getCycleScannedParts, getCycleNumber, isPartAlreadyScannedInCurrentCycle, markPartScannedInCurrentCycle, getUniqueMoldPartNumbers, getRemainingPartsInCurrentCycle, isCurrentCycleComplete, findMoldPart, isPartMemberOfMold, resetCurrentCycle } = window.InjectionScanHelpers;
 
@@ -292,12 +423,26 @@
     function wrongKanbanSound() { playAudio('wrong-kanban-sound'); }
 
     function notif(color, text) {
+        const isError = color === 'error';
+
+        if (notifTimeout) {
+            clearTimeout(notifTimeout);
+        }
+
+        $('#divNotif')
+            .removeClass('is-success is-error')
+            .addClass(isError ? 'is-error' : 'is-success');
+        $('#notifIcon')
+            .removeClass('fa-check fa-times')
+            .addClass(isError ? 'fa-times' : 'fa-check');
+        $('#notifTitle').text(isError ? 'Scan Gagal' : 'Scan Berhasil');
         $('#notif').text(text);
-        $('#divNotif').css('background-color', color === 'error' ? '#FF2A00' : '#32a852');
         $('#notifModal').modal('show');
-        setTimeout(() => {
+
+        notifTimeout = setTimeout(() => {
             $('#notifModal').modal('hide');
             focusScanInput();
+            notifTimeout = null;
         }, 2500);
     }
 
@@ -338,6 +483,28 @@
         } else {
             $('#code').removeClass('is-loading');
         }
+    }
+
+    function hasActiveMold() {
+        return Boolean(localStorage.getItem(STORAGE_KEYS.moldCode)) && getMoldParts().length > 0;
+    }
+
+    function escapeHtml(value) {
+        return $('<div>').text(String(value ?? '')).html();
+    }
+
+    function getBackNumberForPart(partNumber) {
+        const part = findMoldPart(partNumber);
+
+        if (!part || typeof part === 'string') {
+            return normalizePartNumber(partNumber) || '-';
+        }
+
+        return part.back_number || part.backNumber || normalizePartNumber(partNumber) || '-';
+    }
+
+    function getBackNumbersForParts(partNumbers) {
+        return partNumbers.map(getBackNumberForPart);
     }
 
     function checkLineName() {
@@ -425,37 +592,29 @@
             return;
         }
 
-        const rows = parts.map((item, index) => {
+        const scannedParts = getCycleScannedParts().map(partNumber => normalizePartNumber(partNumber));
+        const cards = parts.map((item) => {
             const partNumber = typeof item === 'string' ? item : (item.part_number || item.internal_part_number || item.internal || '-');
             const backNumber = typeof item === 'string' ? '-' : (item.back_number || item.backNumber || '-');
-            const partName = typeof item === 'string' ? '-' : (item.part_name || item.name || '-');
+            const isScanned = scannedParts.includes(normalizePartNumber(partNumber));
+            const cardState = isScanned ? 'is-scanned' : 'is-pending';
+            const statusLabel = isScanned ? 'sudah discan' : 'belum discan';
 
             return `
-                <tr>
-                    <td class="text-center">${index + 1}</td>
-                    <td><b>${partNumber}</b></td>
-                    <td>${backNumber}</td>
-                    <td>${partName}</td>
-                </tr>
+                <div class="mold-part-card ${cardState}"
+                    aria-label="Back number ${escapeHtml(backNumber)}, ${statusLabel}">
+                    ${escapeHtml(backNumber)}
+                </div>
             `;
         }).join('');
 
         $('#pis').html(`
-            <div class="px-4">
-                <h2 class="text-center text-dark mb-4">Part Anggota Mold</h2>
-                <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
-                    <table class="table table-bordered table-striped bg-white">
-                        <thead class="thead-dark">
-                            <tr>
-                                <th class="text-center" style="width: 70px">No</th>
-                                <th>Part Number</th>
-                                <th>Back Number</th>
-                                <th>Part Name</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
+            <div class="mold-parts-panel">
+                <div class="mold-parts-heading">
+                    <h2 class="text-dark mb-0">Part Anggota Mold</h2>
+                    <span class="mold-cycle-badge">Cycle ${getCycleNumber()}</span>
                 </div>
+                <div class="mold-parts-grid">${cards}</div>
             </div>
         `);
     }
@@ -548,7 +707,8 @@
             internal: internal ? internal.trim() : null,
             seri: seri || 'noseri',
             backNum,
-            pcs
+            pcs,
+            customerPartId: null
         };
     }
 
@@ -565,7 +725,8 @@
                 internal: data?.data?.internal_part?.part_number || null,
                 seri: 'noseri',
                 backNum: data?.data?.internal_part?.back_number || null,
-                pcs: data?.data?.qty_per_kanban || 0
+                pcs: data?.data?.qty_per_kanban || 0,
+                customerPartId: data?.data?.id || null
             };
         } catch (err) {
             notif('error', 'Gagal memeriksa kode part.');
@@ -614,6 +775,14 @@
         const moldCode = extractMoldCode(barcodecomplete);
         const now = Date.now();
 
+        if (!moldCode || !/^[A-Z0-9][A-Z0-9._-]{1,99}$/i.test(moldCode)) {
+            wrongKanbanSound();
+            notif('error', 'Format tag mold tidak valid. Scan QR Mold yang terdaftar.');
+            setStatus('danger');
+            sendErrorLog('Format tag mold tidak valid', 'TAG MOLD', barcodecomplete || '-');
+            return;
+        }
+
         if (!getLineName()) {
             notif('error', 'Input nama line terlebih dahulu!');
             checkLineName();
@@ -623,7 +792,7 @@
         try {
             const response = await $.ajax({
                 type: 'GET',
-                url: `${ROUTES.checkMold}/${moldCode}`,
+                url: `${ROUTES.checkMold}/${encodeURIComponent(moldCode)}`,
                 data: { line: getLineName() },
                 dataType: 'json',
                 headers: { 'X-CSRF-TOKEN': csrfToken() }
@@ -686,15 +855,18 @@
             }
 
             masterDandoriSound();
-            notif('error', xhr.responseJSON?.message || xhr.responseJSON?.errors || 'Gagal cek tag mold.');
+            const moldErrorMessage = xhr.responseJSON?.message || xhr.responseJSON?.errors ||
+                'Mold tidak ditemukan atau QR Mold tidak sesuai.';
+            notif('error', moldErrorMessage);
             setStatus('danger');
+            sendErrorLog('Gagal validasi tag mold', 'MOLD MASTER', moldCode);
         }
     }
 
     async function handlePartScan(barcodecomplete) {
-        if (!localStorage.getItem(STORAGE_KEYS.moldCode)) {
+        if (!hasActiveMold()) {
             masterDandoriSound();
-            notif('error', 'Scan tag mold terlebih dahulu!');
+            notif('error', 'Belum ada mold aktif. Scan QR Mold terlebih dahulu!');
             setStatus('danger');
             localStorage.setItem(STORAGE_KEYS.moldError, 'true');
             sendErrorLog('Belum scan tag mold', 'TAG MOLD', barcodecomplete);
@@ -726,13 +898,15 @@
         if (isPartAlreadyScannedInCurrentCycle(internal)) {
             const cycleNumber = getCycleNumber();
             const remainingParts = getRemainingPartsInCurrentCycle();
+            const duplicateBackNumber = getBackNumberForPart(internal);
+            const remainingBackNumbers = getBackNumbersForParts(remainingParts);
 
             wrongKanbanSound();
 
             notif(
                 'error',
-                `Part ${internal} sudah discan pada cycle ${cycleNumber}. ` +
-                `Selesaikan part lain: ${remainingParts.join(', ')}`
+                `${duplicateBackNumber} sudah discan pada cycle ${cycleNumber}. ` +
+                `Selesaikan back number lain: ${remainingBackNumbers.join(', ')}`
             );
 
             setStatus('danger');
@@ -759,6 +933,7 @@
                     mold_id: localStorage.getItem(STORAGE_KEYS.moldId),
                     mold_code: localStorage.getItem(STORAGE_KEYS.moldCode),
                     partNumber: internal,
+                    customer_part_id: parsed.customerPartId || null,
                     seri: parsed.seri || 'noseri',
                     start_time: startTime,
                     end_time: new Date().toLocaleString('sv-SE')
@@ -779,8 +954,9 @@
             okSound();
 
             const currentCycleNumber = getCycleNumber();
-            const scannedParts = markPartScannedInCurrentCycle(internal);
+            markPartScannedInCurrentCycle(internal);
             const remainingParts = getRemainingPartsInCurrentCycle();
+            const remainingBackNumbers = getBackNumbersForParts(remainingParts);
 
             let scanCounter = parseInt(localStorage.getItem(STORAGE_KEYS.scanCounter) || 0);
             let partCounter = parseInt(localStorage.getItem(STORAGE_KEYS.partCounter) || 0);
@@ -794,6 +970,7 @@
             localStorage.setItem(STORAGE_KEYS.lastKanbanTime, now);
             localStorage.setItem(STORAGE_KEYS.lastPartNumber, internal);
             localStorage.setItem(STORAGE_KEYS.lastBackNumber, data.back_number || matchedPart?.back_number || matchedPart?.backNumber || internal);
+            const scannedBackNumber = localStorage.getItem(STORAGE_KEYS.lastBackNumber);
 
             if (data.photo || matchedPart?.photo) {
                 localStorage.setItem(STORAGE_KEYS.lastPhoto, data.photo || matchedPart.photo);
@@ -804,20 +981,25 @@
             $('#model').text(localStorage.getItem(STORAGE_KEYS.lastBackNumber));
 
             renderCounters();
+            renderMoldPartsList();
             setStatus('success');
             startTimeCounter(now);
 
             if (isCurrentCycleComplete()) {
                 notif(
                     'success',
-                    `Cycle ${currentCycleNumber} lengkap. Lanjut cycle ${currentCycleNumber + 1}.`
+                    `${scannedBackNumber} berhasil discan. Cycle ${currentCycleNumber} lengkap, ` +
+                    `lanjut cycle ${currentCycleNumber + 1}.`
                 );
 
+                await new Promise(resolve => setTimeout(resolve, 650));
                 resetCurrentCycle(true);
+                renderMoldPartsList();
             } else {
                 notif(
                     'success',
-                    `Part ${internal} OK. Sisa cycle ${currentCycleNumber}: ${remainingParts.join(', ')}`
+                    `${scannedBackNumber} berhasil discan. Sisa cycle ${currentCycleNumber}: ` +
+                    `${remainingBackNumbers.join(', ')}`
                 );
             }
         } catch (xhr) {
@@ -1125,7 +1307,20 @@
             const barcodecomplete = barcode.trim();
             barcode = '';
 
-            if (!barcodecomplete) return;
+            if (!barcodecomplete) {
+                wrongKanbanSound();
+                notif('error', 'Barcode kosong. Silakan scan QR Mold atau kanban yang valid.');
+                setStatus('danger');
+                return;
+            }
+
+            if (barcodecomplete.length > 300) {
+                wrongKanbanSound();
+                notif('error', 'Barcode terlalu panjang dan tidak sesuai format sistem.');
+                setStatus('danger');
+                sendErrorLog('Barcode terlalu panjang', 'MAKSIMAL 300 KARAKTER', barcodecomplete.slice(0, 100));
+                return;
+            }
 
             console.log('Scanned Code:', barcodecomplete, barcodecomplete.length);
 
@@ -1140,7 +1335,7 @@
             setScanBusy(true);
 
             try {
-                if (isMoldTag(barcodecomplete)) {
+                if (isMoldTag(barcodecomplete) || !hasActiveMold()) {
                     await handleMoldScan(barcodecomplete);
                     return;
                 }

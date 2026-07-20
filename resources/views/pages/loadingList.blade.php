@@ -199,6 +199,79 @@
             color: var(--navy);
         }
 
+        #loadingList tbody tr.is-late-pulling-row td {
+            background: #fff5f5 !important;
+            border-bottom-color: #fecaca !important;
+        }
+
+        #loadingList tbody tr.is-late-pulling-row:hover td {
+            background: #fff1f2 !important;
+        }
+
+        #loadingList tbody tr.is-late-pulling-row td:first-child {
+            color: #b91c1c !important;
+        }
+
+        .bella-pds-cell {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .bella-late-pulling-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 7px;
+            border-radius: 5px;
+            border: 1px solid #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 9.5px;
+            font-weight: 850;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            line-height: 1.35;
+            white-space: nowrap;
+        }
+
+        .bella-late-context {
+            margin: 12px 16px 0;
+            padding: 10px 12px;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            background: #fff5f5;
+            color: #991b1b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .bella-late-context strong {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 850;
+            color: #991b1b;
+        }
+
+        .bella-late-context span {
+            color: #b91c1c;
+            font-weight: 850;
+            white-space: nowrap;
+        }
+
+        .bella-late-context small {
+            display: block;
+            margin-top: 2px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
         /* Pagination */
         .bella-table-card .dataTables_wrapper .dataTables_paginate {
             padding: 10px 16px;
@@ -295,6 +368,12 @@
 
         .modal-title span {
             color: var(--sky) !important;
+        }
+
+        .modal-title .bella-late-pulling-badge {
+            margin-left: 8px;
+            color: #b91c1c !important;
+            vertical-align: middle;
         }
 
         .modal-header .close {
@@ -408,6 +487,38 @@
 
         .accordion-header.open+.acc-body-content {
             display: block;
+        }
+
+        .bella-acc-item.is-late-pulling-detail {
+            border-color: #fecaca;
+            box-shadow: inset 3px 0 0 #dc3545;
+        }
+
+        .bella-acc-item.is-late-pulling-detail .accordion-header {
+            background: #fff5f5;
+        }
+
+        .bella-acc-item.is-late-pulling-detail .accordion-header:hover,
+        .bella-acc-item.is-late-pulling-detail .accordion-header.open {
+            background: #fff1f2;
+        }
+
+        .bella-acc-item.is-late-pulling-detail .acc-title-text {
+            color: #b91c1c;
+        }
+
+        .bella-late-detail-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 9px;
+            margin-bottom: 12px;
+            border-radius: 7px;
+            border: 1px solid #fecaca;
+            background: #fff5f5;
+            color: #991b1b;
+            font-size: 11.5px;
+            font-weight: 750;
         }
 
         /* Info grid inside accordion */
@@ -921,6 +1032,11 @@
                 transform: none;
             }
 
+            .bella-late-context {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
             .loading-detail-search {
                 min-width: 0;
                 width: 100%;
@@ -982,17 +1098,12 @@
             </button>
         </div>
         <div class="bella-filter-row">
-            @isset($manifests)
-                <div class="bella-filter-group">
-                    <label>Manifest</label>
-                    <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
-                        <option disabled selected>-- Select manifest --</option>
-                        @foreach ($manifests as $manifest)
-                            <option value="{{ $manifest->pds_number }}">{{ $manifest->pds_number }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            @endisset
+            <div class="bella-filter-group">
+                <label>Manifest</label>
+                <select class="select2 bella-filter-select" id="manifest" style="min-width: 200px;">
+                    <option></option>
+                </select>
+            </div>
 
             <div class="bella-filter-group">
                 <label>Cycle</label>
@@ -1041,6 +1152,8 @@
             </div>
         </div>
 
+        <div class="bella-late-context d-none" id="latePullingContext"></div>
+
         <div class="table-responsive">
             <table class="table bella-table" id="loadingList" style="width: 100%">
                 <thead>
@@ -1067,6 +1180,7 @@
             <div class="modal-header">
                 <h5 class="modal-title" id="loadingListModalLabel">
                     Loading Lists for PDS: <span id="modalPdsNumber"></span>
+                    <span class="bella-late-pulling-badge d-none" id="modalLatePullingBadge">Preparation telat</span>
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -1084,35 +1198,118 @@
 </div>
 
 {{-- Scripts --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
-<script src="https://code.jquery.com/jquery-3.6.3.min.js"
-    integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-<script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     $(document).ready(function() {
+        const MANIFEST_URL = @json(route('loadingList.manifests'));
+
+        /* Bootstrap modal focus-trap bikin input SweetAlert tak bisa diketik → matikan */
+        if ($.fn.modal && $.fn.modal.Constructor) {
+            $.fn.modal.Constructor.prototype._enforceFocus = function() {}; // Bootstrap 4
+            $.fn.modal.Constructor.prototype.enforceFocus = function() {}; // fallback BS3
+        }
+
+        // Hak akses: hanya admin/ppic (manage-master) yang boleh menghapus loading list
+        const canManage = @json(auth()->user()->can('manage-master'));
 
         /* =========================================================
          * HELPERS
          * ======================================================= */
+        const pageParams = new URLSearchParams(window.location.search);
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char];
+            });
+        }
+
+        function escapeAttr(value) {
+            return escapeHtml(value);
+        }
+
+        function normalizeLateKey(value) {
+            return String(value == null ? '' : value).trim().toUpperCase();
+        }
+
+        function collectLateQueryKeys(name) {
+            const values = pageParams.getAll(name).concat(pageParams.getAll(name + '[]'));
+            const keys = [];
+
+            values.forEach(function(value) {
+                String(value || '').split(',').forEach(function(part) {
+                    const key = normalizeLateKey(part);
+                    if (key) keys.push(key);
+                });
+            });
+
+            return keys;
+        }
+
+        const latePdsSet = new Set(collectLateQueryKeys('late_pds'));
+        const lateLoadingListSet = new Set(collectLateQueryKeys('late_ll'));
+        const shouldHighlightLatePulling = pageParams.get('highlight_late_pulling') === '1' ||
+            latePdsSet.size > 0 ||
+            lateLoadingListSet.size > 0;
+        let lateRowsFocused = false;
+
+        function isLatePds(pdsNumber) {
+            return latePdsSet.has(normalizeLateKey(pdsNumber));
+        }
+
+        function isLateLoadingList(loadingListNumber) {
+            return lateLoadingListSet.has(normalizeLateKey(loadingListNumber));
+        }
+
+        function renderLatePullingContext() {
+            if (!shouldHighlightLatePulling) return;
+
+            const parts = [];
+            if (latePdsSet.size) parts.push(latePdsSet.size + ' PDS');
+            if (lateLoadingListSet.size) parts.push(lateLoadingListSet.size + ' Loading List');
+
+            $('#latePullingContext')
+                .removeClass('d-none')
+                .html(
+                    '<div><strong>Highlight preparation telat dari dashboard delivery</strong>' +
+                    '<small>PDS dan loading list terkait akan ditandai di tabel serta detail modal.</small></div>' +
+                    '<span>' + escapeHtml(parts.join(' · ') || 'Aktif') + '</span>'
+                );
+        }
+
+        function focusLateRowsOnce() {
+            if (!shouldHighlightLatePulling || lateRowsFocused || !latePdsSet.size) return;
+
+            const $row = $('#loadingList tbody tr.is-late-pulling-row').first();
+            if (!$row.length) return;
+
+            lateRowsFocused = true;
+            setTimeout(function() {
+                $('html, body').animate({
+                    scrollTop: Math.max($row.offset().top - 140, 0)
+                }, 350);
+            }, 80);
+        }
+
         function getFilterCustomer() {
             const v = $('#customer').val();
             return (v && v !== '-- Select customer --') ? v : '';
         }
 
+        function getFilterManifest() {
+            return $('#manifest').val() || '';
+        }
+
         function getFilterCycle() {
             const v = $('#cycle').val();
             return (v && v !== '-- Select cycle --') ? v : '';
-        }
-
-        function extractPercent(value) {
-            if (value === null || value === undefined) return 0;
-            const text = $('<div>').html(String(value)).text();
-            const match = text.match(/(\d+(?:\.\d+)?)\s*%/);
-            if (match) return parseFloat(match[1]);
-            const nums = text.match(/\d+(?:\.\d+)?/g);
-            return nums && nums.length ? parseFloat(nums[nums.length - 1]) : 0;
         }
 
         function updateDashboardSummary() {
@@ -1124,7 +1321,7 @@
             let totalPct = 0;
 
             rows.forEach(function(row) {
-                const pct = extractPercent(row.progress);
+                const pct = Number(row.progress_percentage || 0);
                 totalPct += pct;
                 if (pct >= 100) complete++;
                 else if (pct > 0) progress++;
@@ -1143,11 +1340,14 @@
 
         /* Apply query-string filters on load */
         (function applyQueryStringFilters() {
-            const params = new URLSearchParams(window.location.search);
-            const customer = params.get('customer');
-            const cycle = params.get('cycle');
-            const deliveryDate = params.get('delivery_date');
+            const manifest = pageParams.get('manifest') || pageParams.get('pds_number');
+            const customer = pageParams.get('customer');
+            const cycle = pageParams.get('cycle');
+            const deliveryDate = pageParams.get('delivery_date');
 
+            if (manifest) {
+                $('#manifest').append(new Option(manifest, manifest, true, true));
+            }
             if (customer) {
                 const $match = $('#customer option').filter(function() {
                     return $(this).val() === customer;
@@ -1167,24 +1367,60 @@
             if (deliveryDate) $('#date').val(deliveryDate);
         })();
 
+        renderLatePullingContext();
+
+        $('#manifest').select2({
+            placeholder: '-- Cari manifest --',
+            allowClear: true,
+            width: 'resolve',
+            minimumInputLength: 2,
+            ajax: {
+                url: MANIFEST_URL,
+                dataType: 'json',
+                delay: 350,
+                cache: true,
+                data: function(params) {
+                    return {
+                        q: params.term || '',
+                        page: params.page || 1
+                    };
+                },
+                processResults: function(data) {
+                    return data;
+                }
+            }
+        });
+
         /* =========================================================
          * DATATABLE INIT
          * ======================================================= */
         let table = $('#loadingList').DataTable({
             scrollX: false,
-            processing: false,
+            processing: true,
             serverSide: true,
+            deferRender: true,
             ajax: {
                 url: `{{ url('dashboard/getLoadingList') }}`,
                 dataType: 'json',
                 data: function(d) {
+                    d.manifest = getFilterManifest();
                     d.customer = getFilterCustomer();
                     d.cycle = getFilterCycle();
                     d.delivery_date = $('#date').val() || '';
                 }
             },
             columns: [{
-                    data: 'pds_number'
+                    data: 'pds_number',
+                    render: function(data, type) {
+                        if (type !== 'display') return data;
+
+                        const pdsNumber = data || '-';
+                        const badge = isLatePds(pdsNumber) ?
+                            '<span class="bella-late-pulling-badge">Preparation telat</span>' : '';
+
+                        return '<span class="bella-pds-cell"><span>' + escapeHtml(pdsNumber) +
+                            '</span>' + badge + '</span>';
+                    }
                 },
                 {
                     data: 'customer'
@@ -1196,7 +1432,9 @@
                     data: 'delivery_date'
                 },
                 {
-                    data: 'progress'
+                    data: 'progress',
+                    orderable: false,
+                    searchable: false
                 },
                 {
                     data: 'loading_and_status',
@@ -1213,21 +1451,33 @@
                 [10, 25, 100],
                 [10, 25, 100]
             ],
+            pageLength: shouldHighlightLatePulling ? 100 : 10,
             stateSave: true,
             stateDuration: 60 * 60,
-            pageResize: true,
             stateSaveParams: function(settings, data) {
                 data.scrollTop = $(window).scrollTop();
             },
             stateLoadParams: function(settings, data) {
-                if (data.scrollTop) {
+                data.search.search = '';
+                data.columns.forEach(function(column) {
+                    column.search.search = '';
+                });
+                if (shouldHighlightLatePulling) {
+                    data.start = 0;
+                    data.length = 100;
+                }
+                if (data.scrollTop && !shouldHighlightLatePulling) {
                     setTimeout(function() {
                         $(window).scrollTop(data.scrollTop);
                     }, 100);
                 }
             },
+            rowCallback: function(row, data) {
+                $(row).toggleClass('is-late-pulling-row', isLatePds(data && data.pds_number));
+            },
             drawCallback: function() {
                 updateDashboardSummary();
+                focusLateRowsOnce();
             }
         });
 
@@ -1237,9 +1487,19 @@
         let autoRefreshInterval;
         let isUserInteracting = false;
         let lastInteractionTime = Date.now();
-        let lastDataHash = '';
         let lastRecordCount = 0;
         let lastPdsNumbers = [];
+        let rowRefreshInFlight = false;
+        let checkRefreshInFlight = false;
+        let refreshCount = 0;
+
+        $('#loadingList').on('xhr.dt', function(e, settings, json) {
+            if (!json) return;
+            lastRecordCount = Number(json.recordsTotal || 0);
+            lastPdsNumbers = (json.data || []).map(function(row) {
+                return row.pds_number;
+            }).filter(Boolean).slice(0, 10);
+        });
 
         function onUserInteraction() {
             isUserInteracting = true;
@@ -1254,30 +1514,16 @@
         }
 
         function refreshTableData() {
-            if (isUserInteracting) return;
-            const pageInfo = table.page.info();
+            if (isUserInteracting || document.hidden) return;
             const scrollTop = $(window).scrollTop();
-            sessionStorage.setItem('tableState', JSON.stringify({
-                page: pageInfo.page,
-                scrollTop: scrollTop,
-                timestamp: Date.now()
-            }));
-            table.draw(false);
-            setTimeout(function() {
-                const saved = JSON.parse(sessionStorage.getItem('tableState') || '{}');
-                if (saved.scrollTop && Date.now() - saved.timestamp < 1000) {
-                    $(window).scrollTop(saved.scrollTop);
-                }
-            }, 200);
+            table.ajax.reload(function() {
+                $(window).scrollTop(scrollTop);
+            }, false);
         }
 
         function smartRefresh() {
-            if (isUserInteracting) return;
-            const visiblePdsNumbers = table.rows({
-                    page: 'current'
-                }).data().toArray()
-                .map(row => row.pds_number)
-                .filter((v, i, a) => a.indexOf(v) === i);
+            if (isUserInteracting || document.hidden || checkRefreshInFlight) return;
+            checkRefreshInFlight = true;
 
             $.ajax({
                 url: `{{ url('dashboard/checkLoadingListUpdates') }}`,
@@ -1286,56 +1532,27 @@
                 data: {
                     state: {
                         pdsCount: lastRecordCount,
-                        latestPdsNumbers: lastPdsNumbers,
-                        visiblePdsNumbers: visiblePdsNumbers
+                        latestPdsNumbers: lastPdsNumbers
                     }
                 },
                 timeout: 5000,
                 success: function(response) {
-                    if (response.error) {
-                        refreshTableData();
-                        return;
-                    }
-
-                    const countMismatch = response.totalRecords !== lastRecordCount;
-                    const forceRefresh = countMismatch || (response.deletedCount && response
-                        .deletedCount > 0);
-                    if (forceRefresh) {
-                        lastRecordCount = response.totalRecords;
-                        refreshTableData();
-                        return;
-                    }
-
-                    const dataChanged = (response.dataHash && response.dataHash !== lastDataHash) ||
-                        (response.totalRecords !== lastRecordCount);
-                    const hasNewPds = response.latestPdsNumbers &&
-                        (!lastPdsNumbers || response.latestPdsNumbers.some(pds => !lastPdsNumbers
-                            .includes(pds)));
-
                     if (response.hasNewData) {
-                        lastRecordCount = response.serverPdsCount;
-                        lastPdsNumbers = response.serverLatestPds;
+                        lastRecordCount = Number(response.serverPdsCount || 0);
+                        lastPdsNumbers = response.serverLatestPds || [];
                         refreshTableData();
                     } else {
                         updateSpecificRows();
                     }
-
-                    if (dataChanged || hasNewPds) {
-                        lastDataHash = response.dataHash || '';
-                        lastRecordCount = response.totalRecords || 0;
-                        lastPdsNumbers = response.latestPdsNumbers || [];
-                        refreshTableData();
-                    }
                 },
-                error: function(xhr, status, error) {
-                    if (Math.random() < 0.1) refreshTableData();
-                    console.warn('Smart refresh check failed:', status, error);
+                complete: function() {
+                    checkRefreshInFlight = false;
                 }
             });
         }
 
         function updateSpecificRows() {
-            if (isUserInteracting) return;
+            if (isUserInteracting || document.hidden || rowRefreshInFlight) return;
             const visibleData = table.rows({
                 page: 'current'
             }).data();
@@ -1346,9 +1563,9 @@
                 }
             }
             if (visibleIds.length === 0) {
-                smartRefresh();
                 return;
             }
+            rowRefreshInFlight = true;
 
             $.ajax({
                 url: `{{ url('dashboard/getLoadingListUpdates') }}`,
@@ -1360,51 +1577,47 @@
                 dataType: 'json',
                 success: function(response) {
                     if (response.deletedRows && response.deletedRows.length > 0) {
-                        response.deletedRows.forEach(function(id) {
-                            const row = table.row('#row-' + id);
-                            if (row.any()) row.remove().draw(false);
-                        });
+                        refreshTableData();
+                        return;
                     }
                     if (response.updatedRows && response.updatedRows.length > 0) {
                         response.updatedRows.forEach(function(updatedRow) {
-                            const row = table.row('#row-' + updatedRow.id);
+                            const dataId = String(updatedRow.id || '').replace(/^row-/, '');
+                            const row = table.row(function(index, data) {
+                                return data && data.id === dataId;
+                            });
                             if (row.any()) {
                                 const rowData = row.data();
-                                if (updatedRow.progress) rowData.progress = updatedRow
-                                    .progress;
-                                if (updatedRow.detail) rowData.loading_and_status =
-                                    updatedRow.detail;
-                                row.data(rowData).draw(false);
+                                if (updatedRow.progress) rowData.progress = updatedRow.progress;
+                                rowData.progress_percentage = Number(updatedRow.progress_percentage || 0);
+                                if (updatedRow.loading_and_status) {
+                                    rowData.loading_and_status = updatedRow.loading_and_status;
+                                }
+                                rowData.updated_at = updatedRow.updated_at || rowData.updated_at;
+                                row.data(rowData);
                             }
                         });
-                    }
-                    if ((response.deletedRows && response.deletedRows.length > 0) ||
-                        (response.updatedRows && response.updatedRows.length > 0)) {
-                        table.order([3, 'desc']).draw(false);
+                        updateDashboardSummary();
                     }
                 },
-                error: function() {
-                    smartRefresh();
+                complete: function() {
+                    rowRefreshInFlight = false;
                 }
             });
         }
 
         function startAutoRefresh() {
             if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-            let refreshCount = 0;
             autoRefreshInterval = setInterval(function() {
+                if (isUserInteracting || document.hidden) return;
                 refreshCount++;
-                if (refreshCount >= 10) {
+                if (refreshCount >= 4) {
                     refreshCount = 0;
-                    refreshTableData();
+                    smartRefresh();
                     return;
                 }
-                if (typeof updateSpecificRows === 'function') {
-                    updateSpecificRows();
-                } else {
-                    smartRefresh();
-                }
-            }, 3000);
+                updateSpecificRows();
+            }, 15000);
         }
 
         /* =========================================================
@@ -1415,7 +1628,6 @@
         $(document).on('click', '.dataTables_paginate .paginate_button', onUserInteraction);
         $(document).on('change', '.dataTables_length select', onUserInteraction);
         $('#loadingList').closest('.table-responsive').on('scroll', onUserInteraction);
-        $('#manifest, #customer, #cycle, #date').on('change', onUserInteraction);
 
         /* =========================================================
          * MODAL: LOADING LISTS ACCORDION
@@ -1423,6 +1635,7 @@
         $(document).on('click', '.show-loading-lists', function() {
             const pdsNumber = $(this).data('pds');
             $('#modalPdsNumber').text(pdsNumber);
+            $('#modalLatePullingBadge').toggleClass('d-none', !isLatePds(pdsNumber));
 
             // Spinner
             $('#loadingListAccordion').html(`
@@ -1458,6 +1671,10 @@
                                 inProgressList++;
                         });
 
+                        const firstLateIndex = response.loading_lists.findIndex(function(ll) {
+                            return isLateLoadingList(ll.number);
+                        });
+
                         html += `
                         <div class="loading-detail-toolbar">
                             <input type="text" class="loading-detail-search" id="loadingDetailSearch" placeholder="Search loading list, customer, cycle, or date...">
@@ -1473,6 +1690,14 @@
 
                         response.loading_lists.forEach(function(ll, index) {
                             const collapseId = 'acc-collapse-' + index;
+                            const isLateDetail = isLateLoadingList(ll.number);
+                            const isOpen = firstLateIndex >= 0 ? index === firstLateIndex : index === 0;
+                            const lateClass = isLateDetail ? ' is-late-pulling-detail' : '';
+                            const lateBadge = isLateDetail ?
+                                '<span class="bella-late-pulling-badge">Preparation telat</span>' : '';
+                            const lateNote = isLateDetail ?
+                                '<div class="bella-late-detail-note"><i class="fas fa-exclamation-circle"></i>Pulling sudah lewat batas preparation.</div>' :
+                                '';
                             const pct = ll.total_kanban > 0 ?
                                 Math.round((ll.actual_kanban / ll.total_kanban) *
                                     100) : 0;
@@ -1494,37 +1719,39 @@
                             }
 
                             html += `
-                            <div class="bella-acc-item" data-keywords="${String(ll.number || '').toLowerCase()} ${String(ll.customer_name || '').toLowerCase()} ${String(ll.cycle || '').toLowerCase()} ${String(ll.delivery_date || '').toLowerCase()}">
-                                <div class="accordion-header compact ${index === 0 ? 'open' : ''}" data-target="${collapseId}">
+                            <div class="bella-acc-item${lateClass}" data-keywords="${escapeAttr(String(ll.number || '').toLowerCase() + ' ' + String(ll.customer_name || '').toLowerCase() + ' ' + String(ll.cycle || '').toLowerCase() + ' ' + String(ll.delivery_date || '').toLowerCase())}">
+                                <div class="accordion-header compact ${isOpen ? 'open' : ''}" data-target="${collapseId}">
                                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                                        <span class="acc-title-text">${ll.number}</span>
+                                        <span class="acc-title-text">${escapeHtml(ll.number || '-')}</span>
                                         <span class="${statusClass}">${statusText}</span>
+                                        ${lateBadge}
                                     </div>
                                     <div class="acc-meta-right">
-                                        <span class="acc-kanban-count">${ll.actual_kanban} / ${ll.total_kanban}</span>
+                                        <span class="acc-kanban-count">${escapeHtml(ll.actual_kanban || 0)} / ${escapeHtml(ll.total_kanban || 0)}</span>
                                         <div class="acc-mini-prog">
                                             <div class="acc-mini-prog-fill" style="width:${pct}%;background:${progColor};"></div>
                                         </div>
                                         <i class="fas fa-chevron-down acc-chevron-icon"></i>
                                     </div>
                                 </div>
-                                <div class="acc-body-content" id="${collapseId}" style="${index === 0 ? 'display:block;' : ''}">
+                                <div class="acc-body-content" id="${collapseId}" style="${isOpen ? 'display:block;' : ''}">
+                                    ${lateNote}
                                     <div class="quick-view-grid">
                                         <div class="quick-view-item">
                                             <label>Loading List</label>
-                                            <strong>${ll.number}</strong>
+                                            <strong>${escapeHtml(ll.number || '-')}</strong>
                                         </div>
                                         <div class="quick-view-item">
                                             <label>Customer</label>
-                                            <strong>${ll.customer_name || 'Not specified'}</strong>
+                                            <strong>${escapeHtml(ll.customer_name || 'Not specified')}</strong>
                                         </div>
                                         <div class="quick-view-item">
                                             <label>Cycle</label>
-                                            <strong>${ll.cycle || 'Not specified'}</strong>
+                                            <strong>${escapeHtml(ll.cycle || 'Not specified')}</strong>
                                         </div>
                                         <div class="quick-view-item">
                                             <label>Delivery Date</label>
-                                            <strong>${ll.delivery_date || 'Not specified'}</strong>
+                                            <strong>${escapeHtml(ll.delivery_date || 'Not specified')}</strong>
                                         </div>
                                     </div>
                                     <div class="acc-prog-section">
@@ -1536,10 +1763,11 @@
                                             <div class="acc-prog-bar-fill" style="width:${pct}%;background:${progColor};"></div>
                                         </div>
                                     </div>
-                                    <div style="text-align:right;margin-top:4px;">
+                                    <div style="text-align:right;margin-top:4px;display:flex;gap:8px;justify-content:flex-end;">
                                         <a href="/loading-list/${ll.id}" class="bella-btn bella-btn-primary bella-btn-sm">
                                             <i class="fas fa-eye"></i> View Details
                                         </a>
+                                        ${canManage ? `<button type="button" class="bella-btn bella-btn-danger bella-btn-sm delete-loading-list" data-id="${ll.id}" data-number="${String(ll.number || '').replace(/"/g, '&quot;')}"><i class="fas fa-trash"></i> Hapus</button>` : ''}
                                     </div>
                                 </div>
                             </div>`;
@@ -1555,6 +1783,11 @@
                     }
 
                     $('#loadingListAccordion').html(html);
+                    const $firstLateDetail = $('#loadingListAccordion .bella-acc-item.is-late-pulling-detail')
+                        .first();
+                    if ($firstLateDetail.length) {
+                        $('#loadingListScrollArea').scrollTop(Math.max($firstLateDetail.position().top - 8, 0));
+                    }
 
                     // Accordion toggle
                     $(document).off('click', '.accordion-header').on('click',
@@ -1598,27 +1831,102 @@
         });
 
         /* =========================================================
+         * MODAL: DELETE LOADING LIST
+         * ======================================================= */
+        $(document).on('click', '.delete-loading-list', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const $btn = $(this);
+            const id = $btn.data('id');
+            const number = $btn.data('number');
+
+            const esc = function(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+                });
+            };
+
+            Swal.fire({
+                title: 'Hapus loading list?',
+                html: 'Ketik nomor <strong>' + esc(number) + '</strong> untuk konfirmasi.<br>' +
+                    '<span style="color:#64748b;font-size:13px;">Semua detail kanban-nya ikut terhapus dan tidak bisa dikembalikan.</span>',
+                icon: 'warning',
+                input: 'text',
+                inputPlaceholder: 'Masukkan nomor loading list',
+                inputAttributes: {
+                    autocapitalize: 'off',
+                    autocorrect: 'off',
+                    autocomplete: 'off',
+                    spellcheck: 'false'
+                },
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, hapus',
+                cancelButtonText: 'Batal',
+                preConfirm: function(value) {
+                    if (String(value || '').trim() !== String(number).trim()) {
+                        Swal.showValidationMessage('Nomor loading list tidak cocok.');
+                        return false;
+                    }
+                    return true;
+                }
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menghapus...');
+
+                $.ajax({
+                    url: `{{ url('loading-list') }}/${id}`,
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    dataType: 'json',
+                    success: function(res) {
+                        if (res && res.status === 'success') {
+                            $btn.closest('.bella-acc-item').remove();
+                            table.draw(false); // refresh tabel utama (progress & jumlah PDS)
+                            $('#loadingListModal').modal('hide'); // tutup modal detail setelah hapus
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Terhapus',
+                                text: res.message || 'Loading list berhasil dihapus.',
+                                timer: 1600,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire('Gagal', (res && res.message) || 'Gagal menghapus loading list.', 'error');
+                            $btn.prop('disabled', false).html('<i class="fas fa-trash"></i> Hapus');
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Gagal', (xhr.responseJSON && xhr.responseJSON.message) || 'Gagal menghapus loading list.', 'error');
+                        $btn.prop('disabled', false).html('<i class="fas fa-trash"></i> Hapus');
+                    }
+                });
+            });
+        });
+
+        /* =========================================================
          * FILTER HANDLERS
          * ======================================================= */
-        $('#manifest').on('change', function() {
-            table.column(0).search($(this).val() || '').draw();
-        });
-        $('#customer').on('change', function() {
-            table.column(1).search($(this).val() || '').draw();
-        });
-        $('#cycle').on('change', function() {
-            table.column(2).search($(this).val() || '').draw();
-        });
-        $('#date').on('change', function() {
-            table.column(3).search($(this).val() || '').draw();
+        $('#manifest, #customer, #cycle, #date').on('change', function() {
+            onUserInteraction();
+            table.ajax.reload(null, true);
         });
 
         $('#reset').on('click', function() {
-            $('#cycle').val('-- Select cycle --').trigger('change');
-            $('#customer').val('-- Select customer --').trigger('change');
-            $('#manifest').val(null).trigger('change'); // select2 reset
-            $('#date').val('').trigger('change');
+            $('#cycle, #customer').prop('selectedIndex', 0);
+            $('#manifest').val(null).trigger('change.select2');
+            $('#date').val('');
+            table.search('').columns().search('');
             onUserInteraction();
+            table.ajax.reload(null, true);
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && !isUserInteracting) updateSpecificRows();
         });
 
         /* =========================================================
@@ -1633,3 +1941,4 @@
         startAutoRefresh();
     });
 </script>
+@endpush

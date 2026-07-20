@@ -99,6 +99,15 @@
             box-shadow: 0 0 0 3px rgba(220, 38, 38, .10) !important;
         }
 
+        .pis-row .form-group.is-invalid-group label {
+            color: #dc2626 !important;
+        }
+
+        select.is-invalid+.select2-container .select2-selection--single {
+            border-color: #dc2626 !important;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, .10) !important;
+        }
+
         .part_number_customer_group,
         .back_number_group,
         .qty_group,
@@ -333,7 +342,7 @@
                         <div class="pis-row">
                             <div class="form-group part_number_customer_group">
                                 <label for="part_number_customer">Part Number Customer <span
-                                        class="text-danger">*</span></label>
+                                        class="text-danger">(*required)</span></label>
                                 <input type="text" class="form-control" id="part_number_customer"
                                     name="part_number_customer" placeholder="Part Number Customer"
                                     value="{{ $part_pis->part_number_customer ?? '' }}"
@@ -341,21 +350,21 @@
                             </div>
 
                             <div class="form-group back_number_group">
-                                <label for="back_number">Back No <span class="text-danger">*</span></label>
+                                <label for="back_number">Back No <span class="text-danger">(*required)</span></label>
                                 <input type="text" class="form-control" id="back_number" name="back_number"
                                     placeholder="Back No" value="{{ $part_pis->back_number ?? '' }}"
                                     onkeyup="this.value = this.value.toUpperCase()" autocomplete="off" required>
                             </div>
 
                             <div class="form-group qty_group">
-                                <label for="qty_kanban">Qty <span class="text-danger">*</span></label>
+                                <label for="qty_kanban">Qty <span class="text-danger">(*required)</span></label>
                                 <input type="number" class="form-control" id="qty_kanban" name="qty_kanban"
                                     placeholder="Qty" value="{{ $part_pis->qty_kanban ?? '' }}" min="1"
                                     autocomplete="off" required>
                             </div>
 
                             <div class="form-group part_kind_group">
-                                <label for="part_kind">Type <span class="text-danger">*</span></label>
+                                <label for="part_kind">Type <span class="text-danger">(*required)</span></label>
                                 <select class="form-control" id="part_kind" name="part_kind" required>
                                     <option value="">-- Select Type --</option>
                                     <option value="OEM"
@@ -368,7 +377,7 @@
                             </div>
 
                             <div class="form-group part_dock_group">
-                                <label for="part_dock">Destination <span class="text-danger">*</span></label>
+                                <label for="part_dock">Destination <span class="text-danger">(*required)</span></label>
                                 <select class="form-control" id="part_dock" name="part_dock" required>
                                     <option value="">-- Select Destination --</option>
                                     <option value="TMMIN SPD"
@@ -432,10 +441,10 @@
                             </div>
 
                             <div class="form-group pis_picture_group">
-                                <label for="part_picture">Picture (.JPG, .JPEG, .PNG)</label>
+                                <label for="part_picture">Picture (.JPG, .JPEG, .PNG, .WEBP)</label>
                                 <div class="custom-file">
                                     <input type="file" class="custom-file-input" id="part_picture"
-                                        name="part_picture" accept=".jpg,.jpeg,.png" onchange="previewImage(event)">
+                                        name="part_picture" accept=".jpg,.jpeg,.png,.webp" onchange="previewImage(event)">
                                     <label class="custom-file-label" for="part_picture">Choose file</label>
                                 </div>
                                 <small class="form-text text-muted" style="font-size:11px;">Leave empty to keep current
@@ -448,9 +457,9 @@
                                 <div class="pis-preview-box">
                                     <label class="pis-preview-label"><i class="fas fa-eye mr-1"></i>Current Image</label>
                                     <div class="pis-preview-image-wrap">
-                                        <img src="{{ asset('storage/pis/' . $part_pis->img_path) }}"
+                                        <img src="{{ url('/pis/storage-image') }}?f={{ rawurlencode($part_pis->img_path) }}"
                                             alt="Current PIS Image"
-                                            onerror="this.src='{{ asset('storage/pis/default.JPG') }}'">
+                                            onerror="this.src='{{ url('/pis/storage-image') }}?f={{ rawurlencode('default.JPG') }}'">
                                     </div>
                                 </div>
                             @endif
@@ -465,10 +474,10 @@
                         </div>
 
                         <div class="form-action-bar">
-                            <a href="{{ route('pis.master') }}" class="act-btn secondary"
+                            <!-- <a href="{{ route('pis.master') }}" class="act-btn secondary"
                                 style="height:32px; padding:0 14px; font-size:12px;">
                                 <i class="fas fa-times"></i> Cancel
-                            </a>
+                            </a> -->
                             <div class="form-action-right">
                                 <button type="reset" class="act-btn warning-outline" onclick="resetPreview()"
                                     style="height:32px; padding:0 14px; font-size:12px;">
@@ -498,6 +507,12 @@
 @endsection
 
 @section('custom-script')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .swal2-container {
+            z-index: 9999 !important;
+        }
+    </style>
     <link rel="stylesheet" type="text/css" href="{{ url('/css/select2.min.css') }}">
     <script type="text/javascript" src="{{ url('/plugins/select2.js') }}"></script>
 
@@ -514,33 +529,86 @@
                 $(this).siblings('.custom-file-label').addClass('selected').html(fileName || 'Choose file');
             });
 
-            $('#updatePisForm').on('submit', function(e) {
-                var isValid = true;
+            function markUpdateFieldInvalid($field) {
+                $field.addClass('is-invalid');
+                $field.closest('.form-group').addClass('is-invalid-group');
+            }
 
-                $(this).find('[required]').each(function() {
-                    if (!$(this).val()) {
-                        isValid = false;
-                        $(this).addClass('is-invalid');
+            function clearUpdateFieldInvalid($field) {
+                $field.removeClass('is-invalid');
+                $field.closest('.form-group').removeClass('is-invalid-group');
+            }
+
+            function scrollToUpdateField($field) {
+                var $target = $field;
+                if ($field.hasClass('select2-hidden-accessible')) {
+                    $target = $field.next('.select2-container');
+                }
+
+                $('html, body').animate({
+                    scrollTop: $target.offset().top - 120
+                }, 300);
+
+                setTimeout(function() {
+                    if ($field.hasClass('select2-hidden-accessible')) {
+                        $field.select2('open');
                     } else {
-                        $(this).removeClass('is-invalid');
+                        $field.trigger('focus');
+                    }
+                }, 320);
+            }
+
+            $('#updatePisForm').on('submit', function(e) {
+                var $form = $(this);
+                var $firstInvalid = null;
+                var firstInvalidLabel = '';
+
+                $form.find('[required]').each(function() {
+                    var $field = $(this);
+                    var isEmpty = $field.is('select') ? !$field.val() : !$.trim($field.val() || '');
+
+                    if (isEmpty) {
+                        markUpdateFieldInvalid($field);
+                        if (!$firstInvalid) {
+                            $firstInvalid = $field;
+                            firstInvalidLabel = $field.closest('.form-group').find('label').text()
+                                .replace(/\(\*required\)/gi, '').trim();
+                        }
+                    } else {
+                        clearUpdateFieldInvalid($field);
                     }
                 });
 
-                if (!isValid) {
+                if ($firstInvalid) {
                     e.preventDefault();
-                    alert('Please fill in all required fields marked with *');
+                    scrollToUpdateField($firstInvalid);
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Form Tidak Lengkap',
+                        text: 'Field "' + firstInvalidLabel + '" wajib diisi.'
+                    });
                     return false;
                 }
             });
 
             $('input, select').on('input change', function() {
-                $(this).removeClass('is-invalid');
+                clearUpdateFieldInvalid($(this));
             });
         });
 
         function previewImage(event) {
             const file = event.target.files[0];
             if (file) {
+                if (!file.type.match('image.*')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Invalid File',
+                        text: 'File yang diupload harus berupa gambar (.JPG, .JPEG, .PNG, .WEBP)!'
+                    });
+                    event.target.value = '';
+                    resetPreview();
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     $('#previewImg').attr('src', e.target.result);

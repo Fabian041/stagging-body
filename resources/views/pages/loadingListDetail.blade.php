@@ -107,6 +107,55 @@
             line-height: 1.2;
         }
 
+        .prep-context-field.is-late {
+            border-color: #fecaca;
+            background: #fff5f5;
+        }
+
+        .prep-context-field.is-safe {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+
+        .prep-status-chip,
+        .prep-delta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            width: fit-content;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-size: 10.5px;
+            font-weight: 850;
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+
+        .prep-status-chip {
+            padding: 4px 7px;
+        }
+
+        .prep-delta-chip {
+            margin-top: 4px;
+            padding: 3px 6px;
+        }
+
+        .prep-status-chip.is-safe,
+        .prep-delta-chip.is-safe {
+            border-color: #bbf7d0;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .prep-status-chip.is-late,
+        .prep-delta-chip.is-late {
+            border-color: #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
         /* ===== TABLE CARD ===== */
         .bella-table-card {
             background: var(--card);
@@ -375,7 +424,36 @@
 
         .compare-controls {
             display: flex;
+            align-items: center;
             gap: 8px;
+        }
+
+        .compare-download-btn {
+            height: 32px;
+            border: 1px solid #bfdbfe;
+            border-radius: var(--r-sm);
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 11.5px;
+            font-weight: 800;
+            padding: 0 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            white-space: nowrap;
+            transition: .15s;
+        }
+
+        .compare-download-btn:hover:not(:disabled) {
+            background: #dbeafe;
+            border-color: #93c5fd;
+        }
+
+        .compare-download-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
         }
 
         .compare-search-wrap {
@@ -482,6 +560,41 @@
             font-size: 11px;
             color: var(--text-muted);
             margin-top: 8px;
+        }
+
+        .compare-prep-context {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .compare-prep-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card);
+            padding: 9px 10px;
+        }
+
+        .compare-prep-item span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 9.5px;
+            font-weight: 850;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .compare-prep-item strong {
+            display: block;
+            color: var(--navy);
+            font-size: 12.5px;
+            font-weight: 900;
+        }
+
+        .compare-table tbody tr.is-prep-late-row td {
+            background: #fff5f5;
         }
 
         /* Serial mono */
@@ -862,27 +975,6 @@
                 grid-template-columns: 1fr 1fr;
             }
 
-            .bella-info-field:nth-child(2n) {
-                border-right: none;
-            }
-
-            .bella-info-field:nth-child(3n) {
-                border-right: 1px solid var(--border);
-            }
-
-            .bella-info-field:nth-child(3n):nth-child(even) {
-                border-right: none;
-            }
-
-            .bella-info-field:nth-child(5),
-            .bella-info-field:nth-child(6) {
-                border-bottom: none;
-            }
-
-            .bella-info-field:nth-child(4) {
-                border-bottom: 1px solid var(--border);
-            }
-
             .compare-toolbar {
                 flex-direction: column;
                 align-items: stretch;
@@ -890,6 +982,17 @@
 
             .compare-controls {
                 flex-direction: column;
+                align-items: stretch;
+            }
+
+            .compare-download-btn,
+            .compare-search-wrap,
+            .compare-filter-select {
+                width: 100%;
+            }
+
+            .compare-prep-context {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -934,6 +1037,12 @@
         }
     </style>
 
+    @php
+        $prepContext = $prepContext ?? [];
+        $prepStatus = $prepContext['status'] ?? 'unknown';
+        $prepStatusClass = in_array($prepStatus, ['safe', 'late'], true) ? 'is-' . $prepStatus : '';
+    @endphp
+
     {{-- ===== INFO CARD ===== --}}
     <div class="bella-info-card">
         <div class="bella-info-card-header">
@@ -959,7 +1068,7 @@
                     <div class="bella-info-icon"><i class="fas fa-building"></i></div>
                     <div class="bella-info-text">
                         <label>Customer</label>
-                        <span class="info-val">{{ $loadingListDetail->name }}</span>
+                        <span class="info-val">{{ optional($loadingListDetail->customer)->name ?? '-' }}</span>
                     </div>
                 </div>
                 <div class="bella-info-field">
@@ -984,6 +1093,35 @@
                     <div class="bella-info-text">
                         <label>Cycle</label>
                         <span class="info-val">{{ $loadingListDetail->cycle }}</span>
+                    </div>
+                </div>
+                <div class="bella-info-field">
+                    <div class="bella-info-icon" style="background:#E0F2FE;"><i class="fas fa-hourglass-half"
+                            style="color:var(--sky);"></i></div>
+                    <div class="bella-info-text">
+                        <label>Preparation Deadline</label>
+                        <span class="info-val">{{ $prepContext['deadline_label'] ?? '-' }}</span>
+                    </div>
+                </div>
+                <div class="bella-info-field">
+                    <div class="bella-info-icon" style="background:#EEF2FF;"><i class="fas fa-clock"
+                            style="color:var(--navy);"></i></div>
+                    <div class="bella-info-text">
+                        <label>Pulling Time</label>
+                        <span class="info-val">{{ $prepContext['pulling_label'] ?? '-' }}</span>
+                    </div>
+                </div>
+                <div class="bella-info-field prep-context-field {{ $prepStatusClass }}">
+                    <div class="bella-info-icon" style="background:#F8FAFC;"><i class="fas fa-stopwatch"
+                            style="color:var(--text-muted);"></i></div>
+                    <div class="bella-info-text">
+                        <label>Delta Preparation</label>
+                        <span class="info-val">
+                            <span class="prep-status-chip {{ $prepStatusClass }}">
+                                {{ $prepContext['delta_label'] ?? '-' }}
+                                {{ $prepContext['status_label'] ?? '' }}
+                            </span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1070,6 +1208,10 @@
                 <div class="compare-toolbar">
                     <span class="compare-meta" id="compareMeta"></span>
                     <div class="compare-controls">
+                        <button type="button" class="compare-download-btn" id="compareDownload" disabled>
+                            <i class="fas fa-file-excel"></i>
+                            Download
+                        </button>
                         <div class="compare-search-wrap">
                             <i class="fas fa-search"></i>
                             <input type="text" id="compareSearch" placeholder="Cari serial / tanggal / qty...">
@@ -1079,7 +1221,28 @@
                             <option value="match">Match</option>
                             <option value="missing_prod">Missing Production</option>
                             <option value="missing_pull">Missing Pulling</option>
+                            <option value="late_pull">Pulling Telat</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="compare-prep-context" id="comparePrepContext">
+                    <div class="compare-prep-item">
+                        <span>Preparation Deadline</span>
+                        <strong id="comparePrepDeadline">{{ $prepContext['deadline_label'] ?? '-' }}</strong>
+                    </div>
+                    <div class="compare-prep-item">
+                        <span>Latest Pulling</span>
+                        <strong id="comparePrepPulling">{{ $prepContext['pulling_label'] ?? '-' }}</strong>
+                    </div>
+                    <div class="compare-prep-item">
+                        <span>Delta</span>
+                        <strong>
+                            <span class="prep-status-chip {{ $prepStatusClass }}" id="comparePrepDelta">
+                                {{ $prepContext['delta_label'] ?? '-' }}
+                                {{ $prepContext['status_label'] ?? '' }}
+                            </span>
+                        </strong>
                     </div>
                 </div>
 
@@ -1101,7 +1264,8 @@
 
                 <p class="compare-note">
                     <i class="fas fa-info-circle" style="margin-right:4px;"></i>
-                    "Missing Production" artinya serial ada di pulling (checkout), tapi supply sebelumnya tidak ketemu.
+                    Delta dihitung dari waktu pulling dikurangi Preparation Deadline. "Missing Production" artinya serial ada
+                    di pulling (checkout), tapi supply sebelumnya tidak ketemu.
                 </p>
             </div>
 
@@ -1113,16 +1277,13 @@
     </div>
 </div>
 
-{{-- Scripts --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
-<script src="https://code.jquery.com/jquery-3.6.3.min.js"
-    integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
-<script src="{{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.js') }}"></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
+@push('scripts')
 <script>
     $(document).ready(function() {
         const loadingList = "{{ $loadingListId }}";
+        const loadingListNumber = @json($loadingListDetail->number ?? 'loading-list');
+        const pdsNumber = @json($loadingListDetail->pds_number ?? 'pds');
+        const pagePrepContext = @json($prepContext);
         const requestOptions = {
             method: 'GET',
             headers: {
@@ -1204,10 +1365,6 @@
         /* =========================================================
          * HELPERS
          * ======================================================= */
-        function decodeEscapedBr(s) {
-            return String(s || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
-        }
-
         function isMaskedSerial(serial) {
             if (!serial) return true;
             const s = String(serial).trim().toLowerCase();
@@ -1217,34 +1374,61 @@
             return false;
         }
 
-        function extractSerialFromText(text) {
-            const m = String(text).match(/\[([^\]]+)\]/);
-            const serial = m ? m[1].trim() : null;
-            if (!serial) return null;
-            if (isMaskedSerial(serial)) return null;
-            return serial;
+        function prepDeltaClass(status) {
+            if (status === 'safe') return 'is-safe';
+            if (status === 'late') return 'is-late';
+            return '';
         }
 
-        function parseMutationHtml(html) {
-            if (!html) return [];
-            const s = decodeEscapedBr(html);
-            const tmp = document.createElement('div');
-            tmp.innerHTML = s;
-            const nodes = tmp.querySelectorAll('span.mline');
-            const arr = [];
-            nodes.forEach(n => {
-                const mid = n.getAttribute('data-mid') || '';
-                const text = (n.textContent || '').trim();
-                if (!text || text.toUpperCase() === 'N/A') return;
-                const serial = extractSerialFromText(text);
-                if (!serial) return;
-                arr.push({
-                    mid,
-                    serial,
-                    text
-                });
-            });
-            return arr;
+        function prepDeltaText(item) {
+            if (!item) return '';
+            const label = item.prepDeltaLabel || item.prep_delta_label || '';
+            const status = item.prepStatusLabel || item.prep_status_label || '';
+            if (!label || label === '-') return '';
+            return `${label} ${status}`.trim();
+        }
+
+        function renderMutationRows(items, showPrepDelta = false) {
+            if (!items || !items.length) return '';
+
+            return items.map(item => {
+                const delta = showPrepDelta ? prepDeltaText(item) : '';
+                const deltaHtml = delta ?
+                    `<span class="prep-delta-chip ${prepDeltaClass(item.prepStatus)}">${escapeHtml(delta)}</span>` :
+                    '';
+
+                return `<div class="mut-row">${escapeHtml(item.text)}${deltaHtml}</div>`;
+            }).join('');
+        }
+
+        function updateComparePrepContext(ctx) {
+            ctx = ctx || pagePrepContext || {};
+            compareCtx.prepContext = ctx;
+            const statusClass = prepDeltaClass(ctx.status);
+            const deltaText = `${ctx.delta_label || '-'} ${ctx.status_label || ''}`.trim();
+
+            $('#comparePrepDeadline').text(ctx.deadline_label || '-');
+            $('#comparePrepPulling').text(ctx.pulling_label || '-');
+            $('#comparePrepDelta')
+                .removeClass('is-safe is-late')
+                .addClass(statusClass)
+                .text(deltaText || '-');
+        }
+
+        function mutationItem(item) {
+            const serial = String(item.serial_number || '').trim();
+            if (!serial || isMaskedSerial(serial)) return null;
+            const deltaText = prepDeltaText(item);
+
+            return {
+                mid: item.id || '',
+                serial,
+                text: `[${serial}] - [${item.date || 'N/A'}] (qty: ${item.qty || 0})`,
+                prepStatus: item.prep_status || 'unknown',
+                prepStatusLabel: item.prep_status_label || '',
+                prepDeltaLabel: item.prep_delta_label || '',
+                deltaText
+            };
         }
 
         function groupBySerial(items) {
@@ -1261,7 +1445,9 @@
          * ======================================================= */
         let compareData = [];
         let compareCtx = {
-            detailId: null
+            detailId: null,
+            partLabel: '-',
+            prepContext: pagePrepContext || {}
         };
 
         function statusBadgeClass(status) {
@@ -1276,30 +1462,45 @@
             return 'Missing Pulling';
         }
 
-        function rebuildCompareRows(filterText = '', filterMode = 'all') {
+        function compareHasLatePulling(item) {
+            return (item.pullItems || []).some(x => x.prepStatus === 'late');
+        }
+
+        function filteredCompareRows(filterText = '', filterMode = 'all') {
             const q = (filterText || '').toLowerCase();
+
+            return compareData.filter(item => {
+                const prodText = (item.prodItems || []).map(x => x.text).join(' ');
+                const pullText = (item.pullItems || []).map(x => `${x.text} ${x.deltaText || ''}`).join(' ');
+                const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
+                const hasLatePulling = compareHasLatePulling(item);
+
+                if (q && !joined.includes(q)) return false;
+                if (filterMode === 'match' && item.status !== 'MATCH') return false;
+                if (filterMode === 'missing_prod' && item.status !== 'MISSING_PROD') return false;
+                if (filterMode === 'missing_pull' && item.status !== 'MISSING_PULL') return false;
+                if (filterMode === 'late_pull' && !hasLatePulling) return false;
+
+                return true;
+            });
+        }
+
+        function rebuildCompareRows(filterText = '', filterMode = 'all') {
             const tbody = $('#compareTbody');
+            const rows = filteredCompareRows(filterText, filterMode);
             tbody.empty();
             let shown = 0;
 
-            compareData.forEach(item => {
-                const prodText = (item.prodItems || []).map(x => x.text).join(' ');
-                const pullText = (item.pullItems || []).map(x => x.text).join(' ');
-                const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
-
-                if (q && !joined.includes(q)) return;
-                if (filterMode === 'match' && item.status !== 'MATCH') return;
-                if (filterMode === 'missing_prod' && item.status !== 'MISSING_PROD') return;
-                if (filterMode === 'missing_pull' && item.status !== 'MISSING_PULL') return;
-
+            rows.forEach(item => {
+                const hasLatePulling = compareHasLatePulling(item);
                 shown++;
 
                 const prodHtml = (item.prodItems && item.prodItems.length) ?
-                    item.prodItems.map(x => `<div class="mut-row">${x.text}</div>`).join('') :
+                    renderMutationRows(item.prodItems) :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
                 const pullHtml = (item.pullItems && item.pullItems.length) ?
-                    item.pullItems.map(x => `<div class="mut-row">${x.text}</div>`).join('') :
+                    renderMutationRows(item.pullItems, true) :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
                 const actionHtml = (item.pullItems && item.pullItems.length) ?
@@ -1308,13 +1509,13 @@
                             return `<div class="mut-row"><button class="act-btn" disabled style="opacity:.4;">Delete</button></div>`;
                         return `<div class="mut-row">
                             <button class="act-btn danger btn-del-pulling-mutation"
-                                data-mid="${x.mid}" data-serial="${item.serial}">Delete</button>
+                                data-mid="${x.mid}" data-serial="${escapeHtml(item.serial)}">Delete</button>
                         </div>`;
                     }).join('') :
                     '';
 
                 tbody.append(`
-                    <tr>
+                    <tr class="${hasLatePulling ? 'is-prep-late-row' : ''}">
                         <td style="text-align:center;">${shown}</td>
                         <td><span class="serial-mono">${item.serial}</span></td>
                         <td>${prodHtml}</td>
@@ -1332,6 +1533,76 @@
             }
 
             $('#compareMeta').text(`Shown: ${shown} / Total serial: ${compareData.length}`);
+            $('#compareDownload').prop('disabled', shown === 0);
+        }
+
+        function csvMutationText(items) {
+            return (items || [])
+                .map(item => [item.text, item.deltaText].filter(Boolean).join(' '))
+                .join(' | ');
+        }
+
+        function safeFilePart(value) {
+            return String(value || 'compare')
+                .trim()
+                .replace(/[^a-z0-9._-]+/gi, '-')
+                .replace(/^-+|-+$/g, '') || 'compare';
+        }
+
+        function downloadCompareTable() {
+            const rows = filteredCompareRows($('#compareSearch').val(), $('#compareFilter').val());
+            if (!rows.length) {
+                notif('error', 'Tidak ada data compare untuk didownload.');
+                return;
+            }
+
+            const prep = compareCtx.prepContext || {};
+            const headers = ['No', 'Serial', 'Production', 'Pulling', 'Status', 'Pulling Telat Preparation'];
+
+            const bodyRows = rows.map((item, index) => `
+                <tr>
+                    <td style="text-align:center;">${index + 1}</td>
+                    <td>${escapeHtml(item.serial)}</td>
+                    <td>${escapeHtml(csvMutationText(item.prodItems))}</td>
+                    <td>${escapeHtml(csvMutationText(item.pullItems))}</td>
+                    <td>${escapeHtml(statusLabel(item.status))}</td>
+                    <td style="text-align:center;">${compareHasLatePulling(item) ? 'Ya' : 'Tidak'}</td>
+                </tr>`).join('');
+
+            const deltaText = `${prep.delta_label || '-'} ${prep.status_label || ''}`.trim();
+            const html =
+                `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head><meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, Helvetica, sans-serif; color: #1a2340; }
+                    h3 { margin: 0 0 4px; }
+                    .meta { font-size: 12px; color: #555; margin: 2px 0; }
+                    table { border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+                    th, td { border: 1px solid #b7c0d0; padding: 6px 9px; vertical-align: top; text-align: left; }
+                    th { background: #1f3b82; color: #ffffff; font-weight: bold; text-align: center; }
+                    tr:nth-child(even) td { background: #f4f7fb; }
+                </style></head>
+                <body>
+                    <h3>Compare Pulling vs Production</h3>
+                    <div class="meta">Loading List: ${escapeHtml(loadingListNumber)} &nbsp;|&nbsp; PDS: ${escapeHtml(pdsNumber)} &nbsp;|&nbsp; Part: ${escapeHtml(compareCtx.partLabel)}</div>
+                    <div class="meta">Preparation Deadline: ${escapeHtml(prep.deadline_label || '-')} &nbsp;|&nbsp; Latest Pulling: ${escapeHtml(prep.pulling_label || '-')} &nbsp;|&nbsp; Delta: ${escapeHtml(deltaText || '-')}</div>
+                    <table>
+                        <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                </body></html>`;
+
+            const blob = new Blob(['\ufeff' + html], {
+                type: 'application/vnd.ms-excel;charset=utf-8;'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `compare-kanban-${safeFilePart(loadingListNumber)}-${safeFilePart(compareCtx.partLabel)}.xls`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
 
         /* =========================================================
@@ -1339,7 +1610,7 @@
          * ======================================================= */
         let table = $('#loadingList').DataTable({
             scrollX: false,
-            processing: false,
+            processing: true,
             serverSide: false,
             ajax: {
                 url: `{{ url('dashboard/getLoadingListDetail') }}` + '/' + loadingList,
@@ -1405,9 +1676,14 @@
                     }
                 },
                 {
-                    data: 'edit',
+                    data: null,
                     orderable: false,
-                    searchable: false
+                    searchable: false,
+                    render: function() {
+                        return `<button class="btn btn-icon btn-primary edit"><i class="far fa-edit"></i></button>
+                            <button class="btn btn-icon btn-success save mb-1" style="display:none"><i class="fas fa-check"></i></button>
+                            <button class="btn btn-icon btn-danger cancel" style="display:none"><i class="fas fa-times"></i></button>`;
+                    }
                 },
             ],
             lengthMenu: [
@@ -1433,35 +1709,65 @@
          * COMPARE CLICK
          * ======================================================= */
         $(document).on('click', '.btn-compare', function() {
+            const button = $(this);
             const tr = $(this).closest('tr');
             const row = table.row(tr).data();
 
             compareCtx.detailId = row.id;
-
-            const pullItems = parseMutationHtml(row.pulling_date);
-            const prodItems = parseMutationHtml(row.prod_date);
-            const pullMap = groupBySerial(pullItems);
-            const prodMap = groupBySerial(prodItems);
-            const serials = Array.from(new Set([...pullMap.keys(), ...prodMap.keys()])).sort();
-
-            compareData = serials.map(serial => {
-                const pItems = pullMap.get(serial) || [];
-                const dItems = prodMap.get(serial) || [];
-                let status = 'MATCH';
-                if (pItems.length && !dItems.length) status = 'MISSING_PROD';
-                else if (dItems.length && !pItems.length) status = 'MISSING_PULL';
-                return {
-                    serial,
-                    prodItems: dItems,
-                    pullItems: pItems,
-                    status
-                };
-            });
-
+            compareCtx.partLabel = `${plainCellValue(row.cust_partno)}_${plainCellValue(row.int_partno)}`;
+            compareData = [];
             $('#compareSearch').val('');
             $('#compareFilter').val('all');
-            rebuildCompareRows('', 'all');
+            $('#compareDownload').prop('disabled', true);
+            $('#compareMeta').text('Loading comparison...');
+            updateComparePrepContext(pagePrepContext);
+            $('#compareTbody').html(
+                '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Loading data...</td></tr>'
+            );
             $('#compareModal').modal('show');
+
+            button.prop('disabled', true).text('Loading...');
+            $.ajax({
+                url: `/loading-list-detail/${row.id}/comparison`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    updateComparePrepContext(response.prep_context || pagePrepContext);
+                    const pullItems = (response.pulling || []).map(mutationItem).filter(Boolean);
+                    const prodItems = (response.production || []).map(mutationItem).filter(Boolean);
+                    const pullMap = groupBySerial(pullItems);
+                    const prodMap = groupBySerial(prodItems);
+                    const serials = Array.from(new Set([...pullMap.keys(), ...prodMap.keys()])).sort();
+
+                    compareData = serials.map(serial => {
+                        const pItems = pullMap.get(serial) || [];
+                        const dItems = prodMap.get(serial) || [];
+                        let status = 'MATCH';
+                        if (pItems.length && !dItems.length) status = 'MISSING_PROD';
+                        else if (dItems.length && !pItems.length) status = 'MISSING_PULL';
+                        return {
+                            serial,
+                            prodItems: dItems,
+                            pullItems: pItems,
+                            status
+                        };
+                    });
+
+                    rebuildCompareRows('', 'all');
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON && xhr.responseJSON.message ?
+                        xhr.responseJSON.message : 'Gagal memuat data comparison.';
+                    $('#compareMeta').text('Failed to load');
+                    $('#compareTbody').html(
+                        `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--danger);">${escapeHtml(message)}</td></tr>`
+                    );
+                    notif('error', message);
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('Compare Kanban');
+                }
+            });
         });
 
         $('#compareSearch').on('input', function() {
@@ -1471,6 +1777,8 @@
         $('#compareFilter').on('change', function() {
             rebuildCompareRows($('#compareSearch').val(), $(this).val());
         });
+
+        $('#compareDownload').on('click', downloadCompareTable);
 
         /* =========================================================
          * DELETE PULLING MUTATION
@@ -1730,3 +2038,4 @@
         }
     });
 </script>
+@endpush

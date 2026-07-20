@@ -45,6 +45,250 @@ class PisController extends Controller
         return $custNoDash . '-' . $kind . '-' . $dock;
     }
 
+    /** Ekstensi gambar PIS yang dicoba saat lookup (webp dulu, lalu JPG legacy). */
+    private function pisImageLookupExtensions(): array
+    {
+        return ['.webp', '.WEBP', '.JPG'];
+    }
+
+    private function resolvePisStoredFileName(string $baseName): ?string
+    {
+        $disk = Storage::disk('pis');
+        foreach ($this->pisImageLookupExtensions() as $ext) {
+            $fileName = $baseName . $ext;
+            if ($disk->exists($fileName)) {
+                return $fileName;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolvePisImagePathForPart(string $custPart, string $kind, string $dock): string
+    {
+        $baseName = $this->buildPisImageBaseName($custPart, $kind, $dock);
+        $resolved = $this->resolvePisStoredFileName($baseName);
+
+        return $resolved ?? ($baseName . '.webp');
+    }
+
+    private function pisImageExistsForPart(string $custPart, string $kind, string $dock): bool
+    {
+        $baseName = $this->buildPisImageBaseName($custPart, $kind, $dock);
+
+        return $this->resolvePisStoredFileName($baseName) !== null;
+    }
+
+    private function deletePisImageFiles(string $baseName, ?string $legacyPart = null, ?string $kind = null, ?string $dock = null): void
+    {
+        $disk = Storage::disk('pis');
+        $names = [];
+
+        foreach ($this->pisImageLookupExtensions() as $ext) {
+            $names[] = $baseName . $ext;
+        }
+
+        if ($legacyPart !== null && $kind !== null && $dock !== null) {
+            $legacyBase = strtoupper($legacyPart . '-' . $kind . '-' . $dock);
+            foreach ($this->pisImageLookupExtensions() as $ext) {
+                $names[] = $legacyBase . $ext;
+            }
+        }
+
+        foreach (array_unique($names) as $name) {
+            if ($disk->exists($name)) {
+                $disk->delete($name);
+                $this->invalidatePisImageCache($name);
+            }
+        }
+    }
+
+    private function pisMasterDuplicateExists(
+        string $partNumber,
+        string $partNumberCustomer,
+        string $partKind,
+        string $partDock,
+        ?int $excludeId = null
+    ): bool {
+        $query = PisPart::whereRaw('UPPER(TRIM(part_number)) = ?', [strtoupper(trim($partNumber))])
+            ->whereRaw('UPPER(TRIM(part_number_customer)) = ?', [strtoupper(trim($partNumberCustomer))])
+            ->where('part_kind', $partKind)
+            ->where('part_dock', $partDock);
+
+        if ($excludeId !== null) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
+    private function pisImageMaxDim(): int
+    {
+        return 800;
+    }
+
+    private function pisImageJpegQuality(): int
+    {
+        return 82;
+    }
+
+    private function pisImageWebpQuality(): int
+    {
+        return 82;
+    }
+
+    private function pisImagesDirectory(): string
+    {
+        $directory = storage_path('app/public/pis');
+        if (!file_exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        return $directory;
+    }
+
+    /** Cache hasil kompres untuk serve via storage-image (gambar lama ikut ringan). */
+    private function pisImageCacheDirectory(): string
+    {
+        $directory = $this->pisImagesDirectory() . DIRECTORY_SEPARATOR . '_cache';
+        if (!file_exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        return $directory;
+    }
+
+    private function pisImageCachePath(string $fileName): string
+    {
+        $hash = md5(strtoupper($fileName));
+        $ext = preg_match('/\.webp$/i', $fileName) ? 'webp' : 'jpg';
+
+        return $this->pisImageCacheDirectory() . DIRECTORY_SEPARATOR . $hash . '_w' . $this->pisImageMaxDim() . '.' . $ext;
+    }
+
+    private function invalidatePisImageCache(string $fileName): void
+    {
+        $cachePath = $this->pisImageCachePath($fileName);
+        if (is_file($cachePath)) {
+            @unlink($cachePath);
+        }
+    }
+
+    /**
+     * Kompres/resize file gambar ke path tujuan (WEBP atau JPEG sesuai ekstensi dest).
+     */
+    private function compressPisImageAtPath(string $sourcePath, string $destPath): bool
+    {
+        if (!is_readable($sourcePath)) {
+            return false;
+        }
+
+        $mime = strtolower((string) @mime_content_type($sourcePath));
+        $src = null;
+        if (in_array($mime, ['image/jpeg', 'image/jpg'], true) && function_exists('imagecreatefromjpeg')) {
+            $src = @imagecreatefromjpeg($sourcePath);
+        } elseif ($mime === 'image/png' && function_exists('imagecreatefrompng')) {
+            $src = @imagecreatefrompng($sourcePath);
+        } elseif ($mime === 'image/webp' && function_exists('imagecreatefromwebp')) {
+            $src = @imagecreatefromwebp($sourcePath);
+        }
+
+        if (!$src) {
+            return false;
+        }
+
+        $width = imagesx($src);
+        $height = imagesy($src);
+        if ($width <= 0 || $height <= 0) {
+            imagedestroy($src);
+
+            return false;
+        }
+
+        $maxDim = $this->pisImageMaxDim();
+        $targetWidth = $width;
+        $targetHeight = $height;
+        if ($width > $maxDim || $height > $maxDim) {
+            $ratio = min($maxDim / $width, $maxDim / $height);
+            $targetWidth = max(1, (int) round($width * $ratio));
+            $targetHeight = max(1, (int) round($height * $ratio));
+        }
+
+        $dst = imagecreatetruecolor($targetWidth, $targetHeight);
+        $white = imagecolorallocate($dst, 255, 255, 255);
+        imagefill($dst, 0, 0, $white);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+        imagedestroy($src);
+
+        $destDir = dirname($destPath);
+        if (!file_exists($destDir)) {
+            File::makeDirectory($destDir, 0755, true);
+        }
+
+        $isWebpDest = (bool) preg_match('/\.webp$/i', $destPath);
+        if ($isWebpDest) {
+            if (!function_exists('imagewebp')) {
+                imagedestroy($dst);
+
+                return false;
+            }
+            $ok = imagewebp($dst, $destPath, $this->pisImageWebpQuality());
+        } else {
+            if (!function_exists('imagejpeg')) {
+                imagedestroy($dst);
+
+                return false;
+            }
+            $ok = imagejpeg($dst, $destPath, $this->pisImageJpegQuality());
+        }
+        imagedestroy($dst);
+
+        return (bool) $ok;
+    }
+
+    /**
+     * Path file untuk ditampilkan: cache terkompresi jika perlu (buat gambar besar/lama).
+     */
+    private function resolvePisDisplayImagePath(string $fileName): string
+    {
+        $disk = Storage::disk('pis');
+        $sourcePath = $disk->path($fileName);
+
+        if (!is_readable($sourcePath)) {
+            abort(404);
+        }
+
+        if (!function_exists('imagecreatefromjpeg') && !function_exists('imagecreatefromwebp')) {
+            return $sourcePath;
+        }
+
+        $cachePath = $this->pisImageCachePath($fileName);
+        if (is_file($cachePath) && filemtime($cachePath) >= filemtime($sourcePath)) {
+            return $cachePath;
+        }
+
+        if ($this->compressPisImageAtPath($sourcePath, $cachePath)) {
+            return $cachePath;
+        }
+
+        return $sourcePath;
+    }
+
+    /**
+     * Simpan gambar PIS terkompresi saat upload (WEBP atau JPEG sesuai ekstensi fileName).
+     */
+    private function storeCompressedPisImage($uploadedFile, string $fileName): void
+    {
+        $fullPath = $this->pisImagesDirectory() . DIRECTORY_SEPARATOR . $fileName;
+        $sourcePath = $uploadedFile->getRealPath();
+
+        if (!$sourcePath || !$this->compressPisImageAtPath($sourcePath, $fullPath)) {
+            Storage::disk('pis')->putFileAs('', $uploadedFile, $fileName);
+        }
+
+        $this->invalidatePisImageCache($fileName);
+    }
+
     /**
      * UI-ONLY PREVIEW MODE (no DB/models).
      * Dummy data provider for all PIS screens.
@@ -325,13 +569,12 @@ class PisController extends Controller
                 $addBase($custNoDash);
             }
 
-            // Hanya cari file dengan ekstensi .JPG (JPEG saja, tidak PNG/dll)
+            // Cari file: utamakan .webp, fallback ke .JPG (legacy)
             $disk = Storage::disk('pis');
             $resolvedFile = null;
             foreach ($baseCandidates as $base) {
-                $fileName = $base . '.JPG';
-                if ($disk->exists($fileName)) {
-                    $resolvedFile = $fileName;
+                $resolvedFile = $this->resolvePisStoredFileName($base);
+                if ($resolvedFile !== null) {
                     break;
                 }
             }
@@ -446,14 +689,16 @@ class PisController extends Controller
             
             // Transform data to match view expectations
             $part_piss = $part_piss->map(function ($item) {
-                // Nama file standar: hapus '-' dari part number customer sebelum dijadikan nama file
-                $baseName = $this->buildPisImageBaseName(
+                $item->img_path = $this->resolvePisImagePathForPart(
                     $item->part_number_customer ?? '',
                     $item->part_kind ?? '',
                     $item->part_dock ?? ''
                 );
-                $item->img_path = $baseName . '.JPG';
-                $item->validasi = Storage::disk('pis')->exists($item->img_path) ? 'Ada' : 'Belum Ada';
+                $item->validasi = $this->pisImageExistsForPart(
+                    $item->part_number_customer ?? '',
+                    $item->part_kind ?? '',
+                    $item->part_dock ?? ''
+                ) ? 'Ada' : 'Belum Ada';
                 return $item;
             });
         } catch (\Exception $e) {
@@ -500,11 +745,11 @@ class PisController extends Controller
             $part_piss = collect([$pis]);
             
             // Add img_path for view compatibility (mengikuti pola penyimpanan file tanpa '-' di part number)
-            $pis->img_path = $this->buildPisImageBaseName(
+            $pis->img_path = $this->resolvePisImagePathForPart(
                 $pis->part_number_customer ?? '',
                 $pis->part_kind ?? '',
                 $pis->part_dock ?? ''
-            ) . '.JPG';
+            );
             
             // Ensure it's iterable (Collection or array)
             if (!$part_piss instanceof \Illuminate\Support\Collection && !is_array($part_piss)) {
@@ -554,7 +799,7 @@ class PisController extends Controller
                 'part_kind' => 'required|string|in:OEM,GNP,DANDORY',
                 'part_dock' => 'required|string',
                 'qty_kanban' => 'required|numeric|min:0',
-                'part_picture' => 'nullable|image|mimes:jpeg,jpg,png|max:5120', // 5MB max, optional for update
+                'part_picture' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120', // 5MB max, optional for update
             ]);
 
             // Update data
@@ -577,25 +822,11 @@ class PisController extends Controller
 
                 // Nama file standar: hapus '-' dari part number customer sebelum dijadikan nama file
                 $baseName = $this->buildPisImageBaseName($part_number_customer, $type, $dock);
-                $filesName = $baseName . '.JPG';
-                
-                // Ensure directory exists
-                $directory = storage_path('app/public/pis');
-                if (!file_exists($directory)) {
-                    File::makeDirectory($directory, 0755, true);
-                }
-                
-                // Delete old file jika ada (baik nama baru maupun nama lama yang masih pakai '-')
-                if (Storage::disk('pis')->exists($filesName)) {
-                    Storage::disk('pis')->delete($filesName);
-                }
-                $legacyName = strtoupper($part_number_customer . '-' . $type . '-' . $dock . '.JPG');
-                if ($legacyName !== $filesName && Storage::disk('pis')->exists($legacyName)) {
-                    Storage::disk('pis')->delete($legacyName);
-                }
-                
-                // Upload new file - use putFileAs for better handling
-                Storage::disk('pis')->putFileAs('', $file, $filesName);
+                $filesName = $baseName . '.webp';
+
+                $this->deletePisImageFiles($baseName, $part_number_customer, $type, $dock);
+
+                $this->storeCompressedPisImage($file, $filesName);
             }
 
             DB::commit();
@@ -621,10 +852,8 @@ class PisController extends Controller
             return redirect()->route('login.index')->with('error', 'Please login to view PIS images.');
         }
 
-        // Simple check and return asset URL
-        $img_path = Storage::disk('pis')->exists($img) ?
-            asset('storage/pis/' . $img) :
-            asset('storage/pis/default.JPG');
+        $file = Storage::disk('pis')->exists($img) ? $img : 'default.JPG';
+        $img_path = url('/pis/storage-image') . '?f=' . rawurlencode($file);
 
         return view('pis.PisPreview', compact('img_path'));
     }
@@ -654,7 +883,7 @@ class PisController extends Controller
         }
 
         // Pola nama PIS: alfanumerik, hubung, underscore, titik (ekstensi), spasi (mis. dock "TMMIN SPD")
-        if (!preg_match('/^[A-Za-z0-9\-_. ]+\.jpe?g$/i', $name)) {
+        if (!preg_match('/^[A-Za-z0-9\-_. ]+\.(jpe?g|webp)$/i', $name)) {
             abort(404);
         }
 
@@ -663,9 +892,12 @@ class PisController extends Controller
             abort(404);
         }
 
-        return $disk->response($name, $name, [
-            'Content-Type' => 'image/jpeg',
-            'Cache-Control' => 'private, max-age=3600',
+        $displayPath = $this->resolvePisDisplayImagePath($name);
+        $contentType = preg_match('/\.webp$/i', $name) ? 'image/webp' : 'image/jpeg';
+
+        return response()->file($displayPath, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => 'private, max-age=86400',
         ]);
     }
 
@@ -702,13 +934,16 @@ class PisController extends Controller
             
             // Transform data to match view expectations
             $part_piss = $part_piss->map(function ($item) {
-                $baseName = $this->buildPisImageBaseName(
+                $item->img_path = $this->resolvePisImagePathForPart(
                     $item->part_number_customer ?? '',
                     $item->part_kind ?? '',
                     $item->part_dock ?? ''
                 );
-                $item->img_path = $baseName . '.JPG';
-                $item->validasi = Storage::disk('pis')->exists($item->img_path) ? 'Ada' : 'Belum Ada';
+                $item->validasi = $this->pisImageExistsForPart(
+                    $item->part_number_customer ?? '',
+                    $item->part_kind ?? '',
+                    $item->part_dock ?? ''
+                ) ? 'Ada' : 'Belum Ada';
                 return $item;
             });
         } catch (\Exception $e) {
@@ -846,7 +1081,7 @@ class PisController extends Controller
         $items = $pisScan->details->map(function ($detail) {
             $target = (int) ($detail->target_qty ?? 0);
             $scanned = (int) ($detail->scanned_qty ?? 0);
-            $remaining = (int) ($detail->remaining_qty ?? max(0, $target - $scanned));
+            $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
             return [
                 'part_number_int' => $detail->part_number_int,
                 'part_number_cust' => $detail->part_number_cust,
@@ -868,7 +1103,7 @@ class PisController extends Controller
                     $relatedItems = $scan->details->map(function ($detail) {
                         $target = (int) ($detail->target_qty ?? 0);
                         $scanned = (int) ($detail->scanned_qty ?? 0);
-                        $remaining = (int) ($detail->remaining_qty ?? max(0, $target - $scanned));
+                        $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
                         return [
                             'part_number_int' => $detail->part_number_int,
                             'part_number_cust' => $detail->part_number_cust,
@@ -1400,7 +1635,7 @@ class PisController extends Controller
                     'back_number'          => $backNumber,
                     'target_qty'           => $targetKanban,
                     'scanned_qty'          => $scannedKanban,
-                    'remaining_qty'        => $detail->remaining_qty ?? max(0, $targetKanban - $scannedKanban),
+                    'remaining_qty'        => max(0, (int) ($detail->remaining_qty ?? ($targetKanban - $scannedKanban))),
                     'progress_percentage'  => $progressPercentage,
                     'is_complete'          => $isComplete,
                     // Waktu scan diambil dari updated_at detail (terakhir kali qty di-update)
@@ -1446,7 +1681,7 @@ class PisController extends Controller
                 'part_kind' => 'required|string|in:OEM,GNP,DANDORY',
                 'part_dock' => 'required|string',
                 'qty_kanban' => 'required|numeric|min:0',
-                'pis_picture' => 'required|image|mimes:jpeg,jpg,png|max:5120', // 5MB max
+                'pis_picture' => 'required|image|mimes:jpeg,jpg,png,webp|max:5120', // 5MB max
             ]);
 
             // Get data from request
@@ -1466,6 +1701,14 @@ class PisController extends Controller
                 throw new \Exception('Part Number AIIA is required but was not provided.');
             }
 
+            if ($this->pisMasterDuplicateExists($part_number, $part_number_customer, $part_kind, $part_dock)) {
+                $duplicateMessage = 'Data Master PIS sudah ada (Part Number AIIA, Part Number Customer, Type, dan Destination sama).';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['message' => $duplicateMessage], 422);
+                }
+                throw new \Exception($duplicateMessage);
+            }
+
             // Save to part_pis
             $pis = new PisPart();
             $pis->part_number = $part_number;
@@ -1482,37 +1725,34 @@ class PisController extends Controller
 
                 // Nama file standar dengan part number customer tanpa '-'
                 $baseName = $this->buildPisImageBaseName($part_number_customer, $part_kind, $part_dock);
-                $fileName = $baseName . '.JPG';
-                
-                // Ensure directory exists
-                $directory = storage_path('app/public/pis');
-                if (!file_exists($directory)) {
-                    \File::makeDirectory($directory, 0755, true);
-                }
-                
-                // Delete old file if exists (baru & legacy)
-                if (Storage::disk('pis')->exists($fileName)) {
-                    Storage::disk('pis')->delete($fileName);
-                }
-                $legacyName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
-                if ($legacyName !== $fileName && Storage::disk('pis')->exists($legacyName)) {
-                    Storage::disk('pis')->delete($legacyName);
-                }
-                
-                // Store new file - use putFileAs for better handling
-                Storage::disk('pis')->putFileAs('', $file, $fileName);
+                $fileName = $baseName . '.webp';
+
+                $this->deletePisImageFiles($baseName, $part_number_customer, $part_kind, $part_dock);
+
+                $this->storeCompressedPisImage($file, $fileName);
             }
 
             DB::commit();
 
-        \Session::flash('flash_type', 'alert-success');
-            \Session::flash('flash_message', 'PIS data saved successfully by ' . $user->name . ' (' . $user->npk . ').');
-        return redirect('/pis/master');
+            $successMessage = 'PIS data saved successfully by ' . $user->name . ' (' . $user->npk . ').';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $successMessage], 200);
+            }
+
+            \Session::flash('flash_type', 'alert-success');
+            \Session::flash('flash_message', $successMessage);
+            return redirect('/pis/master');
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $e->validator->errors()->first()], 422);
+            }
             return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
             \Session::flash('flash_type', 'alert-danger');
             \Session::flash('flash_message', 'Error saving PIS data: ' . $e->getMessage());
             return redirect()->back()->withInput();
@@ -1542,7 +1782,7 @@ class PisController extends Controller
                 'qty_kanban' => 'required|numeric|min:0',
                 'min_stock' => 'nullable|numeric|min:0',
                 'max_stock' => 'nullable|numeric|min:0',
-                'pis_picture' => 'required|image|mimes:jpeg,jpg,png|max:5120', // 5MB max
+                'pis_picture' => 'required|image|mimes:jpeg,jpg,png,webp|max:5120', // 5MB max
             ]);
 
             // Get data from request
@@ -1595,25 +1835,11 @@ class PisController extends Controller
 
                 // Nama file standar dengan part number customer tanpa '-'
                 $baseName = $this->buildPisImageBaseName($part_number_customer, $part_kind, $part_dock);
-                $fileName = $baseName . '.JPG';
-                
-                // Ensure directory exists
-                $directory = storage_path('app/public/pis');
-                if (!file_exists($directory)) {
-                    \File::makeDirectory($directory, 0755, true);
-                }
-                
-                // Delete old file if exists (baru & legacy)
-                if (Storage::disk('pis')->exists($fileName)) {
-                    Storage::disk('pis')->delete($fileName);
-                }
-                $legacyName = strtoupper($part_number_customer . '-' . $part_kind . '-' . $part_dock . '.JPG');
-                if ($legacyName !== $fileName && Storage::disk('pis')->exists($legacyName)) {
-                    Storage::disk('pis')->delete($legacyName);
-                }
-                
-                // Store new file - use putFileAs for better handling
-                Storage::disk('pis')->putFileAs('', $file, $fileName);
+                $fileName = $baseName . '.webp';
+
+                $this->deletePisImageFiles($baseName, $part_number_customer, $part_kind, $part_dock);
+
+                $this->storeCompressedPisImage($file, $fileName);
             }
 
             DB::commit();
@@ -1698,19 +1924,18 @@ class PisController extends Controller
             $user = Auth::user();
             $pis = PisPart::findOrFail($id);
             
-            // Delete associated image if exists (nama baru & nama legacy)
-            $newImg = $this->buildPisImageBaseName(
+            // Delete associated image if exists (webp, JPG, nama baru & legacy)
+            $baseName = $this->buildPisImageBaseName(
                 $pis->part_number_customer ?? '',
                 $pis->part_kind ?? '',
                 $pis->part_dock ?? ''
-            ) . '.JPG';
-            $legacyImg = strtoupper(($pis->part_number_customer ?? '') . '-' . ($pis->part_kind ?? '') . '-' . ($pis->part_dock ?? '') . '.JPG');
-
-            foreach ([$newImg, $legacyImg] as $imgPath) {
-                if ($imgPath && Storage::disk('pis')->exists($imgPath)) {
-                    Storage::disk('pis')->delete($imgPath);
-                }
-            }
+            );
+            $this->deletePisImageFiles(
+                $baseName,
+                $pis->part_number_customer ?? '',
+                $pis->part_kind ?? '',
+                $pis->part_dock ?? ''
+            );
             
             // Delete record
             $pis->delete();

@@ -20,14 +20,43 @@ use App\Models\ProductionPlan;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
 use Illuminate\Validation\Rule;
+use App\Models\MasterAlamatChute;
+use App\Exports\MasterAlamatChuteTemplateExport;
+use App\Services\MasterAlamatChuteImporter;
 use App\Models\LoadingListDetail;
 use App\Models\KanbanAfterPulling;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpMqtt\Client\ConnectionSettings;
+use App\Support\ConvertsCustomerPartNumber;
 
 class PullingController extends Controller
 {
+    use ConvertsCustomerPartNumber;
+
+    private static $loadingListsCache = [];
+    private static $internalPartsCache = [];
+    private static $mutationsHaveLoadingListColumns = null;
+
+    private function mutationsHaveLoadingListColumns(): bool
+    {
+        if (self::$mutationsHaveLoadingListColumns !== null) {
+            return self::$mutationsHaveLoadingListColumns;
+        }
+
+        try {
+            self::$mutationsHaveLoadingListColumns = Schema::hasColumn('mutations', 'loading_list_id')
+                && Schema::hasColumn('mutations', 'loading_list_detail_id');
+        } catch (\Throwable $th) {
+            self::$mutationsHaveLoadingListColumns = false;
+        }
+
+        return self::$mutationsHaveLoadingListColumns;
+    }
+
     public function mqttConnect($topic, $message)
     {
         $server   = '172.18.3.70';
@@ -73,13 +102,10 @@ class PullingController extends Controller
 
     public function convertPartNumber($loadingList, $customerPart)
     {
-        // get part number length
-        $codeLength = strlen($customerPart);
-
-        // check last two digit of partNumber 
-        $lastDigit = substr($customerPart, -2);
-
-        $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        if (!isset(self::$loadingListsCache[$loadingList])) {
+            self::$loadingListsCache[$loadingList] = LoadingList::select('id', 'customer_id')->where('number', $loadingList)->first();
+        }
+        $loadingListId = self::$loadingListsCache[$loadingList];
         if (!$loadingListId) {
             return [
                 'status' => 'notExists',
@@ -87,41 +113,247 @@ class PullingController extends Controller
             ];
         }
 
-        // check part number customer length
-        if ($codeLength == 12) {
-            // TMMIN
-            if ($lastDigit != '00') {
-                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -2);
-            } else {
-                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -2);
+        return $this->convertCustomerPartNumber($customerPart, $loadingListId->customer_id);
+    }
+
+    /**
+     * Kandidat format part number customer untuk lookup DB (raw, tanpa dash, hasil convert).
+     *
+     * @return array<int, string>
+     */
+    private function customerPartNumberCandidates(string $loadingListNumber, string $customerPart): array
+    {
+        $customerPart = trim($customerPart);
+        $raw = strtoupper(str_replace(['-', ' '], '', $customerPart));
+
+        $candidates = array_filter([$customerPart, $raw !== $customerPart ? $raw : null]);
+
+        foreach (array_unique(array_filter([$customerPart, $raw])) as $input) {
+            $converted = $this->convertPartNumber($loadingListNumber, $input);
+            if (is_string($converted) && $converted !== '') {
+                $candidates[] = $converted;
             }
-        } else if ($codeLength == 10) {
-            if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
-                // SUZUKI
-                // $convertedPartNumber = substr_replace($customerPart, '-', 5, 0) . '-' . '000';
-                $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
-            } else {
-                if ($loadingListId->customer_id == 6) {
-                    // MMKI
-                    $convertedPartNumber = $customerPart;
-                } else {
-                    // TBINA
-                    $convertedPartNumber = substr_replace($customerPart, '-', 5, 0);
-                }
-            }
-        } else if ($codeLength == 13) {
-            // SUZUKI
-            if ($lastDigit != '000') {
-                $convertedPartNumber = substr($customerPart, 0, 5) . '-' . substr($customerPart, 5, 5) . '-' . substr($customerPart, -3);
-            } else {
-                $convertedPartNumber = substr(substr_replace($customerPart, '-', 5, 0), 0, -3);
-            }
-        } else {
-            $convertedPartNumber = $customerPart;
         }
 
-        return $convertedPartNumber;
+        return array_values(array_unique(array_filter($candidates)));
     }
+
+    private function fetchDeaLoadingListItems(Client $client, string $token, string $loadingListNumber): array
+    {
+        $response = $client->get('https://dea-dev.aiia.co.id/api/v1/loading-lists/'.rawurlencode($loadingListNumber), [
+            'headers' => [
+                'Accept' => 'application/json',
+                'Authorization' => 'Bearer '.$token,
+            ],
+        ]);
+
+        $payload = json_decode((string) $response->getBody(), true);
+
+        return data_get($payload, 'items', data_get($payload, 'data.items', [])) ?: [];
+    }
+
+    /**
+     * Endpoint DEA butuh karakter tambahan setelah nomor loading list.
+     * Nomor lokal tetap tanpa suffix untuk lookup database internal.
+     *
+     * @return array<int, string>
+     */
+    private function deaLoadingListNumberCandidates(string $loadingListNumber): array
+    {
+        $number = trim($loadingListNumber);
+
+        return array_values(array_unique(array_filter([
+            "{$number}z",
+            $number,
+        ])));
+    }
+
+    private function deaPostMatchCount(array $deaItems, string $localLoadingListNumber, array $items): int
+    {
+        $matched = 0;
+
+        foreach ($items as $item) {
+            if ($this->findDeaKanbanItemForPost(
+                $deaItems,
+                $localLoadingListNumber,
+                trim((string) data_get($item, 'part_number_cust', '')),
+                trim((string) data_get($item, 'part_number_int', ''))
+            )) {
+                $matched++;
+            }
+        }
+
+        return $matched;
+    }
+
+    /**
+     * @return array{0: array<int, mixed>, 1: string}
+     */
+    private function fetchBestDeaLoadingListItemsForPost(
+        Client $client,
+        string $token,
+        string $localLoadingListNumber,
+        array $items
+    ): array {
+        $bestItems = [];
+        $bestNumber = $localLoadingListNumber;
+        $bestMatched = -1;
+        $lastError = null;
+
+        foreach ($this->deaLoadingListNumberCandidates($localLoadingListNumber) as $candidate) {
+            try {
+                $deaItems = $this->fetchDeaLoadingListItems($client, $token, $candidate);
+                $matched = $this->deaPostMatchCount($deaItems, $localLoadingListNumber, $items);
+
+                if ($matched > $bestMatched) {
+                    $bestItems = $deaItems;
+                    $bestNumber = $candidate;
+                    $bestMatched = $matched;
+                }
+
+                if ($matched >= count($items)) {
+                    break;
+                }
+            } catch (\Throwable $th) {
+                $lastError = $th;
+            }
+        }
+
+        if ($bestMatched < 0) {
+            throw $lastError ?: new \RuntimeException("Loading list {$localLoadingListNumber} tidak ditemukan di DEA.");
+        }
+
+        return [$bestItems, $bestNumber];
+    }
+
+    private function findDeaKanbanItemForPost(
+        array $deaItems,
+        string $loadingListNumber,
+        string $customerPart,
+        string $internalPart
+    ): ?array {
+        $customerCandidates = $this->customerPartNumberCandidates($loadingListNumber, $customerPart);
+        $internalPart = trim($internalPart);
+
+        foreach ($deaItems as $item) {
+            $deaInternal = trim((string) data_get($item, 'part_number_int', ''));
+            if ($deaInternal !== $internalPart) {
+                continue;
+            }
+
+            $deaCustomer = trim((string) data_get($item, 'part_number_cust', ''));
+            if (array_intersect($customerCandidates, $this->customerPartNumberCandidates($loadingListNumber, $deaCustomer))) {
+                return [
+                    'part_number_cust' => $deaCustomer,
+                    'part_number_int' => $deaInternal,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function formatCustomerPartForDeaPost(string $customerPart, bool $hasLocalDetail): string
+    {
+        $partNumber = strtoupper(trim($customerPart));
+
+        if ($hasLocalDetail) {
+            return $partNumber;
+        }
+
+        return strtoupper(str_replace(['-', ' '], '', $partNumber));
+    }
+
+    private function findCustomerPartForLoadingList(
+        int $customerId,
+        string $loadingListNumber,
+        string $customerPart
+    ): ?CustomerPart {
+        foreach ($this->customerPartNumberCandidates($loadingListNumber, $customerPart) as $partNumber) {
+            $found = CustomerPart::query()
+                ->with('internalPart:id,part_name,back_number')
+                ->where('part_number', $partNumber)
+                ->where('customer_id', $customerId)
+                ->first(['id', 'back_number', 'internal_part_id', 'part_number']);
+
+            if ($found) {
+                return $found;
+            }
+        }
+
+        $normalizedInput = strtoupper(str_replace(['-', ' '], '', $customerPart));
+        if ($normalizedInput === '') {
+            return null;
+        }
+
+        return CustomerPart::query()
+            ->with('internalPart:id,part_name,back_number')
+            ->where('customer_id', $customerId)
+            ->whereRaw(
+                "UPPER(REPLACE(REPLACE(part_number, '-', ''), ' ', '')) = ?",
+                [$normalizedInput]
+            )
+            ->first(['id', 'back_number', 'internal_part_id', 'part_number']);
+    }
+
+    private function findLoadingListDetailForPost(
+        int $loadingListId,
+        int $customerId,
+        string $loadingListNumber,
+        string $customerPart,
+        string $internalPart
+    ) {
+        $customerCandidates = $this->customerPartNumberCandidates($loadingListNumber, $customerPart);
+
+        return LoadingListDetail::query()
+            ->from('loading_list_details as lld')
+            ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+            ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
+            ->where('lld.loading_list_id', $loadingListId)
+            ->where('cp.customer_id', $customerId)
+            ->whereIn('cp.part_number', $customerCandidates)
+            ->where('ip.part_number', trim($internalPart))
+            ->first([
+                'lld.id',
+                'lld.kanban_qty',
+                'cp.part_number',
+            ]);
+    }
+
+    /**
+     * Back no & part name hanya dari part internal (bukan customer_parts.back_number).
+     *
+     * @return array{0: string, 1: string} [backNo, partName]
+     */
+    private function resolveInternalBackNo(?CustomerPart $customerPart, ?string $internalPartNumber): array
+    {
+        if ($customerPart?->relationLoaded('internalPart') || $customerPart?->internal_part_id) {
+            $customerPart->loadMissing('internalPart:id,back_number,part_name');
+        }
+
+        if ($customerPart?->internalPart) {
+            return [
+                trim((string) $customerPart->internalPart->back_number),
+                trim((string) $customerPart->internalPart->part_name),
+            ];
+        }
+
+        if ($internalPartNumber !== null && trim($internalPartNumber) !== '') {
+            $internal = InternalPart::query()
+                ->where('part_number', trim($internalPartNumber))
+                ->first(['back_number', 'part_name']);
+
+            if ($internal) {
+                return [
+                    trim((string) $internal->back_number),
+                    trim((string) $internal->part_name),
+                ];
+            }
+        }
+
+        return ['', ''];
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -792,6 +1024,63 @@ class PullingController extends Controller
         ]);
     }
 
+    public function getAlamatChute(Request $request)
+    {
+        $validated = $request->validate([
+            'loadingList' => 'required|string',
+            'customerPart' => 'required|string',
+            'internalPart' => 'nullable|string',
+        ]);
+
+        $loadingList = LoadingList::query()
+            ->select('id', 'customer_id')
+            ->where('number', $validated['loadingList'])
+            ->first();
+
+        if (!$loadingList) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Loading list tidak terdaftar!',
+            ], 404);
+        }
+
+        $customerPart = $this->findCustomerPartForLoadingList(
+            (int) $loadingList->customer_id,
+            $validated['loadingList'],
+            $validated['customerPart']
+        );
+
+        [$backNo] = $this->resolveInternalBackNo(
+            $customerPart,
+            $validated['internalPart'] ?? null
+        );
+
+        $partCandidates = array_values(array_unique(array_filter(
+            $customerPart
+                ? array_merge(
+                    [trim((string) $customerPart->part_number)],
+                    $this->customerPartNumberCandidates($validated['loadingList'], $validated['customerPart'])
+                )
+                : $this->customerPartNumberCandidates($validated['loadingList'], $validated['customerPart'])
+        )));
+
+        $alamatChute = null;
+        if ($backNo !== '') {
+            foreach ($partCandidates as $partNumber) {
+                $alamatChute = MasterAlamatChute::resolveByPartCustomerAndBackNo($partNumber, $backNo);
+                if ($alamatChute !== null) {
+                    break;
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'alamat_chute' => $alamatChute,
+            'back_no' => $backNo !== '' ? $backNo : null,
+        ]);
+    }
+
     public function internalCheck($internal, $isinternal = 0)
     {
         // check internal 
@@ -842,11 +1131,14 @@ class PullingController extends Controller
 
         $data['qty_per_kbn'] = (int) round($data['qty_per_kbn']);
 
-        return DB::transaction(function () use ($data) {
+        $result = DB::transaction(function () use ($data) {
             // 1) Ambil Loading List
-            $loadingList = LoadingList::select('id', 'number', 'customer_id')
-                ->where('number', $data['loadingList'])
-                ->first();
+            if (!isset(self::$loadingListsCache[$data['loadingList']])) {
+                self::$loadingListsCache[$data['loadingList']] = LoadingList::select('id', 'number', 'customer_id')
+                    ->where('number', $data['loadingList'])
+                    ->first();
+            }
+            $loadingList = self::$loadingListsCache[$data['loadingList']];
 
             // dd( $data['loadingList']);
 
@@ -865,10 +1157,14 @@ class PullingController extends Controller
             }
             $convertedPartNumber = is_string($converted) ? $converted : $data['customerPart'];
 
-            // 3) Ambil internal_part & customer_part (minim query)
-            $internalPart = InternalPart::select('id', 'part_number')
-                ->where('part_number', $data['internalPart'])
-                ->first();
+            // 3) Ambil internal_part dan detail loading list yang benar-benar terhubung
+            $internalPartKey = $data['internalPart'];
+            if (!isset(self::$internalPartsCache[$internalPartKey])) {
+                self::$internalPartsCache[$internalPartKey] = InternalPart::select('id', 'part_number', 'back_number', 'part_name')
+                    ->where('part_number', $data['internalPart'])
+                    ->first();
+            }
+            $internalPart = self::$internalPartsCache[$internalPartKey];
 
             if (!$internalPart) {
                 return response()->json([
@@ -877,13 +1173,29 @@ class PullingController extends Controller
                 ]);
             }
 
-            $customerPart = DB::table('customer_parts')
-                ->where('internal_part_id', $internalPart->id)
-                ->where('part_number', $convertedPartNumber)
-                ->select('id')
-                ->first();
+            $lld = LoadingListDetail::query()
+                ->from('loading_list_details as lld')
+                ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+                ->where('lld.loading_list_id', $loadingList->id)
+                ->where('cp.internal_part_id', $internalPart->id)
+                ->where('cp.part_number', $convertedPartNumber)
+                ->where('cp.customer_id', $loadingList->customer_id)
+                ->first(['lld.id', 'lld.kanban_qty', 'lld.actual_kanban_qty']);
 
-            if (!$customerPart) {
+            if (!$lld) {
+                $customerPartExists = DB::table('customer_parts')
+                    ->where('internal_part_id', $internalPart->id)
+                    ->where('part_number', $convertedPartNumber)
+                    ->where('customer_id', $loadingList->customer_id)
+                    ->exists();
+
+                if ($customerPartExists) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'Detail loading list tidak ditemukan untuk part ini.',
+                    ]);
+                }
+
                 return response()->json([
                     'status'  => 'notExists',
                     'message' => 'Part number customer tidak terdaftar!',
@@ -906,18 +1218,16 @@ class PullingController extends Controller
                 ]);
             }
 
-            // 5) Ambil row LoadingListDetail sekali saja (untuk return info)
-            $lld = LoadingListDetail::where('loading_list_id', $loadingList->id)
-                ->where('customer_part_id', $customerPart->id)
-                ->lockForUpdate()
-                ->first(['id', 'kanban_qty', 'actual_kanban_qty']);
-
-            if (!$lld) {
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Detail loading list tidak ditemukan untuk part ini.',
-                ]);
-            }
+            // if (Mutation::where('internal_part_id', $internalPart->id)
+            //     ->where('serial_number', $data['serialNumber'])
+            //     ->where('type', 'checkout')
+            //     ->exists()
+            // ) {
+            //     return response()->json([
+            //         'status' => 'duplicate',
+            //         'message' => 'Seri kanban sudah discan!',
+            //     ]);
+            // }
 
             // 6) Atomic increment: hanya increment jika actual < target (mencegah over-scan)
             if ((int)$lld->actual_kanban_qty >= (int)$lld->kanban_qty) {
@@ -935,36 +1245,225 @@ class PullingController extends Controller
                 ]);
 
             // 7) Catat mutasi
-            Mutation::create([
+            $mutationPayload = [
                 'internal_part_id' => $internalPart->id,
                 'serial_number'    => $data['serialNumber'],
                 'type'             => 'checkout',
                 'qty'              => (int) $data['qty_per_kbn'],
                 'npk'              => auth()->user()->npk ?? null,
                 'date'             => now()->format('Y-m-d H:i:s'),
-            ]);
+            ];
+
+            if ($this->mutationsHaveLoadingListColumns()) {
+                $mutationPayload['loading_list_id'] = $loadingList->id;
+                $mutationPayload['loading_list_detail_id'] = $lld->id;
+            }
+
+            Mutation::create($mutationPayload);
 
             // 8) Update status kanban (hindari write jika sudah 2)
             if ((int) $kanban->status !== 2) {
                 $kanban->update(['status' => 2]);
             }
 
-            // 9) Ambil nilai actual terbaru (opsional: pakai +1 dari sebelumnya)
-            $newActual = $lld->actual_kanban_qty + 1;
-
-            return response()->json([
-                'status' => 'success',
-                'data'   => $newActual,
-            ]);
+            // 9) Siapkan payload sukses. Lookup alamat chute SENGAJA dilakukan
+            //    di luar transaksi agar lock baris tidak ditahan selama query
+            //    master alamat chute (yang bisa full-scan saat cache miss).
+            return [
+                'newActual'           => $lld->actual_kanban_qty + 1,
+                'convertedPartNumber' => $convertedPartNumber,
+                'backNo'              => trim((string) ($internalPart->back_number ?? '')),
+            ];
         });
+
+        // Error dari dalam transaksi (JsonResponse) diteruskan apa adanya
+        if ($result instanceof \Illuminate\Http\JsonResponse) {
+            return $result;
+        }
+
+        // Lookup alamat chute bersifat read-only → aman di luar transaksi
+        $alamatChute = MasterAlamatChute::resolveByPartCustomerAndBackNo(
+            $result['convertedPartNumber'],
+            $result['backNo']
+        );
+
+        return response()->json([
+            'status'       => 'success',
+            'data'         => $result['newActual'],
+            'alamat_chute' => $alamatChute,
+        ]);
+    }
+
+    public function scanHistory(Request $request)
+    {
+        $validated = $request->validate([
+            'pds' => ['nullable', 'string', 'max:80'],
+            'loading_lists' => ['nullable', 'array'],
+            'loading_lists.*' => ['nullable', 'string', 'max:80'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        $loadingListNumbers = collect($validated['loading_lists'] ?? [])
+            ->map(fn ($number) => trim((string) $number))
+            ->filter()
+            ->unique()
+            ->take(20)
+            ->values();
+        $pds = trim((string) ($validated['pds'] ?? ''));
+        $limit = (int) ($validated['limit'] ?? 200);
+
+        if ($loadingListNumbers->isEmpty() && $pds === '') {
+            return response()->json(['status' => 'success', 'history' => [], 'sync' => []]);
+        }
+
+        $loadingLists = LoadingList::query()
+            ->select('id', 'number')
+            ->when($loadingListNumbers->isNotEmpty(), fn ($query) => $query->whereIn('number', $loadingListNumbers))
+            ->when($loadingListNumbers->isEmpty() && $pds !== '', fn ($query) => $query->where('pds_number', $pds))
+            ->limit(20)
+            ->get();
+
+        if ($loadingLists->isEmpty()) {
+            return response()->json(['status' => 'success', 'history' => [], 'sync' => []]);
+        }
+
+        $details = DB::table('loading_list_details as lld')
+            ->join('loading_lists as ll', 'll.id', '=', 'lld.loading_list_id')
+            ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+            ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
+            ->whereIn('lld.loading_list_id', $loadingLists->pluck('id'))
+            ->where('lld.actual_kanban_qty', '>', 0)
+            ->orderBy('ll.number')
+            ->get([
+                'll.number as loading_list',
+                'll.id as loading_list_id',
+                'lld.id as loading_list_detail_id',
+                'cp.part_number as customer',
+                'cp.internal_part_id',
+                'ip.part_number as internal',
+                'lld.kanban_qty',
+                'lld.total_qty',
+                'lld.actual_kanban_qty',
+                'lld.created_at as detail_created_at',
+                'lld.updated_at as detail_updated_at',
+            ]);
+
+        $history = collect();
+        $sync = collect();
+        $hasLinkedMutationColumns = $this->mutationsHaveLoadingListColumns();
+
+        foreach ($details as $detail) {
+            $actualCount = (int) $detail->actual_kanban_qty;
+            if ($actualCount <= 0) {
+                continue;
+            }
+
+            $mutations = collect();
+
+            if ($hasLinkedMutationColumns) {
+                $mutations = DB::table('mutations as m')
+                    ->where('m.loading_list_detail_id', (int) $detail->loading_list_detail_id)
+                    ->where('m.type', 'checkout')
+                    ->whereNotNull('m.serial_number')
+                    ->where('m.serial_number', '<>', '')
+                    ->orderByDesc('m.created_at')
+                    ->orderByDesc('m.id')
+                    ->limit($actualCount)
+                    ->get([
+                        'm.serial_number',
+                        'm.date',
+                        'm.created_at',
+                        DB::raw('1 as verified'),
+                    ]);
+            }
+
+            if ($mutations->count() < $actualCount) {
+                $seenSerials = $mutations->pluck('serial_number')->filter()->all();
+                $fallback = DB::table('mutations as m')
+                    ->where('m.internal_part_id', (int) $detail->internal_part_id)
+                    ->where('m.type', 'checkout')
+                    ->whereNotNull('m.serial_number')
+                    ->where('m.serial_number', '<>', '')
+                    ->when($seenSerials !== [], fn ($query) => $query->whereNotIn('m.serial_number', $seenSerials))
+                    ->orderByDesc('m.created_at')
+                    ->orderByDesc('m.id')
+                    ->limit($actualCount - $mutations->count())
+                    ->get([
+                        'm.serial_number',
+                        'm.date',
+                        'm.created_at',
+                        DB::raw('0 as verified'),
+                    ]);
+
+                $mutations = $mutations->concat($fallback);
+            }
+
+            $serials = $mutations->map(function ($mutation) {
+                $scannedAt = $mutation->date ?: $mutation->created_at;
+
+                return [
+                    'serial' => $mutation->serial_number,
+                    'scanned_at' => $scannedAt ? Carbon::parse($scannedAt)->timestamp * 1000 : 0,
+                    'verified' => (bool) ($mutation->verified ?? false),
+                ];
+            })->values();
+
+            $sync->push([
+                'customer' => $detail->customer,
+                'internal' => $detail->internal,
+                'loading_list' => $detail->loading_list,
+                'target' => (int) ($detail->kanban_qty ?? 0),
+                'qty_per_kbn' => ((int) ($detail->kanban_qty ?? 0)) > 0
+                    ? ((int) ($detail->total_qty ?? 0) / (int) $detail->kanban_qty)
+                    : 0,
+                'scanned_count' => $actualCount,
+                'serials' => $serials->all(),
+            ]);
+
+            foreach ($serials as $serial) {
+                if ($history->count() >= $limit) {
+                    break;
+                }
+
+                $history->push([
+                    'customer' => $detail->customer,
+                    'internal' => $detail->internal,
+                    'serial' => $serial['serial'],
+                    'loading_list' => $detail->loading_list,
+                    'scanned_at' => $serial['scanned_at'],
+                    'verified' => $serial['verified'] ?? false,
+                    'source' => 'mutation',
+                ]);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'history' => $history
+                ->sortByDesc('scanned_at')
+                ->values()
+                ->all(),
+            'sync' => $sync->values()->all(),
+        ]);
     }
 
     public function post(Request $request)
     {
-        $loadingLists = $request->loadingList;
-        $token = $request->token;
+        $loadingLists = $request->input('loadingList', []);
+        $token = $request->input('token');
         $data = [];
         $result = [];
+
+        if (! is_array($loadingLists) || empty($loadingLists)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data loading list kosong.',
+            ], 422);
+        }
+
+        $client = new Client([
+            'verify' => false, // Temporarily disabling SSL verification
+        ]);
 
         // loop the loading list & restructure the array
         foreach ($loadingLists as $loadingList => $items) {
@@ -979,91 +1478,155 @@ class PullingController extends Controller
                     ];
                 }
             }
-            $data[count($data) - 1]->items = (object) $result;
+            $data[count($data) - 1]->items = $result;
             $result = [];
         }
 
-        // initialize new client
-        $client = new Client([
-            'verify' => false, // Temporarily disabling SSL verification
-        ]);
+        $detailUpdates = [];
+
+        foreach ($data as $row) {
+            $loadingListId = LoadingList::select('id', 'customer_id')
+                ->where('number', $row->loading_list_number)
+                ->first();
+
+            if (! $loadingListId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Loading list {$row->loading_list_number} tidak ditemukan.",
+                ], 422);
+            }
+
+            $items = array_values((array) $row->items);
+            try {
+                [$deaItems] = $this->fetchBestDeaLoadingListItemsForPost(
+                    $client,
+                    (string) $token,
+                    $row->loading_list_number,
+                    $items
+                );
+            } catch (\Throwable $th) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Gagal membaca detail loading list {$row->loading_list_number} dari DEA: ".$th->getMessage(),
+                ], 502);
+            }
+
+            foreach ($items as $index => $item) {
+                $customerPartNumber = trim((string) data_get($item, 'part_number_cust', ''));
+                $internalPartNumber = trim((string) data_get($item, 'part_number_int', ''));
+                $deaItem = $deaItems !== []
+                    ? $this->findDeaKanbanItemForPost(
+                        $deaItems,
+                        $row->loading_list_number,
+                        $customerPartNumber,
+                        $internalPartNumber
+                    )
+                    : null;
+
+                if ($deaItems !== [] && ! $deaItem) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Part ".data_get($item, 'part_number_cust')." / ".data_get($item, 'part_number_int')." tidak ditemukan di detail DEA loading list {$row->loading_list_number}.",
+                    ], 422);
+                }
+
+                $localDetail = $this->findLoadingListDetailForPost(
+                    $loadingListId->id,
+                    $loadingListId->customer_id,
+                    $row->loading_list_number,
+                    $customerPartNumber,
+                    $internalPartNumber
+                );
+
+                $items[$index]['part_number_cust'] = $deaItem['part_number_cust']
+                    ?? $this->formatCustomerPartForDeaPost(
+                        $localDetail?->part_number ?? $customerPartNumber,
+                        $localDetail !== null
+                    );
+                $items[$index]['part_number_int'] = $deaItem['part_number_int'] ?? $internalPartNumber;
+            }
+
+            $row->items = $items;
+            $kanbans = [];
+
+            foreach ($items as $item) {
+                $customerPartNumber = trim((string) data_get($item, 'part_number_cust', ''));
+                $internalPartNumber = trim((string) data_get($item, 'part_number_int', ''));
+                $key = $customerPartNumber.'||'.$internalPartNumber;
+
+                if (! isset($kanbans[$key])) {
+                    $kanbans[$key] = [
+                        'customer' => $customerPartNumber,
+                        'internal' => $internalPartNumber,
+                        'actual_scanned' => 0,
+                    ];
+                }
+
+                $kanbans[$key]['actual_scanned']++;
+            }
+
+            foreach ($kanbans as $kanban) {
+                $kanbanQty = $this->findLoadingListDetailForPost(
+                    $loadingListId->id,
+                    $loadingListId->customer_id,
+                    $row->loading_list_number,
+                    $kanban['customer'],
+                    $kanban['internal']
+                );
+
+                if (! $kanbanQty) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Detail part {$kanban['customer']} tidak ditemukan di loading list {$row->loading_list_number}.",
+                    ], 422);
+                }
+
+                $detailUpdates[] = [
+                    'id' => $kanbanQty->id,
+                    'actual_scanned' => $kanban['actual_scanned'],
+                    'kanban_qty' => $kanbanQty->kanban_qty,
+                ];
+            }
+        }
 
         // post data
-        for ($i = 0; $i < count($data); $i++) {
-            $response = $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                    'Authorization' => 'Bearer ' . $token,
-                ],
-                'json' => $data[$i],
-            ]);
+        try {
+            foreach ($data as $row) {
+                // Detail DEA bisa butuh suffix untuk dibaca, tapi POST /kanbans memvalidasi nomor LL asli.
+                $client->post('https://dea-dev.aiia.co.id/api/v1/kanbans', [
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                        'Accept' => 'application/json',
+                        'Authorization' => 'Bearer ' . $token,
+                    ],
+                    'json' => $row,
+                ]);
+            }
+        } catch (\GuzzleHttp\Exception\RequestException $th) {
+            $body = $th->getResponse() ? (string) $th->getResponse()->getBody() : '';
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $body !== '' ? $body : $th->getMessage(),
+            ], 502);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $th->getMessage(),
+            ], 502);
         }
 
-        for ($i = 0; $i < count($data); $i++) {
-            foreach ($data[$i]->items as $key => $value) {
-                // get actual kanban scanned based on same kanban cust for all cust
-                $kanbans = array_count_values(array_column(json_decode(json_encode($data[$i]->items), true), 'part_number_cust'));
-
-                foreach ($kanbans as $kanban_cust => $actual_scanned) {
-                    $lastDigit = substr($kanban_cust, -2);
-                    $loadingListId = LoadingList::select('id', 'customer_id')->where('number', $data[$i]->loading_list_number)->first();
-
-                    // check part number customer length
-                    if (strlen($kanban_cust) == 12) {
-                        // TMMIN
-                        if ($lastDigit != '00') {
-                            $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -2);
-                        } else {
-                            $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -2);
-                        }
-                    } else if (strlen($kanban_cust) == 10) {
-                        if ($loadingListId->customer_id == 14 || $loadingListId->customer_id == 22) {
-                            // SUZUKI
-                            // $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0) . '-' . '000';
-                            $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
-                        } else {
-                            if ($loadingListId->customer_id == 6) {
-                                // MMKI
-                                $convertedPartNumber = $kanban_cust;
-                            } else {
-                                // TBINA
-                                $convertedPartNumber = substr_replace($kanban_cust, '-', 5, 0);
-                            }
-                        }
-                    } else if (strlen($kanban_cust) == 13) {
-                        // SUZUKI
-                        if ($lastDigit != '000') {
-                            $convertedPartNumber = substr($kanban_cust, 0, 5) . '-' . substr($kanban_cust, 5, 5) . '-' . substr($kanban_cust, -3);
-                        } else {
-                            $convertedPartNumber = substr(substr_replace($kanban_cust, '-', 5, 0), 0, -3);
-                        }
-                    } else {
-                        $convertedPartNumber = $kanban_cust;
-                    }
-
-                    // get customer part id
-                    $customerPart = CustomerPart::select('id')
-                        ->where('part_number', $convertedPartNumber)
-                        ->where('customer_id', $loadingListId->customer_id)
-                        ->first();
-
-                    // get kanban_qty
-                    $kanban_qty = LoadingListDetail::select('kanban_qty')
-                        ->where('loading_list_id', $loadingListId->id)
-                        ->where('customer_part_id', $customerPart->id)
-                        ->first();
-
-                    if ($actual_scanned < $kanban_qty->kanban_qty) {
-                        $kanban_qty->update([
-                            'actual_kanban_qty' => $actual_scanned
-                        ]);
-                    }
-                }
-            };
+        foreach ($detailUpdates as $update) {
+            if ($update['actual_scanned'] < $update['kanban_qty']) {
+                LoadingListDetail::where('id', $update['id'])
+                    ->where('actual_kanban_qty', '<', $update['actual_scanned'])
+                    ->update([
+                    'actual_kanban_qty' => $update['actual_scanned'],
+                ]);
+            }
         }
 
-        return ['status' => $response];
+        return response()->json(['status' => 'success']);
     }
 
     public function kanbanCheck(Request $request)
@@ -1094,8 +1657,7 @@ class PullingController extends Controller
         }
 
         // check if kanban already scanned by production
-        $kanbanAfterProd = KanbanAfterProd::where('kanban_id', $kanban->id);
-        if (!$kanbanAfterProd->first()) {
+        if (! KanbanAfterProd::where('kanban_id', $kanban->id)->exists()) {
             return response()->json([
                 'status' => 'notScanned',
                 'message' => 'Kanban belum discan produksi!'
@@ -1174,17 +1736,30 @@ class PullingController extends Controller
         }
     }
 
-    public function edclAuth($username, $password)
+    public function edclAuth($username, $password, bool $forceRefresh = false)
     {
+        $cacheKey = 'tmmin_edcl_token';
+
+        // Pakai token yang sudah di-cache supaya tidak login eksternal tiap scan
+        if (!$forceRefresh) {
+            $cached = cache()->get($cacheKey);
+            if (is_string($cached) && $cached !== '') {
+                return $cached;
+            }
+        }
+
         try {
             $response = Http::withHeaders([
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'x-apihub-key' => env('API_TMMIN_KEY'),
-            ])->post(env('API_TMMIN') . 'auth/login', [
-                'username' => $username,
-                'password' => $password,
-            ]);
+            ])
+                ->connectTimeout(5)
+                ->timeout(10)
+                ->post(env('API_TMMIN') . 'auth/login', [
+                    'username' => $username,
+                    'password' => $password,
+                ]);
 
             if ($response->failed()) {
                 return response()->json([
@@ -1196,6 +1771,12 @@ class PullingController extends Controller
 
             $data = $response->json(); // Convert response to array
             $accessToken = $data['data']['accessToken'] ?? null; // Safely retrieve accessToken
+
+            // Cache hanya token yang valid (jangan cache kegagalan)
+            if (is_string($accessToken) && $accessToken !== '') {
+                $ttl = (int) env('TMMIN_TOKEN_TTL_MINUTES', 30);
+                cache()->put($cacheKey, $accessToken, now()->addMinutes($ttl));
+            }
 
             return $accessToken; // Output the token
 
@@ -1268,13 +1849,29 @@ class PullingController extends Controller
             }
         }
 
-        // Send the request to the EDCL API
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-            'x-apihub-key' => env('API_TMMIN_KEY'),
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])->post(env('API_TMMIN') . 'ManifestCompleteness/confirm', $data);
+        // Send the request to the EDCL API (timeout + retry sekali bila token cache kedaluwarsa)
+        $postConfirm = function ($token) use ($data) {
+            return Http::withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+                'x-apihub-key' => env('API_TMMIN_KEY'),
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->post(env('API_TMMIN') . 'ManifestCompleteness/confirm', $data);
+        };
+
+        $response = $postConfirm($token);
+
+        // Token cache bisa kedaluwarsa di sisi server → refresh sekali lalu ulangi
+        if ($response->status() === 401) {
+            $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD'), true);
+            if (!is_string($token) || $token === '') {
+                return response()->json(['error' => 'Authentication failed'], 401);
+            }
+            $response = $postConfirm($token);
+        }
 
         // get loading list detail table
         $loadingListDetailId = LoadingListDetail::select('id')
@@ -1380,12 +1977,28 @@ class PullingController extends Controller
             ]
         ];
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-            'x-apihub-key' => env('API_TMMIN_KEY'),
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])->post(env('API_TMMIN') . 'ManifestCompleteness/cancel', $data);
+        $postCancel = function ($token) use ($data) {
+            return Http::withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+                'x-apihub-key' => env('API_TMMIN_KEY'),
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->post(env('API_TMMIN') . 'ManifestCompleteness/cancel', $data);
+        };
+
+        $response = $postCancel($token);
+
+        // Token cache bisa kedaluwarsa di sisi server → refresh sekali lalu ulangi
+        if ($response->status() === 401) {
+            $token = $this->edclAuth(env('TMMIN_USERNAME'), env('TMMIN_PASSWORD'), true);
+            if (!is_string($token) || $token === '') {
+                return response()->json(['error' => 'Authentication failed'], 401);
+            }
+            $response = $postCancel($token);
+        }
 
         // Process the response
         if ($response['message'] === 'Success - Cancel Manifest') {
@@ -1431,6 +2044,172 @@ class PullingController extends Controller
     {
         $customers = Customer::all(); // Atau filter sesuai kebutuhan
         return view('pages.pulling.manual', compact('customers'));
+    }
+
+    public function masterAlamatChuteIndex()
+    {
+        $masters = MasterAlamatChute::query()
+            ->orderBy('part_no_customer')
+            ->orderBy('back_no')
+            ->orderBy('part_name')
+            ->get();
+
+        return view('pages.pulling.master_alamat_chute', compact('masters'));
+    }
+
+    public function downloadMasterAlamatChuteTemplate()
+    {
+        return Excel::download(
+            new MasterAlamatChuteTemplateExport,
+            'template_master_alamat_chute.xlsx'
+        );
+    }
+
+    public function importMasterAlamatChute(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        $uploaded = $request->file('file');
+        $path = $uploaded->getRealPath();
+        if ($path === false || $path === '') {
+            $path = $uploaded->getPathname();
+        }
+
+        try {
+            $spreadsheet = IOFactory::load($path);
+            $rows = $spreadsheet->getActiveSheet()->toArray();
+        } catch (\Throwable $e) {
+            return redirect()
+                ->route('pulling.master-alamat-chute')
+                ->withErrors(['file' => 'Gagal membaca file: '.$e->getMessage()]);
+        }
+
+        $importer = new MasterAlamatChuteImporter;
+        $importer->processSheetRows($rows);
+
+        $redirect = redirect()->route('pulling.master-alamat-chute');
+
+        if ($importer->imported > 0) {
+            $redirect->with(
+                'success',
+                "Tersimpan {$importer->imported} baris ke master alamat chute (Part no customer | Back No | Part name | Alamat Chute)."
+            );
+        }
+
+        if ($importer->errors !== []) {
+            $lines = $importer->errors;
+            if (count($lines) > 30) {
+                $lines = array_merge(
+                    array_slice($lines, 0, 30),
+                    ['… dan '.(count($importer->errors) - 30).' pesan lainnya.']
+                );
+            }
+            $redirect->with('import_notice', implode("\n", $lines));
+        } elseif ($importer->imported === 0) {
+            $redirect->with(
+                'import_notice',
+                'Tidak ada baris yang diimpor. Pastikan baris pertama berisi header kolom (sesuai template) dan ada data di bawahnya.'
+            );
+        }
+
+        return $redirect;
+    }
+
+    public function clearAllMasterAlamatChute()
+    {
+        $count = MasterAlamatChute::query()->count();
+
+        if ($count === 0) {
+            return redirect()
+                ->route('pulling.master-alamat-chute')
+                ->with('success', 'Tidak ada data master alamat chute yang perlu dihapus.');
+        }
+
+        MasterAlamatChute::query()->delete();
+        try {
+            cache()->increment('chute_cache_version');
+        } catch (\Exception $e) {}
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', "Semua data master alamat chute ({$count} baris) berhasil dihapus. Anda dapat mengimpor ulang file Excel terbaru.");
+    }
+
+    public function storeMasterAlamatChute(Request $request)
+    {
+        $validated = $request->validate([
+            'part_no_customer' => 'required|string|max:100',
+            'back_no' => 'nullable|string|max:50',
+            'part_name' => 'nullable|string|max:150',
+            'alamat_chute' => 'required|string|max:100',
+        ]);
+
+        $partNoCustomer = trim($validated['part_no_customer']);
+        $backNo = trim((string) ($validated['back_no'] ?? ''));
+        $partName = trim((string) ($validated['part_name'] ?? ''));
+
+        MasterAlamatChute::updateOrCreate(
+            [
+                'part_no_customer' => $partNoCustomer,
+                'back_no' => $backNo,
+            ],
+            [
+                'part_name' => $partName,
+                'alamat_chute' => trim($validated['alamat_chute']),
+            ]
+        );
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', 'Master alamat Chute berhasil disimpan.');
+    }
+
+    public function updateMasterAlamatChute(Request $request, MasterAlamatChute $master_alamat_chute)
+    {
+        $validated = $request->validate([
+            'part_no_customer' => 'required|string|max:100',
+            'back_no' => 'nullable|string|max:50',
+            'part_name' => 'nullable|string|max:150',
+            'alamat_chute' => 'required|string|max:100',
+        ]);
+
+        $partNoCustomer = trim($validated['part_no_customer']);
+        $backNo = trim((string) ($validated['back_no'] ?? ''));
+        $partName = trim((string) ($validated['part_name'] ?? ''));
+
+        $duplicate = MasterAlamatChute::query()
+            ->where('part_no_customer', $partNoCustomer)
+            ->where('back_no', $backNo)
+            ->where('id', '!=', $master_alamat_chute->id)
+            ->exists();
+
+        if ($duplicate) {
+            return redirect()
+                ->route('pulling.master-alamat-chute')
+                ->withErrors(['part_no_customer' => 'Kombinasi Part no customer dan Back No sudah terdaftar.']);
+        }
+
+        $master_alamat_chute->update([
+            'part_no_customer' => $partNoCustomer,
+            'back_no' => $backNo,
+            'part_name' => $partName,
+            'alamat_chute' => trim($validated['alamat_chute']),
+        ]);
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', 'Master alamat Chute berhasil diperbarui.');
+    }
+
+    public function deleteMasterAlamatChute(MasterAlamatChute $master_alamat_chute)
+    {
+        $master_alamat_chute->delete();
+
+        return redirect()
+            ->route('pulling.master-alamat-chute')
+            ->with('success', 'Master alamat Chute berhasil dihapus.');
     }
 
     public function manualReset(Request $request)

@@ -60,11 +60,9 @@ class InjectionController extends Controller
 
         $mold = Mold::query()
             ->with([
-                // Sesuaikan nama relasi ini jika di model Mold paduka berbeda.
-                // Ideal: Mold hasMany MoldPart, dan MoldPart belongsTo InternalPart.
-                'parts.internalPart.customerPart',
+                'parts.internalPart.customerParts',
             ])
-            ->where('tag', $moldCode)
+            ->whereRaw('UPPER(tag) = ?', [strtoupper(trim($moldCode))])
             ->first();
 
         if (!$mold) {
@@ -72,6 +70,13 @@ class InjectionController extends Controller
                 'status'  => 'error',
                 'message' => 'Tag mold tidak ditemukan.',
             ], 404);
+        }
+
+        if (!$mold->is_active) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mold sedang nonaktif.',
+            ], 422);
         }
 
         if ($lineName && $this->moldHasLineColumn($mold)) {
@@ -121,7 +126,7 @@ class InjectionController extends Controller
     public function getInternalPart(string $custPart): JsonResponse
     {
         $customerPart = CustomerPart::with('internalPart')
-            ->where('part_number', $custPart)
+            ->whereRaw('UPPER(part_number) = ?', [strtoupper(trim($custPart))])
             ->first();
 
         if (!$customerPart || !$customerPart->internalPart) {
@@ -159,6 +164,7 @@ class InjectionController extends Controller
             'mold_id'    => ['nullable'],
             'mold_code'  => ['required', 'string', 'max:128'],
             'partNumber' => ['required', 'string', 'max:128'],
+            'customer_part_id' => ['nullable', 'integer', 'exists:customer_parts,id'],
             'seri'       => ['nullable', 'string', 'max:64'],
             'start_time' => ['required', 'date'],
             'end_time'   => ['required', 'date'],
@@ -174,10 +180,10 @@ class InjectionController extends Controller
             ], 404);
         }
 
-        $mold = Mold::with(['parts.internalPart.customerPart'])
+        $mold = Mold::with(['parts.internalPart.customerParts'])
             ->when($validated['mold_id'] ?? null, fn($query, $moldId) => $query->where('id', $moldId))
             ->where(function ($query) use ($validated) {
-                $query->where('tag', $validated['mold_code']);
+                $query->whereRaw('UPPER(tag) = ?', [strtoupper(trim($validated['mold_code']))]);
             })
             ->first();
 
@@ -188,7 +194,14 @@ class InjectionController extends Controller
             ], 404);
         }
 
-        $internalPart = InternalPart::where('part_number', $validated['partNumber'])->first();
+        if (!$mold->is_active) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mold sedang nonaktif.',
+            ], 422);
+        }
+
+        $internalPart = InternalPart::whereRaw('UPPER(part_number) = ?', [strtoupper(trim($validated['partNumber']))])->first();
         if (!$internalPart) {
             return response()->json([
                 'status'  => 'error',
@@ -203,7 +216,21 @@ class InjectionController extends Controller
             ], 422);
         }
 
-        $customerPart = CustomerPart::where('internal_part_id', $internalPart->id)->first();
+        $customerPart = CustomerPart::query()
+            ->where('internal_part_id', $internalPart->id)
+            ->when(
+                $validated['customer_part_id'] ?? null,
+                fn($query, $customerPartId) => $query->whereKey($customerPartId)
+            )
+            ->orderBy('id')
+            ->first();
+
+        if (($validated['customer_part_id'] ?? null) && !$customerPart) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Part customer tidak sesuai dengan internal part.',
+            ], 422);
+        }
         $qtyPerKanban = (int) ($customerPart->qty_per_kanban ?? 1);
 
         $kanban = null;
@@ -484,7 +511,7 @@ class InjectionController extends Controller
         return $mold->parts
             ->map(function ($moldPart) {
                 $internalPart = $moldPart->internalPart ?? $moldPart;
-                $customerPart = $internalPart->customerPart;
+                $customerPart = $internalPart->customerParts->sortBy('id')->first();
 
                 return [
                     'id'             => $internalPart->id,

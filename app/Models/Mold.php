@@ -10,6 +10,10 @@ class Mold extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
     public function moldHasParts()
     {
         return $this->hasMany(MoldHasParts::class, 'mold_id', 'id');

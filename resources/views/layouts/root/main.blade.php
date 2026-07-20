@@ -7,13 +7,21 @@
     <title>BELLA</title>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('icons/bella-favicon.svg') }}?v=2">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <link rel="manifest" href={{ asset('manifest.json') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/bootstrap/css/bootstrap.min.css') }}>
     <link rel="stylesheet" href={{ asset('assets/modules/fontawesome/css/all.min.css') }}>
+    @unless (request()->routeIs('dashboard.overview'))
     <link rel="stylesheet"
         href={{ asset('assets/modules/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}>
+    @unless (request()->routeIs('dashboard.productionStock'))
     <link rel="stylesheet" href={{ asset('assets/modules/select2/dist/css/select2.min.css') }}>
+    @endunless
+    @endunless
     <link rel="stylesheet" href={{ asset('assets/modules/izitoast/css/iziToast.min.css') }}>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
 
@@ -82,13 +90,13 @@
             height: 100vh;
             z-index: 100;
             transition: width .25s cubic-bezier(.4, 0, .2, 1), transform .25s cubic-bezier(.4, 0, .2, 1);
-            border-right: 1px solid var(--border);
-            box-shadow: 2px 0 12px rgba(41, 71, 149, .06);
+            border-right: 1px solid #eef1f6;
+            box-shadow: 2px 0 16px rgba(41, 71, 149, .05);
             overflow: visible;
         }
 
         #sidebar-wrapper.collapsed {
-            width: 54px;
+            width: 68px;
         }
 
         /* Hide labels when collapsed */
@@ -107,7 +115,57 @@
 
         #sidebar-wrapper.collapsed .sb-item {
             justify-content: center;
-            padding: 8px 0;
+            width: 44px;
+            height: 40px;
+            margin: 4px auto;
+            padding: 0;
+            border-radius: 12px;
+            overflow: visible;
+        }
+
+        #sidebar-wrapper.collapsed .sb-nav {
+            overflow: visible;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item i.sb-icon {
+            font-size: 16px;
+            width: auto;
+            opacity: .7;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item:hover i.sb-icon,
+        #sidebar-wrapper.collapsed .sb-item.active i.sb-icon,
+        #sidebar-wrapper.collapsed .sb-item.open i.sb-icon {
+            opacity: 1;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item.active::before {
+            display: none;
+        }
+
+        #sidebar-wrapper.collapsed .sb-item[data-has-sub] .sb-item-tooltip {
+            display: none !important;
+        }
+
+        /* Flyout submenu saat collapsed — dipasang via JS sebagai position:fixed (lolos dari overflow .sb-nav) */
+        #sidebar-wrapper.collapsed .sb-submenu.sb-flyout {
+            display: block !important;
+            position: fixed !important;
+            width: auto;
+            min-width: 196px;
+            max-width: 240px;
+            padding: 6px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 14px 34px rgba(41, 71, 149, .18);
+            z-index: 3000;
+        }
+
+        #sidebar-wrapper.collapsed .sb-submenu.sb-flyout .sb-sub-item {
+            padding: 8px 11px;
+            border-radius: 8px;
+            font-size: 12.5px;
         }
 
         #sidebar-wrapper.collapsed .sb-logo {
@@ -216,6 +274,8 @@
             border: 1px solid var(--border);
             cursor: default;
             transition: .2s;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .sb-user:hover {
@@ -238,18 +298,28 @@
             box-shadow: 0 2px 6px rgba(41, 71, 149, .25);
         }
 
+        .sb-user-meta {
+            min-width: 0;
+            flex: 1 1 auto;
+            overflow: hidden;
+        }
+
         .sb-user-name {
             font-size: 12.5px;
             font-weight: 700;
             color: var(--text);
             line-height: 1.2;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sb-user-role {
             font-size: 10px;
             color: var(--text-muted);
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sb-user-badge {
@@ -262,12 +332,12 @@
             color: #fff;
             letter-spacing: .03em;
             white-space: nowrap;
-            flex-shrink: 0;
+            flex: 0 0 auto;
         }
 
         /* Nav */
         .sb-nav {
-            padding: 0 8px;
+            padding: 0 10px;
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
@@ -278,27 +348,27 @@
         }
 
         .sb-section-label {
-            padding: 10px 8px 3px;
+            padding: 14px 12px 6px;
             font-size: 9.5px;
-            font-weight: 700;
-            color: var(--text-muted);
+            font-weight: 600;
+            color: #9aa5b8;
             text-transform: uppercase;
-            letter-spacing: .1em;
+            letter-spacing: .12em;
             white-space: nowrap;
         }
 
         .sb-item {
             display: flex;
             align-items: center;
-            gap: 9px;
-            padding: 8px 10px;
-            border-radius: 6px;
+            gap: 11px;
+            padding: 9px 12px;
+            border-radius: 11px;
             cursor: pointer;
             font-size: 12.5px;
             font-weight: 500;
-            color: var(--text-muted);
-            transition: .15s;
-            margin-bottom: 1px;
+            color: #5b6b85;
+            transition: background .15s, color .15s;
+            margin-bottom: 3px;
             position: relative;
             white-space: nowrap;
             overflow: hidden;
@@ -306,37 +376,34 @@
         }
 
         .sb-item:hover {
-            background: var(--bg);
-            color: var(--text);
+            background: #f4f7fb;
+            color: #1A2340;
             text-decoration: none;
         }
 
         .sb-item.active {
-            background: #EEF2FF;
-            color: var(--navy);
+            background: #EAF4FD;
+            color: #0b6aa3;
+            font-weight: 600;
         }
 
         .sb-item.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 55%;
-            background: var(--sky);
-            border-radius: 0 2px 2px 0;
+            display: none;
         }
 
         .sb-item i.sb-icon {
-            width: 15px;
-            font-size: 13px;
+            width: 16px;
+            font-size: 14px;
             flex-shrink: 0;
-            opacity: .6;
+            opacity: .55;
             text-align: center;
         }
 
-        .sb-item.active i.sb-icon,
+        .sb-item.active i.sb-icon {
+            opacity: 1;
+            color: #0097D8;
+        }
+
         .sb-item.open i.sb-icon {
             opacity: 1;
         }
@@ -365,7 +432,7 @@
         /* Submenu */
         .sb-submenu {
             display: none;
-            padding: 2px 0 4px 24px;
+            padding: 2px 0 6px 14px;
         }
 
         .sb-item.open+.sb-submenu {
@@ -375,15 +442,15 @@
         .sb-sub-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 5px;
+            gap: 9px;
+            padding: 8px 11px;
+            border-radius: 9px;
             font-size: 12px;
             font-weight: 400;
-            color: var(--text-muted);
+            color: #6b7894;
             text-decoration: none;
-            transition: .12s;
-            margin-bottom: 1px;
+            transition: background .12s, color .12s;
+            margin-bottom: 2px;
             position: relative;
             white-space: nowrap;
             overflow: hidden;
@@ -404,27 +471,19 @@
         }
 
         .sb-sub-item:hover {
-            background: var(--bg);
-            color: var(--text);
+            background: #f4f7fb;
+            color: #1A2340;
             text-decoration: none;
         }
 
         .sb-sub-item.active {
-            color: var(--navy);
+            color: #0b6aa3;
             font-weight: 600;
-            background: #EEF2FF;
+            background: #EAF4FD;
         }
 
         .sb-sub-item.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 55%;
-            background: var(--sky);
-            border-radius: 0 2px 2px 0;
+            display: none;
         }
 
         .sb-sub-item i {
@@ -463,7 +522,7 @@
             border-right-color: #1A2340;
         }
 
-        #sidebar-wrapper.collapsed .sb-item:hover .sb-item-tooltip {
+        #sidebar-wrapper.collapsed .sb-item:not([data-has-sub]):hover .sb-item-tooltip {
             display: block;
         }
 
@@ -472,6 +531,66 @@
             padding: 10px 8px;
             border-top: 1px solid var(--border);
             flex-shrink: 0;
+        }
+
+        body.pref-sidenav-dark #sidebar-wrapper {
+            background: #111827;
+            border-right-color: rgba(148, 163, 184, .18);
+            box-shadow: 2px 0 18px rgba(15, 23, 42, .22);
+        }
+
+        body.pref-sidenav-dark .sb-logo,
+        body.pref-sidenav-dark .sb-bottom {
+            border-color: rgba(148, 163, 184, .16);
+        }
+
+        body.pref-sidenav-dark .sb-logo-text,
+        body.pref-sidenav-dark .sb-user-name {
+            color: #F8FAFC;
+        }
+
+        body.pref-sidenav-dark .sb-logo-sub,
+        body.pref-sidenav-dark .sb-user-role,
+        body.pref-sidenav-dark .sb-section-label {
+            color: #94A3B8;
+        }
+
+        body.pref-sidenav-dark .sb-user {
+            background: rgba(15, 23, 42, .72);
+            border-color: rgba(148, 163, 184, .18);
+        }
+
+        body.pref-sidenav-dark .sb-user:hover {
+            background: rgba(30, 41, 59, .9);
+            border-color: rgba(56, 189, 248, .32);
+        }
+
+        body.pref-sidenav-dark .sb-item,
+        body.pref-sidenav-dark .sb-sub-item {
+            color: #CBD5E1;
+        }
+
+        body.pref-sidenav-dark .sb-item:hover,
+        body.pref-sidenav-dark .sb-sub-item:hover {
+            background: rgba(30, 41, 59, .82);
+            color: #F8FAFC;
+        }
+
+        body.pref-sidenav-dark .sb-item.active,
+        body.pref-sidenav-dark .sb-sub-item.active {
+            background: rgba(14, 165, 233, .16);
+            color: #7DD3FC;
+        }
+
+        body.pref-sidenav-dark .sb-chevron,
+        body.pref-sidenav-dark .sb-item i.sb-icon {
+            color: #94A3B8;
+        }
+
+        body.pref-sidenav-dark .sb-submenu.sb-flyout {
+            background: #111827;
+            border-color: rgba(148, 163, 184, .22);
+            box-shadow: 0 18px 42px rgba(15, 23, 42, .36);
         }
 
         /* ===== TOPBAR (glassmorphism) ===== */
@@ -715,10 +834,15 @@
             transition: margin-left .25s cubic-bezier(.4, 0, .2, 1);
             overflow-x: hidden;
             min-width: 0;
+            background:
+                radial-gradient(420px 150px at 16px 42px, rgba(0, 151, 216, .055), transparent 72%),
+                radial-gradient(520px 160px at 84% 36px, rgba(124, 58, 237, .04), transparent 74%),
+                linear-gradient(180deg, rgba(255, 255, 255, .18) 0%, rgba(240, 244, 249, 0) 150px),
+                var(--bg);
         }
 
         #main-wrapper.sidebar-collapsed {
-            margin-left: 54px;
+            margin-left: 68px;
         }
 
         #main-content {
@@ -755,12 +879,20 @@
                 width: var(--sidebar-w) !important;
             }
 
+            #sidebar-wrapper .sb-toggle {
+                display: none !important;
+            }
+
             body.mobile-open #sidebar-wrapper {
                 transform: translateX(0);
             }
 
             body.mobile-open #sidebar-overlay {
                 display: block;
+            }
+
+            body.mobile-open {
+                overflow: hidden;
             }
 
             #main-wrapper {
@@ -947,41 +1079,93 @@
             position: sticky;
             top: 0;
             z-index: 80;
-            min-height: 68px;
-            padding: 0 24px;
+            height: auto;
+            padding: 12px 18px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 18px;
-            background: rgba(255, 255, 255, .88);
-            backdrop-filter: blur(18px) saturate(180%);
-            -webkit-backdrop-filter: blur(18px) saturate(180%);
-            border-bottom: 1px solid rgba(221, 227, 239, .92);
-            box-shadow: 0 10px 32px rgba(41, 71, 149, .08);
+            gap: 12px;
+            background: transparent;
+            border-bottom: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        #topbar > * {
+            pointer-events: auto;
+        }
+
+        /* aurora tipis di belakang pod biar efek kaca (frost) kelihatan walau konten terang */
+        #topbar::before {
+            content: '';
+            position: absolute;
+            inset: -18px 0 -72px;
+            z-index: -1;
+            pointer-events: none;
+            background:
+                radial-gradient(340px 110px at 18% 34%, rgba(0, 151, 216, .095), transparent 74%),
+                radial-gradient(420px 120px at 82% 30%, rgba(124, 58, 237, .06), transparent 76%);
+            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 58%, transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 58%, transparent 100%);
         }
 
         .tb-left,
         .tb-right {
             display: flex;
             align-items: center;
-            gap: 12px;
             min-width: 0;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .45);
+            -webkit-backdrop-filter: blur(20px) saturate(185%);
+            backdrop-filter: blur(20px) saturate(185%);
+            border: 1px solid rgba(255, 255, 255, .85);
+            box-shadow: 0 8px 28px rgba(41, 71, 149, .12), inset 0 1px 0 rgba(255, 255, 255, .55);
         }
 
         .tb-left {
-            flex: 1;
+            flex: 0 1 auto;
+            gap: 10px;
+            padding: 7px 16px 7px 9px;
         }
 
         .tb-right {
             flex-shrink: 0;
+            gap: 5px;
+            padding: 6px 7px;
         }
 
-        .tb-page-title {
-            font-size: 18px;
-            font-weight: 850;
-            line-height: 1.15;
-            letter-spacing: -.04em;
+        .tb-crumb {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12.5px;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .tb-crumb-home {
+            color: #8a97ad;
+            font-size: 12px;
+        }
+
+        .tb-crumb-sep {
+            color: #c2cad8;
+            font-size: 8px;
+        }
+
+        .tb-crumb-parent {
+            color: #7a86a0;
+            font-weight: 500;
+        }
+
+        .tb-crumb-cur {
             color: #1A2340;
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .tb-page-sub {
@@ -993,15 +1177,15 @@
 
         /* Search */
         .tb-search {
-            width: 260px;
-            height: 40px;
+            width: 230px;
+            height: 36px;
             display: flex;
             align-items: center;
             gap: 9px;
-            padding: 0 14px;
-            border-radius: 14px;
-            background: #F0F4F9;
-            border: 1px solid #DDE3EF;
+            padding: 0 13px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .5);
+            border: 1px solid rgba(15, 23, 42, .07);
             transition: all .18s ease;
         }
 
@@ -1058,6 +1242,22 @@
             transform: translateY(-1px);
         }
 
+        /* di dalam pod kanan: ikon dibuat flat (pod-nya yang jadi permukaan kaca) */
+        .tb-right .tb-icon-btn {
+            width: 36px;
+            height: 36px;
+            background: transparent;
+            border: 1px solid transparent !important;
+            box-shadow: none;
+        }
+
+        .tb-right .tb-icon-btn:hover {
+            background: rgba(0, 112, 183, .10);
+            border-color: transparent !important;
+            color: #0070B7;
+            transform: none;
+        }
+
         .tb-notif-dot {
             position: absolute;
             top: 9px;
@@ -1073,36 +1273,34 @@
         /* Divider */
         .tb-divider {
             width: 1px;
-            height: 28px;
-            background: #DDE3EF;
-            margin: 0 2px;
+            height: 22px;
+            background: rgba(15, 23, 42, .1);
+            margin: 0 3px;
         }
 
         /* User pill */
         .tb-user-pill {
             position: relative;
-            height: 42px;
+            height: 36px;
             display: inline-flex;
             align-items: center;
-            gap: 9px;
-            padding: 5px 12px 5px 5px;
+            gap: 8px;
+            padding: 4px 10px 4px 4px;
             border-radius: 999px;
-            background: #F8FAFF;
-            border: 1px solid #DDE3EF;
+            background: transparent;
+            border: 1px solid transparent;
             cursor: pointer;
             transition: all .18s ease;
-            box-shadow: 0 8px 20px rgba(41, 71, 149, .05);
         }
 
         .tb-user-pill:hover {
-            background: #FFFFFF;
-            border-color: rgba(0, 112, 183, .30);
-            box-shadow: 0 12px 28px rgba(41, 71, 149, .10);
+            background: rgba(0, 112, 183, .08);
+            border-color: transparent;
         }
 
         .tb-user-pill-av {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             border-radius: 999px;
             display: flex;
             align-items: center;
@@ -1242,8 +1440,7 @@
         /* Mobile responsive */
         @media (max-width: 768px) {
             #topbar {
-                min-height: 62px;
-                padding: 0 14px;
+                padding: 10px 12px;
             }
 
             .tb-right {
@@ -1273,17 +1470,137 @@
                 width: 220px;
             }
         }
+
+        .logout-confirm-shell {
+            position: fixed;
+            inset: 0;
+            z-index: 7000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity .18s ease, visibility .18s ease;
+        }
+
+        .logout-confirm-shell.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .logout-confirm-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, .28);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+
+        .logout-confirm-card {
+            position: relative;
+            width: min(420px, 100%);
+            border: 1px solid rgba(255, 255, 255, .72);
+            border-radius: 14px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(255, 255, 255, .76));
+            box-shadow: 0 28px 80px rgba(15, 23, 42, .22), inset 0 1px 0 rgba(255, 255, 255, .74);
+            padding: 18px;
+            transform: translateY(10px) scale(.98);
+            transition: transform .18s ease;
+        }
+
+        .logout-confirm-shell.open .logout-confirm-card {
+            transform: translateY(0) scale(1);
+        }
+
+        .logout-confirm-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FEE2E2;
+            color: #DC2626;
+            font-size: 16px;
+        }
+
+        .logout-confirm-title {
+            margin: 14px 0 5px;
+            color: var(--text);
+            font-size: 18px;
+            font-weight: 850;
+        }
+
+        .logout-confirm-copy {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 650;
+            line-height: 1.55;
+        }
+
+        .logout-confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 9px;
+            margin-top: 18px;
+        }
+
+        .logout-confirm-btn {
+            min-height: 38px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 14px;
+            background: #fff;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background .16s ease, color .16s ease, transform .16s ease;
+        }
+
+        .logout-confirm-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .logout-confirm-btn.danger {
+            border-color: rgba(220, 38, 38, .18);
+            background: #DC2626;
+            color: #fff;
+        }
+
+        .logout-confirm-btn.danger:hover {
+            background: #B91C1C;
+        }
     </style>
 </head>
 
-<body>
+@php
+    $layoutPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
+    $layoutDensityClass = ($layoutPreferences['table_density'] ?? 'comfortable') === 'compact'
+        ? 'pref-density-compact'
+        : '';
+    $layoutSidebarMode = $layoutPreferences['sidebar_mode'] ?? 'remember';
+    $layoutSidebarMode = in_array($layoutSidebarMode, ['remember', 'expanded', 'collapsed'], true) ? $layoutSidebarMode : 'remember';
+    $layoutSidenavTheme = $layoutPreferences['sidenav_theme'] ?? 'light';
+    $layoutSidenavTheme = in_array($layoutSidenavTheme, ['light', 'dark'], true) ? $layoutSidenavTheme : 'light';
+    $layoutSidenavThemeClass = $layoutSidenavTheme === 'dark' ? 'pref-sidenav-dark' : '';
+    $layoutBodyClass = trim($layoutDensityClass.' '.$layoutSidenavThemeClass);
+@endphp
+
+<body class="{{ $layoutBodyClass }}"
+    data-confirm-logout="{{ !empty($layoutPreferences['confirm_logout']) ? '1' : '0' }}"
+    data-sidebar-mode="{{ $layoutSidebarMode }}"
+    data-sidenav-theme="{{ $layoutSidenavTheme }}">
     <div class="app-wrapper">
 
         {{-- SIDEBAR --}}
         @include('layouts.partials.sidenav')
 
         {{-- Mobile overlay --}}
-        <div id="sidebar-overlay" onclick="document.body.classList.remove('mobile-open')"></div>
+        <div id="sidebar-overlay"></div>
 
         {{-- MAIN WRAPPER --}}
         <div id="main-wrapper">
@@ -1305,9 +1622,22 @@
         </div>
     </div>
 
+    <div class="logout-confirm-shell" id="logoutConfirm" aria-hidden="true">
+        <div class="logout-confirm-backdrop" data-logout-close></div>
+        <div class="logout-confirm-card" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle">
+            <div class="logout-confirm-icon">
+                <i class="fas fa-sign-out-alt"></i>
+            </div>
+            <h2 class="logout-confirm-title" id="logoutConfirmTitle">Logout dari BELLA?</h2>
+            <div class="logout-confirm-copy">Sesi kamu akan ditutup dan perlu login ulang untuk masuk kembali.</div>
+            <div class="logout-confirm-actions">
+                <button type="button" class="logout-confirm-btn" data-logout-close>Batal</button>
+                <button type="button" class="logout-confirm-btn danger" id="logoutConfirmSubmit">Logout</button>
+            </div>
+        </div>
+    </div>
+
     <!-- General JS Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.3.min.js"
-        integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
     <script src={{ asset('assets/modules/jquery.min.js') }}></script>
     <script src={{ asset('assets/modules/popper.js') }}></script>
     <script src={{ asset('assets/modules/tooltip.js') }}></script>
@@ -1315,25 +1645,80 @@
     <script src={{ asset('assets/modules/nicescroll/jquery.nicescroll.min.js') }}></script>
     <script src={{ asset('assets/modules/moment.min.js') }}></script>
     <script src={{ asset('assets/js/stisla.js') }}></script>
+    @unless (request()->routeIs('dashboard.overview'))
+    @if (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
+    <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/jquery.dataTables.min.js') }}></script>
+    <script src={{ asset('assets/modules/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js') }}></script>
+    @else
     <script src={{ asset('assets/modules/datatables/datatables.min.js') }}></script>
-    <script src="{{ asset('assets/js/dataTables.bootstrap4.min.js') }}"></script>
+    @endif
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/modules/jquery.sparkline.min.js') }}></script>
     <script src={{ asset('assets/modules/chart.min.js') }}></script>
     <script src={{ asset('assets/modules/owlcarousel2/dist/owl.carousel.min.js') }}></script>
     <script src={{ asset('assets/modules/summernote/summernote-bs4.js') }}></script>
     <script src={{ asset('assets/modules/chocolat/dist/js/jquery.chocolat.min.js') }}></script>
+    @endunless
+    @unless (request()->routeIs('loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('dist/assets/select2/dist/js/select2.full.min.js') }}></script>
-    <script src={{ asset('assets/modules/izitoast/js/iziToast.min.js') }}></script>
+    @endunless
+    @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/js/page/bootstrap-modal.js') }}></script>
-    <script src={{ asset('assets/js/page/index.js') }}></script>
+    @endunless
+    @endunless
+    <script src={{ asset('assets/modules/izitoast/js/iziToast.min.js') }}></script>
     <script src={{ asset('assets/js/scripts.js') }}></script>
     <script src={{ asset('assets/js/custom.js') }}></script>
 
     <script>
         (function() {
+            if (document.body.getAttribute('data-confirm-logout') !== '1') return;
+            var modal = document.getElementById('logoutConfirm');
+            var submitBtn = document.getElementById('logoutConfirmSubmit');
+            var pendingForm = null;
+            if (!modal || !submitBtn) return;
+
+            function open(form) {
+                pendingForm = form;
+                modal.classList.add('open');
+                modal.setAttribute('aria-hidden', 'false');
+                setTimeout(function() { submitBtn.focus(); }, 40);
+            }
+
+            function close() {
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden', 'true');
+                pendingForm = null;
+            }
+
+            document.addEventListener('submit', function(e) {
+                var form = e.target;
+                if (!form || !form.matches('form[action*="/logout"]')) return;
+                e.preventDefault();
+                open(form);
+            });
+
+            modal.addEventListener('click', function(e) {
+                if (e.target.closest('[data-logout-close]')) close();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('open')) close();
+            });
+
+            submitBtn.addEventListener('click', function() {
+                if (!pendingForm) return;
+                submitBtn.disabled = true;
+                pendingForm.submit();
+            });
+        })();
+
+        (function() {
             var sidebar = document.getElementById('sidebar-wrapper');
             var mainWrap = document.getElementById('main-wrapper');
             var toggleBtn = document.getElementById('sb-toggle-btn');
+            var sidebarMode = document.body.getAttribute('data-sidebar-mode') || 'remember';
+            if (!sidebar || !mainWrap) return;
 
             /* ---- Collapse toggle ---- */
             if (toggleBtn) {
@@ -1341,12 +1726,21 @@
                     var c = sidebar.classList.toggle('collapsed');
                     mainWrap.classList.toggle('sidebar-collapsed', c);
                     try {
-                        localStorage.setItem('bella_sb_collapsed', c ? '1' : '0');
+                        if (sidebarMode === 'remember') {
+                            localStorage.setItem('bella_sb_collapsed', c ? '1' : '0');
+                        }
                     } catch (e) {}
                 });
             }
             try {
-                if (localStorage.getItem('bella_sb_collapsed') === '1') {
+                var shouldCollapse = sidebarMode === 'collapsed';
+                if (sidebarMode === 'remember') {
+                    shouldCollapse = localStorage.getItem('bella_sb_collapsed') === '1';
+                }
+                if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+                    shouldCollapse = false;
+                }
+                if (shouldCollapse) {
                     sidebar.classList.add('collapsed');
                     mainWrap.classList.add('sidebar-collapsed');
                 }
@@ -1364,6 +1758,45 @@
                 });
             });
 
+            /* ---- Flyout submenu saat sidebar collapsed (hover ikon → submenu mengambang & bisa diklik) ---- */
+            (function() {
+                var hideTimer = null;
+                document.querySelectorAll('.sb-item[data-has-sub]').forEach(function(item) {
+                    var sub = item.nextElementSibling;
+                    if (!sub || !sub.classList.contains('sb-submenu')) return;
+
+                    function show() {
+                        if (!sidebar.classList.contains('collapsed')) return;
+                        clearTimeout(hideTimer);
+                        // tutup flyout lain
+                        document.querySelectorAll('.sb-submenu.sb-flyout').forEach(function(f) {
+                            if (f !== sub) {
+                                f.classList.remove('sb-flyout');
+                                f.removeAttribute('style');
+                            }
+                        });
+                        var r = item.getBoundingClientRect();
+                        sub.classList.add('sb-flyout');
+                        sub.style.left = (r.right + 8) + 'px';
+                        var sh = sub.offsetHeight;
+                        var top = r.top - 6;
+                        if (top + sh > window.innerHeight - 8) top = Math.max(8, window.innerHeight - sh - 8);
+                        sub.style.top = top + 'px';
+                    }
+
+                    function hide() {
+                        hideTimer = setTimeout(function() {
+                            sub.classList.remove('sb-flyout');
+                            sub.removeAttribute('style');
+                        }, 140);
+                    }
+                    item.addEventListener('mouseenter', show);
+                    item.addEventListener('mouseleave', hide);
+                    sub.addEventListener('mouseenter', function() { clearTimeout(hideTimer); });
+                    sub.addEventListener('mouseleave', hide);
+                });
+            })();
+
             /* Auto-open active parent */
             document.querySelectorAll('.sb-sub-item.active').forEach(function(sub) {
                 var subMenu = sub.closest('.sb-submenu');
@@ -1372,6 +1805,34 @@
                     if (trigger) trigger.classList.add('open');
                 }
             });
+
+            /* Breadcrumb pod topbar dari menu aktif */
+            (function() {
+                var box = document.getElementById('tbCrumb');
+                if (!box) return;
+                var clean = function(s) { return (s || '').replace(/\s+/g, ' ').trim(); };
+                var crumbs = [];
+                var sub = document.querySelector('#sidebar-wrapper .sb-sub-item.active');
+                if (sub) {
+                    var menu = sub.closest('.sb-submenu');
+                    var parent = menu ? menu.previousElementSibling : null;
+                    var plabel = parent ? parent.querySelector('.sb-item-label') : null;
+                    if (plabel) crumbs.push(clean(plabel.textContent));
+                    crumbs.push(clean(sub.textContent));
+                } else {
+                    var item = document.querySelector('#sidebar-wrapper .sb-item.active');
+                    var ilabel = item ? item.querySelector('.sb-item-label') : null;
+                    crumbs.push(ilabel ? clean(ilabel.textContent) : 'Dashboard');
+                }
+                var html = '<i class="fas fa-home tb-crumb-home"></i>';
+                crumbs.forEach(function(c, i) {
+                    var last = i === crumbs.length - 1;
+                    html += '<i class="fas fa-chevron-right tb-crumb-sep"></i>';
+                    html += '<span class="' + (last ? 'tb-crumb-cur' : 'tb-crumb-parent') + '">' +
+                        c.replace(/[<>&]/g, '') + '</span>';
+                });
+                box.innerHTML = html;
+            })();
 
             /* ---- Topbar user dropdown ---- */
             var pill = document.querySelector('.tb-user-pill');
@@ -1387,14 +1848,48 @@
 
             /* ---- Mobile sidebar ---- */
             var mobileBtn = document.getElementById('mobile-menu-btn');
+            var sidebarOverlay = document.getElementById('sidebar-overlay');
+            var isMobileSidebar = function() {
+                return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+            };
+            function setMobileSidebar(open) {
+                document.body.classList.toggle('mobile-open', open);
+                if (mobileBtn) mobileBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            function syncMobileSidebarState() {
+                if (isMobileSidebar()) {
+                    sidebar.classList.remove('collapsed');
+                    mainWrap.classList.remove('sidebar-collapsed');
+                } else {
+                    setMobileSidebar(false);
+                }
+            }
             if (mobileBtn) {
+                mobileBtn.setAttribute('aria-expanded', 'false');
                 mobileBtn.addEventListener('click', function() {
-                    document.body.classList.toggle('mobile-open');
+                    setMobileSidebar(!document.body.classList.contains('mobile-open'));
                 });
             }
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    setMobileSidebar(false);
+                });
+            }
+            sidebar.querySelectorAll('a.sb-item, a.sb-sub-item').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (isMobileSidebar()) setMobileSidebar(false);
+                });
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') setMobileSidebar(false);
+            });
+            window.addEventListener('resize', syncMobileSidebarState);
+            syncMobileSidebarState();
         })();
     </script>
 
+    @include('layouts.partials.device-heartbeat')
+    @include('layouts.partials.ui-polish')
     @yield('custom-script')
     @stack('scripts')
 </body>

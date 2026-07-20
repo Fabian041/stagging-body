@@ -1,6 +1,133 @@
 @extends('layouts.root.main')
 
 @section('main')
+    <style>
+        .mapping-select-wrap {
+            position: relative;
+        }
+
+        .mapping-select-wrap > .select2-container {
+            width: 100% !important;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single {
+            height: 38px !important;
+            background: #fff !important;
+            border: 1px solid #d8e1ee !important;
+            border-radius: 8px !important;
+            box-shadow: none !important;
+            transition: border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .mapping-select-wrap > .select2-container--default.select2-container--focus .select2-selection--single,
+        .mapping-select-wrap > .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #0070b7 !important;
+            box-shadow: 0 0 0 3px rgba(0, 112, 183, .12) !important;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single .select2-selection__rendered {
+            height: 36px;
+            padding: 0 58px 0 12px;
+            color: #1a2340;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 36px;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single .select2-selection__placeholder {
+            color: #8190aa;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single .select2-selection__arrow {
+            width: 36px;
+            height: 36px;
+            top: 1px;
+            right: 1px;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single .select2-selection__clear {
+            position: absolute;
+            top: 6px;
+            right: 34px;
+            z-index: 2;
+            width: 24px;
+            height: 24px;
+            margin: 0;
+            padding: 0;
+            color: #8190aa;
+            font-size: 17px;
+            line-height: 22px;
+            text-align: center;
+            background: transparent;
+            border: 0;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single .select2-selection__clear:hover {
+            color: #dc2626;
+        }
+
+        .mapping-select-wrap > .select2-container--default .select2-selection--single .select2-selection__arrow b {
+            border-color: #6b7a99 transparent transparent transparent;
+        }
+
+        .mapping-select-wrap > .select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
+            border-color: transparent transparent #0070b7 transparent;
+        }
+
+        .mapping-select-wrap .select2-dropdown {
+            overflow: hidden;
+            margin-top: 5px;
+            background: #fff !important;
+            border: 1px solid #b9d3e8 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 14px 35px rgba(41, 71, 149, .18) !important;
+        }
+
+        .mapping-select-wrap .select2-search--dropdown {
+            padding: 8px;
+            background: #f7faff;
+            border-bottom: 1px solid #e5edf6;
+        }
+
+        .mapping-select-wrap .select2-search--dropdown .select2-search__field {
+            height: 36px;
+            padding: 7px 10px;
+            color: #1a2340;
+            font-family: inherit;
+            border: 1px solid #d8e1ee !important;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .mapping-select-wrap .select2-search--dropdown .select2-search__field:focus {
+            border-color: #0070b7 !important;
+            box-shadow: 0 0 0 3px rgba(0, 112, 183, .10);
+        }
+
+        .mapping-select-wrap .select2-results__options {
+            max-height: 240px !important;
+            padding: 5px;
+        }
+
+        .mapping-select-wrap .select2-results__option {
+            margin: 2px 0;
+            padding: 9px 11px;
+            color: #33415c;
+            font-size: 12.5px;
+            border-radius: 6px;
+        }
+
+        .mapping-select-wrap .select2-results__option[aria-selected="true"] {
+            color: #294795 !important;
+            background: #e8f4fd !important;
+        }
+
+        .mapping-select-wrap .select2-results__option--highlighted[aria-selected] {
+            color: #fff !important;
+            background: #0070b7 !important;
+        }
+    </style>
+
     <div class="container-fluid py-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div>
@@ -13,17 +140,22 @@
         @if (session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>
         @endif
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                <strong>Mapping part customer belum dapat disimpan.</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="row g-3">
             <div class="col-lg-4">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white border-0"><strong>Tambah Mapping</strong></div>
                     <div class="card-body">
-                        @php
-                            $editId = request('edit');
-                            $editingCustomerPart = $editId ? $customerParts->firstWhere('id', $editId) : null;
-                        @endphp
-
                         <form method="POST" action="{{ $editingCustomerPart ? route('dashboard.master.customer-parts.update', $editingCustomerPart) : route('dashboard.master.customer-parts.store') }}">
                             @csrf
                             @if ($editingCustomerPart)
@@ -31,21 +163,27 @@
                             @endif
                             <div class="mb-3">
                                 <label class="form-label">Internal Part</label>
-                                <select name="internal_part_id" class="form-select" required>
-                                    <option value="">-- pilih part --</option>
-                                    @foreach ($internalParts as $part)
-                                        <option value="{{ $part->id }}" {{ old('internal_part_id', $editingCustomerPart?->internal_part_id) == $part->id ? 'selected' : '' }}>{{ $part->part_number }} / {{ $part->back_number ?? '-' }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="mapping-select-wrap">
+                                    <select name="internal_part_id" class="customer-mapping-select" required
+                                        data-placeholder="Pilih atau cari internal part...">
+                                        <option value=""></option>
+                                        @foreach ($internalParts as $part)
+                                            <option value="{{ $part->id }}" {{ old('internal_part_id', $editingCustomerPart?->internal_part_id) == $part->id ? 'selected' : '' }}>{{ $part->part_number }} / {{ $part->back_number ?? '-' }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Customer</label>
-                                <select name="customer_id" class="form-select" required>
-                                    <option value="">-- pilih customer --</option>
-                                    @foreach ($customers as $customer)
-                                        <option value="{{ $customer->id }}" {{ old('customer_id', $editingCustomerPart?->customer_id) == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="mapping-select-wrap">
+                                    <select name="customer_id" class="customer-mapping-select" required
+                                        data-placeholder="Pilih atau cari customer...">
+                                        <option value=""></option>
+                                        @foreach ($customers as $customer)
+                                            <option value="{{ $customer->id }}" {{ old('customer_id', $editingCustomerPart?->customer_id) == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Part Number Customer</label>
@@ -57,7 +195,7 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Qty Per Kanban</label>
-                                <input type="number" name="qty_per_kanban" class="form-control" min="0" value="{{ old('qty_per_kanban', $editingCustomerPart?->qty_per_kanban ?? '') }}">
+                                <input type="number" name="qty_per_kanban" class="form-control" min="1" value="{{ old('qty_per_kanban', $editingCustomerPart?->qty_per_kanban ?? '') }}" required>
                             </div>
                             <button class="btn btn-primary w-100">{{ $editingCustomerPart ? 'Update Mapping' : 'Simpan' }}</button>
                             @if ($editingCustomerPart)
@@ -72,10 +210,10 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                         <strong>Daftar Part Customer</strong>
-                        <span class="badge bg-light text-dark">{{ $customerParts->count() }} record</span>
+                        <span class="badge bg-light text-dark">{{ $customerPartCount }} record</span>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+                        <table id="customer-parts-table" class="table table-hover align-middle mb-0 w-100">
                             <thead class="table-light">
                                 <tr>
                                     <th>Customer</th>
@@ -86,31 +224,7 @@
                                     <th class="text-end">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                @forelse ($customerParts as $cp)
-                                    <tr>
-                                        <td>{{ $cp->customer?->name ?? '-' }}</td>
-                                        <td>{{ $cp->internalPart?->part_number ?? '-' }}</td>
-                                        <td>{{ $cp->part_number }}</td>
-                                        <td>{{ $cp->back_number ?? '-' }}</td>
-                                        <td>{{ $cp->qty_per_kanban ?? '-' }}</td>
-                                        <td>
-                                            <div class="d-flex justify-content-end gap-2">
-                                                <a href="{{ route('dashboard.master.customer-parts.index', ['edit' => $cp->id]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                                                <form method="POST" action="{{ route('dashboard.master.customer-parts.destroy', $cp) }}" onsubmit="return confirm('Hapus mapping ini?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button class="btn btn-sm btn-outline-danger">Delete</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">Belum ada mapping customer-part.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
+                            <tbody></tbody>
                         </table>
                     </div>
                 </div>
@@ -118,3 +232,62 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        $(function() {
+            $('.customer-mapping-select').each(function() {
+                const $select = $(this);
+
+                if ($.fn.select2) {
+                    $select.select2({
+                        width: '100%',
+                        placeholder: $select.data('placeholder'),
+                        allowClear: true,
+                        minimumResultsForSearch: 0,
+                        dropdownParent: $select.closest('.mapping-select-wrap'),
+                        language: {
+                            noResults: function() {
+                                return 'Data tidak ditemukan';
+                            }
+                        }
+                    });
+                }
+            });
+
+            if ($.fn.DataTable) {
+                $('#customer-parts-table').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    ajax: '{{ route('dashboard.master.customer-parts.data') }}',
+                    pageLength: 10,
+                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                    order: [[0, 'asc']],
+                    autoWidth: false,
+                    columns: [
+                        { data: 'customer_name', name: 'customers.name' },
+                        { data: 'internal_part_number', name: 'internal_parts.part_number' },
+                        { data: 'part_number', name: 'customer_parts.part_number' },
+                        { data: 'back_number', name: 'customer_parts.back_number' },
+                        { data: 'qty_per_kanban', name: 'customer_parts.qty_per_kanban' },
+                        { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-right' }
+                    ],
+                    language: {
+                        processing: 'Memuat data...',
+                        search: 'Cari:',
+                        lengthMenu: 'Tampilkan _MENU_ data',
+                        info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
+                        infoEmpty: 'Belum ada data',
+                        zeroRecords: 'Data part customer tidak ditemukan',
+                        paginate: {
+                            first: 'Awal',
+                            last: 'Akhir',
+                            next: 'Berikutnya',
+                            previous: 'Sebelumnya'
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+@endpush

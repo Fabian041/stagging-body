@@ -315,6 +315,16 @@
             background: #fff !important;
         }
 
+        .pis-row .form-control.is-invalid,
+        .pis-row .pis_picture.is-invalid {
+            border-color: #dc2626 !important;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, .10) !important;
+        }
+
+        .pis-row .form-group.is-invalid-group label {
+            color: #dc2626 !important;
+        }
+
         .pis-row .pis_picture {
             font-size: 12px;
         }
@@ -452,12 +462,14 @@
                                             style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
+                                        @can('manage-master')
                                         <a class="act-btn danger js-delete-master-pis"
                                             href="{{ url('/pis/delete/' . $part_pis->id) }}"
                                             data-part="{{ e($part_pis->part_number_customer) }}"
                                             style="height:28px; padding:0 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; border-radius:5px;">
                                             <i class="fas fa-trash-alt"></i> Hapus
                                         </a>
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>
@@ -497,34 +509,34 @@
                                 </div>
 
                                 <div class="form-group part_number_aiia_group">
-                                    <label>Part Number AIIA</label>
+                                    <label>Part Number AIIA <span class="text-danger">(*required)</span></label>
                                     <input type="text" class="form-control part_number_aiia" name="part_number_aiia[]"
                                         placeholder="Part Number AIIA" onkeyup="this.value = this.value.toUpperCase()"
                                         autocomplete="off">
                                 </div>
 
                                 <div class="form-group part_number_customer_group">
-                                    <label>Part Number Customer</label>
+                                    <label>Part Number Customer <span class="text-danger">(*required)</span></label>
                                     <input type="text" class="form-control part_number_customer"
                                         name="part_number_customer[]" placeholder="Part Number Customer"
                                         onkeyup="this.value = this.value.toUpperCase()" autocomplete="off">
                                 </div>
 
                                 <div class="form-group back_number_group">
-                                    <label>Back No</label>
+                                    <label>Back No <span class="text-danger">(*required)</span></label>
                                     <input type="text" class="form-control back_number" name="back_number[]"
                                         placeholder="Back No" onkeyup="this.value = this.value.toUpperCase()"
                                         autocomplete="off">
                                 </div>
 
                                 <div class="form-group qty_group">
-                                    <label>Qty</label>
+                                    <label>Qty <span class="text-danger">(*required)</span></label>
                                     <input type="number" class="form-control qty_kanban" name="qty_kanban[]"
                                         placeholder="Qty" autocomplete="off">
                                 </div>
 
                                 <div class="form-group part_kind_group">
-                                    <label>Type</label>
+                                    <label>Type <span class="text-danger">(*required)</span></label>
                                     <select class="form-control part_kind" name="part_kind[]">
                                         <option value="">-- Select Type --</option>
                                         <option value="OEM">OEM</option>
@@ -533,7 +545,7 @@
                                 </div>
 
                                 <div class="form-group part_dock_show">
-                                    <label>Destination</label>
+                                    <label>Destination <span class="text-danger">(*required)</span></label>
                                     <select class="form-control part_dock" name="part_dock[]">
                                         <option value="">-- Select Destination --</option>
                                         <option value="TMMIN SPD">TMMIN SPD</option>
@@ -559,9 +571,12 @@
                                 </div>
 
                                 <div class="form-group pis_picture_group">
-                                    <label>Picture (.JPG)</label>
+                                    <label>Picture (.JPG, .WEBP) <span class="text-danger">(*required)</span></label>
                                     <input type="file" class="pis_picture form-control-file" name="pis_picture[]"
-                                        accept=".jpg,.jpeg,.png" style="font-size:12px;">
+                                        accept=".jpg,.jpeg,.png,.webp" style="font-size:12px;">
+                                    <small class="text-muted d-block mt-1" style="font-size:10.5px;">
+                                        Gambar dikompresi saat upload &amp; saat ditampilkan (max 800px).
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -588,9 +603,19 @@
         </div>
     </div>
 
+    <audio id="pis-tambah-sound">
+        <source src="{{ asset('assets/sounds/pisTambah.mp3') }}" type="audio/mpeg">
+    </audio>
+
 @endsection
 
 @section('custom-script')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .swal2-container {
+            z-index: 9999 !important;
+        }
+    </style>
     <script>
         $(document).ready(function() {
             $('input[type="search"]').removeClass('form-control').removeClass('input-sm');
@@ -607,9 +632,21 @@
                 var msg = part ?
                     'Hapus master PIS untuk Part No "' + part + '"? Gambar terkait ikut dihapus. Tindakan ini tidak dapat dibatalkan.' :
                     'Hapus master PIS ini? Gambar terkait ikut dihapus. Tindakan ini tidak dapat dibatalkan.';
-                if (window.confirm(msg)) {
-                    window.location.href = href;
-                }
+                
+                Swal.fire({
+                    title: 'Konfirmasi Hapus',
+                    text: msg,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = href;
+                    }
+                });
             });
         });
 
@@ -641,6 +678,8 @@
                 $newRow.find('.row-number').text(newIndex + 1);
                 $newRow.find('input[type="text"], input[type="number"], input[type="file"]').val('');
                 $newRow.find('.part_kind, .part_dock').val('');
+                $newRow.find('.is-invalid').removeClass('is-invalid');
+                $newRow.find('.is-invalid-group').removeClass('is-invalid-group');
 
                 $container.append($newRow);
 
@@ -669,6 +708,25 @@
                 }
             });
 
+            // Hapus highlight error saat user mengisi field
+            $('#pisRowsContainer').on('input change', '.form-control, .pis_picture', function() {
+                $(this).removeClass('is-invalid');
+                $(this).closest('.form-group').removeClass('is-invalid-group');
+            });
+
+            // Validasi File Image
+            $('#pisRowsContainer').on('change', '.pis_picture', function(event) {
+                const file = event.target.files[0];
+                if (file && !file.type.match('image.*')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Invalid File',
+                        text: 'File yang diupload harus berupa gambar (.JPG, .JPEG, .PNG, .WEBP)!'
+                    });
+                    $(this).val('');
+                }
+            });
+
             // Reset form
             $('#pisForm').on('reset', function() {
                 setTimeout(function() {
@@ -680,12 +738,24 @@
                     $first.find('input[type="text"], input[type="number"], input[type="file"]').val(
                         '');
                     $first.find('.part_kind, .part_dock').val('');
+                    $container.find('.is-invalid').removeClass('is-invalid');
+                    $container.find('.is-invalid-group').removeClass('is-invalid-group');
                     $container.find('.remove-row').hide();
                 }, 10);
             });
 
             $('#myModal').on('hidden.bs.modal', function() {
                 $('#pisForm')[0].reset();
+
+                if (window.pisPlayTambahSoundOnModalClose) {
+                    window.pisPlayTambahSoundOnModalClose = false;
+                    playPisTambahSound(function () {
+                        if (window.pisReloadAfterSave) {
+                            window.pisReloadAfterSave = false;
+                            window.location.reload();
+                        }
+                    });
+                }
             });
 
             $('#myModal').on('show.bs.modal', function() {
@@ -705,11 +775,253 @@
     </script>
 
     <script>
+        function playPisTambahSound(onDone) {
+            var sound = document.getElementById('pis-tambah-sound');
+            if (!sound) {
+                if (typeof onDone === 'function') onDone();
+                return;
+            }
+            try {
+                sound.currentTime = 0;
+                sound.onended = function () {
+                    sound.onended = null;
+                    if (typeof onDone === 'function') onDone();
+                };
+                var playPromise = sound.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(function () {
+                        sound.onended = null;
+                        if (typeof onDone === 'function') onDone();
+                    });
+                }
+            } catch (e) {
+                if (typeof onDone === 'function') onDone();
+            }
+        }
+
+        @php
+            $existingPisForValidation = collect($part_piss ?? [])->map(function ($item) {
+                return [
+                    'part_number' => strtoupper(trim($item->part_number ?? '')),
+                    'part_number_customer' => strtoupper(trim($item->part_number_customer ?? '')),
+                    'part_kind' => $item->part_kind ?? '',
+                    'part_dock' => $item->part_dock ?? '',
+                ];
+            })->values();
+        @endphp
+
+        var existingPisData = @json($existingPisForValidation);
+
+        function pisComboKey(partNumber, partCustomer, partKind, partDock) {
+            return [
+                (partNumber || '').toString().trim().toUpperCase(),
+                (partCustomer || '').toString().trim().toUpperCase(),
+                (partKind || '').toString().trim(),
+                (partDock || '').toString().trim()
+            ].join('|');
+        }
+
+        function isDuplicatePis(partNumber, partCustomer, partKind, partDock) {
+            var key = pisComboKey(partNumber, partCustomer, partKind, partDock);
+            if (!key.replace(/\|/g, '')) {
+                return false;
+            }
+
+            for (var i = 0; i < existingPisData.length; i++) {
+                var item = existingPisData[i];
+                if (pisComboKey(item.part_number, item.part_number_customer, item.part_kind, item.part_dock) === key) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /** Kompres gambar di browser sebelum upload (max 800px, WEBP quality 0.82). */
+        function compressPisImageFile(file) {
+            return new Promise(function(resolve) {
+                if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+                    resolve(file);
+                    return;
+                }
+                var maxDim = 800;
+                var quality = 0.82;
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        var w = img.width;
+                        var h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            var ratio = Math.min(maxDim / w, maxDim / h);
+                            w = Math.max(1, Math.round(w * ratio));
+                            h = Math.max(1, Math.round(h * ratio));
+                        }
+                        var canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        canvas.toBlob(function(blob) {
+                            if (!blob) {
+                                resolve(file);
+                                return;
+                            }
+                            var baseName = (file.name || 'picture').replace(/\.[^.]+$/i, '');
+                            resolve(new File([blob], baseName + '.webp', {
+                                type: 'image/webp',
+                                lastModified: Date.now()
+                            }));
+                        }, 'image/webp', quality);
+                    };
+                    img.onerror = function() { resolve(file); };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function() { resolve(file); };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function clearPisRowValidation($row) {
+            $row.find('.is-invalid').removeClass('is-invalid');
+            $row.find('.is-invalid-group').removeClass('is-invalid-group');
+        }
+
+        function markPisFieldInvalid($field) {
+            $field.addClass('is-invalid');
+            $field.closest('.form-group').addClass('is-invalid-group');
+        }
+
+        function scrollToPisField($field) {
+            if (!$field.length) {
+                return;
+            }
+
+            var $scrollParent = $('#myModal .modal-body');
+            var fieldOffset = $field.offset().top;
+            var containerOffset = $scrollParent.offset().top;
+            var scrollTop = $scrollParent.scrollTop() + (fieldOffset - containerOffset) - 48;
+
+            $scrollParent.animate({ scrollTop: Math.max(0, scrollTop) }, 300);
+
+            setTimeout(function() {
+                $field.trigger('focus');
+            }, 320);
+        }
+
+        function validatePisRequiredFields($row, rowIndex) {
+            clearPisRowValidation($row);
+
+            var requiredFields = [{
+                    el: $row.find('.part_number_aiia'),
+                    label: 'Part Number AIIA'
+                },
+                {
+                    el: $row.find('.part_number_customer'),
+                    label: 'Part Number Customer'
+                },
+                {
+                    el: $row.find('.back_number'),
+                    label: 'Back No'
+                },
+                {
+                    el: $row.find('.qty_kanban'),
+                    label: 'Qty'
+                },
+                {
+                    el: $row.find('.part_kind'),
+                    label: 'Type'
+                },
+                {
+                    el: $row.find('.part_dock'),
+                    label: 'Destination'
+                },
+                {
+                    el: $row.find('.pis_picture'),
+                    label: 'Picture',
+                    isFile: true
+                }
+            ];
+
+            for (var j = 0; j < requiredFields.length; j++) {
+                var field = requiredFields[j];
+                var isEmpty = false;
+
+                if (field.isFile) {
+                    var fileInput = field.el[0];
+                    isEmpty = !(fileInput && fileInput.files && fileInput.files[0]);
+                } else if (field.el.is('select')) {
+                    isEmpty = !field.el.val();
+                } else {
+                    isEmpty = !$.trim(field.el.val() || '');
+                }
+
+                if (isEmpty) {
+                    markPisFieldInvalid(field.el);
+                    scrollToPisField(field.el);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Data Tidak Lengkap',
+                        text: 'Baris #' + (rowIndex + 1) + ': field "' + field.label + '" wajib diisi.'
+                    });
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         function cekData() {
             var $rows = $('#pisRowsContainer .pis-row');
             if ($rows.length === 0) {
-                alert('Tidak ada data yang akan disimpan.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Data Kosong',
+                    text: 'Tidak ada data yang akan disimpan.'
+                });
                 return;
+            }
+
+            var batchKeys = [];
+
+            for (var i = 0; i < $rows.length; i++) {
+                var $row = $($rows[i]);
+                if (!validatePisRequiredFields($row, i)) {
+                    return;
+                }
+
+                var part_number_aiia = $row.find('.part_number_aiia').val();
+                var part_number_customer = $row.find('.part_number_customer').val();
+                var part_kind = $row.find('.part_kind').val();
+                var part_dock = $row.find('.part_dock').val();
+                var back_number = $row.find('.back_number').val();
+                var qty_kanban = $row.find('.qty_kanban').val();
+                var pis_pictureInput = $row.find('.pis_picture')[0];
+                var pis_picture = pis_pictureInput && pis_pictureInput.files[0] ? pis_pictureInput.files[0] : null;
+
+                var comboKey = pisComboKey(part_number_aiia, part_number_customer, part_kind, part_dock);
+
+                if (isDuplicatePis(part_number_aiia, part_number_customer, part_kind, part_dock)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Data Duplikat',
+                        text: 'Baris #' + (i + 1) + ': data sudah ada di Master PIS (Part Number AIIA, Part Number Customer, Type, dan Destination sama).'
+                    });
+                    return;
+                }
+
+                if (batchKeys.indexOf(comboKey) !== -1) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Data Duplikat',
+                        text: 'Baris #' + (i + 1) + ': duplikat dengan baris lain yang akan disimpan (Part, Customer, Type, dan Destination sama).'
+                    });
+                    return;
+                }
+
+                batchKeys.push(comboKey);
             }
 
             var $saveBtn = $('button[onclick="cekData()"]');
@@ -720,8 +1032,9 @@
 
             function processNextRow() {
                 if (currentIndex >= $rows.length) {
+                    window.pisPlayTambahSoundOnModalClose = true;
+                    window.pisReloadAfterSave = true;
                     $('#myModal').modal('hide');
-                    window.location.reload();
                     return;
                 }
 
@@ -736,56 +1049,55 @@
                 var pis_picture = pis_pictureInput && pis_pictureInput.files[0] ? pis_pictureInput.files[0] : null;
                 var part_number = part_number_aiia;
 
-                if (!part_number_aiia || !part_number_customer || !back_number || !qty_kanban || !pis_picture) {
-                    alert('Baris #' + (currentIndex + 1) +
-                        ': lengkapi Part Number AIIA, Part Number Customer, Back No, Qty dan Picture.');
-                    $saveBtn.prop('disabled', false).html(originalText);
-                    return;
-                }
+                compressPisImageFile(pis_picture).then(function(compressedFile) {
+                    var formData = new FormData();
+                    var path = "{{ url('/pis/addpis') }}";
 
-                if (!part_kind || !part_dock) {
-                    alert('Baris #' + (currentIndex + 1) + ': pilih Type dan Destination.');
-                    $saveBtn.prop('disabled', false).html(originalText);
-                    return;
-                }
+                    formData.append('part_number', part_number);
+                    formData.append('part_number_customer', part_number_customer);
+                    formData.append('back_number', back_number);
+                    formData.append('part_kind', part_kind);
+                    formData.append('part_dock', part_dock);
+                    formData.append('qty_kanban', qty_kanban);
+                    formData.append('pis_picture', compressedFile);
+                    formData.append('_token', '{{ csrf_token() }}');
 
-                var formData = new FormData();
-                var path = "{{ url('/pis/addpis') }}";
-
-                formData.append('part_number', part_number);
-                formData.append('part_number_customer', part_number_customer);
-                formData.append('back_number', back_number);
-                formData.append('part_kind', part_kind);
-                formData.append('part_dock', part_dock);
-                formData.append('qty_kanban', qty_kanban);
-                formData.append('pis_picture', pis_picture);
-                formData.append('_token', '{{ csrf_token() }}');
-
-                $.ajax({
-                    url: path,
-                    type: "POST",
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function() {
-                        currentIndex++;
-                        processNextRow();
-                    },
-                    error: function(xhr) {
-                        var errorMsg = 'Error saving data';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            errorMsg = xhr.responseJSON.message;
-                        } else if (xhr.responseText) {
-                            try {
-                                var parser = new DOMParser();
-                                var doc = parser.parseFromString(xhr.responseText, 'text/html');
-                                var errorElement = doc.querySelector('.alert-danger, .error');
-                                if (errorElement) errorMsg = errorElement.textContent.trim();
-                            } catch (e) {}
+                    $.ajax({
+                        url: path,
+                        type: "POST",
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function() {
+                            existingPisData.push({
+                                part_number: (part_number || '').toString().trim().toUpperCase(),
+                                part_number_customer: (part_number_customer || '').toString().trim().toUpperCase(),
+                                part_kind: part_kind,
+                                part_dock: part_dock
+                            });
+                            currentIndex++;
+                            processNextRow();
+                        },
+                        error: function(xhr) {
+                            var errorMsg = 'Error saving data';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMsg = xhr.responseJSON.message;
+                            } else if (xhr.responseText) {
+                                try {
+                                    var parser = new DOMParser();
+                                    var doc = parser.parseFromString(xhr.responseText, 'text/html');
+                                    var errorElement = doc.querySelector('.alert-danger, .error');
+                                    if (errorElement) errorMsg = errorElement.textContent.trim();
+                                } catch (e) {}
+                            }
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal Menyimpan',
+                                text: 'Baris #' + (currentIndex + 1) + ' gagal disimpan: ' + errorMsg
+                            });
+                            $saveBtn.prop('disabled', false).html(originalText);
                         }
-                        alert('Baris #' + (currentIndex + 1) + ' gagal disimpan: ' + errorMsg);
-                        $saveBtn.prop('disabled', false).html(originalText);
-                    }
+                    });
                 });
             }
 

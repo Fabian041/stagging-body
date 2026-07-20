@@ -95,15 +95,6 @@
 
 @section('custom-script')
     <script>
-        var errorMessage = "{!! session('error') !!}";
-        var successMessage = "{!! session('success') !!}";
-
-        if (errorMessage) {
-            notif('error', errorMessage);
-        } else if (successMessage) {
-            notif('success', successMessage);
-        }
-
         $(document).ready(function() {
             $('#npk').focus();
 

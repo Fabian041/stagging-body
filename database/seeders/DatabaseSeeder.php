@@ -55,6 +55,8 @@ class DatabaseSeeder extends Seeder
 
     public function run()
     {
+        $this->call(SuperAdminSeeder::class);
+
         $users = [
             ['000081', 'Adhetya Rizki'],
             ['000113', 'Supriyanto'],

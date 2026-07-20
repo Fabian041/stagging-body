@@ -7,11 +7,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Bella - Login')</title>
 
+    <link rel="icon" type="image/svg+xml" href="{{ asset('icons/bella-favicon.svg') }}?v=2">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    @php
+        $authFontCssPath = public_path('assets/css/fonts-plus-jakarta.css');
+        $authFontCssVersion = file_exists($authFontCssPath) ? filemtime($authFontCssPath) : time();
+    @endphp
+    <link rel="stylesheet" href="{{ asset('assets/css/fonts-plus-jakarta.css') }}?v={{ $authFontCssVersion }}">
 
     <link rel="stylesheet" href="{{ asset('assets/modules/bootstrap/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/modules/fontawesome/css/all.min.css') }}">
@@ -93,6 +96,21 @@
             color: #fff;
             transform: translateY(-1px);
             box-shadow: 0 10px 24px rgba(0, 112, 183, .28);
+        }
+
+        .btn-danger,
+        .btn-danger:hover,
+        .btn-danger:focus,
+        .btn-danger:active {
+            color: #fff !important;
+            background-color: var(--danger, #DC2626);
+            border-color: var(--danger, #DC2626);
+        }
+
+        .btn-outline-danger:hover,
+        .btn-outline-danger:focus,
+        .btn-outline-danger:active {
+            color: #fff !important;
         }
 
         .login-screen {
@@ -746,6 +764,7 @@
     <script src="{{ asset('assets/modules/izitoast/js/iziToast.min.js') }}"></script>
     <script src="{{ asset('assets/js/stisla.js') }}"></script>
 
+    @include('layouts.partials.device-heartbeat')
     @yield('custom-script')
 
     <script src="{{ asset('assets/js/scripts.js') }}"></script>
