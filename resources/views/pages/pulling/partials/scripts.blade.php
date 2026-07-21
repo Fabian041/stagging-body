@@ -150,11 +150,6 @@
         sound.play();
     }
 
-    function alreadyScanLlSound() {
-        var sound = document.getElementById("already-scan-ll-sound");
-        sound.play();
-    }
-
     function uncompleteLlSound() {
         var sound = document.getElementById("uncomplete-ll-sound");
         sound.play();
@@ -2268,7 +2263,7 @@
                     // kalau sudah ada di localStorage (header sudah tersimpan) → tolak
                     if (this.getLoadingListNumber().includes(loadingListNumber)) {
                         this.showError('Loading list sudah discan!', () => {
-                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                            if (typeof alreadyPulledSound === 'function') alreadyPulledSound();
                         });
                         inFlightLL.delete(loadingListNumber);
                         return;
@@ -2277,7 +2272,7 @@
                     // early return tanpa spinner
                     if (loadingList.includes(loadingListNumber)) {
                         this.showError('Loading list sudah discan!', () => {
-                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                            if (typeof alreadyPulledSound === 'function') alreadyPulledSound();
                         });
                         return;
                     }
@@ -2351,7 +2346,7 @@
                         ll) ||
                     hasLoadingListChip(ll) || isLLDone(ll)) {
                     this.showError('Loading list sudah discan!', () => {
-                        if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                        if (typeof alreadyPulledSound === 'function') alreadyPulledSound();
                     });
                     return;
                 }
@@ -3541,7 +3536,7 @@
                                         .status)
                                 });
                                 if (data.status == 'notExists') notExist();
-                                if (data.status == 'alreadyPulled') alreadyPulledSound();
+                                if (data.status == 'alreadyPulled') alreadyScanSound();
                                 database.close();
                             }
                         },
@@ -3854,7 +3849,7 @@
                             delay: 1200
                         });
                         this.showError('Loading list sudah discan!', () => {
-                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                            if (typeof alreadyPulledSound === 'function') alreadyPulledSound();
                         });
                         return;
                     }
@@ -3877,7 +3872,7 @@
                             delay: 1200
                         });
                         this.showError('Loading list sudah discan!', () => {
-                            if (typeof alreadyScanLlSound === 'function') alreadyScanLlSound();
+                            if (typeof alreadyPulledSound === 'function') alreadyPulledSound();
                         });
                         return;
                     }
