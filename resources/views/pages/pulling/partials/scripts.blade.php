@@ -3349,14 +3349,14 @@
             let scannedCount = parseInt(cursor.scanned_count ?? arraySeri.length, 10) || 0;
 
             // === Validasi: internal & customer harus dalam objek yang sama
-            isSameObject = String(cursor.customer || '').trim() === String(localStorage.getItem(
-                    'customerPart') || '').trim() &&
+            isSameObject = comparableCustomerPart(cursor.customer) === comparableCustomerPart(localStorage.getItem(
+                    'customerPart')) &&
                 String(cursor.internal || '').trim() === String(internal || '').trim();
 
             if (!isSameObject) {
                 handleError('Kanban tidak sesuai!', {
                     expected: `Internal & Customer satu objek (internal: ${internal.trimEnd()}, customer: ${localStorage.getItem('customerPart')})`,
-                    scanned: `Cursor keys match? ${Object.keys(cursor).length} keys`
+                    scanned: `Record lokal (internal: ${String(cursor.internal || '').trim()}, customer: ${String(cursor.customer || '').trim()})`
                 });
                 localStorage.setItem('status', 'true');
                 setTimeout(() => {
