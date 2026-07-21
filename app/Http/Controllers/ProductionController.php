@@ -234,9 +234,11 @@ class ProductionController extends Controller
             ]);
 
             // update status in kanbans table
-            $kanban->update([
-                'status' => 1
-            ]);
+            if (! $kanban->update([
+                'status' => Kanban::STATUS_PRODUCED
+            ])) {
+                throw new \RuntimeException('Gagal memperbarui status kanban.');
+            }
 
             $result = [];
 
@@ -714,7 +716,7 @@ class ProductionController extends Controller
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
-        if (!$seri === 'noseri') {
+        if ($seri !== 'noseri') {
             // get kanban_id based on internal part id
             $kanban = Kanban::where('internal_part_id', $internalPart->id)
                 ->where('serial_number', $seri)
@@ -753,11 +755,13 @@ class ProductionController extends Controller
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
 
-            if (!$seri === 'noseri') {
+            if ($seri !== 'noseri') {
                 // update status in kanbans table
-                $kanban->update([
-                    'status' => 1
-                ]);
+                if (! $kanban->update([
+                    'status' => Kanban::STATUS_PRODUCED
+                ])) {
+                    throw new \RuntimeException('Gagal memperbarui status kanban.');
+                }
             }
 
             $result = [];
