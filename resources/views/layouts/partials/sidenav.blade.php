@@ -167,6 +167,7 @@
                 request()->routeIs('pis.master') ||
                 request()->routeIs('pis.edit') ||
                 request()->routeIs('pis.preview') ||
+                request()->routeIs('dashboard.master.*') ||
                 request()->routeIs('pulling.master-alamat-chute*');
         @endphp
 
@@ -177,6 +178,21 @@
             <span class="sb-item-tooltip">Master Data</span>
         </div>
         <div class="sb-submenu">
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.molds.*') ? 'active' : '' }}"
+                href="{{ route('dashboard.master.molds.index') }}">
+                <i class="fas fa-cubes"></i>
+                Mold Injection
+            </a>
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.parts.*') ? 'active' : '' }}"
+                href="{{ route('dashboard.master.parts.index') }}">
+                <i class="fas fa-cog"></i>
+                Part Internal
+            </a>
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.customer-parts.*') ? 'active' : '' }}"
+                href="{{ route('dashboard.master.customer-parts.index') }}">
+                <i class="fas fa-box-open"></i>
+                Part Customer
+            </a>
             <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
                 href="{{ route('pis.master') }}">
                 <i class="fas fa-database"></i>

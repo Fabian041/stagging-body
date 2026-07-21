@@ -493,6 +493,15 @@
                 ],
             ],
             [
+                'title' => 'Production · Injection',
+                'icon' => 'fa-cubes',
+                'sub' => [
+                    ['label' => 'Scanning', 'icon' => 'fa-barcode', 'route' => 'injection.indexprdreport'],
+                    ['label' => 'Master Mold', 'icon' => 'fa-dice-d6', 'route' => 'dashboard.master.molds.index'],
+                    ['label' => 'Master Part', 'icon' => 'fa-cogs', 'route' => 'dashboard.master.parts.index'],
+                ],
+            ],
+            [
                 'title' => 'Quality',
                 'icon' => 'fa-clipboard-check',
                 'sub' => [

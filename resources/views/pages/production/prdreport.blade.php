@@ -813,7 +813,7 @@
             var proceedWithAjax = true; // Flag to control AJAX execution
             if (code == 13) // Enter key hit 
             {
-                barcodecomplete = barcode;
+                barcodecomplete = barcode.trim();
                 barcode = "";
 
                 console.log('Scanned Code:', barcodecomplete, barcodecomplete.length);
@@ -931,9 +931,12 @@
                 let model;
                 console.log(internal);
                 // new rule
-                if (barcodecomplete.endsWith('dandori')) {
+                const dandoriMatch = barcodecomplete.match(/^(.+)-dandori$/i);
+                if (dandoriMatch) {
+                    const dandoriBoard = dandoriMatch[1].trim();
+
                     // set item
-                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
+                    localStorage.setItem('dandori_board', dandoriBoard);
                     localStorage.setItem('production_start_time', new Date().toLocaleString('sv-SE'));
 
 
@@ -983,8 +986,9 @@
                     return;
                 }
 
-                if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
-                    model = barcodecomplete.replace(/-model$/, "");
+                const modelMatch = barcodecomplete.match(/^(.+)-model$/i);
+                if (localStorage.getItem('dandori_board') && modelMatch) {
+                    model = modelMatch[1].trim();
                     let now = Date.now();
                     if (model == localStorage.getItem('dandori_board')) {
                         localStorage.setItem('scan_timer_start', Date.now()); // MULAI timer dari master sample

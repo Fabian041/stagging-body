@@ -14,10 +14,12 @@ use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\InjectionController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
 use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
+use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PisController;
 use App\Http\Controllers\ProfileController;
@@ -78,7 +80,7 @@ Route::middleware(['auth'])->prefix('pis')->group(function () {
     Route::get('/edit/{id}', [PisController::class, 'UpdatePis'])->name('pis.edit');
     Route::post('/update/{id}', [PisController::class, 'UpdatePisProses'])->name('pis.update');
     Route::get('/delete/{id}', [PisController::class, 'destroy'])->middleware('can:manage-master')->name('pis.delete');
-    
+
     // Add/Update PIS Data
     Route::post('/addpis', [PisController::class, 'addpis'])->name('pis.addpis');
     Route::post('/addpart', [PisController::class, 'addpart'])->name('pis.addpart');
@@ -90,7 +92,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/getajaxpartPis', [PisController::class, 'GetAjaxPartPis'])->name('pis.getAjaxPartPis');
     // Backward-compatible alias used by some legacy views
     Route::get('/getajaxpart', [PisController::class, 'GetAjaxPartPis']);
-    
+
     // PIS Scan routes
     Route::get('/pis/scan-list', [PisController::class, 'scanList'])->name('pis.scanList');
     Route::post('/pis/save-scan', [PisController::class, 'savePisScan'])->name('pis.saveScan');
@@ -197,7 +199,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // dashboard
-    
+
     Route::prefix('dashboard')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
         Route::get('/overview', [DashboardController::class, 'overview'])->name('dashboard.overview');
@@ -210,6 +212,27 @@ Route::middleware(['auth'])->group(function () {
         // Production stock monitoring (sebelumnya ada di /dashboard)
         Route::get('/production/stock', [DashboardController::class, 'productionStock'])->name('dashboard.productionStock');
         Route::get('/production/stock/data', [DashboardController::class, 'productionStockData'])->name('dashboard.productionStock.data');
+
+        Route::prefix('master')->group(function () {
+            Route::get('/', [MasterDataController::class, 'index'])->name('dashboard.master.index');
+            Route::get('/molds', [MasterDataController::class, 'molds'])->name('dashboard.master.molds.index');
+            Route::get('/molds/data', [MasterDataController::class, 'moldsData'])->name('dashboard.master.molds.data');
+            Route::post('/molds', [MasterDataController::class, 'storeMold'])->name('dashboard.master.molds.store');
+            Route::put('/molds/{mold}', [MasterDataController::class, 'updateMold'])->name('dashboard.master.molds.update');
+            Route::delete('/molds/{mold}', [MasterDataController::class, 'destroyMold'])->name('dashboard.master.molds.destroy');
+
+            Route::get('/parts', [MasterDataController::class, 'internalParts'])->name('dashboard.master.parts.index');
+            Route::get('/parts/data', [MasterDataController::class, 'internalPartsData'])->name('dashboard.master.parts.data');
+            Route::post('/parts', [MasterDataController::class, 'storeInternalPart'])->name('dashboard.master.parts.store');
+            Route::put('/parts/{internalPart}', [MasterDataController::class, 'updateInternalPart'])->name('dashboard.master.parts.update');
+            Route::delete('/parts/{internalPart}', [MasterDataController::class, 'destroyInternalPart'])->name('dashboard.master.parts.destroy');
+
+            Route::get('/customer-parts', [MasterDataController::class, 'customerParts'])->name('dashboard.master.customer-parts.index');
+            Route::get('/customer-parts/data', [MasterDataController::class, 'customerPartsData'])->name('dashboard.master.customer-parts.data');
+            Route::post('/customer-parts', [MasterDataController::class, 'storeCustomerPart'])->name('dashboard.master.customer-parts.store');
+            Route::put('/customer-parts/{customerPart}', [MasterDataController::class, 'updateCustomerPart'])->name('dashboard.master.customer-parts.update');
+            Route::delete('/customer-parts/{customerPart}', [MasterDataController::class, 'destroyCustomerPart'])->name('dashboard.master.customer-parts.destroy');
+        });
 
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');
 
@@ -249,7 +272,7 @@ Route::middleware(['auth'])->group(function () {
         // check kanban
         Route::get('/kanban/check', [DashboardController::class, 'kbnCheck'])->name('dashboard.kbnCheck');
         Route::post('/kanban/check', [DashboardController::class, 'kbnCheckSubmit'])->name('dashboard.kbnCheckSubmit');
-        
+
         Route::get('/part/check', [DashboardController::class, 'partCheck'])->name('dashboard.partCheck');
         Route::post('/part/check', [DashboardController::class, 'partCheckSubmit'])->name('dashboard.partCheckSubmit');
     });
@@ -291,6 +314,42 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/direct', [ProductionController::class, 'direct'])
             ->middleware(['dea.token'])
             ->name('production.direct.index');
+    });
+
+    // injection
+    Route::get('/injection', [InjectionController::class, 'index'])->name('injection.index');
+
+    Route::prefix('injection')->group(function () {
+        Route::get('/prdreport', [InjectionController::class, 'indexprdreport'])
+            ->name('injection.indexprdreport');
+
+        // Scan page / direct page jika nanti dibutuhkan
+        Route::get('/direct', [InjectionController::class, 'direct'])
+            ->name('injection.direct.index');
+
+        // Cek master mold dari tag mold
+        Route::get('/mold-check/{moldCode}', [InjectionController::class, 'moldCheck'])
+            ->name('injection.mold-check');
+
+        // Ambil internal part dari customer part / part number barcode
+        Route::get('/api-get-internal/{custPart}', [InjectionController::class, 'getInternalPart'])
+            ->name('injection.api-get-internal');
+
+        // Simpan hasil scan part anggota mold
+        Route::post('/store', [InjectionController::class, 'store'])
+            ->name('injection.store');
+
+        // Stop / release injection
+        Route::post('/api-stop', [InjectionController::class, 'inboundStop'])
+            ->name('injection.api-stop');
+
+        // Ambil list problem berdasarkan line dan kategori
+        Route::get('/api-list-stop/{line}/{category}', [InjectionController::class, 'getListStop'])
+            ->name('injection.api-list-stop');
+
+        // Insert problem / setup / QC cek
+        Route::post('/api-insert-stop', [InjectionController::class, 'insertStop'])
+            ->name('injection.api-insert-stop');
     });
 
     // Quality QC Gate R1
@@ -355,7 +414,6 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
         Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
-
         Route::get('/master-alamat-chute', [PullingController::class, 'masterAlamatChuteIndex'])
             ->name('pulling.master-alamat-chute');
         Route::get('/master-alamat-chute/template', [PullingController::class, 'downloadMasterAlamatChuteTemplate'])
@@ -375,7 +433,6 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/master-alamat-chute/{master_alamat_chute}', [PullingController::class, 'deleteMasterAlamatChute'])
             ->middleware('can:manage-master')
             ->name('pulling.master-alamat-chute.delete');
-
     });
 
     // get manifest
@@ -383,14 +440,14 @@ Route::middleware(['auth'])->group(function () {
 
     // error log
     Route::prefix('error')->group(function () {
-        Route::get('/store', [ErrorLogController::class, 'store'])->name('error.store');
+        Route::post('/store', [ErrorLogController::class, 'store'])->name('error.store');
         Route::get('/log', [ErrorLogController::class, 'index'])->name('error.log');
         Route::get('/getErrorLogs', [ErrorLogController::class, 'getErrorLogs'])->name('error.getErrorLogs');
         Route::get('/export', [ErrorLogController::class, 'export'])->name('error.export');
     });
 
     Route::get('/test', [ProductionController::class, 'test'])->name('test');
-    
+
     // PIS Dashboard Routes
     Route::prefix('dashboard')->group(function () {
         Route::get('/viewDashboardMutation', [PisController::class, 'viewDashboardMutation'])->name('dashboard.viewDashboardMutation');

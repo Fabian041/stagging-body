@@ -1664,7 +1664,6 @@
     @endunless
     @unless (request()->routeIs('loadingList.index', 'loadingList.detail', 'dashboard.productionStock'))
     <script src={{ asset('assets/js/page/bootstrap-modal.js') }}></script>
-    <script src={{ asset('assets/js/page/index.js') }}></script>
     @endunless
     @endunless
     <script src={{ asset('assets/modules/izitoast/js/iziToast.min.js') }}></script>
