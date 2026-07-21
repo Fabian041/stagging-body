@@ -256,6 +256,16 @@
                         <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Internal Part</h2>
                         <span class="master-record-count">{{ $internalPartCount }} record</span>
                     </div>
+                    <div class="master-table-toolbar">
+                        <div class="master-segmented" aria-label="Filter status foto">
+                            <button type="button" class="part-photo-filter active" data-missing-photo="0">
+                                Semua Part
+                            </button>
+                            <button type="button" class="part-photo-filter" data-missing-photo="1">
+                                <i class="fas fa-image"></i> Belum Ada Foto
+                            </button>
+                        </div>
+                    </div>
                     <div class="master-table-wrap">
                         <table id="internal-parts-table" class="table master-table align-middle w-100">
                             <thead>
@@ -408,10 +418,15 @@
             }
 
             if ($.fn.DataTable) {
-                $('#internal-parts-table').DataTable({
+                const internalPartsTable = $('#internal-parts-table').DataTable({
                     processing: true,
                     serverSide: true,
-                    ajax: '{{ route('dashboard.master.parts.data') }}',
+                    ajax: {
+                        url: '{{ route('dashboard.master.parts.data') }}',
+                        data: function(payload) {
+                            payload.missing_photo = $('.part-photo-filter.active').data('missing-photo') || 0;
+                        }
+                    },
                     pageLength: 10,
                     lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                     order: [[2, 'asc']],
@@ -438,6 +453,12 @@
                             previous: 'Sebelumnya'
                         }
                     }
+                });
+
+                $('.part-photo-filter').on('click', function() {
+                    $('.part-photo-filter').removeClass('active');
+                    $(this).addClass('active');
+                    internalPartsTable.ajax.reload();
                 });
             }
         });

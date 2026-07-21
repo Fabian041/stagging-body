@@ -170,11 +170,26 @@ class MasterDataController extends Controller
         ));
     }
 
-    public function internalPartsData()
+    public function internalPartsData(Request $request)
     {
         $query = InternalPart::query()
             ->leftJoin('lines', 'lines.id', '=', 'internal_parts.line_id')
             ->select('internal_parts.*', 'lines.name as line_name');
+
+        if ($request->boolean('missing_photo')) {
+            $photoDirectory = public_path('assets/img/pis');
+            $availablePhotos = File::isDirectory($photoDirectory)
+                ? collect(File::files($photoDirectory))->map->getFilename()->values()->all()
+                : [];
+
+            if ($availablePhotos) {
+                $query->where(function ($builder) use ($availablePhotos) {
+                    $builder->whereNull('internal_parts.photo')
+                        ->orWhere('internal_parts.photo', '')
+                        ->orWhereNotIn('internal_parts.photo', $availablePhotos);
+                });
+            }
+        }
 
         return DataTables::of($query)
             ->editColumn('line_name', function (InternalPart $part) {

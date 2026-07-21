@@ -177,6 +177,43 @@
         overflow-x: auto;
     }
 
+    .master-table-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 10px 16px;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--border, #e2e8f0);
+    }
+
+    .master-segmented {
+        display: inline-flex;
+        gap: 3px;
+        padding: 3px;
+        background: #eaf0f5;
+        border-radius: 6px;
+    }
+
+    .master-segmented button {
+        min-height: 29px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        color: #66758e;
+        font-size: 11px;
+        font-weight: 700;
+        background: transparent;
+        border: 0;
+        border-radius: 4px;
+    }
+
+    .master-segmented button.active {
+        color: var(--primary, #0070b7);
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .1);
+    }
+
     .master-table {
         width: 100% !important;
         margin: 0 !important;
