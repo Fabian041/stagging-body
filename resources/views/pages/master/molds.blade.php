@@ -1,6 +1,8 @@
 @extends('layouts.root.main')
 
 @section('main')
+    @include('pages.master.partials.styles')
+
 <style>
     .mold-part-select-wrap > .select2-container {
         width: 100% !important;
@@ -228,23 +230,27 @@
         border-radius: 7px;
     }
 </style>
-    <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="container-fluid master-page">
+        <div class="master-page-header">
             <div>
-                <h4 class="mb-1">Master Mold</h4>
-                <div class="text-muted small">Kelola mold dan pilih part yang masuk dalam satu mold.</div>
+                <h1 class="master-page-title">Master Mold</h1>
+                <div class="master-page-subtitle">Kelola mold, status penggunaan, dan internal part yang terhubung.</div>
             </div>
-            <div class="d-flex gap-2">
-                <a href="{{ route('dashboard.master.index') }}" class="btn btn-sm btn-outline-secondary">Master Home</a>
-                <a href="{{ route('injection.indexprdreport') }}" class="btn btn-sm btn-primary">Open Injection</a>
+            <div class="master-actions">
+                <a href="{{ route('injection.indexprdreport') }}" class="master-btn primary">
+                    <i class="fas fa-external-link-alt"></i> Open Injection
+                </a>
+                <a href="{{ route('dashboard.master.index') }}" class="master-btn">
+                    <i class="fas fa-th-large"></i> Master Home
+                </a>
             </div>
         </div>
 
         @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success master-alert">{{ session('success') }}</div>
         @endif
         @if ($errors->any())
-            <div class="alert alert-danger">
+            <div class="alert alert-danger master-alert">
                 <strong>Data mold belum dapat disimpan.</strong>
                 <ul class="mb-0 mt-2">
                     @foreach ($errors->all() as $error)
@@ -256,12 +262,12 @@
 
         <div class="row g-3">
             <div class="col-lg-4">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white border-0">
-                        <strong>Tambah / Edit Mold</strong>
+                <div class="master-panel">
+                    <div class="master-panel-header">
+                        <h2 class="master-panel-title"><i class="fas fa-shapes"></i>{{ $editingMold ? 'Edit Mold' : 'Tambah Mold' }}</h2>
                     </div>
-                    <div class="card-body">
-                        <form method="POST" action="{{ $editingMold ? route('dashboard.master.molds.update', $editingMold) : route('dashboard.master.molds.store') }}">
+                    <div class="master-panel-body">
+                        <form class="master-form" method="POST" action="{{ $editingMold ? route('dashboard.master.molds.update', $editingMold) : route('dashboard.master.molds.store') }}">
                             @csrf
                             @if ($editingMold)
                                 @method('PUT')
@@ -292,25 +298,28 @@
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1" {{ old('is_active', $editingMold?->is_active ?? true) ? 'checked' : '' }}>
                                 <label class="form-check-label">Aktif</label>
                             </div>
-                            <button class="btn btn-primary w-100">{{ $editingMold ? 'Update Mold' : 'Simpan Mold' }}</button>
-                            @if ($editingMold)
-                                <a href="{{ route('dashboard.master.molds.index') }}" class="btn btn-outline-secondary w-100 mt-2">Batal Edit</a>
-                            @endif
+                            <div class="master-submit-row">
+                                <button class="master-btn primary w-100">
+                                    <i class="fas fa-save"></i> {{ $editingMold ? 'Update Mold' : 'Simpan Mold' }}
+                                </button>
+                                @if ($editingMold)
+                                    <a href="{{ route('dashboard.master.molds.index') }}" class="master-btn w-100">Batal Edit</a>
+                                @endif
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-8">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                        <strong>Daftar Mold</strong>
-                        <span class="badge bg-light text-dark">{{ $moldCount }} record</span>
+                <div class="master-panel">
+                    <div class="master-panel-header">
+                        <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Mold</h2>
+                        <span class="master-record-count">{{ $moldCount }} record</span>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table id="molds-table" class="table table-hover align-middle mb-0 w-100">
-                                <thead class="table-light">
+                    <div class="master-table-wrap">
+                            <table id="molds-table" class="table master-table align-middle w-100">
+                                <thead>
                                     <tr>
                                         <th>Tag</th>
                                         <th>Nama</th>
@@ -321,7 +330,6 @@
                                 </thead>
                                 <tbody></tbody>
                             </table>
-                        </div>
                     </div>
                 </div>
             </div>

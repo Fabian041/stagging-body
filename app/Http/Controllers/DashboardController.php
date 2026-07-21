@@ -1943,10 +1943,11 @@ class DashboardController extends Controller
     public function importPart(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required|mimes:xlsx,xls,csv',
+            'file' => 'required|mimes:xlsx,xls,csv|max:10240',
         ], [
             'file.required' => 'Silakan pilih file Master Part terlebih dahulu.',
             'file.mimes' => 'Format file tidak sesuai. Gunakan file Excel dengan format .xlsx, .xls, atau .csv.',
+            'file.max' => 'Ukuran file Master Part maksimal 10 MB.',
         ]);
 
         if ($validator->fails()) {

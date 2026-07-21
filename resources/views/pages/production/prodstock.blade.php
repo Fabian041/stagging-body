@@ -806,13 +806,6 @@
                     line.</div>
             </div>
             <div class="stock-header-actions">
-                <a href="{{ route('dashboard.part.template') }}" class="act-btn secondary"
-                    style="text-decoration:none; display:inline-flex; align-items:center;">
-                    <i class="fas fa-file-download"></i> Template Excel
-                </a>
-                <button type="button" class="act-btn danger" data-toggle="modal" data-target="#partModal">
-                    <i class="fas fa-upload"></i> Upload Master Part
-                </button>
                 <button type="button" class="act-btn success" data-toggle="modal" data-target="#stockModal">
                     <i class="fas fa-file-import"></i> Import Stock
                 </button>
@@ -933,73 +926,6 @@
                 <div class="modal-footer">
                     <button type="button" class="act-btn secondary" data-dismiss="modal">Close</button>
                     <button type="submit" class="act-btn primary">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{{-- end of modal --}}
-
-{{-- modal --}}
-<div class="modal fade" tabindex="-1" role="dialog" id="partModal">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <form action="{{ route('dashboard.part.import') }}" method="POST" enctype="multipart/form-data"
-                id="partForm">
-                @method('POST')
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-database mr-1"></i> Upload Master Part
-                    </h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <span class="upload-modal-label">Part File</span>
-
-                    <input type="file" id="partFileInput" name="file" accept=".xlsx,.xls,.csv"
-                        style="display:none">
-
-                    <div class="upload-drop-zone" id="partDropZone"
-                        onclick="document.getElementById('partFileInput').click()">
-                        <div class="dz-icon-wrap">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                        </div>
-                        <p>Drag &amp; drop file di sini, atau
-                            <span class="dz-browse">browse</span>
-                        </p>
-                        <span class="dz-ext">.xlsx, .xls, .csv &mdash; maks 10 MB</span>
-                    </div>
-
-                    <div class="upload-file-card" id="partFileCard" style="display:none">
-                        <div class="ufc-icon">
-                            <i class="fas fa-file-excel"></i>
-                        </div>
-                        <div class="ufc-meta">
-                            <div class="ufc-name" id="partFileName">—</div>
-                            <div class="ufc-size" id="partFileSize">—</div>
-                        </div>
-                        <button type="button" class="ufc-remove" id="partFileRemove" title="Hapus file">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-
-                    <div class="upload-hint" id="partHint">
-                        <i class="fas fa-info-circle"></i>
-                        <span>Gunakan <a href="{{ route('dashboard.part.template') }}" style="color:inherit; font-weight:700; text-decoration:underline;">template Excel</a> sebelum upload.</span>
-                    </div>
-                    <div class="upload-hint success" id="partHintOk" style="display:none">
-                        <i class="fas fa-check-circle"></i>
-                        <span>File siap diimport.</span>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="act-btn secondary" data-dismiss="modal">Batal</button>
-                    <button type="submit" class="act-btn primary" id="partSubmitBtn" disabled>
-                        <i class="fas fa-upload"></i> Import
-                    </button>
                 </div>
             </form>
         </div>
@@ -1527,12 +1453,6 @@
             });
 
             window.setInterval(reloadActiveTable, stockConfig.refreshMs);
-
-            setupUploadModal(
-                'partFileInput', 'partDropZone', 'partFileCard',
-                'partFileName', 'partFileSize', 'partFileRemove',
-                'partHint', 'partHintOk', 'partSubmitBtn'
-            );
 
             setupUploadModal(
                 'stockFileInput', 'stockDropZone', 'stockFileCard',

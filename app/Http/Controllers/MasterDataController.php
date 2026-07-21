@@ -9,6 +9,7 @@ use App\Models\Line;
 use App\Models\Mold;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -152,8 +153,21 @@ class MasterDataController extends Controller
             : null;
         $internalPartCount = InternalPart::count();
         $lines = Line::orderBy('name')->get();
+        $editingPhotoUrl = null;
 
-        return view('pages.master.internal-parts', compact('editingPart', 'internalPartCount', 'lines'));
+        if ($editingPart?->photo) {
+            $filename = basename((string) $editingPart->photo);
+            if (File::isFile(public_path('assets/img/pis/' . $filename))) {
+                $editingPhotoUrl = asset('assets/img/pis/' . rawurlencode($filename));
+            }
+        }
+
+        return view('pages.master.internal-parts', compact(
+            'editingPart',
+            'internalPartCount',
+            'lines',
+            'editingPhotoUrl'
+        ));
     }
 
     public function internalPartsData()
@@ -172,10 +186,24 @@ class MasterDataController extends Controller
             ->editColumn('part_name', function (InternalPart $part) {
                 return $part->part_name ?? '-';
             })
+            ->addColumn('photo_preview', function (InternalPart $part) {
+                $filename = basename((string) $part->photo);
+                $path = $filename !== '' ? public_path('assets/img/pis/' . $filename) : null;
+
+                if (! $path || ! File::isFile($path)) {
+                    return '<span class="master-photo-empty" title="Foto belum tersedia"><i class="fas fa-image"></i></span>';
+                }
+
+                $url = asset('assets/img/pis/' . rawurlencode($filename));
+
+                return '<a class="master-photo-thumb" href="' . e($url) . '" target="_blank" rel="noopener" title="Lihat foto">'
+                    . '<img src="' . e($url) . '" alt="Foto ' . e($part->back_number ?? $part->part_number) . '">'
+                    . '</a>';
+            })
             ->addColumn('action', function (InternalPart $part) {
                 return view('pages.master.partials.internal-part-actions', compact('part'))->render();
             })
-            ->rawColumns(['action'])
+            ->rawColumns(['photo_preview', 'action'])
             ->make(true);
     }
 
@@ -188,13 +216,19 @@ class MasterDataController extends Controller
             'part_number' => ['required', 'string', 'max:100', 'unique:internal_parts,part_number'],
             'back_number' => ['nullable', 'string', 'max:100'],
             'part_name' => ['nullable', 'string', 'max:150'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
+
+        $photo = $request->hasFile('photo')
+            ? $this->storeInternalPartPhoto($request->file('photo'), $request->back_number, $request->part_number)
+            : ($request->back_number ? $request->back_number . '.jpeg' : null);
 
         InternalPart::create([
             'line_id' => $request->line_id,
             'part_number' => $request->part_number,
             'back_number' => $request->back_number,
             'part_name' => $request->part_name,
+            'photo' => $photo,
         ]);
 
         return redirect()->route('dashboard.master.parts.index')->with('success', 'Master Part berhasil ditambah.');
@@ -209,14 +243,25 @@ class MasterDataController extends Controller
             'part_number' => ['required', 'string', 'max:100', Rule::unique('internal_parts', 'part_number')->ignore($internalPart->id)],
             'back_number' => ['nullable', 'string', 'max:100'],
             'part_name' => ['nullable', 'string', 'max:150'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
 
-        $internalPart->update([
+        $values = [
             'line_id' => $request->line_id,
             'part_number' => $request->part_number,
             'back_number' => $request->back_number,
             'part_name' => $request->part_name,
-        ]);
+        ];
+
+        if ($request->hasFile('photo')) {
+            $values['photo'] = $this->storeInternalPartPhoto(
+                $request->file('photo'),
+                $request->back_number,
+                $request->part_number
+            );
+        }
+
+        $internalPart->update($values);
 
         return redirect()->route('dashboard.master.parts.index')->with('success', 'Master Part berhasil diperbarui.');
     }
@@ -348,6 +393,19 @@ class MasterDataController extends Controller
             'part_number' => strtoupper(trim((string) $request->input('part_number'))),
             'back_number' => $this->nullableTrimmedValue($request->input('back_number'), true),
         ]);
+    }
+
+    private function storeInternalPartPhoto($photo, ?string $backNumber, string $partNumber): string
+    {
+        $baseName = trim((string) ($backNumber ?: $partNumber));
+        $baseName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $baseName) ?: 'part';
+        $filename = $baseName . '.' . strtolower($photo->extension());
+        $directory = public_path('assets/img/pis');
+
+        File::ensureDirectoryExists($directory);
+        $photo->move($directory, $filename);
+
+        return $filename;
     }
 
     private function nullableTrimmedValue($value, bool $uppercase = false): ?string

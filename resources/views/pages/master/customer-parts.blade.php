@@ -1,6 +1,8 @@
 @extends('layouts.root.main')
 
 @section('main')
+    @include('pages.master.partials.styles')
+
     <style>
         .mapping-select-wrap {
             position: relative;
@@ -128,20 +130,24 @@
         }
     </style>
 
-    <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="container-fluid master-page">
+        <div class="master-page-header">
             <div>
-                <h4 class="mb-1">Master Part Customer</h4>
-                <div class="text-muted small">Mapping customer terhadap internal part dan qty per kanban.</div>
+                <h1 class="master-page-title">Master Customer Part</h1>
+                <div class="master-page-subtitle">Kelola mapping customer, internal part, dan quantity per kanban.</div>
             </div>
-            <a href="{{ route('dashboard.master.index') }}" class="btn btn-sm btn-outline-secondary">Master Home</a>
+            <div class="master-actions">
+                <a href="{{ route('dashboard.master.index') }}" class="master-btn">
+                    <i class="fas fa-th-large"></i> Master Home
+                </a>
+            </div>
         </div>
 
         @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success master-alert">{{ session('success') }}</div>
         @endif
         @if ($errors->any())
-            <div class="alert alert-danger">
+            <div class="alert alert-danger master-alert">
                 <strong>Mapping part customer belum dapat disimpan.</strong>
                 <ul class="mb-0 mt-2">
                     @foreach ($errors->all() as $error)
@@ -153,10 +159,12 @@
 
         <div class="row g-3">
             <div class="col-lg-4">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white border-0"><strong>Tambah Mapping</strong></div>
-                    <div class="card-body">
-                        <form method="POST" action="{{ $editingCustomerPart ? route('dashboard.master.customer-parts.update', $editingCustomerPart) : route('dashboard.master.customer-parts.store') }}">
+                <div class="master-panel">
+                    <div class="master-panel-header">
+                        <h2 class="master-panel-title"><i class="fas fa-link"></i>{{ $editingCustomerPart ? 'Edit Mapping' : 'Tambah Mapping' }}</h2>
+                    </div>
+                    <div class="master-panel-body">
+                        <form class="master-form" method="POST" action="{{ $editingCustomerPart ? route('dashboard.master.customer-parts.update', $editingCustomerPart) : route('dashboard.master.customer-parts.store') }}">
                             @csrf
                             @if ($editingCustomerPart)
                                 @method('PUT')
@@ -197,24 +205,28 @@
                                 <label class="form-label">Qty Per Kanban</label>
                                 <input type="number" name="qty_per_kanban" class="form-control" min="1" value="{{ old('qty_per_kanban', $editingCustomerPart?->qty_per_kanban ?? '') }}" required>
                             </div>
-                            <button class="btn btn-primary w-100">{{ $editingCustomerPart ? 'Update Mapping' : 'Simpan' }}</button>
-                            @if ($editingCustomerPart)
-                                <a href="{{ route('dashboard.master.customer-parts.index') }}" class="btn btn-outline-secondary w-100 mt-2">Batal Edit</a>
-                            @endif
+                            <div class="master-submit-row">
+                                <button class="master-btn primary w-100">
+                                    <i class="fas fa-save"></i> {{ $editingCustomerPart ? 'Update Mapping' : 'Simpan Mapping' }}
+                                </button>
+                                @if ($editingCustomerPart)
+                                    <a href="{{ route('dashboard.master.customer-parts.index') }}" class="master-btn w-100">Batal Edit</a>
+                                @endif
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-8">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                        <strong>Daftar Part Customer</strong>
-                        <span class="badge bg-light text-dark">{{ $customerPartCount }} record</span>
+                <div class="master-panel">
+                    <div class="master-panel-header">
+                        <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Customer Part</h2>
+                        <span class="master-record-count">{{ $customerPartCount }} record</span>
                     </div>
-                    <div class="table-responsive">
-                        <table id="customer-parts-table" class="table table-hover align-middle mb-0 w-100">
-                            <thead class="table-light">
+                    <div class="master-table-wrap">
+                        <table id="customer-parts-table" class="table master-table align-middle w-100">
+                            <thead>
                                 <tr>
                                     <th>Customer</th>
                                     <th>Internal Part</th>
