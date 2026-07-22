@@ -211,6 +211,7 @@
     }
 
     const KEY_DIRECT_MODE = 'directMode'; // 'on' | 'off'
+    const KEY_AG_MODE = 'agMode'; // bypass gate serial kanban saat aktif
 
     function setDirectMode(on) {
         try {
@@ -221,6 +222,20 @@
     function isDirectOn() {
         try {
             return (localStorage.getItem(KEY_DIRECT_MODE) || 'off') === 'on';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setAgMode(on) {
+        try {
+            localStorage.setItem(KEY_AG_MODE, on ? 'on' : 'off');
+        } catch (e) {}
+    }
+
+    function isAgOn() {
+        try {
+            return (localStorage.getItem(KEY_AG_MODE) || 'off') === 'on';
         } catch (e) {
             return false;
         }
@@ -274,15 +289,27 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const toggle = document.getElementById('directToggle');
-        if (!toggle) return;
-        toggle.checked = isDirectOn();
-        toggle.addEventListener('change', () => {
-            setDirectMode(toggle.checked);
-            // feedback kecil
-            if (typeof notif === 'function') notif(toggle.checked ? 'success' : 'info',
-                `Direct ${toggle.checked?'ON':'OFF'}`);
-            setTimeout(() => $('#code').focus(), 200);
-        });
+        const agToggle = document.getElementById('agToggle');
+
+        if (toggle) {
+            toggle.checked = isDirectOn();
+            toggle.addEventListener('change', () => {
+                setDirectMode(toggle.checked);
+                if (typeof notif === 'function') notif(toggle.checked ? 'success' : 'info',
+                    `Direct ${toggle.checked?'ON':'OFF'}`);
+                setTimeout(() => $('#code').focus(), 200);
+            });
+        }
+
+        if (agToggle) {
+            agToggle.checked = isAgOn();
+            agToggle.addEventListener('change', () => {
+                setAgMode(agToggle.checked);
+                if (typeof notif === 'function') notif(agToggle.checked ? 'success' : 'info',
+                    `AG ${agToggle.checked?'ON - Serial bypass':'OFF'}`);
+                setTimeout(() => $('#code').focus(), 200);
+            });
+        }
     });
 
     const STORE_NAME = 'loadingList';
@@ -3485,7 +3512,8 @@
                             internalPart: internal.trimEnd(),
                             customerPart: localStorage.getItem('customerPart'),
                             serialNumber: seri,
-                            qty_per_kbn: qty_per_kbn
+                            qty_per_kbn: qty_per_kbn,
+                            agMode: isAgOn() ? 1 : 0
                         },
                         contentType: 'application/json',
                         success: function(data) {

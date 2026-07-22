@@ -92,7 +92,7 @@
 
                 <div class="pulling-panel pulling-panel--ops">
                     <div class="row pulling-row align-items-center pulling-qty-row">
-                        <div class="col-8">
+                        <div class="col-7 pulling-qty-column">
                             <div class="d-flex align-items-center justify-content-between qbox">
                                 <div class="d-flex align-items-center">
                                     <small class="badge badge-dark mr-2">Qty</small>
@@ -101,13 +101,21 @@
                                 <div id="indicator" class="indicator"></div>
                             </div>
                         </div>
-                        <div class="col-4">
-                            <div class="d-flex justify-content-end">
+                        <div class="col-5 pulling-mode-column">
+                            <div class="pulling-mode-controls" aria-label="Mode scan">
                                 <div class="direct-toggle">
                                     <input type="checkbox" id="directToggle" class="direct-toggle__input" />
                                     <label for="directToggle" class="direct-toggle__track" aria-label="Direct Mode">
                                         <span class="direct-toggle__thumb" aria-hidden="true"></span>
                                         <span class="direct-toggle__label direct-toggle__label--off">Direct</span>
+                                    </label>
+                                </div>
+                                <div class="direct-toggle">
+                                    <input type="checkbox" id="agToggle" class="direct-toggle__input" />
+                                    <label for="agToggle" class="direct-toggle__track direct-toggle__track--ag"
+                                        aria-label="AG Mode">
+                                        <span class="direct-toggle__thumb" aria-hidden="true"></span>
+                                        <span class="direct-toggle__label direct-toggle__label--off">AG</span>
                                     </label>
                                 </div>
                             </div>

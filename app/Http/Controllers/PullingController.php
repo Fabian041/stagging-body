@@ -1143,11 +1143,13 @@ class PullingController extends Controller
             'internalPart' => 'required|string',
             'serialNumber' => 'required|string',
             'qty_per_kbn' => 'required|numeric|min:1',
+            'agMode' => 'sometimes|boolean',
         ]);
 
         $data['qty_per_kbn'] = (int) round($data['qty_per_kbn']);
+        $agMode = $request->boolean('agMode');
 
-        $result = DB::transaction(function () use ($data) {
+        $result = DB::transaction(function () use ($data, $agMode) {
             // 1) Ambil Loading List
             if (! isset(self::$loadingListsCache[$data['loadingList']])) {
                 self::$loadingListsCache[$data['loadingList']] = LoadingList::select('id', 'number', 'customer_id')
@@ -1223,10 +1225,9 @@ class PullingController extends Controller
                 ]);
             }
 
-            // 4) Tabel kanbans adalah satu-satunya gate serial pulling.
-            // Part pada daftar pengecualian Excel tidak memerlukan gate serial/status.
+            // 4) AG dan part pengecualian melewati gate serial/status kanban.
             $kanban = null;
-            if (! $internalPart->isPullingKanbanStatusExempt()) {
+            if (! $agMode && ! $internalPart->isPullingKanbanStatusExempt()) {
                 $kanban = Kanban::where('internal_part_id', $internalPart->id)
                     ->where('serial_number', $data['serialNumber'])
                     ->lockForUpdate()
