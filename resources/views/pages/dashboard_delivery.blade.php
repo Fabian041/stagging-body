@@ -2355,8 +2355,8 @@
             <div class="delivery-page-header-actions">
                 <button type="button" class="delivery-tv-toggle" id="btnToggleTvMode" aria-pressed="false"
                     title="Tampilkan timeline secara fullscreen dan compact">
-                    <i class="fas fa-tv mr-1" aria-hidden="true"></i>
-                    <span>Mode TV</span>
+                    <i class="fas fa-expand mr-1" aria-hidden="true"></i>
+                    <span>Full Screen</span>
                 </button>
                 <div class="bella-page-header-clock">
                     <span class="clock-label">Waktu lokal</span>
@@ -4834,8 +4834,8 @@
                     .attr('aria-pressed', enabled ? 'true' : 'false')
                     .toggleClass('is-active', enabled)
                     .html(enabled ?
-                        '<i class="fas fa-compress mr-1" aria-hidden="true"></i><span>Keluar TV</span>' :
-                        '<i class="fas fa-tv mr-1" aria-hidden="true"></i><span>Mode TV</span>');
+                        '<i class="fas fa-compress mr-1" aria-hidden="true"></i><span>Full Screen</span>' :
+                        '<i class="fas fa-expand mr-1" aria-hidden="true"></i><span>Full Screen</span>');
 
                 if (enabled) {
                     $('.bella-tabs a[href="#pane-chart"]').tab('show');
