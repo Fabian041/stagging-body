@@ -48,6 +48,31 @@
             gap: 4px;
         }
 
+        .delivery-sync-control {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            margin-left: auto;
+            padding-left: 14px;
+            border-left: 1px solid var(--border);
+        }
+
+        .delivery-last-sync {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 8px;
+            color: #29704a;
+            font-size: 10.5px;
+            font-weight: 600;
+        }
+
+        .delivery-last-sync.is-empty {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
         .bella-filter-label {
             font-size: 10.5px;
             font-weight: 700;
@@ -76,6 +101,238 @@
             border-color: var(--sky);
             background: #fff;
             box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
+        }
+
+        /* ── Delivery sync loader ── */
+        .delivery-sync-popup {
+            position: relative !important;
+            width: min(420px, calc(100vw - 32px)) !important;
+            padding: 22px 24px 22px !important;
+            border: 1px solid rgba(255, 255, 255, .7) !important;
+            border-radius: 20px !important;
+            background: #fff !important;
+            box-shadow: 0 24px 70px rgba(8, 32, 56, .26) !important;
+            overflow: hidden !important;
+        }
+
+        .delivery-sync-popup::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy), var(--sky));
+        }
+
+        .delivery-sync-html {
+            margin: 0 !important;
+        }
+
+        /* Scene truk */
+        .delivery-sync-scene {
+            margin: 4px 0 16px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #eef6fd, #dfeaf6);
+            overflow: hidden;
+        }
+
+        .delivery-sync-scene svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .dst-body {
+            animation: dstBob 1.1s ease-in-out infinite;
+        }
+
+        .dst-wheel {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: dstSpin .85s linear infinite;
+        }
+
+        .dst-dash {
+            animation: dstDash .5s linear infinite;
+        }
+
+        .dst-bush {
+            animation: dstRun 2.4s linear infinite;
+        }
+
+        .dst-bush.b {
+            animation-delay: -1.2s;
+        }
+
+        .dst-puff {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: dstPuff 1.6s ease-out infinite;
+        }
+
+        .dst-puff.b {
+            animation-delay: -.8s;
+        }
+
+        @keyframes dstBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        @keyframes dstSpin { to { transform: rotate(360deg); } }
+        @keyframes dstDash { to { stroke-dashoffset: -34; } }
+        @keyframes dstRun { from { transform: translateX(330px); } to { transform: translateX(-70px); } }
+        @keyframes dstPuff { 0% { transform: translate(0, 0) scale(.6); opacity: .45; } 100% { transform: translate(-18px, -13px) scale(1.6); opacity: 0; } }
+
+        .delivery-sync-title {
+            margin-bottom: 6px;
+            color: var(--navy);
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+
+        .delivery-sync-copy {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .delivery-sync-date {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 5px 11px;
+            border: 1px solid rgba(0, 151, 216, .18);
+            border-radius: 99px;
+            color: var(--navy);
+            background: rgba(0, 151, 216, .07);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .delivery-sync-progress {
+            position: relative;
+            height: 4px;
+            border-radius: 99px;
+            background: rgba(13, 54, 92, .08);
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .delivery-sync-progress::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            border-radius: inherit;
+            background: var(--sky);
+            animation: dstProgress 1.25s ease-in-out infinite;
+        }
+
+        @keyframes dstProgress { 0% { left: -40%; } 100% { left: 100%; } }
+
+        .delivery-sync-result-popup {
+            width: min(680px, calc(100vw - 32px)) !important;
+        }
+
+        .delivery-sync-result-copy {
+            margin: 0 0 14px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .delivery-sync-notes {
+            border: 1px solid #f3d7a5;
+            border-radius: 12px;
+            background: #fffaf0;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .delivery-sync-notes summary {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 12px 14px;
+            color: #744b08;
+            cursor: pointer;
+            list-style: none;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .delivery-sync-notes summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .delivery-sync-notes summary::after {
+            content: '';
+            flex: 0 0 auto;
+            width: 8px;
+            height: 8px;
+            margin: -4px 3px 0 1px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(45deg);
+            transition: transform .18s ease;
+        }
+
+        .delivery-sync-notes[open] summary::after {
+            transform: rotate(225deg);
+        }
+
+        .delivery-sync-notes-count {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 99px;
+            color: #9a5a00;
+            background: #ffedc7;
+            font-size: 11px;
+        }
+
+        .delivery-sync-notes-list {
+            max-height: 320px;
+            padding: 0 12px 12px;
+            border-top: 1px solid #f3d7a5;
+            overflow-y: auto;
+        }
+
+        .delivery-sync-note-item {
+            padding: 11px 2px;
+            border-bottom: 1px solid #f2e8d4;
+        }
+
+        .delivery-sync-note-item:last-child {
+            border-bottom: 0;
+        }
+
+        .delivery-sync-note-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--navy);
+            font-size: 12px;
+        }
+
+        .delivery-sync-note-reason {
+            color: #98600a;
+            font-size: 11px;
+            text-align: right;
+        }
+
+        .delivery-sync-note-parts {
+            margin-top: 5px;
+            color: var(--text-muted);
+            font-size: 11px;
+            word-break: break-word;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dst-body,
+            .dst-wheel,
+            .dst-dash,
+            .dst-bush,
+            .dst-puff,
+            .delivery-sync-progress::after { animation: none !important; }
         }
 
         /* ── Page header card ── */
@@ -1172,6 +1429,18 @@
             text-overflow: ellipsis;
         }
 
+        .customer-ll-summary {
+            display: block;
+            margin-top: 4px;
+            overflow: hidden;
+            color: #2563eb;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .customer-late-note {
             display: inline-flex;
             align-items: center;
@@ -1734,6 +2003,303 @@
                 min-width: 0;
                 width: 100%;
             }
+
+            .delivery-sync-control {
+                width: 100%;
+                margin-left: 0;
+                padding-left: 0;
+                border-left: 0;
+            }
+
+            .delivery-sync-control .bella-filter-group {
+                flex: 1;
+            }
+
+            .delivery-last-sync {
+                justify-content: flex-start;
+            }
+        }
+
+        /* ── TV mode ── */
+        body.delivery-tv-active {
+            overflow: hidden !important;
+        }
+
+        .delivery-page-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .delivery-tv-toggle {
+            height: 34px;
+            padding: 0 13px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #f8fafc;
+            color: var(--navy);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .03em;
+        }
+
+        .delivery-tv-toggle:hover {
+            border-color: var(--sky);
+            background: #eef8fd;
+        }
+
+        .delivery-dash.is-tv-mode {
+            --gantt-customer-col-width: 150px;
+            --gantt-type-col-width: 62px;
+            --gantt-hour-width: calc((100vw - var(--gantt-left-cols) - 20px) / 24);
+            --tv-row-height: 64px;
+            position: fixed;
+            inset: 0;
+            z-index: 1050;
+            width: 100vw;
+            height: 100vh;
+            margin: 0 !important;
+            padding: 6px;
+            overflow: hidden;
+            background: #edf2f7;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header {
+            height: 42px;
+            margin-bottom: 6px;
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header-title {
+            font-size: 14px;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header>div:first-child>div {
+            width: 28px !important;
+            height: 28px !important;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header-clock .clock-label {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header-clock #deliveryDashLiveTime {
+            font-size: 14px;
+        }
+
+        .delivery-dash.is-tv-mode .delivery-tv-toggle {
+            height: 28px;
+            border-color: #fecaca;
+            background: #fff1f2;
+            color: #b91c1c;
+        }
+
+        .delivery-dash.is-tv-mode>.bella-content-card {
+            height: calc(100vh - 54px);
+            margin: 0;
+            border: 0;
+            border-radius: 8px;
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .delivery-dash.is-tv-mode .bella-tabs,
+        .delivery-dash.is-tv-mode .bella-filter-card,
+        .delivery-dash.is-tv-mode .timeline-card-legend,
+        .delivery-dash.is-tv-mode .timeline-card-footer,
+        .delivery-dash.is-tv-mode .delivery-weekly-note {
+            display: none !important;
+        }
+
+        .delivery-dash.is-tv-mode .bella-tab-content,
+        .delivery-dash.is-tv-mode #pane-chart {
+            height: 100%;
+            padding: 0;
+            border: 0;
+            border-radius: 8px;
+        }
+
+        .delivery-dash.is-tv-mode .delivery-timeline-card,
+        .delivery-dash.is-tv-mode .delivery-weekly-card {
+            height: 100%;
+            margin: 0 !important;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-card-header,
+        .delivery-dash.is-tv-mode .weekly-card-header {
+            min-height: 34px;
+            padding: 5px 10px;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-title,
+        .delivery-dash.is-tv-mode .weekly-title {
+            font-size: 11px;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-late-summary {
+            max-width: 48vw;
+            padding: 2px 6px;
+            font-size: 9px;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-menu-btn {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-wrap,
+        .delivery-dash.is-tv-mode .weekly-card-body,
+        .delivery-dash.is-tv-mode .weekly-gantt-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-scroll {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-row {
+            grid-template-columns: var(--gantt-customer-col-width) var(--gantt-type-col-width) repeat(var(--gantt-slot-count), minmax(0, 1fr));
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-header .gantt-grid-cell {
+            height: 24px;
+            min-width: 0;
+            padding: 0 2px !important;
+            font-size: 8px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-time {
+            width: auto;
+            min-width: 0;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-left-cell,
+        .delivery-dash.is-tv-mode .gantt-grid-track-cell {
+            height: var(--tv-row-height);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-customer {
+            padding: 3px 6px;
+            font-size: 9px;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+
+        .delivery-dash.is-tv-mode .customer-ll-summary,
+        .delivery-dash.is-tv-mode .customer-unconfigured-note {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-type-lane {
+            padding: 0 2px;
+            font-size: 7px !important;
+            letter-spacing: 0 !important;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-track {
+            height: calc((var(--tv-row-height) / 2) - 6px);
+            margin: 3px 0;
+            background-size: calc(100% / var(--gantt-slot-count)) 100%;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap {
+            top: 2px;
+            height: calc(100% - 4px);
+            min-width: 22px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-stack {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.truck-pill {
+            top: 2px;
+            width: 30px !important;
+            min-width: 30px;
+            height: calc(100% - 4px);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.truck-pill .gantt-bar-stack {
+            height: 100%;
+        }
+
+        .delivery-dash.is-tv-mode .pill-meta {
+            gap: 2px;
+            padding-left: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .pill-avatar {
+            width: 16px;
+            height: 16px;
+            font-size: 7px;
+        }
+
+        .delivery-dash.is-tv-mode .pill-offset-badge,
+        .delivery-dash.is-tv-mode .prep-late-badge {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-pct {
+            font-size: 7px !important;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-now-label,
+        .delivery-dash.is-tv-mode .gantt-truck-label {
+            font-size: 7px;
+            padding: 1px 3px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-card-body {
+            padding: 6px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-gantt-table {
+            width: 100%;
+            min-width: 0;
+            font-size: 9px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-col-customer {
+            padding: 3px 6px !important;
+            font-size: 9px !important;
+            line-height: 1.1 !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-col-type,
+        .delivery-dash.is-tv-mode .weekly-col-day,
+        .delivery-dash.is-tv-mode .weekly-prep-track,
+        .delivery-dash.is-tv-mode .weekly-col-day>div {
+            height: calc(var(--tv-row-height) / 2) !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-col-type {
+            font-size: 7px !important;
+            letter-spacing: 0 !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-prep-bar,
+        .delivery-dash.is-tv-mode .weekly-truck-pill {
+            top: 3px !important;
+            height: calc(100% - 6px) !important;
+            min-height: 12px;
+            font-size: 7px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-offset-badge {
+            display: none;
         }
 
         .master-cycle-swal-popup {
@@ -1786,9 +2352,16 @@
                 </div>
                 <h1 class="bella-page-header-title">Daily Monitoring Delivery</h1>
             </div>
-            <div class="bella-page-header-clock">
-                <span class="clock-label">Waktu lokal</span>
-                <span id="deliveryDashLiveTime">--:--:--</span>
+            <div class="delivery-page-header-actions">
+                <button type="button" class="delivery-tv-toggle" id="btnToggleTvMode" aria-pressed="false"
+                    title="Tampilkan timeline secara fullscreen dan compact">
+                    <i class="fas fa-tv mr-1" aria-hidden="true"></i>
+                    <span>Mode TV</span>
+                </button>
+                <div class="bella-page-header-clock">
+                    <span class="clock-label">Waktu lokal</span>
+                    <span id="deliveryDashLiveTime">--:--:--</span>
+                </div>
             </div>
         </div>
 
@@ -1839,7 +2412,37 @@
                                     <i class="fas fa-sync-alt mr-1"></i> Muat ulang
                                 </button>
                             </div>
+                            @can('manage-master')
+                                <div class="delivery-sync-control">
+                                    <div class="bella-filter-group">
+                                        <label class="bella-filter-label" for="syncLoadingListDate">Tanggal awal sync (3 hari)</label>
+                                        <input type="date" class="bella-filter-input" id="syncLoadingListDate"
+                                            value="{{ now()->toDateString() }}">
+                                    </div>
+                                    <button type="button" id="btnSyncLoadingLists" class="act-btn success"
+                                        style="height:34px;padding:0 16px;font-size:12px;letter-spacing:.04em;">
+                                        <i class="fas fa-database mr-1"></i> Sync data
+                                    </button>
+                                </div>
+                            @endcan
                         </div>
+                        @can('manage-master')
+                            @php($lastSync = $lastLoadingListSync ?? null)
+                            <div class="delivery-last-sync {{ $lastSync ? '' : 'is-empty' }}" id="lastSyncStatus">
+                                <i class="fas fa-history" aria-hidden="true"></i>
+                                <span id="lastSyncStatusText">
+                                    @if ($lastSync)
+                                        Terakhir sync {{ $lastSync['synced_at'] }} · tanggal {{ $lastSync['date_label'] }} ·
+                                        {{ $lastSync['loading_list_count'] }} LL
+                                        @if ($lastSync['skipped'] > 0)
+                                            · {{ $lastSync['skipped'] }} catatan
+                                        @endif
+                                    @else
+                                        Belum pernah sync data
+                                    @endif
+                                </span>
+                            </div>
+                        @endcan
                     </div>
 
                     <div id="chartEmpty" class="alert d-none mb-2" role="alert"></div>
@@ -1943,97 +2546,20 @@
                         </div>
                     </div>
 
-                    {{-- Master Cycle Form --}}
-                    <div class="bella-content-card mb-3">
-                        <div style="padding:12px 18px; border-bottom:1px solid var(--border);">
-                            <span
-                                style="font-size:11.5px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.05em;">
-                                Tambah / Edit Master Cycle
-                            </span>
-                        </div>
-                        <div style="padding:16px 18px;">
-                            <form id="masterCycleForm">
-                                <div class="form-row align-items-end">
-                                    <div class="col-md-3 mb-3">
-                                        <label class="bella-form-label">Customer</label>
-                                        <select class="bella-form-control" id="mcycleCustomerId" required>
-                                            <option value="">Pilih customer</option>
-                                            @foreach ($customers as $c)
-                                                <option value="{{ $c->id }}">{{ $c->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Nama Cycle</label>
-                                        <select class="bella-form-control" id="mcycleName" required>
-                                            <option value="" selected disabled>Pilih cycle</option>
-                                            @foreach (range(1, 10) as $n)
-                                                <option value="{{ $n }}">{{ $n }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="bella-form-label">Waktu Rentang Preparation</label>
-                                        <div style="display:flex;align-items:center;gap:8px;">
-                                            <input type="time" class="bella-form-control" id="mcyclePrepStart"
-                                                required step="60">
-                                            <span
-                                                style="font-size:11px;color:var(--text-muted);white-space:nowrap;">sampai</span>
-                                            <input type="time" class="bella-form-control" id="mcyclePrepEnd" required
-                                                step="60">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Hari Offset Preparation</label>
-                                        <select class="bella-form-control" id="mcyclePrepDayOffset" required>
-                                            <option value="0">H+0 (hari delivery)</option>
-                                            <option value="-1">H-1</option>
-                                            <option value="-2">H-2</option>
-                                            <option value="-3">H-3</option>
-                                            <option value="-4">H-4</option>
-                                            <option value="-5">H-5</option>
-                                            <option value="-6">H-6</option>
-                                            <option value="-7">H-7</option>
-                                            <option value="1">H+1</option>
-                                            <option value="2">H+2</option>
-                                        </select>
-                                        <small id="mcycleOffsetHint"
-                                            style="display:block;font-size:10px;color:var(--text-muted);margin-top:4px;">
-                                            Selesai prep: <span id="mcycleEndOffsetLabel">H+0</span>
-                                        </small>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Waktu ETA Truck</label>
-                                        <input type="time" class="bella-form-control" id="mcycleTruckTime" required
-                                            step="60">
-                                    </div>
-                                    <div class="col-md-3 mb-3" style="display:flex;align-items:flex-end;gap:8px;">
-                                        <button type="submit" class="act-btn success" id="btnMasterSave"
-                                            style="height:32px;padding:0 14px;font-size:12px;">
-                                            <i class="fas fa-save mr-1"></i> Simpan
-                                        </button>
-                                        <button type="button" class="act-btn secondary d-none" id="btnMasterCancel"
-                                            style="height:32px;padding:0 12px;font-size:12px;">
-                                            Batal edit
-                                        </button>
-                                    </div>
-                                </div>
-                                <p style="font-size:11px;color:var(--text-muted);margin:0;">
-                                    Hari Offset = tanggal mulai prep terhadap delivery (H). Otomatis H-1 jika jam mulai
-                                    prep &gt; jam truck (mis. prep 22:00, truck 07:00). Timeline harian 00:00–24:00;
-                                    bar prep hanya tampil jika sudah/sedang berjalan.
-                                </p>
-                            </form>
-                        </div>
-                    </div>
-
                     {{-- Master Cycle Table --}}
                     <div class="bella-content-card mb-3">
-                        <div style="padding:12px 18px; border-bottom:1px solid var(--border);">
+                        <div
+                            style="padding:12px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
                             <span
                                 style="font-size:11.5px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.05em;">
                                 Daftar Master Cycle
                             </span>
+                            @can('manage-master')
+                                <button type="button" class="act-btn success" id="btnAddMasterCycle"
+                                    style="height:32px;padding:0 14px;font-size:12px;">
+                                    <i class="fas fa-plus mr-1"></i> Tambah Master Cycle
+                                </button>
+                            @endcan
                         </div>
                         <div class="table-responsive">
                             <table class="bella-master-table" id="masterCycleTable">
@@ -2093,6 +2619,7 @@
     <script>
         $(function() {
             var stackedUrl = "{{ route('dashboard.delivery.stackedChart') }}";
+            var syncLoadingListsUrl = "{{ route('dashboard.delivery.syncLoadingLists') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
@@ -2102,9 +2629,6 @@
 
             // Hak akses: hanya admin/ppic (manage-master) yang boleh kelola master cycle
             var canManageMaster = @json(auth()->user()->can('manage-master'));
-            if (!canManageMaster) {
-                $('#masterCycleForm').closest('.bella-content-card').hide();
-            }
 
             var customers = @json($customers);
             var chartRows = [];
@@ -2581,6 +3105,7 @@
                         formatLocalDateKey(row.delivery_date))) {
                     return null;
                 }
+
                 var range = viewDateToMsRange(viewDateStr);
                 if (!range.endMs) {
                     return null;
@@ -2685,12 +3210,13 @@
                 return off;
             }
 
-            function updateMasterCycleOffsetHint() {
+            function updateMasterCycleOffsetHint(event) {
                 var prepStart = ($('#mcyclePrepStart').val() || '').trim();
                 var prepEnd = ($('#mcyclePrepEnd').val() || '').trim();
                 var truckTime = ($('#mcycleTruckTime').val() || '').trim();
                 var inferred = inferPrepDayOffsetFromTruck(prepStart, truckTime);
-                if (inferred !== null) {
+                var shouldInfer = event && ['mcyclePrepStart', 'mcycleTruckTime'].indexOf(event.currentTarget.id) !== -1;
+                if (shouldInfer && inferred !== null) {
                     $('#mcyclePrepDayOffset').val(String(inferred));
                 }
                 var prepOff = $('#mcyclePrepDayOffset').val();
@@ -2698,7 +3224,7 @@
                 var endLbl = formatPrepDayOffsetLabel(endOff);
                 var $hint = $('#mcycleEndOffsetLabel');
                 $hint.text(endLbl);
-                if (inferred !== null) {
+                if (shouldInfer && inferred !== null) {
                     $hint.parent().css('color', 'var(--sky)');
                     $hint.parent().attr('title',
                         'Otomatis H-1: jam mulai prep (' + prepStart + ') > jam truck (' + truckTime + ')');
@@ -4109,6 +4635,24 @@
                 });
             }
 
+            function resetMasterCycleForm() {
+                editMasterId = null;
+                var form = document.getElementById('masterCycleForm');
+                if (form) {
+                    form.reset();
+                }
+                $('#masterCycleModalTitle').text('Tambah Master Cycle');
+                $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Simpan');
+                updateMasterCycleOffsetHint();
+            }
+
+            $('#btnAddMasterCycle').on('click', function() {
+                resetMasterCycleForm();
+                $('#masterCycleModal').modal('show');
+            });
+
+            $('#masterCycleModal').on('hidden.bs.modal', resetMasterCycleForm);
+
             $('#masterCycleForm').on('submit', function(e) {
                 e.preventDefault();
                 var prepStart = ($('#mcyclePrepStart').val() || '').trim();
@@ -4129,17 +4673,21 @@
                     customer_id: $('#mcycleCustomerId').val()
                 };
                 if (editMasterId) {
+                    var updatedId = editMasterId;
                     $.ajax({
                         url: masterBase + '/' + editMasterId,
                         type: 'PUT',
                         data: payload,
                         success: function() {
-                            editMasterId = null;
-                            $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Simpan');
-                            $('#btnMasterCancel').addClass('d-none');
-                            $('#masterCycleForm')[0].reset();
-                            fetchMasters();
+                            $('#masterCycleModal').modal('hide');
+                            fetchMasters(updatedId);
                             loadStackedChart();
+                        },
+                        error: function(xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ?
+                                xhr.responseJSON.message :
+                                'Gagal memperbarui master cycle.';
+                            showMasterCycleErrorSwal(msg);
                         }
                     });
                 } else {
@@ -4148,8 +4696,9 @@
                     $.post(masterStore, payload)
                         .done(function(res) {
                             var newId = (res && res.data && res.data.id) ? res.data.id : null;
-                            $('#masterCycleForm')[0].reset();
-                            showMasterCycleAddedSwal(payload, savedCustomerName, savedOffsetLabel);
+                            $('#masterCycleModal').one('hidden.bs.modal', function() {
+                                showMasterCycleAddedSwal(payload, savedCustomerName, savedOffsetLabel);
+                            }).modal('hide');
                             fetchMasters(newId);
                             loadStackedChart();
                         })
@@ -4160,13 +4709,6 @@
                             showMasterCycleErrorSwal(msg);
                         });
                 }
-            });
-
-            $('#btnMasterCancel').on('click', function() {
-                editMasterId = null;
-                $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Simpan');
-                $('#btnMasterCancel').addClass('d-none');
-                $('#masterCycleForm')[0].reset();
             });
 
             $('#masterCycleTable').on('click', '.btn-del-master', function() {
@@ -4201,6 +4743,7 @@
                     if (!row) {
                         return;
                     }
+                    resetMasterCycleForm();
                     editMasterId = id;
                     if ($('#mcycleName option[value="' + row.cycle_name + '"]').length) {
                         $('#mcycleName').val(row.cycle_name);
@@ -4221,8 +4764,9 @@
                     $('#mcycleCustomerId').val(row.customer_id != null ? String(row.customer_id) :
                         '');
                     updateMasterCycleOffsetHint();
+                    $('#masterCycleModalTitle').text('Edit Master Cycle');
                     $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Update');
-                    $('#btnMasterCancel').removeClass('d-none');
+                    $('#masterCycleModal').modal('show');
                 });
             });
 
@@ -4263,6 +4807,76 @@
                 $('#deliveryWeeklyCard').toggleClass('d-none', isDaily);
                 $('.timeline-title').text(isDaily ? 'Timeline delivery' : 'Timeline delivery (ringkas)');
             }
+
+            function updateTvTimelineLayout() {
+                var $dash = $('.delivery-dash');
+                if (!$dash.hasClass('is-tv-mode')) {
+                    return;
+                }
+
+                var isDaily = dashboardViewMode === 'daily';
+                var rowCount = isDaily ?
+                    $('#ganttContainer .gantt-grid-row').not('.gantt-grid-header').length :
+                    Math.ceil($('#weeklyGanttContainer tbody tr').length / 2);
+                var $viewport = isDaily ? $('#ganttWrap') : $('#deliveryWeeklyCard .weekly-card-body');
+                var availableHeight = ($viewport.innerHeight() || window.innerHeight) - 26;
+                if (rowCount > 0) {
+                    var rowHeight = Math.max(26, Math.min(88, Math.floor(availableHeight / rowCount)));
+                    $dash.css('--tv-row-height', rowHeight + 'px');
+                }
+            }
+
+            function setTvMode(enabled, manageFullscreen) {
+                var $dash = $('.delivery-dash');
+                $dash.toggleClass('is-tv-mode', enabled);
+                $('body').toggleClass('delivery-tv-active', enabled);
+                $('#btnToggleTvMode')
+                    .attr('aria-pressed', enabled ? 'true' : 'false')
+                    .toggleClass('is-active', enabled)
+                    .html(enabled ?
+                        '<i class="fas fa-compress mr-1" aria-hidden="true"></i><span>Keluar TV</span>' :
+                        '<i class="fas fa-tv mr-1" aria-hidden="true"></i><span>Mode TV</span>');
+
+                if (enabled) {
+                    $('.bella-tabs a[href="#pane-chart"]').tab('show');
+                    if (dashboardViewMode === 'weekly') {
+                        renderWeeklySummary();
+                    }
+                    window.requestAnimationFrame(function() {
+                        window.requestAnimationFrame(updateTvTimelineLayout);
+                    });
+                    if (manageFullscreen !== false && !document.fullscreenElement && document.documentElement
+                        .requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(function() {});
+                    }
+                } else {
+                    if (dashboardViewMode === 'weekly') {
+                        renderWeeklySummary();
+                    }
+                    if (manageFullscreen !== false && document.fullscreenElement && document.exitFullscreen) {
+                        document.exitFullscreen().catch(function() {});
+                    }
+                }
+            }
+
+            $('#btnToggleTvMode').on('click', function() {
+                setTvMode(!$('.delivery-dash').hasClass('is-tv-mode'));
+            });
+
+            $(document).on('fullscreenchange', function() {
+                if (!document.fullscreenElement && $('.delivery-dash').hasClass('is-tv-mode')) {
+                    setTvMode(false, false);
+                }
+            });
+
+            $(document).on('keydown', function(event) {
+                if (event.key === 'Escape' && !document.fullscreenElement && $('.delivery-dash').hasClass(
+                        'is-tv-mode')) {
+                    setTvMode(false, false);
+                }
+            });
+
+            $(window).on('resize', updateTvTimelineLayout);
 
             function updateTimelineTotal() {
                 var sum = chartMergedByCustTime.reduce(function(acc, r) {
@@ -4634,6 +5248,26 @@
                 return '<span class="customer-unconfigured-note" title="' + escapeAttr(
                         'Atur Preparation di Master Cycle: ' + tipCycles) + '">' +
                     escapeHtml(text) + '</span>';
+            }
+
+            function buildCustomerLoadingListSummaryHtml(rows) {
+                var seen = {};
+                var loadingLists = [];
+                (rows || []).forEach(function(row) {
+                    (Array.isArray(row.loading_lists) ? row.loading_lists : []).forEach(function(number) {
+                        var value = String(number || '').trim();
+                        if (value && !seen[value]) {
+                            seen[value] = true;
+                            loadingLists.push(value);
+                        }
+                    });
+                });
+                if (!loadingLists.length) {
+                    return '';
+                }
+                var preview = loadingLists[0] + (loadingLists.length > 1 ? ' +' + (loadingLists.length - 1) : '');
+                return '<span class="customer-ll-summary" title="' + escapeAttr(loadingLists.join(', ')) + '">' +
+                    loadingLists.length + ' LL · ' + escapeHtml(preview) + '</span>';
             }
 
             function filterRowsInWeeklySlots(rows, slots) {
@@ -5095,6 +5729,7 @@
                     setGanttSlotCount(24);
                     $('#ganttContainer').empty();
                     updateTimelineTotal();
+                    updateTvTimelineLayout();
                     return;
                 }
                 var overdueLatch = getOverdueLatchMap();
@@ -5151,7 +5786,8 @@
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer" data-customer-name="' +
                         escapeAttr(cn) + '">' +
-                        escapeHtml(cn) + lateSummary + (unconfiguredHint || '') + '</div>';
+                        escapeHtml(cn) + buildCustomerLoadingListSummaryHtml(allBucketsForDate) + lateSummary +
+                        (unconfiguredHint || '') + '</div>';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type">';
                     gridHtml +=
@@ -5253,6 +5889,7 @@
                 updateTimelineTotal();
                 ganttNowTimer = setInterval(updateGanttNowMarkers, 1000);
                 updateGanttNowMarkers();
+                updateTvTimelineLayout();
             }
 
             function openLoadingListFromBar($bar) {
@@ -5465,8 +6102,9 @@
 
                 // Kolom hari mengisi sisa lebar; Customer/Type tetap statis
                 var dayColWidth = resolveWeeklyDayColWidth(nSlots);
-                var custColWidth = 200;
-                var typeColWidth = 120;
+                var compactTvMode = $('.delivery-dash').hasClass('is-tv-mode');
+                var custColWidth = compactTvMode ? 150 : 200;
+                var typeColWidth = compactTvMode ? 62 : 120;
                 $('#deliveryWeeklyCard').css('--weekly-day-col-width', dayColWidth + 'px');
 
                 // ── Build HTML ────────────────────────────────────────────────────
@@ -5515,7 +6153,7 @@
                     var weeklyLateSummary = buildCustomerPrepLateSummaryHtml(filterRowsInWeeklySlots(
                         rowsForBars,
                         slots));
-                    var rowHeight = 136; // px – sama dengan daily
+                    var rowHeight = compactTvMode ? 64 : 136;
 
                     // ── Baris PREP ──
                     html += '<tr>';
@@ -5525,6 +6163,7 @@
                         'font-size:12px;font-weight:500;padding:8px 10px;' +
                         'word-break:break-word;line-height:1.3;' +
                         '">' + escapeHtml(cust) +
+                        buildCustomerLoadingListSummaryHtml(filterRowsInWeeklySlots(rows, slots)) +
                         weeklyLateSummary +
                         buildUnconfiguredTimelineHintHtml(filterRowsInWeeklySlots(rows, slots)) +
                         '</td>';
@@ -5723,6 +6362,7 @@
                 }, 1000);
 
                 updateTimelineTotal();
+                updateTvTimelineLayout();
             }
 
             function loadStackedChart() {
@@ -5821,6 +6461,134 @@
             }
 
             $('#btnReloadChart').on('click', loadStackedChart);
+            $('#btnSyncLoadingLists').on('click', function() {
+                var date = $('#syncLoadingListDate').val() || '';
+                if (!date) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Tanggal belum dipilih',
+                        text: 'Pilih tanggal sync loading list.',
+                        confirmButtonColor: '#0097d8'
+                    });
+                    return;
+                }
+                var dateTo = addDaysToDateStr(date, 2);
+
+                var $button = $(this);
+                var originalHtml = $button.html();
+                $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Sync...');
+
+                Swal.fire({
+                    html: '<div class="delivery-sync-loader" role="status" aria-live="polite">' +
+                        '<div class="delivery-sync-scene" aria-hidden="true">' +
+                        '<svg viewBox="0 0 320 128" xmlns="http://www.w3.org/2000/svg">' +
+                        '<g class="dst-bush"><rect x="8" y="93" width="4" height="9" rx="1.5" fill="#a9b79f"/><circle cx="10" cy="91" r="9" fill="#cfe0c9"/><circle cx="4" cy="95" r="6" fill="#cfe0c9"/><circle cx="16" cy="95" r="6" fill="#cfe0c9"/></g>' +
+                        '<g class="dst-bush b"><rect x="9" y="95" width="3" height="7" rx="1.5" fill="#a9b79f"/><circle cx="10" cy="94" r="6" fill="#d8e6d2"/></g>' +
+                        '<line x1="0" y1="104" x2="320" y2="104" stroke="#c3d0dc" stroke-width="4"/>' +
+                        '<line class="dst-dash" x1="0" y1="104" x2="320" y2="104" stroke="#ffffff" stroke-width="4" stroke-dasharray="16 18" stroke-linecap="round"/>' +
+                        '<ellipse cx="134" cy="106" rx="80" ry="4" fill="rgba(13,54,92,.12)"/>' +
+                        '<circle class="dst-puff" cx="52" cy="88" r="4" fill="#cbd7e2"/>' +
+                        '<circle class="dst-puff b" cx="52" cy="88" r="3" fill="#d7e1ea"/>' +
+                        '<g class="dst-wheel"><circle cx="98" cy="92" r="12" fill="#2b3542"/><line x1="98" y1="81" x2="98" y2="103" stroke="#c2ccd6" stroke-width="2"/><line x1="87" y1="92" x2="109" y2="92" stroke="#c2ccd6" stroke-width="2"/><circle cx="98" cy="92" r="6" fill="#e7edf3"/><circle cx="98" cy="92" r="2" fill="#8b98a6"/></g>' +
+                        '<g class="dst-wheel"><circle cx="188" cy="92" r="12" fill="#2b3542"/><line x1="188" y1="81" x2="188" y2="103" stroke="#c2ccd6" stroke-width="2"/><line x1="177" y1="92" x2="199" y2="92" stroke="#c2ccd6" stroke-width="2"/><circle cx="188" cy="92" r="6" fill="#e7edf3"/><circle cx="188" cy="92" r="2" fill="#8b98a6"/></g>' +
+                        '<g class="dst-body">' +
+                        '<rect x="58" y="86" width="154" height="7" rx="2.5" fill="#0d365c"/>' +
+                        '<rect x="58" y="40" width="108" height="47" rx="7" fill="#ffffff" stroke="#0d365c" stroke-width="3"/>' +
+                        '<line x1="104" y1="43" x2="104" y2="84" stroke="#cdd9e6" stroke-width="2"/>' +
+                        '<rect x="118" y="50" width="28" height="24" rx="2.5" fill="#eaf4fb" stroke="#0097d8" stroke-width="2"/>' +
+                        '<line x1="118" y1="62" x2="146" y2="62" stroke="#0097d8" stroke-width="2"/>' +
+                        '<line x1="132" y1="50" x2="132" y2="74" stroke="#0097d8" stroke-width="2"/>' +
+                        '<path d="M166 50 H188 L206 74 V84 H166 Z" fill="#0097d8" stroke="#0d365c" stroke-width="3" stroke-linejoin="round"/>' +
+                        '<path d="M170 54 H186 L198 70 H170 Z" fill="#dff1fb"/>' +
+                        '<rect x="201" y="76" width="6" height="6" rx="1.5" fill="#ffd873"/>' +
+                        '</g>' +
+                        '</svg>' +
+                        '</div>' +
+                        '<div class="delivery-sync-title">Sinkronisasi loading list</div>' +
+                        '<div class="delivery-sync-copy">Mengantar jadwal ke dashboard</div>' +
+                        '<div class="delivery-sync-date"><i class="far fa-calendar-alt"></i>' + escapeHtml(date) +
+                        ' s.d. ' + escapeHtml(dateTo) +
+                        '</div>' +
+                        '<div class="delivery-sync-progress" aria-hidden="true"></div>' +
+                        '</div>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    backdrop: 'rgba(7, 25, 43, .72)',
+                    customClass: {
+                        popup: 'delivery-sync-popup',
+                        htmlContainer: 'delivery-sync-html'
+                    }
+                });
+
+                $.ajax({
+                    url: syncLoadingListsUrl,
+                    method: 'POST',
+                    data: {
+                        _token: csrf,
+                        date: date
+                    }
+                }).done(function(response) {
+                    loadStackedChart();
+                    if (response.last_sync) {
+                        var lastSyncText = 'Terakhir sync ' + response.last_sync.synced_at +
+                            ' · tanggal ' + response.last_sync.date_label +
+                            ' · ' + response.last_sync.loading_list_count + ' LL';
+                        if (response.last_sync.skipped > 0) {
+                            lastSyncText += ' · ' + response.last_sync.skipped + ' catatan';
+                        }
+                        $('#lastSyncStatusText').text(lastSyncText);
+                        $('#lastSyncStatus').removeClass('is-empty');
+                    }
+                    var hasNotes = response.status === 'warning';
+                    var isEmpty = response.status === 'empty';
+                    var skippedItems = Array.isArray(response.skipped_items) ? response.skipped_items : [];
+                    var skippedHtml = skippedItems.map(function(item) {
+                        var parts = [];
+                        if (item.part_number_int) {
+                            parts.push('<strong>Internal:</strong> ' + escapeHtml(String(item.part_number_int)));
+                        }
+                        if (item.part_number_cust) {
+                            parts.push('<strong>Customer:</strong> ' + escapeHtml(String(item.part_number_cust)));
+                        }
+
+                        return '<div class="delivery-sync-note-item">' +
+                            '<div class="delivery-sync-note-head">' +
+                            '<strong>' + escapeHtml(String(item.loading_list || '-')) + '</strong>' +
+                            '<span class="delivery-sync-note-reason">' + escapeHtml(String(item.reason || '-')) + '</span>' +
+                            '</div>' +
+                            (parts.length ? '<div class="delivery-sync-note-parts">' + parts.join(' &middot; ') + '</div>' : '') +
+                            '</div>';
+                    }).join('');
+                    var resultHtml = hasNotes
+                        ? '<p class="delivery-sync-result-copy">' + escapeHtml(response.message) + '</p>' +
+                            '<details class="delivery-sync-notes">' +
+                            '<summary><span>Detail data yang dilewati</span>' +
+                            '<span class="delivery-sync-notes-count">' + escapeHtml(String(response.skipped || 0)) + '</span></summary>' +
+                            '<div class="delivery-sync-notes-list">' + skippedHtml + '</div>' +
+                            '</details>'
+                        : null;
+                    Swal.fire({
+                        icon: hasNotes ? 'warning' : (isEmpty ? 'info' : 'success'),
+                        title: hasNotes ? 'Berhasil dengan catatan' : (isEmpty ? 'Data tidak ditemukan' : 'Sync selesai'),
+                        text: hasNotes ? undefined : response.message,
+                        html: resultHtml,
+                        confirmButtonColor: hasNotes ? '#f59e0b' : (isEmpty ? '#64748b' : '#0097d8'),
+                        customClass: hasNotes ? { popup: 'delivery-sync-result-popup' } : {}
+                    });
+                }).fail(function(xhr) {
+                    var response = xhr.responseJSON || {};
+                    var detail = response.detail ? '\n\n' + response.detail : '';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Sync gagal',
+                        text: (response.message || 'Loading list gagal disinkronkan.') + detail,
+                        confirmButtonColor: '#0097d8'
+                    });
+                }).always(function() {
+                    $button.prop('disabled', false).html(originalHtml);
+                });
+            });
             $('#filterDateFrom, #filterDateTo, #filterCustomer').on('change', loadStackedChart);
 
             $('#etaWindowModalForm').on('submit', function(e) {
@@ -5863,6 +6631,98 @@
             setInterval(tickDeliveryHeaderClock, 1000);
         });
     </script>
+
+    @can('manage-master')
+        {{-- ===== MODAL MASTER CYCLE ===== --}}
+        <div class="modal fade" id="masterCycleModal" tabindex="-1" role="dialog"
+            aria-labelledby="masterCycleModalTitle" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <form id="masterCycleForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="masterCycleModalTitle">Tambah Master Cycle</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-row">
+                                <div class="col-md-8 mb-3">
+                                    <label class="bella-form-label">Customer</label>
+                                    <select class="bella-form-control" id="mcycleCustomerId" required>
+                                        <option value="">Pilih customer</option>
+                                        @foreach ($customers as $c)
+                                            <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="bella-form-label">Nama Cycle</label>
+                                    <select class="bella-form-control" id="mcycleName" required>
+                                        <option value="" selected disabled>Pilih cycle</option>
+                                        @foreach (range(1, 10) as $n)
+                                            <option value="{{ $n }}">{{ $n }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-7 mb-3">
+                                    <label class="bella-form-label">Waktu Rentang Preparation</label>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <input type="time" class="bella-form-control" id="mcyclePrepStart" required
+                                            step="60">
+                                        <span
+                                            style="font-size:11px;color:var(--text-muted);white-space:nowrap;">sampai</span>
+                                        <input type="time" class="bella-form-control" id="mcyclePrepEnd" required
+                                            step="60">
+                                    </div>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label class="bella-form-label">Hari Offset Preparation</label>
+                                    <select class="bella-form-control" id="mcyclePrepDayOffset" required>
+                                        <option value="0">H+0 (hari delivery)</option>
+                                        <option value="-1">H-1</option>
+                                        <option value="-2">H-2</option>
+                                        <option value="-3">H-3</option>
+                                        <option value="-4">H-4</option>
+                                        <option value="-5">H-5</option>
+                                        <option value="-6">H-6</option>
+                                        <option value="-7">H-7</option>
+                                        <option value="1">H+1</option>
+                                        <option value="2">H+2</option>
+                                    </select>
+                                    <small id="mcycleOffsetHint"
+                                        style="display:block;font-size:10px;color:var(--text-muted);margin-top:4px;">
+                                        Selesai prep: <span id="mcycleEndOffsetLabel">H+0</span>
+                                    </small>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label class="bella-form-label">Waktu ETA Truck</label>
+                                    <input type="time" class="bella-form-control" id="mcycleTruckTime" required
+                                        step="60">
+                                </div>
+                            </div>
+                            <p
+                                style="font-size:11px;color:var(--text-muted);margin:0;padding:10px 12px;background:#f8fafc;border-radius:6px;">
+                                Hari Offset = tanggal mulai prep terhadap delivery (H). Otomatis H-1 jika jam mulai
+                                prep &gt; jam truck (mis. prep 22:00, truck 07:00). Timeline harian 00:00–24:00;
+                                bar prep hanya tampil jika sudah/sedang berjalan.
+                            </p>
+                        </div>
+                        <div class="modal-footer" style="gap:8px;">
+                            <button type="button" class="act-btn secondary" id="btnMasterCancel" data-dismiss="modal"
+                                style="height:32px;padding:0 14px;font-size:12px;">
+                                Batal
+                            </button>
+                            <button type="submit" class="act-btn success" id="btnMasterSave"
+                                style="height:32px;padding:0 14px;font-size:12px;">
+                                <i class="fas fa-save mr-1"></i> Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endcan
 
     {{-- ===== MODAL ETA WINDOW ===== --}}
     <div class="modal fade" id="etaWindowModal" tabindex="-1" role="dialog" aria-labelledby="etaWindowModalLabel"

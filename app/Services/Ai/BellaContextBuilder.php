@@ -616,8 +616,7 @@ class BellaContextBuilder
             if (! empty($master->time) && ! empty($master->prep_end_time)) {
                 $prepStart = substr((string) $master->time, 0, 5);
                 $prepEnd = substr((string) $master->prep_end_time, 0, 5);
-                $truckTime = $master->truck_time ? substr((string) $master->truck_time, 0, 5) : null;
-                $prepDayOffset = $this->resolvePrepDayOffset((int) ($master->prep_day_offset ?? 0), $prepStart, $truckTime);
+                $prepDayOffset = $this->resolvePrepDayOffset((int) ($master->prep_day_offset ?? 0));
                 $prepEndOffsets[] = $this->computePrepEndDayOffset($prepDayOffset, $prepStart, $prepEnd);
             }
         }
@@ -1213,8 +1212,7 @@ class BellaContextBuilder
             return null;
         }
 
-        $truckTime = $master->truck_time ? substr((string) $master->truck_time, 0, 5) : null;
-        $prepDayOffset = $this->resolvePrepDayOffset((int) ($master->prep_day_offset ?? 0), $prepStart, $truckTime);
+        $prepDayOffset = $this->resolvePrepDayOffset((int) ($master->prep_day_offset ?? 0));
         $prepEndDayOffset = $this->computePrepEndDayOffset($prepDayOffset, $prepStart, $prepEnd);
 
         return Carbon::parse($deliveryDate)
@@ -1223,12 +1221,8 @@ class BellaContextBuilder
             ->setTimeFromTimeString($prepEnd);
     }
 
-    private function resolvePrepDayOffset(int $storedOffset, string $prepStart, ?string $truckTime): int
+    private function resolvePrepDayOffset(int $storedOffset): int
     {
-        if ($truckTime !== null && $this->clockMinutes($prepStart) > $this->clockMinutes($truckTime)) {
-            return -1;
-        }
-
         return max(-14, min(14, $storedOffset));
     }
 

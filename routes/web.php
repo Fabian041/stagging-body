@@ -245,6 +245,7 @@ Route::middleware(['auth'])->group(function () {
         // datatable
         Route::get('/delivery', [LoadingListController::class, 'dashboardDelivery'])->name('dashboard.delivery');
         Route::get('/delivery/data', [LoadingListController::class, 'getDeliveryDashboardData'])->name('dashboard.delivery.data');
+        Route::post('/delivery/sync-loading-lists', [LoadingListController::class, 'syncDeliveryLoadingLists'])->middleware('can:manage-master')->name('dashboard.delivery.syncLoadingLists');
         Route::get('/delivery/chart-data', [LoadingListController::class, 'getDeliveryCycleChartByFilters'])->name('dashboard.delivery.chartData');
         Route::get('/delivery/customer-cycle-chart', [LoadingListController::class, 'getDeliveryCustomerCycleChartData'])->name('dashboard.delivery.customerCycleChartData');
         Route::get('/delivery/cycle-progress', [LoadingListController::class, 'getDeliveryCycleProgress'])->name('dashboard.delivery.cycleProgress');
