@@ -618,7 +618,8 @@
                     return;
                 }
 
-                const eventId = String(cursor.value?.scan_event_id || cursor.value?.mutation_id || '').trim();
+                const eventId = String(cursor.value?.scan_event_id || cursor.value?.mutation_id || '')
+                    .trim();
                 const identity = eventId ? `event:${eventId}` : `legacy:${key}|${value}`;
                 if (value && !seenEvents.has(identity)) {
                     seenEvents.add(identity);
@@ -1131,23 +1132,30 @@
                                         .trim();
                                     if (!serial) return;
 
-                                    const scanEventId = String(item?.mutation_id || item
-                                        ?.scan_event_id || item?.scanned_at || index).trim();
+                                    const scanEventId = String(item
+                                        ?.mutation_id || item
+                                        ?.scan_event_id || item
+                                        ?.scanned_at || index).trim();
                                     const serialKey = scanSerialKey(group.key,
                                         serial, scanEventId);
-                                    serialStore.delete(scanSerialKey(group.key, serial));
+                                    serialStore.delete(scanSerialKey(group.key,
+                                        serial));
                                     serialStore.put({
                                         customer_part: group.customer,
                                         part_key: group.key,
                                         internal: group.internal,
                                         serial,
                                         scan_event_id: scanEventId,
-                                        mutation_id: item?.mutation_id || null,
-                                        loading_list_number: loadingList || record
+                                        mutation_id: item
+                                            ?.mutation_id || null,
+                                        loading_list_number: loadingList ||
+                                            record
                                             .loading_list_number,
-                                        scanned_at: serialScanTimestamp(item?.scanned_at),
+                                        scanned_at: serialScanTimestamp(
+                                            item?.scanned_at),
                                         synced_from_mutation: true,
-                                        verified_from_mutation: item?.verified === true
+                                        verified_from_mutation: item
+                                            ?.verified === true
                                     }, serialKey);
                                 });
                         });
@@ -1261,7 +1269,8 @@
                             internal: String(item.internal || '-').trim() || '-',
                             serial: String(item.serial || '-').trim() || '-',
                             scanned_at: parseInt(item.scanned_at || 0, 10) || 0,
-                            scan_event_id: String(item.scan_event_id || item.mutation_id || '').trim()
+                            scan_event_id: String(item.scan_event_id || item.mutation_id ||
+                                '').trim()
                         }));
 
                     resolve(setScanHistory(history, rows.length));
@@ -3371,8 +3380,9 @@
             let scannedCount = parseInt(cursor.scanned_count ?? arraySeri.length, 10) || 0;
 
             // === Validasi: internal & customer harus dalam objek yang sama
-            isSameObject = comparableCustomerPart(cursor.customer) === comparableCustomerPart(localStorage.getItem(
-                    'customerPart')) &&
+            isSameObject = comparableCustomerPart(cursor.customer) === comparableCustomerPart(localStorage
+                    .getItem(
+                        'customerPart')) &&
                 String(cursor.internal || '').trim() === String(internal || '').trim();
 
             if (!isSameObject) {
@@ -3430,7 +3440,8 @@
                 };
 
                 function performUpdate(transaction, objectStore, serialStore, summaryStore, scanEventId) {
-                    const eventId = String(scanEventId || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+                    const eventId = String(scanEventId ||
+                        `${Date.now()}-${Math.random().toString(36).slice(2)}`);
                     serialStore.put({
                         customer_part: customer,
                         part_key: primaryKey,
@@ -3560,7 +3571,8 @@
                                 handleError(data.message || 'Validasi backend gagal', {
                                     expected: 'Response success dari mutation',
                                     scanned: JSON.stringify(data),
-                                    playSound: !['notExists', 'alreadyPulled'].includes(data
+                                    playSound: !['notExists', 'alreadyPulled'].includes(
+                                        data
                                         .status)
                                 });
                                 if (data.status == 'notExists') notExist();
@@ -3849,7 +3861,8 @@
 
             isMmkiFamilyCustomer() {
                 const customer = (localStorage.getItem('customer') || '').toUpperCase();
-                return ['MMKI', 'SENOPATI', 'FUJITRANS'].some((name) => customer.includes(name));
+                return ['MMKI', 'SENOPATI', 'FUJITRANS', 'MMKI (MMO)'].some((name) => customer.includes(
+                    name));
             }
 
             async handleLoadingList(code) {
