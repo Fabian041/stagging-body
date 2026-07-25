@@ -166,11 +166,11 @@ class SyncTodayLoadingListsTest extends TestCase
         $detail = PisScanDetail::where('pis_scan_id', $pisScan->id)->firstOrFail();
 
         $this->assertFalse(LoadingList::where('number', 'C-LL-001')->exists());
-        $this->assertSame(5, $detail->target_qty);
+        $this->assertSame(50, $detail->target_qty);
         $this->assertSame(50, $detail->order_qty);
         $this->assertSame(10, $detail->qty_per_kanban);
         $this->assertSame(0, $detail->scanned_qty);
-        $this->assertSame(5, $detail->remaining_qty);
+        $this->assertSame(50, $detail->remaining_qty);
 
         $detail->update([
             'scanned_qty' => 2,
@@ -188,14 +188,14 @@ class SyncTodayLoadingListsTest extends TestCase
 
         $this->assertSame(1, PisScan::count());
         $this->assertSame(1, PisScanDetail::count());
-        $this->assertSame(6, $detail->fresh()->target_qty);
+        $this->assertSame(60, $detail->fresh()->target_qty);
         $this->assertSame(60, $detail->fresh()->order_qty);
         $this->assertSame(10, $detail->fresh()->qty_per_kanban);
         $this->assertSame(2, $detail->fresh()->scanned_qty);
-        $this->assertSame(4, $detail->fresh()->remaining_qty);
+        $this->assertSame(58, $detail->fresh()->remaining_qty);
     }
 
-    public function test_pis_packing_displays_pcs_and_preserves_half_finished_kanban_progress(): void
+    public function test_pis_packing_counts_each_confirm_as_one_piece(): void
     {
         $pisScan = PisScan::create([
             'loading_list_number' => 'C367A598950',
@@ -223,12 +223,12 @@ class SyncTodayLoadingListsTest extends TestCase
         $item = $loadingListPayload['items'][0];
 
         $this->assertSame(300, $item['total_qty']);
-        $this->assertSame(50, $item['total_kanban_qty']);
+        $this->assertSame(300, $item['total_kanban_qty']);
         $this->assertSame(6, $item['qty_per_kanban']);
         $this->assertSame(25, $item['actual_kanban_qty']);
-        $this->assertSame(150, $item['actual_qty']);
-        $this->assertSame(150, $item['remaining']);
-        $this->assertSame(25, $item['remaining_kanban_qty']);
+        $this->assertSame(25, $item['actual_qty']);
+        $this->assertSame(275, $item['remaining']);
+        $this->assertSame(275, $item['remaining_kanban_qty']);
 
         $confirmResponse = $controller->updatePisScanDetail(
             Request::create('/pis/update-scan-detail', 'POST', [
@@ -241,12 +241,12 @@ class SyncTodayLoadingListsTest extends TestCase
         $confirmPayload = $confirmResponse->getData(true);
 
         $this->assertSame(26, $confirmPayload['scanned_qty']);
-        $this->assertSame(24, $confirmPayload['remaining_qty']);
-        $this->assertSame(6, $confirmPayload['confirmed_qty']);
-        $this->assertSame(156, $confirmPayload['actual_qty']);
-        $this->assertSame(144, $confirmPayload['remaining_order_qty']);
+        $this->assertSame(274, $confirmPayload['remaining_qty']);
+        $this->assertSame(1, $confirmPayload['confirmed_qty']);
+        $this->assertSame(26, $confirmPayload['actual_qty']);
+        $this->assertSame(274, $confirmPayload['remaining_order_qty']);
         $this->assertSame(26, $detail->fresh()->scanned_qty);
-        $this->assertSame(24, $detail->fresh()->remaining_qty);
+        $this->assertSame(274, $detail->fresh()->remaining_qty);
         $this->assertSame(1, DB::table('pis_scan_logs')->count());
     }
 

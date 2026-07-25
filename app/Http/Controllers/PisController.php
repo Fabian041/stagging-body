@@ -1121,34 +1121,26 @@ class PisController extends Controller
         ]);
     }
 
-    /**
-     * Format qty packing untuk UI /pis.
-     * target_qty dan scanned_qty tetap memakai satuan kanban untuk menjaga
-     * progress existing, sedangkan counter yang ditampilkan memakai pcs.
-     */
+    /** Format progress packing untuk UI /pis dalam satuan pcs. */
     private function formatPisPackingItem(PisScanDetail $detail): array
     {
-        $targetKanbanQty = max(0, (int) ($detail->target_qty ?? 0));
-        $scannedKanbanQty = max(0, (int) ($detail->scanned_qty ?? 0));
         $qtyPerKanban = max(1, (int) ($detail->qty_per_kanban ?? 1));
         $orderQty = max(0, (int) ($detail->order_qty ?? 0));
-
         if ($orderQty <= 0) {
-            $orderQty = $targetKanbanQty * $qtyPerKanban;
+            $orderQty = max(0, (int) ($detail->target_qty ?? 0));
         }
-
-        $actualQty = min($orderQty, $scannedKanbanQty * $qtyPerKanban);
+        $actualQty = min($orderQty, max(0, (int) ($detail->scanned_qty ?? 0)));
 
         return [
             'part_number_int' => $detail->part_number_int,
             'part_number_cust' => $detail->part_number_cust,
             'total_qty' => $orderQty,
             'qty_per_kanban' => $qtyPerKanban,
-            'total_kanban_qty' => $targetKanbanQty,
-            'actual_kanban_qty' => $scannedKanbanQty,
+            'total_kanban_qty' => $orderQty,
+            'actual_kanban_qty' => $actualQty,
             'actual_qty' => $actualQty,
             'remaining' => max(0, $orderQty - $actualQty),
-            'remaining_kanban_qty' => max(0, $targetKanbanQty - $scannedKanbanQty),
+            'remaining_kanban_qty' => max(0, $orderQty - $actualQty),
         ];
     }
 
@@ -1284,11 +1276,12 @@ class PisController extends Controller
                         $orderQty = $targetKanbanQty * $qtyPerKanban;
                     }
 
-                    $scannedKanbanQty = max(0, (int) (
+                    $scannedQty = max(0, (int) (
                         $item['actual_kanban_qty']
                         ?? $item['scanned_qty']
                         ?? 0
                     ));
+                    $targetQty = $orderQty > 0 ? $orderQty : $targetKanbanQty;
 
                     PisScanDetail::updateOrCreate(
                         [
@@ -1297,11 +1290,11 @@ class PisController extends Controller
                             'part_number_cust' => $item['part_number_cust'] ?? null,
                         ],
                         [
-                            'target_qty' => $targetKanbanQty,
+                            'target_qty' => $targetQty,
                             'order_qty' => $orderQty,
                             'qty_per_kanban' => $qtyPerKanban,
-                            'scanned_qty' => $scannedKanbanQty,
-                            'remaining_qty' => max(0, $targetKanbanQty - $scannedKanbanQty),
+                            'scanned_qty' => min($targetQty, $scannedQty),
+                            'remaining_qty' => max(0, $targetQty - $scannedQty),
                         ]
                     );
                 }
@@ -1369,9 +1362,11 @@ class PisController extends Controller
                 ], 404);
             }
 
-            $targetKanbanQty = max(0, (int) ($scanDetail->target_qty ?? 0));
-            $currentScannedKanbanQty = max(0, (int) ($scanDetail->scanned_qty ?? 0));
-            if ($targetKanbanQty > 0 && $currentScannedKanbanQty >= $targetKanbanQty) {
+            $qtyPerKanban = max(1, (int) ($scanDetail->qty_per_kanban ?? 1));
+            $orderQty = max(0, (int) ($scanDetail->order_qty ?? 0));
+            $targetQty = $orderQty > 0 ? $orderQty : max(0, (int) ($scanDetail->target_qty ?? 0));
+            $currentScannedQty = max(0, (int) ($scanDetail->scanned_qty ?? 0));
+            if ($targetQty > 0 && $currentScannedQty >= $targetQty) {
                 DB::rollBack();
                 return response()->json([
                     'status' => 'error',
@@ -1380,14 +1375,7 @@ class PisController extends Controller
                 ], 409);
             }
 
-            $qtyPerKanban = max(1, (int) ($scanDetail->qty_per_kanban ?? 1));
-            $orderQty = max(0, (int) ($scanDetail->order_qty ?? 0));
-            if ($orderQty <= 0) {
-                $orderQty = $targetKanbanQty * $qtyPerKanban;
-            }
-
-            $currentActualQty = min($orderQty, $currentScannedKanbanQty * $qtyPerKanban);
-            $confirmedQty = min($qtyPerKanban, max(0, $orderQty - $currentActualQty));
+            $confirmedQty = min(1, max(0, $targetQty - $currentScannedQty));
 
             if ($confirmedQty <= 0) {
                 DB::rollBack();
@@ -1406,22 +1394,24 @@ class PisController extends Controller
             ]);
 
             // Update agregat (summary) di tabel utama
-            $scanDetail->scanned_qty = $currentScannedKanbanQty + 1;
-            $scanDetail->remaining_qty = max(0, $targetKanbanQty - $scanDetail->scanned_qty);
+            $scanDetail->target_qty = $targetQty;
+            $scanDetail->order_qty = $targetQty;
+            $scanDetail->scanned_qty = $currentScannedQty + 1;
+            $scanDetail->remaining_qty = max(0, $targetQty - $scanDetail->scanned_qty);
             $scanDetail->save();
 
-            $actualQty = min($orderQty, $scanDetail->scanned_qty * $qtyPerKanban);
-            $remainingOrderQty = max(0, $orderQty - $actualQty);
+            $actualQty = $scanDetail->scanned_qty;
+            $remainingOrderQty = $scanDetail->remaining_qty;
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'PIS scan detail updated',
-                'target_kanban_qty' => $targetKanbanQty,
+                'target_kanban_qty' => $targetQty,
                 'scanned_qty' => $scanDetail->scanned_qty ?? 0,
                 'remaining_qty' => $scanDetail->remaining_qty ?? 0,
-                'order_qty' => $orderQty,
+                'order_qty' => $targetQty,
                 'qty_per_kanban' => $qtyPerKanban,
                 'confirmed_qty' => $confirmedQty,
                 'actual_qty' => $actualQty,

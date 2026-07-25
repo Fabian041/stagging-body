@@ -966,7 +966,7 @@
 
         function getPisConfirmedQty(item) {
             var remainingPcs = Math.max(0, toQtyNumber(item && item.remaining));
-            return Math.min(remainingPcs, getPisQtyPerKanban(item));
+            return Math.min(remainingPcs, 1);
         }
 
         /**
@@ -1445,7 +1445,7 @@
                 var t = item.total_qty != null ? item.total_qty : (item.total_kanban_qty != null ? item.total_kanban_qty : 0);
                 var actualPcs = item.actual_qty != null
                     ? item.actual_qty
-                    : Math.min(toQtyNumber(t), toQtyNumber(item.actual_kanban_qty) * getPisQtyPerKanban(item));
+                    : Math.min(toQtyNumber(t), toQtyNumber(item.actual_kanban_qty));
                 scanned += toQtyNumber(actualPcs);
                 target += toQtyNumber(t);
             });
@@ -2330,26 +2330,25 @@
                     if (totalKanban <= 0 && totalPcs > 0) {
                         totalKanban = Math.ceil(totalPcs / qtyPerKanban);
                     }
-                    var actualKanban = Math.max(0, toQtyNumber(it.actual_kanban_qty));
+                    var scanTarget = totalPcs > 0 ? totalPcs : totalKanban;
+                    var actualKanban = Math.min(scanTarget, Math.max(0, toQtyNumber(
+                        it.actual_qty != null ? it.actual_qty : it.actual_kanban_qty)));
                     var actualPcs = Math.max(0, toQtyNumber(it.actual_qty != null
                         ? it.actual_qty
-                        : Math.min(totalPcs, actualKanban * qtyPerKanban)));
+                        : actualKanban));
                     var remainingPcs = Math.max(0, toQtyNumber(it.remaining != null
                         ? it.remaining
                         : totalPcs - actualPcs));
-                    var remainingKanban = Math.max(0, toQtyNumber(it.remaining_kanban_qty != null
-                        ? it.remaining_kanban_qty
-                        : totalKanban - actualKanban));
                     return {
                         part_number_int: it.part_number_int || '',
                         part_number_cust: it.part_number_cust || '',
                         total_qty: totalPcs,
                         qty_per_kanban: qtyPerKanban,
-                        total_kanban_qty: totalKanban,
+                        total_kanban_qty: scanTarget,
                         actual_kanban_qty: actualKanban,
                         actual_qty: actualPcs,
                         remaining: remainingPcs,
-                        remaining_kanban_qty: remainingKanban
+                        remaining_kanban_qty: Math.max(0, scanTarget - actualKanban)
                     };
                 });
             }
@@ -2376,20 +2375,23 @@
                     if (totalKanban <= 0 && totalPcs > 0) {
                         totalKanban = Math.ceil(totalPcs / qtyPerKanban);
                     }
-                    var doneKanban = Math.max(0, toQtyNumber(it.actual_kanban_qty != null ? it.actual_kanban_qty : 0));
+                    var scanTarget = totalPcs > 0 ? totalPcs : totalKanban;
+                    var doneKanban = Math.min(scanTarget, Math.max(0, toQtyNumber(it.actual_qty != null
+                        ? it.actual_qty
+                        : (it.actual_kanban_qty != null ? it.actual_kanban_qty : 0))));
                     var donePcs = Math.max(0, toQtyNumber(it.actual_qty != null
                         ? it.actual_qty
-                        : Math.min(totalPcs, doneKanban * qtyPerKanban)));
+                        : doneKanban));
                     return {
                         part_number_int: it.part_number_int || '',
                         part_number_cust: it.part_number_cust || '',
                         total_qty: totalPcs,
                         qty_per_kanban: qtyPerKanban,
-                        total_kanban_qty: totalKanban,
+                        total_kanban_qty: scanTarget,
                         actual_kanban_qty: doneKanban,
                         actual_qty: donePcs,
                         remaining: Math.max(0, totalPcs - donePcs),
-                        remaining_kanban_qty: Math.max(0, totalKanban - doneKanban)
+                        remaining_kanban_qty: Math.max(0, scanTarget - doneKanban)
                     };
                 });
             }
