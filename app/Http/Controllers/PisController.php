@@ -1078,19 +1078,10 @@ class PisController extends Controller
             return response()->json(['exists' => false]);
         }
 
-        $items = $pisScan->details->map(function ($detail) {
-            $target = (int) ($detail->target_qty ?? 0);
-            $scanned = (int) ($detail->scanned_qty ?? 0);
-            $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
-            return [
-                'part_number_int' => $detail->part_number_int,
-                'part_number_cust' => $detail->part_number_cust,
-                'total_qty' => $target,
-                'total_kanban_qty' => $target,
-                'actual_kanban_qty' => $scanned,
-                'remaining' => $remaining,
-            ];
-        })->values()->all();
+        $items = $pisScan->details
+            ->map(fn ($detail) => $this->formatPisPackingItem($detail))
+            ->values()
+            ->all();
 
         // Saat user scan LL yang sudah pernah disimpan, kirim juga semua LL lain
         // dengan PDS yang sama agar frontend bisa memuat satu grup PDS sekaligus.
@@ -1100,19 +1091,10 @@ class PisController extends Controller
                 ->with('details')
                 ->get()
                 ->map(function ($scan) {
-                    $relatedItems = $scan->details->map(function ($detail) {
-                        $target = (int) ($detail->target_qty ?? 0);
-                        $scanned = (int) ($detail->scanned_qty ?? 0);
-                        $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
-                        return [
-                            'part_number_int' => $detail->part_number_int,
-                            'part_number_cust' => $detail->part_number_cust,
-                            'total_qty' => $target,
-                            'total_kanban_qty' => $target,
-                            'actual_kanban_qty' => $scanned,
-                            'remaining' => $remaining,
-                        ];
-                    })->values()->all();
+                    $relatedItems = $scan->details
+                        ->map(fn ($detail) => $this->formatPisPackingItem($detail))
+                        ->values()
+                        ->all();
 
                     return [
                         'loading_list_number' => $scan->loading_list_number,
@@ -1137,6 +1119,37 @@ class PisController extends Controller
             'items' => $items,
             'related_loading_lists' => $relatedLoadingLists,
         ]);
+    }
+
+    /**
+     * Format qty packing untuk UI /pis.
+     * target_qty dan scanned_qty tetap memakai satuan kanban untuk menjaga
+     * progress existing, sedangkan counter yang ditampilkan memakai pcs.
+     */
+    private function formatPisPackingItem(PisScanDetail $detail): array
+    {
+        $targetKanbanQty = max(0, (int) ($detail->target_qty ?? 0));
+        $scannedKanbanQty = max(0, (int) ($detail->scanned_qty ?? 0));
+        $qtyPerKanban = max(1, (int) ($detail->qty_per_kanban ?? 1));
+        $orderQty = max(0, (int) ($detail->order_qty ?? 0));
+
+        if ($orderQty <= 0) {
+            $orderQty = $targetKanbanQty * $qtyPerKanban;
+        }
+
+        $actualQty = min($orderQty, $scannedKanbanQty * $qtyPerKanban);
+
+        return [
+            'part_number_int' => $detail->part_number_int,
+            'part_number_cust' => $detail->part_number_cust,
+            'total_qty' => $orderQty,
+            'qty_per_kanban' => $qtyPerKanban,
+            'total_kanban_qty' => $targetKanbanQty,
+            'actual_kanban_qty' => $scannedKanbanQty,
+            'actual_qty' => $actualQty,
+            'remaining' => max(0, $orderQty - $actualQty),
+            'remaining_kanban_qty' => max(0, $targetKanbanQty - $scannedKanbanQty),
+        ];
     }
 
     /**
@@ -1244,6 +1257,39 @@ class PisController extends Controller
             // scanned_qty/remaining_qty so that progress is never reset on rescan.
             if ($pisScan->wasRecentlyCreated) {
                 foreach ($items as $item) {
+                    $orderQty = max(0, (int) ($item['total_qty'] ?? $item['order_qty'] ?? 0));
+                    $targetKanbanQty = max(0, (int) (
+                        $item['total_kanban_qty']
+                        ?? $item['target_kanban_qty']
+                        ?? 0
+                    ));
+                    $qtyPerKanban = max(0, (int) (
+                        $item['qty_per_kanban']
+                        ?? $item['quantity_per_kanban']
+                        ?? $item['qty_per_pack']
+                        ?? 0
+                    ));
+
+                    if ($qtyPerKanban <= 0 && $orderQty > 0 && $targetKanbanQty > 0) {
+                        $qtyPerKanban = (int) ceil($orderQty / $targetKanbanQty);
+                    }
+
+                    $qtyPerKanban = max(1, $qtyPerKanban);
+
+                    if ($targetKanbanQty <= 0 && $orderQty > 0) {
+                        $targetKanbanQty = (int) ceil($orderQty / $qtyPerKanban);
+                    }
+
+                    if ($orderQty <= 0 && $targetKanbanQty > 0) {
+                        $orderQty = $targetKanbanQty * $qtyPerKanban;
+                    }
+
+                    $scannedKanbanQty = max(0, (int) (
+                        $item['actual_kanban_qty']
+                        ?? $item['scanned_qty']
+                        ?? 0
+                    ));
+
                     PisScanDetail::updateOrCreate(
                         [
                             'pis_scan_id' => $pisScan->id,
@@ -1251,9 +1297,11 @@ class PisController extends Controller
                             'part_number_cust' => $item['part_number_cust'] ?? null,
                         ],
                         [
-                            'target_qty' => $item['total_qty'] ?? 0,
-                            'scanned_qty' => (int) ($item['scanned_qty'] ?? 0),
-                            'remaining_qty' => (int) ($item['remaining'] ?? ($item['total_qty'] ?? 0)),
+                            'target_qty' => $targetKanbanQty,
+                            'order_qty' => $orderQty,
+                            'qty_per_kanban' => $qtyPerKanban,
+                            'scanned_qty' => $scannedKanbanQty,
+                            'remaining_qty' => max(0, $targetKanbanQty - $scannedKanbanQty),
                         ]
                     );
                 }
@@ -1299,6 +1347,7 @@ class PisController extends Controller
             $pisScan = PisScan::where('loading_list_number', $loadingListNumber)->first();
 
             if (!$pisScan) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'PIS scan not found'
@@ -1313,20 +1362,39 @@ class PisController extends Controller
                 ->first();
 
             if (!$scanDetail) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'PIS scan detail not found'
                 ], 404);
             }
 
-            $targetQty = (int) ($scanDetail->target_qty ?? 0);
-            $currentScanned = (int) ($scanDetail->scanned_qty ?? 0);
-            if ($targetQty > 0 && $currentScanned >= $targetQty) {
+            $targetKanbanQty = max(0, (int) ($scanDetail->target_qty ?? 0));
+            $currentScannedKanbanQty = max(0, (int) ($scanDetail->scanned_qty ?? 0));
+            if ($targetKanbanQty > 0 && $currentScannedKanbanQty >= $targetKanbanQty) {
                 DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'code' => 'TARGET_ALREADY_REACHED',
                     'message' => 'Qty target part ini sudah terpenuhi. Lakukan Confirm Packing di UI sebelum scan berikutnya, atau refresh jika data tidak sinkron.',
+                ], 409);
+            }
+
+            $qtyPerKanban = max(1, (int) ($scanDetail->qty_per_kanban ?? 1));
+            $orderQty = max(0, (int) ($scanDetail->order_qty ?? 0));
+            if ($orderQty <= 0) {
+                $orderQty = $targetKanbanQty * $qtyPerKanban;
+            }
+
+            $currentActualQty = min($orderQty, $currentScannedKanbanQty * $qtyPerKanban);
+            $confirmedQty = min($qtyPerKanban, max(0, $orderQty - $currentActualQty));
+
+            if ($confirmedQty <= 0) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'ORDER_QTY_ALREADY_REACHED',
+                    'message' => 'Qty order part ini sudah terpenuhi. Refresh halaman sebelum melanjutkan scan.',
                 ], 409);
             }
 
@@ -1338,17 +1406,26 @@ class PisController extends Controller
             ]);
 
             // Update agregat (summary) di tabel utama
-            $scanDetail->scanned_qty = ($scanDetail->scanned_qty ?? 0) + 1;
-            $scanDetail->remaining_qty = max(0, ($scanDetail->target_qty ?? 0) - $scanDetail->scanned_qty);
+            $scanDetail->scanned_qty = $currentScannedKanbanQty + 1;
+            $scanDetail->remaining_qty = max(0, $targetKanbanQty - $scanDetail->scanned_qty);
             $scanDetail->save();
+
+            $actualQty = min($orderQty, $scanDetail->scanned_qty * $qtyPerKanban);
+            $remainingOrderQty = max(0, $orderQty - $actualQty);
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'PIS scan detail updated',
+                'target_kanban_qty' => $targetKanbanQty,
                 'scanned_qty' => $scanDetail->scanned_qty ?? 0,
-                'remaining_qty' => $scanDetail->remaining_qty ?? 0
+                'remaining_qty' => $scanDetail->remaining_qty ?? 0,
+                'order_qty' => $orderQty,
+                'qty_per_kanban' => $qtyPerKanban,
+                'confirmed_qty' => $confirmedQty,
+                'actual_qty' => $actualQty,
+                'remaining_order_qty' => $remainingOrderQty,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

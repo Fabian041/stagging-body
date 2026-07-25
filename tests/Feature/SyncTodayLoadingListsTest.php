@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\LoadingListController;
+use App\Http\Controllers\PisController;
 use App\Models\Customer;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
@@ -166,6 +167,8 @@ class SyncTodayLoadingListsTest extends TestCase
 
         $this->assertFalse(LoadingList::where('number', 'C-LL-001')->exists());
         $this->assertSame(5, $detail->target_qty);
+        $this->assertSame(50, $detail->order_qty);
+        $this->assertSame(10, $detail->qty_per_kanban);
         $this->assertSame(0, $detail->scanned_qty);
         $this->assertSame(5, $detail->remaining_qty);
 
@@ -175,7 +178,10 @@ class SyncTodayLoadingListsTest extends TestCase
         ]);
         DB::connection('mssql_external')->table('TT_GIG_SYKMEISAI')
             ->where('CHR_COD_SYKMNO', 'C-LL-001')
-            ->update(['INT_SUR_NOUSIJI' => 6]);
+            ->update([
+                'INT_SUR_NOUSIJI' => 6,
+                'INT_SUR_JYUCYUU' => 60,
+            ]);
 
         $this->artisan('sync:loading-lists', ['date' => '2026-07-22'])
             ->assertExitCode(Command::SUCCESS);
@@ -183,8 +189,65 @@ class SyncTodayLoadingListsTest extends TestCase
         $this->assertSame(1, PisScan::count());
         $this->assertSame(1, PisScanDetail::count());
         $this->assertSame(6, $detail->fresh()->target_qty);
+        $this->assertSame(60, $detail->fresh()->order_qty);
+        $this->assertSame(10, $detail->fresh()->qty_per_kanban);
         $this->assertSame(2, $detail->fresh()->scanned_qty);
         $this->assertSame(4, $detail->fresh()->remaining_qty);
+    }
+
+    public function test_pis_packing_displays_pcs_and_preserves_half_finished_kanban_progress(): void
+    {
+        $pisScan = PisScan::create([
+            'loading_list_number' => 'C367A598950',
+            'pds_number' => '250867348-00',
+        ]);
+
+        $detail = PisScanDetail::create([
+            'pis_scan_id' => $pisScan->id,
+            'part_number_int' => '12311-BZ590-00',
+            'part_number_cust' => '12311-BZ590',
+            'target_qty' => 50,
+            'order_qty' => 300,
+            'qty_per_kanban' => 6,
+            'scanned_qty' => 25,
+            'remaining_qty' => 25,
+        ]);
+
+        $controller = new PisController;
+        $loadingListResponse = $controller->getLoadingListData(
+            Request::create('/pis/get-loading-list-data', 'POST', [
+                'barcode' => 'C367A598950',
+            ])
+        );
+        $loadingListPayload = $loadingListResponse->getData(true);
+        $item = $loadingListPayload['items'][0];
+
+        $this->assertSame(300, $item['total_qty']);
+        $this->assertSame(50, $item['total_kanban_qty']);
+        $this->assertSame(6, $item['qty_per_kanban']);
+        $this->assertSame(25, $item['actual_kanban_qty']);
+        $this->assertSame(150, $item['actual_qty']);
+        $this->assertSame(150, $item['remaining']);
+        $this->assertSame(25, $item['remaining_kanban_qty']);
+
+        $confirmResponse = $controller->updatePisScanDetail(
+            Request::create('/pis/update-scan-detail', 'POST', [
+                'loading_list_number' => 'C367A598950',
+                'part_number_int' => '12311-BZ590-00',
+                'part_number_cust' => '12311-BZ590',
+                'label' => 'LABEL-TEST',
+            ])
+        );
+        $confirmPayload = $confirmResponse->getData(true);
+
+        $this->assertSame(26, $confirmPayload['scanned_qty']);
+        $this->assertSame(24, $confirmPayload['remaining_qty']);
+        $this->assertSame(6, $confirmPayload['confirmed_qty']);
+        $this->assertSame(156, $confirmPayload['actual_qty']);
+        $this->assertSame(144, $confirmPayload['remaining_order_qty']);
+        $this->assertSame(26, $detail->fresh()->scanned_qty);
+        $this->assertSame(24, $detail->fresh()->remaining_qty);
+        $this->assertSame(1, DB::table('pis_scan_logs')->count());
     }
 
     public function test_dashboard_uses_pis_as_the_exclusive_source_for_pis_customers(): void
@@ -478,8 +541,18 @@ class SyncTodayLoadingListsTest extends TestCase
             $table->string('part_number_int')->nullable();
             $table->string('part_number_cust')->nullable();
             $table->integer('target_qty')->default(0);
+            $table->integer('order_qty')->default(0);
+            $table->integer('qty_per_kanban')->default(1);
             $table->integer('scanned_qty')->default(0);
             $table->integer('remaining_qty')->default(0);
+            $table->timestamps();
+        });
+
+        Schema::create('pis_scan_logs', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('pis_scan_detail_id');
+            $table->string('label')->nullable();
+            $table->timestamp('scan_time')->nullable();
             $table->timestamps();
         });
 

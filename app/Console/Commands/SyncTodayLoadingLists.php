@@ -301,7 +301,9 @@ class SyncTodayLoadingLists extends Command
 
         foreach ($source['items'] as $item) {
             $key = trim((string) $item['part_number_int']).'|'.trim((string) $item['part_number_cust']);
-            $targetQty = (int) $item['total_kanban_qty'];
+            $targetKanbanQty = max(0, (int) $item['total_kanban_qty']);
+            $orderQty = max(0, (int) $item['total_qty']);
+            $qtyPerKanban = max(1, (int) $item['qty_per_kanban']);
             $detail = $existingDetails->get($key);
 
             if (! $detail) {
@@ -309,9 +311,13 @@ class SyncTodayLoadingLists extends Command
                     'pis_scan_id' => $pisScan->id,
                     'part_number_int' => $item['part_number_int'],
                     'part_number_cust' => $item['part_number_cust'],
-                    'target_qty' => $targetQty,
+                    // Kolom legacy tetap menyimpan jumlah kanban agar progress
+                    // scan yang sudah berjalan tidak perlu dikonversi.
+                    'target_qty' => $targetKanbanQty,
+                    'order_qty' => $orderQty,
+                    'qty_per_kanban' => $qtyPerKanban,
                     'scanned_qty' => 0,
-                    'remaining_qty' => $targetQty,
+                    'remaining_qty' => $targetKanbanQty,
                 ]);
                 $existingDetails->put($key, $detail);
                 $summary['details_created']++;
@@ -320,8 +326,10 @@ class SyncTodayLoadingLists extends Command
             }
 
             $detail->fill([
-                'target_qty' => $targetQty,
-                'remaining_qty' => max(0, $targetQty - (int) $detail->scanned_qty),
+                'target_qty' => $targetKanbanQty,
+                'order_qty' => $orderQty,
+                'qty_per_kanban' => $qtyPerKanban,
+                'remaining_qty' => max(0, $targetKanbanQty - (int) $detail->scanned_qty),
             ]);
 
             if ($detail->isDirty()) {
