@@ -645,8 +645,8 @@
         }
 
         function pisUpdateScanContextOnServer(meta) {
-            if (!meta || !meta.loading_list_number) return;
-            $.ajax({
+            if (!meta || !meta.loading_list_number) return null;
+            return $.ajax({
                 url: '{{ url("pis/save-scan") }}',
                 type: 'POST',
                 data: {
@@ -2618,7 +2618,7 @@
                                 console.log('Loading list dari API (pertama kali):', payload);
                                 var mapped = mapPisItemsFromDeaApi(items);
 
-                                pisUpdateScanContextOnServer({
+                                var saveScanRequest = pisUpdateScanContextOnServer({
                                     loading_list_number: loadingListNumberForDB,
                                     pds_number: payload.pds_number || payload.pds || '',
                                     cycle: payload.cycle || '',
@@ -2630,12 +2630,21 @@
                                     items: mapped
                                 });
 
-                                finishApplyNewGroup(
-                                    name,
-                                    mapped,
-                                    false,
-                                    payload.pds_number || payload.pds || ''
-                                );
+                                if (!saveScanRequest) {
+                                    failLoadingList('Data Loading List tidak valid dan gagal disimpan.');
+                                    return;
+                                }
+
+                                saveScanRequest.done(function () {
+                                    finishApplyNewGroup(
+                                        name,
+                                        mapped,
+                                        false,
+                                        payload.pds_number || payload.pds || ''
+                                    );
+                                }).fail(function () {
+                                    failLoadingList('Gagal menyimpan Loading List. Silakan scan ulang.');
+                                });
                             } else {
                                 failLoadingList('Barcode tidak sesuai dengan loading list.');
                             }
