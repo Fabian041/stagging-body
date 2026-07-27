@@ -2174,7 +2174,7 @@
         }
 
         .delivery-dash.is-tv-mode .gantt-grid-header .gantt-grid-cell {
-            height: 24px;
+            height: 30px;
             min-width: 0;
             padding: 0 2px !important;
             font-size: 8px;
@@ -2258,8 +2258,26 @@
 
         .delivery-dash.is-tv-mode .gantt-now-label,
         .delivery-dash.is-tv-mode .gantt-truck-label {
-            font-size: 7px;
-            padding: 1px 3px;
+            top: -22px;
+            padding: 3px 7px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1.2;
+            box-shadow: 0 2px 5px rgba(15, 23, 42, .24);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-now-line,
+        .delivery-dash.is-tv-mode .gantt-truck-line {
+            width: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-now-line {
+            box-shadow: 0 0 4px rgba(59, 53, 220, .75);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-truck-line {
+            box-shadow: 0 0 4px rgba(220, 53, 53, .75);
         }
 
         .delivery-dash.is-tv-mode .weekly-card-body {
@@ -4819,7 +4837,9 @@
                     $('#ganttContainer .gantt-grid-row').not('.gantt-grid-header').length :
                     Math.ceil($('#weeklyGanttContainer tbody tr').length / 2);
                 var $viewport = isDaily ? $('#ganttWrap') : $('#deliveryWeeklyCard .weekly-card-body');
-                var availableHeight = ($viewport.innerHeight() || window.innerHeight) - 26;
+                var $header = isDaily ? $('#ganttContainer .gantt-grid-header') : $(
+                    '#weeklyGanttContainer thead');
+                var availableHeight = ($viewport.innerHeight() || window.innerHeight) - ($header.outerHeight() || 30);
                 if (rowCount > 0) {
                     var rowHeight = Math.max(26, Math.min(88, Math.floor(availableHeight / rowCount)));
                     $dash.css('--tv-row-height', rowHeight + 'px');
