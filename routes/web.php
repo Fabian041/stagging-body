@@ -441,7 +441,7 @@ Route::middleware(['auth'])->group(function () {
 
     // error log
     Route::prefix('error')->group(function () {
-        Route::post('/store', [ErrorLogController::class, 'store'])->name('error.store');
+        Route::match(['get', 'post'], '/store', [ErrorLogController::class, 'store'])->name('error.store');
         Route::get('/log', [ErrorLogController::class, 'index'])->name('error.log');
         Route::get('/getErrorLogs', [ErrorLogController::class, 'getErrorLogs'])->name('error.getErrorLogs');
         Route::get('/export', [ErrorLogController::class, 'export'])->name('error.export');
