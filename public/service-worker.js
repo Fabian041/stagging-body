@@ -1,5 +1,5 @@
 // ponytail: bump versi ini tiap kali daftar precache berubah -> cache lama otomatis dihapus di 'activate'.
-const CACHE = 'bella-cache-v3';
+const CACHE = 'bella-cache-v4';
 
 // Aset statis saja. JANGAN pernah precache '/' atau HTML apa pun:
 // navigasi halaman harus selalu dari network (kalau di-cache, redirect/HTML basi bikin ERR_FAILED).
@@ -84,6 +84,7 @@ const manifest = {
 
 self.addEventListener('fetch', function (event) {
   var req = event.request;
+  var url = new URL(req.url);
 
   if (req.url.endsWith('manifest.json')) {
     event.respondWith(
@@ -100,10 +101,30 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  // Aset statis: cache-first, fallback network.
+  var isStaticAsset = /^\/(assets|dist\/assets|css|js|fonts|icons)\//.test(url.pathname);
+
+  // API, upload, gambar data PIS, dan request dinamis harus langsung ke network.
+  if (req.method !== 'GET' || url.origin !== self.location.origin || !isStaticAsset) {
+    return;
+  }
+
+  // Nama aset belum memakai content hash, jadi ambil versi network lebih dulu.
+  // Cache hanya menjadi fallback ketika device benar-benar offline.
   event.respondWith(
-    caches.match(req).then(function (res) {
-      return res || fetch(req);
-    })
+    fetch(req, { cache: 'no-cache' })
+      .then(function (response) {
+        if (response && response.ok) {
+          var copy = response.clone();
+          caches.open(CACHE).then(function (cache) {
+            return cache.put(req, copy);
+          }).catch(function () {});
+        }
+        return response;
+      })
+      .catch(function () {
+        return caches.match(req).then(function (cached) {
+          return cached || caches.match(url.pathname);
+        });
+      })
   );
 });

@@ -1,6 +1,23 @@
 @auth
 <script>
     (function() {
+        if (!('serviceWorker' in navigator)) return;
+
+        var workerVersion = 'v4';
+        var reloadKey = 'bella_sw_reload_' + workerVersion;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+            if (sessionStorage.getItem(reloadKey)) return;
+            sessionStorage.setItem(reloadKey, '1');
+            window.location.reload();
+        });
+
+        navigator.serviceWorker.register('/service-worker.js?' + workerVersion, { updateViaCache: 'none' })
+            .then(function(registration) { return registration.update(); })
+            .catch(function() {});
+    })();
+</script>
+<script>
+    (function() {
         var key = 'bella_device_id';
         var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         var heartbeatUrl = @json(route('settings.devices.heartbeat'));
