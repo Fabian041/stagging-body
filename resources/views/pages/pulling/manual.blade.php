@@ -42,8 +42,9 @@
         }
 
         .manual-reset-wrap {
-            max-width: 920px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: none;
+            margin: 0;
         }
 
         .scan-panel {

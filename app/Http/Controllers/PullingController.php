@@ -2286,7 +2286,7 @@ class PullingController extends Controller
         }
 
         // Update status kanban
-        $kanban->status = 2;
+        $kanban->status = 0;
         $kanban->save();
 
         // update mutation
