@@ -12,7 +12,8 @@
 
     <div class="settings-device-list">
         @forelse ($deviceSessions as $device)
-            <div class="settings-device-row">
+            <div class="settings-device-row" data-device-card="{{ $device->device_id }}"
+                data-device-reset-state="{{ $device->reset_pending ? '1' : '0' }}">
                 <div class="settings-device-user">
                     <div class="settings-device-card-top">
                         <div class="settings-device-user">
@@ -21,7 +22,8 @@
                                 {{ $device->user_name }} · {{ $device->user_role }} · #{{ $device->device_short }}
                             </div>
                         </div>
-                        <span class="settings-device-status {{ $device->is_online ? 'is-online' : '' }}">
+                        <span class="settings-device-status {{ $device->is_online ? 'is-online' : '' }}"
+                            data-device-online>
                             <i class="fas fa-circle"></i>
                             {{ $device->is_online ? 'Online' : 'Offline' }}
                         </span>
@@ -40,7 +42,7 @@
                     </div>
                     <div class="settings-device-stat">
                         <div class="settings-label mb-1">Terakhir aktif</div>
-                        <div class="settings-device-time" title="{{ $device->last_seen_at_label }}">
+                        <div class="settings-device-time" data-device-last-seen title="{{ $device->last_seen_at_label }}">
                             {{ $device->last_seen_label }}
                         </div>
                     </div>

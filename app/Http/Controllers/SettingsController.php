@@ -316,20 +316,38 @@ class SettingsController extends Controller
 
     public function deviceMonitor(Request $request)
     {
-        $deviceSessions = $this->deviceSessions();
-        $html = view('pages.partials.device-monitoring', [
-            'deviceSessions' => $deviceSessions,
-        ])->render();
+        $summaryOnly = $request->boolean('summary');
+        $deviceSessions = $this->deviceSessions(! $summaryOnly);
 
         if ($request->expectsJson()) {
-            return response()->json([
-                'html' => $html,
+            $payload = [
+                'devices' => $deviceSessions->map(function ($device) {
+                    return [
+                        'device_id' => $device->device_id,
+                        'heartbeat_count' => (int) $device->heartbeat_count,
+                        'is_online' => (bool) $device->is_online,
+                        'last_seen_label' => $device->last_seen_label,
+                        'last_seen_at_label' => $device->last_seen_at_label,
+                        'reset_pending' => (bool) $device->reset_pending,
+                    ];
+                })->values(),
                 'pending_count' => $deviceSessions->where('reset_pending', true)->count(),
                 'updated_at' => now()->format('H:i:s'),
-            ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+            ];
+
+            if (! $summaryOnly) {
+                $payload['html'] = view('pages.partials.device-monitoring', [
+                    'deviceSessions' => $deviceSessions,
+                ])->render();
+            }
+
+            return response()->json($payload)
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
         }
 
-        return $html;
+        return view('pages.partials.device-monitoring', [
+            'deviceSessions' => $deviceSessions,
+        ])->render();
     }
 
     private function preferences(Request $request): array
@@ -337,7 +355,7 @@ class SettingsController extends Controller
         return array_merge(self::DEFAULTS, $request->user()->preferences ?? []);
     }
 
-    private function deviceSessions()
+    private function deviceSessions(bool $withEvents = true)
     {
         $devices = DB::table('device_sessions')
             ->join('users', 'users.id', '=', 'device_sessions.user_id')
@@ -355,12 +373,15 @@ class SettingsController extends Controller
             ->limit(80)
             ->get();
 
-        $events = DB::table('device_session_events')
-            ->whereIn('device_session_id', $devices->pluck('id'))
-            ->orderByDesc('created_at')
-            ->limit(400)
-            ->get()
-            ->groupBy('device_session_id');
+        $events = collect();
+        if ($withEvents && $devices->isNotEmpty()) {
+            $events = DB::table('device_session_events')
+                ->whereIn('device_session_id', $devices->pluck('id'))
+                ->orderByDesc('created_at')
+                ->limit(400)
+                ->get()
+                ->groupBy('device_session_id');
+        }
 
         return $devices
             ->map(function ($device) {
