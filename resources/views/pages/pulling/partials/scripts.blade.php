@@ -1683,7 +1683,8 @@
             data: {
                 message: message,
                 expected: expected,
-                scanned: scanned
+                scanned: scanned,
+                device_id: typeof window.getBellaDeviceId === 'function' ? window.getBellaDeviceId() : null
             },
             success: function(data) {
                 console.log("Error recorded");

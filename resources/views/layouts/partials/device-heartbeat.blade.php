@@ -50,6 +50,8 @@
             }
         }
 
+        window.getBellaDeviceId = deviceId;
+
         function post(url, data) {
             return fetch(url, {
                 method: 'POST',

@@ -1043,6 +1043,104 @@
             background: #dc3545 !important;
         }
 
+        /* ── KPI strip ── */
+        .delivery-kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .dk-card {
+            position: relative;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 12px 14px;
+            overflow: hidden;
+        }
+
+        .dk-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 3px;
+            border-radius: 12px 12px 0 0;
+            background: #cbd5e1;
+        }
+
+        .dk-card.b::before {
+            background: linear-gradient(90deg, var(--navy), var(--sky));
+        }
+
+        .dk-card.g::before {
+            background: #22c55e;
+        }
+
+        .dk-card.r.is-alert::before {
+            background: #dc3545;
+        }
+
+        .dk-card.a.is-alert::before {
+            background: #f59e0b;
+        }
+
+        .dk-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 7px;
+        }
+
+        .dk-value {
+            font-size: 25px;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--navy);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .dk-card.g .dk-value {
+            color: #15803d;
+        }
+
+        .dk-card.r.is-alert .dk-value,
+        .dk-card.r.is-alert .dk-sub {
+            color: #b91c1c;
+        }
+
+        .dk-card.a.is-alert .dk-value,
+        .dk-card.a.is-alert .dk-sub {
+            color: #b45309;
+        }
+
+        .dk-sub {
+            margin-top: 5px;
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 640px) {
+            .delivery-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        /* Timeline header status tint */
+        .delivery-timeline-card .timeline-card-header.is-ok {
+            background: #f2fbf5;
+            box-shadow: inset 3px 0 0 #22c55e;
+        }
+
+        .delivery-timeline-card .timeline-card-header.is-late {
+            background: #fff6f6;
+            box-shadow: inset 3px 0 0 #dc3545;
+        }
+
         /* Timeline card */
         .delivery-timeline-card {
             background: #ffffff;
@@ -2106,6 +2204,7 @@
 
         .delivery-dash.is-tv-mode .bella-tabs,
         .delivery-dash.is-tv-mode .bella-filter-card,
+        .delivery-dash.is-tv-mode .delivery-kpis,
         .delivery-dash.is-tv-mode .timeline-card-legend,
         .delivery-dash.is-tv-mode .timeline-card-footer,
         .delivery-dash.is-tv-mode .delivery-weekly-note {
@@ -2465,9 +2564,34 @@
 
                     <div id="chartEmpty" class="alert d-none mb-2" role="alert"></div>
 
+                    {{-- KPI strip --}}
+                    <div class="delivery-kpis" id="deliveryKpis">
+                        <div class="dk-card b">
+                            <div class="dk-label"><i class="fas fa-truck-loading"></i> Total delivery</div>
+                            <div class="dk-value" id="kpiTotal">0</div>
+                            <div class="dk-sub" id="kpiTotalSub">entri hari ini</div>
+                        </div>
+                        <div class="dk-card g">
+                            <div class="dk-label"><i class="fas fa-check-circle"></i> Sudah pick up</div>
+                            <div class="dk-value" id="kpiPicked">0</div>
+                            <div class="dk-sub" id="kpiPickedSub">dari 0 truck</div>
+                        </div>
+                        <div class="dk-card r" id="kpiPrepCard">
+                            <div class="dk-label"><i class="fas fa-exclamation-triangle"></i> Prep telat</div>
+                            <div class="dk-value" id="kpiPrepLate">0</div>
+                            <div class="dk-sub" id="kpiPrepLateSub">aman</div>
+                        </div>
+                        <div class="dk-card a" id="kpiTruckCard">
+                            <div class="dk-label"><i class="fas fa-truck"></i> Truck delay</div>
+                            <div class="dk-value" id="kpiTruckLate">0</div>
+                            <div class="dk-sub" id="kpiTruckLateSub">pick up tepat</div>
+                        </div>
+                    </div>
+
                     {{-- Gantt timeline --}}
                     <div class="delivery-timeline-card mb-2" id="deliveryTimelineCard">
-                        <div class="timeline-card-header d-flex justify-content-between align-items-center">
+                        <div class="timeline-card-header d-flex justify-content-between align-items-center"
+                            id="timelineCardHeader">
                             <div class="timeline-heading">
                                 <h2 class="timeline-title">Timeline delivery</h2>
                                 <span class="timeline-late-summary is-empty" id="timelineLateSummary">Tidak ada prep
@@ -4898,12 +5022,61 @@
 
             $(window).on('resize', updateTvTimelineLayout);
 
+            function classifyTruckStatusForKpi(row) {
+                // ponytail: duplikat ringan aturan truck di renderGantt (~5859) biar tak refactor render path
+                if (row.truck_status === 'picked' && row.truck_picked_at) {
+                    var actual = new Date(row.truck_picked_at);
+                    var sched = new Date(getTruckDisplayDate(row) + 'T' + normalizeClock(row.truck_time) +
+                        ':00');
+                    var early = new Date(sched.getTime() - 15 * 60 * 1000);
+                    if (actual > sched) return 'late';
+                    if (actual < early) return 'early';
+                    return 'ontime';
+                }
+                return 'pending';
+            }
+
+            function updateDeliveryKpis() {
+                var rows = chartMergedByCustTime.length ? chartMergedByCustTime :
+                    filterRowsWithConfiguredMasterCycle(chartRows);
+                rows = (rows || []).filter(rowHasConfiguredMasterCycle);
+
+                var total = rows.length;
+                var picked = 0,
+                    truckLate = 0,
+                    hasTruck = 0;
+                rows.forEach(function(row) {
+                    if (row.truck_time != null && String(row.truck_time).length) hasTruck++;
+                    var st = classifyTruckStatusForKpi(row);
+                    if (st !== 'pending') picked++;
+                    if (st === 'late') truckLate++;
+                });
+
+                var prep = collectPrepLateSummary(rows);
+                var prepLate = prep.itemCount;
+
+                $('#kpiTotal').text(total);
+                $('#kpiPicked').text(picked);
+                $('#kpiPickedSub').text('dari ' + hasTruck + ' truck');
+                $('#kpiPrepLate').text(prepLate);
+                $('#kpiPrepLateSub').text(prepLate > 0 ? prep.customerCount + ' customer telat' : 'aman');
+                $('#kpiTruckLate').text(truckLate);
+                $('#kpiTruckLateSub').text(truckLate > 0 ? 'pick up mundur' : 'pick up tepat');
+
+                $('#kpiPrepCard').toggleClass('is-alert', prepLate > 0);
+                $('#kpiTruckCard').toggleClass('is-alert', truckLate > 0);
+
+                var anyLate = prepLate > 0 || truckLate > 0;
+                $('#timelineCardHeader').toggleClass('is-late', anyLate).toggleClass('is-ok', !anyLate);
+            }
+
             function updateTimelineTotal() {
                 var sum = chartMergedByCustTime.reduce(function(acc, r) {
                     return acc + (parseInt(r.total_done, 10) || 0);
                 }, 0);
                 $('#timelineTotalSum').text('Total: ' + sum);
                 updateTimelineLateSummary();
+                updateDeliveryKpis();
             }
 
             function buildWeeklyTooltip(details) {
