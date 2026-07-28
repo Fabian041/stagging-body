@@ -855,7 +855,7 @@
         function updatePendingPackingUI() {
             var n = pendingLabelPacks.length;
             $('#pis-pending-count').text(String(n));
-            $('#pis-btn-confirm-packing').prop('disabled', n === 0 || pisConfirmPackingInProgress);
+            $('#pis-btn-confirm-packing').prop('disabled', n === 0);
             if (n > 0) {
                 $('#pis-pending-banner').show();
                 $('body').addClass('pis-pending-confirm-pack');
