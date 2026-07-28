@@ -217,6 +217,9 @@
         stroke-width: 2;
         stroke-linecap: round;
         stroke-linejoin: round;
+        opacity: 0;
+        stroke-dasharray: 260;
+        stroke-dashoffset: 260;
     }
 
     .settings-heartbeat.is-online {
@@ -227,10 +230,9 @@
         stroke: #c7f3d6;
     }
 
-    .settings-heartbeat.is-online .settings-heartbeat-line {
+    .settings-heartbeat.is-online.has-beat .settings-heartbeat-line {
         stroke: #16a34a;
-        stroke-dasharray: 42 12;
-        animation: settings-heartbeat-trace 1.8s linear infinite;
+        animation: settings-heartbeat-beat 1.15s ease-out 1;
         filter: drop-shadow(0 0 3px rgba(22, 163, 74, .28));
     }
 
@@ -251,13 +253,29 @@
         margin-top: 5px;
     }
 
-    @keyframes settings-heartbeat-trace {
-        to { stroke-dashoffset: -108; }
+    @keyframes settings-heartbeat-beat {
+        0% {
+            opacity: 0;
+            stroke-dashoffset: 260;
+        }
+        12% {
+            opacity: 1;
+        }
+        72% {
+            opacity: 1;
+            stroke-dashoffset: 0;
+        }
+        100% {
+            opacity: 0;
+            stroke-dashoffset: 0;
+        }
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .settings-heartbeat.is-online .settings-heartbeat-line {
+        .settings-heartbeat.is-online.has-beat .settings-heartbeat-line {
             animation: none;
+            opacity: 1;
+            stroke-dashoffset: 0;
         }
     }
 

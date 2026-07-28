@@ -47,6 +47,8 @@
                         <div class="settings-device-stat">
                             <div class="settings-label mb-1">Heartbeat</div>
                             <div class="settings-heartbeat {{ $device->is_online ? 'is-online' : '' }}"
+                                data-device-heartbeat="{{ $device->device_id }}"
+                                data-heartbeat-count="{{ (int) $device->heartbeat_count }}"
                                 aria-label="Heartbeat {{ number_format($device->heartbeat_count) }}">
                                 <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true">
                                     <line class="settings-heartbeat-base" x1="0" y1="17" x2="200" y2="17" />

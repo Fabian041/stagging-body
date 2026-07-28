@@ -120,6 +120,13 @@
             var current = document.querySelector('[data-device-monitor-section]');
             if (!current || (!force && shouldSkip())) return;
 
+            var previousHeartbeats = {};
+            current.querySelectorAll('[data-device-heartbeat]').forEach(function(heartbeat) {
+                previousHeartbeats[heartbeat.getAttribute('data-device-heartbeat')] = parseInt(
+                    heartbeat.getAttribute('data-heartbeat-count') || '0', 10
+                ) || 0;
+            });
+
             inFlight = true;
             var openDeviceModal = document.querySelector('.settings-modal.open[id^="deviceModal"]');
             var openDeviceModalId = openDeviceModal ? openDeviceModal.id : '';
@@ -140,6 +147,15 @@
                     current = document.querySelector('[data-device-monitor-section]');
                     if (current) {
                         current.outerHTML = data.html;
+                        current = document.querySelector('[data-device-monitor-section]');
+                        current.querySelectorAll('[data-device-heartbeat].is-online').forEach(function(heartbeat) {
+                            var deviceId = heartbeat.getAttribute('data-device-heartbeat');
+                            var latestCount = parseInt(heartbeat.getAttribute('data-heartbeat-count') || '0', 10) || 0;
+                            if (Object.prototype.hasOwnProperty.call(previousHeartbeats, deviceId)
+                                && latestCount > previousHeartbeats[deviceId]) {
+                                heartbeat.classList.add('has-beat');
+                            }
+                        });
                         lastSuccessAt = Date.now();
                         if (openDeviceModalId) {
                             var freshModal = document.getElementById(openDeviceModalId);
