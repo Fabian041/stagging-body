@@ -232,8 +232,12 @@
 
     .settings-heartbeat.is-online.has-beat .settings-heartbeat-line {
         stroke: #16a34a;
-        animation: settings-heartbeat-beat 1.15s ease-out 1;
+        animation: settings-heartbeat-beat 3.2s ease-out 1;
         filter: drop-shadow(0 0 3px rgba(22, 163, 74, .28));
+    }
+
+    .settings-heartbeat.is-online.has-beat {
+        animation: settings-heartbeat-flash 3.2s ease-out 1;
     }
 
     .settings-heartbeat-count {
@@ -271,11 +275,20 @@
         }
     }
 
+    @keyframes settings-heartbeat-flash {
+        0%, 100% { box-shadow: inset 0 0 0 0 rgba(22, 163, 74, 0); }
+        18% { box-shadow: inset 0 0 0 1px rgba(22, 163, 74, .2), 0 0 12px rgba(22, 163, 74, .12); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
         .settings-heartbeat.is-online.has-beat .settings-heartbeat-line {
             animation: none;
             opacity: 1;
             stroke-dashoffset: 0;
+        }
+
+        .settings-heartbeat.is-online.has-beat {
+            animation: none;
         }
     }
 
