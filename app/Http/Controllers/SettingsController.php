@@ -326,7 +326,7 @@ class SettingsController extends Controller
                 'html' => $html,
                 'pending_count' => $deviceSessions->where('reset_pending', true)->count(),
                 'updated_at' => now()->format('H:i:s'),
-            ]);
+            ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
         }
 
         return $html;

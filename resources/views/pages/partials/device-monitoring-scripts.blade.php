@@ -90,7 +90,7 @@
         var inFlight = false;
         var lastSuccessAt = Date.now();
         var reloadKey = 'settings_device_monitor_scroll';
-        var heartbeatInitialized = false;
+        var heartbeatCounts = {};
 
         try {
             var restoreScroll = sessionStorage.getItem(reloadKey);
@@ -117,16 +117,30 @@
             window.location.reload();
         }
 
+        function updateHeartbeatState(section, animateChanges) {
+            var latestCounts = {};
+
+            section.querySelectorAll('[data-device-heartbeat]').forEach(function(heartbeat) {
+                var deviceId = heartbeat.getAttribute('data-device-heartbeat');
+                var latestCount = parseInt(heartbeat.getAttribute('data-heartbeat-count') || '0', 10) || 0;
+                latestCounts[deviceId] = latestCount;
+
+                if (animateChanges
+                    && heartbeat.classList.contains('is-online')
+                    && Object.prototype.hasOwnProperty.call(heartbeatCounts, deviceId)
+                    && latestCount > heartbeatCounts[deviceId]) {
+                    heartbeat.classList.remove('has-beat');
+                    void heartbeat.offsetWidth;
+                    heartbeat.classList.add('has-beat');
+                }
+            });
+
+            heartbeatCounts = latestCounts;
+        }
+
         function refreshDeviceMonitoring(force) {
             var current = document.querySelector('[data-device-monitor-section]');
             if (!current || (!force && shouldSkip())) return;
-
-            var previousHeartbeats = {};
-            current.querySelectorAll('[data-device-heartbeat]').forEach(function(heartbeat) {
-                previousHeartbeats[heartbeat.getAttribute('data-device-heartbeat')] = parseInt(
-                    heartbeat.getAttribute('data-heartbeat-count') || '0', 10
-                ) || 0;
-            });
 
             inFlight = true;
             var openDeviceModal = document.querySelector('.settings-modal.open[id^="deviceModal"]');
@@ -149,16 +163,7 @@
                     if (current) {
                         current.outerHTML = data.html;
                         current = document.querySelector('[data-device-monitor-section]');
-                        current.querySelectorAll('[data-device-heartbeat].is-online').forEach(function(heartbeat) {
-                            var deviceId = heartbeat.getAttribute('data-device-heartbeat');
-                            var latestCount = parseInt(heartbeat.getAttribute('data-heartbeat-count') || '0', 10) || 0;
-                            var countIncreased = Object.prototype.hasOwnProperty.call(previousHeartbeats, deviceId)
-                                && latestCount > previousHeartbeats[deviceId];
-                            if (countIncreased || (!heartbeatInitialized && latestCount > 0)) {
-                                heartbeat.classList.add('has-beat');
-                            }
-                        });
-                        heartbeatInitialized = true;
+                        updateHeartbeatState(current, true);
                         lastSuccessAt = Date.now();
                         if (openDeviceModalId) {
                             var freshModal = document.getElementById(openDeviceModalId);
@@ -173,6 +178,8 @@
                 .finally(function() { inFlight = false; });
         }
 
+        var initialSection = document.querySelector('[data-device-monitor-section]');
+        if (initialSection) updateHeartbeatState(initialSection, false);
         refreshDeviceMonitoring(true);
         setInterval(function() {
             refreshDeviceMonitoring(false);
