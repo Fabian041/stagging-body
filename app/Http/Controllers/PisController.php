@@ -64,6 +64,43 @@ class PisController extends Controller
         return null;
     }
 
+    private function resolvePisPreviewFileName(string $custPart, string $kind, string $dock): ?string
+    {
+        $cust = preg_replace('/[^A-Z0-9\-]/', '', strtoupper(trim($custPart)));
+        $custNoDash = str_replace('-', '', $cust);
+        $kind = preg_replace('/[^A-Z0-9_-]/', '', strtoupper(trim($kind))) ?: 'OEM';
+        $dock = preg_replace('/[^A-Z0-9 _-]/', '', strtoupper(trim($dock))) ?: 'OTHER';
+
+        if ($cust === '') {
+            return null;
+        }
+
+        $docks = array_unique([
+            $dock,
+            str_replace(' ', '_', $dock),
+            str_replace(' ', '-', $dock),
+            str_replace(' ', '', $dock),
+        ]);
+        $parts = array_unique([$cust, $custNoDash]);
+        $bases = [];
+
+        foreach ($docks as $dockVariant) {
+            foreach ($parts as $part) {
+                $bases[] = $part . '-' . $kind . '-' . $dockVariant;
+            }
+        }
+        array_push($bases, ...$parts);
+
+        foreach (array_unique($bases) as $base) {
+            $fileName = $this->resolvePisStoredFileName($base);
+            if ($fileName !== null) {
+                return $fileName;
+            }
+        }
+
+        return null;
+    }
+
     private function resolvePisImagePathForPart(string $custPart, string $kind, string $dock): string
     {
         $baseName = $this->buildPisImageBaseName($custPart, $kind, $dock);
@@ -869,22 +906,32 @@ class PisController extends Controller
         }
 
         $raw = $request->query('f', '');
-        if (!is_string($raw) || $raw === '') {
+        if (!is_string($raw)) {
             abort(404);
         }
 
-        $name = basename($raw);
-        if ($name !== $raw || str_contains($name, '..')) {
-            abort(404);
-        }
+        if ($raw !== '') {
+            $name = basename($raw);
+            if ($name !== $raw || str_contains($name, '..') || strlen($name) > 255) {
+                abort(404);
+            }
 
-        if (strlen($name) > 255) {
-            abort(404);
-        }
+            // Pola nama PIS: alfanumerik, hubung, underscore, titik (ekstensi), spasi (mis. dock "TMMIN SPD")
+            if (!preg_match('/^[A-Za-z0-9\-_. ]+\.(jpe?g|webp)$/i', $name)) {
+                abort(404);
+            }
+        } else {
+            $part = $request->query('part', '');
+            $kind = $request->query('kind', 'OEM');
+            $dock = $request->query('dock', 'OTHER');
+            if (!is_string($part) || !is_string($kind) || !is_string($dock)) {
+                abort(404);
+            }
+            if (strlen($part) > 100 || strlen($kind) > 30 || strlen($dock) > 100) {
+                abort(404);
+            }
 
-        // Pola nama PIS: alfanumerik, hubung, underscore, titik (ekstensi), spasi (mis. dock "TMMIN SPD")
-        if (!preg_match('/^[A-Za-z0-9\-_. ]+\.(jpe?g|webp)$/i', $name)) {
-            abort(404);
+            $name = $this->resolvePisPreviewFileName($part, $kind, $dock) ?? 'default.JPG';
         }
 
         $disk = Storage::disk('pis');

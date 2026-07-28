@@ -464,20 +464,7 @@
         var pisImageFileEndpoint = "{{ url('/pis/storage-image') }}";
         var pisImageDefault = pisImageFileEndpoint + "?f={{ rawurlencode('default.JPG') }}";
 
-        /** Variasi segmen dock pada nama file (legacy / beda konvensi penamaan). */
-        function pisDockFilenameVariants(dockRaw) {
-            var d = (dockRaw || '').toString().trim().toUpperCase();
-            if (!d) d = 'OTHER';
-            var out = [d];
-            if (d.indexOf(' ') !== -1) {
-                out.push(d.replace(/ /g, '_'));
-                out.push(d.replace(/ /g, '-'));
-                out.push(d.replace(/ /g, ''));
-            }
-            return out.filter(function (x, i, arr) { return arr.indexOf(x) === i; });
-        }
-
-        // Lookup gambar dari part_number_cust + type + dock (sama pola backend PisController).
+        // Lookup seluruh variasi nama file dilakukan sekali di server agar scanner tidak menunggu rangkaian request 404.
         function setPreviewImage(partNumberInt, partNumberCust) {
             var custRaw = (partNumberCust || '').toString().trim();
             var img = document.getElementById('previewImg');
@@ -490,87 +477,27 @@
                 return;
             }
 
-            // Normalisasi nama file:
-            // - trim
-            // - uppercase
-            // - hanya mengizinkan A–Z, 0–9, dan tanda hubung (-)
-            var custUpper = custRaw.toUpperCase();
-            var custSanitized = custUpper.replace(/[^A-Z0-9-]/g, '');
-            var custNoDash = custSanitized.replace(/-/g, '');
-
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
-            var docks = pisDockFilenameVariants(pisGetDockType());
+            var imageUrl = pisImageFileEndpoint
+                + '?part=' + encodeURIComponent(custRaw)
+                + '&kind=' + encodeURIComponent(type)
+                + '&dock=' + encodeURIComponent(pisGetDockType());
 
-            var candidates = [];
-            var add = function (fileName) {
-                if (fileName) {
-                    candidates.push(pisImageFileEndpoint + '?f=' + encodeURIComponent(fileName));
-                }
+            img.classList.remove('pis-fit-contain', 'pis-fit-cover');
+            img.classList.add(type === 'DANDORY' ? 'pis-fit-contain' : 'pis-fit-cover');
+            img.onerror = function () {
+                img.onerror = null;
+                img.src = pisImageDefault;
             };
-
-            var addBase = function (base) {
-                if (!base) return;
-                add(base + '.webp');
-                add(base + '.JPG');
-            };
-
-            for (var di = 0; di < docks.length; di++) {
-                var dock = docks[di];
-                // Pola utama: [PART_CUST]-[TYPE]-[DOCK] — utamakan .webp, fallback .JPG
-                if (custSanitized) {
-                    addBase(custSanitized + '-' + type + '-' + dock);
-                }
-                if (custNoDash && custNoDash !== custSanitized) {
-                    addBase(custNoDash + '-' + type + '-' + dock);
-                }
-            }
-
-            // Fallback tambahan: hanya [PART_CUST]
-            if (custSanitized) {
-                addBase(custSanitized);
-            }
-            if (custNoDash && custNoDash !== custSanitized) {
-                addBase(custNoDash);
-            }
-
-            var idx = 0;
-
-            function setPreviewFitModeBySrc() {
-                if (!img || !img.src) return;
-                var srcUpper = img.src.toUpperCase();
-                // DANDORY board cenderung berisi detail sampai sisi tepi, jadi tampilkan utuh (atas-bawah fit).
-                var useContain = srcUpper.indexOf('-DANDORY-') !== -1;
-                img.classList.remove('pis-fit-contain', 'pis-fit-cover');
-                img.classList.add(useContain ? 'pis-fit-contain' : 'pis-fit-cover');
-            }
-
-            function tryNext() {
-                if (idx >= candidates.length) {
-                    // Jika semua kombinasi gagal, pakai gambar default sebagai fallback
-                    img.onerror = null;
-                    img.src = pisImageDefault;
-                    setPreviewFitModeBySrc();
-                    img.style.display = 'block';
-                    if (placeholder) placeholder.style.display = 'none';
-                    if (typeof _savedScrollTop === 'number') window.scrollTo(0, _savedScrollTop);
-                    return;
-                }
-
-                img.src = candidates[idx++];
-                setPreviewFitModeBySrc();
-                img.style.display = 'block';
-                if (placeholder) placeholder.style.display = 'none';
-            }
-
-            img.onerror = tryNext;
             img.onload = function () {
                 img.onerror = null;
                 img.style.display = 'block';
                 if (placeholder) placeholder.style.display = 'none';
                 if (typeof _savedScrollTop === 'number') window.scrollTo(0, _savedScrollTop);
             };
-
-            tryNext();
+            img.src = imageUrl;
+            img.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
         }
 
         function clearPreviewImage() {
@@ -1092,7 +1019,6 @@
                 $('#detail_no').val(pack.ttiUnique || matchedItem.part_number_int || '');
                 if ((matchedItem.part_number_cust || '').toString().trim()) {
                     currentPreviewItem = matchedItem;
-                    setPreviewImage(matchedItem.part_number_int || '', matchedItem.part_number_cust || '');
                 } else {
                     currentPreviewItem = null;
                     clearPreviewImage();
