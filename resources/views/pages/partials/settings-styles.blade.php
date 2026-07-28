@@ -186,6 +186,81 @@
         min-width: 0;
     }
 
+    .settings-heartbeat {
+        position: relative;
+        width: 100%;
+        height: 38px;
+        overflow: hidden;
+        border-radius: 7px;
+        background: #f1f5f9;
+    }
+
+    .settings-heartbeat svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    .settings-heartbeat-base,
+    .settings-heartbeat-line {
+        fill: none;
+        vector-effect: non-scaling-stroke;
+    }
+
+    .settings-heartbeat-base {
+        stroke: #dbe3ee;
+        stroke-width: 1;
+    }
+
+    .settings-heartbeat-line {
+        stroke: #94a3b8;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .settings-heartbeat.is-online {
+        background: #ecfdf3;
+    }
+
+    .settings-heartbeat.is-online .settings-heartbeat-base {
+        stroke: #c7f3d6;
+    }
+
+    .settings-heartbeat.is-online .settings-heartbeat-line {
+        stroke: #16a34a;
+        stroke-dasharray: 42 12;
+        animation: settings-heartbeat-trace 1.8s linear infinite;
+        filter: drop-shadow(0 0 3px rgba(22, 163, 74, .28));
+    }
+
+    .settings-heartbeat-count {
+        position: absolute;
+        top: 5px;
+        right: 8px;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 850;
+    }
+
+    .settings-heartbeat.is-online .settings-heartbeat-count {
+        color: #15803d;
+    }
+
+    .settings-heartbeat-meta {
+        margin-top: 5px;
+    }
+
+    @keyframes settings-heartbeat-trace {
+        to { stroke-dashoffset: -108; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .settings-heartbeat.is-online .settings-heartbeat-line {
+            animation: none;
+        }
+    }
+
     .settings-device-actions {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));

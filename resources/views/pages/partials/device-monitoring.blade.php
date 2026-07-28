@@ -44,12 +44,21 @@
                             {{ $device->last_seen_label }}
                         </div>
                     </div>
-                    <div class="settings-device-stat">
-                        <div class="settings-label mb-1">Health</div>
-                        <div class="settings-device-meta">
-                            {{ $device->browser_label }} · HB {{ number_format($device->heartbeat_count) }} · Reset {{ number_format($device->reset_count) }}
+                        <div class="settings-device-stat">
+                            <div class="settings-label mb-1">Heartbeat</div>
+                            <div class="settings-heartbeat {{ $device->is_online ? 'is-online' : '' }}"
+                                aria-label="Heartbeat {{ number_format($device->heartbeat_count) }}">
+                                <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true">
+                                    <line class="settings-heartbeat-base" x1="0" y1="17" x2="200" y2="17" />
+                                    <polyline class="settings-heartbeat-line"
+                                        points="0,17 28,17 35,13 42,22 51,4 62,29 72,17 108,17 116,14 123,20 132,8 142,25 152,17 200,17" />
+                                </svg>
+                                <span class="settings-heartbeat-count">HB {{ number_format($device->heartbeat_count) }}</span>
+                            </div>
+                            <div class="settings-device-meta settings-heartbeat-meta">
+                                {{ $device->browser_label }} · Reset {{ number_format($device->reset_count) }}
+                            </div>
                         </div>
-                    </div>
                     @if ($device->last_error_message)
                         <div class="settings-device-stat">
                             <div class="settings-label mb-1">Last error</div>
