@@ -176,6 +176,10 @@ class MasterDataController extends Controller
             ->leftJoin('lines', 'lines.id', '=', 'internal_parts.line_id')
             ->select('internal_parts.*', 'lines.name as line_name');
 
+        if ($request->filled('line_id')) {
+            $query->where('internal_parts.line_id', $request->integer('line_id'));
+        }
+
         if ($request->boolean('missing_photo')) {
             $photoDirectory = public_path('assets/img/pis');
             $availablePhotos = File::isDirectory($photoDirectory)

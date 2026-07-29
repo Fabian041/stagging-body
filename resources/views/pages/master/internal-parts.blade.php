@@ -128,6 +128,49 @@
             color: #fff !important;
             background: #0070b7 !important;
         }
+
+        .internal-parts-toolbar {
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .part-line-filter-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .part-line-filter-wrap label {
+            margin: 0;
+            color: #66758e;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        #part-line-filter {
+            min-width: 190px;
+            height: 35px;
+            padding: 6px 30px 6px 10px;
+            color: #33415c;
+            font-size: 12px;
+            background: #fff;
+            border: 1px solid #d8e1ee;
+            border-radius: 6px;
+        }
+
+        @media (max-width: 767.98px) {
+            .part-line-filter-wrap {
+                width: 100%;
+                margin-left: 0;
+            }
+
+            #part-line-filter {
+                flex: 1;
+                min-width: 0;
+            }
+        }
     </style>
 
     <div class="container-fluid master-page">
@@ -256,7 +299,7 @@
                         <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Internal Part</h2>
                         <span class="master-record-count">{{ $internalPartCount }} record</span>
                     </div>
-                    <div class="master-table-toolbar">
+                    <div class="master-table-toolbar internal-parts-toolbar">
                         <div class="master-segmented" aria-label="Filter status foto">
                             <button type="button" class="part-photo-filter active" data-missing-photo="0">
                                 Semua Part
@@ -264,6 +307,15 @@
                             <button type="button" class="part-photo-filter" data-missing-photo="1">
                                 <i class="fas fa-image"></i> Belum Ada Foto
                             </button>
+                        </div>
+                        <div class="part-line-filter-wrap">
+                            <label for="part-line-filter"><i class="fas fa-industry"></i> Line</label>
+                            <select id="part-line-filter" aria-label="Filter berdasarkan line">
+                                <option value="">Semua Line</option>
+                                @foreach ($lines as $line)
+                                    <option value="{{ $line->id }}">{{ $line->name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
                     <div class="master-table-wrap">
@@ -425,6 +477,7 @@
                         url: '{{ route('dashboard.master.parts.data') }}',
                         data: function(payload) {
                             payload.missing_photo = $('.part-photo-filter.active').data('missing-photo') || 0;
+                            payload.line_id = $('#part-line-filter').val() || '';
                         }
                     },
                     pageLength: 10,
@@ -458,6 +511,10 @@
                 $('.part-photo-filter').on('click', function() {
                     $('.part-photo-filter').removeClass('active');
                     $(this).addClass('active');
+                    internalPartsTable.ajax.reload();
+                });
+
+                $('#part-line-filter').on('change', function() {
                     internalPartsTable.ajax.reload();
                 });
             }
