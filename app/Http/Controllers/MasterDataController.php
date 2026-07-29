@@ -313,7 +313,7 @@ class MasterDataController extends Controller
         ));
     }
 
-    public function customerPartsData()
+    public function customerPartsData(Request $request)
     {
         $query = CustomerPart::query()
             ->leftJoin('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
@@ -323,6 +323,10 @@ class MasterDataController extends Controller
                 'internal_parts.part_number as internal_part_number',
                 'customers.name as customer_name'
             );
+
+        if ($request->filled('customer_id')) {
+            $query->where('customer_parts.customer_id', $request->integer('customer_id'));
+        }
 
         return DataTables::of($query)
             ->editColumn('customer_name', function (CustomerPart $customerPart) {

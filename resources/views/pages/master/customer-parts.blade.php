@@ -128,6 +128,46 @@
             color: #fff !important;
             background: #0070b7 !important;
         }
+
+        .customer-parts-toolbar {
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .customer-parts-filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .customer-parts-filter label {
+            margin: 0;
+            color: #66758e;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        #customer-parts-customer-filter {
+            min-width: 220px;
+            height: 35px;
+            padding: 6px 30px 6px 10px;
+            color: #33415c;
+            font-size: 12px;
+            background: #fff;
+            border: 1px solid #d8e1ee;
+            border-radius: 6px;
+        }
+
+        @media (max-width: 767.98px) {
+            .customer-parts-filter {
+                width: 100%;
+            }
+
+            #customer-parts-customer-filter {
+                flex: 1;
+                min-width: 0;
+            }
+        }
     </style>
 
     <div class="container-fluid master-page">
@@ -224,6 +264,17 @@
                         <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Customer Part</h2>
                         <span class="master-record-count">{{ $customerPartCount }} record</span>
                     </div>
+                    <div class="master-table-toolbar customer-parts-toolbar">
+                        <div class="customer-parts-filter">
+                            <label for="customer-parts-customer-filter"><i class="fas fa-building"></i> Customer</label>
+                            <select id="customer-parts-customer-filter" aria-label="Filter berdasarkan customer">
+                                <option value="">Semua Customer</option>
+                                @foreach ($customers as $customer)
+                                    <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                     <div class="master-table-wrap">
                         <table id="customer-parts-table" class="table master-table align-middle w-100">
                             <thead>
@@ -268,10 +319,15 @@
             });
 
             if ($.fn.DataTable) {
-                $('#customer-parts-table').DataTable({
+                const customerPartsTable = $('#customer-parts-table').DataTable({
                     processing: true,
                     serverSide: true,
-                    ajax: '{{ route('dashboard.master.customer-parts.data') }}',
+                    ajax: {
+                        url: '{{ route('dashboard.master.customer-parts.data') }}',
+                        data: function(payload) {
+                            payload.customer_id = $('#customer-parts-customer-filter').val() || '';
+                        }
+                    },
                     pageLength: 10,
                     lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                     order: [[0, 'asc']],
@@ -298,6 +354,10 @@
                             previous: 'Sebelumnya'
                         }
                     }
+                });
+
+                $('#customer-parts-customer-filter').on('change', function() {
+                    customerPartsTable.ajax.reload();
                 });
             }
         });
