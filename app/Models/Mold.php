@@ -14,6 +14,17 @@ class Mold extends Model
         'is_active' => 'boolean',
     ];
 
+    public function getPhotoUrlAttribute(): ?string
+    {
+        $filename = basename((string) $this->photo);
+
+        if ($filename === '' || ! is_file(public_path('assets/img/molds/' . $filename))) {
+            return null;
+        }
+
+        return asset('assets/img/molds/' . rawurlencode($filename));
+    }
+
     public function moldHasParts()
     {
         return $this->hasMany(MoldHasParts::class, 'mold_id', 'id');

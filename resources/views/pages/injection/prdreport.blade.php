@@ -106,7 +106,7 @@
 
     .mold-parts-panel {
         width: 100%;
-        max-width: 760px;
+        max-width: 1180px;
         margin: 0 auto;
     }
 
@@ -131,7 +131,7 @@
 
     .mold-parts-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 1rem;
     }
 
@@ -139,7 +139,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 135px;
+        min-height: 120px;
         padding: 1.25rem;
         color: #ffffff;
         font-size: clamp(1.5rem, 3vw, 2.4rem);
@@ -161,6 +161,40 @@
         background: linear-gradient(135deg, #15803d, #22c55e);
         border-color: #bbf7d0;
         transform: translateY(-2px);
+    }
+
+    .mold-image-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 310px;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: #f8fbff;
+        border: 1px solid var(--border, #DDE3EF);
+        border-radius: 14px;
+    }
+
+    .mold-image-panel img {
+        display: block;
+        width: 100%;
+        max-height: 390px;
+        object-fit: contain;
+        border-radius: 10px;
+    }
+
+    .mold-image-empty {
+        color: #8190aa;
+        font-size: clamp(1.2rem, 2.4vw, 2rem);
+        font-weight: 900;
+        letter-spacing: .06em;
+        text-align: center;
+    }
+
+    @media (max-width: 991.98px) {
+        .mold-parts-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
     }
 
     .notif-dialog {
@@ -593,6 +627,7 @@
         }
 
         const moldCode = localStorage.getItem(STORAGE_KEYS.moldCode) || '-';
+        const moldImageUrl = localStorage.getItem(STORAGE_KEYS.moldImageUrl) || '';
         const scannedParts = getCycleScannedParts().map(partNumber => normalizePartNumber(partNumber));
         const cards = parts.map((item) => {
             const partNumber = typeof item === 'string' ? item : (item.part_number || item.internal_part_number || item.internal || '-');
@@ -616,8 +651,17 @@
                     <span class="mold-cycle-badge">Cycle ${getCycleNumber()}</span>
                 </div>
                 <div class="mold-parts-grid">${cards}</div>
+                <div class="mold-image-panel" id="moldImagePanel">
+                    ${moldImageUrl
+                        ? `<img id="moldImage" src="${escapeHtml(moldImageUrl)}" alt="Gambar mold ${escapeHtml(moldCode)}">`
+                        : '<div class="mold-image-empty">GAMBAR TIDAK TERSEDIA</div>'}
+                </div>
             </div>
         `);
+
+        $('#moldImage').on('error', function() {
+            $('#moldImagePanel').html('<div class="mold-image-empty">GAMBAR TIDAK TERSEDIA</div>');
+        });
     }
 
     function initApp() {
@@ -823,6 +867,7 @@
             localStorage.setItem(STORAGE_KEYS.moldId, mold.id || mold.mold_id || moldCode);
             localStorage.setItem(STORAGE_KEYS.moldCode, mold.code || mold.mold_code || moldCode);
             localStorage.setItem(STORAGE_KEYS.moldName, mold.name || mold.mold_name || moldCode);
+            localStorage.setItem(STORAGE_KEYS.moldImageUrl, mold.mold_image_url || '');
             localStorage.setItem(STORAGE_KEYS.moldParts, JSON.stringify(parts));
             localStorage.setItem(STORAGE_KEYS.cycleNumber, 1);
             localStorage.setItem(

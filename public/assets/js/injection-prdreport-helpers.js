@@ -4,6 +4,7 @@ window.InjectionScanHelpers = (() => {
         moldId: 'injection_mold_id',
         moldCode: 'injection_mold_code',
         moldName: 'injection_mold_name',
+        moldImageUrl: 'injection_mold_image_url',
         moldParts: 'injection_mold_parts',
         cycleScannedParts: 'injection_cycle_scanned_parts',
         cycleNumber: 'injection_cycle_number',
