@@ -413,8 +413,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/alamat-chute', [PullingController::class, 'getAlamatChute'])
             ->name('pulling.alamat-chute');
 
-        Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual');
-        Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset');
+        Route::get('/manual', [PullingController::class, 'manual'])->name('pulling.manual')->middleware('can:manage-master');
+        Route::post('/manual', [PullingController::class, 'manualReset'])->name('pulling.manualReset')->middleware('can:manage-master');
         Route::get('/master-alamat-chute', [PullingController::class, 'masterAlamatChuteIndex'])
             ->name('pulling.master-alamat-chute');
         Route::get('/master-alamat-chute/template', [PullingController::class, 'downloadMasterAlamatChuteTemplate'])

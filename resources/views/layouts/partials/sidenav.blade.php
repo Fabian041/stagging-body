@@ -67,11 +67,13 @@
                 <i class="fas fa-truck-loading"></i>
                 Preparation Detail
             </a>
-            <a class="sb-sub-item {{ request()->is('pulling/manual') ? 'active' : '' }}"
-                href="{{ route('pulling.manual') }}">
-                <i class="fas fa-sync-alt"></i>
-                Kanban Reset
-            </a>
+            @can('manage-master')
+                <a class="sb-sub-item {{ request()->is('pulling/manual') ? 'active' : '' }}"
+                    href="{{ route('pulling.manual') }}">
+                    <i class="fas fa-sync-alt"></i>
+                    Kanban Reset
+                </a>
+            @endcan
         </div>
 
         {{-- ── Production ── --}}
