@@ -760,6 +760,24 @@ class LoadingListController extends Controller
             return null;
         }
 
+        // Precise: pakai linkage loading_list_detail_id supaya tidak salah ambil pull dari cycle lain.
+        $detailIds = DB::table('loading_list_details')
+            ->where('loading_list_id', $loadingList->id)
+            ->pluck('id');
+
+        if ($detailIds->isNotEmpty()) {
+            $linked = DB::table('mutations')
+                ->where('type', 'checkout')
+                ->whereIn('loading_list_detail_id', $detailIds)
+                ->selectRaw('MAX(COALESCE(date, created_at)) as latest')
+                ->value('latest');
+
+            if ($linked) {
+                return (string) $linked;
+            }
+        }
+
+        // Fallback (data lama tanpa linkage): window waktu detail.
         $latest = DB::table('loading_list_details as lld')
             ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
             ->join('mutations as m', function ($join) {
@@ -934,6 +952,12 @@ class LoadingListController extends Controller
             ]);
         }
 
+        // Scope presisi ke detail ini via loading_list_detail_id; data lama (belum ada linkage) fallback ke window waktu.
+        $hasLinkage = DB::table('mutations')
+            ->where('loading_list_detail_id', $detail->id)
+            ->where('type', 'checkout')
+            ->exists();
+
         $checkouts = DB::table('mutations as checkout')
             ->select('checkout.id', 'checkout.serial_number', 'checkout.qty', 'checkout.date', 'checkout.created_at')
             ->selectSub(function ($query) {
@@ -949,7 +973,11 @@ class LoadingListController extends Controller
             }, 'supply_id')
             ->where('checkout.internal_part_id', $internalPartId)
             ->where('checkout.type', 'checkout')
-            ->whereBetween('checkout.created_at', [$start, $end])
+            ->when(
+                $hasLinkage,
+                fn ($q) => $q->where('checkout.loading_list_detail_id', $detail->id),
+                fn ($q) => $q->whereBetween('checkout.created_at', [$start, $end])
+            )
             ->orderBy('checkout.created_at')
             ->get();
 
@@ -1008,15 +1036,20 @@ class LoadingListController extends Controller
         $start = $detail->created_at;
         $end = $detail->updated_at;
 
-        if (! $start || ! $end || $start->equalTo($end)) {
-            return response()->json(['status' => 'error', 'message' => 'Window waktu detail tidak valid.'], 422);
+        // Validasi: mutation harus checkout milik internal_part ini, dan benar milik detail ini.
+        // Utamakan linkage presisi (loading_list_detail_id); data lama tanpa linkage fallback ke window waktu.
+        if ($mutation->loading_list_detail_id !== null) {
+            $matchesDetail = (int) $mutation->loading_list_detail_id === (int) $detail->id;
+        } else {
+            if (! $start || ! $end || $start->equalTo($end)) {
+                return response()->json(['status' => 'error', 'message' => 'Window waktu detail tidak valid.'], 422);
+            }
+            $matchesDetail = $mutation->created_at >= $start && $mutation->created_at <= $end;
         }
 
-        // Validasi: hanya boleh hapus checkout pada internal_part + window ini
         $isValid = $mutation->internal_part_id == $internalPartId
             && $mutation->type === 'checkout'
-            && $mutation->created_at >= $start
-            && $mutation->created_at <= $end;
+            && $matchesDetail;
 
         if (! $isValid) {
             return response()->json(['status' => 'error', 'message' => 'Mutation tidak valid untuk dihapus.'], 403);
@@ -2227,16 +2260,32 @@ class LoadingListController extends Controller
             ->unique()
             ->values();
         if ($loadingListIds->isNotEmpty()) {
-            $scopedPullingByLoadingListId = DB::table('loading_list_details as lld')
+            // Precise: latest pulling dari tanggal checkout mutation via loading_list_detail_id.
+            $linkedPulling = DB::table('mutations as m')
+                ->join('loading_list_details as lld', 'lld.id', '=', 'm.loading_list_detail_id')
                 ->whereIn('lld.loading_list_id', $loadingListIds->all())
-                ->where('lld.actual_kanban_qty', '>', 0)
-                ->whereColumn('lld.updated_at', '>', 'lld.created_at')
-                ->select('lld.loading_list_id', DB::raw('MAX(lld.updated_at) as latest_pulling_date'))
+                ->where('m.type', 'checkout')
                 ->groupBy('lld.loading_list_id')
+                ->select('lld.loading_list_id', DB::raw('MAX(COALESCE(m.date, m.created_at)) as latest_pulling_date'))
                 ->get()
                 ->mapWithKeys(function ($row) {
                     return [(int) $row->loading_list_id => (string) $row->latest_pulling_date];
                 });
+
+            // Fallback data lama (mutation belum punya linkage): proxy MAX(lld.updated_at).
+            $fallbackPulling = DB::table('loading_list_details as lld')
+                ->whereIn('lld.loading_list_id', $loadingListIds->all())
+                ->where('lld.actual_kanban_qty', '>', 0)
+                ->whereColumn('lld.updated_at', '>', 'lld.created_at')
+                ->groupBy('lld.loading_list_id')
+                ->select('lld.loading_list_id', DB::raw('MAX(lld.updated_at) as latest_pulling_date'))
+                ->get()
+                ->mapWithKeys(function ($row) {
+                    return [(int) $row->loading_list_id => (string) $row->latest_pulling_date];
+                });
+
+            // Linkage presisi menang; LL tanpa linkage tetap pakai proxy lama.
+            $scopedPullingByLoadingListId = $fallbackPulling->merge($linkedPulling);
         }
 
         $pullingByPds = collect();
