@@ -56,7 +56,7 @@ class LoginController extends Controller
             'prod'      => 'production.index',
             'ppic'      => 'pulling.index',
             'mh'        => 'validation.index',
-            'injection' => 'pc2b.index',
+            'injection' => 'injection.indexprdreport',
             'direct'    => 'production.direct.index',
         ];
 

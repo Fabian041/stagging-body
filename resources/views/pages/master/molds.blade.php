@@ -229,6 +229,44 @@
         border: 1px solid #b9dcf3;
         border-radius: 7px;
     }
+
+    .mold-photo-field {
+        overflow: hidden;
+        border: 1px solid #d8e1ee;
+        border-radius: 10px;
+        background: #f8fbff;
+    }
+
+    .mold-photo-preview {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 170px;
+        padding: 12px;
+        color: #8190aa;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        border-bottom: 1px solid #e5edf6;
+    }
+
+    .mold-photo-preview img {
+        width: 100%;
+        height: 170px;
+        object-fit: contain;
+        border-radius: 7px;
+        background: #fff;
+    }
+
+    .mold-photo-input {
+        padding: 10px 12px;
+        background: #fff;
+    }
+
+    .mold-photo-input input {
+        width: 100%;
+        font-size: 12px;
+    }
 </style>
     <div class="container-fluid master-page">
         <div class="master-page-header">
@@ -267,7 +305,7 @@
                         <h2 class="master-panel-title"><i class="fas fa-shapes"></i>{{ $editingMold ? 'Edit Mold' : 'Tambah Mold' }}</h2>
                     </div>
                     <div class="master-panel-body">
-                        <form class="master-form" method="POST" action="{{ $editingMold ? route('dashboard.master.molds.update', $editingMold) : route('dashboard.master.molds.store') }}">
+                        <form class="master-form" method="POST" enctype="multipart/form-data" action="{{ $editingMold ? route('dashboard.master.molds.update', $editingMold) : route('dashboard.master.molds.store') }}">
                             @csrf
                             @if ($editingMold)
                                 @method('PUT')
@@ -279,6 +317,23 @@
                             <div class="mb-3">
                                 <label class="form-label">Nama Mold</label>
                                 <input type="text" name="name" class="form-control" placeholder="Mold Injection A" value="{{ old('name', $editingMold?->name ?? '') }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Gambar Mold</label>
+                                <div class="mold-photo-field">
+                                    <div class="mold-photo-preview" id="moldPhotoPreview">
+                                        @if ($editingMoldPhotoUrl)
+                                            <img src="{{ $editingMoldPhotoUrl }}" alt="Gambar {{ $editingMold?->tag }}">
+                                        @else
+                                            <span>GAMBAR TIDAK TERSEDIA</span>
+                                        @endif
+                                    </div>
+                                    <div class="mold-photo-input">
+                                        <input type="file" name="photo" id="moldPhotoInput"
+                                            accept="image/jpeg,image/png,image/webp">
+                                    </div>
+                                </div>
+                                <small class="text-muted">JPG, PNG, atau WebP - maksimal 5 MB.</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Master Part</label>
@@ -381,7 +436,30 @@
             const $qrCanvas = $('#moldQrCanvas');
             const $qrLoading = $('#moldQrLoading');
             const $qrError = $('#moldQrError');
+            const moldPhotoInput = document.getElementById('moldPhotoInput');
+            const moldPhotoPreview = document.getElementById('moldPhotoPreview');
             let qrRenderTimeout = null;
+
+            if (moldPhotoInput && moldPhotoPreview) {
+                moldPhotoInput.addEventListener('change', function() {
+                    const file = this.files && this.files[0];
+
+                    if (!file || !file.type.startsWith('image/')) {
+                        return;
+                    }
+
+                    const image = document.createElement('img');
+                    const previewUrl = URL.createObjectURL(file);
+                    image.src = previewUrl;
+                    image.alt = 'Preview gambar mold';
+                    image.onload = function() {
+                        URL.revokeObjectURL(previewUrl);
+                    };
+
+                    moldPhotoPreview.innerHTML = '';
+                    moldPhotoPreview.appendChild(image);
+                });
+            }
 
             if ($moldPartSelect.length && $.fn.select2) {
                 $moldPartSelect.select2({

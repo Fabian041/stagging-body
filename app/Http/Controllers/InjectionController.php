@@ -112,6 +112,7 @@ class InjectionController extends Controller
                 'id'        => $mold->id,
                 'mold_code' => $mold->tag ?? $moldCode,
                 'mold_name' => $mold->name ?? $moldCode,
+                'mold_image_url' => $mold->photo_url,
                 'parts'     => $parts,
             ],
         ]);

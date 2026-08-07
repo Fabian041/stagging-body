@@ -10,6 +10,7 @@ use App\Models\Mold;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -33,8 +34,14 @@ class MasterDataController extends Controller
             : null;
         $moldCount = Mold::count();
         $internalParts = InternalPart::with('line')->orderBy('part_number')->get();
+        $editingMoldPhotoUrl = $editingMold?->photo_url;
 
-        return view('pages.master.molds', compact('editingMold', 'moldCount', 'internalParts'));
+        return view('pages.master.molds', compact(
+            'editingMold',
+            'editingMoldPhotoUrl',
+            'moldCount',
+            'internalParts'
+        ));
     }
 
     public function moldsData()
@@ -80,15 +87,21 @@ class MasterDataController extends Controller
         $request->validate([
             'tag' => ['required', 'string', 'max:100', 'unique:molds,tag'],
             'name' => ['required', 'string', 'max:150'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'is_active' => ['nullable', 'boolean'],
             'internal_part_ids' => ['nullable', 'array'],
             'internal_part_ids.*' => ['integer', 'distinct', 'exists:internal_parts,id'],
         ]);
 
-        DB::transaction(function () use ($request) {
+        $photo = $request->hasFile('photo')
+            ? $this->storeMoldPhoto($request->file('photo'), $request->tag)
+            : null;
+
+        DB::transaction(function () use ($request, $photo) {
             $mold = Mold::create([
                 'tag' => $request->tag,
                 'name' => $request->name,
+                'photo' => $photo,
                 'is_active' => $request->boolean('is_active'),
             ]);
 
@@ -112,17 +125,29 @@ class MasterDataController extends Controller
         $request->validate([
             'tag' => ['required', 'string', 'max:100', Rule::unique('molds', 'tag')->ignore($mold->id)],
             'name' => ['required', 'string', 'max:150'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'is_active' => ['nullable', 'boolean'],
             'internal_part_ids' => ['nullable', 'array'],
             'internal_part_ids.*' => ['integer', 'distinct', 'exists:internal_parts,id'],
         ]);
 
-        DB::transaction(function () use ($request, $mold) {
-            $mold->update([
+        $oldPhoto = $mold->photo;
+        $newPhoto = $request->hasFile('photo')
+            ? $this->storeMoldPhoto($request->file('photo'), $request->tag)
+            : null;
+
+        DB::transaction(function () use ($request, $mold, $newPhoto) {
+            $values = [
                 'tag' => $request->tag,
                 'name' => $request->name,
                 'is_active' => $request->boolean('is_active'),
-            ]);
+            ];
+
+            if ($newPhoto) {
+                $values['photo'] = $newPhoto;
+            }
+
+            $mold->update($values);
 
             $mold->moldHasParts()->delete();
 
@@ -133,15 +158,23 @@ class MasterDataController extends Controller
             }
         });
 
+        if ($newPhoto && $oldPhoto && $oldPhoto !== $newPhoto) {
+            $this->deleteMoldPhoto($oldPhoto);
+        }
+
         return redirect()->route('dashboard.master.molds.index')->with('success', 'Mold berhasil diperbarui.');
     }
 
     public function destroyMold(Mold $mold)
     {
+        $photo = $mold->photo;
+
         DB::transaction(function () use ($mold) {
             $mold->moldHasParts()->delete();
             $mold->delete();
         });
+
+        $this->deleteMoldPhoto($photo);
 
         return redirect()->route('dashboard.master.molds.index')->with('success', 'Mold berhasil dihapus.');
     }
@@ -429,6 +462,27 @@ class MasterDataController extends Controller
         $photo->move($directory, $filename);
 
         return $filename;
+    }
+
+    private function storeMoldPhoto($photo, string $tag): string
+    {
+        $safeTag = preg_replace('/[^A-Za-z0-9._-]+/', '_', trim($tag)) ?: 'mold';
+        $filename = $safeTag . '-' . Str::uuid() . '.' . strtolower($photo->extension());
+        $directory = public_path('assets/img/molds');
+
+        File::ensureDirectoryExists($directory);
+        $photo->move($directory, $filename);
+
+        return $filename;
+    }
+
+    private function deleteMoldPhoto(?string $photo): void
+    {
+        $filename = basename((string) $photo);
+
+        if ($filename !== '') {
+            File::delete(public_path('assets/img/molds/' . $filename));
+        }
     }
 
     private function nullableTrimmedValue($value, bool $uppercase = false): ?string
