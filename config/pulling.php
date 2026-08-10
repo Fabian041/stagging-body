@@ -3,7 +3,6 @@
 return [
     // Source: LIST PART BELUM SCAN PRODUKSI BELLA.xlsx, column "Back Number".
     'kanban_status_exempt_back_numbers' => [
-        'OPA3',
         'NN0J',
         'NN0L',
         'NN0M',
