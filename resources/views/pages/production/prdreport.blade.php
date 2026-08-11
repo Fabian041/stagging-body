@@ -7,7 +7,11 @@
         <div class="mx-5 my-5">
             <div class="row">
                 <div class="col-lg-2 col-sm-12">
-                    <div class="card card-warning py-3 shadow" style="padding: 1rem; border-radius:8px">
+                    <button id="productionLineButton" class="btn btn-primary mb-2" type="button"
+                        style="border-radius:4px; width:100% !important">
+                        <i class="fas fa-industry mr-1"></i> Line: <span id="currentProductionLine">-</span>
+                    </button>
+                    <div class="card card-warning py-3 shadow mb-3" style="padding: 1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark">Scan Part Number</label>
                         <input id="code" type="text" class="form-control" name="code" tabindex="1"
                             placeholder="scan part..." required autofocus autocomplete="off">
@@ -84,6 +88,34 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="productionLineModal" tabindex="-1" role="dialog" aria-hidden="true"
+        data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-radius: 8px">
+                <div class="modal-header border-0 pb-0">
+                    <div class="w-100 text-center">
+                        <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white mb-3"
+                            style="width:56px; height:56px; border-radius:6px">
+                            <i class="fas fa-industry fa-lg"></i>
+                        </span>
+                        <h4 class="font-weight-bold mb-1">Scan Line Produksi</h4>
+                        <p class="text-muted mb-0">Line akan disimpan pada device ini untuk kebutuhan tracing.</p>
+                    </div>
+                </div>
+                <div class="modal-body px-4 pb-4">
+                    <label class="font-weight-bold" for="productionLineInput">Line</label>
+                    <input id="productionLineInput" type="text" class="form-control form-control-lg text-center"
+                        placeholder="Scan barcode line..." autocomplete="off">
+                    <div id="productionLineError" class="text-danger text-center font-weight-bold mt-2 d-none"></div>
+                    <button id="saveProductionLine" type="button" class="btn btn-primary btn-lg btn-block mt-3"
+                        style="border-radius:4px">
+                        <i class="fas fa-check mr-1"></i> Gunakan Line
+                    </button>
                 </div>
             </div>
         </div>
@@ -215,6 +247,9 @@
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
+    const productionLines = @json($productionLines);
+    const requireProductionLine = false;
+    let productionAppInitialized = false;
     let line = '';
     var timerId;
     var timerActive = false;
@@ -369,6 +404,57 @@
         $('#code').focus();
     }
 
+    function normalizeProductionLine(value) {
+        return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
+    }
+
+    function findProductionLine(value) {
+        const normalized = normalizeProductionLine(value);
+        return productionLines.find(item => normalizeProductionLine(item.name) === normalized) || null;
+    }
+
+    function getStoredProductionLine() {
+        const id = localStorage.getItem('production_line_id');
+        const name = normalizeProductionLine(localStorage.getItem('production_line_name'));
+
+        return productionLines.find(item => String(item.id) === id &&
+            normalizeProductionLine(item.name) === name) || null;
+    }
+
+    function showProductionLineModal() {
+        $('#code').prop('disabled', true);
+        $('#productionLineInput').val('');
+        $('#productionLineError').addClass('d-none').text('');
+        $('#productionLineModal').modal('show');
+    }
+
+    function activateProductionLine(selectedLine) {
+        localStorage.setItem('production_line_id', String(selectedLine.id));
+        localStorage.setItem('production_line_name', selectedLine.name);
+        localStorage.setItem('line_prd', selectedLine.name);
+        $('#currentProductionLine').text(selectedLine.name);
+        $('#code').prop('disabled', false);
+        $('#productionLineModal').modal('hide');
+
+        if (!productionAppInitialized) {
+            productionAppInitialized = true;
+            initApp();
+        } else {
+            $('#code').focus();
+        }
+    }
+
+    function submitProductionLine() {
+        const selectedLine = findProductionLine($('#productionLineInput').val());
+        if (!selectedLine) {
+            $('#productionLineError').removeClass('d-none').text('Line tidak terdaftar. Scan ulang barcode line.');
+            $('#productionLineInput').val('').focus();
+            return;
+        }
+
+        activateProductionLine(selectedLine);
+    }
+
     function notif(color, text) {
         let modal = $('#notifModal');
         let textNotif = $('#notif');
@@ -476,7 +562,8 @@
             data: {
                 message: message,
                 expected: expected,
-                scanned: scanned
+                scanned: scanned,
+                line: localStorage.getItem('production_line_name') || null
             },
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -490,9 +577,55 @@
         });
     }
 
+    function extractAigsysProductionKanban(code) {
+        const tokens = String(code || '').trim().split(/\s+/);
+        if (!/^AIGSYS/i.test(tokens[0] || '')) return null;
+
+        const internalToken = tokens.find(token =>
+            /^0\d{6}-[A-Z0-9]+(?:-[A-Z0-9]+)*$/i.test(token));
+        const serialToken = tokens.find(token => /^\d{20,}$/.test(token));
+        if (!internalToken || !serialToken) return null;
+
+        return {
+            internal: internalToken.replace(/^0(?=\d{6}-)/, ''),
+            seri: serialToken.slice(-4),
+            backNum: tokens[tokens.indexOf(serialToken) - 1] || '',
+            pcs: parseInt(tokens[tokens.length - 2], 10) || 0
+        };
+    }
+
 
     $(document).ready(function() {
-        initApp();
+        $('#productionLineModal').on('shown.bs.modal', function() {
+            $('#productionLineInput').focus();
+        });
+        $('#productionLineModal').on('hidden.bs.modal', function() {
+            if (productionAppInitialized) {
+                $('#code').focus();
+            }
+        });
+        $('#productionLineInput').on('keydown', function(e) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                submitProductionLine();
+            }
+        });
+        $('#saveProductionLine').on('click', submitProductionLine);
+        $('#productionLineButton').on('click', showProductionLineModal);
+
+        const storedProductionLine = getStoredProductionLine();
+        if (!requireProductionLine) {
+            $('#productionLineButton').hide();
+            $('#code').prop('disabled', false);
+            productionAppInitialized = true;
+            initApp();
+        } else if (storedProductionLine) {
+            activateProductionLine(storedProductionLine);
+        } else {
+            localStorage.removeItem('production_line_id');
+            localStorage.removeItem('production_line_name');
+            showProductionLineModal();
+        }
         // UPDATE SCRIPT START
 
         let pauseStartTime = null;
@@ -714,6 +847,10 @@
         });
 
         $(document).on('click', function() {
+            if ($('#productionLineModal').hasClass('show')) {
+                $('#productionLineInput').focus();
+                return;
+            }
             $('#code').focus();
         })
 
@@ -837,8 +974,14 @@
                     return;
                 }
 
-                // get each information inside kanban code
-                if (barcodecomplete.length == 230) {
+                // AIGSYS dapat berisi padding dinamis, jadi baca token sebelum fallback ke posisi absolut.
+                const aigsysKanban = extractAigsysProductionKanban(barcodecomplete);
+                if (aigsysKanban) {
+                    internal = aigsysKanban.internal;
+                    seri = aigsysKanban.seri;
+                    backNum = aigsysKanban.backNum;
+                    pcs = aigsysKanban.pcs;
+                } else if (barcodecomplete.length == 230) {
                     // normal kanban proccess
                     internal = barcodecomplete.substr(41, 19);
                     seri = barcodecomplete.substr(123, 4);
@@ -986,7 +1129,7 @@
                     return;
                 }
 
-                const modelMatch = barcodecomplete.match(/^(.+)-model$/i);
+                const modelMatch = barcodecomplete.match(/^(.+)-(?:model|master)$/i);
                 if (localStorage.getItem('dandori_board') && modelMatch) {
                     model = modelMatch[1].trim();
                     let now = Date.now();
