@@ -11,7 +11,6 @@ class PisScan extends Model
 
     public const DELIVERY_CUSTOMER_NAMES = [
         'ADM SPD',
-        'HINO (HMMI)',
         'MMKI SPD',
         'TAM SPD (DAIHATSU)',
         'TMMIN SPD',
