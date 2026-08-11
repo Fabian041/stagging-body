@@ -247,7 +247,7 @@
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
-    const productionLines = @json($productionLines);
+    const productionLines = @json($productionLines ?? []);
     const requireProductionLine = false;
     let productionAppInitialized = false;
     let line = '';
