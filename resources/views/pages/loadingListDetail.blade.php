@@ -536,14 +536,15 @@
         }
 
         .compare-table thead th:nth-child(3),
-        .compare-table thead th:nth-child(4) {
+        .compare-table thead th:nth-child(4),
+        .compare-table thead th:nth-child(5) {
             text-align: left;
         }
 
         .compare-table tbody td {
             padding: 8px 10px;
             border-bottom: 1px solid var(--border);
-            vertical-align: top;
+            vertical-align: middle;
             color: var(--text);
             font-size: 12px;
         }
@@ -1192,7 +1193,7 @@
 {{-- ===== MODAL COMPARE ===== --}}
 <div class="modal fade" id="compareModal" tabindex="-1" role="dialog" aria-labelledby="compareModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog modal-xl" role="document" style="max-width: 1100px;">
+    <div class="modal-dialog modal-xl" role="document" style="max-width: 1250px;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="compareModalLabel">
@@ -1214,7 +1215,7 @@
                         </button>
                         <div class="compare-search-wrap">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="compareSearch" placeholder="Cari serial / tanggal / qty...">
+                            <input type="text" id="compareSearch" placeholder="Cari serial internal/customer...">
                         </div>
                         <select id="compareFilter" class="compare-filter-select">
                             <option value="all">All</option>
@@ -1251,7 +1252,8 @@
                         <thead>
                             <tr>
                                 <th style="width:50px;">#</th>
-                                <th style="width:190px;">Serial</th>
+                                <th style="width:150px;">Serial Internal</th>
+                                <th style="width:150px;">Serial Customer</th>
                                 <th>Production</th>
                                 <th>Pulling</th>
                                 <th style="width:160px;">Status</th>
@@ -1423,7 +1425,8 @@
             return {
                 mid: item.id || '',
                 serial,
-                text: `[${serial}] - [${item.date || 'N/A'}] (qty: ${item.qty || 0})`,
+                customerSerial: String(item.customer_serial || '').trim(),
+                text: `[${serial}] - [${item.date || 'N/A'}]`,
                 prepStatus: item.prep_status || 'unknown',
                 prepStatusLabel: item.prep_status_label || '',
                 prepDeltaLabel: item.prep_delta_label || '',
@@ -1472,7 +1475,7 @@
             return compareData.filter(item => {
                 const prodText = (item.prodItems || []).map(x => x.text).join(' ');
                 const pullText = (item.pullItems || []).map(x => `${x.text} ${x.deltaText || ''}`).join(' ');
-                const joined = `${item.serial} ${prodText} ${pullText}`.toLowerCase();
+                const joined = `${item.serial} ${(item.customerSerials || []).join(' ')} ${prodText} ${pullText}`.toLowerCase();
                 const hasLatePulling = compareHasLatePulling(item);
 
                 if (q && !joined.includes(q)) return false;
@@ -1503,6 +1506,12 @@
                     renderMutationRows(item.pullItems, true) :
                     '<span style="color:var(--danger);font-size:11px;">N/A</span>';
 
+                const customerSerialHtml = (item.customerSerials && item.customerSerials.length) ?
+                    item.customerSerials.map(serial =>
+                        `<div class="mut-row"><span class="serial-mono">${escapeHtml(serial)}</span></div>`
+                    ).join('') :
+                    '<span style="color:var(--text-muted);font-size:11px;">-</span>';
+
                 const actionHtml = (item.pullItems && item.pullItems.length) ?
                     item.pullItems.map(x => {
                         if (!x.mid)
@@ -1518,6 +1527,7 @@
                     <tr class="${hasLatePulling ? 'is-prep-late-row' : ''}">
                         <td style="text-align:center;">${shown}</td>
                         <td><span class="serial-mono">${item.serial}</span></td>
+                        <td>${customerSerialHtml}</td>
                         <td>${prodHtml}</td>
                         <td>${pullHtml}</td>
                         <td style="text-align:center;"><span class="${statusBadgeClass(item.status)}">${statusLabel(item.status)}</span></td>
@@ -1528,7 +1538,7 @@
 
             if (shown === 0) {
                 tbody.html(
-                    `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">Tidak ada data.</td></tr>`
+                    `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">Tidak ada data.</td></tr>`
                 );
             }
 
@@ -1557,12 +1567,13 @@
             }
 
             const prep = compareCtx.prepContext || {};
-            const headers = ['No', 'Serial', 'Production', 'Pulling', 'Status', 'Pulling Telat Preparation'];
+            const headers = ['No', 'Serial Internal', 'Serial Customer', 'Production', 'Pulling', 'Status', 'Pulling Telat Preparation'];
 
             const bodyRows = rows.map((item, index) => `
                 <tr>
                     <td style="text-align:center;">${index + 1}</td>
                     <td>${escapeHtml(item.serial)}</td>
+                    <td>${escapeHtml((item.customerSerials || []).join(' | ') || '-')}</td>
                     <td>${escapeHtml(csvMutationText(item.prodItems))}</td>
                     <td>${escapeHtml(csvMutationText(item.pullItems))}</td>
                     <td>${escapeHtml(statusLabel(item.status))}</td>
@@ -1722,7 +1733,7 @@
             $('#compareMeta').text('Loading comparison...');
             updateComparePrepContext(pagePrepContext);
             $('#compareTbody').html(
-                '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Loading data...</td></tr>'
+                '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text-muted);">Loading data...</td></tr>'
             );
             $('#compareModal').modal('show');
 
@@ -1747,6 +1758,7 @@
                         else if (dItems.length && !pItems.length) status = 'MISSING_PULL';
                         return {
                             serial,
+                            customerSerials: Array.from(new Set(pItems.map(item => item.customerSerial).filter(Boolean))),
                             prodItems: dItems,
                             pullItems: pItems,
                             status
@@ -1760,7 +1772,7 @@
                         xhr.responseJSON.message : 'Gagal memuat data comparison.';
                     $('#compareMeta').text('Failed to load');
                     $('#compareTbody').html(
-                        `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--danger);">${escapeHtml(message)}</td></tr>`
+                        `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--danger);">${escapeHtml(message)}</td></tr>`
                     );
                     notif('error', message);
                 },
@@ -1805,6 +1817,8 @@
                             if (cd.serial === serial) {
                                 cd.pullItems = (cd.pullItems || []).filter(x =>
                                     String(x.mid) !== String(mid));
+                                cd.customerSerials = Array.from(new Set(cd.pullItems
+                                    .map(item => item.customerSerial).filter(Boolean)));
                                 if (cd.pullItems.length && !cd.prodItems.length) cd
                                     .status = 'MISSING_PROD';
                                 else if (cd.prodItems.length && !cd.pullItems

@@ -1514,6 +1514,9 @@
         localStorage.setItem('char_first', data.first);
         localStorage.setItem('char_length', data.length);
         localStorage.setItem('char_total', data.total);
+        // Posisi serial kanban customer (pilot TMMIN); customer lain null → tidak ditangkap.
+        localStorage.setItem('serial_first', data.serial_first ?? '');
+        localStorage.setItem('serial_length', data.serial_length ?? '');
     }
 
     function fetchCustomerMeta(customer, pds = null) {
@@ -3525,11 +3528,14 @@
                             customerPart: localStorage.getItem('customerPart'),
                             serialNumber: seri,
                             qty_per_kbn: qty_per_kbn,
-                            agMode: isAgOn() ? 1 : 0
+                            agMode: isAgOn() ? 1 : 0,
+                            customer_serial: localStorage.getItem('pendingCustomerSerial') || null
                         },
                         contentType: 'application/json',
                         success: function(data) {
                             if (data.status == 'success') {
+                                // Pairing customer serial sudah tercatat di server → jangan dipakai ulang.
+                                localStorage.removeItem('pendingCustomerSerial');
                                 // eDCL opsional
                                 if (localStorage.getItem('char_total') == 10000) {
                                     $.ajax({
@@ -4136,7 +4142,23 @@
 
             handleCustomerKanban(code) {
                 const processedCode = this.processCustomerCode(code);
+                this.captureCustomerSerial(code);
                 this.findKanbanInDatabase(processedCode, code);
+            }
+
+            // Ambil serial kanban customer dari posisi absolut (serial_first/length per customer).
+            // Pilot TMMIN — info only untuk pairing, TIDAK jadi gate validasi.
+            captureCustomerSerial(rawCode) {
+                const sFirst = parseInt(localStorage.getItem('serial_first') || '', 10);
+                const sLen = parseInt(localStorage.getItem('serial_length') || '', 10);
+                let serial = null;
+                if (Number.isFinite(sFirst) && Number.isFinite(sLen) && sLen > 0 &&
+                    String(rawCode).length >= sFirst + sLen) {
+                    serial = String(rawCode).substr(sFirst, sLen).trim();
+                    if (serial === '') serial = null;
+                }
+                if (serial) localStorage.setItem('pendingCustomerSerial', serial);
+                else localStorage.removeItem('pendingCustomerSerial');
             }
 
             processCustomerCode(code) {

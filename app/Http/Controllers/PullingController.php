@@ -43,6 +43,23 @@ class PullingController extends Controller
 
     private static $mutationsHaveLoadingListColumns = null;
 
+    private static $mutationsHaveCustomerSerialColumn = null;
+
+    private function mutationsHaveCustomerSerialColumn(): bool
+    {
+        if (self::$mutationsHaveCustomerSerialColumn !== null) {
+            return self::$mutationsHaveCustomerSerialColumn;
+        }
+
+        try {
+            self::$mutationsHaveCustomerSerialColumn = Schema::hasColumn('mutations', 'customer_serial');
+        } catch (\Throwable $th) {
+            self::$mutationsHaveCustomerSerialColumn = false;
+        }
+
+        return self::$mutationsHaveCustomerSerialColumn;
+    }
+
     private function mutationsHaveLoadingListColumns(): bool
     {
         if (self::$mutationsHaveLoadingListColumns !== null) {
@@ -1038,6 +1055,8 @@ class PullingController extends Controller
             'first' => $check->char_first,
             'length' => $check->char_length,
             'total' => $check->char_total,
+            'serial_first' => $check->serial_first ?? null,
+            'serial_length' => $check->serial_length ?? null,
         ]);
     }
 
@@ -1144,6 +1163,7 @@ class PullingController extends Controller
             'serialNumber' => 'required|string',
             'qty_per_kbn' => 'required|numeric|min:1',
             'agMode' => 'sometimes|boolean',
+            'customer_serial' => 'sometimes|nullable|string|max:32',
         ]);
 
         $data['qty_per_kbn'] = (int) round($data['qty_per_kbn']);
@@ -1283,6 +1303,12 @@ class PullingController extends Controller
             if ($this->mutationsHaveLoadingListColumns()) {
                 $mutationPayload['loading_list_id'] = $loadingList->id;
                 $mutationPayload['loading_list_detail_id'] = $lld->id;
+            }
+
+            // Pairing kanban customer (pilot TMMIN) — info only, tanpa validasi.
+            if ($this->mutationsHaveCustomerSerialColumn()) {
+                $customerSerial = trim((string) ($data['customer_serial'] ?? ''));
+                $mutationPayload['customer_serial'] = $customerSerial !== '' ? $customerSerial : null;
             }
 
             $mutation = Mutation::create($mutationPayload);

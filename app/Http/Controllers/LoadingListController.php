@@ -959,7 +959,7 @@ class LoadingListController extends Controller
             ->exists();
 
         $checkouts = DB::table('mutations as checkout')
-            ->select('checkout.id', 'checkout.serial_number', 'checkout.qty', 'checkout.date', 'checkout.created_at')
+            ->select('checkout.id', 'checkout.serial_number', 'checkout.customer_serial', 'checkout.qty', 'checkout.date', 'checkout.created_at')
             ->selectSub(function ($query) {
                 $query->from('mutations as supply')
                     ->select('supply.id')
@@ -998,6 +998,7 @@ class LoadingListController extends Controller
             return array_merge([
                 'id' => $checkout->id,
                 'serial_number' => $checkout->serial_number,
+                'customer_serial' => $checkout->customer_serial,
                 'date' => $checkout->date,
                 'created_at' => $checkout->created_at,
                 'qty' => $checkout->qty,
