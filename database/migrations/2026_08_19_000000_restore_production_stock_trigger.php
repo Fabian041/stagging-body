@@ -12,8 +12,9 @@ return new class extends Migration
         } catch (\Throwable $e) {
         }
 
-        DB::unprepared('DROP TRIGGER IF EXISTS update_production_stock');
-        DB::unprepared('CREATE TRIGGER update_production_stock AFTER INSERT ON mutations FOR EACH ROW
+        try {
+            DB::unprepared('DROP TRIGGER IF EXISTS update_production_stock');
+            DB::unprepared('CREATE TRIGGER update_production_stock AFTER INSERT ON mutations FOR EACH ROW
             BEGIN
                 IF NEW.type = "supply" THEN
                     IF EXISTS (SELECT 1 FROM production_stocks WHERE internal_part_id = NEW.internal_part_id) THEN
@@ -33,6 +34,11 @@ return new class extends Migration
                     END IF;
                 END IF;
             END');
+        } catch (\Throwable $e) {
+            // Perlu SUPER / log_bin_trust_function_creators saat binary logging aktif (error 1419).
+            // Jangan hentikan migrate — lewati; trigger bisa dibuat manual saat privilege tersedia.
+            \Illuminate\Support\Facades\Log::warning('Lewati CREATE TRIGGER update_production_stock: '.$e->getMessage());
+        }
     }
 
     public function down(): void
