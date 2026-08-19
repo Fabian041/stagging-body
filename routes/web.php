@@ -268,6 +268,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/part/template', [DashboardController::class, 'downloadPartImportTemplate'])->name('dashboard.part.template');
         Route::post('/part/import', [DashboardController::class, 'importPart'])->name('dashboard.part.import');
         Route::post('/manifest/import', [DashboardController::class, 'importManifest'])->name('dashboard.manifest.import');
+        Route::get('/stock/template', [DashboardController::class, 'downloadStockImportTemplate'])->name('dashboard.stock.template');
         Route::post('/stock/import', [DashboardController::class, 'importStock'])->name('dashboard.stock.import');
 
         // check kanban
@@ -294,6 +295,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/reset-scan-count/{line}', [ProductionController::class, 'resetScanCount']);
         Route::get('/update-scan-target/{line}/{target}', [ProductionController::class, 'updateScanTarget']);
         Route::get('/as523', [ProductionController::class, 'as523'])->name('as523.index');
+        Route::get('/as547', [ProductionController::class, 'as547'])->name('as547.index');
         Route::get('/line-check/{line}', [ProductionController::class, 'lineCheck'])->name('production.line-check');
         Route::get('/sample-check/{line}/{sample}', [ProductionController::class, 'sampleCheck'])->name('production.sample-check');
         Route::get('/store', [ProductionController::class, 'store'])->name('production.store');
@@ -305,6 +307,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/api-stop', [ProductionController::class, 'inboundStop']);
         Route::post('/pc2b/scan-kanban', [ProductionController::class, 'storePc2bKanbanScan'])
             ->name('production.pc2b.scan-kanban');
+        Route::post('/as547/scan-kanban', [ProductionController::class, 'storeAs547KanbanScan'])
+            ->name('production.as547.scan-kanban');
 
         Route::post('/part-scan', [ProductionController::class, 'storePartScan'])
             ->name('production.part-scan');

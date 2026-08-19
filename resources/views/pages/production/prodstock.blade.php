@@ -806,6 +806,9 @@
                     line.</div>
             </div>
             <div class="stock-header-actions">
+                <a href="{{ route('dashboard.stock.template') }}" class="act-btn secondary">
+                    <i class="fas fa-file-excel"></i> Template Excel
+                </a>
                 <button type="button" class="act-btn success" data-toggle="modal" data-target="#stockModal">
                     <i class="fas fa-file-import"></i> Import Stock
                 </button>
@@ -913,12 +916,12 @@
                         <div class="form-group">
                             <label>New Standard Stock</label>
                             <input type="hidden" id="internal_part_id" name="internal_part_id">
-                            <input type="number" class="form-control" name="standard_stock" min="0"
+                            <input type="number" class="form-control" id="standard_stock_input" name="standard_stock" min="0"
                                 placeholder="-">
                         </div>
                         <div class="form-group">
                             <label>New Current Stock</label>
-                            <input type="number" class="form-control" name="current_stock" min="0"
+                            <input type="number" class="form-control" id="current_stock_input" name="current_stock" min="0"
                                 placeholder="-">
                         </div>
                     </div>
@@ -1473,6 +1476,8 @@
             $('#internal_part_id').val(button.dataset.id || '');
             $('#standard_stock').text(button.dataset.standard || '0');
             $('#current_stock').text(button.dataset.qty || '0');
+            $('#standard_stock_input').val(button.dataset.standard || '0');
+            $('#current_stock_input').val(button.dataset.qty || '0');
             modal.modal('show');
         });
     })(jQuery);

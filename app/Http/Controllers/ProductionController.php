@@ -48,7 +48,9 @@ class ProductionController extends Controller
      */
     public function indexprdreport()
     {
-        return view('pages.production.prdreport');
+        return view('pages.production.prdreport', [
+            'productionLines' => Line::orderBy('name')->get(['id', 'name']),
+        ]);
     }
 
     public function as523()
@@ -61,6 +63,11 @@ class ProductionController extends Controller
         return view('pages.production.pc2b');
     }
 
+    public function as547()
+    {
+        return view('pages.production.as547');
+    }
+
     /**
      * Simpan scan kanban PC2B ke tabel mutations.
      * Dipanggil setelah parse barcode kanban (part_number + serial_number).
@@ -69,6 +76,16 @@ class ProductionController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function storePc2bKanbanScan(Request $request)
+    {
+        return $this->storePairedKanbanScan($request, 'pc2b');
+    }
+
+    public function storeAs547KanbanScan(Request $request)
+    {
+        return $this->storePairedKanbanScan($request, 'as547');
+    }
+
+    private function storePairedKanbanScan(Request $request, string $line)
     {
         $request->validate([
             'part_number'   => ['required', 'string', 'max:64'],
@@ -93,7 +110,7 @@ class ProductionController extends Controller
             ? (int) $customerPart->qty_per_kanban
             : 1;
 
-        $type = $side === 'R' ? 'pc2b_kanan' : 'pc2b_kiri';
+        $type = $line.'_'.($side === 'R' ? 'kanan' : 'kiri');
 
         try {
             Mutation::create([
@@ -314,35 +331,38 @@ class ProductionController extends Controller
 
     public function adjust(Request $request)
     {
-        $prod = ProductionStock::where('internal_part_id', $request->internal_part_id)->first();
-        $current_stock = $prod->current_stock;
-        $actual_stock = $request->current_stock;
-
-        if ($actual_stock < $current_stock) {
-            $type = 'checkout';
-            $qty = $current_stock - $actual_stock;
-        } else {
-            $type = 'supply';
-            $qty = $actual_stock - $current_stock;
-        }
+        $request->validate([
+            'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
+            'standard_stock' => ['nullable', 'integer', 'min:0'],
+            'current_stock' => ['nullable', 'integer', 'min:0'],
+        ]);
 
         try {
             DB::beginTransaction();
 
+            $prod = ProductionStock::where('internal_part_id', $request->internal_part_id)
+                ->lockForUpdate()
+                ->first();
+            $current_stock = (int) optional($prod)->current_stock;
+            $actual_stock = $request->filled('current_stock') ? (int) $request->current_stock : null;
+
             if ($request->standard_stock !== null) {
                 InternalPart::where('id', $request->internal_part_id)
                     ->update([
-                        'standard_stock' => $request->standard_stock,
+                        'standard_stock' => (int) $request->standard_stock,
                     ]);
             }
 
-            if ($actual_stock !== null) {
+            if ($actual_stock !== null && $actual_stock !== $current_stock) {
+                $type = $actual_stock < $current_stock ? 'checkout' : 'supply';
+                $qty = abs($actual_stock - $current_stock);
+
                 Mutation::create([
                     'internal_part_id' => $request->internal_part_id,
                     'serial_number' => 'xxxx',
                     'qty' => $qty,
                     'type' => $type,
-                    'npk' => auth()->user()->npk,
+                    'npk' => auth()->user()->npk ?? 'SYS',
                     'date' => Carbon::now()->format('Y-m-d H:i:s'),
                 ]);
             }

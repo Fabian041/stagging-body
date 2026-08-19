@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\MutationMultiSheetExport;
 use App\Exports\PartImportTemplateExport;
+use App\Exports\StockImportTemplateExport;
 use App\Imports\ManifestImport;
 use App\Imports\PartImport;
 use App\Imports\StockImport;
@@ -981,6 +982,14 @@ class DashboardController extends Controller
         return Excel::download(
             new PartImportTemplateExport(),
             'format import new part BELLA.xlsx'
+        );
+    }
+
+    public function downloadStockImportTemplate()
+    {
+        return Excel::download(
+            new StockImportTemplateExport(),
+            'template import stock BELLA.xlsx'
         );
     }
 
