@@ -156,6 +156,16 @@
             background: #0070b7 !important;
         }
 
+        /*
+            |--------------------------------------------------------------------------
+            | QR MODAL
+            |--------------------------------------------------------------------------
+            */
+
+        .mold-qr-modal .modal-dialog {
+            max-width: 430px;
+        }
+
         .mold-qr-modal .modal-content {
             overflow: hidden;
             border: 0 !important;
@@ -174,8 +184,13 @@
             font-weight: 700;
         }
 
+        .mold-qr-modal .modal-body {
+            background: #f8fafc;
+        }
+
         .mold-qr-card {
-            width: min(100%, 330px);
+            width: 100%;
+            max-width: 330px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
@@ -189,24 +204,31 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 100%;
             min-height: 270px;
             margin-bottom: 14px;
             padding: 10px;
+            overflow: hidden;
             background: #fff;
             border-radius: 8px;
         }
 
+        /*
+             * PENTING:
+             * Jangan pakai display:block !important pada img/canvas.
+             * QRCode.js membuat canvas + img dan mengatur salah satunya hidden.
+             */
         .mold-qr-container {
             display: none;
             width: 250px;
             height: 250px;
             max-width: 100%;
             margin: 0 auto;
+            overflow: hidden;
         }
 
         .mold-qr-container img,
         .mold-qr-container canvas {
-            display: block !important;
             width: 250px !important;
             height: 250px !important;
             max-width: 100% !important;
@@ -239,6 +261,12 @@
             border: 1px solid #b9dcf3;
             border-radius: 7px;
         }
+
+        /*
+            |--------------------------------------------------------------------------
+            | PHOTO
+            |--------------------------------------------------------------------------
+            */
 
         .mold-photo-field {
             overflow: hidden;
@@ -279,17 +307,24 @@
         }
     </style>
 
+
     <div class="container-fluid master-page">
 
         <div class="master-page-header">
+
             <div>
-                <h1 class="master-page-title">Master Mold</h1>
+                <h1 class="master-page-title">
+                    Master Mold
+                </h1>
+
                 <div class="master-page-subtitle">
                     Kelola mold, status penggunaan, dan internal part yang terhubung.
                 </div>
             </div>
 
+
             <div class="master-actions">
+
                 <a href="{{ route('injection.indexprdreport') }}" class="master-btn primary">
                     <i class="fas fa-external-link-alt"></i>
                     Open Injection
@@ -299,7 +334,9 @@
                     <i class="fas fa-th-large"></i>
                     Master Home
                 </a>
+
             </div>
+
         </div>
 
 
@@ -313,12 +350,18 @@
         @if ($errors->any())
             <div class="alert alert-danger master-alert">
 
-                <strong>Data mold belum dapat disimpan.</strong>
+                <strong>
+                    Data mold belum dapat disimpan.
+                </strong>
 
                 <ul class="mb-0 mt-2">
+
                     @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
+                        <li>
+                            {{ $error }}
+                        </li>
                     @endforeach
+
                 </ul>
 
             </div>
@@ -335,8 +378,11 @@
                     <div class="master-panel-header">
 
                         <h2 class="master-panel-title">
+
                             <i class="fas fa-shapes"></i>
+
                             {{ $editingMold ? 'Edit Mold' : 'Tambah Mold' }}
+
                         </h2>
 
                     </div>
@@ -418,13 +464,12 @@
                             </div>
 
 
-                            {{-- PART --}}
+                            {{-- MASTER PART --}}
                             <div class="mb-3">
 
                                 <label class="form-label">
                                     Master Part
                                 </label>
-
 
                                 <div class="mold-part-select-wrap">
 
@@ -439,9 +484,7 @@
                                                 )
                                                     ? 'selected'
                                                     : '' }}>
-
                                                 {{ $part->back_number ?? '-' }}
-
                                             </option>
                                         @endforeach
 
@@ -449,18 +492,14 @@
 
                                 </div>
 
-
                                 <small class="text-muted">
-
-                                    Ketik back number untuk mencari,
-                                    lalu pilih satu atau beberapa part.
-
+                                    Ketik back number untuk mencari, lalu pilih satu atau beberapa part.
                                 </small>
 
                             </div>
 
 
-                            {{-- ACTIVE --}}
+                            {{-- STATUS --}}
                             <div class="mb-3 form-check">
 
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1"
@@ -473,7 +512,6 @@
                             </div>
 
 
-                            {{-- SUBMIT --}}
                             <div class="master-submit-row">
 
                                 <button type="submit" class="master-btn primary w-100">
@@ -492,7 +530,6 @@
                                 @endif
 
                             </div>
-
 
                         </form>
 
@@ -520,9 +557,7 @@
 
 
                         <span class="master-record-count">
-
                             {{ $moldCount }} record
-
                         </span>
 
                     </div>
@@ -552,7 +587,6 @@
 
                             </thead>
 
-
                             <tbody></tbody>
 
                         </table>
@@ -576,6 +610,7 @@
 
             <div class="modal-content">
 
+                {{-- HEADER --}}
                 <div class="modal-header">
 
                     <div>
@@ -583,7 +618,6 @@
                         <h5 class="modal-title" id="moldQrModalLabel">
                             QR Code Mold
                         </h5>
-
 
                         <div class="text-muted small" id="moldQrName">
                             -
@@ -603,13 +637,14 @@
                 </div>
 
 
+                {{-- BODY --}}
                 <div class="modal-body p-4">
 
                     <div class="mold-qr-card">
 
                         <div class="mold-qr-image-wrap">
 
-                            {{-- Loading --}}
+                            {{-- LOADING --}}
                             <div class="mold-qr-loading" id="moldQrLoading">
 
                                 <i class="fas fa-circle-notch fa-spin mr-2"></i>
@@ -619,15 +654,13 @@
                             </div>
 
 
-                            {{-- Error --}}
+                            {{-- ERROR --}}
                             <div class="mold-qr-error" id="moldQrError">
-
                                 QR Code gagal dibuat.
-
                             </div>
 
 
-                            {{-- QR --}}
+                            {{-- QR CONTAINER --}}
                             <div class="mold-qr-container" id="moldQrCanvas" role="img" aria-label="QR Code Mold">
                             </div>
 
@@ -635,9 +668,7 @@
 
 
                         <div class="text-muted small mb-2">
-
                             Tag Mold
-
                         </div>
 
 
@@ -650,6 +681,7 @@
                 </div>
 
 
+                {{-- FOOTER --}}
                 <div class="modal-footer">
 
                     <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
@@ -668,7 +700,7 @@
 
 
 @push('scripts')
-    {{-- QR CODE GENERATOR --}}
+    {{-- QR CODE JS --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 
@@ -685,11 +717,9 @@
 
             const $qrError = $('#moldQrError');
 
-            const moldPhotoInput =
-                document.getElementById('moldPhotoInput');
+            const moldPhotoInput = document.getElementById('moldPhotoInput');
 
-            const moldPhotoPreview =
-                document.getElementById('moldPhotoPreview');
+            const moldPhotoPreview = document.getElementById('moldPhotoPreview');
 
 
             /*
@@ -700,55 +730,35 @@
 
             if (moldPhotoInput && moldPhotoPreview) {
 
-                moldPhotoInput.addEventListener(
-                    'change',
-                    function() {
+                moldPhotoInput.addEventListener('change', function() {
 
-                        const file =
-                            this.files &&
-                            this.files[0];
+                    const file = this.files && this.files[0];
 
-
-                        if (
-                            !file ||
-                            !file.type.startsWith('image/')
-                        ) {
-                            return;
-                        }
-
-
-                        const image =
-                            document.createElement('img');
-
-
-                        const previewUrl =
-                            URL.createObjectURL(file);
-
-
-                        image.src = previewUrl;
-
-                        image.alt =
-                            'Preview gambar mold';
-
-
-                        image.onload =
-                            function() {
-
-                                URL.revokeObjectURL(
-                                    previewUrl
-                                );
-
-                            };
-
-
-                        moldPhotoPreview.innerHTML = '';
-
-                        moldPhotoPreview.appendChild(
-                            image
-                        );
-
+                    if (!file || !file.type.startsWith('image/')) {
+                        return;
                     }
-                );
+
+
+                    const previewUrl = URL.createObjectURL(file);
+
+                    const image = document.createElement('img');
+
+
+                    image.src = previewUrl;
+
+                    image.alt = 'Preview gambar mold';
+
+
+                    image.onload = function() {
+                        URL.revokeObjectURL(previewUrl);
+                    };
+
+
+                    moldPhotoPreview.innerHTML = '';
+
+                    moldPhotoPreview.appendChild(image);
+
+                });
 
             }
 
@@ -759,33 +769,24 @@
             |--------------------------------------------------------------------------
             */
 
-            if (
-                $moldPartSelect.length &&
-                $.fn.select2
-            ) {
+            if ($moldPartSelect.length && $.fn.select2) {
 
                 $moldPartSelect.select2({
 
                     width: '100%',
 
-                    placeholder: $moldPartSelect.data(
-                        'placeholder'
-                    ),
+                    placeholder: $moldPartSelect.data('placeholder'),
 
                     closeOnSelect: false,
 
                     allowClear: false,
 
-                    dropdownParent: $moldPartSelect.closest(
-                        '.mold-part-select-wrap'
-                    ),
+                    dropdownParent: $moldPartSelect.closest('.mold-part-select-wrap'),
 
                     language: {
 
                         noResults: function() {
-
                             return 'Back number tidak ditemukan';
-
                         }
 
                     }
@@ -793,31 +794,24 @@
                 });
 
 
-                const keepSearchVisible =
-                    function() {
+                const keepSearchVisible = function() {
 
-                        $moldPartSelect
-                            .next(
-                                '.select2-container'
-                            )
-                            .find(
-                                '.select2-search__field'
-                            )
-                            .attr(
-                                'placeholder',
-                                'Cari back number...'
-                            );
+                    $moldPartSelect
+                        .next('.select2-container')
+                        .find('.select2-search__field')
+                        .attr(
+                            'placeholder',
+                            'Cari back number...'
+                        );
 
-                    };
+                };
 
 
                 keepSearchVisible();
 
 
                 $moldPartSelect.on(
-
                     'select2:select select2:unselect select2:clear',
-
                     function() {
 
                         setTimeout(
@@ -826,7 +820,6 @@
                         );
 
                     }
-
                 );
 
             }
@@ -932,27 +925,25 @@
 
             /*
             |--------------------------------------------------------------------------
-            | QR ERROR
+            | SHOW QR ERROR
             |--------------------------------------------------------------------------
             */
 
-            const showQrError =
-                function(message) {
+            const showQrError = function(message) {
 
-                    $qrLoading.hide();
+                $qrLoading.hide();
 
-                    $qrContainer
-                        .hide()
-                        .empty();
+                $qrContainer
+                    .hide()
+                    .empty();
 
-                    $qrError
-                        .text(
-                            message ||
-                            'QR Code gagal dibuat.'
-                        )
-                        .show();
+                $qrError
+                    .text(
+                        message || 'QR Code gagal dibuat.'
+                    )
+                    .show();
 
-                };
+            };
 
 
             /*
@@ -961,110 +952,99 @@
             |--------------------------------------------------------------------------
             */
 
-            const renderLocalQr =
-                function(tag) {
+            const renderLocalQr = function(tag) {
 
-                    /*
-                     * Validasi tag
-                     */
-                    if (!tag) {
+                if (!tag) {
 
-                        showQrError(
-                            'Tag mold tidak tersedia.'
+                    showQrError(
+                        'Tag mold tidak tersedia.'
+                    );
+
+                    return;
+
+                }
+
+
+                if (typeof window.QRCode === 'undefined') {
+
+                    showQrError(
+                        'Generator QR tidak tersedia. Muat ulang halaman dan coba kembali.'
+                    );
+
+                    return;
+
+                }
+
+
+                try {
+
+                    const qrElement = document.getElementById(
+                        'moldQrCanvas'
+                    );
+
+
+                    if (!qrElement) {
+
+                        throw new Error(
+                            'Container QR Code tidak ditemukan.'
                         );
-
-                        return;
 
                     }
 
 
                     /*
-                     * Pastikan QRCode JS tersedia
+                     * Clear QR sebelumnya
                      */
-                    if (
-                        typeof window.QRCode ===
-                        'undefined'
-                    ) {
-
-                        showQrError(
-                            'Generator QR tidak tersedia. Muat ulang halaman dan coba kembali.'
-                        );
-
-                        return;
-
-                    }
+                    qrElement.innerHTML = '';
 
 
-                    try {
+                    /*
+                     * Generate QR
+                     */
+                    new QRCode(
+                        qrElement, {
+                            text: tag,
 
-                        const qrElement =
-                            document.getElementById(
-                                'moldQrCanvas'
-                            );
+                            width: 250,
 
+                            height: 250,
 
-                        if (!qrElement) {
+                            colorDark: '#1A2340',
 
-                            throw new Error(
-                                'Container QR tidak ditemukan.'
-                            );
+                            colorLight: '#FFFFFF',
 
+                            correctLevel: QRCode.CorrectLevel.M
                         }
+                    );
 
 
-                        /*
-                         * Hapus QR sebelumnya
-                         */
-                        qrElement.innerHTML = '';
+                    /*
+                     * QRCode.js dapat membuat canvas + img.
+                     * Biarkan library mengatur mana yang tampil.
+                     * Jangan force display kedua elemen.
+                     */
+                    $qrLoading.hide();
+
+                    $qrError.hide();
+
+                    $qrContainer.show();
 
 
-                        /*
-                         * Generate QR
-                         */
-                        new QRCode(
-                            qrElement, {
+                } catch (error) {
 
-                                text: tag,
-
-                                width: 250,
-
-                                height: 250,
-
-                                colorDark: '#1A2340',
-
-                                colorLight: '#FFFFFF',
-
-                                correctLevel: QRCode.CorrectLevel.M
-
-                            }
-                        );
+                    console.error(
+                        'QR generation error:',
+                        error
+                    );
 
 
-                        /*
-                         * Tampilkan hasil
-                         */
-                        $qrLoading.hide();
+                    showQrError(
+                        'QR Code gagal dibuat.'
+                    );
 
-                        $qrError.hide();
+                }
 
-                        $qrContainer.show();
-
-
-                    } catch (error) {
-
-                        console.error(
-                            'QR generation error:',
-                            error
-                        );
-
-
-                        showQrError(
-                            'QR Code gagal dibuat.'
-                        );
-
-                    }
-
-                };
+            };
 
 
             /*
@@ -1077,24 +1057,21 @@
                 'show.bs.modal',
                 function(event) {
 
-                    const $button =
-                        $(event.relatedTarget);
+                    const $button = $(event.relatedTarget);
 
 
-                    const tag =
-                        String(
-                            $button.data('tag') || ''
-                        ).trim();
+                    const tag = String(
+                        $button.data('tag') || ''
+                    ).trim();
 
 
-                    const name =
-                        String(
-                            $button.data('name') || ''
-                        ).trim();
+                    const name = String(
+                        $button.data('name') || ''
+                    ).trim();
 
 
                     /*
-                     * Set info mold
+                     * Mold Information
                      */
                     $('#moldQrName').text(
                         name || '-'
@@ -1107,7 +1084,7 @@
 
 
                     /*
-                     * Simpan tag aktif
+                     * Simpan active tag
                      */
                     $qrModal.data(
                         'qr-tag',
@@ -1133,7 +1110,7 @@
 
 
                     /*
-                     * Generate QR
+                     * Generate
                      */
                     renderLocalQr(tag);
 
@@ -1164,6 +1141,11 @@
                     $qrLoading.hide();
 
                     $qrError.hide();
+
+
+                    $('#moldQrName').text('-');
+
+                    $('#moldQrTag').text('-');
 
                 }
             );
