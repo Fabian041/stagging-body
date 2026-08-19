@@ -2286,7 +2286,8 @@ class LoadingListController extends Controller
                 });
 
             // Linkage presisi menang; LL tanpa linkage tetap pakai proxy lama.
-            $scopedPullingByLoadingListId = $fallbackPulling->merge($linkedPulling);
+            // Pakai replace() (bukan merge) karena merge me-reindex key integer loading_list_id → key hilang.
+            $scopedPullingByLoadingListId = $fallbackPulling->replace($linkedPulling);
         }
 
         $pullingByPds = collect();

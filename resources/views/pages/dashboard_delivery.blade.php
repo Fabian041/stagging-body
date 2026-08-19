@@ -6813,6 +6813,11 @@
             fetchMasters();
             loadStackedChart();
 
+            // Auto-refresh data dashboard tiap 5 menit (lewati saat tab tidak aktif biar hemat).
+            setInterval(function() {
+                if (!document.hidden) loadStackedChart();
+            }, 300000);
+
             waNotifyTimer = setInterval(function() {
                 checkAndSendUnfinishedWaNotification();
                 if (dashboardViewMode === 'daily') {
