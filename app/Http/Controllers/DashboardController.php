@@ -1021,6 +1021,7 @@ class DashboardController extends Controller
                 'mutations.serial_number',
                 'mutations.qty',
                 'mutations.type',
+                DB::raw('COALESCE(mutations.is_adjustment, 0) as is_adjustment'),
                 DB::raw("DATE_FORMAT(mutations.date, '%Y-%m-%d %H:%i:%s') as mutation_date")
             )
             ->whereBetween('mutations.date', [$start->toDateTimeString(), $end->toDateTimeString()])
@@ -2028,7 +2029,7 @@ class DashboardController extends Controller
         }
 
         try {
-            $import = new StockImport();
+            $import = new StockImport(auth()->user()->npk ?? 'SYS');
 
             Excel::import($import, $request->file('file'));
 

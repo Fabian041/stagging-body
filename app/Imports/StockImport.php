@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\InternalPart;
+use App\Models\ProductionStock;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\SkipsUnknownSheets;
@@ -18,6 +19,10 @@ class StockImport implements WithMultipleSheets, SkipsUnknownSheets
     public int $skippedRows = 0;
 
     private array $messages = [];
+
+    public function __construct(private ?string $npk = null)
+    {
+    }
 
     public function sheets(): array
     {
@@ -99,25 +104,11 @@ class StockImport implements WithMultipleSheets, SkipsUnknownSheets
                 }
 
                 if ($hasCurrentStock) {
-                    $exists = DB::table('production_stocks')
-                        ->where('internal_part_id', $internalPart->id)
-                        ->exists();
-
-                    if ($exists) {
-                        DB::table('production_stocks')
-                            ->where('internal_part_id', $internalPart->id)
-                            ->update([
-                                'current_stock' => $this->toInteger($currentStockRaw),
-                                'updated_at'    => now(),
-                            ]);
-                    } else {
-                        DB::table('production_stocks')->insert([
-                            'internal_part_id' => $internalPart->id,
-                            'current_stock'    => $this->toInteger($currentStockRaw),
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ]);
-                    }
+                    ProductionStock::adjustCurrentStock(
+                        (int) $internalPart->id,
+                        $this->toInteger($currentStockRaw),
+                        $this->npk ?: 'SYS'
+                    );
                 }
 
                 $this->updatedRows++;
