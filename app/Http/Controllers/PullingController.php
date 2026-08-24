@@ -45,6 +45,23 @@ class PullingController extends Controller
 
     private static $mutationsHaveCustomerSerialColumn = null;
 
+    private static $mutationsHaveAgModeColumn = null;
+
+    private function mutationsHaveAgModeColumn(): bool
+    {
+        if (self::$mutationsHaveAgModeColumn !== null) {
+            return self::$mutationsHaveAgModeColumn;
+        }
+
+        try {
+            self::$mutationsHaveAgModeColumn = Schema::hasColumn('mutations', 'ag_mode');
+        } catch (\Throwable $th) {
+            self::$mutationsHaveAgModeColumn = false;
+        }
+
+        return self::$mutationsHaveAgModeColumn;
+    }
+
     private function mutationsHaveCustomerSerialColumn(): bool
     {
         if (self::$mutationsHaveCustomerSerialColumn !== null) {
@@ -1303,6 +1320,10 @@ class PullingController extends Controller
             if ($this->mutationsHaveLoadingListColumns()) {
                 $mutationPayload['loading_list_id'] = $loadingList->id;
                 $mutationPayload['loading_list_detail_id'] = $lld->id;
+            }
+
+            if ($this->mutationsHaveAgModeColumn()) {
+                $mutationPayload['ag_mode'] = $agMode;
             }
 
             // Pairing kanban customer (pilot TMMIN) — info only, tanpa validasi.
