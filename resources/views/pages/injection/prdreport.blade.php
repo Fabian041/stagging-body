@@ -538,7 +538,15 @@
     }
 
     function getBackNumbersForParts(partNumbers) {
-        return partNumbers.map(getBackNumberForPart);
+        return [...new Set(partNumbers.map(getBackNumberForPart).filter(Boolean))];
+    }
+
+    function formatNextKanbanMessage(backNumbers) {
+        if (!backNumbers.length) {
+            return '';
+        }
+
+        return `Scan kanban selanjutnya: ${backNumbers.join(', ')}.`;
     }
 
     function checkLineName() {
@@ -629,6 +637,10 @@
         const moldCode = localStorage.getItem(STORAGE_KEYS.moldCode) || '-';
         const moldImageUrl = localStorage.getItem(STORAGE_KEYS.moldImageUrl) || '';
         const scannedParts = getCycleScannedParts().map(partNumber => normalizePartNumber(partNumber));
+        const totalParts = getUniqueMoldPartNumbers().length;
+        const totalScannedParts = getUniqueMoldPartNumbers()
+            .filter(partNumber => scannedParts.includes(normalizePartNumber(partNumber)))
+            .length;
         const cards = parts.map((item) => {
             const partNumber = typeof item === 'string' ? item : (item.part_number || item.internal_part_number || item.internal || '-');
             const backNumber = typeof item === 'string' ? '-' : (item.back_number || item.backNumber || '-');
@@ -648,7 +660,9 @@
             <div class="mold-parts-panel">
                 <div class="mold-parts-heading">
                     <h2 class="text-dark mb-0">${escapeHtml(moldCode)}</h2>
-                    <span class="mold-cycle-badge">Cycle ${getCycleNumber()}</span>
+                    <span class="mold-cycle-badge">
+                        Cycle ${getCycleNumber()} &bull; ${totalScannedParts}/${totalParts}
+                    </span>
                 </div>
                 <div class="mold-parts-grid">${cards}</div>
                 <div class="mold-image-panel" id="moldImagePanel">
@@ -946,13 +960,14 @@
             const remainingParts = getRemainingPartsInCurrentCycle();
             const duplicateBackNumber = getBackNumberForPart(internal);
             const remainingBackNumbers = getBackNumbersForParts(remainingParts);
+            const nextKanbanMessage = formatNextKanbanMessage(remainingBackNumbers);
 
             wrongKanbanSound();
 
             notif(
                 'error',
                 `${duplicateBackNumber} sudah discan pada cycle ${cycleNumber}. ` +
-                `Selesaikan back number lain: ${remainingBackNumbers.join(', ')}`
+                nextKanbanMessage
             );
 
             setStatus('danger');
@@ -1032,10 +1047,13 @@
             startTimeCounter(now);
 
             if (isCurrentCycleComplete()) {
+                const nextCycleNumber = currentCycleNumber + 1;
+                const nextCycleBackNumbers = getBackNumbersForParts(getUniqueMoldPartNumbers());
+
                 notif(
                     'success',
-                    `${scannedBackNumber} berhasil discan. Cycle ${currentCycleNumber} lengkap, ` +
-                    `lanjut cycle ${currentCycleNumber + 1}.`
+                    `${scannedBackNumber} berhasil discan. Cycle ${currentCycleNumber} lengkap. ` +
+                    `Cycle ${nextCycleNumber} dimulai. ${formatNextKanbanMessage(nextCycleBackNumbers)}`
                 );
 
                 await new Promise(resolve => setTimeout(resolve, 650));
@@ -1044,8 +1062,8 @@
             } else {
                 notif(
                     'success',
-                    `${scannedBackNumber} berhasil discan. Sisa cycle ${currentCycleNumber}: ` +
-                    `${remainingBackNumbers.join(', ')}`
+                    `${scannedBackNumber} berhasil discan pada cycle ${currentCycleNumber}. ` +
+                    formatNextKanbanMessage(remainingBackNumbers)
                 );
             }
         } catch (xhr) {
