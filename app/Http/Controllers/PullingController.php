@@ -45,6 +45,23 @@ class PullingController extends Controller
 
     private static $mutationsHaveCustomerSerialColumn = null;
 
+    private static $mutationsHaveAgModeColumn = null;
+
+    private function mutationsHaveAgModeColumn(): bool
+    {
+        if (self::$mutationsHaveAgModeColumn !== null) {
+            return self::$mutationsHaveAgModeColumn;
+        }
+
+        try {
+            self::$mutationsHaveAgModeColumn = Schema::hasColumn('mutations', 'ag_mode');
+        } catch (\Throwable $th) {
+            self::$mutationsHaveAgModeColumn = false;
+        }
+
+        return self::$mutationsHaveAgModeColumn;
+    }
+
     private function mutationsHaveCustomerSerialColumn(): bool
     {
         if (self::$mutationsHaveCustomerSerialColumn !== null) {
@@ -1305,6 +1322,10 @@ class PullingController extends Controller
                 $mutationPayload['loading_list_detail_id'] = $lld->id;
             }
 
+            if ($this->mutationsHaveAgModeColumn()) {
+                $mutationPayload['ag_mode'] = $agMode;
+            }
+
             // Pairing kanban customer (pilot TMMIN) — info only, tanpa validasi.
             if ($this->mutationsHaveCustomerSerialColumn()) {
                 $customerSerial = trim((string) ($data['customer_serial'] ?? ''));
@@ -2285,41 +2306,44 @@ class PullingController extends Controller
     public function manualReset(Request $request)
     {
         $validated = $request->validate([
-            'internal' => 'required|string',
-            'serial' => 'required|string',
+            'internal' => 'nullable|required_without:back_number|string|max:100',
+            'back_number' => 'nullable|required_without:internal|string|max:50',
+            'serial' => 'required|string|max:10',
         ]);
 
-        // Cari internal part
-        $internalPart = InternalPart::with('customerPart')->where('part_number', $request->internal)->first();
+        $serial = strtoupper(trim($validated['serial']));
+        $lookupByBackNumber = filled($validated['back_number'] ?? null);
+        $partColumn = $lookupByBackNumber ? 'back_number' : 'part_number';
+        $partLabel = $lookupByBackNumber ? 'Back Number' : 'Internal Part';
+        $partKey = strtoupper(trim((string) ($lookupByBackNumber ? $validated['back_number'] : $validated['internal'])));
+
+        $internalPart = InternalPart::with('customerPart')->where($partColumn, $partKey)->first();
 
         if (! $internalPart) {
             return response()->json([
                 'status' => 'error',
-                'message' => "Back Number <strong>{$request->internal}</strong> tidak ditemukan.",
+                'message' => "{$partLabel} <strong>".e($partKey).'</strong> tidak ditemukan.',
             ], 404);
         }
 
-        // Ambil kanban berdasarkan internal_part_id dan serial_number
-        $kanban = \App\Models\Kanban::where('internal_part_id', $internalPart->id)
-            ->where('serial_number', $request->serial)
+        $kanban = Kanban::where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $serial)
             ->first();
 
         if (! $kanban) {
             return response()->json([
                 'status' => 'error',
-                'message' => "Serial Number <strong>{$request->serial}</strong> tidak ditemukan untuk Back Number <strong>{$request->internal}</strong>.",
+                'message' => 'Serial Number <strong>'.e($serial)."</strong> tidak ditemukan untuk {$partLabel} <strong>".e($partKey).'</strong>.',
             ], 404);
         }
 
-        // Update status kanban
         $kanban->status = 0;
         $kanban->save();
 
-        // update mutation
         Mutation::create([
             'internal_part_id' => $internalPart->id,
-            'serial_number' => $request->serial,
-            'qty' => $internalPart->customerPart->qty_per_kanban,
+            'serial_number' => $serial,
+            'qty' => optional($internalPart->customerPart)->qty_per_kanban,
             'type' => 'manual',
             'npk' => auth()->user()->npk,
             'date' => now(),

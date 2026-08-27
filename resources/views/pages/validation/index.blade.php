@@ -418,6 +418,10 @@
                 gap: 6px;
             }
 
+            .scan-action-right .secondary {
+                grid-column: 1 / -1;
+            }
+
             .act-btn {
                 width: 100%;
                 height: 38px;
@@ -529,6 +533,9 @@
                     <div class="bella-table-card-subtitle">Scan Dandori Board, lalu kanban assembly dan painting sesuai master pairing.</div>
                 </div>
                 <div class="scan-action-right">
+                    <button type="button" class="act-btn danger" id="resetTransactionButton">
+                        <i class="fas fa-redo-alt"></i> Reset Transaksi
+                    </button>
                     <button type="button" class="act-btn success" id="finishButton" disabled>
                         <i class="fas fa-check-circle"></i> Finish
                     </button>

@@ -8,7 +8,9 @@ window.ValidationPairingFlow = (() => {
         assemblyQty: 'qty_assy',
         paintingQty: 'qty_painting',
         assemblyCount: 'scan_count_assy',
-        paintingCount: 'scan_count_painting'
+        paintingCount: 'scan_count_painting',
+        assemblySerials: 'validation_assembly_serials',
+        paintingSerials: 'validation_painting_serials'
     };
 
     const sessionKeys = Object.values(keys);
@@ -19,6 +21,15 @@ window.ValidationPairingFlow = (() => {
     function readNumber(key, fallback = 0) {
         const value = Number.parseInt(localStorage.getItem(key) || '', 10);
         return Number.isFinite(value) ? value : fallback;
+    }
+
+    function readList(key) {
+        try {
+            const value = JSON.parse(localStorage.getItem(key) || '[]');
+            return Array.isArray(value) ? value : [];
+        } catch (error) {
+            return [];
+        }
     }
 
     function playSound(id) {
@@ -61,6 +72,22 @@ window.ValidationPairingFlow = (() => {
         return `${firstSection}-${match[2]}-${match[3]}`;
     }
 
+    function extractSerialNumber(barcode) {
+        const value = String(barcode || '').trim();
+        const serialPositionByLength = {
+            218: 123,
+            220: 130,
+            230: 123,
+            241: 127
+        };
+        const startPosition = serialPositionByLength[value.length];
+
+        if (startPosition === undefined) return null;
+
+        const serialNumber = value.substr(startPosition, 4).trim().toUpperCase();
+        return serialNumber.length === 4 ? serialNumber : null;
+    }
+
     function isDandoriBarcode(barcode) {
         return /-dandori$/i.test(String(barcode || '').trim());
     }
@@ -72,6 +99,14 @@ window.ValidationPairingFlow = (() => {
         const paintingQty = readNumber(keys.paintingQty);
         const assemblyPieces = assemblyCount * assemblyQty;
         const paintingPieces = paintingCount * paintingQty;
+        const targetPainting = paintingQty > 0 ? Math.floor(assemblyPieces / paintingQty) : 0;
+        const piecesNeededForNextPainting = Math.max(
+            0,
+            (paintingPieces + paintingQty) - assemblyPieces
+        );
+        const additionalAssemblyNeeded = assemblyQty > 0 && piecesNeededForNextPainting > 0
+            ? Math.ceil(piecesNeededForNextPainting / assemblyQty)
+            : 0;
 
         return {
             dandori: localStorage.getItem(keys.dandori) || '',
@@ -83,11 +118,25 @@ window.ValidationPairingFlow = (() => {
             paintingCount,
             assemblyQty,
             paintingQty,
+            assemblySerials: readList(keys.assemblySerials),
+            paintingSerials: readList(keys.paintingSerials),
             assemblyPieces,
             paintingPieces,
-            targetPainting: paintingQty > 0 ? Math.ceil(assemblyPieces / paintingQty) : 0,
+            targetPainting,
+            additionalAssemblyNeeded,
             isComplete: assemblyCount > 0 && assemblyPieces === paintingPieces
         };
+    }
+
+    function greatestCommonDivisor(firstValue, secondValue) {
+        let first = Math.abs(firstValue);
+        let second = Math.abs(secondValue);
+
+        while (second) {
+            [first, second] = [second, first % second];
+        }
+
+        return first || 1;
     }
 
     function setCardState(headerSelector, cardSelector, state) {
@@ -118,14 +167,19 @@ window.ValidationPairingFlow = (() => {
         }
 
         $('#model_assy').text(
-            `${session.assemblyModel} · ${session.assemblyCount} kanban · ${session.assemblyPieces} pcs`
+            `${session.assemblyModel} · ${session.assemblyCount} kanban`
         );
         $('#model_painting').text(
-            `${session.paintingModel} · ${session.paintingCount}/${session.targetPainting} kanban · ` +
-            `${session.paintingPieces}/${session.assemblyPieces} pcs`
+            `${session.paintingModel} · ${session.paintingCount}/${session.targetPainting} kanban`
         );
-        $('#assembly-help').text(`${session.assemblyQty} pieces per kanban`);
-        $('#painting-help').text(`${session.paintingQty} pieces per kanban`);
+        const ratioDivisor = greatestCommonDivisor(session.assemblyQty, session.paintingQty);
+        const assemblyKanbanRatio = session.paintingQty / ratioDivisor;
+        const paintingKanbanRatio = session.assemblyQty / ratioDivisor;
+
+        $('#assembly-help').text(
+            `Rasio ${assemblyKanbanRatio} assembly : ${paintingKanbanRatio} painting`
+        );
+        $('#painting-help').text('Target mengikuti jumlah kanban assembly');
         $('#finishButton').prop('disabled', !session.isComplete);
 
         if (session.isComplete) {
@@ -137,8 +191,14 @@ window.ValidationPairingFlow = (() => {
             setCardState('.model-card-header', '.model-card', 'info');
             setCardState('.total-scan-card-header', '.total-scan-card', 'secondary');
         } else {
-            const remainingPieces = Math.max(0, session.assemblyPieces - session.paintingPieces);
-            $('#pairing-status').text(`Belum lengkap · Kurang ${remainingPieces} pcs painting`);
+            const remainingKanban = Math.max(0, session.targetPainting - session.paintingCount);
+            if (remainingKanban > 0) {
+                $('#pairing-status').text(`Belum lengkap · Kurang ${remainingKanban} kanban painting`);
+            } else {
+                $('#pairing-status').text(
+                    `Belum lengkap · Scan ${session.additionalAssemblyNeeded} kanban assembly lagi`
+                );
+            }
             setCardState('.model-card-header', '.model-card', 'info');
             setCardState(
                 '.total-scan-card-header',
@@ -198,6 +258,8 @@ window.ValidationPairingFlow = (() => {
             localStorage.setItem(keys.paintingQty, String(paintingQty));
             localStorage.setItem(keys.assemblyCount, '0');
             localStorage.setItem(keys.paintingCount, '0');
+            localStorage.setItem(keys.assemblySerials, '[]');
+            localStorage.setItem(keys.paintingSerials, '[]');
 
             updateDisplay();
             notify('success', 'Dandori Board sesuai master. Silakan scan kanban assembly.');
@@ -217,14 +279,31 @@ window.ValidationPairingFlow = (() => {
         }
 
         const scannedPart = extractPartNumber(barcode);
+        const scannedSerial = extractSerialNumber(barcode);
         if (!scannedPart) {
             notify('error', 'Barcode kanban tidak valid atau part number tidak terbaca.');
             playSound('not-match-sound');
             return;
         }
 
+        if (!scannedSerial) {
+            notify('error', 'Serial kanban tidak dapat dibaca.');
+            playSound('not-match-sound');
+            return;
+        }
+
         if (scannedPart === normalizePartNumber(session.assemblyPart)) {
+            if (session.assemblySerials.includes(scannedSerial)) {
+                notify('error', `Serial assembly ${scannedSerial} sudah pernah discan.`);
+                playSound('already-scan-sound');
+                return;
+            }
+
             const nextCount = session.assemblyCount + 1;
+            localStorage.setItem(
+                keys.assemblySerials,
+                JSON.stringify([...session.assemblySerials, scannedSerial])
+            );
             localStorage.setItem(keys.assemblyCount, String(nextCount));
             updateDisplay();
             notify('success', `Kanban assembly ke-${nextCount} berhasil discan.`);
@@ -239,14 +318,27 @@ window.ValidationPairingFlow = (() => {
                 return;
             }
 
+            if (session.paintingSerials.includes(scannedSerial)) {
+                notify('error', `Serial painting ${scannedSerial} sudah pernah discan.`);
+                playSound('already-scan-sound');
+                return;
+            }
+
             const nextPaintingPieces = (session.paintingCount + 1) * session.paintingQty;
             if (nextPaintingPieces > session.assemblyPieces) {
-                notify('error', 'Kanban painting melebihi total pieces assembly. Scan assembly terlebih dahulu.');
+                notify(
+                    'error',
+                    `Kanban assembly belum cukup. Scan ${session.additionalAssemblyNeeded} kanban assembly lagi.`
+                );
                 playSound('full-filled');
                 return;
             }
 
             const nextCount = session.paintingCount + 1;
+            localStorage.setItem(
+                keys.paintingSerials,
+                JSON.stringify([...session.paintingSerials, scannedSerial])
+            );
             localStorage.setItem(keys.paintingCount, String(nextCount));
             updateDisplay();
 
@@ -287,7 +379,7 @@ window.ValidationPairingFlow = (() => {
     function finishPairing() {
         const session = getSession();
         if (!session.isComplete) {
-            notify('error', 'Pairing belum lengkap. Samakan total pieces assembly dan painting.');
+            notify('error', 'Pairing belum lengkap. Lengkapi jumlah kanban painting sesuai kebutuhan.');
             playSound('not-match-sound');
             return;
         }
@@ -295,6 +387,25 @@ window.ValidationPairingFlow = (() => {
         clearSession();
         notify('success', 'Pairing selesai. Silakan scan Dandori Board berikutnya.');
         playSound('ok-sound');
+    }
+
+    function resetTransaction() {
+        const session = getSession();
+        const hasTransaction = Boolean(
+            session.dandori ||
+            session.assemblyCount > 0 ||
+            session.paintingCount > 0
+        );
+
+        if (hasTransaction && !window.confirm(
+            'Reset transaksi ini? Semua progress scan assembly dan painting akan dihapus.'
+        )) {
+            $('#code').focus();
+            return;
+        }
+
+        clearSession();
+        notify('success', 'Transaksi berhasil di-reset. Silakan scan Dandori Board.');
     }
 
     function bindScanner() {
@@ -318,6 +429,7 @@ window.ValidationPairingFlow = (() => {
         });
 
         $('#finishButton').on('click.validationPairing', finishPairing);
+        $('#resetTransactionButton').on('click.validationPairing', resetTransaction);
     }
 
     $(document).ready(function() {
@@ -331,5 +443,5 @@ window.ValidationPairingFlow = (() => {
         $('#code').focus();
     });
 
-    return { processBarcode, finishPairing, clearSession, getSession };
+    return { processBarcode, finishPairing, resetTransaction, clearSession, getSession };
 })();

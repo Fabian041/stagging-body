@@ -38,6 +38,7 @@ class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, W
             'Serial Number',
             'Qty',
             'Type',
+            'Adjustment',
             'Tanggal',
         ];
     }
@@ -65,13 +66,14 @@ class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, W
             $row->serial_number,
             (int) $row->qty,
             $exportType,          // ✅ SUPPLY / CHECKOUT
+            ! empty($row->is_adjustment) ? 'YES' : 'NO',
             $row->mutation_date,
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
-        $sheet->getStyle('A1:F1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:G1')->getFont()->setBold(true);
 
         $sheet->getColumnDimension('A')->setWidth(6);
         $sheet->getColumnDimension('B')->setWidth(12);
@@ -79,6 +81,7 @@ class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, W
         $sheet->getColumnDimension('D')->setWidth(24);
         $sheet->getColumnDimension('E')->setWidth(10);
         $sheet->getColumnDimension('F')->setWidth(20);
+        $sheet->getColumnDimension('G')->setWidth(14);
 
         return [];
     }

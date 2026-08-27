@@ -340,10 +340,6 @@ class ProductionController extends Controller
         try {
             DB::beginTransaction();
 
-            $prod = ProductionStock::where('internal_part_id', $request->internal_part_id)
-                ->lockForUpdate()
-                ->first();
-            $current_stock = (int) optional($prod)->current_stock;
             $actual_stock = $request->filled('current_stock') ? (int) $request->current_stock : null;
 
             if ($request->standard_stock !== null) {
@@ -353,18 +349,12 @@ class ProductionController extends Controller
                     ]);
             }
 
-            if ($actual_stock !== null && $actual_stock !== $current_stock) {
-                $type = $actual_stock < $current_stock ? 'checkout' : 'supply';
-                $qty = abs($actual_stock - $current_stock);
-
-                Mutation::create([
-                    'internal_part_id' => $request->internal_part_id,
-                    'serial_number' => 'xxxx',
-                    'qty' => $qty,
-                    'type' => $type,
-                    'npk' => auth()->user()->npk ?? 'SYS',
-                    'date' => Carbon::now()->format('Y-m-d H:i:s'),
-                ]);
+            if ($actual_stock !== null) {
+                ProductionStock::adjustCurrentStock(
+                    (int) $request->internal_part_id,
+                    $actual_stock,
+                    auth()->user()->npk ?? 'SYS'
+                );
             }
 
             DB::commit();

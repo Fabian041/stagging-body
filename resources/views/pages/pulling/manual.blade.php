@@ -97,6 +97,78 @@
             line-height: 1.5;
         }
 
+        .reset-tabs {
+            display: inline-flex;
+            gap: 6px;
+            padding: 4px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+        }
+
+        .reset-tab {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 14px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            cursor: pointer;
+            transition: .15s;
+        }
+
+        .reset-tab.is-active {
+            background: var(--card);
+            color: var(--primary);
+            box-shadow: var(--shadow);
+        }
+
+        .reset-panel {
+            display: none;
+        }
+
+        .reset-panel.is-active {
+            display: grid;
+        }
+
+        .manual-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .reset-action-btn {
+            height: 42px;
+            border: 1px solid var(--primary);
+            border-radius: 5px;
+            padding: 0 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: var(--primary);
+            color: #fff;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            cursor: pointer;
+            transition: .15s;
+            white-space: nowrap;
+        }
+
+        .reset-action-btn:hover {
+            filter: brightness(.95);
+            color: #fff;
+        }
+
         .result-card {
             display: none;
             margin-top: 16px;
@@ -228,6 +300,14 @@
                 padding: 14px;
             }
 
+            .manual-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .reset-action-btn {
+                width: 100%;
+            }
+
             .result-table th,
             .result-table td {
                 display: block;
@@ -252,8 +332,8 @@
                     <span class="scan-icon-box"><i class="fas fa-barcode"></i></span>
                     <div>
                         <span class="bella-table-card-title">Reset Kanban</span>
-                        <div class="bella-table-card-subtitle">Scan barcode kanban untuk mengambil Internal Part dan Serial
-                            Number.</div>
+                        <div class="bella-table-card-subtitle">Reset dengan scan barcode atau input Back Number dan Serial
+                            Number secara manual.</div>
                     </div>
                 </div>
             </div>
@@ -261,7 +341,16 @@
             <div class="bella-table-card-body">
                 <div id="notif-area"></div>
 
-                <div class="scan-panel">
+                <div class="reset-tabs" role="tablist" aria-label="Reset Kanban Mode">
+                    <button type="button" class="reset-tab is-active" data-target="scan-panel">
+                        <i class="fas fa-barcode mr-1"></i> Scan
+                    </button>
+                    <button type="button" class="reset-tab" data-target="manual-panel">
+                        <i class="fas fa-keyboard mr-1"></i> Manual
+                    </button>
+                </div>
+
+                <div class="scan-panel reset-panel is-active" id="scan-panel">
                     <div class="scan-form-group">
                         <label for="code">Scan Barcode</label>
                         <input type="text" id="code" class="form-control" placeholder="Scan barcode di sini"
@@ -273,6 +362,29 @@
                     </div>
                 </div>
 
+                <form class="scan-panel reset-panel" id="manual-panel" autocomplete="off">
+                    <div class="manual-form-grid">
+                        <div class="scan-form-group">
+                            <label for="manual-back-number">Back Number</label>
+                            <input type="text" id="manual-back-number" class="form-control"
+                                placeholder="Input back number" autocomplete="off">
+                        </div>
+
+                        <div class="scan-form-group">
+                            <label for="manual-serial-number">Serial Number</label>
+                            <input type="text" id="manual-serial-number" class="form-control"
+                                placeholder="Input 4 digit serial number" autocomplete="off">
+                        </div>
+
+                        <button type="submit" class="reset-action-btn">
+                            <i class="fas fa-sync-alt"></i> Reset
+                        </button>
+                    </div>
+                    <div class="scan-hint">
+                        Gunakan tab ini kalau barcode tidak bisa discan. Back Number mengikuti data master Internal Part.
+                    </div>
+                </form>
+
                 <div class="result-card" id="result-area">
                     <div class="result-card-header">
                         <h5 class="result-card-title">Information Details</h5>
@@ -281,8 +393,8 @@
 
                     <table class="table result-table">
                         <tr>
-                            <th>Internal Part</th>
-                            <td id="internal-part"></td>
+                            <th id="part-label">Internal Part</th>
+                            <td id="part-key"></td>
                         </tr>
                         <tr>
                             <th>Serial Number</th>
@@ -299,6 +411,8 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('code');
+        const manualBackNumber = document.getElementById('manual-back-number');
+        const manualSerialNumber = document.getElementById('manual-serial-number');
         let barcode = "";
 
         input.addEventListener('keypress', function(e) {
@@ -312,6 +426,46 @@
             } else {
                 barcode += String.fromCharCode(e.which);
             }
+        });
+
+        document.querySelectorAll('.reset-tab').forEach((button) => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.reset-tab').forEach((tab) => {
+                    tab.classList.toggle('is-active', tab === button);
+                });
+
+                document.querySelectorAll('.reset-panel').forEach((panel) => {
+                    panel.classList.toggle('is-active', panel.id === button.dataset.target);
+                });
+
+                if (button.dataset.target === 'manual-panel') {
+                    focusManualInput();
+                } else {
+                    focusInput();
+                }
+            });
+        });
+
+        document.getElementById('manual-panel').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const backNumber = manualBackNumber.value.trim().toUpperCase();
+            const serial = manualSerialNumber.value.trim().toUpperCase();
+
+            if (!backNumber || !serial) {
+                showNotif('error', 'Back Number dan Serial Number wajib diisi.');
+                focusManualInput();
+                return;
+            }
+
+            resetKanban({
+                back_number: backNumber,
+                serial: serial
+            }, 'Back Number', backNumber, serial, () => {
+                manualBackNumber.value = '';
+                manualSerialNumber.value = '';
+                focusManualInput();
+            });
         });
 
         function handleBarcode(code) {
@@ -351,31 +505,35 @@
                     break;
             }
 
-            // Tampilkan hasil
-            document.getElementById('internal-part').textContent = internal;
+            showNotif('success', 'Barcode berhasil diproses.');
+
+            resetKanban({
+                internal: internal,
+                serial: serial
+            }, 'Internal Part', internal, serial, focusInput);
+        }
+
+        function resetKanban(payload, partLabel, partKey, serial, afterReset) {
+            document.getElementById('part-label').textContent = partLabel;
+            document.getElementById('part-key').textContent = partKey;
             document.getElementById('serial-number').textContent = serial;
             document.getElementById('result-area').style.display = 'block';
-            showNotif('success', 'Barcode berhasil diproses.');
-            focusInput();
 
             $.ajax({
                 url: "{{ route('pulling.manualReset') }}",
                 method: "POST",
-                data: {
-                    _token: "{{ csrf_token() }}",
-                    internal: internal,
-                    serial: serial
-                },
+                data: Object.assign({
+                    _token: "{{ csrf_token() }}"
+                }, payload),
                 success: function(response) {
                     if (response.status === 'success') {
                         showNotif('success', response.message);
-                        // ✅ Jeda 2 detik sebelum reset
                         setTimeout(() => {
                             $('#code').val('');
-                            $('#internal-part').text('');
+                            $('#part-key').text('');
                             $('#serial-number').text('');
                             $('#result-area').hide();
-                            focusInput();
+                            if (typeof afterReset === 'function') afterReset();
                         }, 5000);
                     } else {
                         showNotif('error', response.message || 'Terjadi kesalahan.');
@@ -407,6 +565,10 @@
 
         function focusInput() {
             setTimeout(() => document.getElementById('code').focus(), 300);
+        }
+
+        function focusManualInput() {
+            setTimeout(() => document.getElementById('manual-back-number').focus(), 300);
         }
 
         window.clearCustomerPart = function() {
