@@ -1157,4 +1157,4 @@
         }
     }
 </script>
-<script src="{{ asset('assets/js/validation-pairing.js') }}"></script>
+<script src="{{ asset('assets/js/validation-pairing.js') }}?v={{ filemtime(public_path('assets/js/validation-pairing.js')) }}"></script>

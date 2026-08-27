@@ -14,7 +14,7 @@ window.ValidationPairingFlow = (() => {
     };
 
     const sessionKeys = Object.values(keys);
-    const automaticKanbanLengths = [218, 220, 230, 241];
+    const automaticKanbanLengths = [218, 219, 220, 230, 241];
     let isProcessing = false;
     let notificationTimer = null;
 
@@ -61,7 +61,9 @@ window.ValidationPairingFlow = (() => {
     }
 
     function extractPartNumber(barcode) {
-        const match = String(barcode || '').toUpperCase().match(/(\d{6,7})-(\d{5})-([A-Z0-9]{3})/);
+        const match = String(barcode || '')
+            .toUpperCase()
+            .match(/(\d{6,7})-(\d{5})-(?:([A-Z0-9]{2})-([A-Z0-9]{3})|([A-Z0-9]{3}))/);
         if (!match) return null;
 
         let firstSection = match[1];
@@ -69,13 +71,20 @@ window.ValidationPairingFlow = (() => {
             firstSection = firstSection.slice(1);
         }
 
-        return `${firstSection}-${match[2]}-${match[3]}`;
+        const partSuffix = match[3]
+            ? [match[3], match[4]]
+            : [match[5]];
+
+        return [firstSection, match[2], ...partSuffix]
+            .filter(Boolean)
+            .join('-');
     }
 
     function extractSerialNumber(barcode) {
         const value = String(barcode || '').trim();
         const serialPositionByLength = {
             218: 123,
+            219: 124,
             220: 130,
             230: 123,
             241: 127
