@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PisScanListExport;
 use App\Models\PisPart;
@@ -25,6 +26,23 @@ use Carbon\Carbon;
 
 class PisController extends Controller
 {
+    private static $pisScansHaveOperatorScannedAtColumn = null;
+
+    private function pisScansHaveOperatorScannedAtColumn(): bool
+    {
+        if (self::$pisScansHaveOperatorScannedAtColumn !== null) {
+            return self::$pisScansHaveOperatorScannedAtColumn;
+        }
+
+        try {
+            self::$pisScansHaveOperatorScannedAtColumn = Schema::hasColumn('pis_scans', 'operator_scanned_at');
+        } catch (\Throwable $th) {
+            self::$pisScansHaveOperatorScannedAtColumn = false;
+        }
+
+        return self::$pisScansHaveOperatorScannedAtColumn;
+    }
+
     /**
      * Normalisasi nama dasar file gambar PIS berdasarkan part number customer, jenis, dan dock.
      * Contoh:
@@ -1125,33 +1143,44 @@ class PisController extends Controller
             return response()->json(['exists' => false]);
         }
 
+        $tracksOperatorScan = $this->pisScansHaveOperatorScannedAtColumn();
+        $wasOperatorScanned = $tracksOperatorScan && ! empty($pisScan->operator_scanned_at);
+        if ($tracksOperatorScan && ! $wasOperatorScanned) {
+            $pisScan->operator_scanned_at = now();
+            $pisScan->save();
+        }
+
         $items = $pisScan->details
             ->map(fn ($detail) => $this->formatPisPackingItem($detail))
             ->values()
             ->all();
 
-        // Saat user scan LL yang sudah pernah disimpan, kirim juga semua LL lain
-        // dengan PDS yang sama agar frontend bisa memuat satu grup PDS sekaligus.
+        // Auto-load grup PDS hanya setelah semua LL di grup itu pernah discan operator.
         $relatedLoadingLists = [];
-        if (!empty($pisScan->pds_number)) {
-            $relatedLoadingLists = PisScan::where('pds_number', $pisScan->pds_number)
+        if ($tracksOperatorScan && $wasOperatorScanned && !empty($pisScan->pds_number)) {
+            $relatedScans = PisScan::where('pds_number', $pisScan->pds_number)
                 ->with('details')
-                ->get()
-                ->map(function ($scan) {
-                    $relatedItems = $scan->details
-                        ->map(fn ($detail) => $this->formatPisPackingItem($detail))
-                        ->values()
-                        ->all();
+                ->orderBy('loading_list_number')
+                ->get();
 
-                    return [
-                        'loading_list_number' => $scan->loading_list_number,
-                        'name' => $scan->loading_list_number,
-                        'pds_number' => $scan->pds_number,
-                        'items' => $relatedItems,
-                    ];
-                })
-                ->values()
-                ->all();
+            if ($relatedScans->every(fn ($scan) => ! empty($scan->operator_scanned_at))) {
+                $relatedLoadingLists = $relatedScans
+                    ->map(function ($scan) {
+                        $relatedItems = $scan->details
+                            ->map(fn ($detail) => $this->formatPisPackingItem($detail))
+                            ->values()
+                            ->all();
+
+                        return [
+                            'loading_list_number' => $scan->loading_list_number,
+                            'name' => $scan->loading_list_number,
+                            'pds_number' => $scan->pds_number,
+                            'items' => $relatedItems,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
         }
 
         return response()->json([
@@ -1289,6 +1318,9 @@ class PisController extends Controller
             }
             if ($dockType) {
                 $pisScan->dock_type = $dockType;
+            }
+            if ($this->pisScansHaveOperatorScannedAtColumn() && ! $pisScan->operator_scanned_at) {
+                $pisScan->operator_scanned_at = now();
             }
             $pisScan->save();
 

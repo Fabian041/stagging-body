@@ -166,6 +166,7 @@ class SyncTodayLoadingListsTest extends TestCase
         $detail = PisScanDetail::where('pis_scan_id', $pisScan->id)->firstOrFail();
 
         $this->assertFalse(LoadingList::where('number', 'C-LL-001')->exists());
+        $this->assertNull($pisScan->operator_scanned_at);
         $this->assertSame(50, $detail->target_qty);
         $this->assertSame(50, $detail->order_qty);
         $this->assertSame(10, $detail->qty_per_kanban);
@@ -193,6 +194,65 @@ class SyncTodayLoadingListsTest extends TestCase
         $this->assertSame(10, $detail->fresh()->qty_per_kanban);
         $this->assertSame(2, $detail->fresh()->scanned_qty);
         $this->assertSame(58, $detail->fresh()->remaining_qty);
+    }
+
+    public function test_pis_related_loading_lists_are_loaded_only_after_each_list_was_scanned_once(): void
+    {
+        $firstScan = PisScan::create([
+            'loading_list_number' => 'C367A598950',
+            'pds_number' => '250867348-00',
+        ]);
+        PisScanDetail::create([
+            'pis_scan_id' => $firstScan->id,
+            'part_number_int' => 'INT-001',
+            'part_number_cust' => 'CUST-001',
+            'target_qty' => 10,
+            'order_qty' => 10,
+            'qty_per_kanban' => 1,
+            'scanned_qty' => 0,
+            'remaining_qty' => 10,
+        ]);
+
+        $secondScan = PisScan::create([
+            'loading_list_number' => 'C367A598951',
+            'pds_number' => '250867348-00',
+        ]);
+        PisScanDetail::create([
+            'pis_scan_id' => $secondScan->id,
+            'part_number_int' => 'INT-002',
+            'part_number_cust' => 'CUST-002',
+            'target_qty' => 5,
+            'order_qty' => 5,
+            'qty_per_kanban' => 1,
+            'scanned_qty' => 0,
+            'remaining_qty' => 5,
+        ]);
+
+        $controller = new PisController;
+
+        $firstPayload = $controller->getLoadingListData(
+            Request::create('/pis/get-loading-list-data', 'POST', ['barcode' => 'C367A598950'])
+        )->getData(true);
+
+        $this->assertSame([], $firstPayload['related_loading_lists']);
+        $this->assertNotNull($firstScan->fresh()->operator_scanned_at);
+        $this->assertNull($secondScan->fresh()->operator_scanned_at);
+
+        $secondPayload = $controller->getLoadingListData(
+            Request::create('/pis/get-loading-list-data', 'POST', ['barcode' => 'C367A598951'])
+        )->getData(true);
+
+        $this->assertSame([], $secondPayload['related_loading_lists']);
+        $this->assertNotNull($secondScan->fresh()->operator_scanned_at);
+
+        $relatedPayload = $controller->getLoadingListData(
+            Request::create('/pis/get-loading-list-data', 'POST', ['barcode' => 'C367A598950'])
+        )->getData(true);
+
+        $this->assertSame(
+            ['C367A598950', 'C367A598951'],
+            collect($relatedPayload['related_loading_lists'])->pluck('loading_list_number')->all()
+        );
     }
 
     public function test_pis_packing_counts_each_confirm_as_one_piece(): void
@@ -522,6 +582,19 @@ class SyncTodayLoadingListsTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('mutations', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('internal_part_id')->nullable();
+            $table->unsignedBigInteger('loading_list_id')->nullable();
+            $table->unsignedBigInteger('loading_list_detail_id')->nullable();
+            $table->string('serial_number')->nullable();
+            $table->integer('qty')->nullable();
+            $table->string('type')->nullable();
+            $table->string('npk')->nullable();
+            $table->timestamp('date')->nullable();
+            $table->timestamps();
+        });
+
         Schema::create('pis_scans', function (Blueprint $table) {
             $table->id();
             $table->string('loading_list_number')->nullable();
@@ -530,6 +603,7 @@ class SyncTodayLoadingListsTest extends TestCase
             $table->string('cycle')->nullable();
             $table->timestamp('delivery_date')->nullable();
             $table->timestamp('shipping_date')->nullable();
+            $table->timestamp('operator_scanned_at')->nullable();
             $table->string('delivery_type')->nullable();
             $table->string('dock_type')->nullable();
             $table->timestamps();
