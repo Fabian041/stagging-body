@@ -46,6 +46,10 @@ class AuthServiceProvider extends ServiceProvider
             return $user->isAdmin();
         });
 
+        Gate::define('manage-machine-auth', function ($user) {
+            return $user->isAdmin();
+        });
+
         // Aksi master-data & destruktif (PPIC): admin (via Gate::before) + ppic.
         // Mencakup: hapus loading list & pulling mutation, master cycle,
         // master alamat chute (CRUD/import/clear), pulling settings, hapus PIS.

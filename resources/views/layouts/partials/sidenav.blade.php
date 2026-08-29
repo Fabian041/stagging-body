@@ -180,6 +180,11 @@
             <span class="sb-item-tooltip">Master Data</span>
         </div>
         <div class="sb-submenu">
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.lines.*') ? 'active' : '' }}"
+                href="{{ route('dashboard.master.lines.index') }}">
+                <i class="fas fa-industry"></i>
+                Master Line
+            </a>
             <a class="sb-sub-item {{ request()->routeIs('dashboard.master.molds.*') ? 'active' : '' }}"
                 href="{{ route('dashboard.master.molds.index') }}">
                 <i class="fas fa-cubes"></i>
@@ -228,6 +233,15 @@
                 <i class="fas fa-barcode sb-icon"></i>
                 <span class="sb-item-label">Manage Device</span>
                 <span class="sb-item-tooltip">Manage Device</span>
+            </a>
+        @endcan
+
+        @can('manage-machine-auth')
+            <a class="sb-item {{ request()->routeIs('machine-auth.*') ? 'active' : '' }}"
+                href="{{ route('machine-auth.index') }}">
+                <i class="fas fa-id-card-alt sb-icon"></i>
+                <span class="sb-item-label">Machine Authorization</span>
+                <span class="sb-item-tooltip">Machine Authorization</span>
             </a>
         @endcan
 

@@ -66,5 +66,6 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'prevent-back-history' => \App\Http\Middleware\PreventBackHistory::class,
         'dea.token' => \App\Http\Middleware\EnsureDeaToken::class,
+        'machine.token' => \App\Http\Middleware\EnsureMachineToken::class,
     ];
 }
