@@ -322,19 +322,26 @@
 
                 // ---------- render ----------
 
+                /**
+                 * Kunci input pakai readonly, bukan disabled: elemen disabled kehilangan fokus
+                 * dan scanner jadi mengetik ke halaman kosong. Readonly tetap bisa difokus,
+                 * karakter dari scanner dibuang, dan handler Enter tetap ditahan flag locked.
+                 */
                 function lock() {
                     locked = true;
-                    $scan.prop('disabled', true);
+                    $scan.prop('readonly', true);
                 }
 
                 function unlock() {
                     locked = false;
-                    $scan.prop('disabled', false);
+                    $scan.prop('readonly', false);
                 }
 
+                /** Fokus selalu balik ke input, kecuali saat modal ringkasan FINISH sedang dibuka. */
                 function focusScan() {
-                    if (locked) return;
-                    $scan.focus();
+                    if ($('#finishModal').hasClass('show')) return;
+                    if (document.activeElement === $scan[0]) return;
+                    $scan.trigger('focus');
                 }
 
                 function clearAndRefocus() {
@@ -385,7 +392,7 @@
                         $lastR.text('-');
                         $lastL.text('-');
 
-                        $scan.prop('disabled', false);
+                        $scan.prop('readonly', false);
                         focusScan();
                         return;
                     }
@@ -412,7 +419,7 @@
                     $lastR.text(LS.get(K.lastR) || '-');
                     $lastL.text(LS.get(K.lastL) || '-');
 
-                    $scan.prop('disabled', false);
+                    $scan.prop('readonly', false);
                     focusScan();
                 }
 
@@ -752,6 +759,23 @@
                 }
 
                 // ---------- init & events ----------
+
+                // Modal notif tidak boleh merebut fokus: tanpa ini Bootstrap memasang focus trap
+                // (_enforceFocus) yang menarik fokus keluar dari input setiap notif muncul.
+                $('#notifModal').modal({
+                    show: false,
+                    focus: false,
+                    keyboard: false
+                });
+
+                $('#notifModal').on('shown.bs.modal hidden.bs.modal', function() {
+                    $(document).off('focusin.bs.modal');
+                    focusScan();
+                });
+
+                // Jaring pengaman: apa pun yang merebut fokus (modal, backdrop, klik layar),
+                // fokus dikembalikan ke input scan supaya MP tidak perlu menyentuh layar.
+                setInterval(focusScan, 400);
 
                 render();
 
