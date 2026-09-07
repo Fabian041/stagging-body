@@ -57,7 +57,7 @@
                 <div class="col-lg-8 col-sm-12">
                     <div class="card card-warning py-4 shadow text-center" style="padding:1rem; border-radius:8px">
                         <div id="pis">
-                            <h2 class="text-center text-dark">Scan kanban KANAN / KIRI untuk memulai produksi</h2>
+                            <h2 class="text-center text-dark">Scan kanban untuk memulai produksi</h2>
                         </div>
                         <p class="mt-3 mb-0 text-muted" id="pis-caption"></p>
                     </div>
@@ -73,20 +73,19 @@
                     </button>
 
                     <div class="card card-warning py-3 shadow mb-3" style="padding:1rem; border-radius:8px">
-                        <label style="font-weight:800" class="text-center text-dark">Scan Kanban (Kanan)</label>
-                        <input id="part-right" type="text" class="form-control" name="part-right" tabindex="1"
-                            placeholder="scan kanban kanan..." autocomplete="off" autofocus>
-                        <small class="text-muted">Last: <span id="last-right">-</span></small>
+                        <label style="font-weight:800" class="text-center text-dark mb-1">Scan Kanban</label>
+                        <small class="text-muted text-center mb-2">kanan / kiri dibaca otomatis</small>
+                        <input id="scan" type="text" class="form-control form-control-lg" name="scan" tabindex="1"
+                            placeholder="scan kanban..." autocomplete="off" autofocus>
                     </div>
 
-                    <div class="card card-warning py-3 shadow mb-3" style="padding:1rem; border-radius:8px">
-                        <label style="font-weight:800" class="text-center text-dark">Scan Kanban (Kiri)</label>
-                        <input id="part-left" type="text" class="form-control" name="part-left" tabindex="2"
-                            placeholder="scan kanban kiri..." autocomplete="off">
-                        <small class="text-muted">Last: <span id="last-left">-</span></small>
+                    <div class="card shadow mb-3" style="padding:.7rem; border-radius:8px">
+                        <small class="text-muted" style="font-weight:700">Kanban Terakhir</small>
+                        <small class="text-muted">RH: <span id="last-right">-</span></small>
+                        <small class="text-muted">LH: <span id="last-left">-</span></small>
                     </div>
 
-                    <div class="card shadow" style="padding:.6rem; border-radius:8px">
+                    <div class="card shadow" style="padding:.7rem; border-radius:8px">
                         <small class="text-muted" style="font-weight:700">Hasil Baca Barcode</small>
                         <small class="text-muted" style="word-break:break-all" id="scan-debug">-</small>
                     </div>
@@ -189,8 +188,7 @@
                     return;
                 }
 
-                const $partR = $('#part-right');
-                const $partL = $('#part-left');
+                const $scan = $('#scan');
                 const $pis = $('#pis');
                 const $pisCaption = $('#pis-caption');
                 const $modelTxt = $('#model');
@@ -326,21 +324,22 @@
 
                 function lock() {
                     locked = true;
-                    $partR.prop('disabled', true);
-                    $partL.prop('disabled', true);
+                    $scan.prop('disabled', true);
                 }
 
                 function unlock() {
                     locked = false;
+                    $scan.prop('disabled', false);
                 }
 
-                function focusExpected() {
+                function focusScan() {
                     if (locked) return;
-                    if (!isActive()) {
-                        $partR.focus();
-                        return;
-                    }
-                    (side() === 'R' ? $partR : $partL).focus();
+                    $scan.focus();
+                }
+
+                function clearAndRefocus() {
+                    $scan.val('');
+                    setTimeout(focusScan, 50);
                 }
 
                 function showPis(part) {
@@ -376,7 +375,7 @@
                         $('.model-card').removeClass('bg-info').addClass('bg-secondary');
                         $modelTxt.text('-');
 
-                        $pis.html('<h2 class="text-center text-dark">Scan kanban KANAN / KIRI untuk memulai produksi</h2>');
+                        $pis.html('<h2 class="text-center text-dark">Scan kanban untuk memulai produksi</h2>');
                         $pisCaption.text('');
 
                         $labelR.text('-');
@@ -386,9 +385,8 @@
                         $lastR.text('-');
                         $lastL.text('-');
 
-                        $partR.prop('disabled', false);
-                        $partL.prop('disabled', false);
-                        focusExpected();
+                        $scan.prop('disabled', false);
+                        focusScan();
                         return;
                     }
 
@@ -414,15 +412,8 @@
                     $lastR.text(LS.get(K.lastR) || '-');
                     $lastL.text(LS.get(K.lastL) || '-');
 
-                    $partR.prop('disabled', s !== 'R');
-                    $partL.prop('disabled', s !== 'L');
-                    focusExpected();
-                }
-
-                function clearAndRefocus() {
-                    $partR.val('');
-                    $partL.val('');
-                    setTimeout(focusExpected, 50);
+                    $scan.prop('disabled', false);
+                    focusScan();
                 }
 
                 // ---------- barcode ----------
@@ -494,7 +485,7 @@
                 }
 
                 /** Tampilkan hasil baca barcode supaya format kanban gampang diverifikasi di mesin. */
-                function showParseDebug(raw, parsed) {
+                function showParseDebug(raw, parsed, detectedSide) {
                     const len = (raw || '').trim().length;
 
                     if (!parsed) {
@@ -507,8 +498,25 @@
                         ' · ' + parsed.source +
                         ' · part ' + parsed.part_number +
                         ' · seri ' + (parsed.serial_number || '-') +
-                        ' · back ' + (parsed.back_number || '-')
+                        ' · back ' + (parsed.back_number || '-') +
+                        ' · sisi ' + (detectedSide || '?')
                     );
+                }
+
+                /** Tentukan sisi kanban dari pasangan part yang sedang jalan. */
+                function detectSide(parsed, p) {
+                    if (!p || !parsed) return null;
+
+                    if (p.R && parsed.part_number === p.R.part_number) return 'R';
+                    if (p.L && parsed.part_number === p.L.part_number) return 'L';
+
+                    if (parsed.back_number) {
+                        const back = parsed.back_number.toUpperCase();
+                        if (p.R && String(p.R.back_number).toUpperCase() === back) return 'R';
+                        if (p.L && String(p.L.back_number).toUpperCase() === back) return 'L';
+                    }
+
+                    return null;
                 }
 
                 // ---------- alur scan ----------
@@ -531,8 +539,8 @@
                     fail(message || 'Internal Server Error');
                 }
 
-                /** Scan pertama: menentukan sisi awal + pasangan RH/LH. Tidak menyimpan mutation. */
-                function startProduction(parsed) {
+                /** Scan pertama: server yang menentukan sisi + pasangan RH/LH. Tidak menyimpan mutation. */
+                function startProduction(raw, parsed) {
                     lock();
 
                     $.ajax({
@@ -559,8 +567,9 @@
                             LS.del(K.lastR);
                             LS.del(K.lastL);
 
-                            $partR.val('');
-                            $partL.val('');
+                            showParseDebug(raw, parsed, res.side);
+
+                            $scan.val('');
                             render();
 
                             okSound();
@@ -609,8 +618,7 @@
                             (s === 'R' ? $lastR : $lastL).text(display);
                             (s === 'R' ? $countR : $countL).text(count(s));
 
-                            $partR.val('');
-                            $partL.val('');
+                            $scan.val('');
 
                             okSound();
                             setStatus('ok');
@@ -634,43 +642,49 @@
                     if (locked) return;
 
                     const parsed = parseKanbanBarcode(raw);
-                    showParseDebug(raw, parsed);
 
                     if (!parsed) {
+                        showParseDebug(raw, null, null);
                         fail('Format barcode kanban tidak valid (part number tidak terbaca).');
                         clearAndRefocus();
                         return;
                     }
 
                     if (!parsed.serial_number) {
+                        showParseDebug(raw, parsed, null);
                         fail('Serial kanban tidak terbaca dari barcode.');
                         clearAndRefocus();
                         return;
                     }
 
                     if (!isActive()) {
-                        startProduction(parsed);
+                        showParseDebug(raw, parsed, null);
+                        startProduction(raw, parsed);
                         return;
                     }
 
                     const p = pair();
-                    const s = side();
-                    const expectedPart = p && p[s] ? p[s].part_number : null;
+                    const scannedSide = detectSide(parsed, p);
+                    showParseDebug(raw, parsed, scannedSide);
 
-                    if (expectedPart && parsed.part_number !== expectedPart) {
-                        fail('Sekarang harus scan ' + sideLabel(s) + ' (' + expectedPart + '). Terbaca: ' +
-                            parsed.part_number);
+                    if (!scannedSide) {
+                        const names = [
+                            p && p.R ? p.R.back_number + ' / ' + p.R.part_number : null,
+                            p && p.L ? p.L.back_number + ' / ' + p.L.part_number : null,
+                        ].filter(Boolean).join(' dan ');
+
+                        fail('Kanban ' + parsed.part_number + ' bukan bagian dari model yang sedang jalan (' +
+                            names + ').');
                         clearAndRefocus();
                         return;
                     }
 
-                    // Cross-check back number kalau barcode-nya layout standar: ketidakcocokan di sini
-                    // berarti barcode salah baca, bukan sekadar salah sisi.
-                    const expectedBack = p && p[s] ? p[s].back_number : null;
-                    if (parsed.back_number && expectedBack &&
-                        parsed.back_number.toUpperCase() !== String(expectedBack).toUpperCase()) {
-                        fail('Back number kanban (' + parsed.back_number + ') tidak cocok dengan model ' +
-                            expectedBack + '.');
+                    const expected = side();
+                    if (scannedSide !== expected) {
+                        const expectedPart = p[expected] || {};
+                        fail('Sekarang harus scan ' + sideLabel(expected) + ' — ' +
+                            (expectedPart.back_number || expectedPart.part_number) + '. Terbaca ' +
+                            (parsed.back_number || parsed.part_number) + '.');
                         clearAndRefocus();
                         return;
                     }
@@ -683,7 +697,7 @@
                         return;
                     }
 
-                    submitScan(s, parsed, key);
+                    submitScan(scannedSide, parsed, key);
                 }
 
                 // ---------- finish ----------
@@ -773,24 +787,16 @@
                 });
 
                 $('#finishModal').on('hidden.bs.modal', function() {
-                    focusExpected();
+                    focusScan();
                 });
 
                 // Kembalikan fokus ke field scan, tapi jangan ganggu tombol / modal.
                 $(document).on('click', function(e) {
                     if ($(e.target).closest('button, a, input, .modal').length) return;
-                    focusExpected();
+                    focusScan();
                 });
 
-                $partR.on('keydown', function(e) {
-                    const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
-                    if (!isEnter) return;
-
-                    e.preventDefault();
-                    handleScan($(this).val());
-                });
-
-                $partL.on('keydown', function(e) {
+                $scan.on('keydown', function(e) {
                     const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
                     if (!isEnter) return;
 
