@@ -16,6 +16,8 @@ window.ValidationPairingFlow = (() => {
     const sessionKeys = Object.values(keys);
     const automaticKanbanLengths = [218, 219, 220, 230, 241];
     let isProcessing = false;
+    let isAutoResetting = false;
+    let autoResetTimer = null;
     let notificationTimer = null;
 
     function readNumber(key, fallback = 0) {
@@ -54,6 +56,31 @@ window.ValidationPairingFlow = (() => {
             $('#code').focus();
             notificationTimer = null;
         }, duration);
+    }
+
+    function completePairingAutomatically() {
+        if (notificationTimer) {
+            clearTimeout(notificationTimer);
+            notificationTimer = null;
+        }
+        if (autoResetTimer) clearTimeout(autoResetTimer);
+
+        isAutoResetting = true;
+        $('#code').val('').prop('disabled', true);
+        $('#finishButton').prop('disabled', true);
+        $('#pairing-status').text('Complete Pairing... reset otomatis');
+        $('#notif').html('<i class="fas fa-spinner fa-spin mr-2"></i>Complete Pairing...');
+        $('#divNotif').css('background-color', '#16a34a');
+        $('#notifModal').modal('show');
+        playSound('match-sound');
+
+        autoResetTimer = setTimeout(() => {
+            autoResetTimer = null;
+            isAutoResetting = false;
+            clearSession();
+            $('#notifModal').modal('hide');
+            $('#code').prop('disabled', false).focus();
+        }, 1500);
     }
 
     function normalizePartNumber(value) {
@@ -214,6 +241,11 @@ window.ValidationPairingFlow = (() => {
     }
 
     function clearSession() {
+        if (autoResetTimer) {
+            clearTimeout(autoResetTimer);
+            autoResetTimer = null;
+        }
+        isAutoResetting = false;
         sessionKeys.forEach(key => localStorage.removeItem(key));
         localStorage.removeItem('error');
         localStorage.removeItem('dandori_error');
@@ -348,13 +380,13 @@ window.ValidationPairingFlow = (() => {
             updateDisplay();
 
             const updatedSession = getSession();
-            notify(
-                'success',
-                updatedSession.isComplete
-                    ? 'Pairing lengkap. Tekan Finish atau scan assembly untuk menambah batch.'
-                    : `Kanban painting ke-${nextCount} berhasil discan.`
-            );
-            playSound(updatedSession.isComplete ? 'match-sound' : 'ok-sound');
+            if (updatedSession.isComplete) {
+                completePairingAutomatically();
+                return;
+            }
+
+            notify('success', `Kanban painting ke-${nextCount} berhasil discan.`);
+            playSound('ok-sound');
             return;
         }
 
@@ -365,6 +397,10 @@ window.ValidationPairingFlow = (() => {
     async function processBarcode(barcode) {
         const value = String(barcode || '').trim();
         if (!value || isProcessing) return;
+        if (isAutoResetting) {
+            $('#code').val('');
+            return;
+        }
 
         isProcessing = true;
         $('#code').prop('disabled', true);
@@ -376,7 +412,7 @@ window.ValidationPairingFlow = (() => {
                 scanKanban(value);
             }
         } finally {
-            $('#code').val('').prop('disabled', false).focus();
+            $('#code').val('').prop('disabled', isAutoResetting).focus();
             isProcessing = false;
         }
     }
