@@ -31,6 +31,13 @@ use PhpMqtt\Client\ConnectionSettings;
 
 class ProductionController extends Controller
 {
+    private const AS547_TYPE_RIGHT = 'as547_kanan';
+
+    private const AS547_TYPE_LEFT = 'as547_kiri';
+
+    /** Rentang waktu pengecekan kanban dobel (jam), cukup untuk satu shift. */
+    private const AS547_DUPLICATE_WINDOW_HOURS = 12;
+
     /**
      * Display a listing of the resource.
      *
@@ -80,9 +87,225 @@ class ProductionController extends Controller
         return $this->storePairedKanbanScan($request, 'pc2b');
     }
 
+    /**
+     * Resolve pasangan part RH/LH untuk halaman AS547.
+     * Dipakai saat scan kanban PERTAMA (tanda awal produksi) — tidak menulis mutation apa pun.
+     *
+     * @param  string  $partNumber  part number internal hasil parse barcode kanban
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function as547Pair($partNumber)
+    {
+        $partNumber = trim((string) $partNumber);
+
+        $part = InternalPart::with('line')->where('part_number', $partNumber)->first();
+        if (!$part) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part number ' . $partNumber . ' tidak terdaftar di master part.',
+            ], 404);
+        }
+
+        $side = $this->as547SideFromPartName($part->part_name);
+        if (!$side) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part name "' . $part->part_name . '" tidak diakhiri RH / LH, pasangan tidak bisa ditentukan.',
+            ], 422);
+        }
+
+        $pair = $this->as547FindPair($part, $side);
+        if (!$pair) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Pasangan ' . ($side === 'R' ? 'LH' : 'RH') . ' untuk "' . $part->part_name . '" tidak ditemukan di line yang sama.',
+            ], 404);
+        }
+
+        $rh = $side === 'R' ? $part : $pair;
+        $lh = $side === 'R' ? $pair : $part;
+
+        return response()->json([
+            'status' => 'success',
+            'side'   => $side,
+            'line'   => optional($part->line)->name,
+            'data'   => [
+                'R' => $this->as547PartPayload($rh),
+                'L' => $this->as547PartPayload($lh),
+            ],
+        ]);
+    }
+
+    /**
+     * Simpan scan kanban AS547. Satu scan = satu box selesai.
+     * Scan pembuka (tanda awal produksi) tidak lewat sini, lihat as547Pair().
+     *
+     * @param  \Illuminate\Http\Request  $request  part_number, serial_number, side (R|L)
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function storeAs547KanbanScan(Request $request)
     {
-        return $this->storePairedKanbanScan($request, 'as547');
+        $request->validate([
+            'part_number'   => ['required', 'string', 'max:64'],
+            'serial_number' => ['required', 'string', 'max:32'],
+            'side'          => ['required', 'string', 'in:R,L'],
+        ]);
+
+        $partNumber   = trim($request->part_number);
+        $serialNumber = trim($request->serial_number);
+        $side         = $request->side;
+
+        $internalPart = InternalPart::where('part_number', $partNumber)->first();
+        if (!$internalPart) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part number ' . $partNumber . ' tidak ditemukan di internal_parts.',
+            ], 422);
+        }
+
+        // Sisi ditentukan master part (akhiran RH / LH), bukan field input yang dipakai operator.
+        $partSide = $this->as547SideFromPartName($internalPart->part_name);
+        if (!$partSide) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part name "' . $internalPart->part_name . '" tidak diakhiri RH / LH.',
+            ], 422);
+        }
+
+        if ($partSide !== $side) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Kanban ini ' . ($partSide === 'R' ? 'RH' : 'LH') . ', sekarang harus scan '
+                    . ($side === 'R' ? 'KANAN (RH)' : 'KIRI (LH)') . '.',
+            ], 422);
+        }
+
+        // Anti double scan: kanban (part + serial) yang sama tidak boleh masuk dua kali dalam satu shift.
+        $duplicate = Mutation::where('internal_part_id', $internalPart->id)
+            ->where('serial_number', $serialNumber)
+            ->whereIn('type', [self::AS547_TYPE_RIGHT, self::AS547_TYPE_LEFT])
+            ->where('date', '>=', Carbon::now()->subHours(self::AS547_DUPLICATE_WINDOW_HOURS))
+            ->orderByDesc('date')
+            ->first();
+
+        if ($duplicate) {
+            return response()->json([
+                'status'  => 'duplicate',
+                'message' => 'Kanban ' . $partNumber . ' / ' . $serialNumber . ' sudah discan jam '
+                    . Carbon::parse($duplicate->date)->format('H:i:s') . '.',
+            ], 409);
+        }
+
+        $customerPart = CustomerPart::where('internal_part_id', $internalPart->id)->first();
+        $qty          = $customerPart && $customerPart->qty_per_kanban !== null
+            ? (int) $customerPart->qty_per_kanban
+            : 1;
+
+        try {
+            $mutation = Mutation::create([
+                'internal_part_id' => $internalPart->id,
+                'serial_number'    => $serialNumber,
+                'qty'              => $qty,
+                'type'             => $side === 'R' ? self::AS547_TYPE_RIGHT : self::AS547_TYPE_LEFT,
+                'npk'              => auth()->user()->npk ?? 'SYS',
+                'date'             => Carbon::now()->format('Y-m-d H:i:s'),
+            ]);
+
+            return response()->json([
+                'status'      => 'success',
+                'message'     => $side === 'R' ? 'Box KANAN (RH) OK.' : 'Box KIRI (LH) OK.',
+                'qty'         => $qty,
+                'back_number' => $internalPart->back_number,
+                'next_side'   => $side === 'R' ? 'L' : 'R',
+                'mutation_id' => $mutation->id,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan mutation: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Tentukan sisi part dari akhiran part name: "... RH" => R, "... LH" => L.
+     */
+    private function as547SideFromPartName($partName): ?string
+    {
+        $name = strtoupper(trim((string) $partName));
+        if ($name === '') {
+            return null;
+        }
+
+        if (preg_match('/(?:^|[\s,\-])(RH|LH)$/', $name, $match)) {
+            return $match[1] === 'RH' ? 'R' : 'L';
+        }
+
+        return null;
+    }
+
+    /**
+     * Nama dasar part tanpa akhiran RH / LH, dinormalisasi untuk pencocokan pasangan.
+     */
+    private function as547BaseName($partName): string
+    {
+        $name = strtoupper(trim((string) $partName));
+        $name = preg_replace('/(?:^|[\s,\-])(RH|LH)$/', '', $name);
+
+        return preg_replace('/\s+/', ' ', trim((string) $name, " \t\n\r\0\x0B,-"));
+    }
+
+    /**
+     * Cari pasangan part: part name dasar sama, line sama, sisi berlawanan.
+     */
+    private function as547FindPair(InternalPart $part, string $side): ?InternalPart
+    {
+        $base = $this->as547BaseName($part->part_name);
+        if ($base === '') {
+            return null;
+        }
+
+        $wantSide = $side === 'R' ? 'L' : 'R';
+
+        $query = InternalPart::where('id', '!=', $part->id)
+            ->where('part_name', 'like', $base . '%');
+
+        if ($part->line_id === null) {
+            $query->whereNull('line_id');
+        } else {
+            $query->where('line_id', $part->line_id);
+        }
+
+        foreach ($query->get() as $candidate) {
+            if ($this->as547BaseName($candidate->part_name) !== $base) {
+                continue;
+            }
+
+            if ($this->as547SideFromPartName($candidate->part_name) === $wantSide) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Payload part untuk dipakai halaman AS547 (gambar PIS, back number, qty per box).
+     */
+    private function as547PartPayload(InternalPart $part): array
+    {
+        $customerPart = CustomerPart::where('internal_part_id', $part->id)->first();
+
+        return [
+            'id'             => $part->id,
+            'part_number'    => $part->part_number,
+            'back_number'    => $part->back_number,
+            'part_name'      => $part->part_name,
+            'photo'          => $part->photo,
+            'qty_per_kanban' => $customerPart && $customerPart->qty_per_kanban !== null
+                ? (int) $customerPart->qty_per_kanban
+                : null,
+        ];
     }
 
     private function storePairedKanbanScan(Request $request, string $line)

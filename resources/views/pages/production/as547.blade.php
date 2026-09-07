@@ -2,70 +2,93 @@
 
 @section('main')
     <div class="main-section">
-        <div class="mx-5 my-5">
+        <div class="mx-4 my-4">
             <div class="row">
                 <div class="col-lg-2 col-sm-12">
-                    <div class="card card-warning py-4 shadow" style="padding: 1rem; border-radius:8px">
-                        <label style="font-weight:800" class="text-center text-dark">Scan Master Sample</label>
-                        <input id="master" type="text" class="form-control" name="master" tabindex="1"
-                            placeholder="scan master sample..." required autofocus autocomplete="off">
-                    </div>
-
-                    <div class="shadow pt-4 card card-secondary model-card-header"
-                        style="margin-bottom:110px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px;">
-                        <div class="hero-inner">
-                            <h5 class="text-center text-dark">Model Running</h5>
-                            <div class="bg-secondary m-auto shadow model-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="model">-</h1>
+                    <div class="card side-card-header card-secondary shadow mb-3" style="border-radius:8px">
+                        <div class="card-body py-3">
+                            <h6 class="text-center text-dark" style="font-weight:800">Sedang Produksi</h6>
+                            <div class="side-card bg-secondary shadow m-auto d-flex align-items-center justify-content-center"
+                                style="height:6rem; width:100%; border-radius:6px">
+                                <h1 class="text-center mb-0" style="color:#ffffff; font-size:1.9rem" id="side">STANDBY</h1>
                             </div>
                         </div>
                     </div>
 
-                    <div class="shadow pt-4 card card-secondary status-card-header"
-                        style="margin-bottom:110px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
-                        <div class="hero-inner">
-                            <h5 class="text-center text-dark">Status</h5>
-                            <div class="bg-secondary m-auto shadow status-card"
-                                style="height: 10rem; width: 85%; border-radius: 6px; padding: 60px 0">
-                                <h1 class="text-center" style="color:#ffffff; font-size:3rem" id="status">-</h1>
+                    <div class="card model-card-header card-secondary shadow mb-3" style="border-radius:8px">
+                        <div class="card-body py-3">
+                            <h6 class="text-center text-dark" style="font-weight:800">Model Running</h6>
+                            <div class="model-card bg-secondary shadow m-auto d-flex align-items-center justify-content-center"
+                                style="height:6rem; width:100%; border-radius:6px">
+                                <h1 class="text-center mb-0" style="color:#ffffff; font-size:2.6rem" id="model">-</h1>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card status-card-header card-secondary shadow mb-3" style="border-radius:8px">
+                        <div class="card-body py-3">
+                            <h6 class="text-center text-dark" style="font-weight:800">Status</h6>
+                            <div class="status-card bg-secondary shadow m-auto d-flex align-items-center justify-content-center"
+                                style="height:6rem; width:100%; border-radius:6px">
+                                <h1 class="text-center mb-0" style="color:#ffffff; font-size:2.6rem" id="status">-</h1>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card card-secondary shadow mb-3" style="border-radius:8px">
+                        <div class="card-body py-3">
+                            <h6 class="text-center text-dark mb-2" style="font-weight:800">Total Box Shift Ini</h6>
+
+                            <div class="d-flex align-items-center justify-content-between px-1 mb-2">
+                                <span class="text-dark" style="font-weight:700">RH <small class="text-muted"
+                                        id="label-r">-</small></span>
+                                <span class="badge badge-primary" style="font-size:1.4rem" id="count-r">0</span>
+                            </div>
+
+                            <div class="d-flex align-items-center justify-content-between px-1">
+                                <span class="text-dark" style="font-weight:700">LH <small class="text-muted"
+                                        id="label-l">-</small></span>
+                                <span class="badge badge-info" style="font-size:1.4rem" id="count-l">0</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-lg-8 col-sm-12">
-                    <div class="card card-warning py-5 shadow" style="padding: 1rem; border-radius:8px" id="pis">
-                        <h2 class="text-center text-dark">Ready to scan !!</h2>
+                    <div class="card card-warning py-4 shadow text-center" style="padding:1rem; border-radius:8px">
+                        <div id="pis">
+                            <h2 class="text-center text-dark">Scan kanban KANAN / KIRI untuk memulai produksi</h2>
+                        </div>
+                        <p class="mt-3 mb-0 text-muted" id="pis-caption"></p>
                     </div>
                 </div>
 
                 <div class="col-lg-2 col-sm-12">
-                    <button id="fullscreenBtn" class="btn btn-info mb-2 text-end"
+                    <button id="fullscreenBtn" class="btn btn-info mb-2"
                         style="border-radius:4px; width:100% !important">Full Screen</button>
 
-                    <button class="btn btn-warning py-3 px-5 shadow mb-2"
-                        style="padding: 1rem; border-radius:8px; width:100% !important" id="release">
-                        <h3 class="text-center text-white">Release</h3>
+                    <button class="btn btn-danger py-3 shadow mb-3" style="border-radius:8px; width:100% !important"
+                        id="finish">
+                        <h3 class="text-center text-white mb-0">FINISH</h3>
                     </button>
 
-                    <button class="btn btn-danger py-3 px-5 shadow mb-2"
-                        style="padding: 1rem; border-radius:8px; width:100% !important" id="stop">
-                        <h3 class="text-center text-white">Stop</h3>
-                    </button>
-
-                    <div class="card card-warning py-4 shadow mb-2" style="padding: 1rem; border-radius:8px">
+                    <div class="card card-warning py-3 shadow mb-3" style="padding:1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark">Scan Kanban (Kanan)</label>
-                        <input id="part-right" type="text" class="form-control" name="part-right" tabindex="2"
-                            placeholder="scan kanban kanan..." autocomplete="off" disabled>
+                        <input id="part-right" type="text" class="form-control" name="part-right" tabindex="1"
+                            placeholder="scan kanban kanan..." autocomplete="off" autofocus>
                         <small class="text-muted">Last: <span id="last-right">-</span></small>
                     </div>
 
-                    <div class="card card-warning py-4 shadow mb-2" style="padding: 1rem; border-radius:8px">
+                    <div class="card card-warning py-3 shadow mb-3" style="padding:1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark">Scan Kanban (Kiri)</label>
-                        <input id="part-left" type="text" class="form-control" name="part-left" tabindex="3"
-                            placeholder="scan kanban kiri..." autocomplete="off" disabled>
+                        <input id="part-left" type="text" class="form-control" name="part-left" tabindex="2"
+                            placeholder="scan kanban kiri..." autocomplete="off">
                         <small class="text-muted">Last: <span id="last-left">-</span></small>
+                    </div>
+
+                    <div class="card shadow" style="padding:.6rem; border-radius:8px">
+                        <small class="text-muted" style="font-weight:700">Hasil Baca Barcode</small>
+                        <small class="text-muted" style="word-break:break-all" id="scan-debug">-</small>
                     </div>
                 </div>
             </div>
@@ -85,6 +108,56 @@
     </div>
     {{-- end of modal notif --}}
 
+    {{-- modal ringkasan finish --}}
+    <div class="modal fade" id="finishModal" tabindex="-1" role="dialog" data-backdrop="static" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-radius:12px">
+                <div class="modal-header">
+                    <h5 class="modal-title">Ringkasan Produksi AS547</h5>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-striped mb-0">
+                        <tbody>
+                            <tr>
+                                <th style="width:45%">Mulai</th>
+                                <td id="sum-start">-</td>
+                            </tr>
+                            <tr>
+                                <th>Selesai</th>
+                                <td id="sum-end">-</td>
+                            </tr>
+                            <tr>
+                                <th>Durasi</th>
+                                <td id="sum-duration">-</td>
+                            </tr>
+                            <tr>
+                                <th>Box RH <small class="text-muted" id="sum-label-r"></small></th>
+                                <td id="sum-count-r">0</td>
+                            </tr>
+                            <tr>
+                                <th>Box LH <small class="text-muted" id="sum-label-l"></small></th>
+                                <td id="sum-count-l">0</td>
+                            </tr>
+                            <tr>
+                                <th>Total Box</th>
+                                <td id="sum-total">0</td>
+                            </tr>
+                            <tr>
+                                <th>Estimasi Pcs</th>
+                                <td id="sum-pcs">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" id="finish-cancel">Batal</button>
+                    <button type="button" class="btn btn-danger" id="finish-confirm">Selesai &amp; Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- end of modal ringkasan --}}
+
     <audio id="ok-sound">
         <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg" preload="auto">
     </audio>
@@ -101,15 +174,14 @@
         (function() {
             document.addEventListener('DOMContentLoaded', function() {
                 const CSRF = "{{ csrf_token() }}";
+                const PIS_BASE_URL = "{{ asset('assets/img/pis') }}";
+                const PAIR_URL = "{{ url('production/as547/pair') }}";
+                const SCAN_URL = "{{ route('production.as547.scan-kanban') }}";
 
-                // Dua kode master tetap: trigger awal tanpa API/DB. Part aktual: 423125-10360 (RH), 423126-10360 (LH).
-                const MASTER_RH = '423125-10360-MASTER';
-                const MASTER_LH = '423126-10360-MASTER';
-                const VALID_MASTERS = [MASTER_RH, MASTER_LH];
-                const PART_IMAGE_URL = "{{ asset('storage/pis/as547_part.jpeg') }}";
-                const EXPECTED_PART_RIGHT = '423125-10550';
-                const EXPECTED_PART_LEFT = '423126-10330';
-                const AS547_SCAN_KANBAN_URL = "{{ route('production.as547.scan-kanban') }}";
+                /** Jeda sebelum gambar PIS berganti ke sisi lawan setelah scan OK. */
+                const FLIP_DELAY_MS = 2000;
+                /** Batas jumlah kanban yang diingat untuk anti double scan di sisi client. */
+                const MAX_SCANNED_KEPT = 3000;
 
                 var $ = window.jQuery;
                 if (!$) {
@@ -117,42 +189,56 @@
                     return;
                 }
 
-                const $master = $('#master');
                 const $partR = $('#part-right');
                 const $partL = $('#part-left');
-
                 const $pis = $('#pis');
+                const $pisCaption = $('#pis-caption');
                 const $modelTxt = $('#model');
-
-                const $statusHdr = $('.status-card-header');
-                const $status = $('.status-card');
-                const $txtStatus = $('#status');
-
+                const $sideTxt = $('#side');
+                const $countR = $('#count-r');
+                const $countL = $('#count-l');
+                const $labelR = $('#label-r');
+                const $labelL = $('#label-l');
                 const $lastR = $('#last-right');
                 const $lastL = $('#last-left');
+                const $txtStatus = $('#status');
+
+                const K = {
+                    active: 'as547_active',
+                    pair: 'as547_pair',
+                    side: 'as547_side',
+                    countR: 'as547_count_r',
+                    countL: 'as547_count_l',
+                    lastR: 'as547_last_right',
+                    lastL: 'as547_last_left',
+                    started: 'as547_started_at',
+                    scanned: 'as547_scanned',
+                };
 
                 const LS = {
                     get: k => localStorage.getItem(k),
                     set: (k, v) => localStorage.setItem(k, String(v)),
-                    mset: obj => Object.keys(obj).forEach(k => localStorage.setItem(k, String(obj[k]))),
                     del: k => localStorage.removeItem(k),
                 };
 
+                /** True selama transisi 2 detik / request berjalan: semua scan diabaikan. */
+                let locked = false;
+
                 function okSound() {
-                    document.getElementById("ok-sound").play();
+                    document.getElementById('ok-sound').play();
                 }
 
                 function wrongSound() {
-                    document.getElementById("wrong-kanban-sound").play();
+                    document.getElementById('wrong-kanban-sound').play();
                 }
 
                 function errConnection() {
-                    document.getElementById("error-connection").play();
+                    document.getElementById('error-connection').play();
                 }
 
                 function notif(color, text) {
                     $('#notif').text(text);
-                    $('#divNotif').css("background-color", color === "error" ? "#FF2A00" : "#32a852");
+                    $('#divNotif').css('background-color', color === 'error' ? '#FF2A00' : '#32a852');
                     $('#notifModal').modal('show');
                     setTimeout(() => {
                         $('#notifModal').modal('hide');
@@ -166,269 +252,335 @@
                         idle: ['card-secondary', 'bg-secondary', '-']
                     };
                     const [hdrCls, bgCls, txt] = map[state] || map.idle;
-                    $statusHdr.removeClass('card-secondary card-success card-danger').addClass(hdrCls);
-                    $status.removeClass('bg-secondary bg-success bg-danger').addClass(bgCls);
+                    $('.status-card-header').removeClass('card-secondary card-success card-danger').addClass(hdrCls);
+                    $('.status-card').removeClass('bg-secondary bg-success bg-danger').addClass(bgCls);
                     $txtStatus.text(txt);
                     if (state !== 'idle') {
-                        setTimeout(() => setStatus('idle'), state === 'ok' ? 700 : 1200);
+                        setTimeout(() => setStatus('idle'), state === 'ok' ? 1200 : 1500);
                     }
                 }
 
-                function api(url, method, data) {
-                    return $.ajax({
-                        url,
-                        method,
-                        dataType: 'json',
-                        data
-                    });
+                function fail(message) {
+                    wrongSound();
+                    notif('error', message);
+                    setStatus('ng');
                 }
 
-                function enablePartInputs(enabled) {
-                    $partR.prop('disabled', !enabled);
-                    $partL.prop('disabled', !enabled);
+                // ---------- state ----------
+
+                function isActive() {
+                    return LS.get(K.active) === '1';
                 }
 
-                function expectedSide() {
-                    return LS.get('as547_expected_side') || 'R';
+                function pair() {
+                    try {
+                        return JSON.parse(LS.get(K.pair) || 'null');
+                    } catch (e) {
+                        return null;
+                    }
                 }
 
-                function setExpectedSide(side) {
-                    LS.set('as547_expected_side', side);
+                function side() {
+                    return LS.get(K.side) === 'L' ? 'L' : 'R';
+                }
+
+                function sideLabel(s) {
+                    return s === 'R' ? 'KANAN (RH)' : 'KIRI (LH)';
+                }
+
+                function count(s) {
+                    return parseInt(LS.get(s === 'R' ? K.countR : K.countL) || '0', 10) || 0;
+                }
+
+                function setCount(s, value) {
+                    LS.set(s === 'R' ? K.countR : K.countL, value);
+                }
+
+                function scannedList() {
+                    try {
+                        const list = JSON.parse(LS.get(K.scanned) || '[]');
+                        return Array.isArray(list) ? list : [];
+                    } catch (e) {
+                        return [];
+                    }
+                }
+
+                function alreadyScanned(key) {
+                    return scannedList().indexOf(key) !== -1;
+                }
+
+                function markScanned(key) {
+                    const list = scannedList();
+                    list.push(key);
+                    if (list.length > MAX_SCANNED_KEPT) {
+                        list.splice(0, list.length - MAX_SCANNED_KEPT);
+                    }
+                    LS.set(K.scanned, JSON.stringify(list));
+                }
+
+                function resetState() {
+                    Object.keys(K).forEach(name => LS.del(K[name]));
+                }
+
+                // ---------- render ----------
+
+                function lock() {
+                    locked = true;
+                    $partR.prop('disabled', true);
+                    $partL.prop('disabled', true);
+                }
+
+                function unlock() {
+                    locked = false;
                 }
 
                 function focusExpected() {
-                    if (!LS.get('model')) {
-                        $master.focus();
-                        return;
-                    }
-                    if (expectedSide() === 'R') {
+                    if (locked) return;
+                    if (!isActive()) {
                         $partR.focus();
-                    } else {
-                        $partL.focus();
-                    }
-                }
-
-                function clearAndFocus($el) {
-                    if (!$el || !$el.length) return;
-                    $el.val('');
-                    setTimeout(function() {
-                        $el.focus();
-                    }, 50);
-                }
-
-                function clearPartBySide(side) {
-                    if (side === 'R') {
-                        $partR.val('');
-                    } else if (side === 'L') {
-                        $partL.val('');
-                    }
-                }
-
-                function clearAndFocusExpected() {
-                    if (!LS.get('model')) {
-                        clearAndFocus($master);
                         return;
                     }
-
-                    if (expectedSide() === 'R') {
-                        clearAndFocus($partR);
-                    } else {
-                        clearAndFocus($partL);
-                    }
+                    (side() === 'R' ? $partR : $partL).focus();
                 }
 
-                function clearCurrentAndFocusExpected(scannedSide) {
-                    clearPartBySide(scannedSide);
+                function showPis(part) {
+                    const photo = part && part.photo ? String(part.photo) : '';
 
-                    setTimeout(function() {
-                        if (!LS.get('model')) {
-                            $master.focus();
-                            return;
-                        }
-
-                        if (expectedSide() === 'R') {
-                            $partR.focus();
-                        } else {
-                            $partL.focus();
-                        }
-                    }, 50);
-                }
-
-                function showPis(photo) {
                     if (!photo) {
-                        $pis.html(`<h2 class="text-center text-dark">Ready to scan !!</h2>`);
-                        return;
-                    }
-                    $pis.html(
-                        `<img src="{{ asset('assets/img/pis/${photo}') }}" alt="PIS" class="rounded" height="700">`
-                    );
-                }
-
-                /** Gambar part dari storage (symlink) — tanpa API/DB */
-                function showPisFromStorage() {
-                    const url = PART_IMAGE_URL;
-                    $pis.html(
-                        `<img src="${url}" alt="Part AS547" class="rounded" height="700" onerror="this.parentElement.innerHTML='<h2 class=\\"text-center text-dark\\">Ready to scan !!</h2>';">`
-                    );
-                }
-
-                function initFromStorage() {
-                    const back = LS.get('back_number');
-                    const photo = LS.get('photo');
-                    const masterScanned = LS.get('as547_master_scanned');
-                    const lastR = LS.get('as547_last_right') || '-';
-                    const lastL = LS.get('as547_last_left') || '-';
-
-                    if (back || photo) {
-                        $('.model-card-header').removeClass('card-secondary').addClass('card-info');
-                        $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-                        $modelTxt.text(back || '-');
-                        showPis(photo);
-                        enablePartInputs(true);
-                    } else if (masterScanned) {
-                        $('.model-card-header').removeClass('card-secondary').addClass('card-info');
-                        $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-                        $modelTxt.text('AS547');
-                        showPisFromStorage();
-                        enablePartInputs(true);
+                        $pis.html('<h2 class="text-center text-dark">Gambar PIS belum di-set untuk part ini</h2>');
                     } else {
-                        enablePartInputs(false);
+                        const $img = $('<img>')
+                            .attr('src', PIS_BASE_URL + '/' + encodeURIComponent(photo))
+                            .attr('alt', 'PIS')
+                            .attr('height', 700)
+                            .addClass('rounded')
+                            .on('error', function() {
+                                $pis.html('<h2 class="text-center text-dark">Gambar PIS tidak ditemukan: ' +
+                                    photo + '</h2>');
+                            });
+                        $pis.empty().append($img);
                     }
 
-                    $lastR.text(lastR);
-                    $lastL.text(lastL);
-
-                    focusExpected();
+                    $pisCaption.text(part ? (part.part_number || '') + ' — ' + (part.part_name || '') : '');
                 }
 
-                /**
-                 * Parse barcode kanban full (format: ... 423125-10550 ... MM0P 0000050000000000000030 ...).
-                 * Part number: 423125-10550.
-                 * Serial number: diambil dari blok panjang setelah MM0P/MM0Q (0000050000000000000030),
-                 * yaitu 4 karakter pada posisi index 2–5 -> "0005".
-                 */
-                function parseKanbanBarcode(raw) {
-                    const s = (raw || '').trim();
-                    if (!s) return null;
+                function render() {
+                    const p = pair();
 
-                    const partMatch = s.match(/\d{5,6}-\d{4,5}/);
-                    if (!partMatch) return null;
+                    if (!isActive() || !p) {
+                        $('.side-card-header').removeClass('card-primary card-info').addClass('card-secondary');
+                        $('.side-card').removeClass('bg-primary bg-info').addClass('bg-secondary');
+                        $sideTxt.text('STANDBY');
 
-                    const part_number = partMatch[0];
-                    const mm0Block = s.match(/MM0[PQ]\s+(\d+)/);
+                        $('.model-card-header').removeClass('card-info').addClass('card-secondary');
+                        $('.model-card').removeClass('bg-info').addClass('bg-secondary');
+                        $modelTxt.text('-');
 
-                    let serial_number = '0000';
-                    if (mm0Block && mm0Block[1].length >= 6) {
-                        const block = mm0Block[1];
-                        serial_number = block.substring(2, 6);
-                    }
+                        $pis.html('<h2 class="text-center text-dark">Scan kanban KANAN / KIRI untuk memulai produksi</h2>');
+                        $pisCaption.text('');
 
-                    return {
-                        part_number,
-                        serial_number
-                    };
-                }
-
-                /** Cek apakah input adalah salah satu dari dua kode master tetap */
-                function isLocalMaster(code) {
-                    const t = (code || '').trim();
-                    return t === MASTER_RH || t === MASTER_LH;
-                }
-
-                function handleMasterScan(raw) {
-                    const v = (raw || '').trim();
-                    console.log('AS547 handleMasterScan raw:', v);
-
-                    if (!v) return;
-
-                    if (isLocalMaster(v)) {
-                        LS.mset({
-                            as547_master_scanned: '1',
-                            model: 'AS547',
-                            line: 'AS547',
-                            as547_expected_side: 'R',
-                        });
-
-                        LS.del('back_number');
-                        LS.del('photo');
-                        LS.del('as547_last_right');
-                        LS.del('as547_last_left');
-
+                        $labelR.text('-');
+                        $labelL.text('-');
+                        $countR.text('0');
+                        $countL.text('0');
                         $lastR.text('-');
                         $lastL.text('-');
 
-                        $('.model-card-header').removeClass('card-secondary').addClass('card-info');
-                        $('.model-card').removeClass('bg-secondary').addClass('bg-info');
-                        $modelTxt.text('AS547');
-                        showPisFromStorage();
-                        enablePartInputs(true);
-
-                        okSound();
-                        notif('success', 'Master OK. Lanjut scan kanban KANAN (' + EXPECTED_PART_RIGHT + ').');
-                        setStatus('ok');
-
-                        $master.val('');
-                        $partR.val('');
-                        $partL.val('');
-
-                        setTimeout(function() {
-                            $partR.focus();
-                        }, 1850);
-
+                        $partR.prop('disabled', false);
+                        $partL.prop('disabled', false);
+                        focusExpected();
                         return;
                     }
 
-                    wrongSound();
-                    notif('error', 'Gunakan 423125-10360-MASTER atau 423126-10360-MASTER.');
-                    setStatus('ng');
-                    clearAndFocus($master);
+                    const s = side();
+                    const part = p[s] || {};
+
+                    $('.side-card-header').removeClass('card-secondary card-primary card-info')
+                        .addClass(s === 'R' ? 'card-primary' : 'card-info');
+                    $('.side-card').removeClass('bg-secondary bg-primary bg-info')
+                        .addClass(s === 'R' ? 'bg-primary' : 'bg-info');
+                    $sideTxt.text(sideLabel(s));
+
+                    $('.model-card-header').removeClass('card-secondary').addClass('card-info');
+                    $('.model-card').removeClass('bg-secondary').addClass('bg-info');
+                    $modelTxt.text(part.back_number || part.part_number || '-');
+
+                    showPis(part);
+
+                    $labelR.text(p.R && p.R.back_number ? p.R.back_number : '-');
+                    $labelL.text(p.L && p.L.back_number ? p.L.back_number : '-');
+                    $countR.text(count('R'));
+                    $countL.text(count('L'));
+                    $lastR.text(LS.get(K.lastR) || '-');
+                    $lastL.text(LS.get(K.lastL) || '-');
+
+                    $partR.prop('disabled', s !== 'R');
+                    $partL.prop('disabled', s !== 'L');
+                    focusExpected();
                 }
 
-                function handlePartScan(side, rawBarcode) {
-                    const exp = expectedSide();
+                function clearAndRefocus() {
+                    $partR.val('');
+                    $partL.val('');
+                    setTimeout(focusExpected, 50);
+                }
 
-                    if (!LS.get('model') || !LS.get('line')) {
-                        wrongSound();
-                        notif('error', 'Scan master sample dulu.');
-                        setStatus('ng');
-                        enablePartInputs(false);
-                        clearPartBySide(side);
-                        clearAndFocus($master);
-                        return;
+                // ---------- barcode ----------
+
+                /**
+                 * Layout kanban berdasarkan panjang barcode — sama persis dengan parser yang
+                 * sudah dipakai production/index.blade.php dan as523.blade.php.
+                 * Format: [offset, panjang].
+                 */
+                const KANBAN_LAYOUTS = {
+                    218: { internal: [41, 16], seri: [123, 4], back: [100, 4], pcs: [196, 1] }, // kanban suzuki
+                    219: { internal: [42, 17], seri: [124, 4], back: [100, 4], pcs: [196, 1] },
+                    220: { internal: [35, 12], seri: [130, 4], back: [100, 4], pcs: [196, 1] }, // kanban buffer
+                    230: { internal: [41, 19], seri: [123, 4], back: [100, 4], pcs: [196, 1] }, // kanban normal
+                    241: { internal: [35, 12], seri: [127, 4], back: [100, 4], pcs: [196, 1] }, // kanban passtrough
+                };
+
+                function cut(code, spec) {
+                    return code.substr(spec[0], spec[1]).trim();
+                }
+
+                /**
+                 * Parse barcode kanban.
+                 * Utama: layout panjang tetap (218/219/220/230/241) seperti halaman produksi lain.
+                 * Cadangan: heuristik regex untuk barcode di luar panjang standar.
+                 * serial_number null = barcode tidak layak dipakai (anti double scan butuh serial asli).
+                 */
+                function parseKanbanBarcode(raw) {
+                    const code = (raw || '').trim();
+                    if (!code) return null;
+
+                    const layout = KANBAN_LAYOUTS[code.length];
+                    if (layout) {
+                        const partNumber = cut(code, layout.internal);
+                        const serial = cut(code, layout.seri);
+
+                        if (partNumber) {
+                            return {
+                                part_number: partNumber,
+                                serial_number: serial || null,
+                                back_number: cut(code, layout.back) || null,
+                                pcs: cut(code, layout.pcs) || null,
+                                length: code.length,
+                                source: 'layout-' + code.length,
+                            };
+                        }
                     }
 
-                    if (side !== exp) {
-                        wrongSound();
-                        notif('error',
-                            `Urutan salah. Sekarang harus scan kanban ${exp === 'R' ? 'KANAN' : 'KIRI'}.`);
-                        setStatus('ng');
-                        clearCurrentAndFocusExpected(side);
-                        return;
+                    const partMatch = code.match(/\d{5,6}-\d{4,5}/);
+                    if (!partMatch) return null;
+
+                    let block = null;
+                    const mm0 = code.match(/MM0[PQ]\s*(\d{6,})/);
+                    if (mm0) {
+                        block = mm0[1];
+                    } else {
+                        const runs = code.match(/\d{10,}/g);
+                        if (runs && runs.length) block = runs[runs.length - 1];
                     }
 
-                    const parsed = parseKanbanBarcode(rawBarcode);
+                    return {
+                        part_number: partMatch[0],
+                        serial_number: block ? block.substring(2, 6) : null,
+                        back_number: null,
+                        pcs: null,
+                        length: code.length,
+                        source: 'fallback',
+                    };
+                }
+
+                /** Tampilkan hasil baca barcode supaya format kanban gampang diverifikasi di mesin. */
+                function showParseDebug(raw, parsed) {
+                    const len = (raw || '').trim().length;
+
                     if (!parsed) {
-                        wrongSound();
-                        notif('error',
-                            'Format barcode kanban tidak valid. Harus ada part number (contoh: 423125-10550) dan serial.'
-                        );
-                        setStatus('ng');
-                        clearCurrentAndFocusExpected(side);
+                        $('#scan-debug').text('len ' + len + ' · tidak terbaca');
                         return;
                     }
 
-                    const expectedPart = side === 'R' ? EXPECTED_PART_RIGHT : EXPECTED_PART_LEFT;
-                    if (parsed.part_number !== expectedPart) {
-                        wrongSound();
-                        notif('error',
-                            `Part number salah. Harus ${expectedPart}, dapat: ${parsed.part_number}`);
+                    $('#scan-debug').text(
+                        'len ' + parsed.length +
+                        ' · ' + parsed.source +
+                        ' · part ' + parsed.part_number +
+                        ' · seri ' + (parsed.serial_number || '-') +
+                        ' · back ' + (parsed.back_number || '-')
+                    );
+                }
+
+                // ---------- alur scan ----------
+
+                function handleAjaxFail(xhr) {
+                    if (xhr.status === 0) {
+                        errConnection();
+                        notif('error', 'Connection Error');
                         setStatus('ng');
-                        clearCurrentAndFocusExpected(side);
                         return;
                     }
+
+                    const body = xhr.responseJSON || {};
+                    let message = body.message;
+
+                    if (!message && body.errors) {
+                        message = Object.keys(body.errors).map(k => body.errors[k]).join(' ');
+                    }
+
+                    fail(message || 'Internal Server Error');
+                }
+
+                /** Scan pertama: menentukan sisi awal + pasangan RH/LH. Tidak menyimpan mutation. */
+                function startProduction(parsed) {
+                    lock();
 
                     $.ajax({
-                            url: AS547_SCAN_KANBAN_URL,
+                            url: PAIR_URL + '/' + encodeURIComponent(parsed.part_number),
+                            method: 'GET',
+                            dataType: 'json'
+                        })
+                        .done(function(res) {
+                            unlock();
+
+                            if (!res || res.status !== 'success') {
+                                fail((res && res.message) || 'Part tidak dikenali.');
+                                clearAndRefocus();
+                                return;
+                            }
+
+                            LS.set(K.pair, JSON.stringify(res.data));
+                            LS.set(K.side, res.side);
+                            LS.set(K.active, '1');
+                            LS.set(K.started, new Date().toISOString());
+                            LS.set(K.scanned, '[]');
+                            setCount('R', 0);
+                            setCount('L', 0);
+                            LS.del(K.lastR);
+                            LS.del(K.lastL);
+
+                            $partR.val('');
+                            $partL.val('');
+                            render();
+
+                            okSound();
+                            setStatus('ok');
+                            notif('success', 'Produksi dimulai — ' + sideLabel(res.side) +
+                                '. Scan kanban lagi setelah 1 box selesai.');
+                        })
+                        .fail(function(xhr) {
+                            unlock();
+                            handleAjaxFail(xhr);
+                            clearAndRefocus();
+                        });
+                }
+
+                /** Scan berikutnya: 1 scan = 1 box selesai, lalu gambar pindah ke sisi lawan. */
+                function submitScan(s, parsed, key) {
+                    lock();
+
+                    $.ajax({
+                            url: SCAN_URL,
                             method: 'POST',
                             contentType: 'application/json',
                             dataType: 'json',
@@ -438,68 +590,157 @@
                             data: JSON.stringify({
                                 part_number: parsed.part_number,
                                 serial_number: parsed.serial_number,
-                                side: side
+                                side: s
                             })
                         })
                         .done(function(res) {
-                            if (res.status !== 'success') {
-                                wrongSound();
-                                notif('error', res.message || 'Gagal menyimpan scan.');
-                                setStatus('ng');
-                                clearCurrentAndFocusExpected(side);
+                            if (!res || res.status !== 'success') {
+                                unlock();
+                                fail((res && res.message) || 'Gagal menyimpan scan.');
+                                clearAndRefocus();
                                 return;
                             }
 
-                            const displayText = parsed.part_number + ' / ' + parsed.serial_number;
+                            markScanned(key);
+                            setCount(s, count(s) + 1);
 
-                            if (side === 'R') {
-                                LS.set('as547_last_right', displayText);
-                                $lastR.text(displayText);
-                                setExpectedSide('L');
-                                $partR.val('');
+                            const display = parsed.part_number + ' / ' + parsed.serial_number;
+                            LS.set(s === 'R' ? K.lastR : K.lastL, display);
+                            (s === 'R' ? $lastR : $lastL).text(display);
+                            (s === 'R' ? $countR : $countL).text(count(s));
 
-                                okSound();
-                                notif('success', 'Scan kanban kanan OK. Lanjut kanban kiri.');
-                                setStatus('ok');
+                            $partR.val('');
+                            $partL.val('');
 
-                                setTimeout(function() {
-                                    $partL.focus();
-                                }, 1850);
-                            } else {
-                                LS.set('as547_last_left', displayText);
-                                $lastL.text(displayText);
-                                setExpectedSide('R');
-                                $partL.val('');
+                            okSound();
+                            setStatus('ok');
+                            notif('success', res.message + ' Ganti ke ' + sideLabel(s === 'R' ? 'L' : 'R') +
+                                ' dalam 2 detik.');
 
-                                okSound();
-                                notif('success', 'Scan kanban kiri OK. Lanjut kanban kanan.');
-                                setStatus('ok');
-
-                                setTimeout(function() {
-                                    $partR.focus();
-                                }, 1850);
-                            }
+                            setTimeout(function() {
+                                LS.set(K.side, s === 'R' ? 'L' : 'R');
+                                unlock();
+                                render();
+                            }, FLIP_DELAY_MS);
                         })
                         .fail(function(xhr) {
-                            if (xhr.status === 0) {
-                                notif('error', 'Connection Error');
-                                errConnection();
-                            } else {
-                                const msg = xhr.responseJSON && (xhr.responseJSON.message || xhr
-                                    .responseJSON.errors);
-                                wrongSound();
-                                notif('error', msg || 'Gagal menyimpan mutation.');
-                            }
-
-                            setStatus('ng');
-                            clearCurrentAndFocusExpected(side);
+                            unlock();
+                            handleAjaxFail(xhr);
+                            clearAndRefocus();
                         });
                 }
 
-                console.log('AS547 script initialized, $master length =', $master.length);
-                initFromStorage();
+                function handleScan(raw) {
+                    if (locked) return;
 
-                // Fullscreen button
+                    const parsed = parseKanbanBarcode(raw);
+                    showParseDebug(raw, parsed);
+
+                    if (!parsed) {
+                        fail('Format barcode kanban tidak valid (part number tidak terbaca).');
+                        clearAndRefocus();
+                        return;
+                    }
+
+                    if (!parsed.serial_number) {
+                        fail('Serial kanban tidak terbaca dari barcode.');
+                        clearAndRefocus();
+                        return;
+                    }
+
+                    if (!isActive()) {
+                        startProduction(parsed);
+                        return;
+                    }
+
+                    const p = pair();
+                    const s = side();
+                    const expectedPart = p && p[s] ? p[s].part_number : null;
+
+                    if (expectedPart && parsed.part_number !== expectedPart) {
+                        fail('Sekarang harus scan ' + sideLabel(s) + ' (' + expectedPart + '). Terbaca: ' +
+                            parsed.part_number);
+                        clearAndRefocus();
+                        return;
+                    }
+
+                    // Cross-check back number kalau barcode-nya layout standar: ketidakcocokan di sini
+                    // berarti barcode salah baca, bukan sekadar salah sisi.
+                    const expectedBack = p && p[s] ? p[s].back_number : null;
+                    if (parsed.back_number && expectedBack &&
+                        parsed.back_number.toUpperCase() !== String(expectedBack).toUpperCase()) {
+                        fail('Back number kanban (' + parsed.back_number + ') tidak cocok dengan model ' +
+                            expectedBack + '.');
+                        clearAndRefocus();
+                        return;
+                    }
+
+                    const key = parsed.part_number + '|' + parsed.serial_number;
+                    if (alreadyScanned(key)) {
+                        fail('Kanban ' + parsed.part_number + ' / ' + parsed.serial_number +
+                            ' sudah discan di shift ini.');
+                        clearAndRefocus();
+                        return;
+                    }
+
+                    submitScan(s, parsed, key);
+                }
+
+                // ---------- finish ----------
+
+                function formatTime(iso) {
+                    if (!iso) return '-';
+                    const d = new Date(iso);
+                    if (isNaN(d.getTime())) return '-';
+                    return d.toLocaleString('id-ID', {
+                        hour12: false
+                    });
+                }
+
+                function formatDuration(fromIso, to) {
+                    if (!fromIso) return '-';
+                    const from = new Date(fromIso);
+                    if (isNaN(from.getTime())) return '-';
+
+                    let minutes = Math.max(0, Math.round((to - from) / 60000));
+                    const hours = Math.floor(minutes / 60);
+                    minutes = minutes % 60;
+
+                    return hours + ' jam ' + minutes + ' menit';
+                }
+
+                function showSummary() {
+                    const p = pair() || {};
+                    const now = new Date();
+                    const r = count('R');
+                    const l = count('L');
+
+                    const qtyR = p.R && p.R.qty_per_kanban ? p.R.qty_per_kanban : null;
+                    const qtyL = p.L && p.L.qty_per_kanban ? p.L.qty_per_kanban : null;
+
+                    $('#sum-start').text(formatTime(LS.get(K.started)));
+                    $('#sum-end').text(now.toLocaleString('id-ID', {
+                        hour12: false
+                    }));
+                    $('#sum-duration').text(formatDuration(LS.get(K.started), now));
+                    $('#sum-label-r').text(p.R && p.R.back_number ? '(' + p.R.back_number + ')' : '');
+                    $('#sum-label-l').text(p.L && p.L.back_number ? '(' + p.L.back_number + ')' : '');
+                    $('#sum-count-r').text(r);
+                    $('#sum-count-l').text(l);
+                    $('#sum-total').text(r + l);
+                    $('#sum-pcs').text(
+                        qtyR || qtyL ?
+                        (r * (qtyR || 0) + l * (qtyL || 0)) + ' pcs' :
+                        'qty per kanban belum di-set'
+                    );
+
+                    $('#finishModal').modal('show');
+                }
+
+                // ---------- init & events ----------
+
+                render();
+
                 $('#fullscreenBtn').on('click', function() {
                     const docEl = document.documentElement;
                     if (!document.fullscreenElement) {
@@ -515,115 +756,38 @@
                     }
                 });
 
-                // Fokuskan ke field yang diharapkan pada setiap klik
-                $(document).on('click', function() {
+                $('#finish').on('click', function() {
+                    if (!isActive()) {
+                        fail('Belum ada produksi berjalan.');
+                        return;
+                    }
+                    showSummary();
+                });
+
+                $('#finish-confirm').on('click', function() {
+                    resetState();
+                    $('#finishModal').modal('hide');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 300);
+                });
+
+                $('#finishModal').on('hidden.bs.modal', function() {
                     focusExpected();
                 });
 
-                // Tombol release
-                $('#release').on('click', function() {
-                    localStorage.clear();
-                    window.location.reload();
+                // Kembalikan fokus ke field scan, tapi jangan ganggu tombol / modal.
+                $(document).on('click', function(e) {
+                    if ($(e.target).closest('button, a, input, .modal').length) return;
+                    focusExpected();
                 });
 
-                // Tombol stop
-                $('#stop').on('click', function() {
-                    const model = LS.get('model');
-                    const localOnly = LS.get('as547_master_scanned');
-
-                    if (!model && !localOnly) {
-                        wrongSound();
-                        notif('error', 'Belum ada master sample / model running.');
-                        setStatus('ng');
-                        clearAndFocus($master);
-                        return;
-                    }
-
-                    // Mode master lokal (tanpa API/DB): cukup clear state dan reload
-                    if (localOnly || model === 'AS547') {
-                        localStorage.removeItem('as547_master_scanned');
-                        localStorage.removeItem('model');
-                        localStorage.removeItem('line');
-                        localStorage.removeItem('as547_expected_side');
-                        localStorage.removeItem('as547_last_right');
-                        localStorage.removeItem('as547_last_left');
-
-                        okSound();
-                        notif('success', 'Stop. State lokal direset.');
-                        setStatus('ok');
-
-                        setTimeout(function() {
-                            window.location.reload();
-                        }, 800);
-                        return;
-                    }
-
-                    $.ajax({
-                            url: `/production/api-stop`,
-                            method: 'POST',
-                            contentType: 'application/json',
-                            dataType: 'json',
-                            headers: {
-                                'X-CSRF-TOKEN': CSRF
-                            },
-                            data: JSON.stringify([model])
-                        })
-                        .done(res => {
-                            if (res.status !== 'success') {
-                                wrongSound();
-                                notif('error', res.message || 'Gagal stop inbound');
-                                setStatus('ng');
-                                focusExpected();
-                                return;
-                            }
-
-                            okSound();
-                            notif('success', 'Stop berhasil dikirim.');
-                            setStatus('ok');
-                            focusExpected();
-                        })
-                        .fail(xhr => {
-                            if (xhr.status === 0) {
-                                notif('error', 'Connection Error');
-                                errConnection();
-                                clearAndFocusExpected();
-                                return;
-                            }
-
-                            wrongSound();
-                            notif('error', xhr.responseJSON?.message || xhr.responseJSON?.errors ||
-                                'Internal Server Error');
-                            setStatus('ng');
-                            clearAndFocusExpected();
-                        });
-                });
-
-                // EVENT SCAN MASTER SAMPLE – langsung di field #master
-                $master.on('keydown', function(e) {
-                    const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
-                    if (!isEnter) return;
-
-                    e.preventDefault();
-                    const v = $(this).val();
-                    console.log('AS547 master keydown Enter, value:', v);
-                    handleMasterScan(v);
-                });
-
-                $master.on('change', function() {
-                    const v = $(this).val();
-                    if (!v) return;
-
-                    console.log('AS547 master change, value:', v);
-                    handleMasterScan(v);
-                });
-
-                // Event untuk part kanan/kiri
                 $partR.on('keydown', function(e) {
                     const isEnter = e.key === 'Enter' || e.which === 13 || e.keyCode === 13;
                     if (!isEnter) return;
 
                     e.preventDefault();
-                    handlePartScan('R', $(this).val());
+                    handleScan($(this).val());
                 });
 
                 $partL.on('keydown', function(e) {
@@ -631,7 +795,7 @@
                     if (!isEnter) return;
 
                     e.preventDefault();
-                    handlePartScan('L', $(this).val());
+                    handleScan($(this).val());
                 });
             });
         })();

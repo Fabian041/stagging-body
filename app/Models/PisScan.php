@@ -20,6 +20,10 @@ class PisScan extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'operator_scanned_at' => 'datetime',
+    ];
+
     public function details()
     {
         return $this->hasMany(PisScanDetail::class);

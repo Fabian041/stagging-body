@@ -16,6 +16,8 @@ window.ValidationPairingFlow = (() => {
     const sessionKeys = Object.values(keys);
     const automaticKanbanLengths = [218, 219, 220, 230, 241];
     let isProcessing = false;
+    let isAutoResetting = false;
+    let autoResetTimer = null;
     let notificationTimer = null;
 
     function readNumber(key, fallback = 0) {
@@ -54,6 +56,31 @@ window.ValidationPairingFlow = (() => {
             $('#code').focus();
             notificationTimer = null;
         }, duration);
+    }
+
+    function completePairingAutomatically() {
+        if (notificationTimer) {
+            clearTimeout(notificationTimer);
+            notificationTimer = null;
+        }
+        if (autoResetTimer) clearTimeout(autoResetTimer);
+
+        isAutoResetting = true;
+        $('#code').val('').prop('disabled', true);
+        $('#finishButton').prop('disabled', true);
+        $('#pairing-status').text('Complete Pairing... reset otomatis');
+        $('#notif').html('<i class="fas fa-spinner fa-spin mr-2"></i>Complete Pairing...');
+        $('#divNotif').css('background-color', '#16a34a');
+        $('#notifModal').modal('show');
+        playSound('match-sound');
+
+        autoResetTimer = setTimeout(() => {
+            autoResetTimer = null;
+            isAutoResetting = false;
+            clearSession();
+            $('#notifModal').modal('hide');
+            $('#code').prop('disabled', false).focus();
+        }, 1500);
     }
 
     function normalizePartNumber(value) {
@@ -106,15 +133,11 @@ window.ValidationPairingFlow = (() => {
         const paintingCount = readNumber(keys.paintingCount);
         const assemblyQty = readNumber(keys.assemblyQty);
         const paintingQty = readNumber(keys.paintingQty);
-        const assemblyPieces = assemblyCount * assemblyQty;
-        const paintingPieces = paintingCount * paintingQty;
-        const targetPainting = paintingQty > 0 ? Math.floor(assemblyPieces / paintingQty) : 0;
-        const piecesNeededForNextPainting = Math.max(
-            0,
-            (paintingPieces + paintingQty) - assemblyPieces
-        );
-        const additionalAssemblyNeeded = assemblyQty > 0 && piecesNeededForNextPainting > 0
-            ? Math.ceil(piecesNeededForNextPainting / assemblyQty)
+        const targetPainting = assemblyQty > 0
+            ? Math.floor(assemblyCount * paintingQty / assemblyQty)
+            : 0;
+        const additionalAssemblyNeeded = assemblyQty > 0 && paintingQty > 0
+            ? Math.max(0, Math.ceil(((paintingCount + 1) * assemblyQty) / paintingQty) - assemblyCount)
             : 0;
 
         return {
@@ -129,11 +152,11 @@ window.ValidationPairingFlow = (() => {
             paintingQty,
             assemblySerials: readList(keys.assemblySerials),
             paintingSerials: readList(keys.paintingSerials),
-            assemblyPieces,
-            paintingPieces,
             targetPainting,
             additionalAssemblyNeeded,
-            isComplete: assemblyCount > 0 && assemblyPieces === paintingPieces
+            isComplete: assemblyCount > 0
+                && paintingCount > 0
+                && (assemblyCount * paintingQty) === (paintingCount * assemblyQty)
         };
     }
 
@@ -182,8 +205,8 @@ window.ValidationPairingFlow = (() => {
             `${session.paintingModel} · ${session.paintingCount}/${session.targetPainting} kanban`
         );
         const ratioDivisor = greatestCommonDivisor(session.assemblyQty, session.paintingQty);
-        const assemblyKanbanRatio = session.paintingQty / ratioDivisor;
-        const paintingKanbanRatio = session.assemblyQty / ratioDivisor;
+        const assemblyKanbanRatio = session.assemblyQty / ratioDivisor;
+        const paintingKanbanRatio = session.paintingQty / ratioDivisor;
 
         $('#assembly-help').text(
             `Rasio ${assemblyKanbanRatio} assembly : ${paintingKanbanRatio} painting`
@@ -218,6 +241,11 @@ window.ValidationPairingFlow = (() => {
     }
 
     function clearSession() {
+        if (autoResetTimer) {
+            clearTimeout(autoResetTimer);
+            autoResetTimer = null;
+        }
+        isAutoResetting = false;
         sessionKeys.forEach(key => localStorage.removeItem(key));
         localStorage.removeItem('error');
         localStorage.removeItem('dandori_error');
@@ -333,8 +361,8 @@ window.ValidationPairingFlow = (() => {
                 return;
             }
 
-            const nextPaintingPieces = (session.paintingCount + 1) * session.paintingQty;
-            if (nextPaintingPieces > session.assemblyPieces) {
+            const nextPaintingCount = session.paintingCount + 1;
+            if (nextPaintingCount > session.targetPainting) {
                 notify(
                     'error',
                     `Kanban assembly belum cukup. Scan ${session.additionalAssemblyNeeded} kanban assembly lagi.`
@@ -352,13 +380,13 @@ window.ValidationPairingFlow = (() => {
             updateDisplay();
 
             const updatedSession = getSession();
-            notify(
-                'success',
-                updatedSession.isComplete
-                    ? 'Pairing lengkap. Tekan Finish atau scan assembly untuk menambah batch.'
-                    : `Kanban painting ke-${nextCount} berhasil discan.`
-            );
-            playSound(updatedSession.isComplete ? 'match-sound' : 'ok-sound');
+            if (updatedSession.isComplete) {
+                completePairingAutomatically();
+                return;
+            }
+
+            notify('success', `Kanban painting ke-${nextCount} berhasil discan.`);
+            playSound('ok-sound');
             return;
         }
 
@@ -369,6 +397,10 @@ window.ValidationPairingFlow = (() => {
     async function processBarcode(barcode) {
         const value = String(barcode || '').trim();
         if (!value || isProcessing) return;
+        if (isAutoResetting) {
+            $('#code').val('');
+            return;
+        }
 
         isProcessing = true;
         $('#code').prop('disabled', true);
@@ -380,7 +412,7 @@ window.ValidationPairingFlow = (() => {
                 scanKanban(value);
             }
         } finally {
-            $('#code').val('').prop('disabled', false).focus();
+            $('#code').val('').prop('disabled', isAutoResetting).focus();
             isProcessing = false;
         }
     }

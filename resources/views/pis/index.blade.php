@@ -2463,8 +2463,8 @@
                             items: mapPisItemsFromDbOrApi(res.items)
                         });
 
-                        // Jika backend mengirim kumpulan LL dengan PDS yang sama, muat semua sekaligus.
-                        if (Array.isArray(res.related_loading_lists) && res.related_loading_lists.length > 0) {
+                        // Auto-load related hanya saat sesi kosong (setelah Delay / refresh).
+                        if (pisLoadingListGroups.length === 0 && Array.isArray(res.related_loading_lists) && res.related_loading_lists.length > 0) {
                             pisLoadingListGroups = [];
                             partsStartedInCurrentSession = [];
                             clearPendingLabelPacks();

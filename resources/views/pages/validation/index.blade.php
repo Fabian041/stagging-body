@@ -530,7 +530,8 @@
             <div class="bella-table-card-header">
                 <div>
                     <span class="bella-table-card-title"><i class="fas fa-barcode mr-2"></i>Kanban Pairing Scan</span>
-                    <div class="bella-table-card-subtitle">Scan Dandori Board, lalu kanban assembly dan painting sesuai master pairing.</div>
+                    <div class="bella-table-card-subtitle">Scan Dandori Board, lalu kanban assembly dan painting sesuai
+                        master pairing.</div>
                 </div>
                 <div class="scan-action-right">
                     <button type="button" class="act-btn danger" id="resetTransactionButton">
@@ -1083,22 +1084,15 @@
     }
 
     function getPairingRatio(qtyAssy, qtyPainting) {
-        // Fungsi KPK
-        function lcm(a, b) {
-            return (a * b) / gcd(a, b);
-        }
-
         function gcd(a, b) {
             return b === 0 ? a : gcd(b, a % b);
         }
 
-        const kpk = lcm(qtyAssy, qtyPainting);
-        const ratioAssy = kpk / qtyAssy;
-        const ratioPainting = kpk / qtyPainting;
+        const divisor = gcd(qtyAssy, qtyPainting);
 
         return {
-            assy: ratioAssy,
-            painting: ratioPainting
+            assy: qtyAssy / divisor,
+            painting: qtyPainting / divisor
         };
     }
 
@@ -1157,4 +1151,6 @@
         }
     }
 </script>
-<script src="{{ asset('assets/js/validation-pairing.js') }}?v={{ filemtime(public_path('assets/js/validation-pairing.js')) }}"></script>
+<script
+    src="{{ asset('assets/js/validation-pairing.js') }}?v={{ filemtime(public_path('assets/js/validation-pairing.js')) }}">
+</script>
