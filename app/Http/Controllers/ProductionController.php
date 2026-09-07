@@ -149,6 +149,7 @@ class ProductionController extends Controller
             'part_number'   => ['required', 'string', 'max:64'],
             'serial_number' => ['required', 'string', 'max:32'],
             'side'          => ['required', 'string', 'in:R,L'],
+            'reset_elapsed_ms' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $partNumber   = trim($request->part_number);
@@ -181,10 +182,11 @@ class ProductionController extends Controller
         }
 
         // Anti double scan: kanban (part + serial) yang sama tidak boleh masuk dua kali dalam satu shift.
+        $since     = $this->as547DuplicateSince($request->input('reset_elapsed_ms'));
         $duplicate = Mutation::where('internal_part_id', $internalPart->id)
             ->where('serial_number', $serialNumber)
             ->whereIn('type', [self::AS547_TYPE_RIGHT, self::AS547_TYPE_LEFT])
-            ->where('date', '>=', Carbon::now()->subHours(self::AS547_DUPLICATE_WINDOW_HOURS))
+            ->where('date', '>', $since)
             ->orderByDesc('date')
             ->first();
 
@@ -225,6 +227,34 @@ class ProductionController extends Controller
                 'message' => 'Gagal menyimpan mutation: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Batas bawah pengecekan kanban dobel.
+     *
+     * Default 12 jam ke belakang. Kalau operator menekan RESET SERI, halaman mengirim
+     * BERAPA LAMA lalu tombol itu ditekan (milidetik), bukan jam absolut dari browser:
+     * selisih waktu kebal terhadap jam PC yang meleset, sedangkan timestamp absolut tidak
+     * (PC yang jamnya maju bisa mematikan pengecekan dobel selamanya). Baris mutation lama
+     * TIDAK dihapus atau diubah, hanya diabaikan oleh pengecekan, jadi hitungan produksi utuh.
+     */
+    private function as547DuplicateSince($resetElapsedMs): Carbon
+    {
+        $now      = Carbon::now();
+        $fallback = $now->copy()->subHours(self::AS547_DUPLICATE_WINDOW_HOURS);
+
+        if ($resetElapsedMs === null || $resetElapsedMs === '') {
+            return $fallback;
+        }
+
+        $elapsed = (int) $resetElapsedMs;
+        if ($elapsed < 0) {
+            return $fallback;
+        }
+
+        $since = $now->copy()->subSeconds(intdiv($elapsed, 1000));
+
+        return $since->greaterThan($fallback) ? $since : $fallback;
     }
 
     /**

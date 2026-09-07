@@ -72,6 +72,12 @@
                         <h3 class="text-center text-white mb-0">FINISH</h3>
                     </button>
 
+                    <button class="btn btn-warning py-2 shadow mb-1" style="border-radius:8px; width:100% !important"
+                        id="reset-seri">
+                        <h5 class="text-center text-white mb-0">RESET SERI</h5>
+                    </button>
+                    <small class="text-muted d-block text-center mb-3" id="reset-info"></small>
+
                     <div class="card card-warning py-3 shadow mb-3" style="padding:1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark mb-1">Scan Kanban</label>
                         <small class="text-muted text-center mb-2">kanan / kiri dibaca otomatis</small>
@@ -157,6 +163,29 @@
     </div>
     {{-- end of modal ringkasan --}}
 
+    {{-- modal konfirmasi reset seri --}}
+    <div class="modal fade" id="resetModal" tabindex="-1" role="dialog" data-backdrop="static" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-radius:12px">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Seri Kanban</h5>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Setelah reset, kanban yang tadi ditolak karena "sudah discan" bisa discan lagi.</p>
+                    <p class="mb-0 text-muted">
+                        Data produksi tidak ada yang dihapus — hitungan Box RH / LH dan catatan di database tetap utuh.
+                        Yang direset hanya batas waktu pengecekan kanban dobel.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning" id="reset-confirm">Ya, Reset Seri</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- end of modal konfirmasi reset --}}
+
     <audio id="ok-sound">
         <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg" preload="auto">
     </audio>
@@ -200,6 +229,7 @@
                 const $lastR = $('#last-right');
                 const $lastL = $('#last-left');
                 const $txtStatus = $('#status');
+                const $resetInfo = $('#reset-info');
 
                 const K = {
                     active: 'as547_active',
@@ -211,6 +241,7 @@
                     lastL: 'as547_last_left',
                     started: 'as547_started_at',
                     scanned: 'as547_scanned',
+                    resetAt: 'as547_reset_at',
                 };
 
                 const LS = {
@@ -320,6 +351,20 @@
                     Object.keys(K).forEach(name => LS.del(K[name]));
                 }
 
+                function jam(epochMs) {
+                    const ms = parseInt(epochMs, 10);
+                    if (!ms) return null;
+                    const d = new Date(ms);
+                    return isNaN(d.getTime()) ? null : d.toLocaleTimeString('id-ID', {
+                        hour12: false
+                    });
+                }
+
+                function renderResetInfo() {
+                    const at = jam(LS.get(K.resetAt));
+                    $resetInfo.text(at ? 'reset seri terakhir ' + at : '');
+                }
+
                 // ---------- render ----------
 
                 /**
@@ -339,7 +384,7 @@
 
                 /** Fokus selalu balik ke input, kecuali saat modal ringkasan FINISH sedang dibuka. */
                 function focusScan() {
-                    if ($('#finishModal').hasClass('show')) return;
+                    if ($('#finishModal, #resetModal').hasClass('show')) return;
                     if (document.activeElement === $scan[0]) return;
                     $scan.trigger('focus');
                 }
@@ -391,6 +436,7 @@
                         $countL.text('0');
                         $lastR.text('-');
                         $lastL.text('-');
+                        $resetInfo.text('');
 
                         $scan.prop('readonly', false);
                         focusScan();
@@ -418,6 +464,7 @@
                     $countL.text(count('L'));
                     $lastR.text(LS.get(K.lastR) || '-');
                     $lastL.text(LS.get(K.lastL) || '-');
+                    renderResetInfo();
 
                     $scan.prop('readonly', false);
                     focusScan();
@@ -595,6 +642,20 @@
                 function submitScan(s, parsed, key) {
                     lock();
 
+                    const payload = {
+                        part_number: parsed.part_number,
+                        serial_number: parsed.serial_number,
+                        side: s
+                    };
+
+                    // Dikirim hanya kalau operator pernah menekan RESET SERI. Yang dikirim adalah
+                    // SELISIH waktu sejak tombol ditekan, bukan jam absolut: kalau jam PC lini
+                    // meleset dari server, selisih tetap benar sedangkan jam absolut tidak.
+                    const resetAt = parseInt(LS.get(K.resetAt), 10);
+                    if (resetAt) {
+                        payload.reset_elapsed_ms = Math.max(0, Date.now() - resetAt);
+                    }
+
                     $.ajax({
                             url: SCAN_URL,
                             method: 'POST',
@@ -603,11 +664,7 @@
                             headers: {
                                 'X-CSRF-TOKEN': CSRF
                             },
-                            data: JSON.stringify({
-                                part_number: parsed.part_number,
-                                serial_number: parsed.serial_number,
-                                side: s
-                            })
+                            data: JSON.stringify(payload)
                         })
                         .done(function(res) {
                             if (!res || res.status !== 'success') {
@@ -800,6 +857,32 @@
                         return;
                     }
                     showSummary();
+                });
+
+                $('#reset-seri').on('click', function() {
+                    if (!isActive()) {
+                        fail('Belum ada produksi berjalan.');
+                        return;
+                    }
+                    $('#resetModal').modal('show');
+                });
+
+                $('#reset-confirm').on('click', function() {
+                    // Hanya menggeser batas pengecekan dobel. Counter box, kanban terakhir,
+                    // dan baris mutation di database sengaja tidak disentuh.
+                    LS.set(K.resetAt, Date.now());
+                    LS.set(K.scanned, '[]');
+                    renderResetInfo();
+
+                    $('#resetModal').modal('hide');
+
+                    okSound();
+                    setStatus('ok');
+                    notif('success', 'Seri kanban direset. Kanban tadi bisa discan lagi.');
+                });
+
+                $('#resetModal').on('hidden.bs.modal', function() {
+                    focusScan();
                 });
 
                 $('#finish-confirm').on('click', function() {
