@@ -335,7 +335,14 @@ class ProductionController extends Controller
             'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
             'standard_stock' => ['nullable', 'integer', 'min:0'],
             'current_stock' => ['nullable', 'integer', 'min:0'],
+            'active_line' => ['nullable', 'string', 'max:64'],
+            'back_number' => ['nullable', 'string', 'max:64'],
         ]);
+
+        $redirect = redirect()->route('dashboard.productionStock', array_filter([
+            'line' => trim((string) $request->active_line),
+            'back_number' => trim((string) $request->back_number),
+        ], static fn ($value) => $value !== ''));
 
         try {
             DB::beginTransaction();
@@ -359,11 +366,11 @@ class ProductionController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Updated Successfully!');
+            return $redirect->with('success', 'Updated Successfully!');
         } catch (\Throwable $th) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Error: ' . $th->getMessage());
+            return $redirect->with('error', 'Error: ' . $th->getMessage());
         }
     }
 

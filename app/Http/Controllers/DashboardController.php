@@ -873,6 +873,7 @@ class DashboardController extends Controller
             ->pluck('name')
             ->map(fn ($line) => (string) $line);
 
+        $requestedLine = trim((string) $request->query('line', ''));
         $focusBackNumber = trim((string) $request->query('back_number', ''));
         $activeLine = $lineNames->first();
 
@@ -880,7 +881,9 @@ class DashboardController extends Controller
             $activeLine = 'AS711';
         }
 
-        if ($focusBackNumber !== '') {
+        if ($requestedLine !== '' && $lineNames->contains($requestedLine)) {
+            $activeLine = $requestedLine;
+        } elseif ($focusBackNumber !== '') {
             $focusLine = DB::table('internal_parts')
                 ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
                 ->where('internal_parts.back_number', $focusBackNumber)

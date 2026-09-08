@@ -916,6 +916,8 @@
                         <div class="form-group">
                             <label>New Standard Stock</label>
                             <input type="hidden" id="internal_part_id" name="internal_part_id">
+                            <input type="hidden" id="active_line_input" name="active_line">
+                            <input type="hidden" id="back_number_input" name="back_number">
                             <input type="number" class="form-control" id="standard_stock_input" name="standard_stock" min="0"
                                 placeholder="-">
                         </div>
@@ -1474,6 +1476,8 @@
 
             $('#title').empty().append($('<h4>').text(button.dataset.backNumber || '-'));
             $('#internal_part_id').val(button.dataset.id || '');
+            $('#active_line_input').val($(button).closest('table.stock-table').data('line') || stockConfig.activeLine || '');
+            $('#back_number_input').val(button.dataset.backNumber || '');
             $('#standard_stock').text(button.dataset.standard || '0');
             $('#current_stock').text(button.dataset.qty || '0');
             $('#standard_stock_input').val(button.dataset.standard || '0');
