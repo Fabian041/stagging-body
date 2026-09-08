@@ -868,7 +868,6 @@ class DashboardController extends Controller
             ->join('internal_parts', 'internal_parts.line_id', '=', 'lines.id')
             ->select('lines.name')
             ->distinct()
-            ->orderByRaw("CASE WHEN lines.name = 'AS711' THEN 0 ELSE 1 END")
             ->orderBy('lines.name')
             ->pluck('name')
             ->map(fn ($line) => (string) $line);
@@ -876,10 +875,6 @@ class DashboardController extends Controller
         $requestedLine = trim((string) $request->query('line', ''));
         $focusBackNumber = trim((string) $request->query('back_number', ''));
         $activeLine = $lineNames->first();
-
-        if ($lineNames->contains('AS711')) {
-            $activeLine = 'AS711';
-        }
 
         if ($requestedLine !== '' && $lineNames->contains($requestedLine)) {
             $activeLine = $requestedLine;
