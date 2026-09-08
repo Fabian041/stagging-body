@@ -26,6 +26,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QualityController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ManageUserController;
+use App\Http\Controllers\MachineAuthorizationAdminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -172,6 +173,31 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/bulk-upload', [ManageUserController::class, 'bulkUpload'])->name('bulk-upload');
     });
 
+    Route::prefix('machine-authorization')
+        ->name('machine-auth.')
+        ->middleware('can:manage-machine-auth')
+        ->group(function () {
+            Route::get('/', [MachineAuthorizationAdminController::class, 'index'])->name('index');
+            Route::get('/rfid-cards/data', [MachineAuthorizationAdminController::class, 'cardsData'])->name('cards.data');
+            Route::post('/rfid-cards', [MachineAuthorizationAdminController::class, 'storeCard'])->name('cards.store');
+            Route::put('/rfid-cards/{rfidCard}', [MachineAuthorizationAdminController::class, 'updateCard'])->name('cards.update');
+            Route::patch('/rfid-cards/{rfidCard}/toggle', [MachineAuthorizationAdminController::class, 'toggleCard'])->name('cards.toggle');
+
+            Route::get('/machines/data', [MachineAuthorizationAdminController::class, 'machinesData'])->name('machines.data');
+            Route::post('/machines', [MachineAuthorizationAdminController::class, 'storeMachine'])->name('machines.store');
+            Route::put('/machines/{machine}', [MachineAuthorizationAdminController::class, 'updateMachine'])->name('machines.update');
+            Route::patch('/machines/{machine}/toggle', [MachineAuthorizationAdminController::class, 'toggleMachine'])->name('machines.toggle');
+            Route::post('/machines/{machine}/tokens', [MachineAuthorizationAdminController::class, 'createToken'])->name('machines.tokens.store');
+            Route::delete('/machines/{machine}/tokens/{token}', [MachineAuthorizationAdminController::class, 'revokeToken'])->name('machines.tokens.destroy');
+
+            Route::get('/permissions/data', [MachineAuthorizationAdminController::class, 'permissionsData'])->name('permissions.data');
+            Route::post('/permissions', [MachineAuthorizationAdminController::class, 'storePermission'])->name('permissions.store');
+            Route::put('/permissions/{machinePermission}', [MachineAuthorizationAdminController::class, 'updatePermission'])->name('permissions.update');
+            Route::delete('/permissions/{machinePermission}', [MachineAuthorizationAdminController::class, 'destroyPermission'])->name('permissions.destroy');
+
+            Route::get('/access-logs/data', [MachineAuthorizationAdminController::class, 'logsData'])->name('logs.data');
+        });
+
     // kanban
     Route::get('/kanban/check', [PullingController::class, 'kanbanCheck'])->name('kanban.check');
     Route::get('/kanban/afterPull', [PullingController::class, 'kanbanAfterPull'])->name('kanban.afterPull');
@@ -215,6 +241,13 @@ Route::middleware(['auth'])->group(function () {
 
         Route::prefix('master')->group(function () {
             Route::get('/', [MasterDataController::class, 'index'])->name('dashboard.master.index');
+
+            Route::get('/lines', [MasterDataController::class, 'lines'])->name('dashboard.master.lines.index');
+            Route::get('/lines/data', [MasterDataController::class, 'linesData'])->name('dashboard.master.lines.data');
+            Route::post('/lines', [MasterDataController::class, 'storeLine'])->name('dashboard.master.lines.store');
+            Route::put('/lines/{line}', [MasterDataController::class, 'updateLine'])->name('dashboard.master.lines.update');
+            Route::patch('/lines/{line}/toggle', [MasterDataController::class, 'toggleLine'])->name('dashboard.master.lines.toggle');
+
             Route::get('/molds', [MasterDataController::class, 'molds'])->name('dashboard.master.molds.index');
             Route::get('/molds/data', [MasterDataController::class, 'moldsData'])->name('dashboard.master.molds.data');
             Route::post('/molds', [MasterDataController::class, 'storeMold'])->name('dashboard.master.molds.store');
@@ -309,6 +342,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('production.pc2b.scan-kanban');
         Route::post('/as547/scan-kanban', [ProductionController::class, 'storeAs547KanbanScan'])
             ->name('production.as547.scan-kanban');
+        Route::get('/as547/pair/{partNumber}', [ProductionController::class, 'as547Pair'])
+            ->name('production.as547.pair');
 
         Route::post('/part-scan', [ProductionController::class, 'storePartScan'])
             ->name('production.part-scan');

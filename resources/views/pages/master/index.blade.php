@@ -3,7 +3,20 @@
 @section('main')
     <div class="container-fluid py-4">
         <div class="row g-3 mb-4">
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-muted small text-uppercase">Master Line</div>
+                                <h3 class="mb-0 mt-2">{{ $stats['lines'] }}</h3>
+                            </div>
+                            <span class="badge bg-info-subtle text-info">Line</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
@@ -16,7 +29,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
@@ -29,7 +42,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
@@ -45,7 +58,18 @@
         </div>
 
         <div class="row g-3">
-            <div class="col-lg-4">
+            <div class="col-lg-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h5 class="mb-0">Master Line</h5>
+                            <a href="{{ route('dashboard.master.lines.index') }}" class="btn btn-sm btn-primary">Open</a>
+                        </div>
+                        <p class="text-muted mb-0">Kelola line dan relasinya dengan master part serta mesin.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -56,7 +80,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -67,7 +91,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-3">

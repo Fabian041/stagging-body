@@ -241,7 +241,14 @@
                                     <select name="line_id" id="line-select" data-placeholder="Pilih atau cari line...">
                                         <option value=""></option>
                                         @foreach ($lines as $line)
-                                            <option value="{{ $line->id }}" {{ old('line_id', $editingPart?->line_id) == $line->id ? 'selected' : '' }}>{{ $line->name }}</option>
+                                            @php
+                                                $isCurrentPartLine = (string) $editingPart?->line_id === (string) $line->id;
+                                            @endphp
+                                            <option value="{{ $line->id }}"
+                                                {{ old('line_id', $editingPart?->line_id) == $line->id ? 'selected' : '' }}
+                                                {{ ! $line->is_active && ! $isCurrentPartLine ? 'disabled' : '' }}>
+                                                {{ $line->name }}{{ ! $line->is_active ? ' (Nonaktif)' : '' }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -313,7 +320,7 @@
                             <select id="part-line-filter" aria-label="Filter berdasarkan line">
                                 <option value="">Semua Line</option>
                                 @foreach ($lines as $line)
-                                    <option value="{{ $line->id }}">{{ $line->name }}</option>
+                                    <option value="{{ $line->id }}">{{ $line->name }}{{ ! $line->is_active ? ' (Nonaktif)' : '' }}</option>
                                 @endforeach
                             </select>
                         </div>

@@ -58,4 +58,19 @@ class User extends Authenticatable
     {
         return $this->hasRole('super_admin');
     }
+
+    public function rfidCards()
+    {
+        return $this->hasMany(RfidCard::class);
+    }
+
+    public function machinePermissions()
+    {
+        return $this->hasMany(MachinePermission::class);
+    }
+
+    public function machineAccessLogs()
+    {
+        return $this->hasMany(MachineAccessLog::class);
+    }
 }

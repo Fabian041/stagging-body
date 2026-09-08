@@ -19,12 +19,89 @@ class MasterDataController extends Controller
     public function index()
     {
         $stats = [
+            'lines' => Line::count(),
             'molds' => Mold::count(),
             'internalParts' => InternalPart::count(),
             'customerParts' => CustomerPart::count(),
         ];
 
         return view('pages.master.index', compact('stats'));
+    }
+
+    public function lines(Request $request)
+    {
+        $editingLine = $request->filled('edit')
+            ? Line::find($request->integer('edit'))
+            : null;
+        $lineCount = Line::count();
+
+        return view('pages.master.lines', compact('editingLine', 'lineCount'));
+    }
+
+    public function linesData()
+    {
+        $query = Line::query()
+            ->withCount([
+                'internalPart as internal_parts_count',
+                'machines',
+            ]);
+
+        return DataTables::of($query)
+            ->editColumn('name', fn (Line $line) => '<strong>'.e($line->name).'</strong>')
+            ->editColumn('is_active', function (Line $line) {
+                return $line->is_active
+                    ? '<span class="badge bg-success">Aktif</span>'
+                    : '<span class="badge bg-secondary">Nonaktif</span>';
+            })
+            ->addColumn('action', function (Line $line) {
+                return view('pages.master.partials.line-actions', compact('line'))->render();
+            })
+            ->rawColumns(['name', 'is_active', 'action'])
+            ->make(true);
+    }
+
+    public function storeLine(Request $request)
+    {
+        $this->normalizeLineRequest($request);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100', 'regex:/^[A-Z0-9._-]+$/', 'unique:lines,name'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        Line::create($validated);
+
+        return redirect()->route('dashboard.master.lines.index')
+            ->with('success', 'Master Line berhasil ditambahkan.');
+    }
+
+    public function updateLine(Request $request, Line $line)
+    {
+        $this->normalizeLineRequest($request);
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+                'regex:/^[A-Z0-9._-]+$/',
+                Rule::unique('lines', 'name')->ignore($line->id),
+            ],
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $line->update($validated);
+
+        return redirect()->route('dashboard.master.lines.index')
+            ->with('success', 'Master Line berhasil diperbarui.');
+    }
+
+    public function toggleLine(Line $line)
+    {
+        $line->update(['is_active' => ! $line->is_active]);
+
+        return redirect()->route('dashboard.master.lines.index')
+            ->with('success', 'Status Master Line berhasil diubah.');
     }
 
     public function molds(Request $request)
@@ -50,7 +127,7 @@ class MasterDataController extends Controller
 
         return DataTables::of($query)
             ->editColumn('tag', function (Mold $mold) {
-                return '<strong>' . e($mold->tag) . '</strong>';
+                return '<strong>'.e($mold->tag).'</strong>';
             })
             ->addColumn('parts', function (Mold $mold) {
                 if ($mold->moldHasParts->isEmpty()) {
@@ -61,8 +138,8 @@ class MasterDataController extends Controller
                     $backNumber = $relation->internalPart?->back_number ?? '-';
 
                     return '<span class="badge bg-secondary-subtle text-secondary mr-1 mb-1">'
-                        . e($backNumber)
-                        . '</span>';
+                        .e($backNumber)
+                        .'</span>';
                 })->implode('');
             })
             ->editColumn('is_active', function (Mold $mold) {
@@ -190,8 +267,8 @@ class MasterDataController extends Controller
 
         if ($editingPart?->photo) {
             $filename = basename((string) $editingPart->photo);
-            if (File::isFile(public_path('assets/img/pis/' . $filename))) {
-                $editingPhotoUrl = asset('assets/img/pis/' . rawurlencode($filename));
+            if (File::isFile(public_path('assets/img/pis/'.$filename))) {
+                $editingPhotoUrl = asset('assets/img/pis/'.rawurlencode($filename));
             }
         }
 
@@ -240,17 +317,17 @@ class MasterDataController extends Controller
             })
             ->addColumn('photo_preview', function (InternalPart $part) {
                 $filename = basename((string) $part->photo);
-                $path = $filename !== '' ? public_path('assets/img/pis/' . $filename) : null;
+                $path = $filename !== '' ? public_path('assets/img/pis/'.$filename) : null;
 
                 if (! $path || ! File::isFile($path)) {
                     return '<span class="master-photo-empty" title="Foto belum tersedia"><i class="fas fa-image"></i></span>';
                 }
 
-                $url = asset('assets/img/pis/' . rawurlencode($filename));
+                $url = asset('assets/img/pis/'.rawurlencode($filename));
 
-                return '<a class="master-photo-thumb" href="' . e($url) . '" target="_blank" rel="noopener" title="Lihat foto">'
-                    . '<img src="' . e($url) . '" alt="Foto ' . e($part->back_number ?? $part->part_number) . '">'
-                    . '</a>';
+                return '<a class="master-photo-thumb" href="'.e($url).'" target="_blank" rel="noopener" title="Lihat foto">'
+                    .'<img src="'.e($url).'" alt="Foto '.e($part->back_number ?? $part->part_number).'">'
+                    .'</a>';
             })
             ->addColumn('action', function (InternalPart $part) {
                 return view('pages.master.partials.internal-part-actions', compact('part'))->render();
@@ -264,7 +341,11 @@ class MasterDataController extends Controller
         $this->normalizePartRequest($request);
 
         $request->validate([
-            'line_id' => ['nullable', 'integer', 'exists:lines,id'],
+            'line_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('lines', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
             'part_number' => ['required', 'string', 'max:100', 'unique:internal_parts,part_number'],
             'back_number' => ['nullable', 'string', 'max:100'],
             'part_name' => ['nullable', 'string', 'max:150'],
@@ -273,7 +354,7 @@ class MasterDataController extends Controller
 
         $photo = $request->hasFile('photo')
             ? $this->storeInternalPartPhoto($request->file('photo'), $request->back_number, $request->part_number)
-            : ($request->back_number ? $request->back_number . '.jpeg' : null);
+            : ($request->back_number ? $request->back_number.'.jpeg' : null);
 
         InternalPart::create([
             'line_id' => $request->line_id,
@@ -291,7 +372,19 @@ class MasterDataController extends Controller
         $this->normalizePartRequest($request);
 
         $request->validate([
-            'line_id' => ['nullable', 'integer', 'exists:lines,id'],
+            'line_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('lines', 'id')->where(function ($query) use ($internalPart) {
+                    $query->where(function ($lineQuery) use ($internalPart) {
+                        $lineQuery->where('is_active', true);
+
+                        if ($internalPart->line_id) {
+                            $lineQuery->orWhere('id', $internalPart->line_id);
+                        }
+                    });
+                }),
+            ],
             'part_number' => ['required', 'string', 'max:100', Rule::unique('internal_parts', 'part_number')->ignore($internalPart->id)],
             'back_number' => ['nullable', 'string', 'max:100'],
             'part_name' => ['nullable', 'string', 'max:150'],
@@ -434,6 +527,14 @@ class MasterDataController extends Controller
         return redirect()->route('dashboard.master.customer-parts.index')->with('success', 'Master Part Customer berhasil dihapus.');
     }
 
+    private function normalizeLineRequest(Request $request): void
+    {
+        $request->merge([
+            'name' => strtoupper(trim((string) $request->input('name'))),
+            'is_active' => $request->boolean('is_active'),
+        ]);
+    }
+
     private function normalizePartRequest(Request $request): void
     {
         $request->merge([
@@ -455,7 +556,7 @@ class MasterDataController extends Controller
     {
         $baseName = trim((string) ($backNumber ?: $partNumber));
         $baseName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $baseName) ?: 'part';
-        $filename = $baseName . '.' . strtolower($photo->extension());
+        $filename = $baseName.'.'.strtolower($photo->extension());
         $directory = public_path('assets/img/pis');
 
         File::ensureDirectoryExists($directory);
@@ -467,7 +568,7 @@ class MasterDataController extends Controller
     private function storeMoldPhoto($photo, string $tag): string
     {
         $safeTag = preg_replace('/[^A-Za-z0-9._-]+/', '_', trim($tag)) ?: 'mold';
-        $filename = $safeTag . '-' . Str::uuid() . '.' . strtolower($photo->extension());
+        $filename = $safeTag.'-'.Str::uuid().'.'.strtolower($photo->extension());
         $directory = public_path('assets/img/molds');
 
         File::ensureDirectoryExists($directory);
@@ -481,7 +582,7 @@ class MasterDataController extends Controller
         $filename = basename((string) $photo);
 
         if ($filename !== '') {
-            File::delete(public_path('assets/img/molds/' . $filename));
+            File::delete(public_path('assets/img/molds/'.$filename));
         }
     }
 

@@ -7,6 +7,7 @@ use App\Http\Controllers\PullingController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\API\LoginController as APILoginController;
 use App\Http\Controllers\API\ProductionPlanApiController as ProductionPlan;
+use App\Http\Controllers\API\MachineAuthorizationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,4 +36,12 @@ Route::group(['prefix' => 'v1'], function () {
         // production plan
         Route::post('/update-qty', [ProductionPlan::class, 'updateQty']);
     });
+
+    Route::prefix('machine-auth')
+        ->middleware(['auth:sanctum', 'machine.token', 'throttle:machine-auth'])
+        ->group(function () {
+            Route::post('/validate', [MachineAuthorizationController::class, 'validateAccess']);
+            Route::post('/events', [MachineAuthorizationController::class, 'storeEvent']);
+            Route::get('/sync', [MachineAuthorizationController::class, 'sync']);
+        });
 });
