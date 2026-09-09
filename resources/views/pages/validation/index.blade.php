@@ -1084,15 +1084,22 @@
     }
 
     function getPairingRatio(qtyAssy, qtyPainting) {
+        // Fungsi KPK
+        function lcm(a, b) {
+            return (a * b) / gcd(a, b);
+        }
+
         function gcd(a, b) {
             return b === 0 ? a : gcd(b, a % b);
         }
 
-        const divisor = gcd(qtyAssy, qtyPainting);
+        const kpk = lcm(qtyAssy, qtyPainting);
+        const ratioAssy = kpk / qtyAssy;
+        const ratioPainting = kpk / qtyPainting;
 
         return {
-            assy: qtyAssy / divisor,
-            painting: qtyPainting / divisor
+            assy: ratioAssy,
+            painting: ratioPainting
         };
     }
 
