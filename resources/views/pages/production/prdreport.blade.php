@@ -255,6 +255,7 @@
         line: 'production_first_last_line',
         product: 'production_first_last_product',
         backNumber: 'production_first_last_back_number',
+        partName: 'production_first_last_part_name',
         firstDone: 'production_first_kanban_done',
         lastDone: 'production_last_kanban_done'
     };
@@ -427,6 +428,10 @@
         return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
     }
 
+    function compactMarkerProduct(value) {
+        return normalizeMarkerProduct(value).replace(/[^A-Z0-9]/g, '');
+    }
+
     function parseFirstLastKanban(value) {
         const match = String(value || '').trim().match(/^([A-Z0-9]+)_(FIRST|LAST)\s+(.+)$/i);
         if (!match) return null;
@@ -446,7 +451,7 @@
         Object.values(firstLastKeys).forEach(key => localStorage.removeItem(key));
     }
 
-    function setupFirstLastState(lineName, product, backNumber) {
+    function setupFirstLastState(lineName, product, backNumber, partName = '') {
         clearFirstLastState();
 
         const normalizedLine = normalizeProductionLine(lineName);
@@ -456,6 +461,7 @@
         localStorage.setItem(firstLastKeys.line, normalizedLine);
         localStorage.setItem(firstLastKeys.product, normalizeMarkerProduct(product));
         localStorage.setItem(firstLastKeys.backNumber, normalizeMarkerProduct(backNumber));
+        localStorage.setItem(firstLastKeys.partName, normalizeMarkerProduct(partName));
         localStorage.setItem(firstLastKeys.firstDone, 'false');
         localStorage.setItem(firstLastKeys.lastDone, 'false');
     }
@@ -478,16 +484,19 @@
     }
 
     function firstLastProductMatches(product) {
-        const scanned = normalizeMarkerProduct(product);
+        const scanned = compactMarkerProduct(product);
         const candidates = [
             localStorage.getItem(firstLastKeys.product),
             localStorage.getItem(firstLastKeys.backNumber),
+            localStorage.getItem(firstLastKeys.partName),
             localStorage.getItem('model'),
             localStorage.getItem('back_number'),
             localStorage.getItem('dandori_board')
-        ].map(normalizeMarkerProduct).filter(Boolean);
+        ].map(compactMarkerProduct).filter(Boolean);
 
-        return candidates.some(candidate => scanned === candidate);
+        return candidates.some(candidate => scanned === candidate
+            || (scanned.length >= 3 && candidate.includes(scanned))
+            || (candidate.length >= 3 && scanned.includes(candidate)));
     }
 
     function setStatusCard(state, text, resetAfter = 0) {
@@ -1360,7 +1369,8 @@
                                     localStorage.setItem('photo', dataPart
                                         .photo);
                                     localStorage.setItem('line_prd', dataPart.line);
-                                    setupFirstLastState(dataPart.line, dataPart.partNumber, dataPart.backNumber);
+                                    setupFirstLastState(dataPart.line, dataPart.partNumber, dataPart.backNumber,
+                                        dataPart.partName);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
