@@ -249,7 +249,7 @@
 <script>
     const productionLines = @json($productionLines ?? []);
     const requireProductionLine = false;
-    const firstLastPilotLines = ['AS526', 'AS523', 'AS600', 'AS528', 'AS524'];
+    const firstLastPilotLines = ['AS526'];
     const firstLastKeys = {
         required: 'production_first_last_required',
         line: 'production_first_last_line',
