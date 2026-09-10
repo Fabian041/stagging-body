@@ -253,11 +253,6 @@
     const firstLastKeys = {
         required: 'production_first_last_required',
         line: 'production_first_last_line',
-        product: 'production_first_last_product',
-        backNumber: 'production_first_last_back_number',
-        partName: 'production_first_last_part_name',
-        pairingProject: 'production_first_last_pairing_project',
-        pairingProduct: 'production_first_last_pairing_product',
         firstDone: 'production_first_kanban_done',
         lastDone: 'production_last_kanban_done'
     };
@@ -426,22 +421,13 @@
         return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
     }
 
-    function normalizeMarkerProduct(value) {
-        return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
-    }
-
-    function compactMarkerProduct(value) {
-        return normalizeMarkerProduct(value).replace(/[^A-Z0-9]/g, '');
-    }
-
     function parseFirstLastKanban(value) {
         const match = String(value || '').trim().match(/^([A-Z0-9]+)_(FIRST|LAST)\s+(.+)$/i);
         if (!match) return null;
 
         return {
             line: normalizeProductionLine(match[1]),
-            type: match[2].toLowerCase(),
-            product: normalizeMarkerProduct(match[3])
+            type: match[2].toLowerCase()
         };
     }
 
@@ -453,7 +439,7 @@
         Object.values(firstLastKeys).forEach(key => localStorage.removeItem(key));
     }
 
-    function setupFirstLastState(lineName, product, backNumber, partName = '', pairingProduct = '', pairingProject = '') {
+    function setupFirstLastState(lineName) {
         clearFirstLastState();
 
         const normalizedLine = normalizeProductionLine(lineName);
@@ -461,11 +447,6 @@
 
         localStorage.setItem(firstLastKeys.required, 'true');
         localStorage.setItem(firstLastKeys.line, normalizedLine);
-        localStorage.setItem(firstLastKeys.product, normalizeMarkerProduct(product));
-        localStorage.setItem(firstLastKeys.backNumber, normalizeMarkerProduct(backNumber));
-        localStorage.setItem(firstLastKeys.partName, normalizeMarkerProduct(partName));
-        localStorage.setItem(firstLastKeys.pairingProduct, normalizeMarkerProduct(pairingProduct));
-        localStorage.setItem(firstLastKeys.pairingProject, normalizeMarkerProduct(pairingProject));
         localStorage.setItem(firstLastKeys.firstDone, 'false');
         localStorage.setItem(firstLastKeys.lastDone, 'false');
     }
@@ -485,29 +466,6 @@
 
     function normalKanbanScanCount() {
         return parseInt(localStorage.getItem('scan_counter') || '0', 10) || 0;
-    }
-
-    function firstLastProductCandidates() {
-        return [
-            localStorage.getItem(firstLastKeys.product),
-            localStorage.getItem(firstLastKeys.backNumber),
-            localStorage.getItem(firstLastKeys.partName),
-            localStorage.getItem(firstLastKeys.pairingProduct),
-            localStorage.getItem(firstLastKeys.pairingProject),
-            localStorage.getItem('model'),
-            localStorage.getItem('back_number'),
-            localStorage.getItem('dandori_board'),
-            $('#model').text()
-        ].map(compactMarkerProduct).filter(Boolean);
-    }
-
-    function firstLastProductMatches(product) {
-        const scanned = compactMarkerProduct(product);
-        const candidates = firstLastProductCandidates();
-
-        return candidates.some(candidate => scanned === candidate
-            || (scanned.length >= 3 && candidate.includes(scanned))
-            || (candidate.length >= 3 && scanned.includes(candidate)));
     }
 
     function setStatusCard(state, text, resetAfter = 0) {
@@ -551,13 +509,6 @@
         const expectedLine = normalizeProductionLine(localStorage.getItem(firstLastKeys.line));
         if (marker.line !== expectedLine) {
             showFirstLastError(`Kanban ${marker.type} harus line ${expectedLine}.`);
-            return true;
-        }
-
-        if (!firstLastProductMatches(marker.product)) {
-            const expected = [...new Set(firstLastProductCandidates())].join(', ') || '-';
-            showFirstLastError(`Product kanban first/last tidak sesuai. Scan: ${marker.product}, expected: ${expected}.`);
-            sendErrorLog('Kanban first/last tidak sesuai product', expected, marker.product);
             return true;
         }
 
@@ -1381,8 +1332,7 @@
                                     localStorage.setItem('photo', dataPart
                                         .photo);
                                     localStorage.setItem('line_prd', dataPart.line);
-                                    setupFirstLastState(dataPart.line, dataPart.partNumber, dataPart.backNumber,
-                                        dataPart.partName, dataPart.pairingProduct, dataPart.pairingProject);
+                                    setupFirstLastState(dataPart.line);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -1427,7 +1377,7 @@
 
                                     if (isFirstLastRequired()) {
                                         setStatusCard('warning', 'FIRST');
-                                        notif('success', `Master sample OK. Scan ${dataPart.line}_first ${dataPart.pairingProduct || dataPart.pairingProject || dataPart.backNumber || dataPart.partNumber}.`);
+                                        notif('success', `Master sample OK. Scan ${dataPart.line}_FIRST PRODUCT.`);
                                     }
 
                                     // start new timer

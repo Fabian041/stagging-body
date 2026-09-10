@@ -1146,13 +1146,6 @@ class PullingController extends Controller
         }
 
         $lineProd = Line::select('name')->where('id', $internal->line_id)->first();
-        $partNumber = strtoupper(trim((string) $internal->part_number));
-        $pairingMaster = Schema::hasTable('body_kanban_pairings')
-            ? DB::table('body_kanban_pairings')
-                ->whereRaw('UPPER(TRIM(assembly_part)) = ?', [$partNumber])
-                ->orWhereRaw('UPPER(TRIM(painting_part)) = ?', [$partNumber])
-                ->first(['project', 'product'])
-            : null;
 
         if ($isinternal == 0) {
             DB::beginTransaction();
@@ -1174,8 +1167,6 @@ class PullingController extends Controller
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
             'partName' => $internal->part_name,
-            'pairingProject' => $pairingMaster->project ?? null,
-            'pairingProduct' => $pairingMaster->product ?? null,
             'target' => $internal->customerPart->qty_per_kanban,
             'line' => $lineProd->name ?? null,
             'photo' => $internal->photo,
