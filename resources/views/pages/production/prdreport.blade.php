@@ -256,6 +256,8 @@
         product: 'production_first_last_product',
         backNumber: 'production_first_last_back_number',
         partName: 'production_first_last_part_name',
+        pairingProject: 'production_first_last_pairing_project',
+        pairingProduct: 'production_first_last_pairing_product',
         firstDone: 'production_first_kanban_done',
         lastDone: 'production_last_kanban_done'
     };
@@ -451,7 +453,7 @@
         Object.values(firstLastKeys).forEach(key => localStorage.removeItem(key));
     }
 
-    function setupFirstLastState(lineName, product, backNumber, partName = '') {
+    function setupFirstLastState(lineName, product, backNumber, partName = '', pairingProduct = '', pairingProject = '') {
         clearFirstLastState();
 
         const normalizedLine = normalizeProductionLine(lineName);
@@ -462,6 +464,8 @@
         localStorage.setItem(firstLastKeys.product, normalizeMarkerProduct(product));
         localStorage.setItem(firstLastKeys.backNumber, normalizeMarkerProduct(backNumber));
         localStorage.setItem(firstLastKeys.partName, normalizeMarkerProduct(partName));
+        localStorage.setItem(firstLastKeys.pairingProduct, normalizeMarkerProduct(pairingProduct));
+        localStorage.setItem(firstLastKeys.pairingProject, normalizeMarkerProduct(pairingProject));
         localStorage.setItem(firstLastKeys.firstDone, 'false');
         localStorage.setItem(firstLastKeys.lastDone, 'false');
     }
@@ -489,6 +493,8 @@
             localStorage.getItem(firstLastKeys.product),
             localStorage.getItem(firstLastKeys.backNumber),
             localStorage.getItem(firstLastKeys.partName),
+            localStorage.getItem(firstLastKeys.pairingProduct),
+            localStorage.getItem(firstLastKeys.pairingProject),
             localStorage.getItem('model'),
             localStorage.getItem('back_number'),
             localStorage.getItem('dandori_board')
@@ -1370,7 +1376,7 @@
                                         .photo);
                                     localStorage.setItem('line_prd', dataPart.line);
                                     setupFirstLastState(dataPart.line, dataPart.partNumber, dataPart.backNumber,
-                                        dataPart.partName);
+                                        dataPart.partName, dataPart.pairingProduct, dataPart.pairingProject);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -1415,7 +1421,7 @@
 
                                     if (isFirstLastRequired()) {
                                         setStatusCard('warning', 'FIRST');
-                                        notif('success', `Master sample OK. Scan ${dataPart.line}_first ${dataPart.backNumber || dataPart.partNumber}.`);
+                                        notif('success', `Master sample OK. Scan ${dataPart.line}_first ${dataPart.pairingProduct || dataPart.pairingProject || dataPart.backNumber || dataPart.partNumber}.`);
                                     }
 
                                     // start new timer
