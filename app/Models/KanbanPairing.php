@@ -10,7 +10,7 @@ class KanbanPairing extends Model
     use HasFactory;
 
     // Ganti ke ['*'] untuk mengaktifkan interlock ke semua project.
-    public const INTERLOCK_PROJECTS = ['660A,560B'];
+    public const INTERLOCK_PROJECTS = ['660A'];
 
     protected $table = 'body_kanban_pairings';
 

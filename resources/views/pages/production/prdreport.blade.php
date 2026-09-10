@@ -408,10 +408,14 @@
             startTimeCounter(parseInt(lastScanTime));
         }
 
-        if (isFirstLastRequired() && !isFirstKanbanDone()) {
-            setStatusCard('warning', 'FIRST');
-        } else if (isFirstLastRequired() && isLastKanbanDone()) {
-            setStatusCard('success', 'LAST OK');
+        if (isFirstLastRequired()) {
+            if (isLastKanbanDone()) {
+                setStatusCard('success', 'LAST OK');
+            } else if (!isFirstKanbanDone() && normalKanbanScanCount() > 0) {
+                setStatusCard('warning', 'FIRST');
+            } else if (!isFirstKanbanDone()) {
+                setStatusCard('warning', 'KANBAN');
+            }
         }
 
         $('#code').focus();
@@ -490,9 +494,16 @@
 
     function mustScanLastBeforeClosingModel() {
         return isFirstLastRequired()
-            && isFirstKanbanDone()
             && normalKanbanScanCount() > 0
             && !isLastKanbanDone();
+    }
+
+    function firstLastCloseBlockMessage(action) {
+        if (!isFirstKanbanDone()) {
+            return `Scan kanban first terlebih dahulu sebelum ${action}.`;
+        }
+
+        return `Scan kanban last terlebih dahulu sebelum ${action}.`;
     }
 
     function handleFirstLastKanban(marker) {
@@ -513,6 +524,11 @@
         }
 
         if (marker.type === 'first') {
+            if (normalKanbanScanCount() <= 0) {
+                showFirstLastError('Scan kanban produksi pertama terlebih dahulu sebelum kanban first.');
+                return true;
+            }
+
             if (isFirstKanbanDone()) {
                 showFirstLastError('Kanban first sudah discan.');
                 return true;
@@ -551,14 +567,14 @@
     function blockRegularKanbanIfNeeded() {
         if (!isFirstLastRequired()) return false;
 
-        if (!isFirstKanbanDone()) {
-            showFirstLastError('Scan kanban first terlebih dahulu.');
-            sendErrorLog('Belum scan kanban first', localStorage.getItem('model'));
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan. Scan dandori board berikutnya.');
             return true;
         }
 
-        if (isLastKanbanDone()) {
-            showFirstLastError('Kanban last sudah discan. Scan dandori board berikutnya.');
+        if (!isFirstKanbanDone() && normalKanbanScanCount() > 0) {
+            showFirstLastError('Scan kanban first terlebih dahulu setelah kanban produksi pertama.');
+            sendErrorLog('Belum scan kanban first setelah kanban produksi pertama', localStorage.getItem('model'));
             return true;
         }
 
@@ -1068,8 +1084,9 @@
             $('#code').focus();
 
             if (mustScanLastBeforeClosingModel()) {
-                showFirstLastError('Scan kanban last terlebih dahulu sebelum Stop.');
-                sendErrorLog('Belum scan kanban last sebelum Stop', localStorage.getItem('model'));
+                const message = firstLastCloseBlockMessage('Stop');
+                showFirstLastError(message);
+                sendErrorLog(message, localStorage.getItem('model'));
                 return;
             }
 
@@ -1248,9 +1265,9 @@
                     const dandoriBoard = dandoriMatch[1].trim();
 
                     if (mustScanLastBeforeClosingModel()) {
-                        showFirstLastError('Scan kanban last terlebih dahulu sebelum Dandori Board berikutnya.');
-                        sendErrorLog('Belum scan kanban last sebelum Dandori Board berikutnya', localStorage
-                            .getItem('model'), dandoriBoard);
+                        const message = firstLastCloseBlockMessage('Dandori Board berikutnya');
+                        showFirstLastError(message);
+                        sendErrorLog(message, localStorage.getItem('model'), dandoriBoard);
                         return;
                     }
 
@@ -1376,8 +1393,8 @@
                                     );
 
                                     if (isFirstLastRequired()) {
-                                        setStatusCard('warning', 'FIRST');
-                                        notif('success', `Master sample OK. Scan ${dataPart.line}_FIRST PRODUCT.`);
+                                        setStatusCard('warning', 'KANBAN');
+                                        notif('success', 'Master sample OK. Scan kanban produksi pertama.');
                                     }
 
                                     // start new timer
@@ -1518,13 +1535,19 @@
                                     startTimeCounter(now);
 
 
-                                    setTimeout(() => {
-                                        $('.status-card').removeClass('bg-danger');
-                                        $('.status-card').removeClass('bg-success');
-                                        $('.status-card').addClass(
-                                            'bg-secondary');
-                                        $('#status').text('-');
-                                    }, 2000);
+                                    if (isFirstLastRequired() && !isFirstKanbanDone()) {
+                                        const expectedLine = localStorage.getItem(firstLastKeys.line);
+                                        setStatusCard('warning', 'FIRST');
+                                        notif('success', `Kanban produksi pertama OK. Scan ${expectedLine}_FIRST PRODUCT.`);
+                                    } else {
+                                        setTimeout(() => {
+                                            $('.status-card').removeClass('bg-danger');
+                                            $('.status-card').removeClass('bg-success');
+                                            $('.status-card').addClass(
+                                                'bg-secondary');
+                                            $('#status').text('-');
+                                        }, 2000);
+                                    }
 
                                     // start new timer
                                     // resetAndStartTimer();

@@ -17,6 +17,8 @@ use App\Models\ScannedPart;
 use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
+use App\Models\KanbanPairing;
+use App\Models\KanbanPairingLog;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
@@ -986,6 +988,10 @@ class ProductionController extends Controller
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
+        $kanban = null;
+        $interlockPair = KanbanPairing::forAssemblyPart((string) $internalPart->part_number);
+        $interlockPair = $interlockPair && $interlockPair->usesProductionInterlock() ? $interlockPair : null;
+
         if ($seri !== 'noseri') {
             // get kanban_id based on internal part id
             $kanban = Kanban::where('internal_part_id', $internalPart->id)
@@ -1012,11 +1018,37 @@ class ProductionController extends Controller
             }
         }
 
+        if ($interlockPair && !$kanban) {
+            return [
+                'status' => 'error',
+                'message' => 'Kanban assembly project 660A wajib pairing dan memakai serial terdaftar.'
+            ];
+        }
 
         try {
             DB::beginTransaction();
+
+            $pairingLog = null;
+            if ($interlockPair) {
+                $pairingLog = KanbanPairingLog::where('body_kanban_pairing_id', $interlockPair->id)
+                    ->where('assembly_kanban_id', $kanban->id)
+                    ->where('status', KanbanPairingLog::STATUS_READY)
+                    ->lockForUpdate()
+                    ->oldest('id')
+                    ->first();
+
+                if (!$pairingLog) {
+                    DB::rollBack();
+
+                    return [
+                        'status' => 'error',
+                        'message' => 'Kanban belum pairing painting-assy. Lakukan proses Validation dulu.'
+                    ];
+                }
+            }
+
             // insert into mutation table
-            Mutation::create([
+            $mutation = Mutation::create([
                 'internal_part_id' => $internalPart->id,
                 'serial_number' => $seri,
                 'type' => 'supply',
@@ -1032,6 +1064,15 @@ class ProductionController extends Controller
                 ])) {
                     throw new \RuntimeException('Gagal memperbarui status kanban.');
                 }
+            }
+
+            if ($pairingLog) {
+                $pairingLog->update([
+                    'status' => KanbanPairingLog::STATUS_CONSUMED,
+                    'consumed_mutation_id' => $mutation->id,
+                    'consumed_by' => auth()->user()->npk,
+                    'consumed_at' => now(),
+                ]);
             }
 
             $result = [];
@@ -1101,7 +1142,8 @@ class ProductionController extends Controller
             return [
                 'status' => 'success',
                 'message' => 'Part Sesuai Dengan Sample',
-                'qty' => $customerPart->qty_per_kanban
+                'qty' => $customerPart->qty_per_kanban,
+                'line_prd' => $lineProd->name
             ];
         } catch (\Throwable $th) {
             DB::rollBack();
