@@ -183,11 +183,15 @@ window.ValidationPairingFlow = (() => {
         const paintingCount = readNumber(keys.paintingCount);
         const assemblyQty = readNumber(keys.assemblyQty);
         const paintingQty = readNumber(keys.paintingQty);
-        const targetPainting = assemblyQty > 0
-            ? Math.floor(assemblyCount * paintingQty / assemblyQty)
-            : 0;
-        const additionalAssemblyNeeded = assemblyQty > 0 && paintingQty > 0
-            ? Math.max(0, Math.ceil(((paintingCount + 1) * assemblyQty) / paintingQty) - assemblyCount)
+        const assemblyPieces = assemblyCount * assemblyQty;
+        const paintingPieces = paintingCount * paintingQty;
+        const targetPainting = paintingQty > 0 ? Math.floor(assemblyPieces / paintingQty) : 0;
+        const piecesNeededForNextPainting = Math.max(
+            0,
+            (paintingPieces + paintingQty) - assemblyPieces
+        );
+        const additionalAssemblyNeeded = assemblyQty > 0 && piecesNeededForNextPainting > 0
+            ? Math.ceil(piecesNeededForNextPainting / assemblyQty)
             : 0;
 
         return {
@@ -204,11 +208,11 @@ window.ValidationPairingFlow = (() => {
             paintingQty,
             assemblySerials: readList(keys.assemblySerials),
             paintingSerials: readList(keys.paintingSerials),
+            assemblyPieces,
+            paintingPieces,
             targetPainting,
             additionalAssemblyNeeded,
-            isComplete: assemblyCount > 0
-                && paintingCount > 0
-                && (assemblyCount * paintingQty) === (paintingCount * assemblyQty)
+            isComplete: assemblyCount > 0 && assemblyPieces === paintingPieces
         };
     }
 
@@ -257,8 +261,8 @@ window.ValidationPairingFlow = (() => {
             `${session.paintingModel} · ${session.paintingCount}/${session.targetPainting} kanban`
         );
         const ratioDivisor = greatestCommonDivisor(session.assemblyQty, session.paintingQty);
-        const assemblyKanbanRatio = session.assemblyQty / ratioDivisor;
-        const paintingKanbanRatio = session.paintingQty / ratioDivisor;
+        const assemblyKanbanRatio = session.paintingQty / ratioDivisor;
+        const paintingKanbanRatio = session.assemblyQty / ratioDivisor;
 
         $('#assembly-help').text(
             `Rasio ${assemblyKanbanRatio} assembly : ${paintingKanbanRatio} painting`
@@ -415,8 +419,8 @@ window.ValidationPairingFlow = (() => {
                 return;
             }
 
-            const nextPaintingCount = session.paintingCount + 1;
-            if (nextPaintingCount > session.targetPainting) {
+            const nextPaintingPieces = (session.paintingCount + 1) * session.paintingQty;
+            if (nextPaintingPieces > session.assemblyPieces) {
                 notify(
                     'error',
                     `Kanban assembly belum cukup. Scan ${session.additionalAssemblyNeeded} kanban assembly lagi.`
