@@ -209,6 +209,6 @@ class ValidationController extends Controller
             && $paintingQty > 0
             && $assemblyCount > 0
             && $paintingCount > 0
-            && ($assemblyCount * $paintingQty) === ($paintingCount * $assemblyQty);
+            && ($assemblyCount * $assemblyQty) === ($paintingCount * $paintingQty);
     }
 }
