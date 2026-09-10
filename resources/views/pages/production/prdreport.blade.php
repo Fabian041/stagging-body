@@ -487,9 +487,8 @@
         return parseInt(localStorage.getItem('scan_counter') || '0', 10) || 0;
     }
 
-    function firstLastProductMatches(product) {
-        const scanned = compactMarkerProduct(product);
-        const candidates = [
+    function firstLastProductCandidates() {
+        return [
             localStorage.getItem(firstLastKeys.product),
             localStorage.getItem(firstLastKeys.backNumber),
             localStorage.getItem(firstLastKeys.partName),
@@ -497,8 +496,14 @@
             localStorage.getItem(firstLastKeys.pairingProject),
             localStorage.getItem('model'),
             localStorage.getItem('back_number'),
-            localStorage.getItem('dandori_board')
+            localStorage.getItem('dandori_board'),
+            $('#model').text()
         ].map(compactMarkerProduct).filter(Boolean);
+    }
+
+    function firstLastProductMatches(product) {
+        const scanned = compactMarkerProduct(product);
+        const candidates = firstLastProductCandidates();
 
         return candidates.some(candidate => scanned === candidate
             || (scanned.length >= 3 && candidate.includes(scanned))
@@ -550,8 +555,9 @@
         }
 
         if (!firstLastProductMatches(marker.product)) {
-            showFirstLastError('Product kanban first/last tidak sesuai dengan model running.');
-            sendErrorLog('Kanban first/last tidak sesuai product', localStorage.getItem('model'), marker.product);
+            const expected = [...new Set(firstLastProductCandidates())].join(', ') || '-';
+            showFirstLastError(`Product kanban first/last tidak sesuai. Scan: ${marker.product}, expected: ${expected}.`);
+            sendErrorLog('Kanban first/last tidak sesuai product', expected, marker.product);
             return true;
         }
 
