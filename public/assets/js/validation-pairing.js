@@ -3,6 +3,8 @@ window.ValidationPairingFlow = (() => {
         dandori: 'validation_dandori_part',
         assemblyPart: 'assy_part_number',
         paintingPart: 'expected_painting',
+        pairingId: 'validation_pairing_id',
+        pairingInterlockEnabled: 'validation_pairing_interlock_enabled',
         assemblyModel: 'model_assy',
         paintingModel: 'model_painting',
         assemblyQty: 'qty_assy',
@@ -58,7 +60,43 @@ window.ValidationPairingFlow = (() => {
         }, duration);
     }
 
-    function completePairingAutomatically() {
+    function csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
+
+    async function savePairingCompletion(session) {
+        if (!session.interlockEnabled) {
+            return { success: true };
+        }
+
+        const response = await fetch('/validation/kanban/pairing/complete', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                pairing_id: session.pairingId,
+                assembly_part: session.assemblyPart,
+                painting_part: session.paintingPart,
+                assembly_serials: session.assemblySerials,
+                painting_serials: session.paintingSerials
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Gagal menyimpan pairing.');
+        }
+
+        return data;
+    }
+
+    async function completePairingAutomatically() {
+        const session = getSession();
+
         if (notificationTimer) {
             clearTimeout(notificationTimer);
             notificationTimer = null;
@@ -73,6 +111,18 @@ window.ValidationPairingFlow = (() => {
         $('#divNotif').css('background-color', '#16a34a');
         $('#notifModal').modal('show');
         playSound('match-sound');
+
+        try {
+            await savePairingCompletion(session);
+        } catch (error) {
+            isAutoResetting = false;
+            $('#code').prop('disabled', false).focus();
+            $('#finishButton').prop('disabled', false);
+            $('#pairing-status').text('Gagal simpan pairing · tekan Finish untuk coba lagi');
+            notify('error', error.message || 'Gagal menyimpan pairing.', 3000);
+            playSound('error-connection');
+            return;
+        }
 
         autoResetTimer = setTimeout(() => {
             autoResetTimer = null;
@@ -142,6 +192,8 @@ window.ValidationPairingFlow = (() => {
 
         return {
             dandori: localStorage.getItem(keys.dandori) || '',
+            pairingId: localStorage.getItem(keys.pairingId) || '',
+            interlockEnabled: localStorage.getItem(keys.pairingInterlockEnabled) === '1',
             assemblyPart: localStorage.getItem(keys.assemblyPart) || '',
             paintingPart: localStorage.getItem(keys.paintingPart) || '',
             assemblyModel: localStorage.getItem(keys.assemblyModel) || '-',
@@ -287,6 +339,8 @@ window.ValidationPairingFlow = (() => {
             }
 
             localStorage.setItem(keys.dandori, dandoriPart);
+            localStorage.setItem(keys.pairingId, String(data.pairing_id || ''));
+            localStorage.setItem(keys.pairingInterlockEnabled, data.interlock_enabled ? '1' : '0');
             localStorage.setItem(keys.assemblyPart, normalizePartNumber(data.assembly));
             localStorage.setItem(keys.paintingPart, normalizePartNumber(data.painting));
             localStorage.setItem(keys.assemblyModel, data.model_assy || '-');
@@ -307,7 +361,7 @@ window.ValidationPairingFlow = (() => {
         }
     }
 
-    function scanKanban(barcode) {
+    async function scanKanban(barcode) {
         const session = getSession();
         if (!session.dandori || !session.assemblyPart) {
             notify('error', 'Scan Dandori Board terlebih dahulu.');
@@ -381,7 +435,7 @@ window.ValidationPairingFlow = (() => {
 
             const updatedSession = getSession();
             if (updatedSession.isComplete) {
-                completePairingAutomatically();
+                await completePairingAutomatically();
                 return;
             }
 
@@ -409,7 +463,7 @@ window.ValidationPairingFlow = (() => {
             if (isDandoriBarcode(value)) {
                 await scanDandori(value);
             } else {
-                scanKanban(value);
+                await scanKanban(value);
             }
         } finally {
             $('#code').val('').prop('disabled', isAutoResetting).focus();
@@ -417,11 +471,19 @@ window.ValidationPairingFlow = (() => {
         }
     }
 
-    function finishPairing() {
+    async function finishPairing() {
         const session = getSession();
         if (!session.isComplete) {
             notify('error', 'Pairing belum lengkap. Lengkapi jumlah kanban painting sesuai kebutuhan.');
             playSound('not-match-sound');
+            return;
+        }
+
+        try {
+            await savePairingCompletion(session);
+        } catch (error) {
+            notify('error', error.message || 'Gagal menyimpan pairing.', 3000);
+            playSound('error-connection');
             return;
         }
 

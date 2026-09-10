@@ -411,6 +411,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/validation', [ValidationController::class, 'index'])->name('validation.index');
     Route::prefix('validation')->group(function () {
         Route::get('/kanban/pairing', [ValidationController::class, 'pair'])->name('validation.pairing');
+        Route::post('/kanban/pairing/complete', [ValidationController::class, 'completePairing'])
+            ->name('validation.pairing.complete');
     });
 
     // pulling

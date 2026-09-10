@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use App\Models\Kanban;
+use App\Models\KanbanPairing;
+use App\Models\KanbanPairingLog;
 use App\Models\Line;
 use App\Models\Mold;
 use App\Models\Mutation;
@@ -235,6 +237,7 @@ class InjectionController extends Controller
         $qtyPerKanban = (int) ($customerPart->qty_per_kanban ?? 1);
 
         $kanban = null;
+        $interlockPair = $this->interlockPairForAssemblyPart($internalPart);
         if ($seri !== 'noseri') {
             $kanban = Kanban::where('internal_part_id', $internalPart->id)
                 ->where('serial_number', $seri)
@@ -255,8 +258,34 @@ class InjectionController extends Controller
             }
         }
 
+        if ($interlockPair && !$kanban) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Kanban assembly project 660A wajib memakai serial dan harus terdaftar.',
+            ], 422);
+        }
+
         try {
             DB::beginTransaction();
+
+            $pairingLog = null;
+            if ($interlockPair) {
+                $pairingLog = KanbanPairingLog::where('body_kanban_pairing_id', $interlockPair->id)
+                    ->where('assembly_kanban_id', $kanban->id)
+                    ->where('status', KanbanPairingLog::STATUS_READY)
+                    ->lockForUpdate()
+                    ->oldest('id')
+                    ->first();
+
+                if (!$pairingLog) {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'Kanban belum pairing painting-assy. Lakukan proses Validation dulu.',
+                    ], 422);
+                }
+            }
 
             $this->sendInboundToPrdReport([
                 'line_id' => $validated['line'],
@@ -268,7 +297,7 @@ class InjectionController extends Controller
                 'crtby'   => auth()->user()->npk ?? 'SYS',
             ]);
 
-            Mutation::create([
+            $mutation = Mutation::create([
                 'internal_part_id' => $internalPart->id,
                 'serial_number'   => $seri,
                 'type'            => 'supply',
@@ -279,6 +308,15 @@ class InjectionController extends Controller
 
             if ($kanban) {
                 // $kanban->update(['status' => 1]);
+            }
+
+            if ($pairingLog) {
+                $pairingLog->update([
+                    'status' => KanbanPairingLog::STATUS_CONSUMED,
+                    'consumed_mutation_id' => $mutation->id,
+                    'consumed_by' => auth()->user()->npk ?? 'SYS',
+                    'consumed_at' => now(),
+                ]);
             }
 
             $this->publishProductionQuantity();
@@ -550,6 +588,13 @@ class InjectionController extends Controller
         return isset($internalPart->back_number)
             && strlen($internalPart->back_number) >= 2
             && $internalPart->back_number[1] === 'O';
+    }
+
+    private function interlockPairForAssemblyPart(InternalPart $internalPart): ?KanbanPairing
+    {
+        $pair = KanbanPairing::forAssemblyPart((string) $internalPart->part_number);
+
+        return $pair && $pair->usesProductionInterlock() ? $pair : null;
     }
 
     /**

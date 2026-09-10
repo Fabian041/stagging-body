@@ -249,6 +249,15 @@
 <script>
     const productionLines = @json($productionLines ?? []);
     const requireProductionLine = false;
+    const firstLastPilotLines = ['AS526', 'AS523', 'AS600', 'AS528', 'AS524'];
+    const firstLastKeys = {
+        required: 'production_first_last_required',
+        line: 'production_first_last_line',
+        product: 'production_first_last_product',
+        backNumber: 'production_first_last_back_number',
+        firstDone: 'production_first_kanban_done',
+        lastDone: 'production_last_kanban_done'
+    };
     let productionAppInitialized = false;
     let line = '';
     var timerId;
@@ -401,11 +410,187 @@
             startTimeCounter(parseInt(lastScanTime));
         }
 
+        if (isFirstLastRequired() && !isFirstKanbanDone()) {
+            setStatusCard('warning', 'FIRST');
+        } else if (isFirstLastRequired() && isLastKanbanDone()) {
+            setStatusCard('success', 'LAST OK');
+        }
+
         $('#code').focus();
     }
 
     function normalizeProductionLine(value) {
         return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
+    }
+
+    function normalizeMarkerProduct(value) {
+        return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
+    }
+
+    function parseFirstLastKanban(value) {
+        const match = String(value || '').trim().match(/^([A-Z0-9]+)_(FIRST|LAST)\s+(.+)$/i);
+        if (!match) return null;
+
+        return {
+            line: normalizeProductionLine(match[1]),
+            type: match[2].toLowerCase(),
+            product: normalizeMarkerProduct(match[3])
+        };
+    }
+
+    function isFirstLastPilotLine(value) {
+        return firstLastPilotLines.includes(normalizeProductionLine(value));
+    }
+
+    function clearFirstLastState() {
+        Object.values(firstLastKeys).forEach(key => localStorage.removeItem(key));
+    }
+
+    function setupFirstLastState(lineName, product, backNumber) {
+        clearFirstLastState();
+
+        const normalizedLine = normalizeProductionLine(lineName);
+        if (!isFirstLastPilotLine(normalizedLine)) return;
+
+        localStorage.setItem(firstLastKeys.required, 'true');
+        localStorage.setItem(firstLastKeys.line, normalizedLine);
+        localStorage.setItem(firstLastKeys.product, normalizeMarkerProduct(product));
+        localStorage.setItem(firstLastKeys.backNumber, normalizeMarkerProduct(backNumber));
+        localStorage.setItem(firstLastKeys.firstDone, 'false');
+        localStorage.setItem(firstLastKeys.lastDone, 'false');
+    }
+
+    function isFirstLastRequired() {
+        return localStorage.getItem(firstLastKeys.required) === 'true'
+            && isFirstLastPilotLine(localStorage.getItem(firstLastKeys.line));
+    }
+
+    function isFirstKanbanDone() {
+        return localStorage.getItem(firstLastKeys.firstDone) === 'true';
+    }
+
+    function isLastKanbanDone() {
+        return localStorage.getItem(firstLastKeys.lastDone) === 'true';
+    }
+
+    function normalKanbanScanCount() {
+        return parseInt(localStorage.getItem('scan_counter') || '0', 10) || 0;
+    }
+
+    function firstLastProductMatches(product) {
+        const scanned = normalizeMarkerProduct(product);
+        const candidates = [
+            localStorage.getItem(firstLastKeys.product),
+            localStorage.getItem(firstLastKeys.backNumber),
+            localStorage.getItem('model'),
+            localStorage.getItem('back_number'),
+            localStorage.getItem('dandori_board')
+        ].map(normalizeMarkerProduct).filter(Boolean);
+
+        return candidates.some(candidate => scanned === candidate);
+    }
+
+    function setStatusCard(state, text, resetAfter = 0) {
+        $('.status-card-header')
+            .removeClass('card-secondary card-success card-danger card-warning card-info')
+            .addClass(`card-${state}`);
+        $('.status-card')
+            .removeClass('bg-secondary bg-success bg-danger bg-warning bg-info')
+            .addClass(`bg-${state}`);
+        $('#status').text(text);
+
+        if (resetAfter > 0) {
+            setTimeout(() => setStatusCard('secondary', '-'), resetAfter);
+        }
+    }
+
+    function showFirstLastError(message) {
+        wrongKanbanSound();
+        notif('error', message);
+        setStatusCard('danger', 'NG');
+    }
+
+    function mustScanLastBeforeClosingModel() {
+        return isFirstLastRequired()
+            && isFirstKanbanDone()
+            && normalKanbanScanCount() > 0
+            && !isLastKanbanDone();
+    }
+
+    function handleFirstLastKanban(marker) {
+        if (!isFirstLastPilotLine(marker.line)) {
+            showFirstLastError(`Line ${marker.line} belum aktif untuk kanban first/last.`);
+            return true;
+        }
+
+        if (!isFirstLastRequired()) {
+            showFirstLastError('Scan dandori board dan master sample terlebih dahulu.');
+            return true;
+        }
+
+        const expectedLine = normalizeProductionLine(localStorage.getItem(firstLastKeys.line));
+        if (marker.line !== expectedLine) {
+            showFirstLastError(`Kanban ${marker.type} harus line ${expectedLine}.`);
+            return true;
+        }
+
+        if (!firstLastProductMatches(marker.product)) {
+            showFirstLastError('Product kanban first/last tidak sesuai dengan model running.');
+            sendErrorLog('Kanban first/last tidak sesuai product', localStorage.getItem('model'), marker.product);
+            return true;
+        }
+
+        if (marker.type === 'first') {
+            if (isFirstKanbanDone()) {
+                showFirstLastError('Kanban first sudah discan.');
+                return true;
+            }
+
+            localStorage.setItem(firstLastKeys.firstDone, 'true');
+            localStorage.setItem(firstLastKeys.lastDone, 'false');
+            okSound();
+            notif('success', 'Kanban first OK. Silakan lanjut scan kanban produksi.');
+            setStatusCard('success', 'FIRST OK', 2500);
+            return true;
+        }
+
+        if (!isFirstKanbanDone()) {
+            showFirstLastError('Scan kanban first terlebih dahulu.');
+            return true;
+        }
+
+        if (normalKanbanScanCount() <= 0) {
+            showFirstLastError('Scan kanban produksi terlebih dahulu sebelum kanban last.');
+            return true;
+        }
+
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan.');
+            return true;
+        }
+
+        localStorage.setItem(firstLastKeys.lastDone, 'true');
+        okSound();
+        notif('success', 'Kanban last OK. Silakan scan dandori board berikutnya.');
+        setStatusCard('success', 'LAST OK', 2500);
+        return true;
+    }
+
+    function blockRegularKanbanIfNeeded() {
+        if (!isFirstLastRequired()) return false;
+
+        if (!isFirstKanbanDone()) {
+            showFirstLastError('Scan kanban first terlebih dahulu.');
+            sendErrorLog('Belum scan kanban first', localStorage.getItem('model'));
+            return true;
+        }
+
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan. Scan dandori board berikutnya.');
+            return true;
+        }
+
+        return false;
     }
 
     function findProductionLine(value) {
@@ -910,6 +1095,12 @@
         $('#release').on('click', function() {
             $('#code').focus();
 
+            if (mustScanLastBeforeClosingModel()) {
+                showFirstLastError('Scan kanban last terlebih dahulu sebelum Stop.');
+                sendErrorLog('Belum scan kanban last sebelum Stop', localStorage.getItem('model'));
+                return;
+            }
+
             let part = localStorage.getItem('dandori_board')
 
             $.ajax({
@@ -971,6 +1162,12 @@
 
                 if (barcodecomplete == "logout") {
                     window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
+                const firstLastKanban = parseFirstLastKanban(barcodecomplete);
+                if (firstLastKanban) {
+                    handleFirstLastKanban(firstLastKanban);
                     return;
                 }
 
@@ -1078,6 +1275,15 @@
                 if (dandoriMatch) {
                     const dandoriBoard = dandoriMatch[1].trim();
 
+                    if (mustScanLastBeforeClosingModel()) {
+                        showFirstLastError('Scan kanban last terlebih dahulu sebelum Dandori Board berikutnya.');
+                        sendErrorLog('Belum scan kanban last sebelum Dandori Board berikutnya', localStorage
+                            .getItem('model'), dandoriBoard);
+                        return;
+                    }
+
+                    clearFirstLastState();
+
                     // set item
                     localStorage.setItem('dandori_board', dandoriBoard);
                     localStorage.setItem('production_start_time', new Date().toLocaleString('sv-SE'));
@@ -1154,6 +1360,7 @@
                                     localStorage.setItem('photo', dataPart
                                         .photo);
                                     localStorage.setItem('line_prd', dataPart.line);
+                                    setupFirstLastState(dataPart.line, dataPart.partNumber, dataPart.backNumber);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -1195,6 +1402,11 @@
                                     $('#pis').html(
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
                                     );
+
+                                    if (isFirstLastRequired()) {
+                                        setStatusCard('warning', 'FIRST');
+                                        notif('success', `Master sample OK. Scan ${dataPart.line}_first ${dataPart.backNumber || dataPart.partNumber}.`);
+                                    }
 
                                     // start new timer
                                     // resetAndStartTimer();
@@ -1256,6 +1468,10 @@
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
+                        if (blockRegularKanbanIfNeeded()) {
+                            return;
+                        }
+
                         let now = Date.now();
                         let startTime = localStorage.getItem('production_start_time');
                         let endTime = new Date(now);
