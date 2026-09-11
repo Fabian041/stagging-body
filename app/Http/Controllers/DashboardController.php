@@ -30,6 +30,8 @@ class DashboardController extends Controller
 {
     use prodPlanOps;
 
+    private const PRODUCTION_RESULT_TYPES = ['supply', 'as547_kanan', 'as547_kiri'];
+
     public function index()
     {
         // Portal (launcher) untuk semua. Blade sembunyikan tombol Login kalau sudah login.
@@ -1046,7 +1048,7 @@ class DashboardController extends Controller
         $data = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->where('mutations.type', 'supply')
+            ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             // range, bukan whereDate(), biar bisa pakai index created_at
             ->whereBetween('mutations.created_at', [
                 Carbon::parse($selectedDate)->startOfDay(),
@@ -1116,7 +1118,7 @@ class DashboardController extends Controller
         $details = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->where('mutations.type', 'supply')
+            ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             ->where('internal_parts.back_number', $backNumber)
             ->when($line !== '', fn ($q) => $q->where('lines.name', $line))
             ->whereBetween('mutations.created_at', [
