@@ -2,49 +2,56 @@
 
 @section('main')
     <style>
-        .pairing-log-card {
-            background: var(--card);
-            border: 1px solid var(--border);
+        .bella-table-card {
+            background: var(--card, #ffffff);
+            border: 1px solid var(--border, #e5e7eb);
             border-radius: 10px;
-            box-shadow: var(--shadow);
+            box-shadow: var(--shadow, 0 8px 24px rgba(15, 23, 42, .06));
             overflow: hidden;
             margin-top: 14px;
         }
 
-        .pairing-log-header {
+        .bella-table-card-header {
             padding: 14px 20px;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid var(--border, #e5e7eb);
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
             flex-wrap: wrap;
+            position: relative;
+            background: var(--card, #ffffff);
         }
 
-        .pairing-log-title {
+        .bella-table-card-title {
             font-size: 13px;
             font-weight: 800;
-            color: var(--navy);
+            color: var(--navy, #294795);
             text-transform: uppercase;
             letter-spacing: .08em;
             margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
         }
 
-        .pairing-log-subtitle {
+        .bella-table-card-subtitle {
             font-size: 11px;
-            color: var(--text-muted);
+            color: var(--text-muted, #64748b);
             margin-top: 2px;
+            line-height: 1.5;
         }
 
-        .pairing-log-body {
+        .bella-table-card-body {
             padding: 18px 20px 20px;
+            background: var(--card, #ffffff);
         }
 
         .pairing-log-filter {
-            border: 1px solid var(--border);
+            border: 1px solid var(--border, #e5e7eb);
             border-radius: var(--r, 8px);
             padding: 14px;
-            background: var(--bg);
+            background: var(--bg, #f8fafc);
             margin-bottom: 16px;
         }
 
@@ -67,124 +74,164 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .05em;
-            color: var(--text-muted);
+            color: var(--text-muted, #64748b);
         }
 
         .pairing-log-form-group .form-control {
-            height: 38px;
+            height: 34px;
             min-width: 170px;
-            border: 1px solid var(--border) !important;
+            border: 1px solid var(--border, #e5e7eb) !important;
             border-radius: 5px !important;
-            background: var(--card) !important;
-            color: var(--text) !important;
+            background: var(--card, #ffffff) !important;
+            color: var(--text, #0f172a) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
             font-size: 12.5px !important;
             font-weight: 600;
             box-shadow: none !important;
+        }
+
+        .pairing-log-form-group .form-control:focus {
+            border-color: var(--sky, #0097D8) !important;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10) !important;
+            background: #fff !important;
         }
 
         .pairing-log-search .form-control {
             min-width: 260px;
         }
 
-        .pairing-log-btn {
-            height: 38px;
+        .act-btn {
+            height: 34px;
             border: 1px solid transparent;
             border-radius: 5px;
-            padding: 0 16px;
+            padding: 0 12px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            font-size: 12px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: .05em;
+            cursor: pointer;
+            transition: .15s;
             text-decoration: none !important;
             white-space: nowrap;
         }
 
-        .pairing-log-btn.primary {
-            background: var(--primary);
-            border-color: var(--primary);
+        .act-btn.primary {
+            background: var(--primary, #0070B7);
+            border-color: var(--primary, #0070B7);
             color: #fff;
         }
 
-        .pairing-log-btn.soft {
-            background: var(--card);
-            border-color: var(--border);
-            color: var(--text-muted);
+        .act-btn.secondary {
+            background: var(--card, #ffffff);
+            border-color: var(--border, #e5e7eb);
+            color: var(--text-muted, #64748b);
         }
 
-        .pairing-log-table-wrap {
-            border: 1px solid var(--border);
+        .act-btn:hover {
+            filter: brightness(.95);
+            text-decoration: none;
+            color: inherit;
+            transform: translateY(-1px);
+        }
+
+        .act-btn.primary:hover {
+            color: #fff;
+        }
+
+        .stock-table-wrap {
+            border: 1px solid var(--border, #e5e7eb);
             border-radius: var(--r, 8px);
-            overflow-x: auto;
-            background: var(--card);
+            overflow: hidden;
+            background: var(--card, #ffffff);
         }
 
-        .pairing-log-table {
-            width: 100%;
+        .stock-table {
+            width: 100% !important;
             min-width: 1120px;
-            margin: 0;
-            border-collapse: collapse;
-            font-size: 12px;
+            border-collapse: collapse !important;
+            font-size: 12.5px !important;
+            margin-bottom: 0 !important;
         }
 
-        .pairing-log-table thead th {
-            background: var(--navy);
-            color: #fff;
-            padding: 10px 12px;
-            text-transform: uppercase;
-            letter-spacing: .05em;
-            font-size: 10.5px;
-            white-space: nowrap;
+        .stock-table thead th {
+            text-align: center !important;
+            padding: 9px 12px !important;
+            color: var(--text-muted, #64748b) !important;
+            font-size: 10.5px !important;
+            text-transform: uppercase !important;
+            letter-spacing: .05em !important;
+            font-weight: 700 !important;
+            background: var(--bg, #f8fafc) !important;
+            border-bottom: 1px solid var(--border, #e5e7eb) !important;
+            border-top: none !important;
+            white-space: nowrap !important;
         }
 
-        .pairing-log-table tbody td {
-            padding: 11px 12px;
-            border-top: 1px solid var(--border);
-            color: var(--text);
-            vertical-align: top;
+        .stock-table tbody td {
+            text-align: center !important;
+            padding: 10px 12px !important;
+            border-bottom: 1px solid var(--border, #e5e7eb) !important;
+            vertical-align: middle !important;
+            color: var(--text, #0f172a) !important;
+            background: var(--card, #ffffff) !important;
+        }
+
+        .stock-table tbody tr:last-child td {
+            border-bottom: none !important;
+        }
+
+        .stock-table tbody tr:hover td {
+            background: var(--bg, #f8fafc) !important;
         }
 
         .pair-main {
             font-weight: 800;
-            color: var(--navy);
+            color: var(--navy, #294795);
             white-space: nowrap;
         }
 
         .pair-sub {
             margin-top: 2px;
             font-size: 11px;
-            color: var(--text-muted);
+            color: var(--text-muted, #64748b);
         }
 
         .pair-serials {
             display: flex;
             flex-wrap: wrap;
             gap: 4px;
+            justify-content: center;
         }
 
         .pair-badge {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             min-height: 22px;
             padding: 3px 8px;
-            border-radius: 999px;
-            font-size: 11px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 112, 183, .18);
+            font-size: 12px;
             font-weight: 800;
-            background: #eef2ff;
-            color: #3730a3;
+            background: rgba(0, 112, 183, .07);
+            color: var(--primary, #0070B7);
         }
 
         .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 5px 9px;
-            border-radius: 999px;
-            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-size: 10.5px;
             font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
             white-space: nowrap;
         }
 
@@ -201,7 +248,7 @@
         .empty-row {
             padding: 28px 12px !important;
             text-align: center;
-            color: var(--text-muted) !important;
+            color: var(--text-muted, #64748b) !important;
         }
 
         .pairing-log-pagination {
@@ -209,17 +256,17 @@
         }
     </style>
 
-    <div class="pairing-log-card">
-        <div class="pairing-log-header">
+    <div class="bella-table-card mt-3">
+        <div class="bella-table-card-header">
             <div>
-                <h1 class="pairing-log-title">Kanban Pairing Trace</h1>
-                <div class="pairing-log-subtitle">
+                <span class="bella-table-card-title"><i class="fas fa-link mr-1"></i>Kanban Pairing Trace</span>
+                <div class="bella-table-card-subtitle">
                     Trace hasil pairing dari Validation sampai dikonsumsi scan production.
                 </div>
             </div>
         </div>
 
-        <div class="pairing-log-body">
+        <div class="bella-table-card-body">
             <div class="pairing-log-filter">
                 <form class="pairing-log-form" method="GET" action="{{ route('dashboard.productionPairingLogs') }}">
                     <div class="pairing-log-form-group">
@@ -260,19 +307,19 @@
                             placeholder="Part, back number, serial, NPK..." value="{{ request('q') }}">
                     </div>
 
-                    <button class="pairing-log-btn primary" type="submit">
+                    <button class="act-btn primary" type="submit">
                         <i class="fas fa-search"></i>
                         Filter
                     </button>
 
-                    <a class="pairing-log-btn soft" href="{{ route('dashboard.productionPairingLogs') }}">
+                    <a class="act-btn secondary" href="{{ route('dashboard.productionPairingLogs') }}">
                         Reset
                     </a>
                 </form>
             </div>
 
-            <div class="pairing-log-table-wrap">
-                <table class="pairing-log-table">
+            <div class="stock-table-wrap table-responsive">
+                <table class="table table-bordered table-md stock-table">
                     <thead>
                         <tr>
                             <th>Paired At</th>
