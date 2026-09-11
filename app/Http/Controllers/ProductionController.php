@@ -206,6 +206,22 @@ class ProductionController extends Controller
             : 1;
 
         try {
+            DB::beginTransaction();
+
+            $kanban = Kanban::where('internal_part_id', $internalPart->id)
+                ->where('serial_number', $serialNumber)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$kanban) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban ' . $partNumber . ' / ' . $serialNumber . ' tidak terdaftar.',
+                ], 422);
+            }
+
             $mutation = Mutation::create([
                 'internal_part_id' => $internalPart->id,
                 'serial_number'    => $serialNumber,
@@ -214,6 +230,12 @@ class ProductionController extends Controller
                 'npk'              => auth()->user()->npk ?? 'SYS',
                 'date'             => Carbon::now()->format('Y-m-d H:i:s'),
             ]);
+
+            if (!$kanban->update(['status' => Kanban::STATUS_PRODUCED])) {
+                throw new \RuntimeException('Gagal memperbarui status kanban.');
+            }
+
+            DB::commit();
 
             return response()->json([
                 'status'      => 'success',
@@ -224,9 +246,11 @@ class ProductionController extends Controller
                 'mutation_id' => $mutation->id,
             ]);
         } catch (\Throwable $e) {
+            DB::rollBack();
+
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal menyimpan mutation: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan mutation/status kanban: ' . $e->getMessage(),
             ], 500);
         }
     }
