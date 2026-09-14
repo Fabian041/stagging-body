@@ -249,6 +249,13 @@
 <script>
     const productionLines = @json($productionLines ?? []);
     const requireProductionLine = false;
+    const firstLastPilotLines = ['AS526'];
+    const firstLastKeys = {
+        required: 'production_first_last_required',
+        line: 'production_first_last_line',
+        firstDone: 'production_first_kanban_done',
+        lastDone: 'production_last_kanban_done'
+    };
     let productionAppInitialized = false;
     let line = '';
     var timerId;
@@ -401,11 +408,177 @@
             startTimeCounter(parseInt(lastScanTime));
         }
 
+        if (isFirstLastRequired()) {
+            if (isLastKanbanDone()) {
+                setStatusCard('success', 'LAST OK');
+            } else if (!isFirstKanbanDone() && normalKanbanScanCount() > 0) {
+                setStatusCard('warning', 'FIRST');
+            } else if (!isFirstKanbanDone()) {
+                setStatusCard('warning', 'KANBAN');
+            }
+        }
+
         $('#code').focus();
     }
 
     function normalizeProductionLine(value) {
         return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
+    }
+
+    function parseFirstLastKanban(value) {
+        const match = String(value || '').trim().match(/^([A-Z0-9]+)_(FIRST|LAST)\s+(.+)$/i);
+        if (!match) return null;
+
+        return {
+            line: normalizeProductionLine(match[1]),
+            type: match[2].toLowerCase()
+        };
+    }
+
+    function isFirstLastPilotLine(value) {
+        return firstLastPilotLines.includes(normalizeProductionLine(value));
+    }
+
+    function clearFirstLastState() {
+        Object.values(firstLastKeys).forEach(key => localStorage.removeItem(key));
+    }
+
+    function setupFirstLastState(lineName) {
+        clearFirstLastState();
+
+        const normalizedLine = normalizeProductionLine(lineName);
+        if (!isFirstLastPilotLine(normalizedLine)) return;
+
+        localStorage.setItem(firstLastKeys.required, 'true');
+        localStorage.setItem(firstLastKeys.line, normalizedLine);
+        localStorage.setItem(firstLastKeys.firstDone, 'false');
+        localStorage.setItem(firstLastKeys.lastDone, 'false');
+    }
+
+    function isFirstLastRequired() {
+        return localStorage.getItem(firstLastKeys.required) === 'true'
+            && isFirstLastPilotLine(localStorage.getItem(firstLastKeys.line));
+    }
+
+    function isFirstKanbanDone() {
+        return localStorage.getItem(firstLastKeys.firstDone) === 'true';
+    }
+
+    function isLastKanbanDone() {
+        return localStorage.getItem(firstLastKeys.lastDone) === 'true';
+    }
+
+    function normalKanbanScanCount() {
+        return parseInt(localStorage.getItem('scan_counter') || '0', 10) || 0;
+    }
+
+    function setStatusCard(state, text, resetAfter = 0) {
+        $('.status-card-header')
+            .removeClass('card-secondary card-success card-danger card-warning card-info')
+            .addClass(`card-${state}`);
+        $('.status-card')
+            .removeClass('bg-secondary bg-success bg-danger bg-warning bg-info')
+            .addClass(`bg-${state}`);
+        $('#status').text(text);
+
+        if (resetAfter > 0) {
+            setTimeout(() => setStatusCard('secondary', '-'), resetAfter);
+        }
+    }
+
+    function showFirstLastError(message) {
+        wrongKanbanSound();
+        notif('error', message);
+        setStatusCard('danger', 'NG');
+    }
+
+    function mustScanLastBeforeClosingModel() {
+        return isFirstLastRequired()
+            && normalKanbanScanCount() > 0
+            && !isLastKanbanDone();
+    }
+
+    function firstLastCloseBlockMessage(action) {
+        if (!isFirstKanbanDone()) {
+            return `Scan kanban first terlebih dahulu sebelum ${action}.`;
+        }
+
+        return `Scan kanban last terlebih dahulu sebelum ${action}.`;
+    }
+
+    function handleFirstLastKanban(marker) {
+        if (!isFirstLastPilotLine(marker.line)) {
+            showFirstLastError(`Line ${marker.line} belum aktif untuk kanban first/last.`);
+            return true;
+        }
+
+        if (!isFirstLastRequired()) {
+            showFirstLastError('Scan dandori board dan master sample terlebih dahulu.');
+            return true;
+        }
+
+        const expectedLine = normalizeProductionLine(localStorage.getItem(firstLastKeys.line));
+        if (marker.line !== expectedLine) {
+            showFirstLastError(`Kanban ${marker.type} harus line ${expectedLine}.`);
+            return true;
+        }
+
+        if (marker.type === 'first') {
+            if (normalKanbanScanCount() <= 0) {
+                showFirstLastError('Scan kanban produksi pertama terlebih dahulu sebelum kanban first.');
+                return true;
+            }
+
+            if (isFirstKanbanDone()) {
+                showFirstLastError('Kanban first sudah discan.');
+                return true;
+            }
+
+            localStorage.setItem(firstLastKeys.firstDone, 'true');
+            localStorage.setItem(firstLastKeys.lastDone, 'false');
+            okSound();
+            notif('success', 'Kanban first OK. Silakan lanjut scan kanban produksi.');
+            setStatusCard('success', 'FIRST OK', 2500);
+            return true;
+        }
+
+        if (!isFirstKanbanDone()) {
+            showFirstLastError('Scan kanban first terlebih dahulu.');
+            return true;
+        }
+
+        if (normalKanbanScanCount() <= 0) {
+            showFirstLastError('Scan kanban produksi terlebih dahulu sebelum kanban last.');
+            return true;
+        }
+
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan.');
+            return true;
+        }
+
+        localStorage.setItem(firstLastKeys.lastDone, 'true');
+        okSound();
+        notif('success', 'Kanban last OK. Silakan scan dandori board berikutnya.');
+        setStatusCard('success', 'LAST OK', 2500);
+        return true;
+    }
+
+    function blockRegularKanbanIfNeeded() {
+        if (!isFirstLastRequired()) return false;
+
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan. Scan dandori board berikutnya.');
+            return true;
+        }
+
+        if (!isFirstKanbanDone() && normalKanbanScanCount() > 0) {
+            showFirstLastError('Scan kanban first terlebih dahulu setelah kanban produksi pertama.');
+            sendErrorLog('Belum scan kanban first setelah kanban produksi pertama', localStorage.getItem('model'));
+            return true;
+        }
+
+        return false;
     }
 
     function findProductionLine(value) {
@@ -910,6 +1083,13 @@
         $('#release').on('click', function() {
             $('#code').focus();
 
+            if (mustScanLastBeforeClosingModel()) {
+                const message = firstLastCloseBlockMessage('Stop');
+                showFirstLastError(message);
+                sendErrorLog(message, localStorage.getItem('model'));
+                return;
+            }
+
             let part = localStorage.getItem('dandori_board')
 
             $.ajax({
@@ -971,6 +1151,12 @@
 
                 if (barcodecomplete == "logout") {
                     window.location.replace("{{ url('/logout') }}");
+                    return;
+                }
+
+                const firstLastKanban = parseFirstLastKanban(barcodecomplete);
+                if (firstLastKanban) {
+                    handleFirstLastKanban(firstLastKanban);
                     return;
                 }
 
@@ -1078,6 +1264,15 @@
                 if (dandoriMatch) {
                     const dandoriBoard = dandoriMatch[1].trim();
 
+                    if (mustScanLastBeforeClosingModel()) {
+                        const message = firstLastCloseBlockMessage('Dandori Board berikutnya');
+                        showFirstLastError(message);
+                        sendErrorLog(message, localStorage.getItem('model'), dandoriBoard);
+                        return;
+                    }
+
+                    clearFirstLastState();
+
                     // set item
                     localStorage.setItem('dandori_board', dandoriBoard);
                     localStorage.setItem('production_start_time', new Date().toLocaleString('sv-SE'));
@@ -1154,6 +1349,7 @@
                                     localStorage.setItem('photo', dataPart
                                         .photo);
                                     localStorage.setItem('line_prd', dataPart.line);
+                                    setupFirstLastState(dataPart.line);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -1195,6 +1391,11 @@
                                     $('#pis').html(
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
                                     );
+
+                                    if (isFirstLastRequired()) {
+                                        setStatusCard('warning', 'KANBAN');
+                                        notif('success', 'Master sample OK. Scan kanban produksi pertama.');
+                                    }
 
                                     // start new timer
                                     // resetAndStartTimer();
@@ -1256,6 +1457,10 @@
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
+                        if (blockRegularKanbanIfNeeded()) {
+                            return;
+                        }
+
                         let now = Date.now();
                         let startTime = localStorage.getItem('production_start_time');
                         let endTime = new Date(now);
@@ -1330,13 +1535,19 @@
                                     startTimeCounter(now);
 
 
-                                    setTimeout(() => {
-                                        $('.status-card').removeClass('bg-danger');
-                                        $('.status-card').removeClass('bg-success');
-                                        $('.status-card').addClass(
-                                            'bg-secondary');
-                                        $('#status').text('-');
-                                    }, 2000);
+                                    if (isFirstLastRequired() && !isFirstKanbanDone()) {
+                                        const expectedLine = localStorage.getItem(firstLastKeys.line);
+                                        setStatusCard('warning', 'FIRST');
+                                        notif('success', `Kanban produksi pertama OK. Scan ${expectedLine}_FIRST PRODUCT.`);
+                                    } else {
+                                        setTimeout(() => {
+                                            $('.status-card').removeClass('bg-danger');
+                                            $('.status-card').removeClass('bg-success');
+                                            $('.status-card').addClass(
+                                                'bg-secondary');
+                                            $('#status').text('-');
+                                        }, 2000);
+                                    }
 
                                     // start new timer
                                     // resetAndStartTimer();

@@ -1138,6 +1138,13 @@ class PullingController extends Controller
     {
         // check internal
         $internal = InternalPart::with('customerPart')->where('part_number', $internal)->first();
+        if (! $internal) {
+            return [
+                'status' => 'error',
+                'message' => 'Part atau Kanban tidak ditemukan!',
+            ];
+        }
+
         $lineProd = Line::select('name')->where('id', $internal->line_id)->first();
 
         if ($isinternal == 0) {
@@ -1154,19 +1161,14 @@ class PullingController extends Controller
 
             DB::commit();
         }
-        if (! $internal) {
-            return [
-                'status' => 'error',
-                'message' => 'Part atau Kanban tidak ditemukan!',
-            ];
-        }
 
         return [
             'status' => 'success',
             'partNumber' => $internal->part_number,
             'backNumber' => $internal->back_number,
+            'partName' => $internal->part_name,
             'target' => $internal->customerPart->qty_per_kanban,
-            'line' => $lineProd->name,
+            'line' => $lineProd->name ?? null,
             'photo' => $internal->photo,
         ];
     }

@@ -108,6 +108,11 @@
                 <i class="fas fa-chart-line"></i>
                 Production Result
             </a>
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.productionPairingLogs') ? 'active' : '' }}"
+                href="{{ route('dashboard.productionPairingLogs') }}">
+                <i class="fas fa-link"></i>
+                Pairing Trace
+            </a>
         </div>
 
         {{-- ── PIS ── --}}

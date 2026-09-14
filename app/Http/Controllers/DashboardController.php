@@ -10,6 +10,7 @@ use App\Imports\PartImport;
 use App\Imports\StockImport;
 use App\Models\Customer;
 use App\Models\InternalPart;
+use App\Models\KanbanPairingLog;
 use App\Models\LineStaticSequence;
 use App\Models\ProductionPlan;
 use App\Models\ScannedPart;
@@ -29,6 +30,8 @@ use Maatwebsite\Excel\Facades\Excel;
 class DashboardController extends Controller
 {
     use prodPlanOps;
+
+    private const PRODUCTION_RESULT_TYPES = ['supply', 'as547_kanan', 'as547_kiri'];
 
     public function index()
     {
@@ -960,6 +963,55 @@ class DashboardController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
+    public function productionPairingLogs(Request $request)
+    {
+        $status = $request->query('status');
+        $search = trim((string) $request->query('q', ''));
+
+        $logs = KanbanPairingLog::query()
+            ->leftJoin('body_kanban_pairings as pairing_master', 'pairing_master.id', '=', 'kanban_pairing_logs.body_kanban_pairing_id')
+            ->select([
+                'kanban_pairing_logs.*',
+                'pairing_master.assembly_back_number',
+                'pairing_master.painting_back_number',
+            ])
+            ->when($request->filled('project'), fn ($query) => $query->where('kanban_pairing_logs.project', $request->query('project')))
+            ->when(in_array((string) $status, ['0', '1'], true), fn ($query) => $query->where('kanban_pairing_logs.status', (int) $status))
+            ->when($request->filled('date_from'), fn ($query) => $query->whereDate('kanban_pairing_logs.paired_at', '>=', $request->query('date_from')))
+            ->when($request->filled('date_to'), fn ($query) => $query->whereDate('kanban_pairing_logs.paired_at', '<=', $request->query('date_to')))
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+
+                $query->where(function ($query) use ($like) {
+                    $query->where('kanban_pairing_logs.assembly_part', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.painting_part', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.assembly_serial_number', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.painting_serial_numbers', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.paired_by', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.consumed_by', 'like', $like)
+                        ->orWhere('pairing_master.assembly_back_number', 'like', $like)
+                        ->orWhere('pairing_master.painting_back_number', 'like', $like);
+                });
+            })
+            ->orderByDesc('kanban_pairing_logs.paired_at')
+            ->orderByDesc('kanban_pairing_logs.id')
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('pages.production.pairingLogs', [
+            'logs' => $logs,
+            'projects' => KanbanPairingLog::query()
+                ->whereNotNull('project')
+                ->distinct()
+                ->orderBy('project')
+                ->pluck('project'),
+            'statusOptions' => [
+                KanbanPairingLog::STATUS_READY => 'Ready',
+                KanbanPairingLog::STATUS_CONSUMED => 'Consumed',
+            ],
+        ]);
+    }
+
     private function productionStockBaseQuery()
     {
         return DB::table('internal_parts')
@@ -1046,7 +1098,7 @@ class DashboardController extends Controller
         $data = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->where('mutations.type', 'supply')
+            ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             // range, bukan whereDate(), biar bisa pakai index created_at
             ->whereBetween('mutations.created_at', [
                 Carbon::parse($selectedDate)->startOfDay(),
@@ -1116,7 +1168,7 @@ class DashboardController extends Controller
         $details = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->where('mutations.type', 'supply')
+            ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             ->where('internal_parts.back_number', $backNumber)
             ->when($line !== '', fn ($q) => $q->where('lines.name', $line))
             ->whereBetween('mutations.created_at', [

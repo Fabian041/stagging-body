@@ -894,6 +894,7 @@
             { label: 'Scan Detail', url: '{{ route('loadingList.index') }}', icon: 'fa-truck-loading' },
             { label: 'Production Result', url: '{{ route('dashboard.prodResult') }}', icon: 'fa-chart-line' },
             { label: 'Production Stock', url: '{{ route('dashboard.productionStock') }}', icon: 'fa-box' },
+            { label: 'Pairing Trace', url: '{{ route('dashboard.productionPairingLogs') }}', icon: 'fa-link' },
             { label: 'Alamat Chute', url: '{{ route('pulling.master-alamat-chute') }}', icon: 'fa-map-marker-alt' },
             { label: 'PIS Scanning', url: '{{ route('pis.index') }}', icon: 'fa-barcode' },
             { label: 'Kanban Reset', url: '{{ route('pulling.manual') }}', icon: 'fa-sync-alt' }

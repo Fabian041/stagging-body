@@ -19,6 +19,8 @@ use App\Models\CustomerPart;
 use App\Models\InternalPart;
 use App\Services\CustomerKanbanResolver;
 use App\Services\KanbanBarcodeParser;
+use App\Models\KanbanPairing;
+use App\Models\KanbanPairingLog;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
@@ -326,15 +328,47 @@ class ProductionController extends Controller
 
         $qty = $data['qty_per_kanban'] ?? 1;
 
+        // Kanban internal wajib terdaftar. Dicek di luar transaksi supaya penolakannya
+        // keluar sebagai 422 yang jelas, bukan 500 dari dalam closure.
+        if ($data['source'] === 'internal') {
+            $registered = Kanban::where('internal_part_id', $internalPart->id)
+                ->where('serial_number', $data['serial'])
+                ->exists();
+
+            if (! $registered) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban ' . $internalPart->part_number . ' / ' . $data['serial']
+                        . ' tidak terdaftar di master kanbans.',
+                ], 422);
+            }
+        }
+
         try {
             $mutation = DB::transaction(function () use ($internalPart, $side, $type, $qty, $data) {
-                $now = Carbon::now();
-
-                // Kanban internal membawa serial aslinya; kanban customer tidak punya,
-                // jadi nomor box dibuat sistem supaya tiap baris tetap bisa dibedakan.
+                $now    = Carbon::now();
                 $serial = $data['serial'];
 
-                if (! $serial) {
+                if ($data['source'] === 'internal') {
+                    // Tandai kartunya sudah diproduksi. Ini yang mengembalikan status 2
+                    // (sudah ditarik pulling) menjadi 1 saat kartu berputar kembali —
+                    // tanpa ini pulling menolak kartu yang sama dengan pesan
+                    // "Kanban sudah pernah discan pulling!".
+                    $kanban = Kanban::where('internal_part_id', $internalPart->id)
+                        ->where('serial_number', $serial)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $kanban) {
+                        throw new \RuntimeException('Kanban ' . $internalPart->part_number . ' / ' . $serial . ' tidak terdaftar.');
+                    }
+
+                    if (! $kanban->update(['status' => Kanban::STATUS_PRODUCED])) {
+                        throw new \RuntimeException('Gagal memperbarui status kanban.');
+                    }
+                } else {
+                    // Kanban customer tidak punya nomor seri dan tidak punya kartu internal,
+                    // jadi nomor box dibuat sistem supaya tiap baris tetap bisa dibedakan.
                     $sequence = Mutation::where('type', $type)
                         ->whereDate('date', $now->copy()->startOfDay())
                         ->count() + 1;
@@ -372,7 +406,7 @@ class ProductionController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Gagal menyimpan mutation: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan mutation / status kanban: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -553,7 +587,7 @@ class ProductionController extends Controller
             ? (int) $customerPart->qty_per_kanban
             : 1;
 
-        $type = $line.'_'.($side === 'R' ? 'kanan' : 'kiri');
+        $type = $line . '_' . ($side === 'R' ? 'kanan' : 'kiri');
 
         try {
             Mutation::create([
@@ -785,7 +819,7 @@ class ProductionController extends Controller
         $redirect = redirect()->route('dashboard.productionStock', array_filter([
             'line' => trim((string) $request->active_line),
             'back_number' => trim((string) $request->back_number),
-        ], static fn ($value) => $value !== ''));
+        ], static fn($value) => $value !== ''));
 
         try {
             DB::beginTransaction();
@@ -1176,6 +1210,10 @@ class ProductionController extends Controller
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
+        $kanban = null;
+        $interlockPair = KanbanPairing::forAssemblyPart((string) $internalPart->part_number);
+        $interlockPair = $interlockPair && $interlockPair->usesProductionInterlock() ? $interlockPair : null;
+
         if ($seri !== 'noseri') {
             // get kanban_id based on internal part id
             $kanban = Kanban::where('internal_part_id', $internalPart->id)
@@ -1202,11 +1240,37 @@ class ProductionController extends Controller
             }
         }
 
+        if ($interlockPair && !$kanban) {
+            return [
+                'status' => 'error',
+                'message' => 'Kanban assembly project 660A wajib pairing dan memakai serial terdaftar.'
+            ];
+        }
 
         try {
             DB::beginTransaction();
+
+            $pairingLog = null;
+            if ($interlockPair) {
+                $pairingLog = KanbanPairingLog::where('body_kanban_pairing_id', $interlockPair->id)
+                    ->where('assembly_kanban_id', $kanban->id)
+                    ->where('status', KanbanPairingLog::STATUS_READY)
+                    ->lockForUpdate()
+                    ->oldest('id')
+                    ->first();
+
+                if (!$pairingLog) {
+                    DB::rollBack();
+
+                    return [
+                        'status' => 'error',
+                        'message' => 'Kanban belum pairing painting-assy. Lakukan proses Validation dulu.'
+                    ];
+                }
+            }
+
             // insert into mutation table
-            Mutation::create([
+            $mutation = Mutation::create([
                 'internal_part_id' => $internalPart->id,
                 'serial_number' => $seri,
                 'type' => 'supply',
@@ -1222,6 +1286,15 @@ class ProductionController extends Controller
                 ])) {
                     throw new \RuntimeException('Gagal memperbarui status kanban.');
                 }
+            }
+
+            if ($pairingLog) {
+                $pairingLog->update([
+                    'status' => KanbanPairingLog::STATUS_CONSUMED,
+                    'consumed_mutation_id' => $mutation->id,
+                    'consumed_by' => auth()->user()->npk,
+                    'consumed_at' => now(),
+                ]);
             }
 
             $result = [];
@@ -1291,7 +1364,8 @@ class ProductionController extends Controller
             return [
                 'status' => 'success',
                 'message' => 'Part Sesuai Dengan Sample',
-                'qty' => $customerPart->qty_per_kanban
+                'qty' => $customerPart->qty_per_kanban,
+                'line_prd' => $lineProd->name
             ];
         } catch (\Throwable $th) {
             DB::rollBack();

@@ -238,6 +238,7 @@ Route::middleware(['auth'])->group(function () {
         // Production stock monitoring (sebelumnya ada di /dashboard)
         Route::get('/production/stock', [DashboardController::class, 'productionStock'])->name('dashboard.productionStock');
         Route::get('/production/stock/data', [DashboardController::class, 'productionStockData'])->name('dashboard.productionStock.data');
+        Route::get('/production/pairing-logs', [DashboardController::class, 'productionPairingLogs'])->name('dashboard.productionPairingLogs');
 
         Route::prefix('master')->group(function () {
             Route::get('/', [MasterDataController::class, 'index'])->name('dashboard.master.index');
@@ -411,6 +412,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/validation', [ValidationController::class, 'index'])->name('validation.index');
     Route::prefix('validation')->group(function () {
         Route::get('/kanban/pairing', [ValidationController::class, 'pair'])->name('validation.pairing');
+        Route::post('/kanban/pairing/complete', [ValidationController::class, 'completePairing'])
+            ->name('validation.pairing.complete');
     });
 
     // pulling
