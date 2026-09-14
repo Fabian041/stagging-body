@@ -72,21 +72,16 @@
                         <h3 class="text-center text-white mb-0">FINISH</h3>
                     </button>
 
-                    <button class="btn btn-warning py-2 shadow mb-1" style="border-radius:8px; width:100% !important"
-                        id="reset-seri">
-                        <h5 class="text-center text-white mb-0">RESET SERI</h5>
-                    </button>
-                    <small class="text-muted d-block text-center mb-3" id="reset-info"></small>
-
                     <div class="card card-warning py-3 shadow mb-3" style="padding:1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark mb-1">Scan Kanban</label>
-                        <small class="text-muted text-center mb-2">kanan / kiri dibaca otomatis</small>
+                        <small class="text-muted text-center mb-2">kanban internal / customer,<br>kanan &amp; kiri
+                            dibaca otomatis</small>
                         <input id="scan" type="text" class="form-control form-control-lg" name="scan" tabindex="1"
                             placeholder="scan kanban..." autocomplete="off" autofocus>
                     </div>
 
                     <div class="card shadow mb-3" style="padding:.7rem; border-radius:8px">
-                        <small class="text-muted" style="font-weight:700">Kanban Terakhir</small>
+                        <small class="text-muted" style="font-weight:700">Box Terakhir</small>
                         <small class="text-muted">RH: <span id="last-right">-</span></small>
                         <small class="text-muted">LH: <span id="last-left">-</span></small>
                     </div>
@@ -112,6 +107,29 @@
         </div>
     </div>
     {{-- end of modal notif --}}
+
+    {{-- modal konfirmasi scan beruntun --}}
+    <div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" data-backdrop="static" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-radius:12px">
+                <div class="modal-header">
+                    <h5 class="modal-title">Box Baru?</h5>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2" id="confirm-message">-</p>
+                    <p class="mb-0 text-muted">
+                        Pilih <b>Ya</b> kalau ini memang box berikutnya, <b>Batal</b> kalau tidak sengaja
+                        discan dua kali.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="confirm-cancel">Batal</button>
+                    <button type="button" class="btn btn-success" id="confirm-yes">Ya, Box Baru</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- end of modal konfirmasi --}}
 
     {{-- modal ringkasan finish --}}
     <div class="modal fade" id="finishModal" tabindex="-1" role="dialog" data-backdrop="static" aria-hidden="true">
@@ -163,29 +181,6 @@
     </div>
     {{-- end of modal ringkasan --}}
 
-    {{-- modal konfirmasi reset seri --}}
-    <div class="modal fade" id="resetModal" tabindex="-1" role="dialog" data-backdrop="static" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content" style="border-radius:12px">
-                <div class="modal-header">
-                    <h5 class="modal-title">Reset Seri Kanban</h5>
-                </div>
-                <div class="modal-body">
-                    <p class="mb-2">Setelah reset, kanban yang tadi ditolak karena "sudah discan" bisa discan lagi.</p>
-                    <p class="mb-0 text-muted">
-                        Data produksi tidak ada yang dihapus — hitungan Box RH / LH dan catatan di database tetap utuh.
-                        Yang direset hanya batas waktu pengecekan kanban dobel.
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-warning" id="reset-confirm">Ya, Reset Seri</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    {{-- end of modal konfirmasi reset --}}
-
     <audio id="ok-sound">
         <source src={{ asset('assets/sounds/ok.mp3') }} type="audio/mpeg" preload="auto">
     </audio>
@@ -203,13 +198,11 @@
             document.addEventListener('DOMContentLoaded', function() {
                 const CSRF = "{{ csrf_token() }}";
                 const PIS_BASE_URL = "{{ asset('assets/img/pis') }}";
-                const PAIR_URL = "{{ url('production/as547/pair') }}";
+                const PAIR_URL = "{{ route('production.as547.pair') }}";
                 const SCAN_URL = "{{ route('production.as547.scan-kanban') }}";
 
                 /** Jeda sebelum gambar PIS berganti ke sisi lawan setelah scan OK. */
                 const FLIP_DELAY_MS = 2000;
-                /** Batas jumlah kanban yang diingat untuk anti double scan di sisi client. */
-                const MAX_SCANNED_KEPT = 3000;
 
                 var $ = window.jQuery;
                 if (!$) {
@@ -229,7 +222,6 @@
                 const $lastR = $('#last-right');
                 const $lastL = $('#last-left');
                 const $txtStatus = $('#status');
-                const $resetInfo = $('#reset-info');
 
                 const K = {
                     active: 'as547_active',
@@ -240,8 +232,6 @@
                     lastR: 'as547_last_right',
                     lastL: 'as547_last_left',
                     started: 'as547_started_at',
-                    scanned: 'as547_scanned',
-                    resetAt: 'as547_reset_at',
                 };
 
                 const LS = {
@@ -252,6 +242,8 @@
 
                 /** True selama transisi 2 detik / request berjalan: semua scan diabaikan. */
                 let locked = false;
+                /** Scan yang sedang menunggu konfirmasi "box baru?" dari MP. */
+                let pendingScan = null;
 
                 function okSound() {
                     document.getElementById('ok-sound').play();
@@ -325,53 +317,12 @@
                     LS.set(s === 'R' ? K.countR : K.countL, value);
                 }
 
-                function scannedList() {
-                    try {
-                        const list = JSON.parse(LS.get(K.scanned) || '[]');
-                        return Array.isArray(list) ? list : [];
-                    } catch (e) {
-                        return [];
-                    }
-                }
-
-                function alreadyScanned(key) {
-                    return scannedList().indexOf(key) !== -1;
-                }
-
-                function markScanned(key) {
-                    const list = scannedList();
-                    list.push(key);
-                    if (list.length > MAX_SCANNED_KEPT) {
-                        list.splice(0, list.length - MAX_SCANNED_KEPT);
-                    }
-                    LS.set(K.scanned, JSON.stringify(list));
-                }
-
                 function resetState() {
                     Object.keys(K).forEach(name => LS.del(K[name]));
                 }
 
-                function jam(epochMs) {
-                    const ms = parseInt(epochMs, 10);
-                    if (!ms) return null;
-                    const d = new Date(ms);
-                    return isNaN(d.getTime()) ? null : d.toLocaleTimeString('id-ID', {
-                        hour12: false
-                    });
-                }
-
-                function renderResetInfo() {
-                    const at = jam(LS.get(K.resetAt));
-                    $resetInfo.text(at ? 'reset seri terakhir ' + at : '');
-                }
-
                 // ---------- render ----------
 
-                /**
-                 * Kunci input pakai readonly, bukan disabled: elemen disabled kehilangan fokus
-                 * dan scanner jadi mengetik ke halaman kosong. Readonly tetap bisa difokus,
-                 * karakter dari scanner dibuang, dan handler Enter tetap ditahan flag locked.
-                 */
                 function lock() {
                     locked = true;
                     $scan.prop('readonly', true);
@@ -382,9 +333,12 @@
                     $scan.prop('readonly', false);
                 }
 
-                /** Fokus selalu balik ke input, kecuali saat modal ringkasan FINISH sedang dibuka. */
+                function modalOpen() {
+                    return $('#finishModal, #confirmModal').hasClass('show');
+                }
+
                 function focusScan() {
-                    if ($('#finishModal, #resetModal').hasClass('show')) return;
+                    if (modalOpen()) return;
                     if (document.activeElement === $scan[0]) return;
                     $scan.trigger('focus');
                 }
@@ -412,7 +366,16 @@
                         $pis.empty().append($img);
                     }
 
-                    $pisCaption.text(part ? (part.part_number || '') + ' — ' + (part.part_name || '') : '');
+                    if (!part) {
+                        $pisCaption.text('');
+                        return;
+                    }
+
+                    const cust = (part.customer_part_numbers || []).join(' / ');
+                    $pisCaption.text(
+                        (part.part_number || '') + ' — ' + (part.part_name || '') +
+                        (cust ? '  ·  kanban customer ' + cust : '')
+                    );
                 }
 
                 function render() {
@@ -436,7 +399,6 @@
                         $countL.text('0');
                         $lastR.text('-');
                         $lastL.text('-');
-                        $resetInfo.text('');
 
                         $scan.prop('readonly', false);
                         focusScan();
@@ -464,7 +426,6 @@
                     $countL.text(count('L'));
                     $lastR.text(LS.get(K.lastR) || '-');
                     $lastL.text(LS.get(K.lastL) || '-');
-                    renderResetInfo();
 
                     $scan.prop('readonly', false);
                     focusScan();
@@ -472,105 +433,31 @@
 
                 // ---------- barcode ----------
 
-                /**
-                 * Layout kanban berdasarkan panjang barcode — sama persis dengan parser yang
-                 * sudah dipakai production/index.blade.php dan as523.blade.php.
-                 * Format: [offset, panjang].
-                 */
-                const KANBAN_LAYOUTS = {
-                    218: { internal: [41, 16], seri: [123, 4], back: [100, 4], pcs: [196, 1] }, // kanban suzuki
-                    219: { internal: [42, 17], seri: [124, 4], back: [100, 4], pcs: [196, 1] },
-                    220: { internal: [35, 12], seri: [130, 4], back: [100, 4], pcs: [196, 1] }, // kanban buffer
-                    230: { internal: [41, 19], seri: [123, 4], back: [100, 4], pcs: [196, 1] }, // kanban normal
-                    241: { internal: [35, 12], seri: [127, 4], back: [100, 4], pcs: [196, 1] }, // kanban passtrough
-                };
-
-                function cut(code, spec) {
-                    return code.substr(spec[0], spec[1]).trim();
+                function normalizeCode(value) {
+                    return String(value || '').trim();
                 }
 
                 /**
-                 * Parse barcode kanban.
-                 * Utama: layout panjang tetap (218/219/220/230/241) seperti halaman produksi lain.
-                 * Cadangan: heuristik regex untuk barcode di luar panjang standar.
-                 * serial_number null = barcode tidak layak dipakai (anti double scan butuh serial asli).
+                 * Jenis kanban ditentukan server dari barcode-nya sendiri: kanban internal
+                 * cetakan plant panjangnya 218-241 karakter, kanban customer 8-15 karakter.
+                 * Halaman tidak ikut menebak supaya aturannya cuma ada di satu tempat.
                  */
-                function parseKanbanBarcode(raw) {
-                    const code = (raw || '').trim();
-                    if (!code) return null;
+                function showDebug(code, res) {
+                    const norm = normalizeCode(code);
+                    const head = 'len ' + norm.length + ' · ' +
+                        (norm.length > 24 ? norm.slice(0, 24) + '…' : (norm || '-'));
 
-                    const layout = KANBAN_LAYOUTS[code.length];
-                    if (layout) {
-                        const partNumber = cut(code, layout.internal);
-                        const serial = cut(code, layout.seri);
-
-                        if (partNumber) {
-                            return {
-                                part_number: partNumber,
-                                serial_number: serial || null,
-                                back_number: cut(code, layout.back) || null,
-                                pcs: cut(code, layout.pcs) || null,
-                                length: code.length,
-                                source: 'layout-' + code.length,
-                            };
-                        }
-                    }
-
-                    const partMatch = code.match(/\d{5,6}-\d{4,5}/);
-                    if (!partMatch) return null;
-
-                    let block = null;
-                    const mm0 = code.match(/MM0[PQ]\s*(\d{6,})/);
-                    if (mm0) {
-                        block = mm0[1];
-                    } else {
-                        const runs = code.match(/\d{10,}/g);
-                        if (runs && runs.length) block = runs[runs.length - 1];
-                    }
-
-                    return {
-                        part_number: partMatch[0],
-                        serial_number: block ? block.substring(2, 6) : null,
-                        back_number: null,
-                        pcs: null,
-                        length: code.length,
-                        source: 'fallback',
-                    };
-                }
-
-                /** Tampilkan hasil baca barcode supaya format kanban gampang diverifikasi di mesin. */
-                function showParseDebug(raw, parsed, detectedSide) {
-                    const len = (raw || '').trim().length;
-
-                    if (!parsed) {
-                        $('#scan-debug').text('len ' + len + ' · tidak terbaca');
+                    if (!res) {
+                        $('#scan-debug').text(head);
                         return;
                     }
 
                     $('#scan-debug').text(
-                        'len ' + parsed.length +
-                        ' · ' + parsed.source +
-                        ' · part ' + parsed.part_number +
-                        ' · seri ' + (parsed.serial_number || '-') +
-                        ' · back ' + (parsed.back_number || '-') +
-                        ' · sisi ' + (detectedSide || '?')
+                        head +
+                        ' · ' + (res.source === 'internal' ? 'kanban internal' : 'kanban customer') +
+                        (res.side ? ' · sisi ' + res.side : '') +
+                        (res.serial ? ' · ' + res.serial : '')
                     );
-                }
-
-                /** Tentukan sisi kanban dari pasangan part yang sedang jalan. */
-                function detectSide(parsed, p) {
-                    if (!p || !parsed) return null;
-
-                    if (p.R && parsed.part_number === p.R.part_number) return 'R';
-                    if (p.L && parsed.part_number === p.L.part_number) return 'L';
-
-                    if (parsed.back_number) {
-                        const back = parsed.back_number.toUpperCase();
-                        if (p.R && String(p.R.back_number).toUpperCase() === back) return 'R';
-                        if (p.L && String(p.L.back_number).toUpperCase() === back) return 'L';
-                    }
-
-                    return null;
                 }
 
                 // ---------- alur scan ----------
@@ -593,20 +480,23 @@
                     fail(message || 'Internal Server Error');
                 }
 
-                /** Scan pertama: server yang menentukan sisi + pasangan RH/LH. Tidak menyimpan mutation. */
-                function startProduction(raw, parsed) {
+                /** Scan pertama: server menentukan sisi + pasangan RH/LH. Tidak menyimpan mutation. */
+                function startProduction(code) {
                     lock();
 
                     $.ajax({
-                            url: PAIR_URL + '/' + encodeURIComponent(parsed.part_number),
+                            url: PAIR_URL,
                             method: 'GET',
-                            dataType: 'json'
+                            dataType: 'json',
+                            data: {
+                                code: normalizeCode(code)
+                            }
                         })
                         .done(function(res) {
                             unlock();
 
                             if (!res || res.status !== 'success') {
-                                fail((res && res.message) || 'Part tidak dikenali.');
+                                fail((res && res.message) || 'Kanban customer tidak dikenali.');
                                 clearAndRefocus();
                                 return;
                             }
@@ -614,14 +504,16 @@
                             LS.set(K.pair, JSON.stringify(res.data));
                             LS.set(K.side, res.side);
                             LS.set(K.active, '1');
-                            LS.set(K.started, new Date().toISOString());
-                            LS.set(K.scanned, '[]');
+                            LS.set(K.started, Date.now());
                             setCount('R', 0);
                             setCount('L', 0);
                             LS.del(K.lastR);
                             LS.del(K.lastL);
 
-                            showParseDebug(raw, parsed, res.side);
+                            showDebug(code, {
+                                source: res.source,
+                                side: res.side
+                            });
 
                             $scan.val('');
                             render();
@@ -639,22 +531,18 @@
                 }
 
                 /** Scan berikutnya: 1 scan = 1 box selesai, lalu gambar pindah ke sisi lawan. */
-                function submitScan(s, parsed, key) {
-                    lock();
+                function submitScan(code, confirmed) {
+                    const p = pair();
+                    const expected = side();
+                    const expectedPart = (p && p[expected] && p[expected].part_number) || '';
 
-                    const payload = {
-                        part_number: parsed.part_number,
-                        serial_number: parsed.serial_number,
-                        side: s
-                    };
-
-                    // Dikirim hanya kalau operator pernah menekan RESET SERI. Yang dikirim adalah
-                    // SELISIH waktu sejak tombol ditekan, bukan jam absolut: kalau jam PC lini
-                    // meleset dari server, selisih tetap benar sedangkan jam absolut tidak.
-                    const resetAt = parseInt(LS.get(K.resetAt), 10);
-                    if (resetAt) {
-                        payload.reset_elapsed_ms = Math.max(0, Date.now() - resetAt);
+                    if (!expectedPart) {
+                        fail('Data model hilang. Tekan FINISH lalu scan ulang kanban pembuka.');
+                        clearAndRefocus();
+                        return;
                     }
+
+                    lock();
 
                     $.ajax({
                             url: SCAN_URL,
@@ -664,9 +552,24 @@
                             headers: {
                                 'X-CSRF-TOKEN': CSRF
                             },
-                            data: JSON.stringify(payload)
+                            data: JSON.stringify({
+                                code: normalizeCode(code),
+                                expected_side: expected,
+                                expected_part: expectedPart,
+                                confirm: confirmed === true
+                            })
                         })
                         .done(function(res) {
+                            // Scan mencurigakan (kartu sama / terlalu rapat): tanya dulu,
+                            // jangan ditolak dan jangan dihitung diam-diam.
+                            if (res && res.status === 'confirm') {
+                                unlock();
+                                pendingScan = normalizeCode(code);
+                                $('#confirm-message').text(res.message);
+                                $('#confirmModal').modal('show');
+                                return;
+                            }
+
                             if (!res || res.status !== 'success') {
                                 unlock();
                                 fail((res && res.message) || 'Gagal menyimpan scan.');
@@ -674,10 +577,12 @@
                                 return;
                             }
 
-                            markScanned(key);
+                            showDebug(code, res);
+
+                            const s = res.side || expected;
                             setCount(s, count(s) + 1);
 
-                            const display = parsed.part_number + ' / ' + parsed.serial_number;
+                            const display = (res.back_number || '') + ' · ' + (res.serial || '');
                             LS.set(s === 'R' ? K.lastR : K.lastL, display);
                             (s === 'R' ? $lastR : $lastL).text(display);
                             (s === 'R' ? $countR : $countL).text(count(s));
@@ -686,11 +591,11 @@
 
                             okSound();
                             setStatus('ok');
-                            notif('success', res.message + ' Ganti ke ' + sideLabel(s === 'R' ? 'L' : 'R') +
+                            notif('success', res.message + ' Ganti ke ' + sideLabel(res.next_side) +
                                 ' dalam 2 detik.');
 
                             setTimeout(function() {
-                                LS.set(K.side, s === 'R' ? 'L' : 'R');
+                                LS.set(K.side, res.next_side);
                                 unlock();
                                 render();
                             }, FLIP_DELAY_MS);
@@ -705,82 +610,40 @@
                 function handleScan(raw) {
                     if (locked) return;
 
-                    const parsed = parseKanbanBarcode(raw);
+                    const code = normalizeCode(raw);
 
-                    if (!parsed) {
-                        showParseDebug(raw, null, null);
-                        fail('Format barcode kanban tidak valid (part number tidak terbaca).');
+                    if (!code) {
                         clearAndRefocus();
                         return;
                     }
 
-                    if (!parsed.serial_number) {
-                        showParseDebug(raw, parsed, null);
-                        fail('Serial kanban tidak terbaca dari barcode.');
-                        clearAndRefocus();
-                        return;
-                    }
+                    showDebug(code, null);
 
                     if (!isActive()) {
-                        showParseDebug(raw, parsed, null);
-                        startProduction(raw, parsed);
+                        startProduction(code);
                         return;
                     }
 
-                    const p = pair();
-                    const scannedSide = detectSide(parsed, p);
-                    showParseDebug(raw, parsed, scannedSide);
-
-                    if (!scannedSide) {
-                        const names = [
-                            p && p.R ? p.R.back_number + ' / ' + p.R.part_number : null,
-                            p && p.L ? p.L.back_number + ' / ' + p.L.part_number : null,
-                        ].filter(Boolean).join(' dan ');
-
-                        fail('Kanban ' + parsed.part_number + ' bukan bagian dari model yang sedang jalan (' +
-                            names + ').');
-                        clearAndRefocus();
-                        return;
-                    }
-
-                    const expected = side();
-                    if (scannedSide !== expected) {
-                        const expectedPart = p[expected] || {};
-                        fail('Sekarang harus scan ' + sideLabel(expected) + ' — ' +
-                            (expectedPart.back_number || expectedPart.part_number) + '. Terbaca ' +
-                            (parsed.back_number || parsed.part_number) + '.');
-                        clearAndRefocus();
-                        return;
-                    }
-
-                    const key = parsed.part_number + '|' + parsed.serial_number;
-                    if (alreadyScanned(key)) {
-                        fail('Kanban ' + parsed.part_number + ' / ' + parsed.serial_number +
-                            ' sudah discan di shift ini.');
-                        clearAndRefocus();
-                        return;
-                    }
-
-                    submitScan(scannedSide, parsed, key);
+                    // Sisi, jenis kanban, dan kecocokan model semuanya divalidasi server.
+                    submitScan(code, false);
                 }
 
                 // ---------- finish ----------
 
-                function formatTime(iso) {
-                    if (!iso) return '-';
-                    const d = new Date(iso);
-                    if (isNaN(d.getTime())) return '-';
-                    return d.toLocaleString('id-ID', {
+                function jam(epochMs) {
+                    const ms = parseInt(epochMs, 10);
+                    if (!ms) return '-';
+                    const d = new Date(ms);
+                    return isNaN(d.getTime()) ? '-' : d.toLocaleString('id-ID', {
                         hour12: false
                     });
                 }
 
-                function formatDuration(fromIso, to) {
-                    if (!fromIso) return '-';
-                    const from = new Date(fromIso);
-                    if (isNaN(from.getTime())) return '-';
+                function formatDuration(startMs, to) {
+                    const ms = parseInt(startMs, 10);
+                    if (!ms) return '-';
 
-                    let minutes = Math.max(0, Math.round((to - from) / 60000));
+                    let minutes = Math.max(0, Math.round((to - ms) / 60000));
                     const hours = Math.floor(minutes / 60);
                     minutes = minutes % 60;
 
@@ -796,11 +659,11 @@
                     const qtyR = p.R && p.R.qty_per_kanban ? p.R.qty_per_kanban : null;
                     const qtyL = p.L && p.L.qty_per_kanban ? p.L.qty_per_kanban : null;
 
-                    $('#sum-start').text(formatTime(LS.get(K.started)));
+                    $('#sum-start').text(jam(LS.get(K.started)));
                     $('#sum-end').text(now.toLocaleString('id-ID', {
                         hour12: false
                     }));
-                    $('#sum-duration').text(formatDuration(LS.get(K.started), now));
+                    $('#sum-duration').text(formatDuration(LS.get(K.started), now.getTime()));
                     $('#sum-label-r').text(p.R && p.R.back_number ? '(' + p.R.back_number + ')' : '');
                     $('#sum-label-l').text(p.L && p.L.back_number ? '(' + p.L.back_number + ')' : '');
                     $('#sum-count-r').text(r);
@@ -851,38 +714,32 @@
                     }
                 });
 
+                $('#confirm-yes').on('click', function() {
+                    const code = pendingScan;
+                    pendingScan = null;
+                    $('#confirmModal').modal('hide');
+
+                    if (code) {
+                        submitScan(code, true);
+                    }
+                });
+
+                $('#confirm-cancel').on('click', function() {
+                    pendingScan = null;
+                    $('#confirmModal').modal('hide');
+                    clearAndRefocus();
+                });
+
+                $('#confirmModal').on('hidden.bs.modal', function() {
+                    focusScan();
+                });
+
                 $('#finish').on('click', function() {
                     if (!isActive()) {
                         fail('Belum ada produksi berjalan.');
                         return;
                     }
                     showSummary();
-                });
-
-                $('#reset-seri').on('click', function() {
-                    if (!isActive()) {
-                        fail('Belum ada produksi berjalan.');
-                        return;
-                    }
-                    $('#resetModal').modal('show');
-                });
-
-                $('#reset-confirm').on('click', function() {
-                    // Hanya menggeser batas pengecekan dobel. Counter box, kanban terakhir,
-                    // dan baris mutation di database sengaja tidak disentuh.
-                    LS.set(K.resetAt, Date.now());
-                    LS.set(K.scanned, '[]');
-                    renderResetInfo();
-
-                    $('#resetModal').modal('hide');
-
-                    okSound();
-                    setStatus('ok');
-                    notif('success', 'Seri kanban direset. Kanban tadi bisa discan lagi.');
-                });
-
-                $('#resetModal').on('hidden.bs.modal', function() {
-                    focusScan();
                 });
 
                 $('#finish-confirm').on('click', function() {

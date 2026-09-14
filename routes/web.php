@@ -342,7 +342,7 @@ Route::middleware(['auth'])->group(function () {
             ->name('production.pc2b.scan-kanban');
         Route::post('/as547/scan-kanban', [ProductionController::class, 'storeAs547KanbanScan'])
             ->name('production.as547.scan-kanban');
-        Route::get('/as547/pair/{partNumber}', [ProductionController::class, 'as547Pair'])
+        Route::get('/as547/pair', [ProductionController::class, 'as547Pair'])
             ->name('production.as547.pair');
 
         Route::post('/part-scan', [ProductionController::class, 'storePartScan'])
