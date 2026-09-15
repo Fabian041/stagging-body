@@ -24,10 +24,19 @@
         <div class="sb-section-label" style="margin-top: 16px;">Main Menu</div>
 
         {{-- ── Dashboard Overview ── --}}
-        <a class="sb-item {{ request()->is('dashboard/overview') ? 'active' : '' }}" href="{{ route('dashboard.overview') }}">
+        <a class="sb-item {{ request()->is('dashboard/overview') ? 'active' : '' }}"
+            href="{{ route('dashboard.overview') }}">
             <i class="fas fa-chart-pie sb-icon"></i>
             <span class="sb-item-label">Dashboard</span>
             <span class="sb-item-tooltip">Dashboard</span>
+        </a>
+
+        {{-- ── Upload Kanban ── --}}
+        <a class="sb-item {{ request()->routeIs('dashboard.kanbanUpload') ? 'active' : '' }}"
+            href="{{ route('dashboard.kanbanUpload') }}">
+            <i class="fas fa-upload sb-icon"></i>
+            <span class="sb-item-label">Upload Kanban</span>
+            <span class="sb-item-tooltip">Upload Kanban</span>
         </a>
 
         {{-- ── PPIC ── --}}
@@ -53,8 +62,9 @@
                 Preparation Monitoring
             </a>
             @php
-                $loadingListDetailActive = (request()->is('loading-list') || request()->is('loading-list/*'))
-                    && !request()->is('loading-list/absen-driver*');
+                $loadingListDetailActive =
+                    (request()->is('loading-list') || request()->is('loading-list/*')) &&
+                    !request()->is('loading-list/absen-driver*');
             @endphp
             <a class="sb-sub-item {{ request()->is('loading-list/absen-driver*') ? 'active' : '' }}"
                 href="{{ route('loadingList.driverAbsen') }}">
@@ -131,7 +141,7 @@
             </a>
         </div>
 
-         <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
+        <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
             <i class="fas fa-database sb-icon"></i>
             <span class="sb-item-label">Master Data</span>
             <i class="fas fa-chevron-right sb-chevron"></i>

@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Jobs\ProcessKanbanUpload;
 
 class DashboardController extends Controller
 {
@@ -1955,4 +1956,140 @@ class DashboardController extends Controller
             ],
         ]);
     }
+
+    public function kanbanUpload()
+    {
+        return view('pages.kanban.upload');
+    }
+
+    public function kanbanUploadProcess(Request $request)
+{
+
+    $request->validate([
+
+        'files'=>'required|array',
+
+        'files.*'=>'mimes:pdf|max:20480'
+
+    ]);
+
+
+    $jobId = Str::uuid();
+
+
+
+    $paths = [];
+
+
+    foreach($request->file('files') as $file)
+    {
+
+        $path =
+            $file->store(
+                'temp-kanban'
+            );
+
+
+        $paths[] =
+            storage_path(
+                'app/'.$path
+            );
+
+    }
+
+
+
+    ProcessKanbanUpload::dispatch(
+
+        $paths,
+
+        $jobId
+
+    );
+
+
+
+    return response()->json([
+
+        'status'=>true,
+
+        'job_id'=>$jobId,
+
+        'message'=>
+            'PDF processing started'
+
+    ]);
+
+}
+
+public function kanbanUploadStatus($id)
+{
+
+    $marker =
+
+        storage_path(
+            'app/temp-kanban/'.$id.'.done'
+        );
+
+
+
+    if(!file_exists($marker))
+    {
+
+        return response()->json([
+
+            'status'=>'PROCESSING'
+
+        ]);
+
+    }
+
+
+
+    $filename =
+        file_get_contents(
+            $marker
+        );
+
+
+
+    return response()->json([
+
+        'status'=>'DONE',
+
+        'download'=>
+
+            route(
+
+                'dashboard.kanbanDownload',
+
+                $filename
+
+            )
+
+    ]);
+
+}
+
+    public function kanbanDownload($file)
+{
+
+    $path =
+        storage_path(
+            'app/temp-kanban/'.$file
+        );
+
+
+    abort_if(
+        !file_exists($path),
+        404
+    );
+
+
+    return response()->download(
+        $path,
+        $file
+    );
+
+}
 }

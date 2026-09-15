@@ -161,6 +161,45 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/storeDetails', [LoadingListController::class, 'storeDetails'])->name('loadingList.storeDetails');
     });
 
+    // UPLOAD KANBAN
+    Route::get(
+        '/dashboard/kanban/upload',
+        [
+            DashboardController::class,
+            'kanbanUpload'
+        ]
+    )
+    ->name('dashboard.kanbanUpload');
+
+
+
+    Route::post(
+        '/dashboard/kanban/upload/process',
+        [
+            DashboardController::class,
+            'kanbanUploadProcess'
+        ]
+    )
+    ->name('dashboard.kanbanUploadProcess');
+
+    Route::get(
+        '/dashboard/kanban/download/{file}',
+        [
+            DashboardController::class,
+            'kanbanDownload'
+        ]
+    )
+    ->name('dashboard.kanbanDownload');
+
+    Route::get(
+        '/dashboard/kanban/status/{id}',
+        [
+            DashboardController::class,
+            'kanbanUploadStatus'
+        ]
+    )
+    ->name('dashboard.kanbanStatus');
+
     // dashboard
     
     Route::prefix('dashboard')->group(function () {
