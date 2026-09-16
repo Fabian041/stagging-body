@@ -49,16 +49,6 @@ class KanbanRegionDetector
         'KANBAN',
     ];
 
-    /**
-     * Marker format Mitsubishi (teks readable, bukan custom encoding
-     * seperti Toyota). Jangan dipakai untuk Toyota.
-     */
-    private const MITSU_MARKERS = [
-        'PARTS NUMBER',
-        'LABEL NUMBER',
-        'PO NUMBER',
-    ];
-
 
     public function detect(
         string $file,
@@ -89,19 +79,6 @@ class KanbanRegionDetector
                 $kanbanCount = $this->countKanbansOnPage($raw, $page);
 
                 if ($pageW <= $pageH) {
-                    // Coba gap-tanpa-tinta dulu untuk SEMUA format (Toyota
-                    // maupun Mitsubishi/PT lain): titik potong selalu jatuh
-                    // di whitespace yang kiri-kanannya full kosong (setelah
-                    // barcode di bawah, sebelum header berikutnya di atas)
-                    // dan tidak pernah memotong garis tepi. Halaman Toyota
-                    // yang bergaris putus-putus otomatis gagal di sini
-                    // (run kosong <6pt karena titik-titik separator) lalu
-                    // lanjut ke rantai Toyota semula yang sudah perfect.
-                    $ink = $this->findInkGapCutFractions($raw, $page, $kanbanCount);
-                    if (! empty($ink)) {
-                        $cuts = $ink;
-                        $method = 'ink-gap';
-                    } else {
                     $cuts = $this->findTextGapFractions($raw, $page, $kanbanCount);
                     if (! empty($cuts)) {
                         $method = 'text-gap';
@@ -132,7 +109,6 @@ class KanbanRegionDetector
                             }
                         }
                         }
-                    }
                     }
                 }
             }
@@ -348,34 +324,6 @@ class KanbanRegionDetector
             $newTopY = min($yTop, $maxY + $expandY);
             $newBottomY = max($yBottom, $minY - $expandY);
 
-            // Pengaman universal: gabung dengan batas tinta (teks + garis
-            // + rect + image, CTM-aware) supaya barcode/gambar vektor yang
-            // tidak punya teks (kasus Mitsubishi) tidak kepotong. Hanya
-            // MELEBARKAN (tidak pernah memotong lebih dari trim teks),
-            // jadi aman untuk Toyota yang sudah perfect.
-            try {
-                $hist = $this->buildInkHistogram($content, $items, $pageH);
-                $nHi = count($hist) - 1;
-                $loB = max(0, (int) floor($yBottom));
-                $hiB = min($nHi, (int) ceil($yTop));
-                $first = null;
-                $last = null;
-                for ($b = $loB; $b <= $hiB; $b++) {
-                    if (($hist[$b] ?? 0) > 0) {
-                        if ($first === null) {
-                            $first = $b;
-                        }
-                        $last = $b;
-                    }
-                }
-                if ($first !== null && $last !== null && $last > $first) {
-                    $newTopY = min($yTop, max($newTopY, $last + 1 + 4.0));
-                    $newBottomY = max($yBottom, min($newBottomY, $first - 4.0));
-                }
-            } catch (\Throwable $e) {
-                // pakai hasil trim teks saja
-            }
-
             if ($newTopY - $newBottomY < 10) {
                 return [$fracTop, $fracBottom];
             }
@@ -391,59 +339,6 @@ class KanbanRegionDetector
         } catch (\Throwable $e) {
             return [$fracTop, $fracBottom];
         }
-    }
-
-    /**
-     * Trim region ke batas tinta (untuk Mitsubishi): bin Y terluar yang
-     * ada isinya (teks/garis/rect) + padding 4pt, clamp ke region asal.
-     */
-    private function trimRegionToInk(
-        string $content,
-        float $yTop,
-        float $yBottom,
-        float $pageH,
-        float $fracTop,
-        float $fracBottom
-    ): array {
-        $items = $this->extractTextWithPositions($content);
-
-        if (empty($items)) {
-            return [$fracTop, $fracBottom];
-        }
-
-        $ink = $this->buildInkHistogram($content, $items, $pageH);
-        $n = count($ink) - 1;
-
-        $lo = max(0, (int) floor($yBottom));
-        $hi = min($n, (int) ceil($yTop));
-
-        $first = null;
-        $last = null;
-        for ($b = $lo; $b <= $hi; $b++) {
-            if (($ink[$b] ?? 0) > 0) {
-                if ($first === null) {
-                    $first = $b;
-                }
-                $last = $b;
-            }
-        }
-
-        if ($first === null || $last === null || $last <= $first) {
-            return [$fracTop, $fracBottom];
-        }
-
-        $pad = 4.0;
-        $newTopY = min($yTop, $last + 1 + $pad);
-        $newBottomY = max($yBottom, $first - $pad);
-
-        if ($newTopY - $newBottomY < 10) {
-            return [$fracTop, $fracBottom];
-        }
-
-        $newFracTop = max($fracTop, min(1 - ($newTopY / $pageH), $fracBottom));
-        $newFracBottom = max($newFracTop, min(1 - ($newBottomY / $pageH), $fracBottom));
-
-        return [(float) $newFracTop, (float) $newFracBottom];
     }
 
 
@@ -501,15 +396,6 @@ class KanbanRegionDetector
             }
 
             if (empty($perMarker)) {
-                foreach (self::MITSU_MARKERS as $marker) {
-                    $c = $this->countMarker($text, $marker);
-                    if ($c > 0) {
-                        $perMarker[] = $c;
-                    }
-                }
-            }
-
-            if (empty($perMarker)) {
                 return self::DEFAULT_KANBAN;
             }
 
@@ -531,15 +417,6 @@ class KanbanRegionDetector
 
         if (empty($counts)) {
             foreach (self::SHORT_MARKERS as $marker) {
-                $c = $this->countMarker($text, $marker);
-                if ($c > 0 && $c <= self::MAX_KANBAN) {
-                    $counts[] = $c;
-                }
-            }
-        }
-
-        if (empty($counts)) {
-            foreach (self::MITSU_MARKERS as $marker) {
                 $c = $this->countMarker($text, $marker);
                 if ($c > 0 && $c <= self::MAX_KANBAN) {
                     $counts[] = $c;
@@ -579,182 +456,6 @@ class KanbanRegionDetector
         return max($plain, $compact);
     }
 
-
-    /**
-     * True bila halaman memakai format Mitsubishi / PT lain (teks readable
-     * berisi MITSUBISHI atau PARTS NUMBER + LABEL NUMBER). Toyota memakai
-     * custom font encoding sehingga tidak pernah cocok (aman).
-     */
-    private function isMitsubishiPage(string $raw, int $page): bool
-    {
-        try {
-            $objects = $this->parseObjects($raw);
-            $pages = $this->orderedPageNumbers($objects);
-
-            if (! isset($pages[$page - 1])) {
-                return false;
-            }
-
-            $text = $this->extractPageText($objects, (int) $pages[$page - 1]);
-
-            if ($text === '') {
-                // Fallback: teks gabungan semua stream (kalau pemetaan
-                // halaman per objek gagal, tapi isi readable).
-                $text = $this->extractAllText($objects);
-
-                if ($text === '') {
-                    return false;
-                }
-            }
-
-            $h = strtoupper($text);
-
-            if (strpos($h, 'MITSUBISHI') !== false) {
-                return true;
-            }
-
-            return strpos($h, 'PARTS NUMBER') !== false
-                && strpos($h, 'LABEL NUMBER') !== false;
-        } catch (\Throwable $e) {
-            return false;
-        }
-    }
-
-    /**
-     * Potong di tengah gap TANPA tinta untuk format Mitsubishi / PT lain.
-     *
-     * Beda dengan Toyota: barcode di baris PO/Label digambar sebagai ratusan
-     * rect/garis vertikal vektor TANPA teks, sehingga gap-teks-terbesar
-     * jatuh di tengah barcode. Histogram tinta menandai tiap bin Y 1pt yang
-     * dilewati teks, segmen garis (m..l, termasuk vertikal), rect (re),
-     * lalu memilih run NOL terlebar di dekat tiap ideal i/N.
-     *
-     * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
-     */
-    private function findInkGapCutFractions(string $raw, int $page, int $kanbanCount): array
-    {
-        if ($kanbanCount <= 1) {
-            return [];
-        }
-
-        $objects = $this->parseObjects($raw);
-        $pages = $this->orderedPageNumbers($objects);
-
-        if (! isset($pages[$page - 1])) {
-            return [];
-        }
-
-        $pageObj = (int) $pages[$page - 1];
-        $content = $this->decodedPageContent($objects, $pageObj);
-
-        if ($content === '') {
-            return [];
-        }
-
-        $media = $this->readMediaBoxPt($objects, $pageObj);
-        $pageH = (float) $media['height'];
-
-        if ($pageH <= 0) {
-            return [];
-        }
-
-        $items = $this->extractTextWithPositions($content);
-
-        if (count($items) < 10) {
-            return [];
-        }
-
-        $ink = $this->buildInkHistogram($content, $items, $pageH);
-
-        // Kumpulkan run NOL (whitespace penuh, tanpa teks/garis/rect).
-        $runs = [];
-        $n = count($ink) - 1;
-        $start = null;
-
-        for ($b = 0; $b <= $n; $b++) {
-            if (($ink[$b] ?? 0) === 0) {
-                if ($start === null) {
-                    $start = $b;
-                }
-            } elseif ($start !== null) {
-                $runs[] = [$start, $b - 1];
-                $start = null;
-            }
-        }
-        if ($start !== null) {
-            $runs[] = [$start, $n];
-        }
-
-        // Buang run yang menyentuh margin tepi halaman.
-        $runs = array_values(array_filter($runs, static function ($r) use ($pageH) {
-            return $r[0] >= 15 && $r[1] <= $pageH - 15 && ($r[1] - $r[0] + 1) >= 4;
-        }));
-
-        if (empty($runs)) {
-            return [];
-        }
-
-        try {
-            $byW = $runs;
-            usort($byW, static fn ($a, $b) => ($b[1] - $b[0]) <=> ($a[1] - $a[0]));
-            logger()->info('Kanban ink runs', [
-                'page' => $page,
-                'top' => array_map(
-                    static fn ($r) => round(1 - ((($r[0] + $r[1]) / 2) / $pageH), 4).':'.($r[1] - $r[0] + 1),
-                    array_slice($byW, 0, 6)
-                ),
-            ]);
-        } catch (\Throwable $e) {
-            // diagnostik saja
-        }
-
-        $fracs = [];
-        $window = 0.10 * $pageH;
-
-        for ($i = 1; $i < $kanbanCount; $i++) {
-            $idealF = $i / $kanbanCount;
-            $idealY = (1 - $idealF) * $pageH;
-
-            $best = null;
-            $bestW = -1.0;
-            $bestD = PHP_FLOAT_MAX;
-
-            foreach ($runs as $r) {
-                $mid = ($r[0] + $r[1]) / 2;
-                if (abs($mid - $idealY) > $window) {
-                    continue;
-                }
-                $w = $r[1] - $r[0] + 1;
-                if ($w < 6) {
-                    continue; // celah terlalu tipis, bukan pemisah kanban
-                }
-                $d = abs($mid - $idealY);
-                if ($w > $bestW + 2.0 || ($w >= $bestW - 2.0 && $d < $bestD)) {
-                    $best = $r;
-                    $bestW = (float) $w;
-                    $bestD = $d;
-                }
-            }
-
-            if ($best === null) {
-                return [];
-            }
-
-            $fracs[] = 1 - ((($best[0] + $best[1]) / 2) / $pageH);
-        }
-
-        sort($fracs);
-
-        $prev = 0.0;
-        foreach (array_merge($fracs, [1.0]) as $f) {
-            if (($f - $prev) < 0.15) {
-                return [];
-            }
-            $prev = $f;
-        }
-
-        return array_values($fracs);
-    }
 
     /**
      * Histogram tinta per bin Y 1pt (origin bawah). Bin >0 = ada teks,
