@@ -1421,7 +1421,16 @@ class LoadingListController extends Controller
                         ->from('loading_list_details as lld')
                         ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
                         ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
-                        ->select('lld.kanban_qty', 'lld.actual_kanban_qty', 'lld.loading_list_id', 'lld.customer_part_id')
+                        ->select(
+                            'lld.id as detail_id',
+                            'lld.kanban_qty',
+                            'lld.actual_kanban_qty',
+                            'lld.qty_per_kanban as lld_qty_per_kanban',
+                            'lld.loading_list_id',
+                            'lld.customer_part_id',
+                            'cp.qty_per_kanban as cp_qty_per_kanban',
+                            'ip.id as internal_part_id'
+                        )
                         ->where('lld.loading_list_id', $loadingListId->id)
                         ->where('cp.customer_id', $loadingListId->customer_id)
                         ->where('ip.part_number', $internalPart)
@@ -1445,20 +1454,30 @@ class LoadingListController extends Controller
         try {
             DB::beginTransaction();
 
-            // check if actual is below target qty
-            if ($actualQty < $targetQty) {
-                // update actual kanban quantity or scanned kanban quantity
-                LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                                ->where('customer_part_id', $currentQty->customer_part_id)
-                                ->update([
-                                    'actual_kanban_qty' => $actualQty + 1,
-                                ]);
-            } else {
+            // Target sudah penuh: tutup transaksi dulu sebelum keluar, jangan
+            // ditinggal menggantung (versi sebelumnya return dari dalam try
+            // tanpa commit/rollback sehingga transaksi dan lock-nya tetap terbuka).
+            if ($actualQty >= $targetQty) {
+                DB::rollBack();
+
                 return [
                     'status' => 'error',
                     'message' => 'kanban sudah penuh',
                 ];
             }
+
+            // update actual kanban quantity or scanned kanban quantity
+            LoadingListDetail::where('loading_list_id', $loadingListId->id)
+                            ->where('customer_part_id', $currentQty->customer_part_id)
+                            ->update([
+                                'actual_kanban_qty' => $actualQty + 1,
+                            ]);
+
+            // Mode direct: pulling hanya scan kanban customer, tidak ada kanban
+            // internal yang membawa serial. Mutation checkout tetap dicatat supaya
+            // stock (SUM supply - SUM checkout) dan riwayat kirim tidak putus —
+            // jalur normal lewat pulling/mutation melakukan hal yang sama.
+            $this->recordDirectPullingMutation($currentQty, $actualQty + 1);
 
             // push to websocket
             // $this->pushData(true);
@@ -1477,6 +1496,50 @@ class LoadingListController extends Controller
             'status' => 'success',
             'data' => $actualQty,
         ], 200);
+    }
+
+    /**
+     * Catat mutation checkout untuk satu box yang ditarik lewat mode direct.
+     *
+     * Serial dibuat sistem karena kanban customer tidak memuat nomor seri; bentuknya
+     * DIRECT-<tanggal>-<id detail loading list>-<box ke berapa>, jadi tiap baris tetap
+     * bisa ditelusuri ke baris loading list-nya.
+     */
+    private function recordDirectPullingMutation($detail, int $newActual): void
+    {
+        $qty = $detail->lld_qty_per_kanban ?? $detail->cp_qty_per_kanban;
+
+        $payload = [
+            'internal_part_id' => $detail->internal_part_id,
+            'serial_number' => sprintf('DIRECT-%s-%d-%03d', Carbon::now()->format('Ymd'), $detail->detail_id, $newActual),
+            'type' => 'checkout',
+            'qty' => (int) ($qty ?? 0),
+            'npk' => Auth::user()->npk ?? 'SYS',
+            'date' => Carbon::now()->format('Y-m-d H:i:s'),
+        ];
+
+        if ($this->mutationsHaveLoadingListColumns()) {
+            $payload['loading_list_id'] = $detail->loading_list_id;
+            $payload['loading_list_detail_id'] = $detail->detail_id;
+        }
+
+        Mutation::create($payload);
+    }
+
+    private function mutationsHaveLoadingListColumns(): bool
+    {
+        static $has = null;
+
+        if ($has === null) {
+            try {
+                $has = \Illuminate\Support\Facades\Schema::hasColumn('mutations', 'loading_list_id')
+                    && \Illuminate\Support\Facades\Schema::hasColumn('mutations', 'loading_list_detail_id');
+            } catch (\Throwable $e) {
+                $has = false;
+            }
+        }
+
+        return $has;
     }
 
     public function fetchLoadingList($pds)
