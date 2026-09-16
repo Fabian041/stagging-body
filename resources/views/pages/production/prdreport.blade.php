@@ -256,7 +256,7 @@
 <script>
     const productionLines = @json($productionLines ?? []);
     const requireProductionLine = false;
-    const firstLastPilotLines = ['AS526', 'as528'];
+    const firstLastPilotLines = ['AS526', 'AS528'];
     const firstLastKeys = {
         required: 'production_first_last_required',
         line: 'production_first_last_line',
@@ -443,7 +443,9 @@
     }
 
     function isFirstLastPilotLine(value) {
-        return firstLastPilotLines.includes(normalizeProductionLine(value));
+        const normalizedLine = normalizeProductionLine(value);
+
+        return firstLastPilotLines.some(line => normalizeProductionLine(line) === normalizedLine);
     }
 
     function clearFirstLastState() {
