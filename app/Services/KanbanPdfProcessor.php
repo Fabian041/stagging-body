@@ -40,8 +40,9 @@ class KanbanPdfProcessor
             'files' => count($files),
         ]);
 
-        $totalPages = 0;
-
+        // Pass 1: kumpulkan semua region (detect + skip kosong +
+        // press ke isi) agar ukuran kertas SERAGAM se-job.
+        $collected = []; // ['file'=>, 'regions'=>[]]
 
         foreach($files as $file)
         {
@@ -50,12 +51,62 @@ class KanbanPdfProcessor
                 continue;
             }
 
-            $totalPages +=
-                $this->splitter->split(
-                    $output,
-                    $file
-                );
+            try {
+                $regions = $this->splitter->collectRegions($file);
+            } catch (\Throwable $e) {
+                logger()->warning('Kanban collect failed', [
+                    'file' => basename((string) $file),
+                    'error' => $e->getMessage(),
+                ]);
 
+                $regions = [];
+            }
+
+            $collected[] = ['file' => $file, 'regions' => $regions];
+
+        }
+
+        $all = [];
+        foreach ($collected as $c) {
+            foreach ($c['regions'] as $r) {
+                $all[] = $r;
+            }
+        }
+
+        [$uniL, $uniP] = $this->splitter->uniformSizes($all);
+
+        logger()->info('Kanban uniform size', [
+            'job' => $jobId,
+            'regions' => count($all),
+            'uniL' => array_map(static fn ($v) => round((float) $v, 1), $uniL),
+            'uniP' => array_map(static fn ($v) => round((float) $v, 1), $uniP),
+        ]);
+
+        // Pass 2: render semua dengan kertas seragam, konten di tengah.
+        $totalPages = 0;
+
+        foreach ($collected as $c) {
+            $file = $c['file'];
+            $regions = $c['regions'];
+
+            if (empty($regions)) {
+                // Fallback: salin apa adanya via jalur lama.
+                $totalPages += $this->splitter->split($output, $file);
+
+                continue;
+            }
+
+            $byOrient = ['L' => [], 'P' => []];
+            foreach ($regions as $r) {
+                $byOrient[$r['w'] > $r['h'] ? 'L' : 'P'][] = $r;
+            }
+
+            if (! empty($byOrient['L']) && $uniL[0] > 0 && $uniL[1] > 0) {
+                $totalPages += $this->splitter->renderRegions($output, $file, $byOrient['L'], $uniL[0], $uniL[1]);
+            }
+            if (! empty($byOrient['P']) && $uniP[0] > 0 && $uniP[1] > 0) {
+                $totalPages += $this->splitter->renderRegions($output, $file, $byOrient['P'], $uniP[0], $uniP[1]);
+            }
         }
 
 

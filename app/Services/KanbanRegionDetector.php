@@ -49,6 +49,16 @@ class KanbanRegionDetector
         'KANBAN',
     ];
 
+    /**
+     * Marker format Mitsubishi (teks readable, bukan custom encoding
+     * seperti Toyota). Jangan dipakai untuk Toyota.
+     */
+    private const MITSU_MARKERS = [
+        'PARTS NUMBER',
+        'LABEL NUMBER',
+        'PO NUMBER',
+    ];
+
 
     public function detect(
         string $file,
@@ -79,14 +89,50 @@ class KanbanRegionDetector
                 $kanbanCount = $this->countKanbansOnPage($raw, $page);
 
                 if ($pageW <= $pageH) {
+                    // Coba gap-tanpa-tinta dulu untuk SEMUA format (Toyota
+                    // maupun Mitsubishi/PT lain): titik potong selalu jatuh
+                    // di whitespace yang kiri-kanannya full kosong (setelah
+                    // barcode di bawah, sebelum header berikutnya di atas)
+                    // dan tidak pernah memotong garis tepi. Halaman Toyota
+                    // yang bergaris putus-putus otomatis gagal di sini
+                    // (run kosong <6pt karena titik-titik separator) lalu
+                    // lanjut ke rantai Toyota semula yang sudah perfect.
+                    $ink = $this->findInkGapCutFractions($raw, $page, $kanbanCount);
+                    if (! empty($ink)) {
+                        $cuts = $ink;
+                        $method = 'ink-gap';
+                    } else {
                     $cuts = $this->findTextGapFractions($raw, $page, $kanbanCount);
                     if (! empty($cuts)) {
                         $method = 'text-gap';
                     } else {
-                        $cuts = $this->findCutFractions($raw, $page, $kanbanCount);
-                        if (! empty($cuts)) {
-                            $method = 'line';
+                        // PDF kanban Toyota memakai custom font encoding sehingga
+                        // teks tidak bisa di-decode ("SUPPLIER" terbaca garbled).
+                        // Deteksi whitespace tahan encoding: pakai posisi Y semua
+                        // teks + garis horizontal panjang, potong di tengah gap.
+                        $ws = $this->findWhitespaceCutFractions($raw, $page, $kanbanCount);
+                        if (! empty($ws)) {
+                            $cuts = $ws;
+                            $method = 'whitespace';
+                        } else {
+                        $dotted = $this->findDottedCutFractions($raw, $page, $kanbanCount);
+                        if (! empty($dotted)) {
+                            $cuts = $dotted;
+                            $method = 'dotted';
+                        } else {
+                            $dash = $this->findDashedCutFractions($raw, $page, $kanbanCount);
+                            if (! empty($dash)) {
+                                $cuts = $dash;
+                                $method = 'dash';
+                            } else {
+                                $cuts = $this->findCutFractions($raw, $page, $kanbanCount);
+                                if (! empty($cuts)) {
+                                    $method = 'line';
+                                }
+                            }
                         }
+                        }
+                    }
                     }
                 }
             }
@@ -144,6 +190,262 @@ class KanbanRegionDetector
         }
     }
 
+    /**
+     * Cek apakah potongan vertikal benar-benar kosong (tidak ada teks).
+     *
+     * Dipakai splitter untuk membuang slice whitespace (mis. margin /
+     * sisa dotted-line) agar tidak jadi halaman baru.
+     *
+     * @param float $fracTop    fraksi dari atas (0..1) tepi atas region.
+     * @param float $fracBottom fraksi dari atas (0..1) tepi bawah region.
+     */
+    public function isRegionEmpty(string $file, int $page, float $fracTop, float $fracBottom): bool
+    {
+        try {
+            if ($fracBottom <= $fracTop) {
+                return true;
+            }
+
+            $raw = @file_get_contents($file);
+            if (! is_string($raw) || $raw === '') {
+                return false;
+            }
+
+            $objects = $this->parseObjects($raw);
+            $pages = $this->orderedPageNumbers($objects);
+
+            if (! isset($pages[$page - 1])) {
+                return false;
+            }
+
+            $pageObj = (int) $pages[$page - 1];
+            $content = $this->decodedPageContent($objects, $pageObj);
+
+            if ($content === '') {
+                return false;
+            }
+
+            $media = $this->readMediaBoxPt($objects, $pageObj);
+            $pageH = (float) $media['height'];
+
+            if ($pageH <= 0) {
+                return false;
+            }
+
+            // Konversi fraksi-dari-atas ke Y PDF (origin bawah).
+            $yTop = (1 - $fracTop) * $pageH;
+            $yBottom = (1 - $fracBottom) * $pageH;
+
+            // Inset 1pt supaya teks tepat di garis potong tidak dihitung
+            // milik dua region sekaligus.
+            $yTop -= 1.0;
+            $yBottom += 1.0;
+
+            if ($yTop <= $yBottom) {
+                return true;
+            }
+
+            $items = $this->extractTextWithPositions($content);
+
+            $n = 0;
+            foreach ($items as $it) {
+                $y = (float) $it['y'];
+                if ($y >= $yBottom && $y <= $yTop) {
+                    $n++;
+                    if ($n >= 5) {
+                        return false; // ada isi, bukan kosong
+                    }
+                }
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Press region ke bounding-box isi (auto-crop margin kertas kosong).
+     *
+     * Untuk tiap region (fraksi dari atas), cari baris teks pertama &
+     * terakhir di dalamnya, lalu rapatkan tepi ke sana + padding.
+     * Hasil: gap kertas kosong tinggi di atas/bawah (contoh halaman 1)
+     * ikut terbuang, semua halaman output pas dengan konten.
+     *
+     * @return array{0:float, 1:float} [fracTop, fracBottom] baru.
+     */
+    public function trimRegionToContent(
+        string $file,
+        int $page,
+        float $fracTop,
+        float $fracBottom,
+        float $padPt = 6.0
+    ): array {
+        try {
+            if ($fracBottom <= $fracTop) {
+                return [$fracTop, $fracBottom];
+            }
+
+            $raw = @file_get_contents($file);
+            if (! is_string($raw) || $raw === '') {
+                return [$fracTop, $fracBottom];
+            }
+
+            $objects = $this->parseObjects($raw);
+            $pages = $this->orderedPageNumbers($objects);
+
+            if (! isset($pages[$page - 1])) {
+                return [$fracTop, $fracBottom];
+            }
+
+            $pageObj = (int) $pages[$page - 1];
+            $content = $this->decodedPageContent($objects, $pageObj);
+
+            if ($content === '') {
+                return [$fracTop, $fracBottom];
+            }
+
+            $media = $this->readMediaBoxPt($objects, $pageObj);
+            $pageW = (float) $media['width'];
+            $pageH = (float) $media['height'];
+
+            if ($pageW <= 0 || $pageH <= 0) {
+                return [$fracTop, $fracBottom];
+            }
+
+            $yTop = (1 - $fracTop) * $pageH;
+            $yBottom = (1 - $fracBottom) * $pageH;
+
+            $items = $this->extractTextWithPositions($content);
+
+            $minY = null;
+            $maxY = null;
+            $minX = null;
+            $maxX = null;
+            $maxSize = 10.0;
+
+            foreach ($items as $it) {
+                $y = (float) ($it['y'] ?? 0);
+                if ($y < $yBottom || $y > $yTop) {
+                    continue;
+                }
+                $x = (float) ($it['x'] ?? 0);
+                $s = (float) ($it['size'] ?? 10);
+
+                $minY = $minY === null ? $y : min($minY, $y);
+                $maxY = $maxY === null ? $y : max($maxY, $y);
+                $minX = $minX === null ? $x : min($minX, $x);
+                $maxX = $maxX === null ? $x : max($maxX, $x);
+                $maxSize = max($maxSize, $s);
+            }
+
+            if ($minY === null || $maxY === null) {
+                return [$fracTop, $fracBottom];
+            }
+
+            // Ekspansi untuk ascender/descender + border tabel + padding.
+            $expandY = max(8.0, $maxSize * 0.9 + $padPt);
+            $newTopY = min($yTop, $maxY + $expandY);
+            $newBottomY = max($yBottom, $minY - $expandY);
+
+            // Pengaman universal: gabung dengan batas tinta (teks + garis
+            // + rect + image, CTM-aware) supaya barcode/gambar vektor yang
+            // tidak punya teks (kasus Mitsubishi) tidak kepotong. Hanya
+            // MELEBARKAN (tidak pernah memotong lebih dari trim teks),
+            // jadi aman untuk Toyota yang sudah perfect.
+            try {
+                $hist = $this->buildInkHistogram($content, $items, $pageH);
+                $nHi = count($hist) - 1;
+                $loB = max(0, (int) floor($yBottom));
+                $hiB = min($nHi, (int) ceil($yTop));
+                $first = null;
+                $last = null;
+                for ($b = $loB; $b <= $hiB; $b++) {
+                    if (($hist[$b] ?? 0) > 0) {
+                        if ($first === null) {
+                            $first = $b;
+                        }
+                        $last = $b;
+                    }
+                }
+                if ($first !== null && $last !== null && $last > $first) {
+                    $newTopY = min($yTop, max($newTopY, $last + 1 + 4.0));
+                    $newBottomY = max($yBottom, min($newBottomY, $first - 4.0));
+                }
+            } catch (\Throwable $e) {
+                // pakai hasil trim teks saja
+            }
+
+            if ($newTopY - $newBottomY < 10) {
+                return [$fracTop, $fracBottom];
+            }
+
+            $newFracTop = 1 - ($newTopY / $pageH);
+            $newFracBottom = 1 - ($newBottomY / $pageH);
+
+            // Clamp ke region asal (tidak boleh melebar keluar).
+            $newFracTop = max($fracTop, min($newFracTop, $fracBottom));
+            $newFracBottom = max($newFracTop, min($newFracBottom, $fracBottom));
+
+            return [(float) $newFracTop, (float) $newFracBottom];
+        } catch (\Throwable $e) {
+            return [$fracTop, $fracBottom];
+        }
+    }
+
+    /**
+     * Trim region ke batas tinta (untuk Mitsubishi): bin Y terluar yang
+     * ada isinya (teks/garis/rect) + padding 4pt, clamp ke region asal.
+     */
+    private function trimRegionToInk(
+        string $content,
+        float $yTop,
+        float $yBottom,
+        float $pageH,
+        float $fracTop,
+        float $fracBottom
+    ): array {
+        $items = $this->extractTextWithPositions($content);
+
+        if (empty($items)) {
+            return [$fracTop, $fracBottom];
+        }
+
+        $ink = $this->buildInkHistogram($content, $items, $pageH);
+        $n = count($ink) - 1;
+
+        $lo = max(0, (int) floor($yBottom));
+        $hi = min($n, (int) ceil($yTop));
+
+        $first = null;
+        $last = null;
+        for ($b = $lo; $b <= $hi; $b++) {
+            if (($ink[$b] ?? 0) > 0) {
+                if ($first === null) {
+                    $first = $b;
+                }
+                $last = $b;
+            }
+        }
+
+        if ($first === null || $last === null || $last <= $first) {
+            return [$fracTop, $fracBottom];
+        }
+
+        $pad = 4.0;
+        $newTopY = min($yTop, $last + 1 + $pad);
+        $newBottomY = max($yBottom, $first - $pad);
+
+        if ($newTopY - $newBottomY < 10) {
+            return [$fracTop, $fracBottom];
+        }
+
+        $newFracTop = max($fracTop, min(1 - ($newTopY / $pageH), $fracBottom));
+        $newFracBottom = max($newFracTop, min(1 - ($newBottomY / $pageH), $fracBottom));
+
+        return [(float) $newFracTop, (float) $newFracBottom];
+    }
+
 
     private function readPageSize(string $file, int $page): ?array
     {
@@ -199,6 +501,15 @@ class KanbanRegionDetector
             }
 
             if (empty($perMarker)) {
+                foreach (self::MITSU_MARKERS as $marker) {
+                    $c = $this->countMarker($text, $marker);
+                    if ($c > 0) {
+                        $perMarker[] = $c;
+                    }
+                }
+            }
+
+            if (empty($perMarker)) {
                 return self::DEFAULT_KANBAN;
             }
 
@@ -228,6 +539,15 @@ class KanbanRegionDetector
         }
 
         if (empty($counts)) {
+            foreach (self::MITSU_MARKERS as $marker) {
+                $c = $this->countMarker($text, $marker);
+                if ($c > 0 && $c <= self::MAX_KANBAN) {
+                    $counts[] = $c;
+                }
+            }
+        }
+
+        if (empty($counts)) {
             return self::DEFAULT_KANBAN;
         }
 
@@ -245,7 +565,7 @@ class KanbanRegionDetector
         return (int) array_key_first($freq);
     }
 
-]    private function countMarker(string $haystack, string $marker): int
+    private function countMarker(string $haystack, string $marker): int
     {
         $h = strtoupper($haystack);
         $m = strtoupper($marker);
@@ -259,6 +579,1047 @@ class KanbanRegionDetector
         return max($plain, $compact);
     }
 
+
+    /**
+     * True bila halaman memakai format Mitsubishi / PT lain (teks readable
+     * berisi MITSUBISHI atau PARTS NUMBER + LABEL NUMBER). Toyota memakai
+     * custom font encoding sehingga tidak pernah cocok (aman).
+     */
+    private function isMitsubishiPage(string $raw, int $page): bool
+    {
+        try {
+            $objects = $this->parseObjects($raw);
+            $pages = $this->orderedPageNumbers($objects);
+
+            if (! isset($pages[$page - 1])) {
+                return false;
+            }
+
+            $text = $this->extractPageText($objects, (int) $pages[$page - 1]);
+
+            if ($text === '') {
+                // Fallback: teks gabungan semua stream (kalau pemetaan
+                // halaman per objek gagal, tapi isi readable).
+                $text = $this->extractAllText($objects);
+
+                if ($text === '') {
+                    return false;
+                }
+            }
+
+            $h = strtoupper($text);
+
+            if (strpos($h, 'MITSUBISHI') !== false) {
+                return true;
+            }
+
+            return strpos($h, 'PARTS NUMBER') !== false
+                && strpos($h, 'LABEL NUMBER') !== false;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Potong di tengah gap TANPA tinta untuk format Mitsubishi / PT lain.
+     *
+     * Beda dengan Toyota: barcode di baris PO/Label digambar sebagai ratusan
+     * rect/garis vertikal vektor TANPA teks, sehingga gap-teks-terbesar
+     * jatuh di tengah barcode. Histogram tinta menandai tiap bin Y 1pt yang
+     * dilewati teks, segmen garis (m..l, termasuk vertikal), rect (re),
+     * lalu memilih run NOL terlebar di dekat tiap ideal i/N.
+     *
+     * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
+     */
+    private function findInkGapCutFractions(string $raw, int $page, int $kanbanCount): array
+    {
+        if ($kanbanCount <= 1) {
+            return [];
+        }
+
+        $objects = $this->parseObjects($raw);
+        $pages = $this->orderedPageNumbers($objects);
+
+        if (! isset($pages[$page - 1])) {
+            return [];
+        }
+
+        $pageObj = (int) $pages[$page - 1];
+        $content = $this->decodedPageContent($objects, $pageObj);
+
+        if ($content === '') {
+            return [];
+        }
+
+        $media = $this->readMediaBoxPt($objects, $pageObj);
+        $pageH = (float) $media['height'];
+
+        if ($pageH <= 0) {
+            return [];
+        }
+
+        $items = $this->extractTextWithPositions($content);
+
+        if (count($items) < 10) {
+            return [];
+        }
+
+        $ink = $this->buildInkHistogram($content, $items, $pageH);
+
+        // Kumpulkan run NOL (whitespace penuh, tanpa teks/garis/rect).
+        $runs = [];
+        $n = count($ink) - 1;
+        $start = null;
+
+        for ($b = 0; $b <= $n; $b++) {
+            if (($ink[$b] ?? 0) === 0) {
+                if ($start === null) {
+                    $start = $b;
+                }
+            } elseif ($start !== null) {
+                $runs[] = [$start, $b - 1];
+                $start = null;
+            }
+        }
+        if ($start !== null) {
+            $runs[] = [$start, $n];
+        }
+
+        // Buang run yang menyentuh margin tepi halaman.
+        $runs = array_values(array_filter($runs, static function ($r) use ($pageH) {
+            return $r[0] >= 15 && $r[1] <= $pageH - 15 && ($r[1] - $r[0] + 1) >= 4;
+        }));
+
+        if (empty($runs)) {
+            return [];
+        }
+
+        try {
+            $byW = $runs;
+            usort($byW, static fn ($a, $b) => ($b[1] - $b[0]) <=> ($a[1] - $a[0]));
+            logger()->info('Kanban ink runs', [
+                'page' => $page,
+                'top' => array_map(
+                    static fn ($r) => round(1 - ((($r[0] + $r[1]) / 2) / $pageH), 4).':'.($r[1] - $r[0] + 1),
+                    array_slice($byW, 0, 6)
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            // diagnostik saja
+        }
+
+        $fracs = [];
+        $window = 0.10 * $pageH;
+
+        for ($i = 1; $i < $kanbanCount; $i++) {
+            $idealF = $i / $kanbanCount;
+            $idealY = (1 - $idealF) * $pageH;
+
+            $best = null;
+            $bestW = -1.0;
+            $bestD = PHP_FLOAT_MAX;
+
+            foreach ($runs as $r) {
+                $mid = ($r[0] + $r[1]) / 2;
+                if (abs($mid - $idealY) > $window) {
+                    continue;
+                }
+                $w = $r[1] - $r[0] + 1;
+                if ($w < 6) {
+                    continue; // celah terlalu tipis, bukan pemisah kanban
+                }
+                $d = abs($mid - $idealY);
+                if ($w > $bestW + 2.0 || ($w >= $bestW - 2.0 && $d < $bestD)) {
+                    $best = $r;
+                    $bestW = (float) $w;
+                    $bestD = $d;
+                }
+            }
+
+            if ($best === null) {
+                return [];
+            }
+
+            $fracs[] = 1 - ((($best[0] + $best[1]) / 2) / $pageH);
+        }
+
+        sort($fracs);
+
+        $prev = 0.0;
+        foreach (array_merge($fracs, [1.0]) as $f) {
+            if (($f - $prev) < 0.15) {
+                return [];
+            }
+            $prev = $f;
+        }
+
+        return array_values($fracs);
+    }
+
+    /**
+     * Histogram tinta per bin Y 1pt (origin bawah). Bin >0 = ada teks,
+     * segmen garis, rect, kurva, atau image yang melewatinya.
+     *
+     * PENTING: koordinat grafik ditransformasi CTM (q/Q/cm) seperti text
+     * parser, karena barcode TCPDF digambar dalam sistem koordinat lokal
+     * (cm scale/translate). Tanpa ini posisi Y barcode salah total dan
+     * potongan jatuh di tengah barcode.
+     *
+     * @param array<int, array{x?:float, y?:float, size?:float, text?:string}> $items
+     * @return array<int, int>
+     */
+    private function buildInkHistogram(string $content, array $items, float $pageH): array
+    {
+        $n = max(1, (int) ceil($pageH));
+        $ink = array_fill(0, $n + 1, 0);
+
+        $mark = static function (float $a, float $b) use (&$ink, $n): void {
+            $lo = max(0, (int) floor(min($a, $b)));
+            $hi = min($n, (int) ceil(max($a, $b)));
+            for ($k = $lo; $k <= $hi; $k++) {
+                $ink[$k]++;
+            }
+        };
+
+        foreach ($items as $it) {
+            $y = (float) ($it['y'] ?? 0);
+            $s = (float) ($it['size'] ?? 10);
+            $mark($y - 2, $y + max(6.0, $s * 0.7));
+        }
+
+        // String literal/hex dibuang dulu supaya angka di dalam teks
+        // (mis. "(2026/08/03)") tidak terbaca sebagai koordinat.
+        $stripped = $this->stripStreamStrings($content);
+
+        $rx = '/(-?\d+(?:\.\d+)?)|(\/[^\s<>\[\]()\/]+)|([A-Za-z]+\*?|\'|")/';
+
+        if (! preg_match_all($rx, $stripped, $m, PREG_SET_ORDER)) {
+            return $ink;
+        }
+
+        $ident = [1, 0, 0, 1, 0, 0];
+        $ctm = $ident;
+        $ctmStack = [];
+        $stack = [];
+        $cur = null; // [x, y] mentah (sebelum CTM)
+        $inInlineImg = false;
+
+        // Transformasi titik mentah -> user space, ambil Y-nya.
+        $ty = static function (float $x, float $y) use (&$ctm): float {
+            return $x * $ctm[1] + $y * $ctm[3] + $ctm[5];
+        };
+
+        foreach ($m as $tok) {
+            $t = $tok[0];
+
+            if ($inInlineImg) {
+                if ($t === 'EI') {
+                    $inInlineImg = false;
+                    // Inline image menempati unit square [0,0]-[1,1].
+                    $mark($ty(0, 0), $ty(1, 1));
+                }
+
+                continue;
+            }
+
+            if (is_numeric($t)) {
+                $stack[] = (float) $t;
+
+                continue;
+            }
+
+            if (str_starts_with($t, '/')) {
+                continue;
+            }
+
+            switch ($t) {
+                case 'q':
+                    $ctmStack[] = $ctm;
+                    $stack = [];
+                    break;
+                case 'Q':
+                    $ctm = ! empty($ctmStack) ? array_pop($ctmStack) : $ident;
+                    $stack = [];
+                    break;
+                case 'cm':
+                    $o = $this->popNumbers($stack, 6);
+                    if ($o !== null) {
+                        $ctm = $this->mtxMul($o, $ctm);
+                    }
+                    break;
+                case 'm':
+                    $o = $this->popNumbers($stack, 2);
+                    if ($o !== null) {
+                        $cur = $o;
+                    }
+                    break;
+                case 'l':
+                    $o = $this->popNumbers($stack, 2);
+                    if ($o !== null) {
+                        if ($cur !== null) {
+                            $mark($ty($cur[0], $cur[1]), $ty($o[0], $o[1]));
+                        } else {
+                            $mark($ty($o[0], $o[1]) - 1, $ty($o[0], $o[1]) + 1);
+                        }
+                        $cur = $o;
+                    }
+                    break;
+                case 're':
+                    $o = $this->popNumbers($stack, 4);
+                    if ($o !== null) {
+                        // 4 sudut -> rentang Y hasil transformasi.
+                        $ys = [
+                            $ty($o[0], $o[1]),
+                            $ty($o[0] + $o[2], $o[1]),
+                            $ty($o[0], $o[1] + $o[3]),
+                            $ty($o[0] + $o[2], $o[1] + $o[3]),
+                        ];
+                        $mark(min($ys) - 1, max($ys) + 1);
+                    }
+                    break;
+                case 'c':
+                    $o = $this->popNumbers($stack, 6);
+                    if ($o !== null) {
+                        $ys = [$ty($o[0], $o[1]), $ty($o[2], $o[3]), $ty($o[4], $o[5])];
+                        if ($cur !== null) {
+                            $ys[] = $ty($cur[0], $cur[1]);
+                        }
+                        $mark(min($ys), max($ys));
+                        $cur = [$o[4], $o[5]];
+                    }
+                    break;
+                case 'v':
+                case 'y':
+                    $o = $this->popNumbers($stack, 4);
+                    if ($o !== null) {
+                        $ys = [$ty($o[0], $o[1]), $ty($o[2], $o[3])];
+                        if ($cur !== null) {
+                            $ys[] = $ty($cur[0], $cur[1]);
+                        }
+                        $mark(min($ys), max($ys));
+                        $cur = [$o[2], $o[3]];
+                    }
+                    break;
+                case 'h':
+                    break;
+                case 'BT':
+                case 'ET':
+                case 'Tf':
+                case 'Tj':
+                case 'TJ':
+                case 'Tm':
+                case 'Td':
+                case 'TD':
+                case 'T*':
+                case 'TL':
+                case 'Tc':
+                case 'Tw':
+                case 'Tz':
+                case 'Tr':
+                case 'Ts':
+                case "'":
+                case '"':
+                    // Operator teks: buang operand sisa (mis. ukuran font)
+                    // supaya tidak mencemari operand grafik berikutnya.
+                    $stack = [];
+                    break;
+                case 'BI':
+                    $inInlineImg = true;
+                    $stack = [];
+                    break;
+                case 'ID':
+                    $stack = [];
+                    break;
+                case 'Do':
+                    // Image XObject digambar pada unit square yang
+                    // diskalakan oleh cm sebelumnya (pola TCPDF standar).
+                    $mark($ty(0, 0), $ty(1, 1));
+                    $stack = [];
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return $ink;
+    }
+
+    /**
+     * Potong di tengah whitespace horizontal (tahan custom font encoding).
+     *
+     * Masalah: PDF kanban Toyota memakai subset font dengan encoding custom,
+     * sehingga string "(SUPPLIER)" terbaca sebagai glyph-id garbled dan
+     * findTextGapFractions selalu gagal (tops=0/bottoms=0). Posisi Y teks
+     * tetap valid meski decode gagal, jadi:
+     *  1. Kumpulkan semua Y teks (garbled pun tidak masalah).
+     *  2. Kumpulkan semua garis horizontal panjang (>50% lebar halaman,
+     *     dari operator m..l maupun x y w h re).
+     *  3. Untuk tiap posisi ideal i/N, cari garis panjang dalam window
+     *     ±8% tinggi halaman yang paling terisolasi dari teks, lalu
+     *     geser ke tengah gap teks terdekat (tempat garis putus-putus berada).
+     *
+     * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
+     */
+    private function findWhitespaceCutFractions(string $raw, int $page, int $kanbanCount): array
+    {
+        if ($kanbanCount <= 1) {
+            return [];
+        }
+
+        $objects = $this->parseObjects($raw);
+        $pages = $this->orderedPageNumbers($objects);
+
+        if (! isset($pages[$page - 1])) {
+            return [];
+        }
+
+        $pageObj = (int) $pages[$page - 1];
+        $content = $this->decodedPageContent($objects, $pageObj);
+
+        if ($content === '') {
+            return [];
+        }
+
+        $media = $this->readMediaBoxPt($objects, $pageObj);
+        $pageW = (float) $media['width'];
+        $pageH = (float) $media['height'];
+
+        if ($pageW <= 0 || $pageH <= 0) {
+            return [];
+        }
+
+        $items = $this->extractTextWithPositions($content);
+
+        if (count($items) < 10) {
+            return [];
+        }
+
+        $textYs = [];
+        foreach ($items as $it) {
+            $textYs[] = (float) $it['y'];
+        }
+
+        // Kelompokkan teks sebaris (toleransi 2pt) -> satu baris.
+        // uniqueYs() me-return descending (atas dulu).
+        $rows = $this->uniqueYs($textYs, 2.0);
+
+        if (count($rows) < $kanbanCount + 1) {
+            return [];
+        }
+
+        // Bangun daftar gap antar baris: gap = selisih Y dua baris
+        // berurutan. Gap besar = whitespace kosong kiri-kanan (tidak ada
+        // teks apa pun di rentang Y tersebut, sesuai permintaan).
+        $gaps = []; // ['top'=>, 'bottom'=>, 'mid'=>, 'h'=>]
+        for ($k = 0, $n = count($rows); $k < $n - 1; $k++) {
+            $top = (float) $rows[$k];
+            $bottom = (float) $rows[$k + 1];
+            $h = $top - $bottom;
+            if ($h < 5) {
+                continue; // teks rapat dalam kanban, bukan pemisah
+            }
+            $mid = ($top + $bottom) / 2;
+            if ($mid < 15 || $mid > $pageH - 15) {
+                continue; // margin tepi halaman
+            }
+            $gaps[] = ['top' => $top, 'bottom' => $bottom, 'mid' => $mid, 'h' => $h];
+        }
+
+        if (empty($gaps)) {
+            return [];
+        }
+
+        $fracs = [];
+        $window = 0.10 * $pageH;
+
+        for ($i = 1; $i < $kanbanCount; $i++) {
+            $idealF = $i / $kanbanCount;
+            $idealY = (1 - $idealF) * $pageH; // Y PDF (origin bawah)
+
+            // Kandidat: gap yang mid-nya dalam window ideal.
+            // Pilih gap TERBESAR (whitespace penuh kiri-kanan).
+            // Seri (selisih <2pt): pilih yang paling dekat ideal.
+            $best = null;
+            foreach ($gaps as $g) {
+                if (abs($g['mid'] - $idealY) > $window) {
+                    continue;
+                }
+                if ($best === null
+                    || $g['h'] > $best['h'] + 2.0
+                    || (abs($g['h'] - $best['h']) <= 2.0
+                        && abs($g['mid'] - $idealY) < abs($best['mid'] - $idealY))
+                ) {
+                    $best = $g;
+                }
+            }
+
+            if ($best === null) {
+                return [];
+            }
+
+            $fracs[] = 1 - ($best['mid'] / $pageH);
+        }
+
+        sort($fracs);
+
+        // Validasi jarak antar potongan (minimal 15% tinggi halaman).
+        $prev = 0.0;
+        foreach (array_merge($fracs, [1.0]) as $f) {
+            if (($f - $prev) < 0.15) {
+                return [];
+            }
+            $prev = $f;
+        }
+
+        return array_values($fracs);
+    }
+
+    /** Kumpulkan Y garis horizontal panjang (>50% lebar halaman). */
+    private function collectLongLineYs(string $content, float $pageW, float $pageH): array
+    {
+        $stripped = $this->stripStreamStrings($content);
+        $ys = [];
+
+        if (preg_match_all(
+            '/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+m\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+l/',
+            $stripped,
+            $m,
+            PREG_SET_ORDER
+        )) {
+            foreach ($m as $s) {
+                $y1 = (float) $s[2];
+                $y2 = (float) $s[4];
+                if (abs($y2 - $y1) > 1.5) {
+                    continue;
+                }
+                $len = abs((float) $s[3] - (float) $s[1]);
+                if ($len < 0.5 * $pageW) {
+                    continue;
+                }
+                $ys[] = ($y1 + $y2) / 2;
+            }
+        }
+
+        if (preg_match_all(
+            '/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+re\b/',
+            $stripped,
+            $m,
+            PREG_SET_ORDER
+        )) {
+            foreach ($m as $s) {
+                $w = (float) $s[3];
+                $h = (float) $s[4];
+                if ($w < 0.5 * $pageW) {
+                    continue;
+                }
+                if ($h > 3) {
+                    continue; // hanya sisi horizontal tipis
+                }
+                $y = (float) $s[2];
+                $ys[] = $y;
+                $ys[] = $y + $h;
+            }
+        }
+
+        if (empty($ys)) {
+            return [];
+        }
+
+        sort($ys);
+
+        // Cluster Y berdekatan (<3pt) -> rata-rata.
+        $clusters = [];
+        $cur = [$ys[0]];
+        for ($k = 1, $n = count($ys); $k < $n; $k++) {
+            if ($ys[$k] - end($cur) < 3) {
+                $cur[] = $ys[$k];
+            } else {
+                $clusters[] = array_sum($cur) / count($cur);
+                $cur = [$ys[$k]];
+            }
+        }
+        $clusters[] = array_sum($cur) / count($cur);
+
+        // Buang tepi halaman (border luar), bukan pemisah.
+        $out = [];
+        foreach ($clusters as $y) {
+            if ($y < 15 || $y > $pageH - 15) {
+                continue;
+            }
+            $out[] = $y;
+        }
+
+        return array_values($out);
+    }
+
+    /** Jarak absolut ke baris teks terdekat. */
+    private function nearestTextDistance(array $sortedYs, float $y): float
+    {
+        $best = PHP_FLOAT_MAX;
+        foreach ($sortedYs as $ty) {
+            $d = abs($ty - $y);
+            if ($d < $best) {
+                $best = $d;
+            }
+            if ($ty > $y && $d > $best) {
+                break; // sorted: jarak hanya membesar setelah lewat
+            }
+        }
+
+        return $best === PHP_FLOAT_MAX ? 0.0 : (float) $best;
+    }
+
+    /**
+     * Tengah whitespace di sekitar garis: rata-rata teks tepat di bawah
+     * dan tepat di atas garis. Jika satu sisi kosong, pakai garis itu sendiri.
+     */
+    private function midWhitespaceNear(array $sortedYs, float $lineY, float $pageH): float
+    {
+        $below = null; // Y teks terbesar yang < lineY
+        $above = null; // Y teks terkecil yang > lineY
+
+        foreach ($sortedYs as $ty) {
+            if ($ty < $lineY - 0.5) {
+                $below = $ty;
+            } elseif ($ty > $lineY + 0.5) {
+                $above = $ty;
+                break;
+            }
+        }
+
+        if ($below !== null && $above !== null) {
+            $gap = $above - $below;
+            // Gap wajar antar kanban 6..60pt; di luar itu pakai garis aslinya.
+            if ($gap >= 4 && $gap <= 80) {
+                return ($below + $above) / 2;
+            }
+        }
+
+        return $lineY;
+    }
+
+    /**
+     * Cari garis putus-putus horizontal (pemisah kanban).
+     *
+     * Dotted line = BANYAK segmen pendek di Y yang sama, bukan satu garis
+     * panjang — jadi dinilai dari jumlah segmen + rentang X selebar halaman.
+     * Hanya dipakai bila hasilnya pas N-1 (tanpa menebak jumlah kanban).
+     *
+     * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
+     */
+    private function findDottedCutFractions(string $raw, int $page, int $kanbanCount): array
+    {
+        if ($kanbanCount <= 1) {
+            return [];
+        }
+
+        $objects = $this->parseObjects($raw);
+        $pages = $this->orderedPageNumbers($objects);
+
+        if (! isset($pages[$page - 1])) {
+            return [];
+        }
+
+        $pageObj = (int) $pages[$page - 1];
+        $content = $this->decodedPageContent($objects, $pageObj);
+
+        if ($content === '') {
+            return [];
+        }
+
+        $media = $this->readMediaBoxPt($objects, $pageObj);
+        $pageW = $media['width'];
+        $pageH = $media['height'];
+
+        $content = $this->stripStreamStrings($content);
+
+        if (! preg_match_all(
+            '/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+m\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+l/',
+            $content,
+            $m,
+            PREG_SET_ORDER
+        )) {
+            $this->logOpsDiag($content, $page, $pageW, $pageH);
+
+            return [];
+        }
+
+        // Bin 1pt: hitung segmen + rentang X per bin.
+        $bins = [];
+        foreach ($m as $s) {
+            $y1 = (float) $s[2];
+            $y2 = (float) $s[4];
+            if (abs($y2 - $y1) > 1.0) {
+                continue;
+            }
+            $x1 = (float) $s[1];
+            $x2 = (float) $s[3];
+            $len = abs($x2 - $x1);
+            if ($len < 0.3 || $len > 15) {
+                continue; // hanya titik/strip pendek
+            }
+            $bin = (int) round(($y1 + $y2) / 2);
+            if (! isset($bins[$bin])) {
+                $bins[$bin] = ['n' => 0, 'min' => $x1, 'max' => $x1];
+            }
+            $bins[$bin]['n']++;
+            $bins[$bin]['min'] = min($bins[$bin]['min'], $x1, $x2);
+            $bins[$bin]['max'] = max($bins[$bin]['max'], $x1, $x2);
+        }
+
+        $cands = [];
+        foreach ($bins as $bin => $b) {
+            $y = (float) $bin;
+            if ($y < 10 || $y > $pageH - 10) {
+                continue; // tepi halaman, bukan pemisah
+            }
+            if ($b['n'] < 8) {
+                continue;
+            }
+            if (($b['max'] - $b['min']) < 0.6 * $pageW) {
+                continue; // harus selebar halaman
+            }
+            $cands[$bin] = $b['n'];
+        }
+
+        if (count($cands) < $kanbanCount - 1) {
+            $this->logOpsDiag($content, $page, $pageW, $pageH);
+
+            return [];
+        }
+
+        // Gabungkan bin berdekatan (<3pt), simpan count terbesar.
+        ksort($cands);
+        $merged = [];
+        $lastBin = null;
+        foreach ($cands as $bin => $n) {
+            if ($lastBin !== null && $bin - $lastBin < 3) {
+                $merged[$lastBin] = max($merged[$lastBin], $n);
+
+                continue;
+            }
+            $merged[$bin] = $n;
+            $lastBin = $bin;
+        }
+
+        if (count($merged) < $kanbanCount - 1) {
+            $this->logOpsDiag($content, $page, $pageW, $pageH);
+
+            return [];
+        }
+
+        if (count($merged) > $kanbanCount - 1) {
+            // Lebih dari cukup: ambil yang jumlah titiknya terbanyak.
+            arsort($merged);
+            $merged = array_slice($merged, 0, $kanbanCount - 1, true);
+        }
+
+        $fracs = array_map(
+            static fn ($bin) => 1 - ($bin / $pageH),
+            array_keys($merged)
+        );
+        sort($fracs);
+
+        return array_values($fracs);
+    }
+
+    /** Buang string literal/hex agar tidak mengacaukan pencocokan operator. */
+    private function stripStreamStrings(string $content): string
+    {
+        $out = preg_replace('/\((?:\\\\.|[^\\\\()])*\)/s', ' ', $content);
+        $out = is_string($out) ? $out : $content;
+        $out2 = preg_replace('/<[0-9A-Fa-f\s]*>/', ' ', $out);
+
+        return is_string($out2) ? $out2 : $out;
+    }
+
+    /** Diagnostik sekali jalan: ringkasan operator vektor per halaman ke log. */
+    private function logOpsDiag(string $content, int $page, float $pageW, float $pageH): void
+    {
+        try {
+            $stripped = $this->stripStreamStrings($content);
+
+            $segs = 0;
+            $tiny = 0;
+            $short = 0;
+            $long = 0;
+            $bins = [];
+            if (preg_match_all(
+                '/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+m\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+l/',
+                $stripped,
+                $m,
+                PREG_SET_ORDER
+            )) {
+                foreach ($m as $s) {
+                    if (abs((float) $s[4] - (float) $s[2]) > 1.0) {
+                        continue;
+                    }
+                    $segs++;
+                    $len = abs((float) $s[3] - (float) $s[1]);
+                    if ($len < 0.3) {
+                        $tiny++;
+
+                        continue;
+                    }
+                    if ($len > 15) {
+                        $long++;
+
+                        continue;
+                    }
+                    $short++;
+                    $bin = (int) round((((float) $s[2] + (float) $s[4])) / 2);
+                    $x1 = (float) $s[1];
+                    $x2 = (float) $s[3];
+                    if (! isset($bins[$bin])) {
+                        $bins[$bin] = ['n' => 0, 'min' => $x1, 'max' => $x1];
+                    }
+                    $bins[$bin]['n']++;
+                    $bins[$bin]['min'] = min($bins[$bin]['min'], $x1, $x2);
+                    $bins[$bin]['max'] = max($bins[$bin]['max'], $x1, $x2);
+                }
+            }
+
+            uasort($bins, static fn ($a, $b) => $b['n'] <=> $a['n']);
+            $top = [];
+            foreach (array_slice($bins, 0, 8, true) as $bin => $b) {
+                $top[] = $bin.':'.$b['n'].':'.(int) round($b['max'] - $b['min']);
+            }
+
+            $re = preg_match_all('/\bre\b/', $stripped, $mm);
+            $curves = preg_match_all('/\b[cyv]\b/', $stripped, $mm2);
+            $dash = preg_match('/\[[^\]]*\]\s*[\d.\-]+\s+d\b/', $stripped);
+            $do = preg_match_all('/\bDo\b/', $stripped, $mm3);
+            $bi = preg_match_all('/\bBI\b/', $stripped, $mm4);
+
+            logger()->info('Kanban ops diag', [
+                'page' => $page,
+                'bytes' => strlen($content),
+                'segH' => $segs,
+                'tiny' => $tiny,
+                'short' => $short,
+                'long' => $long,
+                'topBins' => $top,
+                're' => $re === false ? -1 : $re,
+                'curves' => $curves === false ? -1 : $curves,
+                'dash' => $dash,
+                'do' => $do === false ? -1 : $do,
+                'bi' => $bi === false ? -1 : $bi,
+            ]);
+        } catch (\Throwable $e) {
+            // diagnostik tidak boleh menggagalkan proses
+        }
+    }
+
+    /**
+     * Cari separator berupa segmen PANJANG dengan pola dash aktif.
+     * Status dash ([..] .. d) dilacak sesuai urutan kemunculan di stream;
+     * segmen panjang + dashed + selebar halaman dianggap separator.
+     *
+     * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
+     */
+    private function findDashedCutFractions(string $raw, int $page, int $kanbanCount): array
+    {
+        if ($kanbanCount <= 1) {
+            return [];
+        }
+
+        $objects = $this->parseObjects($raw);
+        $pages = $this->orderedPageNumbers($objects);
+
+        if (! isset($pages[$page - 1])) {
+            return [];
+        }
+
+        $pageObj = (int) $pages[$page - 1];
+        $content = $this->decodedPageContent($objects, $pageObj);
+
+        if ($content === '') {
+            return [];
+        }
+
+        $content = $this->stripStreamStrings($content);
+
+        $media = $this->readMediaBoxPt($objects, $pageObj);
+        $pageW = $media['width'];
+        $pageH = $media['height'];
+
+        // Status dash sesuai urutan kemunculan di stream.
+        $dashAt = [];
+        if (preg_match_all(
+            '/\[([^\]]*)\]\s*-?\d+(?:\.\d+)?\s+d\b/',
+            $content,
+            $dm,
+            PREG_SET_ORDER | PREG_OFFSET_CAPTURE
+        )) {
+            foreach ($dm as $d) {
+                $dashAt[(int) $d[0][1]] = trim($d[1][0]) !== '';
+                $dashArrays[(int) $d[0][1]] = trim($d[1][0]);
+            }
+        }
+
+        if (empty($dashAt)) {
+            return [];
+        }
+        ksort($dashAt);
+
+        $isDashedAt = static function (int $off) use ($dashAt): bool {
+            $state = false;
+            foreach ($dashAt as $doff => $st) {
+                if ($doff > $off) {
+                    break;
+                }
+                $state = $st;
+            }
+
+            return $state;
+        };
+
+        if (! preg_match_all(
+            '/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+m\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+l/',
+            $content,
+            $m,
+            PREG_SET_ORDER | PREG_OFFSET_CAPTURE
+        )) {
+            return [];
+        }
+
+        $longYs = [];
+        $bins = [];
+        foreach ($m as $s) {
+            $y1 = (float) $s[2][0];
+            $y2 = (float) $s[4][0];
+            if (abs($y2 - $y1) > 1.0) {
+                continue;
+            }
+            if (! $isDashedAt((int) $s[0][1])) {
+                continue;
+            }
+            $x1 = (float) $s[1][0];
+            $x2 = (float) $s[3][0];
+            $len = abs($x2 - $x1);
+            $y = ($y1 + $y2) / 2;
+            if ($len > 0.5 * $pageW) {
+                $longYs[] = $y;
+
+                continue;
+            }
+            if ($len < 0.3) {
+                continue;
+            }
+            $bin = (int) round($y);
+            if (! isset($bins[$bin])) {
+                $bins[$bin] = ['n' => 0, 'min' => $x1, 'max' => $x1];
+            }
+            $bins[$bin]['n']++;
+            $bins[$bin]['min'] = min($bins[$bin]['min'], $x1, $x2);
+            $bins[$bin]['max'] = max($bins[$bin]['max'], $x1, $x2);
+        }
+
+        // Kandidat 1: segmen dashed panjang selebar halaman.
+        sort($longYs);
+        $mergedLong = [];
+        foreach ($longYs as $y) {
+            if (! empty($mergedLong) && abs($y - end($mergedLong)) < 3) {
+                continue;
+            }
+            $mergedLong[] = $y;
+        }
+
+        $need = $kanbanCount - 1;
+
+        logger()->info('Kanban dash diag', [
+            'page' => $page,
+            'dashArrays' => array_values(array_unique(array_values($dashArrays ?? []))),
+            'longLines' => array_map(
+                static fn ($y) => round(1 - ($y / $pageH), 4),
+                $mergedLong
+            ),
+        ]);
+
+        if (count($mergedLong) === $need) {
+            $fracs = array_map(static fn ($y) => 1 - ($y / $pageH), $mergedLong);
+            sort($fracs);
+
+            return array_values($fracs);
+        }
+
+        if (count($mergedLong) > $need) {
+            // Lebih dari cukup: ambil yang terdekat dengan posisi ideal.
+            $picked = [];
+            for ($i = 1; $i < $kanbanCount; $i++) {
+                $ideal = $i / $kanbanCount;
+                $best = null;
+                $bestD = PHP_FLOAT_MAX;
+                foreach ($mergedLong as $y) {
+                    $f = 1 - ($y / $pageH);
+                    if (in_array($f, $picked, true)) {
+                        continue;
+                    }
+                    $d = abs($f - $ideal);
+                    if ($d < $bestD) {
+                        $bestD = $d;
+                        $best = $f;
+                    }
+                }
+                if ($best !== null) {
+                    $picked[] = $best;
+                }
+            }
+            sort($picked);
+
+            return array_values($picked);
+        }
+
+        // Kandidat 2: strip dashed pendek yang merentang selebar halaman.
+        $cands = [];
+        foreach ($bins as $bin => $b) {
+            $y = (float) $bin;
+            if ($y < 10 || $y > $pageH - 10) {
+                continue;
+            }
+            if ($b['n'] < 3) {
+                continue;
+            }
+            if (($b['max'] - $b['min']) < 0.6 * $pageW) {
+                continue;
+            }
+            $cands[$bin] = $b['n'];
+        }
+
+        if (count($cands) < $need) {
+            return [];
+        }
+
+        ksort($cands);
+        $merged = [];
+        $lastBin = null;
+        foreach ($cands as $bin => $n) {
+            if ($lastBin !== null && $bin - $lastBin < 3) {
+                $merged[$lastBin] = max($merged[$lastBin], $n);
+
+                continue;
+            }
+            $merged[$bin] = $n;
+            $lastBin = $bin;
+        }
+
+        if (count($merged) < $need) {
+            return [];
+        }
+
+        if (count($merged) > $need) {
+            arsort($merged);
+            $merged = array_slice($merged, 0, $need, true);
+        }
+
+        $fracs = array_map(
+            static fn ($bin) => 1 - ($bin / $pageH),
+            array_keys($merged)
+        );
+        sort($fracs);
+
+        return array_values($fracs);
+    }
 
     /**
      * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
@@ -287,6 +1648,8 @@ class KanbanRegionDetector
         $pageH = $media['height'];
 
         $segments = [];
+
+        $content = $this->stripStreamStrings($content);
 
         if (preg_match_all(
             '/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+m\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+l/',
@@ -569,8 +1932,9 @@ class KanbanRegionDetector
             if ($text === '') {
                 return;
             }
+            $x = $tlm[4] * $ctm[0] + $tlm[5] * $ctm[2] + $ctm[4];
             $y = $tlm[4] * $ctm[1] + $tlm[5] * $ctm[3] + $ctm[5];
-            $items[] = ['text' => $text, 'y' => $y, 'size' => $size];
+            $items[] = ['text' => $text, 'x' => $x, 'y' => $y, 'size' => $size];
         };
 
         foreach ($m as $tok) {
