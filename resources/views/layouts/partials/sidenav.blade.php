@@ -31,6 +31,14 @@
             <span class="sb-item-tooltip">Dashboard</span>
         </a>
 
+        {{-- ── Leak ── --}}
+        <a class="sb-item {{ request()->routeIs('dashboard.leak*') ? 'active' : '' }}"
+            href="{{ route('dashboard.leak') }}">
+            <i class="fas fa-tint sb-icon"></i>
+            <span class="sb-item-label">Leak</span>
+            <span class="sb-item-tooltip">Leak</span>
+        </a>
+
         {{-- ── Upload Kanban ── --}}
         <a class="sb-item {{ request()->routeIs('dashboard.kanbanUpload') ? 'active' : '' }}"
             href="{{ route('dashboard.kanbanUpload') }}">

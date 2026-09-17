@@ -1957,9 +1957,14 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function kanbanUpload()
+    public function kanbanUpload(Request $request)
     {
-        return view('pages.kanban.upload');
+        $customer = strtoupper((string) $request->query('customer', 'TMMIN'));
+        if (! in_array($customer, ['TMMIN', 'MMKI'], true)) {
+            $customer = 'TMMIN';
+        }
+
+        return view('pages.kanban.upload', compact('customer'));
     }
 
     public function kanbanUploadProcess(Request $request)
@@ -1969,16 +1974,26 @@ class DashboardController extends Controller
 
         'files'=>'required|array',
 
-        'files.*'=>'mimes:pdf|max:20480'
+        'files.*'=>'mimes:pdf|max:20480',
+
+        'customer'=>'nullable|in:TMMIN,MMKI'
 
     ]);
 
 
-    $jobId = Str::uuid();
+    $customer = strtoupper((string) $request->input('customer', 'TMMIN'));
+    if (! in_array($customer, ['TMMIN', 'MMKI'], true)) {
+        $customer = 'TMMIN';
+    }
+
+
+    $jobId = (string) Str::uuid();
 
 
 
     $paths = [];
+
+    $basenames = [];
 
 
     foreach($request->file('files') as $file)
@@ -1995,7 +2010,21 @@ class DashboardController extends Controller
                 'app/'.$path
             );
 
+        $basenames[] = basename($path);
+
     }
+
+
+
+    // Meta job untuk tombol Cancel total (lacak file input tanpa ubah logic PDF).
+    @file_put_contents(
+        storage_path('app/temp-kanban/'.$jobId.'.meta.json'),
+        json_encode([
+            'customer' => $customer,
+            'files' => array_values($basenames ?? []),
+            'created_at' => now()->toDateTimeString(),
+        ])
+    );
 
 
 
@@ -2003,7 +2032,9 @@ class DashboardController extends Controller
 
         $paths,
 
-        $jobId
+        $jobId,
+
+        $customer
 
     );
 
@@ -2015,6 +2046,8 @@ class DashboardController extends Controller
 
         'job_id'=>$jobId,
 
+        'customer'=>$customer,
+
         'message'=>
             'PDF processing started'
 
@@ -2024,6 +2057,21 @@ class DashboardController extends Controller
 
 public function kanbanUploadStatus($id)
 {
+
+    $id = basename((string) $id);
+
+    $dir = storage_path('app/temp-kanban');
+
+    if(file_exists($dir.'/'.$id.'.cancelled') || file_exists($dir.'/'.$id.'.cancel'))
+    {
+
+        return response()->json([
+
+            'status'=>'CANCELLED'
+
+        ]);
+
+    }
 
     $marker =
 
@@ -2066,6 +2114,89 @@ public function kanbanUploadStatus($id)
                 $filename
 
             )
+
+    ]);
+
+}
+
+public function kanbanCancel($id)
+{
+
+    $id = basename((string) $id);
+
+    if(! preg_match('/^[A-Za-z0-9\-]{8,64}$/', $id))
+    {
+
+        return response()->json([
+
+            'status'=>false,
+
+            'message'=>'Invalid job id'
+
+        ], 422);
+
+    }
+
+
+    $dir = storage_path('app/temp-kanban');
+
+    // 1) Tandai dibatalkan agar worker yang sedang/belum jalan berhenti total.
+    @file_put_contents($dir.'/'.$id.'.cancel', now()->toDateTimeString());
+
+    // 2) Keluarkan dari antrean database bila driver-nya database (best effort).
+    try {
+        DB::table('jobs')->where('payload', 'like', '%'.$id.'%')->delete();
+    } catch (\Throwable $e) {
+        // abaikan: tabel jobs tidak ada (driver sync) atau DB tidak terjangkau
+    }
+
+    $deleted = 0;
+
+    // 3) Hapus file input sisa berdasarkan meta job.
+    try {
+        $metaPath = $dir.'/'.$id.'.meta.json';
+        if(is_file($metaPath))
+        {
+            $meta = json_decode((string) @file_get_contents($metaPath), true);
+            foreach((array) ($meta['files'] ?? []) as $base)
+            {
+                $base = basename((string) $base);
+                if($base === '' || $base === '.' || $base === '..') continue;
+                $p = $dir.'/'.$base;
+                if(is_file($p) && @unlink($p)) $deleted++;
+            }
+            @unlink($metaPath);
+        }
+    } catch (\Throwable $e) {
+        // abaikan, lanjut bersih-bersih
+    }
+
+    // 4) Hapus hasil bila job keburu DONE.
+    try {
+        $donePath = $dir.'/'.$id.'.done';
+        if(is_file($donePath))
+        {
+            $out = basename(trim((string) @file_get_contents($donePath)));
+            if($out !== '' && $out !== '.' && $out !== '..' && is_file($dir.'/'.$out))
+            {
+                @unlink($dir.'/'.$out);
+                $deleted++;
+            }
+            @unlink($donePath);
+        }
+    } catch (\Throwable $e) {
+        // abaikan
+    }
+
+    @file_put_contents($dir.'/'.$id.'.cancelled', now()->toDateTimeString());
+
+    return response()->json([
+
+        'status'=>true,
+
+        'message'=>'Job dibatalkan total',
+
+        'deleted'=>$deleted
 
     ]);
 

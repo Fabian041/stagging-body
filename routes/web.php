@@ -16,6 +16,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
+use App\Http\Controllers\LeakController;
 use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
 use App\Http\Controllers\GlobalSearchController;
@@ -161,6 +162,25 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/storeDetails', [LoadingListController::class, 'storeDetails'])->name('loadingList.storeDetails');
     });
 
+    // LEAK (monitoring, struktur menu mirip Upload Kanban)
+    Route::get(
+        '/dashboard/leak',
+        [
+            LeakController::class,
+            'index'
+        ]
+    )
+    ->name('dashboard.leak');
+
+    Route::get(
+        '/dashboard/leak/data',
+        [
+            LeakController::class,
+            'data'
+        ]
+    )
+    ->name('dashboard.leak.data');
+
     // UPLOAD KANBAN
     Route::get(
         '/dashboard/kanban/upload',
@@ -199,6 +219,15 @@ Route::middleware(['auth'])->group(function () {
         ]
     )
     ->name('dashboard.kanbanStatus');
+
+    Route::post(
+        '/dashboard/kanban/cancel/{id}',
+        [
+            DashboardController::class,
+            'kanbanCancel'
+        ]
+    )
+    ->name('dashboard.kanbanCancel');
 
     // dashboard
     
