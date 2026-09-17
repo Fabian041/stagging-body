@@ -389,6 +389,11 @@
                 if (doneBtn) doneBtn.classList.toggle('d-none', !show);
             }
 
+            // Tidak ada lagi yang bisa dibatalkan (DONE/timeout/gagal): kunci tombol Cancel.
+            function lockCancel() {
+                if (cancelBtn) cancelBtn.disabled = true;
+            }
+
             function fullReset(msg, kind) {
                 if (pollTimer) {
                     clearInterval(pollTimer);
@@ -641,6 +646,7 @@
                             downloadBox.innerHTML = '<a href="' + st.download + '"' +
                                 ' download class="btn btn-success">' +
                                 '<i class="fas fa-download"></i> Download (' + CUSTOMER + ')</a>';
+                            lockCancel();
                             showDone(true);
                         } else {
                             creepGenerating();
@@ -659,6 +665,7 @@
                                 setStatus(
                                     'Timeout: proses lebih dari ~10 menit. Klik Done untuk reset lalu coba lagi.',
                                     'danger');
+                                lockCancel();
                                 showDone(true);
                             }
                         }
@@ -676,6 +683,7 @@
                             navGuard = false;
                             setStatus('Gagal memantau status job. Klik Done untuk reset lalu coba lagi.',
                                 'danger');
+                            lockCancel();
                             showDone(true);
                         }
                     }

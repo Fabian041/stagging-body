@@ -109,6 +109,13 @@ class MmkiKanbanPdfSplitter
                     // pakai region asal
                 }
 
+                // Potongan tambahan atas 10px (~2.65mm). Ditaruh di sini
+                // (bukan di detector) agar SELALU kena untuk semua region
+                // MMKI, apapun cabang deteksi yang dipakai (box-gap,
+                // box-rect, maupun fallback baris teks).
+                $y += 2.65;
+                $h = max(1.0, $h - 2.65);
+
                 if ($w <= 0 || $h <= 0) {
                     continue;
                 }

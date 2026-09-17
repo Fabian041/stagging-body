@@ -320,7 +320,7 @@ class KanbanRegionDetector
             }
 
             // Ekspansi untuk ascender/descender + border tabel + padding.
-            $expandY = max(8.0, $maxSize * 0.9 + $padPt);
+            $expandY = max(8.0, $maxSize * 0.5 + $padPt);
             $newTopY = min($yTop, $maxY + $expandY);
             $newBottomY = max($yBottom, $minY - $expandY);
 
@@ -469,7 +469,7 @@ class KanbanRegionDetector
      * @param array<int, array{x?:float, y?:float, size?:float, text?:string}> $items
      * @return array<int, int>
      */
-    private function buildInkHistogram(string $content, array $items, float $pageH): array
+    protected function buildInkHistogram(string $content, array $items, float $pageH): array
     {
         $n = max(1, (int) ceil($pageH));
         $ink = array_fill(0, $n + 1, 0);
