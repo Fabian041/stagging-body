@@ -935,7 +935,8 @@
         .allm-line { position: absolute; left: 0; right: 0; height: 0; border-top: 3px solid #DC2626; cursor: ns-resize; touch-action: none; z-index: 5; filter: drop-shadow(0 2px 4px rgba(220,38,38,.5)); }
         .allm-line::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 28px; }
         .allm-line-tag { position: absolute; right: 6px; top: -15px; display: flex; align-items: center; gap: 6px; background: #DC2626; color: #fff; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 6px 3px 10px; white-space: nowrap; }
-        .allm-line-tag button { border: 0; border-radius: 999px; background: #fff; color: #DC2626; font-weight: 900; width: 20px; height: 20px; line-height: 1; cursor: pointer; }
+        .allm-line-tag button { border: 0; border-radius: 999px; background: #fff; color: #DC2626; font-weight: 900; width: 26px; height: 26px; line-height: 1; font-size: 15px; cursor: pointer; touch-action: manipulation; }
+        .allm-line, .allm-line-tag { user-select: none; -webkit-user-select: none; }
         .allm-line.auto { border-top: 3px dashed #F59E0B; cursor: default; filter: drop-shadow(0 2px 4px rgba(245,158,11,.5)); }
         .allm-line-tag.auto { background: #F59E0B; }
         .allm-page.is-master { border-color: #DC2626; box-shadow: 0 0 0 2px rgba(220,38,38,.25); }
@@ -1063,14 +1064,15 @@
                     line.innerHTML = '<span class="allm-line-tag">' + label + '<button type="button" title="Hapus garis">×</button></span>';
                     line.querySelector('button').addEventListener('click', function(ev) {
                         ev.stopPropagation();
-                        if (editingLocked()) { setStatus('Sudah finish. Klik Reset untuk job baru.', 'warning'); return; }
+                        if (editingLocked()) { setStatus(finished ? 'Sudah finish. Klik Reset untuk job baru.' : 'Tunggu proses selesai dulu.', 'warning'); return; }
                         if (isSyncOn() && !isMaster(pg)) { setStatus('Matikan checkbox copy agar bisa edit page ini satuan.', 'warning'); return; }
                         pg.base.splice(baseIdx, 1);
                         renderPageLines(pg); refreshCount();
                         if (isSyncOn() && isMaster(pg)) syncFromMaster();
                     });
-                    // drag hanya untuk garis manual
+                    // drag hanya untuk garis manual (abaikan tekan pada tombol × agar klik hapus sampai)
                     line.addEventListener('pointerdown', function(ev) {
+                        if (ev.target && ev.target.closest && ev.target.closest('button')) return;
                         if (editingLocked()) return;
                         if (isSyncOn() && !isMaster(pg)) return;
                         ev.preventDefault();
@@ -1132,20 +1134,21 @@
                 const pg = { key: key, fileIdx: fileIdx, fileName: fileName, pageNum: pageNum, base: initBase, cuts: [], autoCuts: [], card: card, wrap: wrap, overlay: overlay };
                 pages.push(pg);
                 card.querySelector('.allm-add').addEventListener('click', function() {
-                    if (editingLocked()) { setStatus('Sudah finish. Klik Reset untuk job baru.', 'warning'); return; }
+                    if (editingLocked()) { setStatus(finished ? 'Sudah finish. Klik Reset untuk job baru.' : 'Tunggu proses selesai dulu.', 'warning'); return; }
                     if (isSyncOn() && !isMaster(pg)) { setStatus('Matikan checkbox copy agar bisa edit page ini satuan.', 'warning'); return; }
                     pg.base.push(0.5);
                     renderPageLines(pg); refreshCount();
                     if (isSyncOn() && isMaster(pg)) syncFromMaster();
                 });
                 card.querySelector('.allm-clear').addEventListener('click', function() {
-                    if (editingLocked()) { setStatus('Sudah finish. Klik Reset untuk job baru.', 'warning'); return; }
+                    if (editingLocked()) { setStatus(finished ? 'Sudah finish. Klik Reset untuk job baru.' : 'Tunggu proses selesai dulu.', 'warning'); return; }
                     if (isSyncOn() && !isMaster(pg)) { setStatus('Matikan checkbox copy agar bisa edit page ini satuan.', 'warning'); return; }
                     pg.base = []; renderPageLines(pg); refreshCount();
                     if (isSyncOn() && isMaster(pg)) syncFromMaster();
                 });
                 overlay.addEventListener('dblclick', function(ev) {
                     if (editingLocked()) return;
+                    if (ev.target && ev.target.closest && ev.target.closest('.allm-line')) return;
                     if (isSyncOn() && !isMaster(pg)) return;
                     const r = overlay.getBoundingClientRect();
                     let y = (ev.clientY - r.top) / r.height;
