@@ -5,6 +5,7 @@ window.ValidationPairingFlow = (() => {
         paintingPart: 'expected_painting',
         pairingId: 'validation_pairing_id',
         pairingInterlockEnabled: 'validation_pairing_interlock_enabled',
+        uncompleteMode: 'validation_uncomplete_mode',
         assemblyModel: 'model_assy',
         paintingModel: 'model_painting',
         assemblyQty: 'qty_assy',
@@ -82,7 +83,8 @@ window.ValidationPairingFlow = (() => {
                 assembly_part: session.assemblyPart,
                 painting_part: session.paintingPart,
                 assembly_serials: session.assemblySerials,
-                painting_serials: session.paintingSerials
+                painting_serials: session.paintingSerials,
+                uncomplete: session.uncompleteMode
             })
         });
 
@@ -178,6 +180,10 @@ window.ValidationPairingFlow = (() => {
         return /-dandori$/i.test(String(barcode || '').trim());
     }
 
+    function isUncompleteBarcode(barcode) {
+        return String(barcode || '').trim().toLowerCase() === 'uncomplete';
+    }
+
     function getSession() {
         const assemblyCount = readNumber(keys.assemblyCount);
         const paintingCount = readNumber(keys.paintingCount);
@@ -193,11 +199,13 @@ window.ValidationPairingFlow = (() => {
         const additionalAssemblyNeeded = assemblyQty > 0 && piecesNeededForNextPainting > 0
             ? Math.ceil(piecesNeededForNextPainting / assemblyQty)
             : 0;
+        const uncompleteMode = localStorage.getItem(keys.uncompleteMode) === '1';
 
         return {
             dandori: localStorage.getItem(keys.dandori) || '',
             pairingId: localStorage.getItem(keys.pairingId) || '',
             interlockEnabled: localStorage.getItem(keys.pairingInterlockEnabled) === '1',
+            uncompleteMode,
             assemblyPart: localStorage.getItem(keys.assemblyPart) || '',
             paintingPart: localStorage.getItem(keys.paintingPart) || '',
             assemblyModel: localStorage.getItem(keys.assemblyModel) || '-',
@@ -212,7 +220,9 @@ window.ValidationPairingFlow = (() => {
             paintingPieces,
             targetPainting,
             additionalAssemblyNeeded,
-            isComplete: assemblyCount > 0 && assemblyPieces === paintingPieces
+            isComplete: uncompleteMode
+                ? (assemblyCount === 1 && paintingCount === 1)
+                : (assemblyCount > 0 && assemblyPieces === paintingPieces)
         };
     }
 
@@ -254,30 +264,50 @@ window.ValidationPairingFlow = (() => {
             return;
         }
 
+        const paintingTarget = session.uncompleteMode ? 1 : session.targetPainting;
         $('#model_assy').text(
             `${session.assemblyModel} · ${session.assemblyCount} kanban`
         );
         $('#model_painting').text(
-            `${session.paintingModel} · ${session.paintingCount}/${session.targetPainting} kanban`
+            `${session.paintingModel} · ${session.paintingCount}/${paintingTarget} kanban`
         );
-        const ratioDivisor = greatestCommonDivisor(session.assemblyQty, session.paintingQty);
-        const assemblyKanbanRatio = session.paintingQty / ratioDivisor;
-        const paintingKanbanRatio = session.assemblyQty / ratioDivisor;
 
-        $('#assembly-help').text(
-            `Rasio ${assemblyKanbanRatio} assembly : ${paintingKanbanRatio} painting`
-        );
-        $('#painting-help').text('Target mengikuti jumlah kanban assembly');
+        if (session.uncompleteMode) {
+            $('#assembly-help').text('Mode UNCOMPLETE · abaikan rasio, 1 kanban');
+            $('#painting-help').text('Mode UNCOMPLETE · abaikan rasio, 1 kanban');
+        } else {
+            const ratioDivisor = greatestCommonDivisor(session.assemblyQty, session.paintingQty);
+            const assemblyKanbanRatio = session.paintingQty / ratioDivisor;
+            const paintingKanbanRatio = session.assemblyQty / ratioDivisor;
+
+            $('#assembly-help').text(
+                `Rasio ${assemblyKanbanRatio} assembly : ${paintingKanbanRatio} painting`
+            );
+            $('#painting-help').text('Target mengikuti jumlah kanban assembly');
+        }
+
         $('#finishButton').prop('disabled', !session.isComplete);
 
         if (session.isComplete) {
-            $('#pairing-status').text('Lengkap · Tekan Finish');
+            $('#pairing-status').text(
+                session.uncompleteMode ? 'Uncomplete · Tekan Finish' : 'Lengkap · Tekan Finish'
+            );
             setCardState('.model-card-header', '.model-card', 'success');
             setCardState('.total-scan-card-header', '.total-scan-card', 'success');
         } else if (session.assemblyCount === 0) {
-            $('#pairing-status').text('Scan Kanban Assembly');
+            $('#pairing-status').text(
+                session.uncompleteMode ? 'Uncomplete · Scan 1 Kanban Assembly' : 'Scan Kanban Assembly'
+            );
             setCardState('.model-card-header', '.model-card', 'info');
             setCardState('.total-scan-card-header', '.total-scan-card', 'secondary');
+        } else if (session.uncompleteMode) {
+            $('#pairing-status').text('Uncomplete · Scan 1 Kanban Painting');
+            setCardState('.model-card-header', '.model-card', 'info');
+            setCardState(
+                '.total-scan-card-header',
+                '.total-scan-card',
+                session.paintingCount > 0 ? 'info' : 'secondary'
+            );
         } else {
             const remainingKanban = Math.max(0, session.targetPainting - session.paintingCount);
             if (remainingKanban > 0) {
@@ -355,6 +385,7 @@ window.ValidationPairingFlow = (() => {
             localStorage.setItem(keys.paintingCount, '0');
             localStorage.setItem(keys.assemblySerials, '[]');
             localStorage.setItem(keys.paintingSerials, '[]');
+            localStorage.removeItem(keys.uncompleteMode);
 
             updateDisplay();
             notify('success', 'Dandori Board sesuai master. Silakan scan kanban assembly.');
@@ -363,6 +394,31 @@ window.ValidationPairingFlow = (() => {
             notify('error', 'Gagal mengambil master pairing. Periksa koneksi.');
             playSound('error-connection');
         }
+    }
+
+    function scanUncomplete() {
+        const session = getSession();
+        if (!session.dandori || !session.assemblyPart) {
+            notify('error', 'Scan Dandori Board terlebih dahulu.');
+            playSound('dandori-ng-sound');
+            return;
+        }
+
+        if (session.assemblyCount > 0 || session.paintingCount > 0) {
+            notify('error', 'QR Uncomplete hanya bisa discan sebelum kanban assembly/painting.');
+            playSound('not-match-sound');
+            return;
+        }
+
+        if (session.uncompleteMode) {
+            notify('error', 'Mode uncomplete sudah aktif.');
+            return;
+        }
+
+        localStorage.setItem(keys.uncompleteMode, '1');
+        updateDisplay();
+        notify('success', 'Mode uncomplete aktif. Scan 1 kanban assembly lalu 1 kanban painting.');
+        playSound('ok-sound');
     }
 
     async function scanKanban(barcode) {
@@ -388,6 +444,13 @@ window.ValidationPairingFlow = (() => {
         }
 
         if (scannedPart === normalizePartNumber(session.assemblyPart)) {
+            if (session.uncompleteMode && session.assemblyCount >= 1) {
+                clearSession();
+                notify('error', 'Mode uncomplete: hanya 1 kanban assembly. Ulangi dari scan Dandori Board.', 2500);
+                playSound('wrong-kanban-sound');
+                return;
+            }
+
             if (session.assemblySerials.includes(scannedSerial)) {
                 notify('error', `Serial assembly ${scannedSerial} sudah pernah discan.`);
                 playSound('already-scan-sound');
@@ -413,6 +476,13 @@ window.ValidationPairingFlow = (() => {
                 return;
             }
 
+            if (session.uncompleteMode && session.paintingCount >= 1) {
+                clearSession();
+                notify('error', 'Mode uncomplete: hanya 1 kanban painting. Ulangi dari scan Dandori Board.', 2500);
+                playSound('wrong-kanban-sound');
+                return;
+            }
+
             if (session.paintingSerials.includes(scannedSerial)) {
                 notify('error', `Serial painting ${scannedSerial} sudah pernah discan.`);
                 playSound('already-scan-sound');
@@ -420,7 +490,7 @@ window.ValidationPairingFlow = (() => {
             }
 
             const nextPaintingPieces = (session.paintingCount + 1) * session.paintingQty;
-            if (nextPaintingPieces > session.assemblyPieces) {
+            if (!session.uncompleteMode && nextPaintingPieces > session.assemblyPieces) {
                 notify(
                     'error',
                     `Kanban assembly belum cukup. Scan ${session.additionalAssemblyNeeded} kanban assembly lagi.`
@@ -466,6 +536,8 @@ window.ValidationPairingFlow = (() => {
         try {
             if (isDandoriBarcode(value)) {
                 await scanDandori(value);
+            } else if (isUncompleteBarcode(value)) {
+                scanUncomplete();
             } else {
                 await scanKanban(value);
             }

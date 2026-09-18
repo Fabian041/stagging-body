@@ -21,5 +21,6 @@ class KanbanPairingLog extends Model
         'painting_serial_numbers' => 'array',
         'paired_at' => 'datetime',
         'consumed_at' => 'datetime',
+        'is_uncomplete' => 'boolean',
     ];
 }

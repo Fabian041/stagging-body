@@ -69,6 +69,7 @@ class ValidationController extends Controller
             'assembly_serials.*' => ['required', 'string', 'max:64'],
             'painting_serials' => ['required', 'array', 'min:1'],
             'painting_serials.*' => ['required', 'string', 'max:64'],
+            'uncomplete' => ['sometimes', 'boolean'],
         ]);
 
         $pair = KanbanPairing::findOrFail($validated['pairing_id']);
@@ -102,7 +103,16 @@ class ValidationController extends Controller
             ], 422);
         }
 
-        if (!$this->isValidRatio($pair, count($assemblySerials), count($paintingSerials))) {
+        $isUncomplete = (bool) ($validated['uncomplete'] ?? false);
+
+        if ($isUncomplete) {
+            if (count($assemblySerials) !== 1 || count($paintingSerials) !== 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mode uncomplete hanya menerima 1 kanban assembly dan 1 kanban painting.',
+                ], 422);
+            }
+        } elseif (!$this->isValidRatio($pair, count($assemblySerials), count($paintingSerials))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Jumlah kanban assembly dan painting belum sesuai rasio master.',
@@ -168,6 +178,7 @@ class ValidationController extends Controller
                     'painting_part' => $pair->painting_part,
                     'painting_serial_numbers' => $paintingSerials,
                     'status' => KanbanPairingLog::STATUS_READY,
+                    'is_uncomplete' => $isUncomplete,
                     'paired_by' => auth()->user()->npk ?? 'SYS',
                     'paired_at' => now(),
                 ]);

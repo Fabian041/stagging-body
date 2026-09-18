@@ -245,6 +245,12 @@
             color: #075985;
         }
 
+        .status-uncomplete {
+            background: #fef3c7;
+            color: #92400e;
+            margin-top: 4px;
+        }
+
         .empty-row {
             padding: 28px 12px !important;
             text-align: center;
@@ -378,6 +384,14 @@
                                             <i class="fas fa-industry"></i>
                                             Consumed
                                         </span>
+                                    @endif
+                                    @if ($log->is_uncomplete)
+                                        <div>
+                                            <span class="status-badge status-uncomplete">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Uncomplete
+                                            </span>
+                                        </div>
                                     @endif
                                 </td>
                                 <td>
