@@ -31,6 +31,14 @@
             <span class="sb-item-tooltip">Dashboard</span>
         </a>
 
+        {{-- ── Upload Kanban ── --}}
+        <a class="sb-item {{ request()->routeIs('dashboard.kanbanUpload') ? 'active' : '' }}"
+            href="{{ route('dashboard.kanbanUpload') }}">
+            <i class="fas fa-upload sb-icon"></i>
+            <span class="sb-item-label">Upload Kanban</span>
+            <span class="sb-item-tooltip">Upload Kanban</span>
+        </a>
+
         {{-- ── PPIC ── --}}
         @php
             $ppicActive =
@@ -179,92 +187,94 @@
         @endphp
 
         <div class="sb-item {{ $masterActive ? 'open' : '' }}" data-has-sub>
-            <i class="fas fa-database sb-icon"></i>
-            <span class="sb-item-label">Master Data</span>
-            <i class="fas fa-chevron-right sb-chevron"></i>
-            <span class="sb-item-tooltip">Master Data</span>
-        </div>
-        <div class="sb-submenu">
-            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.lines.*') ? 'active' : '' }}"
-                href="{{ route('dashboard.master.lines.index') }}">
-                <i class="fas fa-industry"></i>
-                Master Line
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.molds.*') ? 'active' : '' }}"
-                href="{{ route('dashboard.master.molds.index') }}">
-                <i class="fas fa-cubes"></i>
-                Mold Injection
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.parts.*') ? 'active' : '' }}"
-                href="{{ route('dashboard.master.parts.index') }}">
-                <i class="fas fa-cog"></i>
-                Part Internal
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.customer-parts.*') ? 'active' : '' }}"
-                href="{{ route('dashboard.master.customer-parts.index') }}">
-                <i class="fas fa-box-open"></i>
-                Part Customer
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
-                href="{{ route('pis.master') }}">
-                <i class="fas fa-database"></i>
-                Master Data PIS
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('pulling.master-alamat-chute*') ? 'active' : '' }}"
-                href="{{ route('pulling.master-alamat-chute') }}">
-                <i class="fas fa-map-marker-alt"></i>
-                Alamat Chute
-            </a>
-        </div>
+            <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
+                <i class="fas fa-database sb-icon"></i>
+                <span class="sb-item-label">Master Data</span>
+                <i class="fas fa-chevron-right sb-chevron"></i>
+                <span class="sb-item-tooltip">Master Data</span>
+            </div>
+            <div class="sb-submenu">
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.lines.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.lines.index') }}">
+                    <i class="fas fa-industry"></i>
+                    Master Line
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.molds.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.molds.index') }}">
+                    <i class="fas fa-cubes"></i>
+                    Mold Injection
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.parts.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.parts.index') }}">
+                    <i class="fas fa-cog"></i>
+                    Part Internal
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.customer-parts.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.customer-parts.index') }}">
+                    <i class="fas fa-box-open"></i>
+                    Part Customer
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
+                    href="{{ route('pis.master') }}">
+                    <i class="fas fa-database"></i>
+                    Master Data PIS
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('pulling.master-alamat-chute*') ? 'active' : '' }}"
+                    href="{{ route('pulling.master-alamat-chute') }}">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Alamat Chute
+                </a>
+            </div>
 
-        <div class="sb-section-label" style="margin-top:6px;">System</div>
+            <div class="sb-section-label" style="margin-top:6px;">System</div>
 
-        <a class="sb-item {{ request()->routeIs('profile.*') ? 'active' : '' }}" href="{{ route('profile.show') }}">
-            <i class="far fa-user sb-icon"></i>
-            <span class="sb-item-label">Profile</span>
-            <span class="sb-item-tooltip">Profile</span>
-        </a>
-
-        <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}"
-            href="{{ route('settings.index') }}">
-            <i class="fas fa-cog sb-icon"></i>
-            <span class="sb-item-label">Settings</span>
-            <span class="sb-item-tooltip">Settings</span>
-        </a>
-
-        @can('manage-device-sessions')
-            <a class="sb-item {{ request()->routeIs('manage-devices.*') ? 'active' : '' }}"
-                href="{{ route('manage-devices.index') }}">
-                <i class="fas fa-barcode sb-icon"></i>
-                <span class="sb-item-label">Manage Device</span>
-                <span class="sb-item-tooltip">Manage Device</span>
+            <a class="sb-item {{ request()->routeIs('profile.*') ? 'active' : '' }}"
+                href="{{ route('profile.show') }}">
+                <i class="far fa-user sb-icon"></i>
+                <span class="sb-item-label">Profile</span>
+                <span class="sb-item-tooltip">Profile</span>
             </a>
-        @endcan
 
-        @can('manage-machine-auth')
-            <a class="sb-item {{ request()->routeIs('machine-auth.*') ? 'active' : '' }}"
-                href="{{ route('machine-auth.index') }}">
-                <i class="fas fa-id-card-alt sb-icon"></i>
-                <span class="sb-item-label">Machine Authorization</span>
-                <span class="sb-item-tooltip">Machine Authorization</span>
+            <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+                href="{{ route('settings.index') }}">
+                <i class="fas fa-cog sb-icon"></i>
+                <span class="sb-item-label">Settings</span>
+                <span class="sb-item-tooltip">Settings</span>
             </a>
-        @endcan
 
-        @if (auth()->check() && auth()->user()->isSuperAdmin())
-            <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}"
-                href="{{ route('manage-users.index') }}">
-                <i class="fas fa-users-cog sb-icon"></i>
-                <span class="sb-item-label">Manage User</span>
-                <span class="sb-item-tooltip">Manage User</span>
+            @can('manage-device-sessions')
+                <a class="sb-item {{ request()->routeIs('manage-devices.*') ? 'active' : '' }}"
+                    href="{{ route('manage-devices.index') }}">
+                    <i class="fas fa-barcode sb-icon"></i>
+                    <span class="sb-item-label">Manage Device</span>
+                    <span class="sb-item-tooltip">Manage Device</span>
+                </a>
+            @endcan
+
+            @can('manage-machine-auth')
+                <a class="sb-item {{ request()->routeIs('machine-auth.*') ? 'active' : '' }}"
+                    href="{{ route('machine-auth.index') }}">
+                    <i class="fas fa-id-card-alt sb-icon"></i>
+                    <span class="sb-item-label">Machine Authorization</span>
+                    <span class="sb-item-tooltip">Machine Authorization</span>
+                </a>
+            @endcan
+
+            @if (auth()->check() && auth()->user()->isSuperAdmin())
+                <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}"
+                    href="{{ route('manage-users.index') }}">
+                    <i class="fas fa-users-cog sb-icon"></i>
+                    <span class="sb-item-label">Manage User</span>
+                    <span class="sb-item-tooltip">Manage User</span>
+                </a>
+            @endif
+
+            {{-- ── Error Log ── --}}
+            <a class="sb-item {{ request()->is('error/log') ? 'active' : '' }}" href="{{ route('error.log') }}">
+                <i class="fas fa-exclamation-circle sb-icon"></i>
+                <span class="sb-item-label">Error Log</span>
+                <span class="sb-item-tooltip">Error Log</span>
             </a>
-        @endif
-
-        {{-- ── Error Log ── --}}
-        <a class="sb-item {{ request()->is('error/log') ? 'active' : '' }}" href="{{ route('error.log') }}">
-            <i class="fas fa-exclamation-circle sb-icon"></i>
-            <span class="sb-item-label">Error Log</span>
-            <span class="sb-item-tooltip">Error Log</span>
-        </a>
 
     </nav>
 
