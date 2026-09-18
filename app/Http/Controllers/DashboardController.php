@@ -2155,7 +2155,7 @@ public function kanbanUploadStatus($id)
 
 
 
-    return response()->json([
+    $payload = [
 
         'status'=>'DONE',
 
@@ -2169,7 +2169,27 @@ public function kanbanUploadStatus($id)
 
             )
 
-    ]);
+    ];
+
+    // Sidecar info khusus job manual (ada = tampilkan, tidak ada = abaikan agar kompatibel).
+    try {
+        $infoPath = storage_path('app/temp-kanban/'.$id.'.info.json');
+        if (is_file($infoPath)) {
+            $info = json_decode((string) @file_get_contents($infoPath), true);
+            if (is_array($info)) {
+                if (isset($info['pages'])) {
+                    $payload['pages'] = (int) $info['pages'];
+                }
+                if (isset($info['skipped_blank'])) {
+                    $payload['skipped_blank'] = (int) $info['skipped_blank'];
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        // abaikan, response DONE tetap valid tanpa info tambahan
+    }
+
+    return response()->json($payload);
 
 }
 
@@ -2238,6 +2258,13 @@ public function kanbanCancel($id)
             }
             @unlink($donePath);
         }
+    } catch (\Throwable $e) {
+        // abaikan
+    }
+
+    // 5) Hapus sidecar info manual bila ada (tidak mengganggu job lama).
+    try {
+        @unlink($dir.'/'.$id.'.info.json');
     } catch (\Throwable $e) {
         // abaikan
     }

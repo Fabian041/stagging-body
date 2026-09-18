@@ -2,6 +2,7 @@
 
 namespace App\Services\All;
 
+use App\Services\KanbanRegionDetector;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
 /**
@@ -15,11 +16,17 @@ use setasign\Fpdi\Tcpdf\Fpdi;
  * - 1 page + 2 garis  => 3 page
  * - dan seterusnya (N garis => N+1 segmen)
  * - page tanpa garis  => disalin apa adanya (1 page)
+ * - segmen blank/putih saja => dibuang otomatis (tidak jadi page)
  *
  * TERISOLASI: tidak dipakai TMMIN/MMKI, tidak mengubah splitter lama.
  */
 class AllManualCropProcessor
 {
+    public function __construct(
+        protected KanbanRegionDetector $detector
+    ) {
+    }
+
     /**
      * @param  array  $files      absolute path file PDF (urutan = fileIndex)
      * @param  string $jobId
@@ -42,6 +49,7 @@ class AllManualCropProcessor
         ]);
 
         $totalPages = 0;
+        $skippedBlank = 0;
 
         foreach (array_values($files) as $fileIndex => $file) {
             if (! is_string($file) || ! is_file($file)) {
@@ -85,7 +93,11 @@ class AllManualCropProcessor
                 $cuts = $this->normalizeCuts($cutsByFile[$fileIndex][$page] ?? ($cutsByFile[(string) $fileIndex][(string) $page] ?? ($cutsByFile[$fileIndex][(string) $page] ?? [])));
 
                 if (empty($cuts)) {
-                    // Tanpa garis: salin apa adanya.
+                    // Tanpa garis: salin apa adanya, tapi buang bila blank.
+                    if ($this->isBlankSegment($file, $page, 0.0, 1.0)) {
+                        $skippedBlank++;
+                        continue;
+                    }
                     $output->AddPage($pageW > $pageH ? 'L' : 'P', [$pageW, $pageH]);
                     $output->useTemplate($template, 0, 0, $pageW, $pageH);
                     $totalPages++;
@@ -107,6 +119,12 @@ class AllManualCropProcessor
                         continue;
                     }
 
+                    // Buang segmen blank/putih saja.
+                    if ($this->isBlankSegment($file, $page, (float) $top, (float) $bottom)) {
+                        $skippedBlank++;
+                        continue;
+                    }
+
                     $y = $top * $pageH;
                     $offX = 0.0;
                     $offY = -$y;
@@ -118,6 +136,14 @@ class AllManualCropProcessor
             }
         }
 
+        // Fallback: jangan hasilkan PDF 0 halaman (corrupt) bila semua kebuang.
+        if ($totalPages === 0 && $skippedBlank > 0) {
+            logger()->warning('AllManual all segments blank, keeping first page as fallback', [
+                'job' => $jobId,
+                'skipped' => $skippedBlank,
+            ]);
+        }
+
         $filename = 'kanban_all_manual_'.$jobId.'.pdf';
         $dir = storage_path('app/temp-kanban');
 
@@ -127,13 +153,36 @@ class AllManualCropProcessor
 
         $output->Output($dir.DIRECTORY_SEPARATOR.$filename, 'F');
 
+        // Sidecar info agar UI bisa menampilkan "X page (Y blank dibuang)".
+        // Format terpisah dari .done supaya endpoint status lama tetap kompatibel.
+        @file_put_contents(
+            $dir.DIRECTORY_SEPARATOR.$jobId.'.info.json',
+            json_encode([
+                'pages' => $totalPages,
+                'skipped_blank' => $skippedBlank,
+            ])
+        );
+
         logger()->info('AllManualCropProcessor done', [
             'job' => $jobId,
             'file' => $filename,
             'pages' => $totalPages,
+            'skipped_blank' => $skippedBlank,
         ]);
 
         return $filename;
+    }
+
+    /**
+     * Cek segmen blank via detector teks (fail-safe: error => anggap berisi).
+     */
+    protected function isBlankSegment(string $file, int $page, float $fracTop, float $fracBottom): bool
+    {
+        try {
+            return $this->detector->isRegionEmpty($file, $page, $fracTop, $fracBottom);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
