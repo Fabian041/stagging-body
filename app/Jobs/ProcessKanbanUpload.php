@@ -5,6 +5,7 @@ namespace App\Jobs;
 
 use App\Services\KanbanPdfProcessor;
 use App\Services\Mmki\MmkiKanbanPdfProcessor;
+use App\Services\All\AllKanbanPdfProcessor;
 
 
 use Illuminate\Bus\Queueable;
@@ -48,7 +49,7 @@ class ProcessKanbanUpload implements ShouldQueue
 
         $customer = strtoupper(trim($customer));
 
-        $this->customer = in_array($customer, ['TMMIN', 'MMKI'], true)
+        $this->customer = in_array($customer, ['TMMIN', 'MMKI', 'ALL'], true)
             ? $customer
             : 'TMMIN';
 
@@ -64,16 +65,21 @@ class ProcessKanbanUpload implements ShouldQueue
 
         MmkiKanbanPdfProcessor $mmkiProcessor,
 
+        AllKanbanPdfProcessor $allProcessor,
+
     )
     {
 
 
         // Form MMKI memakai service sendiri agar split kanban sesuai
         // (layout MMKI dan TMMIN/YMMIN tidak sama).
+        // Form ALL memakai service baru sendiri (hanya crop blank atas/bawah).
 
-        $isMmki = strtoupper(trim($this->customer ?? '')) === 'MMKI';
+        $cust = strtoupper(trim($this->customer ?? ''));
 
-        $processor = $isMmki ? $mmkiProcessor : $tmminProcessor;
+        $processor = $cust === 'ALL'
+            ? $allProcessor
+            : ($cust === 'MMKI' ? $mmkiProcessor : $tmminProcessor);
 
 
         $dir = storage_path('app/temp-kanban');

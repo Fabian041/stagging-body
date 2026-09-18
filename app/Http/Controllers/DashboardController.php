@@ -1960,7 +1960,7 @@ class DashboardController extends Controller
     public function kanbanUpload(Request $request)
     {
         $customer = strtoupper((string) $request->query('customer', 'TMMIN'));
-        if (! in_array($customer, ['TMMIN', 'MMKI'], true)) {
+        if (! in_array($customer, ['TMMIN', 'MMKI', 'ALL'], true)) {
             $customer = 'TMMIN';
         }
 
@@ -1976,13 +1976,13 @@ class DashboardController extends Controller
 
         'files.*'=>'mimes:pdf|max:20480',
 
-        'customer'=>'nullable|in:TMMIN,MMKI'
+        'customer'=>'nullable|in:TMMIN,MMKI,ALL'
 
     ]);
 
 
     $customer = strtoupper((string) $request->input('customer', 'TMMIN'));
-    if (! in_array($customer, ['TMMIN', 'MMKI'], true)) {
+    if (! in_array($customer, ['TMMIN', 'MMKI', 'ALL'], true)) {
         $customer = 'TMMIN';
     }
 
@@ -2054,6 +2054,60 @@ class DashboardController extends Controller
     ]);
 
 }
+
+    /**
+     * Proses MANUAL khusus tab ALL (crop garis merah draggable).
+     * TERISOLASI: tidak mengubah kanbanUploadProcess (TMMIN/MMKI/ALL-auto).
+     */
+    public function kanbanAllManualProcess(Request $request)
+    {
+        $request->validate([
+            'files' => 'required|array|min:1',
+            'files.*' => 'mimes:pdf|max:20480',
+            'cuts' => 'nullable|string',
+        ]);
+
+        $cuts = [];
+        if ($request->filled('cuts')) {
+            try {
+                $decoded = json_decode((string) $request->input('cuts'), true);
+                if (is_array($decoded)) {
+                    $cuts = $decoded;
+                }
+            } catch (\Throwable $e) {
+                $cuts = [];
+            }
+        }
+
+        $jobId = (string) Str::uuid();
+        $paths = [];
+        $basenames = [];
+
+        foreach ($request->file('files') as $file) {
+            $path = $file->store('temp-kanban');
+            $paths[] = storage_path('app/'.$path);
+            $basenames[] = basename($path);
+        }
+
+        @file_put_contents(
+            storage_path('app/temp-kanban/'.$jobId.'.meta.json'),
+            json_encode([
+                'customer' => 'ALL-MANUAL',
+                'files' => array_values($basenames),
+                'cuts' => $cuts,
+                'created_at' => now()->toDateTimeString(),
+            ])
+        );
+
+        \App\Jobs\ProcessAllManualCrop::dispatch($paths, $jobId, $cuts);
+
+        return response()->json([
+            'status' => true,
+            'job_id' => $jobId,
+            'customer' => 'ALL',
+            'message' => 'PDF manual crop started',
+        ]);
+    }
 
 public function kanbanUploadStatus($id)
 {

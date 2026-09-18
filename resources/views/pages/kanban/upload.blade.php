@@ -3,14 +3,18 @@
 @section('main')
     @php
         $customer = strtoupper($customer ?? request()->query('customer', 'TMMIN'));
-        if (!in_array($customer, ['TMMIN', 'MMKI'], true)) {
+        if (!in_array($customer, ['TMMIN', 'MMKI', 'ALL'], true)) {
             $customer = 'TMMIN';
         }
         $isTmmin = $customer === 'TMMIN';
-        $customerTitle = $isTmmin ? 'TMMIN' : 'MMKI';
+        $isMmki = $customer === 'MMKI';
+        $isAll = $customer === 'ALL';
+        $customerTitle = $customer;
         $customerSub = $isTmmin
             ? 'PT. Toyota Motor Manufacturing Indonesia'
-            : 'PT. Mitsubishi Motors Krama Yudha Indonesia';
+            : ($isMmki
+                ? 'PT. Mitsubishi Motors Krama Yudha Indonesia'
+                : 'Semua customer — auto crop blank space atas & bawah');
     @endphp
 
     <style>
@@ -27,7 +31,7 @@
 
     <div class="container-fluid">
 
-        {{-- NAV customer (statis: TMMIN & MMKI). Form sama, header beda. --}}
+        {{-- NAV customer (statis: TMMIN, MMKI & ALL). Form sama, header beda. --}}
         <ul class="nav nav-pills mb-3" id="customerNav">
             <li class="nav-item">
                 <a class="nav-link {{ $isTmmin ? 'active' : '' }}"
@@ -37,9 +41,16 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ !$isTmmin ? 'active' : '' }}"
+                <a class="nav-link {{ $isMmki ? 'active' : '' }}"
                     href="{{ route('dashboard.kanbanUpload', ['customer' => 'MMKI']) }}">
                     <i class="fas fa-industry"></i> MMKI
+
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ $isAll ? 'active' : '' }}"
+                    href="{{ route('dashboard.kanbanUpload', ['customer' => 'ALL']) }}">
+                    <i class="fas fa-layer-group"></i> ALL
 
                 </a>
             </li>
@@ -137,6 +148,72 @@
 
             </div>
         </div>
+
+        {{-- ===== ALL MANUAL CROP (TERISOLASI: hanya render saat customer=ALL) ===== --}}
+        @if($isAll)
+        <div class="card mt-3" id="allManualCard">
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap" style="gap:10px;">
+                <div>
+                    <h4 class="mb-0"><i class="fas fa-cut text-danger"></i> Manual Crop — Garis Merah (ALL)</h4>
+                    <small class="text-muted">Upload PDF &gt; preview di bawah &gt; drag garis merah naik/turun &gt; Process. 1 garis = 2 page, 2 garis = 3 page.</small>
+                </div>
+                <span class="badge badge-danger" id="allManualCount">0 garis</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Cara pakai (rule baru):</strong>
+                    default <strong>2 garis</strong> per page. Atur 2 garis itu, garis ke-3 dst otomatis ke bawah dengan jarak = jarak garis 1 → garis 2. Semua page ikut page 1.
+                    <ul class="mb-0 mt-1">
+                        <li><strong>Drag</strong> 2 garis merah utama ke atas / bawah.</li>
+                        <li>Garis <strong>otomatis (orange putus-putus)</strong> muncul lanjut ke bawah mengikuti jaraknya.</li>
+                        <li>Page 2 dst = copy page 1 (bisa dimatikan via checkbox).</li>
+                        <li>Klik <strong>Process Manual</strong> untuk crop. 1 garis = 2 page, 2 garis = 3 page, dst.</li>
+                    </ul>
+                </div>
+                <div class="d-flex flex-wrap mb-3" style="gap:16px;">
+                    <label class="mb-0" style="font-size:13px;font-weight:700;">
+                        <input type="checkbox" id="allManualSyncChk" checked> Copy garis page 1 ke semua page
+                    </label>
+                    <label class="mb-0" style="font-size:13px;font-weight:700;">
+                        <input type="checkbox" id="allManualAutoChk" checked> Auto-lanjutkan garis ke bawah
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Pilih PDF untuk preview manual</label>
+                    <div class="d-flex align-items-center flex-wrap" style="gap:10px;">
+                        <input type="file" id="allManualFilesInput" multiple accept="application/pdf,.pdf" class="form-control" style="max-width:420px;">
+                        <button id="allManualResetPreviewBtn" class="btn btn-outline-secondary btn-sm" type="button">
+                            <i class="fas fa-redo"></i> Reset Preview
+                        </button>
+                    </div>
+                    <small class="text-muted">Bisa juga pilih lewat form atas — file otomatis ikut masuk preview.</small>
+                </div>
+                <div id="allManualEmpty"><small class="text-muted">Belum ada preview. Pilih PDF dulu.</small></div>
+                <div id="allManualList"></div>
+                <div class="progress mb-3 d-none" id="allManualProgressWrap" style="height:22px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" id="allManualProgressBar" role="progressbar" style="width:0%">0%</div>
+                </div>
+                <div class="action-row">
+                    <div class="action-left">
+                        <button id="allManualProcessBtn" class="btn btn-danger btn-equal" type="button">
+                            <i class="fas fa-cut"></i> Process Manual
+                        </button>
+                        <button id="allManualCancelBtn" class="btn btn-outline-danger btn-equal" type="button" disabled>
+                            <i class="fas fa-ban"></i> Cancel Manual
+                        </button>
+                    </div>
+                    <div class="action-right">
+                        <span id="allManualDownload"></span>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="alert alert-secondary mb-0" id="allManualStatusBox">
+                        <strong>Status manual:</strong> <span id="allManualStatusText">Siap.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
 
     </div>
 
@@ -850,4 +927,424 @@
             });
         })();
     </script>
+
+    {{-- ===== ALL MANUAL CROP assets (TERISOLASI, hanya di tab ALL) ===== --}}
+    @if($isAll)
+    <style>
+        #allManualList { display: flex; flex-direction: column; gap: 16px; }
+        .allm-page { border: 1px solid #F3B4B4; border-radius: 14px; overflow: hidden; background: #FFF7F7; }
+        .allm-page-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: #FEE2E2; border-bottom: 1px solid #F3B4B4; font-size: 13px; font-weight: 800; color: #7F1D1D; }
+        .allm-page-head .btn { min-width: 0; }
+        .allm-canvas-wrap { position: relative; margin: 12px auto; width: fit-content; max-width: 100%; box-shadow: 0 10px 28px rgba(220,38,38,.14); background: #fff; }
+        .allm-canvas-wrap canvas { display: block; max-width: 100%; height: auto; }
+        .allm-overlay { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+        .allm-line { position: absolute; left: 0; right: 0; height: 0; border-top: 3px solid #DC2626; cursor: ns-resize; touch-action: none; z-index: 5; filter: drop-shadow(0 2px 4px rgba(220,38,38,.5)); }
+        .allm-line::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; height: 28px; }
+        .allm-line-tag { position: absolute; right: 6px; top: -15px; display: flex; align-items: center; gap: 6px; background: #DC2626; color: #fff; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 6px 3px 10px; white-space: nowrap; }
+        .allm-line-tag button { border: 0; border-radius: 999px; background: #fff; color: #DC2626; font-weight: 900; width: 20px; height: 20px; line-height: 1; cursor: pointer; }
+        .allm-line.auto { border-top: 3px dashed #F59E0B; cursor: default; filter: drop-shadow(0 2px 4px rgba(245,158,11,.5)); }
+        .allm-line-tag.auto { background: #F59E0B; }
+        .allm-page.is-master { border-color: #DC2626; box-shadow: 0 0 0 2px rgba(220,38,38,.25); }
+        .allm-page.is-locked .allm-overlay { cursor: not-allowed; }
+        .allm-master-badge { background: #DC2626; color: #fff; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 10px; }
+        .allm-lock-badge { background: #6B7A99; color: #fff; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 10px; }
+        .allm-seg-hint { position: absolute; left: 6px; background: rgba(26,35,64,.72); color: #fff; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 2px 8px; pointer-events: none; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        (function() {
+            if (!document.getElementById('allManualCard')) return;
+            if (window.pdfjsLib) {
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) {}
+            }
+            const filesInput = document.getElementById('files');
+            const listEl = document.getElementById('allManualList');
+            const emptyEl = document.getElementById('allManualEmpty');
+            const countEl = document.getElementById('allManualCount');
+            const processBtn = document.getElementById('allManualProcessBtn');
+            const cancelBtn = document.getElementById('allManualCancelBtn');
+            const statusText = document.getElementById('allManualStatusText');
+            const statusBox = document.getElementById('allManualStatusBox');
+            const progressWrap = document.getElementById('allManualProgressWrap');
+            const progressBar = document.getElementById('allManualProgressBar');
+            const downloadBox = document.getElementById('allManualDownload');
+            const PROCESS_URL = "{{ route('dashboard.kanbanAllManualProcess') }}";
+
+            let allFiles = []; // File[]
+            let pages = [];    // {key,fileIdx,fileName,pageNum,cuts:[],wrap,overlay}
+            let busy = false, pollTimer = null, currentJobId = null, currentXhr = null;
+
+            function setStatus(msg, kind) {
+                statusText.innerHTML = msg;
+                statusBox.className = 'alert mb-0 alert-' + (kind || 'secondary');
+            }
+            function setProgress(p) {
+                const v = Math.max(0, Math.min(100, Math.round(p)));
+                progressBar.style.width = v + '%';
+                progressBar.textContent = v + '%';
+            }
+            function refreshCount() {
+                let garis = 0, hasil = 0;
+                pages.forEach(function(p) { garis += p.cuts.length; hasil += (p.cuts.length + 1); });
+                if (countEl) countEl.textContent = garis + ' garis → ' + hasil + ' page hasil';
+            }
+            function fileKey(f) { return f.name + '|' + f.size + '|' + f.lastModified; }
+            function isSyncOn() { const c = document.getElementById('allManualSyncChk'); return c ? c.checked : true; }
+            function isAutoOn() { const c = document.getElementById('allManualAutoChk'); return c ? c.checked : true; }
+            function isMaster(pg) { return pages.length > 0 && pages[0] === pg; }
+
+            // Normalisasi base: filter tepi, urut, dedup rapat.
+            function normBase(raw) {
+                const arr = (raw || []).map(Number).filter(function(v) { return v > 0.02 && v < 0.98; });
+                arr.sort(function(a, b) { return a - b; });
+                const out = [];
+                arr.forEach(function(v) {
+                    if (!out.length || Math.abs(v - out[out.length - 1]) >= 0.03) out.push(v);
+                });
+                return out;
+            }
+
+            // Hitung garis final: base + auto-tiling dari jarak base[0] -> base[1].
+            function computeFinal(base) {
+                const b = normBase(base);
+                const final = b.slice();
+                const auto = [];
+                if (isAutoOn() && b.length >= 2) {
+                    const d = b[1] - b[0];
+                    if (d >= 0.03) {
+                        let next = b[1] + d;
+                        let guard = 0;
+                        while (next < 0.98 && guard < 30) {
+                            const last = final[final.length - 1];
+                            if (Math.abs(next - last) >= 0.025) { final.push(next); auto.push(next); }
+                            next += d;
+                            guard++;
+                        }
+                    }
+                }
+                final.sort(function(a, c) { return a - c; });
+                return { final: final, auto: auto, base: b };
+            }
+
+            function syncFromMaster() {
+                if (!isSyncOn() || pages.length < 2) return;
+                const masterBase = (pages[0].base || []).slice();
+                for (let i = 1; i < pages.length; i++) {
+                    pages[i].base = masterBase.slice();
+                    renderPageLines(pages[i], true);
+                }
+                refreshCount();
+            }
+
+            function renderPageLines(pg, skipSync) {
+                pg.base = normBase(pg.base);
+                const comp = computeFinal(pg.base);
+                pg.base = comp.base;
+                pg.cuts = comp.final;
+                pg.autoCuts = comp.auto;
+                const autoSet = {};
+                comp.auto.forEach(function(v) { autoSet[v.toFixed(4)] = true; });
+                pg.overlay.querySelectorAll('.allm-line,.allm-seg-hint').forEach(function(n) { n.remove(); });
+                // tandai master / locked
+                if (pg.card) {
+                    pg.card.classList.toggle('is-master', isMaster(pg));
+                    pg.card.classList.toggle('is-locked', isSyncOn() && !isMaster(pg));
+                    const badge = pg.card.querySelector('.allm-sync-badge');
+                    if (badge) badge.innerHTML = isMaster(pg) ? '<span class="allm-master-badge">MASTER</span>' : (isSyncOn() ? '<span class="allm-lock-badge">ikut page 1</span>' : '');
+                }
+                pg.cuts.forEach(function(frac) {
+                    const isAuto = !!autoSet[frac.toFixed(4)];
+                    const baseIdx = comp.base.findIndex(function(v) { return Math.abs(v - frac) < 0.0005; });
+                    const line = document.createElement('div');
+                    line.className = 'allm-line' + (isAuto ? ' auto' : '');
+                    line.style.top = (frac * 100) + '%';
+                    if (isAuto) {
+                        line.innerHTML = '<span class="allm-line-tag auto">auto — ' + Math.round(frac * 100) + '%</span>';
+                        pg.overlay.appendChild(line);
+                        return;
+                    }
+                    const label = '✥ garis ' + (baseIdx + 1) + ' — ' + Math.round(frac * 100) + '% ';
+                    line.innerHTML = '<span class="allm-line-tag">' + label + '<button type="button" title="Hapus garis">×</button></span>';
+                    line.querySelector('button').addEventListener('click', function(ev) {
+                        ev.stopPropagation();
+                        if (isSyncOn() && !isMaster(pg)) { setStatus('Matikan checkbox copy agar bisa edit page ini satuan.', 'warning'); return; }
+                        pg.base.splice(baseIdx, 1);
+                        renderPageLines(pg); refreshCount();
+                        if (isSyncOn() && isMaster(pg)) syncFromMaster();
+                    });
+                    // drag hanya untuk garis manual
+                    line.addEventListener('pointerdown', function(ev) {
+                        if (isSyncOn() && !isMaster(pg)) return;
+                        ev.preventDefault();
+                        try { line.setPointerCapture(ev.pointerId); } catch (e) {}
+                        const myIdx = baseIdx;
+                        const move = function(e2) {
+                            const r = pg.overlay.getBoundingClientRect();
+                            let y = (e2.clientY - r.top) / r.height;
+                            y = Math.max(0.02, Math.min(0.98, y));
+                            pg.base[myIdx] = y;
+                            line.style.top = (y * 100) + '%';
+                            const tag = line.querySelector('.allm-line-tag');
+                            if (tag) tag.childNodes[0].textContent = '✥ garis ' + (myIdx + 1) + ' — ' + Math.round(y * 100) + '% ';
+                        };
+                        const up = function() {
+                            line.removeEventListener('pointermove', move);
+                            line.removeEventListener('pointerup', up);
+                            line.removeEventListener('pointercancel', up);
+                            renderPageLines(pg); refreshCount();
+                            if (isSyncOn() && isMaster(pg)) syncFromMaster();
+                        };
+                        line.addEventListener('pointermove', move);
+                        line.addEventListener('pointerup', up);
+                        line.addEventListener('pointercancel', up);
+                    });
+                    pg.overlay.appendChild(line);
+                });
+                // hint segmen hasil
+                const bounds = [0].concat(pg.cuts).concat([1]);
+                for (let i = 0; i < bounds.length - 1; i++) {
+                    const mid = (bounds[i] + bounds[i + 1]) / 2;
+                    const hint = document.createElement('div');
+                    hint.className = 'allm-seg-hint';
+                    hint.style.top = 'calc(' + (mid * 100) + '% - 10px)';
+                    hint.textContent = 'hasil ' + (i + 1);
+                    pg.overlay.appendChild(hint);
+                }
+            }
+
+            function addPageDom(fileIdx, fileName, pageNum, canvas) {
+                const key = fileIdx + ':' + pageNum;
+                const card = document.createElement('div');
+                card.className = 'allm-page';
+                card.innerHTML = '<div class="allm-page-head"><span></span><span class="allm-sync-badge"></span><span style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                    '<button type="button" class="btn btn-sm btn-danger allm-add">+ Garis tengah</button>' +
+                    '<button type="button" class="btn btn-sm btn-outline-danger allm-clear">Clear</button></span></div>';
+                card.querySelector('span').textContent = fileName + ' — hal ' + pageNum;
+                const wrap = document.createElement('div');
+                wrap.className = 'allm-canvas-wrap';
+                wrap.appendChild(canvas);
+                const overlay = document.createElement('div');
+                overlay.className = 'allm-overlay';
+                wrap.appendChild(overlay);
+                card.appendChild(wrap);
+                listEl.appendChild(card);
+                // Default 2 garis; page 2+ copy posisi page 1.
+                let initBase = [1 / 3, 2 / 3];
+                if (isSyncOn() && pages.length > 0) initBase = (pages[0].base || [1 / 3, 2 / 3]).slice();
+                const pg = { key: key, fileIdx: fileIdx, fileName: fileName, pageNum: pageNum, base: initBase, cuts: [], autoCuts: [], card: card, wrap: wrap, overlay: overlay };
+                pages.push(pg);
+                card.querySelector('.allm-add').addEventListener('click', function() {
+                    if (isSyncOn() && !isMaster(pg)) { setStatus('Matikan checkbox copy agar bisa edit page ini satuan.', 'warning'); return; }
+                    pg.base.push(0.5);
+                    renderPageLines(pg); refreshCount();
+                    if (isSyncOn() && isMaster(pg)) syncFromMaster();
+                });
+                card.querySelector('.allm-clear').addEventListener('click', function() {
+                    if (isSyncOn() && !isMaster(pg)) { setStatus('Matikan checkbox copy agar bisa edit page ini satuan.', 'warning'); return; }
+                    pg.base = []; renderPageLines(pg); refreshCount();
+                    if (isSyncOn() && isMaster(pg)) syncFromMaster();
+                });
+                overlay.addEventListener('dblclick', function(ev) {
+                    if (isSyncOn() && !isMaster(pg)) return;
+                    const r = overlay.getBoundingClientRect();
+                    let y = (ev.clientY - r.top) / r.height;
+                    y = Math.max(0.02, Math.min(0.98, y));
+                    pg.base.push(y);
+                    renderPageLines(pg); refreshCount();
+                    if (isSyncOn() && isMaster(pg)) syncFromMaster();
+                });
+                renderPageLines(pg);
+                if (emptyEl) emptyEl.style.display = 'none';
+                refreshCount();
+                return pg;
+            }
+
+            async function previewFile(file, fileIdx) {
+                if (!window.pdfjsLib) { setStatus('pdf.js gagal dimuat (CDN). Cek internet lalu pilih ulang file.', 'danger'); return; }
+                try {
+                    const buf = await file.arrayBuffer();
+                    const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+                    for (let n = 1; n <= pdf.numPages; n++) {
+                        try {
+                            const page = await pdf.getPage(n);
+                            const viewport = page.getViewport({ scale: 1.3 });
+                            const canvas = document.createElement('canvas');
+                            canvas.width = Math.floor(viewport.width);
+                            canvas.height = Math.floor(viewport.height);
+                            const ctx = canvas.getContext('2d');
+                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                            addPageDom(fileIdx, file.name, n, canvas);
+                        } catch (e) { console.error(e); }
+                    }
+                    setStatus(allFiles.length + ' file, ' + pages.length + ' halaman di-preview. Atur garis merah lalu klik Process Manual.', 'info');
+                } catch (e) {
+                    console.error(e);
+                    setStatus('Gagal preview ' + file.name + ': ' + (e.message || e), 'danger');
+                }
+            }
+
+            function addIncomingFiles(incoming) {
+                (incoming || []).forEach(function(f) {
+                    if (!/\.pdf$/i.test(f.name)) return;
+                    const k = fileKey(f);
+                    const dup = allFiles.some(function(e) { return fileKey(e) === k; });
+                    if (!dup) {
+                        allFiles.push(f);
+                        const idx = allFiles.length - 1;
+                        previewFile(f, idx);
+                    }
+                });
+            }
+
+            // Input khusus manual (utama, terisolasi dari flow lama).
+            const manualInput = document.getElementById('allManualFilesInput');
+            if (manualInput) manualInput.addEventListener('change', function() {
+                addIncomingFiles(Array.from(manualInput.files || []));
+                manualInput.value = '';
+            });
+
+            // Fallback: tangkap file dari input atas SEBELUM script lama mengosongkannya.
+            // Dipasang di document capture-phase agar jalan duluan.
+            document.addEventListener('change', function(e) {
+                if (e && e.target && e.target.id === 'files') {
+                    try { addIncomingFiles(Array.from(e.target.files || [])); } catch (err) {}
+                }
+            }, true);
+
+            const resetPreviewBtn = document.getElementById('allManualResetPreviewBtn');
+            if (resetPreviewBtn) resetPreviewBtn.addEventListener('click', function() {
+                if (busy) return;
+                allFiles = []; pages = [];
+                listEl.innerHTML = '';
+                if (emptyEl) emptyEl.style.display = '';
+                downloadBox.innerHTML = '';
+                refreshCount();
+                setStatus('Preview direset. Pilih PDF lagi.', 'secondary');
+            });
+
+            const syncChk = document.getElementById('allManualSyncChk');
+            if (syncChk) syncChk.addEventListener('change', function() {
+                pages.forEach(function(pg) { renderPageLines(pg, true); });
+                if (syncChk.checked) syncFromMaster();
+                else pages.forEach(function(pg) { renderPageLines(pg, true); });
+                refreshCount();
+            });
+            const autoChk = document.getElementById('allManualAutoChk');
+            if (autoChk) autoChk.addEventListener('change', function() {
+                pages.forEach(function(pg) { renderPageLines(pg, true); });
+                if (isSyncOn()) syncFromMaster();
+                refreshCount();
+            });
+
+            function buildCuts() {
+                const out = {};
+                pages.forEach(function(pg) {
+                    if (!pg.cuts.length) return;
+                    if (!out[pg.fileIdx]) out[pg.fileIdx] = {};
+                    out[pg.fileIdx][pg.pageNum] = pg.cuts.slice().sort(function(a,b){return a-b;});
+                });
+                return out;
+            }
+
+            function pollStatus(jobId) {
+                let attempts = 0;
+                pollTimer = setInterval(async function() {
+                    attempts++;
+                    try {
+                        const res = await fetch('/dashboard/kanban/status/' + jobId);
+                        const st = await res.json();
+                        if (st.status === 'CANCELLED') {
+                            clearInterval(pollTimer); pollTimer = null; busy = false;
+                            processBtn.disabled = false; cancelBtn.disabled = true;
+                            setStatus('Dibatalkan.', 'warning');
+                        } else if (st.status === 'DONE') {
+                            clearInterval(pollTimer); pollTimer = null; busy = false;
+                            processBtn.disabled = false; cancelBtn.disabled = true;
+                            setProgress(100);
+                            setStatus('Selesai (ALL manual). File siap diunduh.', 'success');
+                            downloadBox.innerHTML = '<a href="' + st.download + '" download class="btn btn-success"><i class="fas fa-download"></i> Download (ALL manual)</a>';
+                        } else {
+                            const cur = parseFloat(progressBar.style.width) || 35;
+                            if (cur < 95) setProgress(cur + (95 - cur) * 0.06);
+                            setStatus('Generating manual... job <code>' + jobId + '</code> · cek ke-' + attempts, 'info');
+                            if (attempts >= 240) {
+                                clearInterval(pollTimer); pollTimer = null; busy = false;
+                                processBtn.disabled = false; cancelBtn.disabled = true;
+                                setStatus('Timeout ~10 menit.', 'danger');
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                }, 2500);
+            }
+
+            if (processBtn) processBtn.addEventListener('click', function() {
+                if (busy) return;
+                if (allFiles.length === 0) { alert('Pilih PDF dulu di form atas.'); return; }
+                const cuts = buildCuts();
+                const fd = new FormData();
+                allFiles.forEach(function(f) { fd.append('files[]', f); });
+                fd.append('cuts', JSON.stringify(cuts));
+                fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                busy = true; processBtn.disabled = true; cancelBtn.disabled = false;
+                downloadBox.innerHTML = '';
+                progressWrap.classList.remove('d-none');
+                setProgress(5);
+                setStatus('Step 1/2 — Uploading manual (ALL)...', 'info');
+                const xhr = new XMLHttpRequest();
+                currentXhr = xhr;
+                xhr.open('POST', PROCESS_URL, true);
+                xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                xhr.setRequestHeader('Accept', 'application/json');
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) setProgress(Math.round(e.loaded / e.total * 30));
+                });
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    currentXhr = null;
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        let r = null;
+                        try { r = JSON.parse(xhr.responseText); } catch (e) {}
+                        if (r && r.job_id) {
+                            currentJobId = r.job_id;
+                            setProgress(35);
+                            setStatus('Step 2/2 — Generating manual...', 'info');
+                            pollStatus(r.job_id);
+                        } else {
+                            busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                            setStatus('Response tidak valid.', 'danger');
+                        }
+                    } else {
+                        let msg = 'Upload gagal (HTTP ' + xhr.status + ').';
+                        try { const j = JSON.parse(xhr.responseText); if (j.message) msg += ' ' + j.message; } catch (e) {}
+                        busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                        setStatus(msg, 'danger');
+                    }
+                };
+                xhr.onerror = function() {
+                    busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                    setStatus('System error saat uploading manual.', 'danger');
+                };
+                xhr.send(fd);
+            });
+
+            if (cancelBtn) cancelBtn.addEventListener('click', async function() {
+                if (!busy) return;
+                if (!confirm('Batalkan proses manual ini?')) return;
+                if (currentXhr) { try { currentXhr.abort(); } catch (e) {} currentXhr = null; }
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                if (currentJobId) {
+                    try {
+                        await fetch('/dashboard/kanban/cancel/' + currentJobId, {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' }
+                        });
+                    } catch (e) {}
+                    currentJobId = null;
+                }
+                busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                setStatus('Dibatalkan.', 'warning');
+            });
+        })();
+    </script>
+    @endif
 @endsection

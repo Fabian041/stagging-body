@@ -202,6 +202,16 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.kanbanUploadProcess');
 
+    // ALL manual crop (garis merah draggable) — TERISOLASI, tidak dipakai TMMIN/MMKI.
+    Route::post(
+        '/dashboard/kanban/all/process-manual',
+        [
+            DashboardController::class,
+            'kanbanAllManualProcess'
+        ]
+    )
+    ->name('dashboard.kanbanAllManualProcess');
+
     Route::get(
         '/dashboard/kanban/download/{file}',
         [
