@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-                 * BELLA DESIGN SYSTEM — Shell overrides for this page
-                 * =================================================== */
+                                 * BELLA DESIGN SYSTEM — Shell overrides for this page
+                                 * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -48,6 +48,31 @@
             gap: 4px;
         }
 
+        .delivery-sync-control {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            margin-left: auto;
+            padding-left: 14px;
+            border-left: 1px solid var(--border);
+        }
+
+        .delivery-last-sync {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 8px;
+            color: #29704a;
+            font-size: 10.5px;
+            font-weight: 600;
+        }
+
+        .delivery-last-sync.is-empty {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
         .bella-filter-label {
             font-size: 10.5px;
             font-weight: 700;
@@ -76,6 +101,238 @@
             border-color: var(--sky);
             background: #fff;
             box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
+        }
+
+        /* ── Delivery sync loader ── */
+        .delivery-sync-popup {
+            position: relative !important;
+            width: min(420px, calc(100vw - 32px)) !important;
+            padding: 22px 24px 22px !important;
+            border: 1px solid rgba(255, 255, 255, .7) !important;
+            border-radius: 20px !important;
+            background: #fff !important;
+            box-shadow: 0 24px 70px rgba(8, 32, 56, .26) !important;
+            overflow: hidden !important;
+        }
+
+        .delivery-sync-popup::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy), var(--sky));
+        }
+
+        .delivery-sync-html {
+            margin: 0 !important;
+        }
+
+        /* Scene truk */
+        .delivery-sync-scene {
+            margin: 4px 0 16px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #eef6fd, #dfeaf6);
+            overflow: hidden;
+        }
+
+        .delivery-sync-scene svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .dst-body {
+            animation: dstBob 1.1s ease-in-out infinite;
+        }
+
+        .dst-wheel {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: dstSpin .85s linear infinite;
+        }
+
+        .dst-dash {
+            animation: dstDash .5s linear infinite;
+        }
+
+        .dst-bush {
+            animation: dstRun 2.4s linear infinite;
+        }
+
+        .dst-bush.b {
+            animation-delay: -1.2s;
+        }
+
+        .dst-puff {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: dstPuff 1.6s ease-out infinite;
+        }
+
+        .dst-puff.b {
+            animation-delay: -.8s;
+        }
+
+        @keyframes dstBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        @keyframes dstSpin { to { transform: rotate(360deg); } }
+        @keyframes dstDash { to { stroke-dashoffset: -34; } }
+        @keyframes dstRun { from { transform: translateX(330px); } to { transform: translateX(-70px); } }
+        @keyframes dstPuff { 0% { transform: translate(0, 0) scale(.6); opacity: .45; } 100% { transform: translate(-18px, -13px) scale(1.6); opacity: 0; } }
+
+        .delivery-sync-title {
+            margin-bottom: 6px;
+            color: var(--navy);
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+
+        .delivery-sync-copy {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .delivery-sync-date {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 5px 11px;
+            border: 1px solid rgba(0, 151, 216, .18);
+            border-radius: 99px;
+            color: var(--navy);
+            background: rgba(0, 151, 216, .07);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .delivery-sync-progress {
+            position: relative;
+            height: 4px;
+            border-radius: 99px;
+            background: rgba(13, 54, 92, .08);
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .delivery-sync-progress::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            border-radius: inherit;
+            background: var(--sky);
+            animation: dstProgress 1.25s ease-in-out infinite;
+        }
+
+        @keyframes dstProgress { 0% { left: -40%; } 100% { left: 100%; } }
+
+        .delivery-sync-result-popup {
+            width: min(680px, calc(100vw - 32px)) !important;
+        }
+
+        .delivery-sync-result-copy {
+            margin: 0 0 14px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .delivery-sync-notes {
+            border: 1px solid #f3d7a5;
+            border-radius: 12px;
+            background: #fffaf0;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .delivery-sync-notes summary {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 12px 14px;
+            color: #744b08;
+            cursor: pointer;
+            list-style: none;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .delivery-sync-notes summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .delivery-sync-notes summary::after {
+            content: '';
+            flex: 0 0 auto;
+            width: 8px;
+            height: 8px;
+            margin: -4px 3px 0 1px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(45deg);
+            transition: transform .18s ease;
+        }
+
+        .delivery-sync-notes[open] summary::after {
+            transform: rotate(225deg);
+        }
+
+        .delivery-sync-notes-count {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 99px;
+            color: #9a5a00;
+            background: #ffedc7;
+            font-size: 11px;
+        }
+
+        .delivery-sync-notes-list {
+            max-height: 320px;
+            padding: 0 12px 12px;
+            border-top: 1px solid #f3d7a5;
+            overflow-y: auto;
+        }
+
+        .delivery-sync-note-item {
+            padding: 11px 2px;
+            border-bottom: 1px solid #f2e8d4;
+        }
+
+        .delivery-sync-note-item:last-child {
+            border-bottom: 0;
+        }
+
+        .delivery-sync-note-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--navy);
+            font-size: 12px;
+        }
+
+        .delivery-sync-note-reason {
+            color: #98600a;
+            font-size: 11px;
+            text-align: right;
+        }
+
+        .delivery-sync-note-parts {
+            margin-top: 5px;
+            color: var(--text-muted);
+            font-size: 11px;
+            word-break: break-word;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dst-body,
+            .dst-wheel,
+            .dst-dash,
+            .dst-bush,
+            .dst-puff,
+            .delivery-sync-progress::after { animation: none !important; }
         }
 
         /* ── Page header card ── */
@@ -366,8 +623,8 @@
         }
 
         /* ====================================================
-                 * GANTT CHART — kept exactly as original, do not touch
-                 * ==================================================== */
+                                 * GANTT CHART — kept exactly as original, do not touch
+                                 * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -786,6 +1043,104 @@
             background: #dc3545 !important;
         }
 
+        /* ── KPI strip ── */
+        .delivery-kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .dk-card {
+            position: relative;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 12px 14px;
+            overflow: hidden;
+        }
+
+        .dk-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 3px;
+            border-radius: 12px 12px 0 0;
+            background: #cbd5e1;
+        }
+
+        .dk-card.b::before {
+            background: linear-gradient(90deg, var(--navy), var(--sky));
+        }
+
+        .dk-card.g::before {
+            background: #22c55e;
+        }
+
+        .dk-card.r.is-alert::before {
+            background: #dc3545;
+        }
+
+        .dk-card.a.is-alert::before {
+            background: #f59e0b;
+        }
+
+        .dk-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 7px;
+        }
+
+        .dk-value {
+            font-size: 25px;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--navy);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .dk-card.g .dk-value {
+            color: #15803d;
+        }
+
+        .dk-card.r.is-alert .dk-value,
+        .dk-card.r.is-alert .dk-sub {
+            color: #b91c1c;
+        }
+
+        .dk-card.a.is-alert .dk-value,
+        .dk-card.a.is-alert .dk-sub {
+            color: #b45309;
+        }
+
+        .dk-sub {
+            margin-top: 5px;
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 640px) {
+            .delivery-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        /* Timeline header status tint */
+        .delivery-timeline-card .timeline-card-header.is-ok {
+            background: #f2fbf5;
+            box-shadow: inset 3px 0 0 #22c55e;
+        }
+
+        .delivery-timeline-card .timeline-card-header.is-late {
+            background: #fff6f6;
+            box-shadow: inset 3px 0 0 #dc3545;
+        }
+
         /* Timeline card */
         .delivery-timeline-card {
             background: #ffffff;
@@ -809,6 +1164,36 @@
             letter-spacing: .06em;
             text-transform: uppercase;
             color: #1a1d21;
+        }
+
+        .timeline-heading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .timeline-late-summary {
+            display: inline-flex;
+            align-items: center;
+            max-width: min(52vw, 520px);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+            background: #fff7f7;
+            color: #991b1b;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .timeline-late-summary.is-empty {
+            border-color: #d1fae5;
+            background: #f0fdf4;
+            color: #15803d;
         }
 
         .delivery-timeline-card .timeline-menu-btn {
@@ -1142,6 +1527,148 @@
             text-overflow: ellipsis;
         }
 
+        .customer-ll-summary {
+            display: block;
+            margin-top: 4px;
+            overflow: hidden;
+            color: #2563eb;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .customer-late-note {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 6px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .prep-late-badge {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            z-index: 4;
+            transform: translateY(-50%);
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: #dc3545;
+            color: #fff;
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: 0;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+        }
+
+        .gantt-bar-wrap.is-prep-late,
+        .weekly-prep-bar.is-prep-late {
+            cursor: pointer;
+        }
+
+        .weekly-prep-bar .prep-late-badge {
+            position: static;
+            display: inline-block;
+            margin-left: 3px;
+            transform: none;
+            vertical-align: middle;
+        }
+
+        .weekly-prep-bar.is-prep-late {
+            background: #dc3545 !important;
+        }
+
+        .delivery-timeline-card .gantt-grid-row.is-row-highlight .gantt-grid-cell,
+        .delivery-weekly-card tr.is-row-highlight>td {
+            background: #fff7ed !important;
+            box-shadow: inset 0 0 0 2px rgba(245, 158, 11, .28);
+            transition: background .22s ease, box-shadow .22s ease;
+        }
+
+        .prep-late-detail {
+            text-align: left;
+            color: #1f2937;
+            font-size: 12px;
+        }
+
+        .prep-late-detail__meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .prep-late-detail__meta div,
+        .prep-late-detail__empty {
+            border: 1px solid #eef0f3;
+            border-radius: 6px;
+            padding: 7px 8px;
+            background: #fafafa;
+        }
+
+        .prep-late-detail__meta span {
+            display: block;
+        }
+
+        .prep-late-detail__meta span,
+        .prep-late-detail__table th {
+            color: #6b7280;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .prep-late-detail__table th {
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .prep-late-detail__reasons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 0 10px;
+        }
+
+        .prep-late-detail__reason {
+            display: inline-flex;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .prep-late-detail__table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .prep-late-detail__table th,
+        .prep-late-detail__table td {
+            padding: 7px 6px;
+            border-bottom: 1px solid #eef0f3;
+            vertical-align: top;
+        }
+
+        .prep-late-detail__table td:last-child {
+            font-weight: 800;
+            color: #b91c1c;
+            white-space: nowrap;
+        }
+
         .weekly-offset-badge {
             display: inline-block;
             margin-left: 3px;
@@ -1285,6 +1812,7 @@
         }
 
         @container weekly-bar (max-width: 52px) {
+
             .delivery-timeline-card .weekly-prep-bar .gantt-bar-pct,
             .delivery-timeline-card .weekly-truck-pill .gantt-bar-pct {
                 display: none;
@@ -1298,6 +1826,28 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 8px;
+        }
+
+        .delivery-timeline-card .timeline-card-legend {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px 18px;
+            padding: 12px 16px;
+            border-top: 1px solid #eef0f3;
+            background: #ffffff;
+        }
+
+        .delivery-timeline-card .legend-group {
+            min-width: 0;
+        }
+
+        .delivery-timeline-card .legend-title {
+            margin-bottom: 7px;
+            color: #1f2a44;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .04em;
         }
 
         .delivery-timeline-card .legend-timeline {
@@ -1322,6 +1872,12 @@
             height: 10px;
             border-radius: 50%;
             flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .delivery-timeline-card .timeline-card-legend {
+                grid-template-columns: 1fr;
+            }
         }
 
         .delivery-timeline-card .timeline-total {
@@ -1468,8 +2024,8 @@
             overflow: visible;
         }
 
-        .delivery-weekly-card .weekly-prep-bar > span,
-        .delivery-weekly-card .weekly-truck-pill > span {
+        .delivery-weekly-card .weekly-prep-bar>span,
+        .delivery-weekly-card .weekly-truck-pill>span {
             font-size: 9px;
             font-weight: 700;
             color: #2f3542;
@@ -1545,6 +2101,322 @@
                 min-width: 0;
                 width: 100%;
             }
+
+            .delivery-sync-control {
+                width: 100%;
+                margin-left: 0;
+                padding-left: 0;
+                border-left: 0;
+            }
+
+            .delivery-sync-control .bella-filter-group {
+                flex: 1;
+            }
+
+            .delivery-last-sync {
+                justify-content: flex-start;
+            }
+        }
+
+        /* ── TV mode ── */
+        body.delivery-tv-active {
+            overflow: hidden !important;
+        }
+
+        .delivery-page-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .delivery-tv-toggle {
+            height: 34px;
+            padding: 0 13px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #f8fafc;
+            color: var(--navy);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .03em;
+        }
+
+        .delivery-tv-toggle:hover {
+            border-color: var(--sky);
+            background: #eef8fd;
+        }
+
+        .delivery-dash.is-tv-mode {
+            --gantt-customer-col-width: 150px;
+            --gantt-type-col-width: 62px;
+            --gantt-hour-width: calc((100vw - var(--gantt-left-cols) - 20px) / 24);
+            --tv-row-height: 64px;
+            position: fixed;
+            inset: 0;
+            z-index: 1050;
+            width: 100vw;
+            height: 100vh;
+            margin: 0 !important;
+            padding: 6px;
+            overflow: hidden;
+            background: #edf2f7;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header {
+            height: 42px;
+            margin-bottom: 6px;
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header-title {
+            font-size: 14px;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header>div:first-child>div {
+            width: 28px !important;
+            height: 28px !important;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header-clock .clock-label {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .bella-page-header-clock #deliveryDashLiveTime {
+            font-size: 14px;
+        }
+
+        .delivery-dash.is-tv-mode .delivery-tv-toggle {
+            height: 28px;
+            border-color: #fecaca;
+            background: #fff1f2;
+            color: #b91c1c;
+        }
+
+        .delivery-dash.is-tv-mode>.bella-content-card {
+            height: calc(100vh - 54px);
+            margin: 0;
+            border: 0;
+            border-radius: 8px;
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .delivery-dash.is-tv-mode .bella-tabs,
+        .delivery-dash.is-tv-mode .bella-filter-card,
+        .delivery-dash.is-tv-mode .delivery-kpis,
+        .delivery-dash.is-tv-mode .timeline-card-legend,
+        .delivery-dash.is-tv-mode .timeline-card-footer,
+        .delivery-dash.is-tv-mode .delivery-weekly-note {
+            display: none !important;
+        }
+
+        .delivery-dash.is-tv-mode .bella-tab-content,
+        .delivery-dash.is-tv-mode #pane-chart {
+            height: 100%;
+            padding: 0;
+            border: 0;
+            border-radius: 8px;
+        }
+
+        .delivery-dash.is-tv-mode .delivery-timeline-card,
+        .delivery-dash.is-tv-mode .delivery-weekly-card {
+            height: 100%;
+            margin: 0 !important;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-card-header,
+        .delivery-dash.is-tv-mode .weekly-card-header {
+            min-height: 34px;
+            padding: 5px 10px;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-title,
+        .delivery-dash.is-tv-mode .weekly-title {
+            font-size: 11px;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-late-summary {
+            max-width: 48vw;
+            padding: 2px 6px;
+            font-size: 9px;
+        }
+
+        .delivery-dash.is-tv-mode .timeline-menu-btn {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-wrap,
+        .delivery-dash.is-tv-mode .weekly-card-body,
+        .delivery-dash.is-tv-mode .weekly-gantt-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-scroll {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-row {
+            grid-template-columns: var(--gantt-customer-col-width) var(--gantt-type-col-width) repeat(var(--gantt-slot-count), minmax(0, 1fr));
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-header .gantt-grid-cell {
+            height: 30px;
+            min-width: 0;
+            padding: 0 2px !important;
+            font-size: 8px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-time {
+            width: auto;
+            min-width: 0;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-left-cell,
+        .delivery-dash.is-tv-mode .gantt-grid-track-cell {
+            height: var(--tv-row-height);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-grid-customer {
+            padding: 3px 6px;
+            font-size: 9px;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+
+        .delivery-dash.is-tv-mode .customer-ll-summary,
+        .delivery-dash.is-tv-mode .customer-unconfigured-note {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-type-lane {
+            padding: 0 2px;
+            font-size: 7px !important;
+            letter-spacing: 0 !important;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-track {
+            height: calc((var(--tv-row-height) / 2) - 6px);
+            margin: 3px 0;
+            background-size: calc(100% / var(--gantt-slot-count)) 100%;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap {
+            top: 2px;
+            height: calc(100% - 4px);
+            min-width: 22px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-stack {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.truck-pill {
+            top: 2px;
+            width: 30px !important;
+            min-width: 30px;
+            height: calc(100% - 4px);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.truck-pill .gantt-bar-stack {
+            height: 100%;
+        }
+
+        .delivery-dash.is-tv-mode .pill-meta {
+            gap: 2px;
+            padding-left: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .pill-avatar {
+            width: 16px;
+            height: 16px;
+            font-size: 7px;
+        }
+
+        .delivery-dash.is-tv-mode .pill-offset-badge,
+        .delivery-dash.is-tv-mode .prep-late-badge {
+            display: none;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-pct {
+            font-size: 7px !important;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-now-label,
+        .delivery-dash.is-tv-mode .gantt-truck-label {
+            top: -22px;
+            padding: 3px 7px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1.2;
+            box-shadow: 0 2px 5px rgba(15, 23, 42, .24);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-now-line,
+        .delivery-dash.is-tv-mode .gantt-truck-line {
+            width: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-now-line {
+            box-shadow: 0 0 4px rgba(59, 53, 220, .75);
+        }
+
+        .delivery-dash.is-tv-mode .gantt-truck-line {
+            box-shadow: 0 0 4px rgba(220, 53, 53, .75);
+        }
+
+        .delivery-dash.is-tv-mode .weekly-card-body {
+            padding: 6px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-gantt-table {
+            width: 100%;
+            min-width: 0;
+            font-size: 9px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-col-customer {
+            padding: 3px 6px !important;
+            font-size: 9px !important;
+            line-height: 1.1 !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-col-type,
+        .delivery-dash.is-tv-mode .weekly-col-day,
+        .delivery-dash.is-tv-mode .weekly-prep-track,
+        .delivery-dash.is-tv-mode .weekly-col-day>div {
+            height: calc(var(--tv-row-height) / 2) !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-col-type {
+            font-size: 7px !important;
+            letter-spacing: 0 !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-prep-bar,
+        .delivery-dash.is-tv-mode .weekly-truck-pill {
+            top: 3px !important;
+            height: calc(100% - 6px) !important;
+            min-height: 12px;
+            font-size: 7px;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-offset-badge {
+            display: none;
         }
 
         .master-cycle-swal-popup {
@@ -1597,9 +2469,16 @@
                 </div>
                 <h1 class="bella-page-header-title">Daily Monitoring Delivery</h1>
             </div>
-            <div class="bella-page-header-clock">
-                <span class="clock-label">Waktu lokal</span>
-                <span id="deliveryDashLiveTime">--:--:--</span>
+            <div class="delivery-page-header-actions">
+                <button type="button" class="delivery-tv-toggle" id="btnToggleTvMode" aria-pressed="false"
+                    title="Tampilkan timeline secara fullscreen dan compact">
+                    <i class="fas fa-expand mr-1" aria-hidden="true"></i>
+                    <span>Full Screen</span>
+                </button>
+                <div class="bella-page-header-clock">
+                    <span class="clock-label">Waktu lokal</span>
+                    <span id="deliveryDashLiveTime">--:--:--</span>
+                </div>
             </div>
         </div>
 
@@ -1650,64 +2529,127 @@
                                     <i class="fas fa-sync-alt mr-1"></i> Muat ulang
                                 </button>
                             </div>
+                            @can('manage-master')
+                                <div class="delivery-sync-control">
+                                    <div class="bella-filter-group">
+                                        <label class="bella-filter-label" for="syncLoadingListDate">Tanggal awal sync (3 hari)</label>
+                                        <input type="date" class="bella-filter-input" id="syncLoadingListDate"
+                                            value="{{ now()->toDateString() }}">
+                                    </div>
+                                    <button type="button" id="btnSyncLoadingLists" class="act-btn success"
+                                        style="height:34px;padding:0 16px;font-size:12px;letter-spacing:.04em;">
+                                        <i class="fas fa-database mr-1"></i> Sync data
+                                    </button>
+                                </div>
+                            @endcan
                         </div>
+                        @can('manage-master')
+                            @php($lastSync = $lastLoadingListSync ?? null)
+                            <div class="delivery-last-sync {{ $lastSync ? '' : 'is-empty' }}" id="lastSyncStatus">
+                                <i class="fas fa-history" aria-hidden="true"></i>
+                                <span id="lastSyncStatusText">
+                                    @if ($lastSync)
+                                        Terakhir sync {{ $lastSync['synced_at'] }} · tanggal {{ $lastSync['date_label'] }} ·
+                                        {{ $lastSync['loading_list_count'] }} LL
+                                        @if ($lastSync['skipped'] > 0)
+                                            · {{ $lastSync['skipped'] }} catatan
+                                        @endif
+                                    @else
+                                        Belum pernah sync data
+                                    @endif
+                                </span>
+                            </div>
+                        @endcan
                     </div>
 
                     <div id="chartEmpty" class="alert d-none mb-2" role="alert"></div>
 
+                    {{-- KPI strip --}}
+                    <div class="delivery-kpis" id="deliveryKpis">
+                        <div class="dk-card b">
+                            <div class="dk-label"><i class="fas fa-truck-loading"></i> Total delivery</div>
+                            <div class="dk-value" id="kpiTotal">0</div>
+                            <div class="dk-sub" id="kpiTotalSub">entri hari ini</div>
+                        </div>
+                        <div class="dk-card g">
+                            <div class="dk-label"><i class="fas fa-check-circle"></i> Sudah pick up</div>
+                            <div class="dk-value" id="kpiPicked">0</div>
+                            <div class="dk-sub" id="kpiPickedSub">dari 0 truck</div>
+                        </div>
+                        <div class="dk-card r" id="kpiPrepCard">
+                            <div class="dk-label"><i class="fas fa-exclamation-triangle"></i> Prep telat</div>
+                            <div class="dk-value" id="kpiPrepLate">0</div>
+                            <div class="dk-sub" id="kpiPrepLateSub">aman</div>
+                        </div>
+                        <div class="dk-card a" id="kpiTruckCard">
+                            <div class="dk-label"><i class="fas fa-truck"></i> Truck delay</div>
+                            <div class="dk-value" id="kpiTruckLate">0</div>
+                            <div class="dk-sub" id="kpiTruckLateSub">pick up tepat</div>
+                        </div>
+                    </div>
+
                     {{-- Gantt timeline --}}
                     <div class="delivery-timeline-card mb-2" id="deliveryTimelineCard">
-                        <div class="timeline-card-header d-flex justify-content-between align-items-center">
-                            <h2 class="timeline-title">Timeline delivery</h2>
+                        <div class="timeline-card-header d-flex justify-content-between align-items-center"
+                            id="timelineCardHeader">
+                            <div class="timeline-heading">
+                                <h2 class="timeline-title">Timeline delivery</h2>
+                                <span class="timeline-late-summary is-empty" id="timelineLateSummary">Tidak ada prep
+                                    telat</span>
+                            </div>
                             <button type="button" class="timeline-menu-btn" aria-label="Menu"
                                 title="Menu">&#8942;</button>
+                        </div>
+                        <div class="timeline-card-legend">
+                            <div class="legend-group">
+                                <div class="legend-title">Preparation :</div>
+                                <ul class="legend-timeline">
+                                    <li>
+                                        <span class="legend-dot" style="background: var(--dm-complete);"></span>
+                                        Hijau : Close Pulling
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: var(--dm-yellow);"></span>
+                                        Kuning : On Progress Pulling (On Plan)
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: #dc3545;"></span>
+                                        Merah : Delay Pulling
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="legend-group">
+                                <div class="legend-title">Truck :</div>
+                                <ul class="legend-timeline">
+                                    <li>
+                                        <span class="legend-dot" style="background: #166534;"></span>
+                                        Hijau Tua : Sudah Pick Up (On Time)
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: #f97316;"></span>
+                                        Orange : Delay Pick Up
+                                    </li>
+                                    <li>
+                                        <span class="legend-dot" style="background: #991b1b;"></span>
+                                        Merah Tua : Delay Delivery
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                         <div class="gantt-wrap" id="ganttWrap">
                             <div id="ganttContainer"></div>
                         </div>
-                        <div class="timeline-card-footer d-flex justify-content-between align-items-center">
-                            <ul class="legend-timeline">
-                                <li>
-                                    <span class="legend-dot" style="background: var(--dm-complete);"></span>
-                                    Progress 100%
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: var(--dm-yellow);"></span>
-                                    Belum selesai (&lt; 100%)
-                                </li>
-                                <li>
-                                    <span class="legend-offset-swatch is-offset-h-minus"></span>
-                                    H-1 (hari sebelum delivery)
-                                </li>
-                                <li>
-                                    <span class="legend-offset-swatch is-offset-h-zero"></span>
-                                    H+0 (hari delivery)
-                                </li>
-                                <li>
-                                    <span class="legend-offset-swatch is-offset-h-plus"></span>
-                                    H+1 (hari setelah delivery)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #22c55e;"></span>
-                                    Truck On Time (Hijau)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #eab308;"></span>
-                                    Truck Early (Kuning)
-                                </li>
-                                <li>
-                                    <span class="legend-dot" style="background: #dc3545;"></span>
-                                    Truck Telat (Merah)
-                                </li>
-                            </ul>
+                        <div class="timeline-card-footer d-flex justify-content-end align-items-center">
                             <div class="timeline-total" id="timelineTotalSum">Total: 0</div>
                         </div>
                     </div>
 
                     {{-- Weekly card --}}
                     <div class="delivery-weekly-card mb-2 d-none" id="deliveryWeeklyCard">
-                        <div class="weekly-card-header">
+                        <div class="weekly-card-header d-flex justify-content-between align-items-center">
                             <h2 class="weekly-title">Ringkasan mingguan delivery</h2>
+                            <span class="timeline-late-summary is-empty" id="weeklyLateSummary">Tidak ada preparation
+                                telat</span>
                         </div>
                         <div class="weekly-card-body">
                             <div class="weekly-axis-header">
@@ -1746,97 +2688,20 @@
                         </div>
                     </div>
 
-                    {{-- Master Cycle Form --}}
-                    <div class="bella-content-card mb-3">
-                        <div style="padding:12px 18px; border-bottom:1px solid var(--border);">
-                            <span
-                                style="font-size:11.5px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.05em;">
-                                Tambah / Edit Master Cycle
-                            </span>
-                        </div>
-                        <div style="padding:16px 18px;">
-                            <form id="masterCycleForm">
-                                <div class="form-row align-items-end">
-                                    <div class="col-md-3 mb-3">
-                                        <label class="bella-form-label">Customer</label>
-                                        <select class="bella-form-control" id="mcycleCustomerId" required>
-                                            <option value="">Pilih customer</option>
-                                            @foreach ($customers as $c)
-                                                <option value="{{ $c->id }}">{{ $c->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Nama Cycle</label>
-                                        <select class="bella-form-control" id="mcycleName" required>
-                                            <option value="" selected disabled>Pilih cycle</option>
-                                            @foreach (range(1, 10) as $n)
-                                                <option value="{{ $n }}">{{ $n }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="bella-form-label">Waktu Rentang Prep</label>
-                                        <div style="display:flex;align-items:center;gap:8px;">
-                                            <input type="time" class="bella-form-control" id="mcyclePrepStart"
-                                                required step="60">
-                                            <span
-                                                style="font-size:11px;color:var(--text-muted);white-space:nowrap;">sampai</span>
-                                            <input type="time" class="bella-form-control" id="mcyclePrepEnd" required
-                                                step="60">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Hari Offset Prep</label>
-                                        <select class="bella-form-control" id="mcyclePrepDayOffset" required>
-                                            <option value="0">H+0 (hari delivery)</option>
-                                            <option value="-1">H-1</option>
-                                            <option value="-2">H-2</option>
-                                            <option value="-3">H-3</option>
-                                            <option value="-4">H-4</option>
-                                            <option value="-5">H-5</option>
-                                            <option value="-6">H-6</option>
-                                            <option value="-7">H-7</option>
-                                            <option value="1">H+1</option>
-                                            <option value="2">H+2</option>
-                                        </select>
-                                        <small id="mcycleOffsetHint"
-                                            style="display:block;font-size:10px;color:var(--text-muted);margin-top:4px;">
-                                            Selesai prep: <span id="mcycleEndOffsetLabel">H+0</span>
-                                        </small>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="bella-form-label">Waktu ETA Truck</label>
-                                        <input type="time" class="bella-form-control" id="mcycleTruckTime" required
-                                            step="60">
-                                    </div>
-                                    <div class="col-md-3 mb-3" style="display:flex;align-items:flex-end;gap:8px;">
-                                        <button type="submit" class="act-btn success" id="btnMasterSave"
-                                            style="height:32px;padding:0 14px;font-size:12px;">
-                                            <i class="fas fa-save mr-1"></i> Simpan
-                                        </button>
-                                        <button type="button" class="act-btn secondary d-none" id="btnMasterCancel"
-                                            style="height:32px;padding:0 12px;font-size:12px;">
-                                            Batal edit
-                                        </button>
-                                    </div>
-                                </div>
-                                <p style="font-size:11px;color:var(--text-muted);margin:0;">
-                                    Hari Offset = tanggal mulai prep terhadap delivery (H). Otomatis H-1 jika jam mulai
-                                    prep &gt; jam truck (mis. prep 22:00, truck 07:00). Timeline harian 00:00–24:00;
-                                    bar prep hanya tampil jika sudah/sedang berjalan.
-                                </p>
-                            </form>
-                        </div>
-                    </div>
-
                     {{-- Master Cycle Table --}}
                     <div class="bella-content-card mb-3">
-                        <div style="padding:12px 18px; border-bottom:1px solid var(--border);">
+                        <div
+                            style="padding:12px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
                             <span
                                 style="font-size:11.5px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.05em;">
                                 Daftar Master Cycle
                             </span>
+                            @can('manage-master')
+                                <button type="button" class="act-btn success" id="btnAddMasterCycle"
+                                    style="height:32px;padding:0 14px;font-size:12px;">
+                                    <i class="fas fa-plus mr-1"></i> Tambah Master Cycle
+                                </button>
+                            @endcan
                         </div>
                         <div class="table-responsive">
                             <table class="bella-master-table" id="masterCycleTable">
@@ -1845,7 +2710,7 @@
                                         <th style="width:40px;">No</th>
                                         <th>Customer</th>
                                         <th>Cycle</th>
-                                        <th>Rentang Prep</th>
+                                        <th>Rentang Preparation</th>
                                         <th>Hari Offset</th>
                                         <th>ETA Truck</th>
                                         <th style="width:140px;">Aksi</th>
@@ -1896,6 +2761,7 @@
     <script>
         $(function() {
             var stackedUrl = "{{ route('dashboard.delivery.stackedChart') }}";
+            var syncLoadingListsUrl = "{{ route('dashboard.delivery.syncLoadingLists') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
@@ -1905,9 +2771,6 @@
 
             // Hak akses: hanya admin/ppic (manage-master) yang boleh kelola master cycle
             var canManageMaster = @json(auth()->user()->can('manage-master'));
-            if (!canManageMaster) {
-                $('#masterCycleForm').closest('.bella-content-card').hide();
-            }
 
             var customers = @json($customers);
             var chartRows = [];
@@ -2384,6 +3247,7 @@
                         formatLocalDateKey(row.delivery_date))) {
                     return null;
                 }
+
                 var range = viewDateToMsRange(viewDateStr);
                 if (!range.endMs) {
                     return null;
@@ -2488,12 +3352,13 @@
                 return off;
             }
 
-            function updateMasterCycleOffsetHint() {
+            function updateMasterCycleOffsetHint(event) {
                 var prepStart = ($('#mcyclePrepStart').val() || '').trim();
                 var prepEnd = ($('#mcyclePrepEnd').val() || '').trim();
                 var truckTime = ($('#mcycleTruckTime').val() || '').trim();
                 var inferred = inferPrepDayOffsetFromTruck(prepStart, truckTime);
-                if (inferred !== null) {
+                var shouldInfer = event && ['mcyclePrepStart', 'mcycleTruckTime'].indexOf(event.currentTarget.id) !== -1;
+                if (shouldInfer && inferred !== null) {
                     $('#mcyclePrepDayOffset').val(String(inferred));
                 }
                 var prepOff = $('#mcyclePrepDayOffset').val();
@@ -2501,7 +3366,7 @@
                 var endLbl = formatPrepDayOffsetLabel(endOff);
                 var $hint = $('#mcycleEndOffsetLabel');
                 $hint.text(endLbl);
-                if (inferred !== null) {
+                if (shouldInfer && inferred !== null) {
                     $hint.parent().css('color', 'var(--sky)');
                     $hint.parent().attr('title',
                         'Otomatis H-1: jam mulai prep (' + prepStart + ') > jam truck (' + truckTime + ')');
@@ -2735,6 +3600,10 @@
                     progress_pct: wp.progress_pct,
                     total_done: wp.total_done,
                     total_target: wp.total_target,
+                    latest_pulling_date: wp.latest_pulling_date,
+                    pulling_items: wp.pulling_items || [],
+                    pds_numbers: wp.pds_numbers || [],
+                    loading_lists: wp.loading_lists || [],
                     ll_count: wp.ll_count != null ? wp.ll_count : (wp.total_target > 0 ? 1 : 0)
                 });
             }
@@ -2742,6 +3611,7 @@
             function getAllChartRowsForLookup() {
                 var seen = {};
                 var out = [];
+
                 function pushRow(r) {
                     if (!r) {
                         return;
@@ -2786,6 +3656,7 @@
 
             function rebuildLoadingListPresenceIndex() {
                 loadingListPresenceIndex = {};
+
                 function ingest(row) {
                     if (!rowHasLoadingListData(row)) {
                         return;
@@ -2930,6 +3801,7 @@
             function collectWeeklyPrepBarsForCustomer(cust, rows, slots) {
                 var out = [];
                 var rendered = {};
+
                 function pushBar(row, span) {
                     if (!span) {
                         return;
@@ -2989,7 +3861,8 @@
                     return shouldShowPrepMorningContinuation(r, viewDateStr);
                 });
                 return sourceRows.map(function(row) {
-                    var layout = computePrepMorningContinuationLayout(getRowPrepEndClock(row), ganttHourWindow);
+                    var layout = computePrepMorningContinuationLayout(getRowPrepEndClock(row),
+                        ganttHourWindow);
                     if (!layout) {
                         return null;
                     }
@@ -3066,12 +3939,13 @@
                     if ($(this).hasClass('gantt-grid-header')) {
                         return;
                     }
-                    var cn = $(this).find('.gantt-grid-customer').first().text().trim();
+                    var cn = $(this).find('.gantt-grid-customer').first().attr('data-customer-name') || '';
                     var barHtml = buildPrepContinuationBarHtml(cn, contByCustomer, viewDate, overdueLatch);
                     if (!barHtml) {
                         return;
                     }
-                    $(this).find('.gantt-grid-track-lane').first().find('.gantt-track').first().append(barHtml);
+                    $(this).find('.gantt-grid-track-lane').first().find('.gantt-track').first().append(
+                        barHtml);
                 });
             }
 
@@ -3094,8 +3968,10 @@
                         return;
                     }
                     var prepLayout = computePrepBarLayoutForRow(row, ganttHourWindow);
-                    var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch || {},
+                    var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac,
+                        overdueLatch || {},
                         prepLayout);
+                    var lateInfo = buildPrepLateInfo(row, prepStatus);
                     var progressWidthC = prepStatus.progressWidth;
                     var barClassC = prepStatus.barClass;
                     var avC = 'C' + String(rowCycleKey(row) || '?').toUpperCase();
@@ -3110,13 +3986,19 @@
                         prepEndDayOffsetLabel: row.prep_end_day_offset_label ||
                             formatPrepDayOffsetLabel(getRowPrepEndDayOffset(row)),
                         prepEndClock: contLayout.prepEndClock,
-                        displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
-                        blockedByPrior: prepStatus.isBlocked
+                        displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(
+                            row) * 10) / 10,
+                        blockedByPrior: prepStatus.isBlocked,
+                        lateInfo: lateInfo
                     }).replace(/"/g, '&quot;');
                     segs.forEach(function(seg) {
-                        html += '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation" style="left:' +
-                            seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 / ganttHourWindow) +
-                            '%;--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;" title="' +
+                        html +=
+                            '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation' +
+                            (lateInfo.isLate ? ' is-prep-late' : '') + '" style="left:' +
+                            seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 /
+                                ganttHourWindow) +
+                            '%;--cross-day-label:&quot;' + escapeAttr(crossDayLabel) +
+                            '&quot;" title="' +
                             contTitle + '"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
@@ -3124,10 +4006,17 @@
                         html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(
                             row.delivery_date)) + '"';
                         html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(
-                            row.delivery_date)) + '">';
+                            row.delivery_date)) + '"';
+                        if (lateInfo.isLate) {
+                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(
+                                lateInfo)) + '"';
+                        }
+                        html += '>';
                         html += buildGanttProgressStackHtml(progressWidthC, barClassC,
                             getGanttBarDisplayPct(row, prepStatus), prepLayout);
-                        html += '<span class="pill-meta"><span class="pill-avatar" style="opacity:.9">' +
+                        html += buildPrepLateBadgeHtml(lateInfo);
+                        html +=
+                            '<span class="pill-meta"><span class="pill-avatar" style="opacity:.9">' +
                             escapeHtml(avC) + '</span></span></div>';
                     });
                 });
@@ -3319,7 +4208,7 @@
                 var pe = getRowPrepEndClock(row) || '';
                 var ct = (row.cycle_time != null) ? String(row.cycle_time).trim().substring(0, 5) : '';
                 return [dd, String(row.customer_id || ''), String(row.customer_name || ''), String(row
-                        .cycle_name || ''), ps, pe, ct].join('|');
+                    .cycle_name || ''), ps, pe, ct].join('|');
             }
 
             function resolveRowFinishPrepDeadlineMs(row) {
@@ -3351,6 +4240,234 @@
             function isRowPastFinishPrepDeadline(row) {
                 var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
                 return deadlineMs != null && Date.now() >= deadlineMs;
+            }
+
+            function getRowPullingItems(row) {
+                var rawItems = Array.isArray(row && row.pulling_items) ? row.pulling_items : [];
+                if (!rawItems.length && row && (row.latest_pulling_date || row.pulling_date)) {
+                    rawItems = [{
+                        pds_number: Array.isArray(row.pds_numbers) ? row.pds_numbers[0] : '',
+                        loading_list: Array.isArray(row.loading_lists) ? row.loading_lists[0] : '',
+                        pulling_date: row.latest_pulling_date || row.pulling_date
+                    }];
+                }
+                return rawItems.map(function(item) {
+                    var rawDate = item && (item.pulling_date || item.latest_pulling_date);
+                    var ms = parseAbsoluteDatetimeLocal(rawDate);
+                    return {
+                        pdsNumber: item && item.pds_number ? String(item.pds_number) : '-',
+                        loadingList: item && item.loading_list ? String(item.loading_list) : '-',
+                        pullingDate: rawDate || '',
+                        pullingMs: isNaN(ms) ? null : ms
+                    };
+                }).filter(function(item) {
+                    return item.pullingMs != null;
+                });
+            }
+
+            function getRowLatePullingItems(row) {
+                var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
+                if (deadlineMs == null) {
+                    return [];
+                }
+                return getRowPullingItems(row).filter(function(item) {
+                    return item.pullingMs > deadlineMs;
+                }).map(function(item) {
+                    item.delayMs = item.pullingMs - deadlineMs;
+                    return item;
+                });
+            }
+
+            function isRowPullingPastFinishPrep(row) {
+                return getRowLatePullingItems(row).length > 0;
+            }
+
+            function formatDelayShort(delayMs) {
+                var minutes = Math.max(0, Math.round((parseInt(delayMs, 10) || 0) / 60000));
+                var hours = Math.floor(minutes / 60);
+                var mins = minutes % 60;
+                if (hours > 0 && mins > 0) {
+                    return '+' + hours + 'j ' + mins + 'm';
+                }
+                if (hours > 0) {
+                    return '+' + hours + 'j';
+                }
+                return '+' + minutes + 'm';
+            }
+
+            function formatDateTimeLabel(ms) {
+                if (ms == null) {
+                    return '-';
+                }
+                return new Date(ms).toLocaleString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            function buildPrepLateInfo(row, prepStatus) {
+                var deadlineMs = resolveRowFinishPrepDeadlineMs(row);
+                var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
+                var latePullingItems = getRowLatePullingItems(row);
+                var maxDelayMs = 0;
+                latePullingItems.forEach(function(item) {
+                    maxDelayMs = Math.max(maxDelayMs, item.delayMs || 0);
+                });
+                var reasons = [];
+                if (latePullingItems.length) {
+                    reasons.push('Pulling lewat waktu Finish Preparation');
+                }
+                return {
+                    isLate: latePullingItems.length > 0,
+                    isPullingLate: latePullingItems.length > 0,
+                    isProgressLate: false,
+                    reasons: reasons,
+                    delayMs: maxDelayMs,
+                    delayLabel: maxDelayMs > 0 ? formatDelayShort(maxDelayMs) : '',
+                    customerName: row.customer_name || '-',
+                    cycleName: row.cycle_name || '-',
+                    deliveryDate: formatLocalDateKey(row.delivery_date),
+                    prepDeadlineLabel: formatDateTimeLabel(deadlineMs),
+                    progressPct: rawPct,
+                    done: parseInt(row.total_done || 0, 10),
+                    target: parseInt(row.total_target || 0, 10),
+                    pdsNumbers: Array.isArray(row.pds_numbers) ? row.pds_numbers : [],
+                    loadingLists: Array.isArray(row.loading_lists) ? row.loading_lists : [],
+                    items: latePullingItems.map(function(item) {
+                        return {
+                            pdsNumber: item.pdsNumber,
+                            loadingList: item.loadingList,
+                            pullingLabel: formatDateTimeLabel(item.pullingMs),
+                            delayLabel: formatDelayShort(item.delayMs)
+                        };
+                    })
+                };
+            }
+
+            function buildPrepLateBadgeHtml(lateInfo) {
+                if (!lateInfo || !lateInfo.isLate) {
+                    return '';
+                }
+                var label = lateInfo.delayLabel || (lateInfo.items && lateInfo.items.length ? lateInfo.items
+                    .length +
+                    ' LL' : 'Telat');
+                return '<span class="prep-late-badge">' + escapeHtml(label) + '</span>';
+            }
+
+            function buildPrepLateTooltipParts(lateInfo) {
+                if (!lateInfo || !lateInfo.isLate) {
+                    return [];
+                }
+                var parts = lateInfo.reasons.slice();
+                if (lateInfo.delayLabel) {
+                    parts.push('Telat ' + lateInfo.delayLabel);
+                }
+                if (lateInfo.items && lateInfo.items.length) {
+                    parts.push(lateInfo.items.length + ' LL/PDS telat');
+                }
+                return parts;
+            }
+
+            function buildCustomerPrepLateSummaryHtml(rows) {
+                var seen = {};
+                var count = 0;
+                var maxDelayMs = 0;
+                var reasonMap = {};
+                var latchMap = getOverdueLatchMap();
+                (rows || []).forEach(function(row) {
+                    if (!row || !rowHasConfiguredMasterCycle(row)) {
+                        return;
+                    }
+                    var key = prepRowIdentityKey(row);
+                    if (seen[key]) {
+                        return;
+                    }
+                    seen[key] = true;
+                    var info = buildPrepLateInfo(row, {
+                        isOverdue: !!latchMap[rowOverdueLatchKey(row)]
+                    });
+                    if (!info.isLate) {
+                        return;
+                    }
+                    count++;
+                    maxDelayMs = Math.max(maxDelayMs, info.delayMs || 0);
+                    info.reasons.forEach(function(reason) {
+                        reasonMap[reason] = true;
+                    });
+                });
+                if (!count) {
+                    return '';
+                }
+                var title = Object.keys(reasonMap).join(' · ');
+                if (maxDelayMs > 0) {
+                    title += (title ? ' · ' : '') + 'terlama ' + formatDelayShort(maxDelayMs);
+                }
+                return '<span class="customer-late-note" title="' + escapeAttr(title) + '">' + count +
+                    ' telat</span>';
+            }
+
+            function collectPrepLateSummary(rows) {
+                var latchMap = getOverdueLatchMap();
+                var customers = {};
+                var lateItems = {};
+                var fallbackItems = 0;
+                var maxDelayMs = 0;
+                var seenRows = {};
+                (rows || []).forEach(function(row) {
+                    if (!row || !rowHasConfiguredMasterCycle(row)) {
+                        return;
+                    }
+                    var rowKey = prepRowIdentityKey(row);
+                    if (seenRows[rowKey]) {
+                        return;
+                    }
+                    seenRows[rowKey] = true;
+                    var info = buildPrepLateInfo(row, {
+                        isOverdue: !!latchMap[rowOverdueLatchKey(row)]
+                    });
+                    if (!info.isLate) {
+                        return;
+                    }
+                    customers[row.customer_name || '-'] = true;
+                    maxDelayMs = Math.max(maxDelayMs, info.delayMs || 0);
+                    if (info.items && info.items.length) {
+                        info.items.forEach(function(item) {
+                            lateItems[(item.pdsNumber || '-') + '|' + (item.loadingList || '-')] =
+                                true;
+                        });
+                        return;
+                    }
+                    var refs = Array.isArray(row.loading_lists) && row.loading_lists.length ? row
+                        .loading_lists :
+                        (Array.isArray(row.pds_numbers) ? row.pds_numbers : []);
+                    if (!refs.length) {
+                        fallbackItems++;
+                        return;
+                    }
+                    refs.forEach(function(ref) {
+                        lateItems[(row.customer_id || '-') + '|' + String(ref)] = true;
+                    });
+                });
+                return {
+                    customerCount: Object.keys(customers).length,
+                    itemCount: Object.keys(lateItems).length + fallbackItems,
+                    maxDelayMs: maxDelayMs
+                };
+            }
+
+            function updateTimelineLateSummary() {
+                var rows = chartMergedByCustTime.length ? chartMergedByCustTime :
+                    filterRowsWithConfiguredMasterCycle(
+                        chartRows);
+                var summary = collectPrepLateSummary(rows);
+                var hasLate = summary.customerCount > 0;
+                var text = hasLate ?
+                    (summary.customerCount + ' customer telat · ' + summary.itemCount + ' LL telat' +
+                        (summary.maxDelayMs > 0 ? ' · terlama ' + formatDelayShort(summary.maxDelayMs) : '')) :
+                    'Tidak ada preparation telat';
+                $('#timelineLateSummary, #weeklyLateSummary').text(text).toggleClass('is-empty', !hasLate);
             }
 
             function getRowFinishPrepClock(row) {
@@ -3536,15 +4653,18 @@
                         prepEnd = '-';
                     }
                     var prepRangeDisp = prepStart + ' – ' + prepEnd;
-                    var startOffLbl = r.prep_day_offset_label || formatPrepDayOffsetLabel(r.prep_day_offset || 0);
+                    var startOffLbl = r.prep_day_offset_label || formatPrepDayOffsetLabel(r
+                        .prep_day_offset || 0);
                     var endOffLbl = r.prep_end_day_offset_label || formatPrepDayOffsetLabel(
-                        r.prep_end_day_offset != null ? r.prep_end_day_offset : (r.prep_day_offset || 0));
+                        r.prep_end_day_offset != null ? r.prep_end_day_offset : (r.prep_day_offset || 0)
+                    );
                     var offsetDisp = startOffLbl;
                     if (endOffLbl !== startOffLbl) {
                         offsetDisp += ' → ' + endOffLbl;
                     }
                     if (r.prep_crosses_midnight) {
-                        offsetDisp += ' <span style="font-size:10px;color:var(--sky);">(lintas malam)</span>';
+                        offsetDisp +=
+                            ' <span style="font-size:10px;color:var(--sky);">(lintas malam)</span>';
                     }
                     var truckDisp = (r.truck_time && String(r.truck_time).length) ? formatClockDot(r
                         .truck_time) : '<span style="color:var(--text-muted);">-</span>';
@@ -3561,12 +4681,12 @@
                         '<td style="white-space:nowrap;">' +
                         (canManageMaster ?
                             ('<a class="act-btn primary btn-edit-master" data-id="' + r.id +
-                            '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:4px;">' +
-                            '<i class="fas fa-edit"></i> Edit</a>' +
-                            '<a class="act-btn danger btn-del-master" data-id="' + r.id +
-                            '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">' +
-                            '<i class="fas fa-trash"></i> Hapus</a>')
-                            : '<span style="color:var(--text-muted);">-</span>') +
+                                '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:4px;">' +
+                                '<i class="fas fa-edit"></i> Edit</a>' +
+                                '<a class="act-btn danger btn-del-master" data-id="' + r.id +
+                                '" style="height:24px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">' +
+                                '<i class="fas fa-trash"></i> Hapus</a>') :
+                            '<span style="color:var(--text-muted);">-</span>') +
                         '</td>' +
                         '</tr>'
                     );
@@ -3620,9 +4740,11 @@
                             customerName || '-') + '</strong></div>' +
                         '<div class="master-cycle-swal-row"><span>Cycle</span><strong>' + escapeHtml(payload
                             .cycle_name || '-') + '</strong></div>' +
-                        '<div class="master-cycle-swal-row"><span>Prep</span><strong>' + escapeHtml(prepRange) +
+                        '<div class="master-cycle-swal-row"><span>Preparation</span><strong>' + escapeHtml(
+                            prepRange) +
                         '</strong></div>' +
-                        '<div class="master-cycle-swal-row"><span>Offset</span><strong>' + escapeHtml(offsetText) +
+                        '<div class="master-cycle-swal-row"><span>Offset</span><strong>' + escapeHtml(
+                            offsetText) +
                         '</strong></div>' +
                         '<div class="master-cycle-swal-row"><span>ETA Truck</span><strong>' + escapeHtml(
                             formatClockDot(payload.truck_time)) + '</strong></div>' +
@@ -3655,6 +4777,24 @@
                 });
             }
 
+            function resetMasterCycleForm() {
+                editMasterId = null;
+                var form = document.getElementById('masterCycleForm');
+                if (form) {
+                    form.reset();
+                }
+                $('#masterCycleModalTitle').text('Tambah Master Cycle');
+                $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Simpan');
+                updateMasterCycleOffsetHint();
+            }
+
+            $('#btnAddMasterCycle').on('click', function() {
+                resetMasterCycleForm();
+                $('#masterCycleModal').modal('show');
+            });
+
+            $('#masterCycleModal').on('hidden.bs.modal', resetMasterCycleForm);
+
             $('#masterCycleForm').on('submit', function(e) {
                 e.preventDefault();
                 var prepStart = ($('#mcyclePrepStart').val() || '').trim();
@@ -3675,17 +4815,21 @@
                     customer_id: $('#mcycleCustomerId').val()
                 };
                 if (editMasterId) {
+                    var updatedId = editMasterId;
                     $.ajax({
                         url: masterBase + '/' + editMasterId,
                         type: 'PUT',
                         data: payload,
                         success: function() {
-                            editMasterId = null;
-                            $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Simpan');
-                            $('#btnMasterCancel').addClass('d-none');
-                            $('#masterCycleForm')[0].reset();
-                            fetchMasters();
+                            $('#masterCycleModal').modal('hide');
+                            fetchMasters(updatedId);
                             loadStackedChart();
+                        },
+                        error: function(xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ?
+                                xhr.responseJSON.message :
+                                'Gagal memperbarui master cycle.';
+                            showMasterCycleErrorSwal(msg);
                         }
                     });
                 } else {
@@ -3694,8 +4838,9 @@
                     $.post(masterStore, payload)
                         .done(function(res) {
                             var newId = (res && res.data && res.data.id) ? res.data.id : null;
-                            $('#masterCycleForm')[0].reset();
-                            showMasterCycleAddedSwal(payload, savedCustomerName, savedOffsetLabel);
+                            $('#masterCycleModal').one('hidden.bs.modal', function() {
+                                showMasterCycleAddedSwal(payload, savedCustomerName, savedOffsetLabel);
+                            }).modal('hide');
                             fetchMasters(newId);
                             loadStackedChart();
                         })
@@ -3706,13 +4851,6 @@
                             showMasterCycleErrorSwal(msg);
                         });
                 }
-            });
-
-            $('#btnMasterCancel').on('click', function() {
-                editMasterId = null;
-                $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Simpan');
-                $('#btnMasterCancel').addClass('d-none');
-                $('#masterCycleForm')[0].reset();
             });
 
             $('#masterCycleTable').on('click', '.btn-del-master', function() {
@@ -3747,6 +4885,7 @@
                     if (!row) {
                         return;
                     }
+                    resetMasterCycleForm();
                     editMasterId = id;
                     if ($('#mcycleName option[value="' + row.cycle_name + '"]').length) {
                         $('#mcycleName').val(row.cycle_name);
@@ -3761,13 +4900,15 @@
                         row.truck_time.substring(0, 5)) : '';
                     $('#mcyclePrepStart').val(prepStart);
                     $('#mcyclePrepEnd').val(prepEnd);
-                    $('#mcyclePrepDayOffset').val(String(row.prep_day_offset != null ? row.prep_day_offset : 0));
+                    $('#mcyclePrepDayOffset').val(String(row.prep_day_offset != null ? row
+                        .prep_day_offset : 0));
                     $('#mcycleTruckTime').val(etaTruck);
                     $('#mcycleCustomerId').val(row.customer_id != null ? String(row.customer_id) :
                         '');
                     updateMasterCycleOffsetHint();
+                    $('#masterCycleModalTitle').text('Edit Master Cycle');
                     $('#btnMasterSave').html('<i class="fas fa-save mr-1"></i> Update');
-                    $('#btnMasterCancel').removeClass('d-none');
+                    $('#masterCycleModal').modal('show');
                 });
             });
 
@@ -3809,11 +4950,133 @@
                 $('.timeline-title').text(isDaily ? 'Timeline delivery' : 'Timeline delivery (ringkas)');
             }
 
+            function updateTvTimelineLayout() {
+                var $dash = $('.delivery-dash');
+                if (!$dash.hasClass('is-tv-mode')) {
+                    return;
+                }
+
+                var isDaily = dashboardViewMode === 'daily';
+                var rowCount = isDaily ?
+                    $('#ganttContainer .gantt-grid-row').not('.gantt-grid-header').length :
+                    Math.ceil($('#weeklyGanttContainer tbody tr').length / 2);
+                var $viewport = isDaily ? $('#ganttWrap') : $('#deliveryWeeklyCard .weekly-card-body');
+                var $header = isDaily ? $('#ganttContainer .gantt-grid-header') : $(
+                    '#weeklyGanttContainer thead');
+                var availableHeight = ($viewport.innerHeight() || window.innerHeight) - ($header.outerHeight() || 30);
+                if (rowCount > 0) {
+                    var rowHeight = Math.max(26, Math.min(88, Math.floor(availableHeight / rowCount)));
+                    $dash.css('--tv-row-height', rowHeight + 'px');
+                }
+            }
+
+            function setTvMode(enabled, manageFullscreen) {
+                var $dash = $('.delivery-dash');
+                $dash.toggleClass('is-tv-mode', enabled);
+                $('body').toggleClass('delivery-tv-active', enabled);
+                $('#btnToggleTvMode')
+                    .attr('aria-pressed', enabled ? 'true' : 'false')
+                    .toggleClass('is-active', enabled)
+                    .html(enabled ?
+                        '<i class="fas fa-compress mr-1" aria-hidden="true"></i><span>Full Screen</span>' :
+                        '<i class="fas fa-expand mr-1" aria-hidden="true"></i><span>Full Screen</span>');
+
+                if (enabled) {
+                    $('.bella-tabs a[href="#pane-chart"]').tab('show');
+                    if (dashboardViewMode === 'weekly') {
+                        renderWeeklySummary();
+                    }
+                    window.requestAnimationFrame(function() {
+                        window.requestAnimationFrame(updateTvTimelineLayout);
+                    });
+                    if (manageFullscreen !== false && !document.fullscreenElement && document.documentElement
+                        .requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(function() {});
+                    }
+                } else {
+                    if (dashboardViewMode === 'weekly') {
+                        renderWeeklySummary();
+                    }
+                    if (manageFullscreen !== false && document.fullscreenElement && document.exitFullscreen) {
+                        document.exitFullscreen().catch(function() {});
+                    }
+                }
+            }
+
+            $('#btnToggleTvMode').on('click', function() {
+                setTvMode(!$('.delivery-dash').hasClass('is-tv-mode'));
+            });
+
+            $(document).on('fullscreenchange', function() {
+                if (!document.fullscreenElement && $('.delivery-dash').hasClass('is-tv-mode')) {
+                    setTvMode(false, false);
+                }
+            });
+
+            $(document).on('keydown', function(event) {
+                if (event.key === 'Escape' && !document.fullscreenElement && $('.delivery-dash').hasClass(
+                        'is-tv-mode')) {
+                    setTvMode(false, false);
+                }
+            });
+
+            $(window).on('resize', updateTvTimelineLayout);
+
+            function classifyTruckStatusForKpi(row) {
+                // ponytail: duplikat ringan aturan truck di renderGantt (~5859) biar tak refactor render path
+                if (row.truck_status === 'picked' && row.truck_picked_at) {
+                    var actual = new Date(row.truck_picked_at);
+                    var sched = new Date(getTruckDisplayDate(row) + 'T' + normalizeClock(row.truck_time) +
+                        ':00');
+                    var early = new Date(sched.getTime() - 15 * 60 * 1000);
+                    if (actual > sched) return 'late';
+                    if (actual < early) return 'early';
+                    return 'ontime';
+                }
+                return 'pending';
+            }
+
+            function updateDeliveryKpis() {
+                var rows = chartMergedByCustTime.length ? chartMergedByCustTime :
+                    filterRowsWithConfiguredMasterCycle(chartRows);
+                rows = (rows || []).filter(rowHasConfiguredMasterCycle);
+
+                var total = rows.length;
+                var picked = 0,
+                    truckLate = 0,
+                    hasTruck = 0;
+                rows.forEach(function(row) {
+                    if (row.truck_time != null && String(row.truck_time).length) hasTruck++;
+                    var st = classifyTruckStatusForKpi(row);
+                    if (st !== 'pending') picked++;
+                    if (st === 'late') truckLate++;
+                });
+
+                var prep = collectPrepLateSummary(rows);
+                var prepLate = prep.itemCount;
+
+                $('#kpiTotal').text(total);
+                $('#kpiPicked').text(picked);
+                $('#kpiPickedSub').text('dari ' + hasTruck + ' truck');
+                $('#kpiPrepLate').text(prepLate);
+                $('#kpiPrepLateSub').text(prepLate > 0 ? prep.customerCount + ' customer telat' : 'aman');
+                $('#kpiTruckLate').text(truckLate);
+                $('#kpiTruckLateSub').text(truckLate > 0 ? 'pick up mundur' : 'pick up tepat');
+
+                $('#kpiPrepCard').toggleClass('is-alert', prepLate > 0);
+                $('#kpiTruckCard').toggleClass('is-alert', truckLate > 0);
+
+                var anyLate = prepLate > 0 || truckLate > 0;
+                $('#timelineCardHeader').toggleClass('is-late', anyLate).toggleClass('is-ok', !anyLate);
+            }
+
             function updateTimelineTotal() {
                 var sum = chartMergedByCustTime.reduce(function(acc, r) {
                     return acc + (parseInt(r.total_done, 10) || 0);
                 }, 0);
                 $('#timelineTotalSum').text('Total: ' + sum);
+                updateTimelineLateSummary();
+                updateDeliveryKpis();
             }
 
             function buildWeeklyTooltip(details) {
@@ -3823,7 +5086,7 @@
                 return details.map(function(d) {
                     return [
                         'Cycle ' + d.cycle_name,
-                        'Prep ' + d.prep_start + (d.prep_end !== '-' ? ' - ' + d.prep_end : ''),
+                        'Preparation ' + d.prep_start + (d.prep_end !== '-' ? ' - ' + d.prep_end : ''),
                         'ETA ' + d.truck_time,
                         'Progress ' + d.progress_pct + '%'
                     ].join(' | ');
@@ -4176,8 +5439,28 @@
                     text += ' · ' + cycles.length + ' cycle';
                 }
                 return '<span class="customer-unconfigured-note" title="' + escapeAttr(
-                    'Atur PREP di Master Cycle: ' + tipCycles) + '">' +
+                        'Atur Preparation di Master Cycle: ' + tipCycles) + '">' +
                     escapeHtml(text) + '</span>';
+            }
+
+            function buildCustomerLoadingListSummaryHtml(rows) {
+                var seen = {};
+                var loadingLists = [];
+                (rows || []).forEach(function(row) {
+                    (Array.isArray(row.loading_lists) ? row.loading_lists : []).forEach(function(number) {
+                        var value = String(number || '').trim();
+                        if (value && !seen[value]) {
+                            seen[value] = true;
+                            loadingLists.push(value);
+                        }
+                    });
+                });
+                if (!loadingLists.length) {
+                    return '';
+                }
+                var preview = loadingLists[0] + (loadingLists.length > 1 ? ' +' + (loadingLists.length - 1) : '');
+                return '<span class="customer-ll-summary" title="' + escapeAttr(loadingLists.join(', ')) + '">' +
+                    loadingLists.length + ' LL · ' + escapeHtml(preview) + '</span>';
             }
 
             function filterRowsInWeeklySlots(rows, slots) {
@@ -4292,6 +5575,7 @@
                 var viewDateStr = String(viewDate || '').trim();
                 var seen = {};
                 var rows = [];
+
                 function pushRow(r) {
                     if (!r || !rowHasConfiguredMasterCycle(r)) {
                         return;
@@ -4405,15 +5689,14 @@
                 enrichRowAbsoluteDatetimes(row);
                 var beforeScheduledStart = row.absolute_start_ms != null && Date.now() < row.absolute_start_ms;
                 var latchKey = rowOverdueLatchKey(row);
-                var effectiveFrac = resolveCurrentTimelineFrac(currentFrac);
-                var pastFinish = isRowPastFinishPrep(row, effectiveFrac);
-                var isOverdueNow = !beforeScheduledStart && progressWidth < 100 && pastFinish;
+                var pullingPastFinish = isRowPullingPastFinishPrep(row);
+                var isOverdueNow = !beforeScheduledStart && pullingPastFinish;
                 if (isOverdueNow) {
                     overdueLatch[latchKey] = true;
-                } else if (beforeScheduledStart) {
+                } else {
                     delete overdueLatch[latchKey];
                 }
-                var isOverdue = !beforeScheduledStart && !!overdueLatch[latchKey];
+                var isOverdue = isOverdueNow;
                 var barClass = progressWidth >= 100 ?
                     (isOverdue ? 'overdue' : 'ontime') :
                     (isOverdue ? 'overdue' : (progressWidth > 0 ? 'delay' : 'empty'));
@@ -4449,7 +5732,7 @@
                 var cycleLbl = rowCycleKey(row) || '?';
                 var parts = ['C' + cycleLbl, pct + '%'];
                 if (opts.prepRange) {
-                    parts.push('Prep ' + opts.prepRange);
+                    parts.push('Preparation ' + opts.prepRange);
                 }
                 if (opts.prepDayOffsetLabel && opts.prepDayOffsetLabel !== 'H+0') {
                     parts.push(opts.prepDayOffsetLabel);
@@ -4457,6 +5740,9 @@
                 if (opts.blockedByPrior) {
                     parts.push('Menunggu cycle sebelumnya');
                 }
+                buildPrepLateTooltipParts(opts.lateInfo).forEach(function(part) {
+                    parts.push(part);
+                });
                 if (opts.truckCrossMidnight && opts.crossDayFromDate) {
                     parts.push(formatTruckCrossDayDateRangeLabel(opts.crossDayFromDate, opts.truckDisplayDate));
                 } else if (opts.crossDayFromDate) {
@@ -4493,6 +5779,7 @@
                     getPrepOffsetCssClass(getRowPrepDayOffset(row));
                 var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch,
                     prepLayout);
+                var lateInfo = buildPrepLateInfo(row, prepStatus);
                 var progressWidth = prepStatus.progressWidth;
                 var barClass = prepStatus.barClass;
                 var prepStartLbl = formatClockDot(getRowPrepStartClock(row));
@@ -4505,7 +5792,8 @@
                     prepEndDayOffsetLabel: getRowPrepEndOffsetLabel(row),
                     prepEndClock: getRowPrepEndClock(row),
                     displayPct: prepStatus.isBlocked ? 0 : Math.round(getRowRawProgressPct(row) * 10) / 10,
-                    blockedByPrior: prepStatus.isBlocked
+                    blockedByPrior: prepStatus.isBlocked,
+                    lateInfo: lateInfo
                 };
                 var crossDayFrom = getPrepCrossDaySourceDateKey(row);
                 var crossDayLabel = formatCrossDaySourceLabel(crossDayFrom);
@@ -4531,6 +5819,9 @@
                 if (isInstantPrep) {
                     prepExtraClass += ' is-instant';
                 }
+                if (lateInfo.isLate) {
+                    prepExtraClass += ' is-prep-late';
+                }
                 var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';';
                 if (isContinuationBar) {
                     inlineStyle += '--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;;';
@@ -4542,9 +5833,14 @@
                 html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
                 html += ' data-prep-offset="' + escapeAttr(String(getRowPrepDayOffset(row))) + '"';
                 html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
-                html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '">';
+                html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
+                if (lateInfo.isLate) {
+                    html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(lateInfo)) + '"';
+                }
+                html += '>';
                 html += buildGanttProgressStackHtml(progressWidth, barClass,
                     getGanttBarDisplayPct(row, prepStatus), prepLayout);
+                html += buildPrepLateBadgeHtml(lateInfo);
                 html += buildPrepPillMetaHtml(row, null, isContinuationBar ? 'opacity:.9' : '', {
                     isContinuation: isContinuationBar,
                     continuesTomorrow: prepLayout.continuesTomorrow
@@ -4626,6 +5922,7 @@
                     setGanttSlotCount(24);
                     $('#ganttContainer').empty();
                     updateTimelineTotal();
+                    updateTvTimelineLayout();
                     return;
                 }
                 var overdueLatch = getOverdueLatchMap();
@@ -4640,7 +5937,8 @@
                 gridHtml +=
                     '<div class="gantt-grid-cell gantt-grid-sticky-col gantt-grid-sticky-customer" style="font-weight:700;padding:0 10px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">' +
                     '<span>Customer</span>' +
-                    (viewDateLabel ? '<span style="font-size:9px;font-weight:600;color:var(--dm-muted);margin-top:2px;">Sumbu hari: ' +
+                    (viewDateLabel ?
+                        '<span style="font-size:9px;font-weight:600;color:var(--dm-muted);margin-top:2px;">Sumbu hari: ' +
                         escapeHtml(viewDateLabel) + '</span>' : '') +
                     '</div>';
                 gridHtml +=
@@ -4661,7 +5959,8 @@
                         if (dd === viewDate) {
                             return true;
                         }
-                        if (filterRange.from && filterRange.to && dd >= filterRange.from && dd <= filterRange.to) {
+                        if (filterRange.from && filterRange.to && dd >= filterRange.from && dd <=
+                            filterRange.to) {
                             return rowTouchesViewDate(row, viewDate);
                         }
                         return false;
@@ -4671,14 +5970,21 @@
                     var allBucketsForDate = deliveryBucketsForDate.slice();
                     var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
                     var unconfiguredHint = buildUnconfiguredTimelineHintHtml(allBucketsForDate);
+                    var lateSummary = buildCustomerPrepLateSummaryHtml(gateRows.length ? gateRows :
+                        prepBarItems.map(
+                            function(item) {
+                                return item.row;
+                            }));
                     gridHtml += '<div class="gantt-grid-row">';
                     gridHtml +=
-                        '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer">' +
-                        escapeHtml(cn) + (unconfiguredHint || '') + '</div>';
+                        '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer" data-customer-name="' +
+                        escapeAttr(cn) + '">' +
+                        escapeHtml(cn) + buildCustomerLoadingListSummaryHtml(allBucketsForDate) + lateSummary +
+                        (unconfiguredHint || '') + '</div>';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type">';
                     gridHtml +=
-                        '<div class="gantt-type-lane is-prep">PREP</div><div class="gantt-type-lane is-truck">TRUCK</div>';
+                        '<div class="gantt-type-lane is-prep">PREPARATION</div><div class="gantt-type-lane is-truck">TRUCK</div>';
                     gridHtml += '</div>';
                     gridHtml += '<div class="gantt-grid-cell gantt-grid-track-cell">';
                     gridHtml += '<div class="gantt-grid-track-split">';
@@ -4725,9 +6031,10 @@
                         var truckSegClass = 'truck';
                         if (row.truck_status === 'picked' && row.truck_picked_at) {
                             var actualTime = new Date(row.truck_picked_at);
-                            var scheduledTime = new Date(getTruckDisplayDate(row) + 'T' + normalizeClock(row.truck_time) + ':00');
+                            var scheduledTime = new Date(getTruckDisplayDate(row) + 'T' +
+                                normalizeClock(row.truck_time) + ':00');
                             var earlyThreshold = new Date(scheduledTime.getTime() - 15 * 60 * 1000);
-                            
+
                             if (actualTime > scheduledTime) {
                                 truckSegClass = 'truck-late';
                             } else if (actualTime < earlyThreshold) {
@@ -4739,13 +6046,16 @@
                             var truckComplete = isRowPrepKanbanComplete(row);
                             truckSegClass = truckComplete ? 'truck-complete' : 'truck';
                         }
-                        var truckTitle = buildGanttTooltip(row, buildTruckTooltipOpts(row)).replace(/"/g,
+                        var truckTitle = buildGanttTooltip(row, buildTruckTooltipOpts(row)).replace(
+                            /"/g,
                             '&quot;');
                         var truckLabel = 'C' + escapeHtml(String(rowCycleKey(row) || '?'));
-                        var truckExtraClass = (truckNextDay || truckCrossMidnight ? ' is-cross-day' : '') + ' ' +
+                        var truckExtraClass = (truckNextDay || truckCrossMidnight ?
+                                ' is-cross-day' : '') + ' ' +
                             getPrepOffsetCssClass(getRowPrepDayOffset(row));
                         gridHtml += '<div class="gantt-bar-wrap truck-pill' + truckExtraClass +
-                            '" style="left:' + truckLeftPct + '%;z-index:' + (2 + truckIdx) + ';" title="' +
+                            '" style="left:' + truckLeftPct + '%;z-index:' + (2 + truckIdx) +
+                            ';" title="' +
                             truckTitle + '"';
                         gridHtml += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         gridHtml += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
@@ -4753,7 +6063,8 @@
                             row.delivery_date)) + '"';
                         gridHtml += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(
                             row.delivery_date)) + '">';
-                        gridHtml += buildTruckBarStackHtml(truckSegClass, getRowRawProgressPct(row));
+                        gridHtml += buildTruckBarStackHtml(truckSegClass, getRowRawProgressPct(
+                            row));
                         gridHtml += buildPrepPillMetaHtml(row, truckLabel);
                         gridHtml += '</div>';
                     });
@@ -4771,6 +6082,7 @@
                 updateTimelineTotal();
                 ganttNowTimer = setInterval(updateGanttNowMarkers, 1000);
                 updateGanttNowMarkers();
+                updateTvTimelineLayout();
             }
 
             function openLoadingListFromBar($bar) {
@@ -4792,20 +6104,142 @@
                 if (deliveryDateTo) {
                     params.set('delivery_date_to', deliveryDateTo);
                 }
+
+                var lateInfo = parsePrepLateDetailFromBar($bar);
+                if (lateInfo) {
+                    var latePds = {};
+                    var lateLoadingLists = {};
+                    (lateInfo.items || []).forEach(function(item) {
+                        if (item.pdsNumber && item.pdsNumber !== '-') {
+                            latePds[item.pdsNumber] = true;
+                        }
+                        if (item.loadingList && item.loadingList !== '-') {
+                            lateLoadingLists[item.loadingList] = true;
+                        }
+                    });
+                    Object.keys(latePds).slice(0, 50).forEach(function(pdsNumber) {
+                        params.append('late_pds', pdsNumber);
+                    });
+                    Object.keys(lateLoadingLists).slice(0, 80).forEach(function(loadingList) {
+                        params.append('late_ll', loadingList);
+                    });
+                    if (Object.keys(latePds).length || Object.keys(lateLoadingLists).length) {
+                        params.set('highlight_late_pulling', '1');
+                    }
+                }
+
                 var qs = params.toString();
                 window.location.href = loadingListUrl + (qs ? '?' + qs : '');
+            }
+
+            function parsePrepLateDetailFromBar($bar) {
+                var raw = $bar.attr('data-prep-late-detail') || '';
+                if (!raw.length) {
+                    return null;
+                }
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function highlightPrepLateRow($bar) {
+                var $targets = $bar.hasClass('weekly-prep-bar') ?
+                    $bar.closest('tr').add($bar.closest('tr').next('tr')) :
+                    $bar.closest('.gantt-grid-row');
+                $targets.addClass('is-row-highlight');
+                setTimeout(function() {
+                    $targets.removeClass('is-row-highlight');
+                }, 2200);
+            }
+
+            function buildPrepLateDetailHtml(info) {
+                var reasons = (info.reasons || []).map(function(reason) {
+                    return '<span class="prep-late-detail__reason">' + escapeHtml(reason) + '</span>';
+                }).join('');
+                var html = '<div class="prep-late-detail">';
+                html += '<div class="prep-late-detail__meta">';
+                html += '<div><span>Customer</span><strong>' + escapeHtml(info.customerName || '-') +
+                    '</strong></div>';
+                html += '<div><span>Cycle</span><strong>' + escapeHtml(info.cycleName || '-') + '</strong></div>';
+                html += '<div><span>Finish Preparation</span><strong>' + escapeHtml(info.prepDeadlineLabel || '-') +
+                    '</strong></div>';
+                html += '<div><span>Progress</span><strong>' + escapeHtml(info.progressPct || 0) + '% (' +
+                    escapeHtml(info.done || 0) + '/' + escapeHtml(info.target || 0) + ')</strong></div>';
+                html += '</div>';
+                html += '<div class="prep-late-detail__reasons">' + (reasons ||
+                        '<span class="prep-late-detail__reason">Preparation telat</span>') +
+                    '</div>';
+
+                if (info.items && info.items.length) {
+                    html += '<table class="prep-late-detail__table"><thead><tr>' +
+                        '<th>PDS</th><th>Loading List</th><th>Pulling</th><th>Delay</th>' +
+                        '</tr></thead><tbody>';
+                    info.items.slice(0, 30).forEach(function(item) {
+                        html += '<tr><td>' + escapeHtml(item.pdsNumber || '-') + '</td><td>' +
+                            escapeHtml(item.loadingList || '-') + '</td><td>' +
+                            escapeHtml(item.pullingLabel || '-') + '</td><td>' +
+                            escapeHtml(item.delayLabel || '-') + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    var pds = (info.pdsNumbers || []).slice(0, 12).join(', ') || '-';
+                    var lls = (info.loadingLists || []).slice(0, 12).join(', ') || '-';
+                    html += '<div class="prep-late-detail__empty"><strong>PDS terdampak:</strong> ' +
+                        escapeHtml(pds) + '<br><strong>Loading list:</strong> ' + escapeHtml(lls) + '</div>';
+                }
+                html += '</div>';
+                return html;
+            }
+
+            function openPrepLateDetailFromBar($bar) {
+                var info = parsePrepLateDetailFromBar($bar);
+                if (!info) {
+                    openLoadingListFromBar($bar);
+                    return;
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Detail Preparation Telat',
+                    html: buildPrepLateDetailHtml(info),
+                    width: 760,
+                    confirmButtonText: 'Buka Loading List',
+                    confirmButtonColor: '#dc3545',
+                    showCancelButton: true,
+                    cancelButtonText: 'Tutup',
+                    customClass: {
+                        popup: 'master-cycle-swal-popup'
+                    }
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        openLoadingListFromBar($bar);
+                    } else {
+                        highlightPrepLateRow($bar);
+                    }
+                });
             }
 
             $('#ganttContainer').on('click', '.gantt-bar-wrap', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                openLoadingListFromBar($(this));
+                var $bar = $(this);
+                if ($bar.hasClass('is-prep-late')) {
+                    openPrepLateDetailFromBar($bar);
+                    return;
+                }
+                openLoadingListFromBar($bar);
             });
 
             $('#weeklyGanttContainer').on('click', '.weekly-prep-bar', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                openLoadingListFromBar($(this));
+                var $bar = $(this);
+                if ($bar.hasClass('is-prep-late')) {
+                    openPrepLateDetailFromBar($bar);
+                    return;
+                }
+                openLoadingListFromBar($bar);
             });
 
             function resolveWeeklyDayColWidth(nSlots) {
@@ -4830,7 +6264,8 @@
                 }
 
                 if (!chartRows.length) {
-                    $('#weeklyGanttContainer').html('<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
+                    $('#weeklyGanttContainer').html(
+                        '<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>');
                     updateTimelineTotal();
                     return;
                 }
@@ -4860,8 +6295,9 @@
 
                 // Kolom hari mengisi sisa lebar; Customer/Type tetap statis
                 var dayColWidth = resolveWeeklyDayColWidth(nSlots);
-                var custColWidth = 200;
-                var typeColWidth = 120;
+                var compactTvMode = $('.delivery-dash').hasClass('is-tv-mode');
+                var custColWidth = compactTvMode ? 150 : 200;
+                var typeColWidth = compactTvMode ? 62 : 120;
                 $('#deliveryWeeklyCard').css('--weekly-day-col-width', dayColWidth + 'px');
 
                 // ── Build HTML ────────────────────────────────────────────────────
@@ -4878,7 +6314,8 @@
 
                 // Header
                 html += '<thead><tr>';
-                html += '<th class="weekly-col-customer-head" style="text-align:left;padding-left:10px;">Customer</th>';
+                html +=
+                    '<th class="weekly-col-customer-head" style="text-align:left;padding-left:10px;">Customer</th>';
                 html += '<th class="weekly-col-type-head">TYPE</th>';
                 slots.forEach(function(slotDateStr) {
                     html += '<th class="weekly-col-day-head">' + weeklyDateLabel(slotDateStr) + '</th>';
@@ -4906,7 +6343,10 @@
                 custOrder.forEach(function(cust, custIdx) {
                     var rows = sortPrepRowsByOrder(custMap[cust] || []);
                     var rowsForBars = rows.filter(rowHasConfiguredMasterCycle);
-                    var rowHeight = 136; // px – sama dengan daily
+                    var weeklyLateSummary = buildCustomerPrepLateSummaryHtml(filterRowsInWeeklySlots(
+                        rowsForBars,
+                        slots));
+                    var rowHeight = compactTvMode ? 64 : 136;
 
                     // ── Baris PREP ──
                     html += '<tr>';
@@ -4916,6 +6356,8 @@
                         'font-size:12px;font-weight:500;padding:8px 10px;' +
                         'word-break:break-word;line-height:1.3;' +
                         '">' + escapeHtml(cust) +
+                        buildCustomerLoadingListSummaryHtml(filterRowsInWeeklySlots(rows, slots)) +
+                        weeklyLateSummary +
                         buildUnconfiguredTimelineHintHtml(filterRowsInWeeklySlots(rows, slots)) +
                         '</td>';
                     // Kolom TYPE – PREP
@@ -4923,7 +6365,7 @@
                         'height:' + (rowHeight / 2) + 'px;' +
                         'text-align:center;vertical-align:middle;' +
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5c7f2b;' +
-                        '">PREP</td>';
+                        '">PREPARATION</td>';
                     // Lane PREP mingguan: satu track lintas semua hari (bar boleh melewati garis antarhari)
                     var prepLaneH = rowHeight / 2;
                     html += '<td colspan="' + nSlots + '" class="weekly-prep-lane-cell">';
@@ -4938,47 +6380,66 @@
                         var row = item.row;
                         var span = item.span;
                         var anchorDate = span.anchorDate;
-                        var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[0]) :
+                        var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[
+                                0]) :
                             anchorDate;
                         var gateRows = getCustomerPrepRowsForSequentialGate(cust, gateDate);
                         var prepLayoutDaily = computePrepBarLayoutForRow(row, 24);
                         var weeklyCurrentFrac = (gateDate === todayStr) ? nowFrac : null;
-                        var prepStatus = resolvePrepBarStatus(row, gateRows, gateDate, weeklyCurrentFrac,
+                        var prepStatus = resolvePrepBarStatus(row, gateRows, gateDate,
+                            weeklyCurrentFrac,
                             weeklyOverdueLatch, prepLayoutDaily);
+                        var lateInfo = buildPrepLateInfo(row, prepStatus);
                         var rawPct = Math.round(getRowRawProgressPct(row) * 10) / 10;
                         var pct = prepStatus.isBlocked ? 0 : rawPct;
                         var barColor = prepBarStatusToWeeklyColor(prepStatus, pct);
                         var cycleLbl = rowCycleKey(row) || '-';
-                        var prepRangeLbl = span.prepStart + (span.prepEnd ? '–' + span.prepEnd : '');
+                        var prepRangeLbl = span.prepStart + (span.prepEnd ? '–' + span.prepEnd :
+                            '');
                         var tipText = escapeAttr(buildGanttTooltip(row, {
                             prepRange: prepRangeLbl,
-                            prepDayOffsetLabel: row.prep_day_offset_label || formatPrepDayOffsetLabel(
-                                getRowPrepDayOffset(row)),
+                            prepDayOffsetLabel: row.prep_day_offset_label ||
+                                formatPrepDayOffsetLabel(
+                                    getRowPrepDayOffset(row)),
                             prepEndDayOffsetLabel: row.prep_end_day_offset_label ||
                                 formatPrepDayOffsetLabel(getRowPrepEndDayOffset(row)),
                             crossDayFromDate: span.crossesDays ? (span.anchorDate ||
                                 getPrepCrossDaySourceDateKey(row)) : null,
                             weeklyCrossDaySpan: span.crossesDays && !span.anchorDate,
                             displayPct: pct,
-                            blockedByPrior: prepStatus.isBlocked
+                            blockedByPrior: prepStatus.isBlocked,
+                            lateInfo: lateInfo
                         }));
                         var av = 'C' + escapeHtml(String(cycleLbl).toUpperCase());
                         var crossClass = span.crossesDays ? ' is-cross-day' : '';
-                        var incomingClass = span.isIncomingFromPriorRange ? ' is-incoming-prior-range' : '';
+                        var incomingClass = span.isIncomingFromPriorRange ?
+                            ' is-incoming-prior-range' : '';
                         var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
-                        var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24), minPrepBarWidthPct);
-                        html += '<div class="weekly-prep-bar' + crossClass + incomingClass + ' ' + offsetClass +
+                        var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24),
+                            minPrepBarWidthPct);
+                        html += '<div class="weekly-prep-bar' + crossClass + incomingClass +
+                            (lateInfo.isLate ? ' is-prep-late' : '') + ' ' + offsetClass +
                             '" title="' + tipText + '" style="left:' +
                             span.leftPct + '%;width:' + barWidthPct + '%;' +
                             'background:' + barColor + ';"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
-                        html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
-                        html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '">';
+                        html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row
+                            .delivery_date)) + '"';
+                        html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row
+                            .delivery_date)) + '"';
+                        if (lateInfo.isLate) {
+                            html += ' data-prep-late-detail="' + escapeAttr(JSON.stringify(
+                                lateInfo)) + '"';
+                        }
+                        html += '>';
                         var weeklyBarW = trackWidthPx * (barWidthPct / 100);
-                        var weeklyPctHtml = shouldShowGanttBarPct(weeklyBarW, pct) ? buildGanttBarPctHtml(pct) : '';
+                        var weeklyPctHtml = shouldShowGanttBarPct(weeklyBarW, pct) ?
+                            buildGanttBarPctHtml(pct) : '';
                         html += '<span>' +
-                            av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml + '</span></div>';
+                            av + buildWeeklyOffsetBadgeHtml(row) + weeklyPctHtml +
+                            buildPrepLateBadgeHtml(lateInfo) +
+                            '</span></div>';
                     });
                     if (nowDayIdx >= 0) {
                         var nowLeftInTrack = ((nowDayIdx + nowFrac) / nSlots) * 100;
@@ -5002,7 +6463,8 @@
                     slots.forEach(function(slotDateStr, dayIdx) {
                         var isToday = slotDateStr === todayStr;
                         var bg = isToday ? 'background:rgba(255,235,235,.35);' : '';
-                        html += '<td class="weekly-col-day" style="position:relative;padding:0;border:1px solid #eef0f3;height:' +
+                        html +=
+                            '<td class="weekly-col-day" style="position:relative;padding:0;border:1px solid #eef0f3;height:' +
                             (rowHeight / 2) +
                             'px;vertical-align:top;overflow:visible;' + bg + '">';
                         html += '<div style="position:relative;height:' + (rowHeight / 2) + 'px;">';
@@ -5011,7 +6473,8 @@
                             if (String(truckDisplayDate || '').trim() !== slotDateStr) {
                                 return;
                             }
-                            var truckTime = row.truck_time ? String(row.truck_time).substring(0, 5) : null;
+                            var truckTime = row.truck_time ? String(row.truck_time)
+                                .substring(0, 5) : null;
                             if (!truckTime) {
                                 return;
                             }
@@ -5021,11 +6484,14 @@
                             }
                             var leftPct = truckFrac * 100;
                             var pct = getRowRawProgressPct(row);
-                            var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' : '#f59e0b';
+                            var barColor = isRowPrepKanbanComplete(row) ? 'var(--dm-blue)' :
+                                '#f59e0b';
                             if (row.truck_status === 'picked' && row.truck_picked_at) {
                                 var actualTime = new Date(row.truck_picked_at);
-                                var scheduledTime = new Date(truckDisplayDate + 'T' + truckTime + ':00');
-                                var earlyThreshold = new Date(scheduledTime.getTime() - 15 * 60 * 1000);
+                                var scheduledTime = new Date(truckDisplayDate + 'T' +
+                                    truckTime + ':00');
+                                var earlyThreshold = new Date(scheduledTime.getTime() - 15 *
+                                    60 * 1000);
                                 if (actualTime > scheduledTime) {
                                     barColor = '#dc3545';
                                 } else if (actualTime < earlyThreshold) {
@@ -5037,26 +6503,32 @@
                             var truckNextDay = isTruckOnNextDay(row);
                             var truckCrossMidnight = isTruckCrossMidnight(row);
                             var cycleLblTruck = rowCycleKey(row) || '-';
-                            var tipText = escapeAttr(buildGanttTooltip(row, buildTruckTooltipOpts(row)) +
-                                ' | Done ' + (row.total_done || 0) + '/' + (row.total_target || 0));
+                            var tipText = escapeAttr(buildGanttTooltip(row,
+                                    buildTruckTooltipOpts(row)) +
+                                ' | Done ' + (row.total_done || 0) + '/' + (row
+                                    .total_target || 0));
                             var truckBorder = (truckNextDay || truckCrossMidnight) ?
                                 'border:2px dashed #b86f00;' : '';
                             var av = 'C' + escapeHtml(String(cycleLblTruck).toUpperCase());
-                            html += '<div class="weekly-truck-pill" title="' + tipText + '" style="' +
+                            html += '<div class="weekly-truck-pill" title="' + tipText +
+                                '" style="' +
                                 'position:absolute;top:8px;height:22px;' +
                                 'left:' + leftPct + '%;width:48px;min-width:48px;' +
-                                'background:' + barColor + ';border-radius:4px;' + truckBorder +
+                                'background:' + barColor + ';border-radius:4px;' +
+                                truckBorder +
                                 'box-shadow:0 1px 2px rgba(0,0,0,.08);' +
                                 'cursor:pointer;box-sizing:border-box;z-index:2;' +
                                 'display:flex;align-items:center;justify-content:center;padding:0 4px;' +
                                 '">' +
                                 '<span>' +
-                                av + (shouldShowGanttBarPct(48, pct) ? buildGanttBarPctHtml(pct) : '') + '</span>' +
+                                av + (shouldShowGanttBarPct(48, pct) ? buildGanttBarPctHtml(
+                                    pct) : '') + '</span>' +
                                 '</div>';
                         });
                         if (isToday) {
                             var nFrac2 = getCurrentDayFrac();
-                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac2 * 100) +
+                            html += '<div style="position:absolute;top:0;bottom:0;left:' + (nFrac2 *
+                                    100) +
                                 '%;width:2px;background:rgb(67,53,220);transform:translateX(-50%);z-index:4;pointer-events:none;"></div>';
                         }
                         html += '</div></td>';
@@ -5076,12 +6548,14 @@
                         if (slotDateStr !== todayS) {
                             return;
                         }
-                        $('#weeklyGanttContainer [data-wday="' + dayIdx + '"] .weekly-now-line').css('left', (nFrac3 * 100) +
-                            '%');
+                        $('#weeklyGanttContainer [data-wday="' + dayIdx + '"] .weekly-now-line')
+                            .css('left', (nFrac3 * 100) +
+                                '%');
                     });
                 }, 1000);
 
                 updateTimelineTotal();
+                updateTvTimelineLayout();
             }
 
             function loadStackedChart() {
@@ -5101,6 +6575,7 @@
                 }
                 $('#ganttContainer').empty();
                 destroyWeeklyChart();
+
                 function finishStackedChartLoad(res) {
                     chartRows = enrichChartRowsCollection(res.rows || []);
                     chartWeeklyPoints = enrichChartRowsCollection(res.weekly_points || []);
@@ -5110,7 +6585,8 @@
                     if (!chartRows.length && !chartRowsPrevDay.length) {
                         var msg = hint || 'Tidak ada data delivery untuk filter ini.';
                         $('#chartEmpty').removeClass('d-none').text(msg);
-                        $('#timelineTotalSum').text('Total: 0');
+                        chartMergedByCustTime = [];
+                        updateTimelineTotal();
                         return;
                     }
                     if (hint && !filterRowsWithConfiguredMasterCycle(chartRows).length) {
@@ -5150,26 +6626,27 @@
                         date: addDaysToDateStr(viewDateForAdj, 1)
                     });
                     var pending = 2;
+
                     function maybeFinishAdj() {
                         pending--;
                         if (pending <= 0) {
                             finishStackedChartLoad(res);
                         }
                     }
-                        $.get(stackedUrl, prevParams, function(prevRes) {
-                            chartRowsPrevDay = enrichChartRowsCollection(prevRes.rows || []);
-                            maybeFinishAdj();
-                        }).fail(function() {
-                            chartRowsPrevDay = [];
-                            maybeFinishAdj();
-                        });
-                        $.get(stackedUrl, nextParams, function(nextRes) {
-                            chartRowsNextDay = enrichChartRowsCollection(nextRes.rows || []);
-                            maybeFinishAdj();
-                        }).fail(function() {
-                            chartRowsNextDay = [];
-                            maybeFinishAdj();
-                        });
+                    $.get(stackedUrl, prevParams, function(prevRes) {
+                        chartRowsPrevDay = enrichChartRowsCollection(prevRes.rows || []);
+                        maybeFinishAdj();
+                    }).fail(function() {
+                        chartRowsPrevDay = [];
+                        maybeFinishAdj();
+                    });
+                    $.get(stackedUrl, nextParams, function(nextRes) {
+                        chartRowsNextDay = enrichChartRowsCollection(nextRes.rows || []);
+                        maybeFinishAdj();
+                    }).fail(function() {
+                        chartRowsNextDay = [];
+                        maybeFinishAdj();
+                    });
                 }).fail(function() {
                     $('#chartEmpty').removeClass('d-none').text('Gagal memuat Gantt.');
                     $('#timelineTotalSum').text('Total: 0');
@@ -5177,6 +6654,134 @@
             }
 
             $('#btnReloadChart').on('click', loadStackedChart);
+            $('#btnSyncLoadingLists').on('click', function() {
+                var date = $('#syncLoadingListDate').val() || '';
+                if (!date) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Tanggal belum dipilih',
+                        text: 'Pilih tanggal sync loading list.',
+                        confirmButtonColor: '#0097d8'
+                    });
+                    return;
+                }
+                var dateTo = addDaysToDateStr(date, 2);
+
+                var $button = $(this);
+                var originalHtml = $button.html();
+                $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Sync...');
+
+                Swal.fire({
+                    html: '<div class="delivery-sync-loader" role="status" aria-live="polite">' +
+                        '<div class="delivery-sync-scene" aria-hidden="true">' +
+                        '<svg viewBox="0 0 320 128" xmlns="http://www.w3.org/2000/svg">' +
+                        '<g class="dst-bush"><rect x="8" y="93" width="4" height="9" rx="1.5" fill="#a9b79f"/><circle cx="10" cy="91" r="9" fill="#cfe0c9"/><circle cx="4" cy="95" r="6" fill="#cfe0c9"/><circle cx="16" cy="95" r="6" fill="#cfe0c9"/></g>' +
+                        '<g class="dst-bush b"><rect x="9" y="95" width="3" height="7" rx="1.5" fill="#a9b79f"/><circle cx="10" cy="94" r="6" fill="#d8e6d2"/></g>' +
+                        '<line x1="0" y1="104" x2="320" y2="104" stroke="#c3d0dc" stroke-width="4"/>' +
+                        '<line class="dst-dash" x1="0" y1="104" x2="320" y2="104" stroke="#ffffff" stroke-width="4" stroke-dasharray="16 18" stroke-linecap="round"/>' +
+                        '<ellipse cx="134" cy="106" rx="80" ry="4" fill="rgba(13,54,92,.12)"/>' +
+                        '<circle class="dst-puff" cx="52" cy="88" r="4" fill="#cbd7e2"/>' +
+                        '<circle class="dst-puff b" cx="52" cy="88" r="3" fill="#d7e1ea"/>' +
+                        '<g class="dst-wheel"><circle cx="98" cy="92" r="12" fill="#2b3542"/><line x1="98" y1="81" x2="98" y2="103" stroke="#c2ccd6" stroke-width="2"/><line x1="87" y1="92" x2="109" y2="92" stroke="#c2ccd6" stroke-width="2"/><circle cx="98" cy="92" r="6" fill="#e7edf3"/><circle cx="98" cy="92" r="2" fill="#8b98a6"/></g>' +
+                        '<g class="dst-wheel"><circle cx="188" cy="92" r="12" fill="#2b3542"/><line x1="188" y1="81" x2="188" y2="103" stroke="#c2ccd6" stroke-width="2"/><line x1="177" y1="92" x2="199" y2="92" stroke="#c2ccd6" stroke-width="2"/><circle cx="188" cy="92" r="6" fill="#e7edf3"/><circle cx="188" cy="92" r="2" fill="#8b98a6"/></g>' +
+                        '<g class="dst-body">' +
+                        '<rect x="58" y="86" width="154" height="7" rx="2.5" fill="#0d365c"/>' +
+                        '<rect x="58" y="40" width="108" height="47" rx="7" fill="#ffffff" stroke="#0d365c" stroke-width="3"/>' +
+                        '<line x1="104" y1="43" x2="104" y2="84" stroke="#cdd9e6" stroke-width="2"/>' +
+                        '<rect x="118" y="50" width="28" height="24" rx="2.5" fill="#eaf4fb" stroke="#0097d8" stroke-width="2"/>' +
+                        '<line x1="118" y1="62" x2="146" y2="62" stroke="#0097d8" stroke-width="2"/>' +
+                        '<line x1="132" y1="50" x2="132" y2="74" stroke="#0097d8" stroke-width="2"/>' +
+                        '<path d="M166 50 H188 L206 74 V84 H166 Z" fill="#0097d8" stroke="#0d365c" stroke-width="3" stroke-linejoin="round"/>' +
+                        '<path d="M170 54 H186 L198 70 H170 Z" fill="#dff1fb"/>' +
+                        '<rect x="201" y="76" width="6" height="6" rx="1.5" fill="#ffd873"/>' +
+                        '</g>' +
+                        '</svg>' +
+                        '</div>' +
+                        '<div class="delivery-sync-title">Sinkronisasi loading list</div>' +
+                        '<div class="delivery-sync-copy">Mengantar jadwal ke dashboard</div>' +
+                        '<div class="delivery-sync-date"><i class="far fa-calendar-alt"></i>' + escapeHtml(date) +
+                        ' s.d. ' + escapeHtml(dateTo) +
+                        '</div>' +
+                        '<div class="delivery-sync-progress" aria-hidden="true"></div>' +
+                        '</div>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    backdrop: 'rgba(7, 25, 43, .72)',
+                    customClass: {
+                        popup: 'delivery-sync-popup',
+                        htmlContainer: 'delivery-sync-html'
+                    }
+                });
+
+                $.ajax({
+                    url: syncLoadingListsUrl,
+                    method: 'POST',
+                    data: {
+                        _token: csrf,
+                        date: date
+                    }
+                }).done(function(response) {
+                    loadStackedChart();
+                    if (response.last_sync) {
+                        var lastSyncText = 'Terakhir sync ' + response.last_sync.synced_at +
+                            ' · tanggal ' + response.last_sync.date_label +
+                            ' · ' + response.last_sync.loading_list_count + ' LL';
+                        if (response.last_sync.skipped > 0) {
+                            lastSyncText += ' · ' + response.last_sync.skipped + ' catatan';
+                        }
+                        $('#lastSyncStatusText').text(lastSyncText);
+                        $('#lastSyncStatus').removeClass('is-empty');
+                    }
+                    var hasNotes = response.status === 'warning';
+                    var isEmpty = response.status === 'empty';
+                    var skippedItems = Array.isArray(response.skipped_items) ? response.skipped_items : [];
+                    var skippedHtml = skippedItems.map(function(item) {
+                        var parts = [];
+                        if (item.part_number_int) {
+                            parts.push('<strong>Internal:</strong> ' + escapeHtml(String(item.part_number_int)));
+                        }
+                        if (item.part_number_cust) {
+                            parts.push('<strong>Customer:</strong> ' + escapeHtml(String(item.part_number_cust)));
+                        }
+
+                        return '<div class="delivery-sync-note-item">' +
+                            '<div class="delivery-sync-note-head">' +
+                            '<strong>' + escapeHtml(String(item.loading_list || '-')) + '</strong>' +
+                            '<span class="delivery-sync-note-reason">' + escapeHtml(String(item.reason || '-')) + '</span>' +
+                            '</div>' +
+                            (parts.length ? '<div class="delivery-sync-note-parts">' + parts.join(' &middot; ') + '</div>' : '') +
+                            '</div>';
+                    }).join('');
+                    var resultHtml = hasNotes
+                        ? '<p class="delivery-sync-result-copy">' + escapeHtml(response.message) + '</p>' +
+                            '<details class="delivery-sync-notes">' +
+                            '<summary><span>Detail data yang dilewati</span>' +
+                            '<span class="delivery-sync-notes-count">' + escapeHtml(String(response.skipped || 0)) + '</span></summary>' +
+                            '<div class="delivery-sync-notes-list">' + skippedHtml + '</div>' +
+                            '</details>'
+                        : null;
+                    Swal.fire({
+                        icon: hasNotes ? 'warning' : (isEmpty ? 'info' : 'success'),
+                        title: hasNotes ? 'Berhasil dengan catatan' : (isEmpty ? 'Data tidak ditemukan' : 'Sync selesai'),
+                        text: hasNotes ? undefined : response.message,
+                        html: resultHtml,
+                        confirmButtonColor: hasNotes ? '#f59e0b' : (isEmpty ? '#64748b' : '#0097d8'),
+                        customClass: hasNotes ? { popup: 'delivery-sync-result-popup' } : {}
+                    });
+                }).fail(function(xhr) {
+                    var response = xhr.responseJSON || {};
+                    var detail = response.detail ? '\n\n' + response.detail : '';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Sync gagal',
+                        text: (response.message || 'Loading list gagal disinkronkan.') + detail,
+                        confirmButtonColor: '#0097d8'
+                    });
+                }).always(function() {
+                    $button.prop('disabled', false).html(originalHtml);
+                });
+            });
             $('#filterDateFrom, #filterDateTo, #filterCustomer').on('change', loadStackedChart);
 
             $('#etaWindowModalForm').on('submit', function(e) {
@@ -5208,6 +6813,11 @@
             fetchMasters();
             loadStackedChart();
 
+            // Auto-refresh data dashboard tiap 5 menit (lewati saat tab tidak aktif biar hemat).
+            setInterval(function() {
+                if (!document.hidden) loadStackedChart();
+            }, 300000);
+
             waNotifyTimer = setInterval(function() {
                 checkAndSendUnfinishedWaNotification();
                 if (dashboardViewMode === 'daily') {
@@ -5219,6 +6829,98 @@
             setInterval(tickDeliveryHeaderClock, 1000);
         });
     </script>
+
+    @can('manage-master')
+        {{-- ===== MODAL MASTER CYCLE ===== --}}
+        <div class="modal fade" id="masterCycleModal" tabindex="-1" role="dialog"
+            aria-labelledby="masterCycleModalTitle" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <form id="masterCycleForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="masterCycleModalTitle">Tambah Master Cycle</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-row">
+                                <div class="col-md-8 mb-3">
+                                    <label class="bella-form-label">Customer</label>
+                                    <select class="bella-form-control" id="mcycleCustomerId" required>
+                                        <option value="">Pilih customer</option>
+                                        @foreach ($customers as $c)
+                                            <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="bella-form-label">Nama Cycle</label>
+                                    <select class="bella-form-control" id="mcycleName" required>
+                                        <option value="" selected disabled>Pilih cycle</option>
+                                        @foreach (range(1, 10) as $n)
+                                            <option value="{{ $n }}">{{ $n }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-7 mb-3">
+                                    <label class="bella-form-label">Waktu Rentang Preparation</label>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <input type="time" class="bella-form-control" id="mcyclePrepStart" required
+                                            step="60">
+                                        <span
+                                            style="font-size:11px;color:var(--text-muted);white-space:nowrap;">sampai</span>
+                                        <input type="time" class="bella-form-control" id="mcyclePrepEnd" required
+                                            step="60">
+                                    </div>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label class="bella-form-label">Hari Offset Preparation</label>
+                                    <select class="bella-form-control" id="mcyclePrepDayOffset" required>
+                                        <option value="0">H+0 (hari delivery)</option>
+                                        <option value="-1">H-1</option>
+                                        <option value="-2">H-2</option>
+                                        <option value="-3">H-3</option>
+                                        <option value="-4">H-4</option>
+                                        <option value="-5">H-5</option>
+                                        <option value="-6">H-6</option>
+                                        <option value="-7">H-7</option>
+                                        <option value="1">H+1</option>
+                                        <option value="2">H+2</option>
+                                    </select>
+                                    <small id="mcycleOffsetHint"
+                                        style="display:block;font-size:10px;color:var(--text-muted);margin-top:4px;">
+                                        Selesai prep: <span id="mcycleEndOffsetLabel">H+0</span>
+                                    </small>
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label class="bella-form-label">Waktu ETA Truck</label>
+                                    <input type="time" class="bella-form-control" id="mcycleTruckTime" required
+                                        step="60">
+                                </div>
+                            </div>
+                            <p
+                                style="font-size:11px;color:var(--text-muted);margin:0;padding:10px 12px;background:#f8fafc;border-radius:6px;">
+                                Hari Offset = tanggal mulai prep terhadap delivery (H). Otomatis H-1 jika jam mulai
+                                prep &gt; jam truck (mis. prep 22:00, truck 07:00). Timeline harian 00:00–24:00;
+                                bar prep hanya tampil jika sudah/sedang berjalan.
+                            </p>
+                        </div>
+                        <div class="modal-footer" style="gap:8px;">
+                            <button type="button" class="act-btn secondary" id="btnMasterCancel" data-dismiss="modal"
+                                style="height:32px;padding:0 14px;font-size:12px;">
+                                Batal
+                            </button>
+                            <button type="submit" class="act-btn success" id="btnMasterSave"
+                                style="height:32px;padding:0 14px;font-size:12px;">
+                                <i class="fas fa-save mr-1"></i> Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endcan
 
     {{-- ===== MODAL ETA WINDOW ===== --}}
     <div class="modal fade" id="etaWindowModal" tabindex="-1" role="dialog" aria-labelledby="etaWindowModalLabel"

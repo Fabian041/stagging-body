@@ -113,7 +113,8 @@ return [
     |
     */
 
-    'lottery' => [2, 100],
+    // Session cleanup dijalankan lewat command terjadwal, bukan request user.
+    'lottery' => [0, 100],
 
     /*
     |--------------------------------------------------------------------------

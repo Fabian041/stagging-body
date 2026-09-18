@@ -38,6 +38,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'preferences' => 'array',
     ];
 
     /**
@@ -50,6 +51,26 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->hasRole('admin', 'super_admin');
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    public function rfidCards()
+    {
+        return $this->hasMany(RfidCard::class);
+    }
+
+    public function machinePermissions()
+    {
+        return $this->hasMany(MachinePermission::class);
+    }
+
+    public function machineAccessLogs()
+    {
+        return $this->hasMany(MachineAccessLog::class);
     }
 }

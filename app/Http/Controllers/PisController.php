@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PisScanListExport;
 use App\Models\PisPart;
@@ -25,6 +26,23 @@ use Carbon\Carbon;
 
 class PisController extends Controller
 {
+    private static $pisScansHaveOperatorScannedAtColumn = null;
+
+    private function pisScansHaveOperatorScannedAtColumn(): bool
+    {
+        if (self::$pisScansHaveOperatorScannedAtColumn !== null) {
+            return self::$pisScansHaveOperatorScannedAtColumn;
+        }
+
+        try {
+            self::$pisScansHaveOperatorScannedAtColumn = Schema::hasColumn('pis_scans', 'operator_scanned_at');
+        } catch (\Throwable $th) {
+            self::$pisScansHaveOperatorScannedAtColumn = false;
+        }
+
+        return self::$pisScansHaveOperatorScannedAtColumn;
+    }
+
     /**
      * Normalisasi nama dasar file gambar PIS berdasarkan part number customer, jenis, dan dock.
      * Contoh:
@@ -57,6 +75,43 @@ class PisController extends Controller
         foreach ($this->pisImageLookupExtensions() as $ext) {
             $fileName = $baseName . $ext;
             if ($disk->exists($fileName)) {
+                return $fileName;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolvePisPreviewFileName(string $custPart, string $kind, string $dock): ?string
+    {
+        $cust = preg_replace('/[^A-Z0-9\-]/', '', strtoupper(trim($custPart)));
+        $custNoDash = str_replace('-', '', $cust);
+        $kind = preg_replace('/[^A-Z0-9_-]/', '', strtoupper(trim($kind))) ?: 'OEM';
+        $dock = preg_replace('/[^A-Z0-9 _-]/', '', strtoupper(trim($dock))) ?: 'OTHER';
+
+        if ($cust === '') {
+            return null;
+        }
+
+        $docks = array_unique([
+            $dock,
+            str_replace(' ', '_', $dock),
+            str_replace(' ', '-', $dock),
+            str_replace(' ', '', $dock),
+        ]);
+        $parts = array_unique([$cust, $custNoDash]);
+        $bases = [];
+
+        foreach ($docks as $dockVariant) {
+            foreach ($parts as $part) {
+                $bases[] = $part . '-' . $kind . '-' . $dockVariant;
+            }
+        }
+        array_push($bases, ...$parts);
+
+        foreach (array_unique($bases) as $base) {
+            $fileName = $this->resolvePisStoredFileName($base);
+            if ($fileName !== null) {
                 return $fileName;
             }
         }
@@ -869,22 +924,32 @@ class PisController extends Controller
         }
 
         $raw = $request->query('f', '');
-        if (!is_string($raw) || $raw === '') {
+        if (!is_string($raw)) {
             abort(404);
         }
 
-        $name = basename($raw);
-        if ($name !== $raw || str_contains($name, '..')) {
-            abort(404);
-        }
+        if ($raw !== '') {
+            $name = basename($raw);
+            if ($name !== $raw || str_contains($name, '..') || strlen($name) > 255) {
+                abort(404);
+            }
 
-        if (strlen($name) > 255) {
-            abort(404);
-        }
+            // Pola nama PIS: alfanumerik, hubung, underscore, titik (ekstensi), spasi (mis. dock "TMMIN SPD")
+            if (!preg_match('/^[A-Za-z0-9\-_. ]+\.(jpe?g|webp)$/i', $name)) {
+                abort(404);
+            }
+        } else {
+            $part = $request->query('part', '');
+            $kind = $request->query('kind', 'OEM');
+            $dock = $request->query('dock', 'OTHER');
+            if (!is_string($part) || !is_string($kind) || !is_string($dock)) {
+                abort(404);
+            }
+            if (strlen($part) > 100 || strlen($kind) > 30 || strlen($dock) > 100) {
+                abort(404);
+            }
 
-        // Pola nama PIS: alfanumerik, hubung, underscore, titik (ekstensi), spasi (mis. dock "TMMIN SPD")
-        if (!preg_match('/^[A-Za-z0-9\-_. ]+\.(jpe?g|webp)$/i', $name)) {
-            abort(404);
+            $name = $this->resolvePisPreviewFileName($part, $kind, $dock) ?? 'default.JPG';
         }
 
         $disk = Storage::disk('pis');
@@ -1078,51 +1143,44 @@ class PisController extends Controller
             return response()->json(['exists' => false]);
         }
 
-        $items = $pisScan->details->map(function ($detail) {
-            $target = (int) ($detail->target_qty ?? 0);
-            $scanned = (int) ($detail->scanned_qty ?? 0);
-            $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
-            return [
-                'part_number_int' => $detail->part_number_int,
-                'part_number_cust' => $detail->part_number_cust,
-                'total_qty' => $target,
-                'total_kanban_qty' => $target,
-                'actual_kanban_qty' => $scanned,
-                'remaining' => $remaining,
-            ];
-        })->values()->all();
+        $tracksOperatorScan = $this->pisScansHaveOperatorScannedAtColumn();
+        $wasOperatorScanned = $tracksOperatorScan && ! empty($pisScan->operator_scanned_at);
+        if ($tracksOperatorScan && ! $wasOperatorScanned) {
+            $pisScan->operator_scanned_at = now();
+            $pisScan->save();
+        }
 
-        // Saat user scan LL yang sudah pernah disimpan, kirim juga semua LL lain
-        // dengan PDS yang sama agar frontend bisa memuat satu grup PDS sekaligus.
+        $items = $pisScan->details
+            ->map(fn ($detail) => $this->formatPisPackingItem($detail))
+            ->values()
+            ->all();
+
+        // Auto-load grup PDS hanya setelah semua LL di grup itu pernah discan operator.
         $relatedLoadingLists = [];
-        if (!empty($pisScan->pds_number)) {
-            $relatedLoadingLists = PisScan::where('pds_number', $pisScan->pds_number)
+        if ($tracksOperatorScan && $wasOperatorScanned && !empty($pisScan->pds_number)) {
+            $relatedScans = PisScan::where('pds_number', $pisScan->pds_number)
                 ->with('details')
-                ->get()
-                ->map(function ($scan) {
-                    $relatedItems = $scan->details->map(function ($detail) {
-                        $target = (int) ($detail->target_qty ?? 0);
-                        $scanned = (int) ($detail->scanned_qty ?? 0);
-                        $remaining = max(0, (int) ($detail->remaining_qty ?? ($target - $scanned)));
-                        return [
-                            'part_number_int' => $detail->part_number_int,
-                            'part_number_cust' => $detail->part_number_cust,
-                            'total_qty' => $target,
-                            'total_kanban_qty' => $target,
-                            'actual_kanban_qty' => $scanned,
-                            'remaining' => $remaining,
-                        ];
-                    })->values()->all();
+                ->orderBy('loading_list_number')
+                ->get();
 
-                    return [
-                        'loading_list_number' => $scan->loading_list_number,
-                        'name' => $scan->loading_list_number,
-                        'pds_number' => $scan->pds_number,
-                        'items' => $relatedItems,
-                    ];
-                })
-                ->values()
-                ->all();
+            if ($relatedScans->every(fn ($scan) => ! empty($scan->operator_scanned_at))) {
+                $relatedLoadingLists = $relatedScans
+                    ->map(function ($scan) {
+                        $relatedItems = $scan->details
+                            ->map(fn ($detail) => $this->formatPisPackingItem($detail))
+                            ->values()
+                            ->all();
+
+                        return [
+                            'loading_list_number' => $scan->loading_list_number,
+                            'name' => $scan->loading_list_number,
+                            'pds_number' => $scan->pds_number,
+                            'items' => $relatedItems,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
         }
 
         return response()->json([
@@ -1137,6 +1195,29 @@ class PisController extends Controller
             'items' => $items,
             'related_loading_lists' => $relatedLoadingLists,
         ]);
+    }
+
+    /** Format progress packing untuk UI /pis dalam satuan pcs. */
+    private function formatPisPackingItem(PisScanDetail $detail): array
+    {
+        $qtyPerKanban = max(1, (int) ($detail->qty_per_kanban ?? 1));
+        $orderQty = max(0, (int) ($detail->order_qty ?? 0));
+        if ($orderQty <= 0) {
+            $orderQty = max(0, (int) ($detail->target_qty ?? 0));
+        }
+        $actualQty = min($orderQty, max(0, (int) ($detail->scanned_qty ?? 0)));
+
+        return [
+            'part_number_int' => $detail->part_number_int,
+            'part_number_cust' => $detail->part_number_cust,
+            'total_qty' => $orderQty,
+            'qty_per_kanban' => $qtyPerKanban,
+            'total_kanban_qty' => $orderQty,
+            'actual_kanban_qty' => $actualQty,
+            'actual_qty' => $actualQty,
+            'remaining' => max(0, $orderQty - $actualQty),
+            'remaining_kanban_qty' => max(0, $orderQty - $actualQty),
+        ];
     }
 
     /**
@@ -1238,12 +1319,49 @@ class PisController extends Controller
             if ($dockType) {
                 $pisScan->dock_type = $dockType;
             }
+            if ($this->pisScansHaveOperatorScannedAtColumn() && ! $pisScan->operator_scanned_at) {
+                $pisScan->operator_scanned_at = now();
+            }
             $pisScan->save();
 
             // Only write details when this is the first time (new scan). Do NOT overwrite existing
             // scanned_qty/remaining_qty so that progress is never reset on rescan.
             if ($pisScan->wasRecentlyCreated) {
                 foreach ($items as $item) {
+                    $orderQty = max(0, (int) ($item['total_qty'] ?? $item['order_qty'] ?? 0));
+                    $targetKanbanQty = max(0, (int) (
+                        $item['total_kanban_qty']
+                        ?? $item['target_kanban_qty']
+                        ?? 0
+                    ));
+                    $qtyPerKanban = max(0, (int) (
+                        $item['qty_per_kanban']
+                        ?? $item['quantity_per_kanban']
+                        ?? $item['qty_per_pack']
+                        ?? 0
+                    ));
+
+                    if ($qtyPerKanban <= 0 && $orderQty > 0 && $targetKanbanQty > 0) {
+                        $qtyPerKanban = (int) ceil($orderQty / $targetKanbanQty);
+                    }
+
+                    $qtyPerKanban = max(1, $qtyPerKanban);
+
+                    if ($targetKanbanQty <= 0 && $orderQty > 0) {
+                        $targetKanbanQty = (int) ceil($orderQty / $qtyPerKanban);
+                    }
+
+                    if ($orderQty <= 0 && $targetKanbanQty > 0) {
+                        $orderQty = $targetKanbanQty * $qtyPerKanban;
+                    }
+
+                    $scannedQty = max(0, (int) (
+                        $item['actual_kanban_qty']
+                        ?? $item['scanned_qty']
+                        ?? 0
+                    ));
+                    $targetQty = $orderQty > 0 ? $orderQty : $targetKanbanQty;
+
                     PisScanDetail::updateOrCreate(
                         [
                             'pis_scan_id' => $pisScan->id,
@@ -1251,9 +1369,11 @@ class PisController extends Controller
                             'part_number_cust' => $item['part_number_cust'] ?? null,
                         ],
                         [
-                            'target_qty' => $item['total_qty'] ?? 0,
-                            'scanned_qty' => (int) ($item['scanned_qty'] ?? 0),
-                            'remaining_qty' => (int) ($item['remaining'] ?? ($item['total_qty'] ?? 0)),
+                            'target_qty' => $targetQty,
+                            'order_qty' => $orderQty,
+                            'qty_per_kanban' => $qtyPerKanban,
+                            'scanned_qty' => min($targetQty, $scannedQty),
+                            'remaining_qty' => max(0, $targetQty - $scannedQty),
                         ]
                     );
                 }
@@ -1299,6 +1419,7 @@ class PisController extends Controller
             $pisScan = PisScan::where('loading_list_number', $loadingListNumber)->first();
 
             if (!$pisScan) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'PIS scan not found'
@@ -1313,20 +1434,34 @@ class PisController extends Controller
                 ->first();
 
             if (!$scanDetail) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'PIS scan detail not found'
                 ], 404);
             }
 
-            $targetQty = (int) ($scanDetail->target_qty ?? 0);
-            $currentScanned = (int) ($scanDetail->scanned_qty ?? 0);
-            if ($targetQty > 0 && $currentScanned >= $targetQty) {
+            $qtyPerKanban = max(1, (int) ($scanDetail->qty_per_kanban ?? 1));
+            $orderQty = max(0, (int) ($scanDetail->order_qty ?? 0));
+            $targetQty = $orderQty > 0 ? $orderQty : max(0, (int) ($scanDetail->target_qty ?? 0));
+            $currentScannedQty = max(0, (int) ($scanDetail->scanned_qty ?? 0));
+            if ($targetQty > 0 && $currentScannedQty >= $targetQty) {
                 DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'code' => 'TARGET_ALREADY_REACHED',
                     'message' => 'Qty target part ini sudah terpenuhi. Lakukan Confirm Packing di UI sebelum scan berikutnya, atau refresh jika data tidak sinkron.',
+                ], 409);
+            }
+
+            $confirmedQty = min(1, max(0, $targetQty - $currentScannedQty));
+
+            if ($confirmedQty <= 0) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'ORDER_QTY_ALREADY_REACHED',
+                    'message' => 'Qty order part ini sudah terpenuhi. Refresh halaman sebelum melanjutkan scan.',
                 ], 409);
             }
 
@@ -1338,17 +1473,28 @@ class PisController extends Controller
             ]);
 
             // Update agregat (summary) di tabel utama
-            $scanDetail->scanned_qty = ($scanDetail->scanned_qty ?? 0) + 1;
-            $scanDetail->remaining_qty = max(0, ($scanDetail->target_qty ?? 0) - $scanDetail->scanned_qty);
+            $scanDetail->target_qty = $targetQty;
+            $scanDetail->order_qty = $targetQty;
+            $scanDetail->scanned_qty = $currentScannedQty + 1;
+            $scanDetail->remaining_qty = max(0, $targetQty - $scanDetail->scanned_qty);
             $scanDetail->save();
+
+            $actualQty = $scanDetail->scanned_qty;
+            $remainingOrderQty = $scanDetail->remaining_qty;
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'PIS scan detail updated',
+                'target_kanban_qty' => $targetQty,
                 'scanned_qty' => $scanDetail->scanned_qty ?? 0,
-                'remaining_qty' => $scanDetail->remaining_qty ?? 0
+                'remaining_qty' => $scanDetail->remaining_qty ?? 0,
+                'order_qty' => $targetQty,
+                'qty_per_kanban' => $qtyPerKanban,
+                'confirmed_qty' => $confirmedQty,
+                'actual_qty' => $actualQty,
+                'remaining_order_qty' => $remainingOrderQty,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

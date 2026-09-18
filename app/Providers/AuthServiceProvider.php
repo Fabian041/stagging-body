@@ -25,9 +25,29 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Admin selalu lolos semua gate.
-        Gate::before(function ($user) {
+        // Admin selalu lolos semua gate, kecuali gate khusus super admin.
+        Gate::before(function ($user, $ability) {
+            if (in_array($ability, ['access-settings', 'manage-users'], true)) {
+                return null;
+            }
+
             return $user->isAdmin() ? true : null;
+        });
+
+        Gate::define('access-settings', function ($user) {
+            return true;
+        });
+
+        Gate::define('manage-users', function ($user) {
+            return $user->isSuperAdmin();
+        });
+
+        Gate::define('manage-device-sessions', function ($user) {
+            return $user->isAdmin();
+        });
+
+        Gate::define('manage-machine-auth', function ($user) {
+            return $user->isAdmin();
         });
 
         // Aksi master-data & destruktif (PPIC): admin (via Gate::before) + ppic.

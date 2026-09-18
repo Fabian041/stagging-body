@@ -9,9 +9,20 @@ class PisScan extends Model
 {
     use HasFactory;
 
+    public const DELIVERY_CUSTOMER_NAMES = [
+        'ADM SPD',
+        'MMKI SPD',
+        'TAM SPD (DAIHATSU)',
+        'TMMIN SPD',
+    ];
+
     protected $table = 'pis_scans';
 
     protected $guarded = ['id'];
+
+    protected $casts = [
+        'operator_scanned_at' => 'datetime',
+    ];
 
     public function details()
     {

@@ -1,13 +1,17 @@
 @extends('layouts.root.auth')
 
 @section('main')
-<meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <div class="main-section">
         <div class="mx-5 my-5">
             <div class="row">
                 <div class="col-lg-2 col-sm-12">
-                    <div class="card card-warning py-3 shadow" style="padding: 1rem; border-radius:8px">
+                    <button id="productionLineButton" class="btn btn-primary mb-2" type="button"
+                        style="border-radius:4px; width:100% !important">
+                        <i class="fas fa-industry mr-1"></i> Line: <span id="currentProductionLine">-</span>
+                    </button>
+                    <div class="card card-warning py-3 shadow mb-3" style="padding: 1rem; border-radius:8px">
                         <label style="font-weight:800" class="text-center text-dark">Scan Part Number</label>
                         <input id="code" type="text" class="form-control" name="code" tabindex="1"
                             placeholder="scan part..." required autofocus autocomplete="off">
@@ -56,13 +60,16 @@
                         <h3 class="text-center text-white">Stop</h3>
                     </button>
                     <button class="btn btn-danger py-3 px-5 shadow mb-2"
-                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pause">Problem
+                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem"
+                        id="pause">Problem
                     </button>
                     <button class="btn btn-success py-3 px-5 shadow mb-2"
-                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pauseSetup">Setup
+                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem"
+                        id="pauseSetup">Setup
                     </button>
                     <button class="btn btn-success py-3 px-5 shadow mb-4"
-                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem" id="pauseQualityCheck">QC Cek
+                        style="padding: 1rem; border-radius:8px; width:100% !important; font-size:2rem"
+                        id="pauseQualityCheck">QC Cek
                     </button>
                     <div class="shadow pt-4 card card-secondary status-card-header"
                         style="margin-bottom:130px; height: 7rem; width: 100%; background-color: #ffffff; border-radius: 6px">
@@ -89,9 +96,37 @@
         </div>
     </div>
 
+    <div class="modal fade" id="productionLineModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static"
+        data-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-radius: 8px">
+                <div class="modal-header border-0 pb-0">
+                    <div class="w-100 text-center">
+                        <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white mb-3"
+                            style="width:56px; height:56px; border-radius:6px">
+                            <i class="fas fa-industry fa-lg"></i>
+                        </span>
+                        <h4 class="font-weight-bold mb-1">Scan Line Produksi</h4>
+                        <p class="text-muted mb-0">Line akan disimpan pada device ini untuk kebutuhan tracing.</p>
+                    </div>
+                </div>
+                <div class="modal-body px-4 pb-4">
+                    <label class="font-weight-bold" for="productionLineInput">Line</label>
+                    <input id="productionLineInput" type="text" class="form-control form-control-lg text-center"
+                        placeholder="Scan barcode line..." autocomplete="off">
+                    <div id="productionLineError" class="text-danger text-center font-weight-bold mt-2 d-none"></div>
+                    <button id="saveProductionLine" type="button" class="btn btn-primary btn-lg btn-block mt-3"
+                        style="border-radius:4px">
+                        <i class="fas fa-check mr-1"></i> Gunakan Line
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- modal --}}
-    <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle"
-        aria-hidden="true">
+    <div class="modal fade gfont" id="notifModal" tabindex="-1" role="dialog"
+        aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content" id="divNotif" style="border-radius: 12px !important;">
                 <div class="modal-body text-center">
@@ -103,8 +138,8 @@
     {{-- end of modal --}}
 
     {{-- confirmation modal --}}
-    <div class="modal fade" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2" tabindex="-1"
-        data-backdrop="static">
+    <div class="modal fade" id="modalConfirmation" aria-hidden="true" aria-labelledby="modalToggleLabel2"
+        tabindex="-1" data-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -123,47 +158,51 @@
     <div class="modal fade" id="pauseModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content" style="border-radius: 12px">
-            <div class="modal-header">
-                <h5 class="modal-title w-100 text-center">Pilih Jenis Masalah</h5>
-            </div>
-            <div class="modal-body">
-                <div class="row text-center">
-                <div class="col-md-3">
-                    <button id="pauseMachine" class="btn btn-danger btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="mesin">
-                    Mesin
-                    </button>
+                <div class="modal-header">
+                    <h5 class="modal-title w-100 text-center">Pilih Jenis Masalah</h5>
                 </div>
-                <div class="col-md-3">
-                    <button id="pauseQuality" class="btn btn-warning btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="quality">
-                    Quality
-                    </button>
-                </div>
-                <div class="col-md-3">
-                    <button id="pauseSupply" class="btn btn-success btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="supply">
-                    Supply
-                    </button>
-                </div>
-                <div class="col-md-3">
-                    <button id="openOtherProblem" class="btn btn-secodary btn-lg w-100 py-4 btn-stop-category" style="font-size: 1.5rem;" data-category="others">
-                    Others
-                    </button>
-                </div>
-                </div>
+                <div class="modal-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <button id="pauseMachine" class="btn btn-danger btn-lg w-100 py-4 btn-stop-category"
+                                style="font-size: 1.5rem;" data-category="mesin">
+                                Mesin
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button id="pauseQuality" class="btn btn-warning btn-lg w-100 py-4 btn-stop-category"
+                                style="font-size: 1.5rem;" data-category="quality">
+                                Quality
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button id="pauseSupply" class="btn btn-success btn-lg w-100 py-4 btn-stop-category"
+                                style="font-size: 1.5rem;" data-category="supply">
+                                Supply
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button id="openOtherProblem" class="btn btn-secodary btn-lg w-100 py-4 btn-stop-category"
+                                style="font-size: 1.5rem;" data-category="others">
+                                Others
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="mt-4" id="otherProblemSection">
-                <select id="stopReason" class="form-control mb-3">
-                    <option value="">Loading...</option>
-                </select>
-                <div class="row">
-                    <div class="col-md-6">
-                        <button class="btn btn-secondary btn-lg w-100" data-dismiss="modal">Cancel</button>
-                    </div>
-                    <div class="col-md-6">
-                        <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem</button>
+                    <div class="mt-4" id="otherProblemSection">
+                        <select id="stopReason" class="form-control mb-3">
+                            <option value="">Loading...</option>
+                        </select>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button class="btn btn-secondary btn-lg w-100" data-dismiss="modal">Cancel</button>
+                            </div>
+                            <div class="col-md-6">
+                                <button id="pauseOther" class="btn btn-primary btn-lg w-100">Submit Problem</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                </div>
-            </div>
             </div>
         </div>
     </div>
@@ -215,6 +254,16 @@
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
+    const productionLines = @json($productionLines ?? []);
+    const requireProductionLine = false;
+    const firstLastPilotLines = ['AS526', 'AS528', 'AS523','AS524','AS525'];
+    const firstLastKeys = {
+        required: 'production_first_last_required',
+        line: 'production_first_last_line',
+        firstDone: 'production_first_kanban_done',
+        lastDone: 'production_last_kanban_done'
+    };
+    let productionAppInitialized = false;
     let line = '';
     var timerId;
     var timerActive = false;
@@ -366,7 +415,226 @@
             startTimeCounter(parseInt(lastScanTime));
         }
 
+        if (isFirstLastRequired()) {
+            if (isLastKanbanDone()) {
+                setStatusCard('success', 'LAST OK');
+            } else if (!isFirstKanbanDone() && normalKanbanScanCount() > 0) {
+                setStatusCard('warning', 'FIRST');
+            } else if (!isFirstKanbanDone()) {
+                setStatusCard('warning', 'KANBAN');
+            }
+        }
+
         $('#code').focus();
+    }
+
+    function normalizeProductionLine(value) {
+        return String(value || '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
+    }
+
+    function parseFirstLastKanban(value) {
+        const match = String(value || '').trim().match(/^([A-Z0-9]+)_(FIRST|LAST)\s+(.+)$/i);
+        if (!match) return null;
+
+        return {
+            line: normalizeProductionLine(match[1]),
+            type: match[2].toLowerCase()
+        };
+    }
+
+    function isFirstLastPilotLine(value) {
+        const normalizedLine = normalizeProductionLine(value);
+
+        return firstLastPilotLines.some(line => normalizeProductionLine(line) === normalizedLine);
+    }
+
+    function clearFirstLastState() {
+        Object.values(firstLastKeys).forEach(key => localStorage.removeItem(key));
+    }
+
+    function setupFirstLastState(lineName) {
+        clearFirstLastState();
+
+        const normalizedLine = normalizeProductionLine(lineName);
+        if (!isFirstLastPilotLine(normalizedLine)) return;
+
+        localStorage.setItem(firstLastKeys.required, 'true');
+        localStorage.setItem(firstLastKeys.line, normalizedLine);
+        localStorage.setItem(firstLastKeys.firstDone, 'false');
+        localStorage.setItem(firstLastKeys.lastDone, 'false');
+    }
+
+    function isFirstLastRequired() {
+        return localStorage.getItem(firstLastKeys.required) === 'true' &&
+            isFirstLastPilotLine(localStorage.getItem(firstLastKeys.line));
+    }
+
+    function isFirstKanbanDone() {
+        return localStorage.getItem(firstLastKeys.firstDone) === 'true';
+    }
+
+    function isLastKanbanDone() {
+        return localStorage.getItem(firstLastKeys.lastDone) === 'true';
+    }
+
+    function normalKanbanScanCount() {
+        return parseInt(localStorage.getItem('scan_counter') || '0', 10) || 0;
+    }
+
+    function setStatusCard(state, text, resetAfter = 0) {
+        $('.status-card-header')
+            .removeClass('card-secondary card-success card-danger card-warning card-info')
+            .addClass(`card-${state}`);
+        $('.status-card')
+            .removeClass('bg-secondary bg-success bg-danger bg-warning bg-info')
+            .addClass(`bg-${state}`);
+        $('#status').text(text);
+
+        if (resetAfter > 0) {
+            setTimeout(() => setStatusCard('secondary', '-'), resetAfter);
+        }
+    }
+
+    function showFirstLastError(message) {
+        wrongKanbanSound();
+        notif('error', message);
+        setStatusCard('danger', 'NG');
+    }
+
+    function mustScanLastBeforeClosingModel() {
+        return isFirstLastRequired() &&
+            normalKanbanScanCount() > 0 &&
+            !isLastKanbanDone();
+    }
+
+    function firstLastCloseBlockMessage(action) {
+        if (!isFirstKanbanDone()) {
+            return `Scan kanban first terlebih dahulu sebelum ${action}.`;
+        }
+
+        return `Scan kanban last terlebih dahulu sebelum ${action}.`;
+    }
+
+    function handleFirstLastKanban(marker) {
+        if (!isFirstLastPilotLine(marker.line)) {
+            showFirstLastError(`Line ${marker.line} belum aktif untuk kanban first/last.`);
+            return true;
+        }
+
+        if (!isFirstLastRequired()) {
+            showFirstLastError('Scan dandori board dan master sample terlebih dahulu.');
+            return true;
+        }
+
+        const expectedLine = normalizeProductionLine(localStorage.getItem(firstLastKeys.line));
+        if (marker.line !== expectedLine) {
+            showFirstLastError(`Kanban ${marker.type} harus line ${expectedLine}.`);
+            return true;
+        }
+
+        if (marker.type === 'first') {
+            if (normalKanbanScanCount() <= 0) {
+                showFirstLastError('Scan kanban produksi pertama terlebih dahulu sebelum kanban first.');
+                return true;
+            }
+
+            if (isFirstKanbanDone()) {
+                showFirstLastError('Kanban first sudah discan.');
+                return true;
+            }
+
+            localStorage.setItem(firstLastKeys.firstDone, 'true');
+            localStorage.setItem(firstLastKeys.lastDone, 'false');
+            okSound();
+            notif('success', 'Kanban first OK. Silakan lanjut scan kanban produksi.');
+            setStatusCard('success', 'FIRST OK', 2500);
+            return true;
+        }
+
+        if (!isFirstKanbanDone()) {
+            showFirstLastError('Scan kanban first terlebih dahulu.');
+            return true;
+        }
+
+        if (normalKanbanScanCount() <= 0) {
+            showFirstLastError('Scan kanban produksi terlebih dahulu sebelum kanban last.');
+            return true;
+        }
+
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan.');
+            return true;
+        }
+
+        localStorage.setItem(firstLastKeys.lastDone, 'true');
+        okSound();
+        notif('success', 'Kanban last OK. Silakan scan dandori board berikutnya.');
+        setStatusCard('success', 'LAST OK', 2500);
+        return true;
+    }
+
+    function blockRegularKanbanIfNeeded() {
+        if (!isFirstLastRequired()) return false;
+
+        if (isLastKanbanDone()) {
+            showFirstLastError('Kanban last sudah discan. Scan dandori board berikutnya.');
+            return true;
+        }
+
+        if (!isFirstKanbanDone() && normalKanbanScanCount() > 0) {
+            showFirstLastError('Scan kanban first terlebih dahulu setelah kanban produksi pertama.');
+            sendErrorLog('Belum scan kanban first setelah kanban produksi pertama', localStorage.getItem('model'));
+            return true;
+        }
+
+        return false;
+    }
+
+    function findProductionLine(value) {
+        const normalized = normalizeProductionLine(value);
+        return productionLines.find(item => normalizeProductionLine(item.name) === normalized) || null;
+    }
+
+    function getStoredProductionLine() {
+        const id = localStorage.getItem('production_line_id');
+        const name = normalizeProductionLine(localStorage.getItem('production_line_name'));
+
+        return productionLines.find(item => String(item.id) === id &&
+            normalizeProductionLine(item.name) === name) || null;
+    }
+
+    function showProductionLineModal() {
+        $('#code').prop('disabled', true);
+        $('#productionLineInput').val('');
+        $('#productionLineError').addClass('d-none').text('');
+        $('#productionLineModal').modal('show');
+    }
+
+    function activateProductionLine(selectedLine) {
+        localStorage.setItem('production_line_id', String(selectedLine.id));
+        localStorage.setItem('production_line_name', selectedLine.name);
+        localStorage.setItem('line_prd', selectedLine.name);
+        $('#currentProductionLine').text(selectedLine.name);
+        $('#code').prop('disabled', false);
+        $('#productionLineModal').modal('hide');
+
+        if (!productionAppInitialized) {
+            productionAppInitialized = true;
+            initApp();
+        } else {
+            $('#code').focus();
+        }
+    }
+
+    function submitProductionLine() {
+        const selectedLine = findProductionLine($('#productionLineInput').val());
+        if (!selectedLine) {
+            $('#productionLineError').removeClass('d-none').text('Line tidak terdaftar. Scan ulang barcode line.');
+            $('#productionLineInput').val('').focus();
+            return;
+        }
+
+        activateProductionLine(selectedLine);
     }
 
     function notif(color, text) {
@@ -476,7 +744,8 @@
             data: {
                 message: message,
                 expected: expected,
-                scanned: scanned
+                scanned: scanned,
+                line: localStorage.getItem('production_line_name') || null
             },
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -490,9 +759,55 @@
         });
     }
 
+    function extractAigsysProductionKanban(code) {
+        const tokens = String(code || '').trim().split(/\s+/);
+        if (!/^AIGSYS/i.test(tokens[0] || '')) return null;
+
+        const internalToken = tokens.find(token =>
+            /^0\d{6}-[A-Z0-9]+(?:-[A-Z0-9]+)*$/i.test(token));
+        const serialToken = tokens.find(token => /^\d{20,}$/.test(token));
+        if (!internalToken || !serialToken) return null;
+
+        return {
+            internal: internalToken.replace(/^0(?=\d{6}-)/, ''),
+            seri: serialToken.slice(-4),
+            backNum: tokens[tokens.indexOf(serialToken) - 1] || '',
+            pcs: parseInt(tokens[tokens.length - 2], 10) || 0
+        };
+    }
+
 
     $(document).ready(function() {
-        initApp();
+        $('#productionLineModal').on('shown.bs.modal', function() {
+            $('#productionLineInput').focus();
+        });
+        $('#productionLineModal').on('hidden.bs.modal', function() {
+            if (productionAppInitialized) {
+                $('#code').focus();
+            }
+        });
+        $('#productionLineInput').on('keydown', function(e) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                submitProductionLine();
+            }
+        });
+        $('#saveProductionLine').on('click', submitProductionLine);
+        $('#productionLineButton').on('click', showProductionLineModal);
+
+        const storedProductionLine = getStoredProductionLine();
+        if (!requireProductionLine) {
+            $('#productionLineButton').hide();
+            $('#code').prop('disabled', false);
+            productionAppInitialized = true;
+            initApp();
+        } else if (storedProductionLine) {
+            activateProductionLine(storedProductionLine);
+        } else {
+            localStorage.removeItem('production_line_id');
+            localStorage.removeItem('production_line_name');
+            showProductionLineModal();
+        }
         // UPDATE SCRIPT START
 
         let pauseStartTime = null;
@@ -500,7 +815,7 @@
         let pauseTimerInterval = null;
         let selectedCategory = null;
 
-        $('.btn-stop-category').on('click', function () {
+        $('.btn-stop-category').on('click', function() {
             selectedCategory = $(this).data('category');
             pauseStartTime = new Date();
 
@@ -510,7 +825,8 @@
                 fetchStopReasons(selectedCategory); // fetch alasan kategori OTHERS
             } else {
                 $('#pauseModal').modal('hide');
-                selectedSrnaId = selectedCategory; // misalnya langsung gunakan kategori sebagai ID jika tidak pakai dropdown
+                selectedSrnaId =
+                    selectedCategory; // misalnya langsung gunakan kategori sebagai ID jika tidak pakai dropdown
                 $('#pause').text('Mulai').removeClass('btn-danger').addClass('btn-success');
                 $('#texttime').text('Stop Time');
 
@@ -542,12 +858,13 @@
             clearInterval(timePerBoxInterval);
         }
 
-        $('#pause').on('click', function () {
+        $('#pause').on('click', function() {
             if ($('#pause').text() === 'Mulai') {
                 const now = new Date();
                 const pad = (n) => n.toString().padStart(2, '0');
                 const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                const fmtFull = (d) => `${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                const fmtFull = (d) =>
+                    `${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
                 const payload = {
                     data: [{
@@ -570,9 +887,10 @@
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                     },
                     data: JSON.stringify(payload),
-                    success: function () {
+                    success: function() {
                         notif('success', 'Stop reason berhasil dikirim');
-                        $('#pause').text('Pause').removeClass('btn-success').addClass('btn-danger');
+                        $('#pause').text('Pause').removeClass('btn-success').addClass(
+                            'btn-danger');
                         $('#texttime').text('Time / Box');
                         $('.status-card').removeClass('bg-danger');
                         $('.status-card').removeClass('bg-success');
@@ -586,18 +904,18 @@
                         $('#code').focus();
                         startTimeCounter(now);
                     },
-                    error: function () {
+                    error: function() {
                         notif('error', 'Gagal kirim stop reason');
                     }
                 });
             } else {
                 stopAllTimers();
                 $('#pauseModal').modal('show');
-                
+
             }
         });
 
-        $('#pauseSetup').on('click', function () {
+        $('#pauseSetup').on('click', function() {
             pauseStartTime = new Date();
             selectedSrnaId = 'SETUP'; // Reset selected stop reason ID
             $('#pauseModal').modal('hide');
@@ -609,11 +927,11 @@
             $('.status-card').addClass(
                 'bg-danger');
             $('#status').text('Stop');
-            
+
             startPauseTimer();
         });
 
-        $('#pauseQualityCheck').on('click', function () {
+        $('#pauseQualityCheck').on('click', function() {
             pauseStartTime = new Date();
             selectedSrnaId = 'QCCEK'; // Reset selected stop reason ID
             $('#pauseModal').modal('hide');
@@ -625,21 +943,21 @@
             $('.status-card').addClass(
                 'bg-danger');
             $('#status').text('Stop');
-            
+
             startPauseTimer();
         });
 
-        $('#openOtherProblem').on('click', function (e) {
+        $('#openOtherProblem').on('click', function(e) {
             e.stopPropagation();
             $('#otherProblemSection').slideDown();
             $('#pauseModal').off('click.dismiss.bs.modal');
         });
 
-        $('#stopReason').on('click', function (e) {
+        $('#stopReason').on('click', function(e) {
             e.stopPropagation();
         });
 
-        $('#pauseOther').on('click', function () {
+        $('#pauseOther').on('click', function() {
             let selected = $('#stopReason').val();
             if (!selected) return alert("Pilih alasan terlebih dahulu!");
 
@@ -662,24 +980,25 @@
             $.ajax({
                 url: `/production/api-list-stop/${line}/${category}`,
                 method: 'GET',
-                success: function (response) {
+                success: function(response) {
                     if (response.status) {
                         let options = '<option value="">-- Pilih Masalah --</option>';
-                        response.data.forEach(function (item) {
-                            options += `<option value="${item.srna_id}">${item.name1} (${item.type2_text})</option>`;
+                        response.data.forEach(function(item) {
+                            options +=
+                                `<option value="${item.srna_id}">${item.name1} (${item.type2_text})</option>`;
                         });
                         $('#stopReason').html(options);
                     } else {
                         $('#stopReason').html('<option value="">Tidak ada data</option>');
                     }
                 },
-                error: function () {
+                error: function() {
                     $('#stopReason').html('<option value="">Gagal Load</option>');
                 }
             });
         }
 
-    // UPDATE SCRIPT END
+        // UPDATE SCRIPT END
 
         document.getElementById('fullscreenBtn').addEventListener('click', function() {
             if (!document.fullscreenElement) {
@@ -714,6 +1033,10 @@
         });
 
         $(document).on('click', function() {
+            if ($('#productionLineModal').hasClass('show')) {
+                $('#productionLineInput').focus();
+                return;
+            }
             $('#code').focus();
         })
 
@@ -773,6 +1096,13 @@
         $('#release').on('click', function() {
             $('#code').focus();
 
+            if (mustScanLastBeforeClosingModel()) {
+                const message = firstLastCloseBlockMessage('Stop');
+                showFirstLastError(message);
+                sendErrorLog(message, localStorage.getItem('model'));
+                return;
+            }
+
             let part = localStorage.getItem('dandori_board')
 
             $.ajax({
@@ -783,7 +1113,7 @@
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
                 data: JSON.stringify(part),
-                success: function () {
+                success: function() {
                     notif('success', 'Stop reason berhasil dikirim saat Release');
                     localStorage.removeItem('production_start_time');
                     localStorage.clear();
@@ -791,7 +1121,7 @@
                         window.location.reload();
                     }, 2000);
                 },
-                error: function () {
+                error: function() {
                     notif('error', 'Gagal kirim stop reason saat Release');
                 }
             });
@@ -813,7 +1143,7 @@
             var proceedWithAjax = true; // Flag to control AJAX execution
             if (code == 13) // Enter key hit 
             {
-                barcodecomplete = barcode;
+                barcodecomplete = barcode.trim();
                 barcode = "";
 
                 console.log('Scanned Code:', barcodecomplete, barcodecomplete.length);
@@ -837,8 +1167,20 @@
                     return;
                 }
 
-                // get each information inside kanban code
-                if (barcodecomplete.length == 230) {
+                const firstLastKanban = parseFirstLastKanban(barcodecomplete);
+                if (firstLastKanban) {
+                    handleFirstLastKanban(firstLastKanban);
+                    return;
+                }
+
+                // AIGSYS dapat berisi padding dinamis, jadi baca token sebelum fallback ke posisi absolut.
+                const aigsysKanban = extractAigsysProductionKanban(barcodecomplete);
+                if (aigsysKanban) {
+                    internal = aigsysKanban.internal;
+                    seri = aigsysKanban.seri;
+                    backNum = aigsysKanban.backNum;
+                    pcs = aigsysKanban.pcs;
+                } else if (barcodecomplete.length == 230) {
                     // normal kanban proccess
                     internal = barcodecomplete.substr(41, 19);
                     seri = barcodecomplete.substr(123, 4);
@@ -880,22 +1222,23 @@
                             headers: {
                                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                             },
-                            success: function (data) {
-                                    var internal = data.data.internal_part.part_number;
-                                    localStorage.setItem('internal', data.data.internal_part.part_number);
-                                    var seri = 'noseri';
-                                    var backNum = data.data.internal_part.back_number;
-                                    var pcs = data.data.qty_per_kanban;
+                            success: function(data) {
+                                var internal = data.data.internal_part.part_number;
+                                localStorage.setItem('internal', data.data.internal_part
+                                    .part_number);
+                                var seri = 'noseri';
+                                var backNum = data.data.internal_part.back_number;
+                                var pcs = data.data.qty_per_kanban;
                             },
-                            error: function () {
-                                
+                            error: function() {
+
                             }
                         });
-                    }  catch (err) {
+                    } catch (err) {
                         console.error(err);
                         $('#status').text('Gagal memeriksa kode.');
                     }
-                } else if(barcodecomplete.length == 80){
+                } else if (barcodecomplete.length == 80) {
                     console.log('masuk 80');
                     const qr = barcodecomplete.trim();
                     const parts = qr.split('|');
@@ -909,18 +1252,19 @@
                             headers: {
                                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                             },
-                            success: function (data) {
-                                    var internal = data.data.internal_part.part_number;
-                                    localStorage.setItem('internal', data.data.internal_part.part_number);
-                                    var seri = 'noseri';
-                                    var backNum = data.data.internal_part.back_number;
-                                    var pcs = data.data.qty_per_kanban;
+                            success: function(data) {
+                                var internal = data.data.internal_part.part_number;
+                                localStorage.setItem('internal', data.data.internal_part
+                                    .part_number);
+                                var seri = 'noseri';
+                                var backNum = data.data.internal_part.back_number;
+                                var pcs = data.data.qty_per_kanban;
                             },
-                            error: function () {
-                                
+                            error: function() {
+
                             }
                         });
-                    }  catch (err) {
+                    } catch (err) {
                         console.error(err);
                         $('#status').text('Gagal memeriksa kode.');
                     }
@@ -931,10 +1275,23 @@
                 let model;
                 console.log(internal);
                 // new rule
-                if (barcodecomplete.endsWith('dandori')) {
+                const dandoriMatch = barcodecomplete.match(/^(.+)-dandori$/i);
+                if (dandoriMatch) {
+                    const dandoriBoard = dandoriMatch[1].trim();
+
+                    if (mustScanLastBeforeClosingModel()) {
+                        const message = firstLastCloseBlockMessage('Dandori Board berikutnya');
+                        showFirstLastError(message);
+                        sendErrorLog(message, localStorage.getItem('model'), dandoriBoard);
+                        return;
+                    }
+
+                    clearFirstLastState();
+
                     // set item
-                    localStorage.setItem('dandori_board', barcodecomplete.replace(/-dandori$/, ""));
-                    localStorage.setItem('production_start_time', new Date().toLocaleString('sv-SE'));
+                    localStorage.setItem('dandori_board', dandoriBoard);
+                    localStorage.setItem('production_start_time', new Date().toLocaleString(
+                        'sv-SE'));
 
 
                     notif("success", 'Berhasil scan dandori board!');
@@ -983,12 +1340,15 @@
                     return;
                 }
 
-                if (localStorage.getItem('dandori_board') && barcodecomplete.endsWith('model')) {
-                    model = barcodecomplete.replace(/-model$/, "");
+                const modelMatch = barcodecomplete.match(/^(.+)-(?:model|master)$/i);
+                if (localStorage.getItem('dandori_board') && modelMatch) {
+                    model = modelMatch[1].trim();
                     let now = Date.now();
                     if (model == localStorage.getItem('dandori_board')) {
-                        localStorage.setItem('scan_timer_start', Date.now()); // MULAI timer dari master sample
-                        localStorage.removeItem('last_kanban_time'); // Reset agar hitungan pertama benar
+                        localStorage.setItem('scan_timer_start', Date
+                            .now()); // MULAI timer dari master sample
+                        localStorage.removeItem(
+                            'last_kanban_time'); // Reset agar hitungan pertama benar
                         $.ajax({
                             type: 'GET',
                             url: "{{ url('pulling/internal-check') }}" + '/' + model,
@@ -1007,6 +1367,7 @@
                                     localStorage.setItem('photo', dataPart
                                         .photo);
                                     localStorage.setItem('line_prd', dataPart.line);
+                                    setupFirstLastState(dataPart.line);
 
                                     // display model  running
                                     $('.model-card-header').removeClass(
@@ -1049,10 +1410,17 @@
                                         `<img src="{{ asset('assets/img/pis/${dataPart.photo}') }}" alt="PIS" class="rounded" height="700">`
                                     );
 
+                                    if (isFirstLastRequired()) {
+                                        setStatusCard('warning', 'KANBAN');
+                                        notif('success',
+                                            'Master sample OK. Scan kanban produksi pertama.'
+                                        );
+                                    }
+
                                     // start new timer
                                     // resetAndStartTimer();
 
-                                    
+
 
                                 } else {
                                     notif('error', dataPart.message);
@@ -1086,7 +1454,8 @@
 
                         localStorage.setItem('master_dandori_error', 'true');
 
-                        sendErrorLog('Master sample tidak sesuai dengan dandori board!', localStorage
+                        sendErrorLog('Master sample tidak sesuai dengan dandori board!',
+                            localStorage
                             .getItem('dandori_board'), model);
 
                         setTimeout(() => {
@@ -1105,10 +1474,14 @@
                         internal = localStorage.getItem('internal');
                     }
 
-                        console.log('m',internal);
+                    console.log('m', internal);
                     // compare scanned kanban with model in local storage
                     if (localStorage.getItem('model') === internal.trim() && localStorage.getItem(
                             'dandori_board') === internal.trim()) {
+                        if (blockRegularKanbanIfNeeded()) {
+                            return;
+                        }
+
                         let now = Date.now();
                         let startTime = localStorage.getItem('production_start_time');
                         let endTime = new Date(now);
@@ -1147,7 +1520,8 @@
                                     // display total scan
                                     $('.total-scan-card-header').removeClass(
                                         'card-secondary');
-                                    $('.total-scan-card-header').addClass('card-success');
+                                    $('.total-scan-card-header').addClass(
+                                        'card-success');
 
                                     $('.total-scan-card').removeClass('bg-secondary');
                                     $('.total-scan-card').addClass('bg-success');
@@ -1155,13 +1529,15 @@
                                     // display total part
                                     $('.total-part-card-header').removeClass(
                                         'card-secondary');
-                                    $('.total-part-card-header').addClass('card-success');
+                                    $('.total-part-card-header').addClass(
+                                        'card-success');
 
                                     $('.total-part-card').removeClass('bg-secondary');
                                     $('.total-part-card').addClass('bg-success');
 
                                     // display status
-                                    $('.status-card-header').removeClass('card-secondary');
+                                    $('.status-card-header').removeClass(
+                                        'card-secondary');
                                     $('.status-card-header').removeClass('card-danger');
                                     $('.status-card-header').addClass('card-success');
 
@@ -1183,13 +1559,24 @@
                                     startTimeCounter(now);
 
 
-                                    setTimeout(() => {
-                                        $('.status-card').removeClass('bg-danger');
-                                        $('.status-card').removeClass('bg-success');
-                                        $('.status-card').addClass(
-                                            'bg-secondary');
-                                        $('#status').text('-');
-                                    }, 2000);
+                                    if (isFirstLastRequired() && !isFirstKanbanDone()) {
+                                        const expectedLine = localStorage.getItem(
+                                            firstLastKeys.line);
+                                        setStatusCard('warning', 'FIRST');
+                                        notif('success',
+                                            `Kanban produksi pertama OK. Scan ${expectedLine}_FIRST PRODUCT.`
+                                        );
+                                    } else {
+                                        setTimeout(() => {
+                                            $('.status-card').removeClass(
+                                                'bg-danger');
+                                            $('.status-card').removeClass(
+                                                'bg-success');
+                                            $('.status-card').addClass(
+                                                'bg-secondary');
+                                            $('#status').text('-');
+                                        }, 2000);
+                                    }
 
                                     // start new timer
                                     // resetAndStartTimer();

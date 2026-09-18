@@ -92,6 +92,13 @@ class ErrorLogController extends Controller
         $message = $request->message ?? null;
         $expected = $request->expected ?? null;
         $scanned = $request->scanned ?? null;
+        $deviceId = substr(trim((string) $request->get('device_id', '')), 0, 100);
+        $deviceSession = $deviceId !== '' && auth()->id()
+            ? DB::table('device_sessions')
+                ->where('device_id', $deviceId)
+                ->where('user_id', auth()->id())
+                ->first()
+            : null;
 
         // Protect against DB length limits without changing schema
         // (e.g. kanban string very long for `expected`)
@@ -118,13 +125,36 @@ class ErrorLogController extends Controller
                 'scanned' => $scanned,
             ]);
 
-            ErrorLog::create([
+            $errorLog = ErrorLog::create([
                 'area' => $area,
                 'message' => $message,
                 'expected' => $expected,
                 'scanned' => $scanned,
-                'date' => Carbon::now()->format('Y-m-d H:i:s')
+                'date' => Carbon::now()->format('Y-m-d H:i:s'),
+                'user_id' => auth()->id(),
+                'device_session_id' => $deviceSession->id ?? null,
             ]);
+
+            if ($deviceSession) {
+                DB::table('device_sessions')->where('id', $deviceSession->id)->update([
+                    'last_error_message' => $message,
+                    'last_error_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('device_session_events')->insert([
+                    'device_session_id' => $deviceSession->id,
+                    'user_id' => auth()->id(),
+                    'type' => 'operational_error',
+                    'message' => substr((string) ($message ?: 'Error operasional'), 0, 255),
+                    'meta' => json_encode([
+                        'error_log_id' => $errorLog->id,
+                        'expected' => $expected,
+                        'scanned' => $scanned,
+                    ]),
+                    'created_at' => now(),
+                ]);
+            }
 
             DB::commit();
             Log::info('ErrorLogController@store - save success');

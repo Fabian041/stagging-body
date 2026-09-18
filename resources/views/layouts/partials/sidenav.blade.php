@@ -2,7 +2,7 @@
 
     {{-- ===== LOGO ===== --}}
     <div class="sb-logo">
-        <a href="{{ route('dashboard.index') }}" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
+        <a href="{{ route('home') }}" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
             <div class="sb-logo-icon">
                 <i class="fas fa-bolt"></i>
             </div>
@@ -53,8 +53,7 @@
                 request()->is('dashboard/receiving*') ||
                 request()->is('dashboard/delivery') ||
                 request()->is('loading-list*') ||
-                request()->is('pulling/manual') ||
-                request()->is('pulling/master-alamat-chute');
+                request()->is('pulling/manual');
         @endphp
 
         <div class="sb-item {{ $ppicActive ? 'open' : '' }}" data-has-sub>
@@ -84,11 +83,13 @@
                 <i class="fas fa-truck-loading"></i>
                 Preparation Detail
             </a>
-            <a class="sb-sub-item {{ request()->is('pulling/manual') ? 'active' : '' }}"
-                href="{{ route('pulling.manual') }}">
-                <i class="fas fa-sync-alt"></i>
-                Kanban Reset
-            </a>
+            @can('manage-master')
+                <a class="sb-sub-item {{ request()->is('pulling/manual') ? 'active' : '' }}"
+                    href="{{ route('pulling.manual') }}">
+                    <i class="fas fa-sync-alt"></i>
+                    Kanban Reset
+                </a>
+            @endcan
         </div>
 
         {{-- ── Production ── --}}
@@ -123,6 +124,11 @@
                 <i class="fas fa-chart-line"></i>
                 Production Result
             </a>
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.productionPairingLogs') ? 'active' : '' }}"
+                href="{{ route('dashboard.productionPairingLogs') }}">
+                <i class="fas fa-link"></i>
+                Pairing Trace
+            </a>
         </div>
 
         {{-- ── PIS ── --}}
@@ -150,48 +156,158 @@
         </div>
 
         <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
-            <i class="fas fa-database sb-icon"></i>
-            <span class="sb-item-label">Master Data</span>
-            <i class="fas fa-chevron-right sb-chevron"></i>
-            <span class="sb-item-tooltip">Master Data</span>
-        </div>
-        <div class="sb-submenu">
-            <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
-                href="{{ route('pis.master') }}">
-                <i class="fas fa-database"></i>
-                Master Data PIS
-            </a>
-            <a class="sb-sub-item {{ request()->is('pulling/master-alamat-chute') ? 'active' : '' }}"
-                href="{{ route('pulling.master-alamat-chute') }}">
-                <i class="fas fa-map-marker-alt"></i>
-                Alamat Chute
-            </a>
-        </div>
+            {{-- ── Quality ── --}}
+            @php
+                $qualityActive = request()->routeIs('quality.*');
+            @endphp
 
-        <div class="sb-section-label" style="margin-top:6px;">System</div>
+            <div class="sb-item {{ $qualityActive ? 'open' : '' }}" data-has-sub>
+                <i class="fas fa-clipboard-check sb-icon"></i>
+                <span class="sb-item-label">Quality</span>
+                <i class="fas fa-chevron-right sb-chevron"></i>
+                <span class="sb-item-tooltip">Quality</span>
+            </div>
+            <div class="sb-submenu">
+                <a class="sb-sub-item {{ request()->routeIs('quality.scan') ? 'active' : '' }}"
+                    href="{{ route('quality.scan') }}">
+                    <i class="fas fa-barcode"></i>
+                    Scan Quality
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('quality.pareto') ? 'active' : '' }}"
+                    href="{{ route('quality.pareto') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    Reject & Pareto
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('quality.history') || request()->routeIs('quality.show') ? 'active' : '' }}"
+                    href="{{ route('quality.history') }}">
+                    <i class="fas fa-list-ul"></i>
+                    Detail Scan
+                </a>
+            </div>
 
-        {{-- ── Error Log ── --}}
-        <a class="sb-item {{ request()->is('error/log') ? 'active' : '' }}" href="{{ route('error.log') }}">
-            <i class="fas fa-exclamation-circle sb-icon"></i>
-            <span class="sb-item-label">Error Log</span>
-            <span class="sb-item-tooltip">Error Log</span>
-        </a>
+            {{-- ── Master Data ── --}}
+            @php
+                $masterActive =
+                    request()->routeIs('pis.master') ||
+                    request()->routeIs('pis.edit') ||
+                    request()->routeIs('pis.preview') ||
+                    request()->routeIs('dashboard.master.*') ||
+                    request()->routeIs('pulling.master-alamat-chute*');
+            @endphp
+
+            <div class="sb-item {{ $masterActive ? 'open' : '' }}" data-has-sub>
+                <i class="fas fa-database sb-icon"></i>
+                <span class="sb-item-label">Master Data</span>
+                <i class="fas fa-chevron-right sb-chevron"></i>
+                <span class="sb-item-tooltip">Master Data</span>
+            </div>
+            <div class="sb-submenu">
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.lines.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.lines.index') }}">
+                    <i class="fas fa-industry"></i>
+                    Master Line
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.molds.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.molds.index') }}">
+                    <i class="fas fa-cubes"></i>
+                    Mold Injection
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.parts.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.parts.index') }}">
+                    <i class="fas fa-cog"></i>
+                    Part Internal
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('dashboard.master.customer-parts.*') ? 'active' : '' }}"
+                    href="{{ route('dashboard.master.customer-parts.index') }}">
+                    <i class="fas fa-box-open"></i>
+                    Part Customer
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
+                    href="{{ route('pis.master') }}">
+                    <i class="fas fa-database"></i>
+                    Master Data PIS
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('pulling.master-alamat-chute*') ? 'active' : '' }}"
+                    href="{{ route('pulling.master-alamat-chute') }}">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Alamat Chute
+                </a>
+            </div>
+
+            <div class="sb-section-label" style="margin-top:6px;">System</div>
+
+            <a class="sb-item {{ request()->routeIs('profile.*') ? 'active' : '' }}"
+                href="{{ route('profile.show') }}">
+                <i class="far fa-user sb-icon"></i>
+                <span class="sb-item-label">Profile</span>
+                <span class="sb-item-tooltip">Profile</span>
+            </a>
+
+            <a class="sb-item {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+                href="{{ route('settings.index') }}">
+                <i class="fas fa-cog sb-icon"></i>
+                <span class="sb-item-label">Settings</span>
+                <span class="sb-item-tooltip">Settings</span>
+            </a>
+
+            @can('manage-device-sessions')
+                <a class="sb-item {{ request()->routeIs('manage-devices.*') ? 'active' : '' }}"
+                    href="{{ route('manage-devices.index') }}">
+                    <i class="fas fa-barcode sb-icon"></i>
+                    <span class="sb-item-label">Manage Device</span>
+                    <span class="sb-item-tooltip">Manage Device</span>
+                </a>
+            @endcan
+
+            @can('manage-machine-auth')
+                <a class="sb-item {{ request()->routeIs('machine-auth.*') ? 'active' : '' }}"
+                    href="{{ route('machine-auth.index') }}">
+                    <i class="fas fa-id-card-alt sb-icon"></i>
+                    <span class="sb-item-label">Machine Authorization</span>
+                    <span class="sb-item-tooltip">Machine Authorization</span>
+                </a>
+            @endcan
+
+            @if (auth()->check() && auth()->user()->isSuperAdmin())
+                <a class="sb-item {{ request()->routeIs('manage-users.*') ? 'active' : '' }}"
+                    href="{{ route('manage-users.index') }}">
+                    <i class="fas fa-users-cog sb-icon"></i>
+                    <span class="sb-item-label">Manage User</span>
+                    <span class="sb-item-tooltip">Manage User</span>
+                </a>
+            @endif
+
+            {{-- ── Error Log ── --}}
+            <a class="sb-item {{ request()->is('error/log') ? 'active' : '' }}" href="{{ route('error.log') }}">
+                <i class="fas fa-exclamation-circle sb-icon"></i>
+                <span class="sb-item-label">Error Log</span>
+                <span class="sb-item-tooltip">Error Log</span>
+            </a>
 
     </nav>
 
     {{-- ===== USER CARD (dipindah ke bawah) ===== --}}
+    @php
+        $sidebarUser = auth()->user();
+        $sidebarName = $sidebarUser ? $sidebarUser->name : 'Guest';
+        $sidebarRole = $sidebarUser ? $sidebarUser->role ?? 'User' : 'Not logged in';
+        $sidebarRoleParts = array_values(array_filter(preg_split('/[\s_-]+/', (string) $sidebarRole) ?: []));
+        $sidebarBadge =
+            count($sidebarRoleParts) > 1
+                ? implode('', array_map(fn($part) => strtoupper(substr($part, 0, 1)), $sidebarRoleParts))
+                : strtoupper(substr((string) $sidebarRole, 0, 5));
+    @endphp
     <div class="sb-user-wrap">
         <div class="sb-user">
-            <div class="sb-avatar">
-                {{ auth()->check() ? strtoupper(substr(auth()->user()->name, 0, 2)) : 'GS' }}
+            <div class="sb-avatar" title="{{ $sidebarName }}">
+                {{ $sidebarUser ? strtoupper(substr($sidebarName, 0, 2)) : 'GS' }}
             </div>
-            <div style="min-width:0;flex:1;">
-                <div class="sb-user-name">{{ auth()->check() ? auth()->user()->name : 'Guest' }}</div>
-                <div class="sb-user-role">{{ auth()->check() ? auth()->user()->role ?? 'User' : 'Not logged in' }}
-                </div>
+            <div class="sb-user-meta">
+                <div class="sb-user-name" title="{{ $sidebarName }}">{{ $sidebarName }}</div>
+                <div class="sb-user-role" title="{{ $sidebarRole }}">{{ $sidebarRole }}</div>
             </div>
-            @if (auth()->check())
-                <div class="sb-user-badge">{{ strtoupper(auth()->user()->role ?? 'USR') }}</div>
+            @if ($sidebarUser)
+                <div class="sb-user-badge" title="{{ $sidebarRole }}">{{ $sidebarBadge }}</div>
             @endif
         </div>
     </div>
@@ -199,10 +315,6 @@
     {{-- ===== BOTTOM: version ===== --}}
     <div class="sb-bottom">
         <div style="padding:6px 10px;display:flex;align-items:center;gap:8px;">
-            <div
-                style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 0 3px rgba(34,197,94,.18);">
-            </div>
-            <span class="sb-item-label" style="font-size:11px;color:var(--text-muted);">System online · v1.0</span>
         </div>
     </div>
 

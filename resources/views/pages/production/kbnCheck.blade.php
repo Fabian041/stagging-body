@@ -43,8 +43,9 @@
         }
 
         .kbn-check-wrap {
-            max-width: 980px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: none;
+            margin: 0;
         }
 
         .kbn-icon-box {

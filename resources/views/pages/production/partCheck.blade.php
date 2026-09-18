@@ -64,7 +64,7 @@
             display: grid;
             grid-template-columns: 1fr auto;
             gap: 12px;
-            align-items: end;
+            align-items: start;
             border: 1px solid var(--border);
             border-radius: var(--r, 8px);
             padding: 16px;
@@ -78,6 +78,7 @@
         .scan-form-group label {
             display: block;
             margin-bottom: 5px;
+            line-height: 1.5;
             font-size: 10.5px;
             font-weight: 700;
             text-transform: uppercase;
@@ -114,6 +115,7 @@
 
         .act-btn {
             height: 42px;
+            margin-top: 21px;
             border: 1px solid transparent;
             border-radius: 5px;
             padding: 0 16px;
@@ -273,6 +275,7 @@
 
             .act-btn {
                 width: 100%;
+                margin-top: 0;
             }
 
             .result-card-header {

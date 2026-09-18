@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Validation\ValidationException;
@@ -45,12 +46,17 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::user();
+        $preferredRoute = ($user->preferences ?? [])['landing_route'] ?? null;
+
+        if ($preferredRoute && $preferredRoute !== 'role_default' && Route::has($preferredRoute)) {
+            return redirect()->route($preferredRoute);
+        }
 
         $redirectRoutes = [
             'prod'      => 'production.index',
             'ppic'      => 'pulling.index',
             'mh'        => 'validation.index',
-            'injection' => 'pc2b.index',
+            'injection' => 'injection.indexprdreport',
             'direct'    => 'production.direct.index',
         ];
 

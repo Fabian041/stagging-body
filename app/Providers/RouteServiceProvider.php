@@ -48,5 +48,15 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
+
+        RateLimiter::for('machine-auth', function (Request $request) {
+            $machine = $request->user();
+            $key = $machine
+                ? get_class($machine) . ':' . $machine->getKey()
+                : $request->ip();
+
+            return Limit::perMinute(max(1, (int) config('machine_auth.rate_limit_per_minute', 60)))
+                ->by($key);
+        });
     }
 }

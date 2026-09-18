@@ -3,12 +3,16 @@
 namespace App\Imports;
 
 use App\Models\InternalPart;
+use App\Models\ProductionStock;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\SkipsUnknownSheets;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class StockImport implements ToCollection
+class StockImport implements WithMultipleSheets, SkipsUnknownSheets
 {
+    private const MAX_SHEETS = 80;
+
     public int $updatedRows = 0;
     public int $notFoundRows = 0;
     public int $invalidRows = 0;
@@ -16,7 +20,26 @@ class StockImport implements ToCollection
 
     private array $messages = [];
 
-    public function collection(Collection $rows)
+    public function __construct(private ?string $npk = null)
+    {
+    }
+
+    public function sheets(): array
+    {
+        $sheets = [];
+
+        for ($index = 0; $index < self::MAX_SHEETS; $index++) {
+            $sheets[$index] = new StockImportSheet($this, $index + 1);
+        }
+
+        return $sheets;
+    }
+
+    public function onUnknownSheet($sheetName): void
+    {
+    }
+
+    public function importRows(Collection $rows, string $sheetLabel = ''): void
     {
         DB::beginTransaction();
 
@@ -24,7 +47,8 @@ class StockImport implements ToCollection
             $header = $this->findHeaderRow($rows);
 
             if (!$header) {
-                throw new \Exception('Header Excel tidak ditemukan. Pastikan ada kolom: Back Number, Standard Stock, Current Stock.');
+                DB::commit();
+                return;
             }
 
             $headerRowIndex = $header['row_index'];
@@ -56,28 +80,20 @@ class StockImport implements ToCollection
                 $hasCurrentStock  = $this->isFilled($currentStockRaw);
 
                 if (!$hasStandardStock && !$hasCurrentStock) {
-                    $this->invalidRows++;
-                    $this->messages[] = "Baris {$excelRow}: Standard Stock dan Current Stock kosong.";
+                    $this->skippedRows++;
                     continue;
                 }
 
-                $internalPart = InternalPart::where('back_number', $backNumber)
-                    ->whereIn('id', function ($query) {
-                        $query->select('internal_part_id')
-                            ->from('customer_parts');
-                    })
-                    ->orderBy('id')
-                    ->first();
-
-                if (!$internalPart) {
-                    $internalPart = InternalPart::where('back_number', $backNumber)
-                        ->orderBy('id')
-                        ->first();
-                }
+                $lineName = isset($columns['line'])
+                    ? $this->cleanCell($row[$columns['line']] ?? null)
+                    : '';
+                $internalPart = $this->findInternalPart($backNumber, $lineName);
 
                 if (!$internalPart) {
                     $this->notFoundRows++;
-                    $this->messages[] = "Baris {$excelRow}: Back Number {$backNumber} tidak ditemukan di Master Part.";
+                    $lineInfo = $lineName !== '' ? " pada line {$lineName}" : '';
+                    $sheetInfo = $sheetLabel !== '' ? "{$sheetLabel}, " : '';
+                    $this->messages[] = "{$sheetInfo}Baris {$excelRow}: Back Number {$backNumber}{$lineInfo} tidak ditemukan di Master Part.";
                     continue;
                 }
 
@@ -88,25 +104,11 @@ class StockImport implements ToCollection
                 }
 
                 if ($hasCurrentStock) {
-                    $exists = DB::table('production_stocks')
-                        ->where('internal_part_id', $internalPart->id)
-                        ->exists();
-
-                    if ($exists) {
-                        DB::table('production_stocks')
-                            ->where('internal_part_id', $internalPart->id)
-                            ->update([
-                                'current_stock' => $this->toInteger($currentStockRaw),
-                                'updated_at'    => now(),
-                            ]);
-                    } else {
-                        DB::table('production_stocks')->insert([
-                            'internal_part_id' => $internalPart->id,
-                            'current_stock'    => $this->toInteger($currentStockRaw),
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ]);
-                    }
+                    ProductionStock::adjustCurrentStock(
+                        (int) $internalPart->id,
+                        $this->toInteger($currentStockRaw),
+                        $this->npk ?: 'SYS'
+                    );
                 }
 
                 $this->updatedRows++;
@@ -117,6 +119,33 @@ class StockImport implements ToCollection
             DB::rollBack();
             throw $th;
         }
+    }
+
+    private function findInternalPart(string $backNumber, string $lineName): ?InternalPart
+    {
+        $baseQuery = function () use ($backNumber, $lineName) {
+            $query = InternalPart::where('back_number', $backNumber);
+
+            if ($lineName !== '') {
+                $query->whereIn('line_id', function ($lineQuery) use ($lineName) {
+                    $lineQuery->select('id')
+                        ->from('lines')
+                        ->where('name', $lineName);
+                });
+            }
+
+            return $query;
+        };
+
+        $internalPart = $baseQuery()
+            ->whereIn('id', function ($query) {
+                $query->select('internal_part_id')
+                    ->from('customer_parts');
+            })
+            ->orderBy('id')
+            ->first();
+
+        return $internalPart ?: $baseQuery()->orderBy('id')->first();
     }
 
     private function findHeaderRow(Collection $rows): ?array
@@ -136,6 +165,14 @@ class StockImport implements ToCollection
                     'bn',
                 ])) {
                     $columns['back_number'] = $columnIndex;
+                }
+
+                if (in_array($headerName, [
+                    'line',
+                    'line_name',
+                    'nama_line',
+                ])) {
+                    $columns['line'] = $columnIndex;
                 }
 
                 if (in_array($headerName, [

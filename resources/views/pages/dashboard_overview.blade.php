@@ -1,7 +1,15 @@
 @extends('layouts.root.main')
 
 @section('main')
-    <style>
+@php
+    $overviewPreferences = auth()->check() ? (auth()->user()->preferences ?? []) : [];
+    $showBellaAssistant = $overviewPreferences['bella_assistant_enabled'] ?? true;
+    $bellaAnswerStyle = $overviewPreferences['bella_answer_style'] ?? 'concise';
+    $bellaAnswerStyle = in_array($bellaAnswerStyle, ['concise', 'detailed'], true) ? $bellaAnswerStyle : 'concise';
+    $fabColorKey = $overviewPreferences['fab_color'] ?? 'blue';
+    $fabColor = \App\Http\Controllers\SettingsController::FAB_COLORS[$fabColorKey] ?? '#1498df';
+@endphp
+<style>
         .ov-wrap {
             width: 100%;
             margin: 0 auto;
@@ -215,6 +223,517 @@
             font-weight: 600;
         }
 
+        .ov-ai-widget {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 1060;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .ov-ai-widget--hidden {
+            display: none !important;
+        }
+
+        .ov-ai-fab,
+        .ov-ai-popover {
+            pointer-events: auto;
+        }
+
+        .ov-ai-fab {
+            width: 52px;
+            height: 52px;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, .50);
+            border-radius: 999px;
+            color: #fff;
+            background: var(--ov-fab, #1498df);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, .26), 0 0 0 5px rgba(15, 23, 42, .05);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease;
+        }
+
+        .ov-ai-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(15, 23, 42, .3), 0 0 0 6px rgba(15, 23, 42, .07);
+        }
+
+        .ov-ai-widget.is-open .ov-ai-fab {
+            transform: scale(.97);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .22), 0 0 0 4px rgba(15, 23, 42, .06);
+        }
+
+        .ov-ai-popover {
+            position: absolute;
+            right: 0;
+            bottom: 58px;
+            width: min(430px, calc(100vw - 28px));
+            max-height: min(640px, calc(100vh - 116px));
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(207, 232, 247, .86);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, .78);
+            box-shadow: 0 28px 70px rgba(15, 37, 87, .24);
+            -webkit-backdrop-filter: blur(18px) saturate(145%);
+            backdrop-filter: blur(18px) saturate(145%);
+            opacity: 0;
+            transform: translateY(18px) scale(.92);
+            transform-origin: right bottom;
+            pointer-events: none;
+            transition: opacity .22s ease, transform .34s cubic-bezier(.2, .9, .2, 1);
+        }
+
+        .ov-ai-widget.is-open .ov-ai-popover {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .ov-ai-head {
+            padding: 13px 14px;
+            border-bottom: 1px solid rgba(207, 232, 247, .82);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: rgba(248, 251, 255, .56);
+        }
+
+        .ov-ai-title {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--navy);
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .ov-ai-title i {
+            color: var(--primary);
+        }
+
+        .ov-ai-chat-icon {
+            width: 17px;
+            height: 17px;
+            color: #1498df;
+            flex: 0 0 auto;
+        }
+
+        .ov-ai-fab .ov-ai-chat-icon {
+            width: 22px;
+            height: 22px;
+            color: #fff;
+        }
+
+        .ov-ai-fab__label {
+            line-height: 1;
+        }
+
+        .ov-ai-chat-icon path {
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .ov-ai-chat-icon circle {
+            fill: currentColor;
+        }
+
+        .ov-ai-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 850;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .ov-ai-status::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .12);
+        }
+
+        .ov-ai-close {
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(207, 232, 247, .9);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .68);
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .ov-ai-head__actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ov-ai-head-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(207, 232, 247, .9);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .68);
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .ov-ai-head-btn:hover,
+        .ov-ai-close:hover {
+            color: var(--primary);
+            border-color: rgba(20, 152, 223, .35);
+        }
+
+        .ov-ai-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-top: 3px;
+        }
+
+        .ov-ai-period {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .ov-ai-msg__tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .ov-ai-msg__tool,
+        .ov-ai-retry-btn {
+            border: 1px solid rgba(191, 219, 254, .9);
+            background: rgba(255, 255, 255, .82);
+            color: #0369a1;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 10.5px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .ov-ai-retry {
+            margin-top: 8px;
+        }
+
+        .ov-ai-retry-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        .ov-ai-body {
+            min-height: 0;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+        }
+
+        .ov-ai-chat {
+            height: clamp(230px, 42vh, 360px);
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            padding: 2px 4px 2px 0;
+        }
+
+        .ov-ai-msg {
+            max-width: 88%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(226, 232, 240, .86);
+            background: rgba(255, 255, 255, .82);
+            color: var(--text);
+            font-size: 12.5px;
+            line-height: 1.55;
+            font-weight: 600;
+            white-space: normal;
+        }
+
+        .ov-ai-msg--assistant {
+            align-self: flex-start;
+            border-color: rgba(191, 219, 254, .86);
+            background: rgba(248, 251, 255, .9);
+        }
+
+        .ov-ai-msg--user {
+            align-self: flex-end;
+            border-color: rgba(125, 211, 252, .86);
+            background: rgba(224, 242, 254, .92);
+            color: #075985;
+        }
+
+        .ov-ai-msg--typing {
+            padding: 8px 11px;
+            min-width: 42px;
+        }
+
+        .ov-ai-typing {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            height: 7px;
+        }
+
+        .ov-ai-typing span {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #94a3b8;
+            animation: ovAiTypingDot 1.25s infinite ease-in-out;
+        }
+
+        .ov-ai-typing span:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .ov-ai-typing span:nth-child(2) {
+            animation-delay: 0.18s;
+        }
+
+        .ov-ai-typing span:nth-child(3) {
+            animation-delay: 0.36s;
+        }
+
+        @keyframes ovAiTypingDot {
+            0%,
+            60%,
+            100% {
+                opacity: .35;
+                transform: translateY(0);
+            }
+
+            30% {
+                opacity: 1;
+                transform: translateY(-2px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ov-ai-typing span {
+                animation: ovAiTypingPulse 1.2s infinite ease-in-out;
+            }
+
+            @keyframes ovAiTypingPulse {
+                0%,
+                100% {
+                    opacity: .35;
+                }
+
+                50% {
+                    opacity: 1;
+                }
+            }
+        }
+First one way, then the other. Arms outstretched. Repeat once more. Two. 3 4 They spread out, now the chest. Swing the arms to the side, then slowly up again. Five 6 Chest spread widely 123456 Next model bends. First the last and back again, but then the right and back again. 123456 Now forward bends with bounces. And three times and nails in your hips bend backwards, then up again. 123456 Now sway your arms and twist your body. Right, right, right. The guy likes God. And once again. Right, left, 3456 feet together, nail parts and ways. Armstone. They still have shampoos. Arms up, arms down, 123456 now feet apart, then forward twice for the left foot. Next down to the right and back up again. Once again 23 456. Now rotate the whole body, just rest the arms and make a full circle in the same way the other way. Be sure to scratch those and muscles 4. Five 6 feet back together and now jumps 1234. 23456 arms and legs, 1234 arms and knees moving together. 123456 And we end with deep breaths. Slowly again and slowly out snakes. And one more time. 12345 678. 
+        .ov-ai-md {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ov-ai-md__p {
+            margin: 0;
+        }
+
+        .ov-ai-md__h {
+            margin: 2px 0 0;
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--navy);
+        }
+
+        .ov-ai-md__ul {
+            margin: 2px 0;
+            padding-left: 18px;
+        }
+
+        .ov-ai-md__li {
+            margin: 2px 0;
+        }
+
+        .ov-ai-md__li--sub {
+            margin-left: 4px;
+            list-style: circle;
+        }
+
+        .ov-ai-md strong {
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .ov-ai-md em {
+            font-style: italic;
+        }
+
+        .ov-ai-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(191, 219, 254, .65);
+        }
+
+        .ov-ai-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(20, 152, 223, .35);
+            background: rgba(255, 255, 255, .92);
+            color: #0369a1;
+            font-size: 11px;
+            font-weight: 800;
+            text-decoration: none;
+            transition: .15s;
+        }
+
+        .ov-ai-action-btn:hover {
+            background: #1498df;
+            border-color: #1498df;
+            color: #fff;
+        }
+
+        .ov-ai-action-btn::after {
+            content: '→';
+            font-size: 10px;
+            opacity: .85;
+        }
+
+        .ov-ai-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ov-ai-chip {
+            border: 1px solid rgba(191, 219, 254, .9);
+            background: rgba(255, 255, 255, .74);
+            color: var(--navy);
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 11.5px;
+            font-weight: 850;
+            cursor: pointer;
+            transition: .15s;
+        }
+
+        .ov-ai-chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .ov-ai-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ov-ai-form input {
+            min-width: 0;
+            flex: 1;
+            height: 38px;
+            border: 1px solid rgba(207, 232, 247, .95);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, .86);
+            color: var(--text);
+            font-size: 12.5px;
+            font-weight: 650;
+            padding: 0 11px;
+            outline: none;
+        }
+
+        .ov-ai-form input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .10);
+        }
+
+        .ov-ai-send {
+            width: 40px;
+            height: 38px;
+            border: 0;
+            border-radius: 9px;
+            background: var(--primary);
+            color: #fff;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ov-ai-send:disabled,
+        .ov-ai-chip:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+            transform: none;
+        }
+
+        @media (max-width: 575.98px) {
+            .ov-ai-widget {
+                right: 14px;
+                bottom: 14px;
+            }
+
+            .ov-ai-fab {
+                width: 48px;
+                height: 48px;
+                padding: 0;
+            }
+
+            .ov-ai-fab .ov-ai-chat-icon {
+                width: 20px;
+                height: 20px;
+            }
+
+            .ov-ai-popover {
+                bottom: 52px;
+                width: calc(100vw - 28px);
+                max-height: calc(100vh - 92px);
+                border-radius: 14px;
+            }
+
+            .ov-ai-chat {
+                height: clamp(210px, 42vh, 320px);
+            }
+        }
+
         .ov-row {
             display: grid;
             gap: 14px;
@@ -286,6 +805,57 @@
 
         .ov-panel__body--tight {
             padding: 4px 8px;
+        }
+
+        .ov-scan-count {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-muted);
+        }
+
+        .ov-scan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .ov-scan-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg);
+        }
+
+        .ov-scan-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            flex-shrink: 0;
+        }
+
+        .ov-scan-dot.is-online {
+            background: #16a34a;
+        }
+
+        .ov-scan-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .ov-scan-seen {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
         }
 
         .ov-loading {
@@ -1254,6 +1824,315 @@
         #ovFlappyCanvas { border-radius: 8px; border: 1px solid var(--border); display: block; max-width: 100%; height: auto; cursor: pointer; }
         .ov-flappy__foot { padding: 10px 16px 14px; font-size: 12px; color: var(--text-muted); text-align: center; font-weight: 600; }
 
+        .ov-scan-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 850;
+            white-space: nowrap;
+        }
+
+        .ov-scan-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ov-scan-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .ov-scan-stat {
+            min-width: 0;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .ov-scan-stat span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .ov-scan-stat strong {
+            display: block;
+            margin-top: 4px;
+            color: var(--navy);
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .ov-scan-stat--online {
+            background: #ecfdf5;
+            border-color: #bbf7d0;
+        }
+
+        .ov-scan-stat--offline {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        .ov-scan-carousel {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ov-scan-carousel::before,
+        .ov-scan-carousel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            z-index: 2;
+            width: 46px;
+            pointer-events: none;
+        }
+
+        .ov-scan-carousel::before {
+            left: 0;
+            background: linear-gradient(90deg, var(--card), rgba(255, 255, 255, 0));
+        }
+
+        .ov-scan-carousel::after {
+            right: 0;
+            background: linear-gradient(270deg, var(--card), rgba(255, 255, 255, 0));
+        }
+
+        .ov-scan-track {
+            display: flex;
+            width: max-content;
+            animation: ovScanMarquee 28s linear infinite;
+            will-change: transform;
+        }
+
+        .ov-scan-carousel:hover .ov-scan-track {
+            animation-play-state: paused;
+        }
+
+        .ov-scan-carousel:not(.is-moving) .ov-scan-track {
+            animation: none;
+        }
+
+        .ov-scan-group {
+            display: flex;
+            gap: 10px;
+            padding-right: 10px;
+        }
+
+        .ov-scan-group .ov-scan-item {
+            flex: 0 0 clamp(300px, 32vw, 560px);
+            width: clamp(300px, 32vw, 560px);
+        }
+
+        @keyframes ovScanMarquee {
+            from {
+                transform: translateX(0);
+            }
+            to {
+                transform: translateX(-50%);
+            }
+        }
+
+        .ov-scan-item {
+            position: relative;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 11px;
+            min-height: 72px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .ov-scan-item.is-online {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .ov-scan-item.is-status-changed {
+            --ov-status-wash: rgba(20, 152, 223, .14);
+            animation: ovScanStatusPop .9s ease both;
+        }
+
+        .ov-scan-item.is-status-online {
+            --ov-status-wash: rgba(22, 163, 74, .16);
+        }
+
+        .ov-scan-item.is-status-offline {
+            --ov-status-wash: rgba(100, 116, 139, .16);
+        }
+
+        .ov-scan-item.is-status-changed::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: var(--ov-status-wash);
+            pointer-events: none;
+            animation: ovScanStatusWash .9s ease both;
+        }
+
+        @keyframes ovScanStatusPop {
+            0% {
+                transform: scale(.98);
+            }
+            42% {
+                transform: scale(1.015);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes ovScanStatusWash {
+            0% {
+                opacity: 0;
+            }
+            35% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .ov-scan-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0f2fe;
+            color: var(--primary);
+            font-size: 15px;
+            box-shadow: inset 0 0 0 1px rgba(2, 132, 199, .12);
+        }
+
+        .ov-scan-item.is-online .ov-scan-avatar {
+            background: #dcfce7;
+            color: #15803d;
+            box-shadow: inset 0 0 0 1px rgba(22, 163, 74, .13);
+        }
+
+        .ov-scan-main {
+            min-width: 0;
+        }
+
+        .ov-scan-name {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--navy);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .ov-scan-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            margin-top: 4px;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .ov-scan-user span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ov-scan-user small {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .ov-scan-seen {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .ov-scan-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            border-radius: 8px;
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .ov-scan-status::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .ov-scan-status.is-online {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .ov-scan-empty {
+            min-height: 118px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 12px;
+            font-weight: 750;
+        }
+
+        .ov-scan-empty i {
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #e0f2fe;
+            color: var(--primary);
+            font-size: 15px;
+        }
+
         @media (max-width: 1100px) {
             .ov-kpis {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1272,11 +2151,43 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
+            .ov-scan-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .ov-scan-group .ov-scan-item {
+                flex-basis: min(82vw, 420px);
+                width: min(82vw, 420px);
+            }
+
+            .ov-scan-item {
+                grid-template-columns: 38px minmax(0, 1fr);
+            }
+
+            .ov-scan-status {
+                grid-column: 1 / -1;
+                justify-content: center;
+            }
+
             .ov-panel__head--activity {
                 align-items: flex-start;
                 flex-direction: column;
             }
 
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ov-scan-track {
+                animation: none !important;
+            }
+
+            .ov-scan-item.is-status-changed {
+                animation: none !important;
+            }
+
+            .ov-scan-item.is-status-changed::after {
+                display: none;
+            }
         }
     </style>
 
@@ -1341,6 +2252,61 @@
             </a>
         </div>
 
+        {{-- ===== FLOATING ASK BELLA ===== --}}
+        <div class="ov-ai-widget {{ $showBellaAssistant ? '' : 'ov-ai-widget--hidden' }}" id="ovAiWidget" data-ai-enabled="{{ $showBellaAssistant ? '1' : '0' }}" style="--ov-fab: {{ $fabColor }};">
+            <div class="ov-ai-popover" id="ovAiPopover" role="dialog" aria-modal="false" aria-labelledby="ovAiTitle" aria-hidden="true">
+                <div class="ov-ai-head">
+                    <div>
+                        <div class="ov-ai-title" id="ovAiTitle">
+                            <svg class="ov-ai-chat-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M5.5 5.25h13A3.25 3.25 0 0 1 21.75 8.5v5.25A3.25 3.25 0 0 1 18.5 17h-7.7l-5.05 3v-3.35A3.25 3.25 0 0 1 2.25 13.4V8.5A3.25 3.25 0 0 1 5.5 5.25Z" />
+                                <circle cx="8.25" cy="11.15" r="1" />
+                                <circle cx="12" cy="11.15" r="1" />
+                                <circle cx="15.75" cy="11.15" r="1" />
+                            </svg>
+                            Ask BELLA
+                        </div>
+                        <div class="ov-ai-meta">
+                            <span class="ov-ai-status" id="ovAiStatus">Online</span>
+                            <span class="ov-ai-period" id="ovAiPeriod"></span>
+                        </div>
+                    </div>
+                    <div class="ov-ai-head__actions">
+                        <button type="button" class="ov-ai-head-btn" id="ovAiClear" title="Hapus chat" aria-label="Hapus chat">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button type="button" class="ov-ai-close" id="ovAiClose" aria-label="Tutup Ask BELLA">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="ov-ai-body">
+                    <div class="ov-ai-chat" id="ovAiChat">
+                        <div class="ov-ai-msg ov-ai-msg--assistant">
+                            Data dashboard sudah siap. Tanya prioritas, risiko, root cause, atau langkah berikutnya.
+                        </div>
+                    </div>
+                    <div class="ov-ai-suggestions" id="ovAiSuggestions">
+                        <div id="ovAiChips"></div>
+                    </div>
+                    <form class="ov-ai-form" id="ovAiForm">
+                        <input type="text" id="ovAiInput" maxlength="700" placeholder="Tanya BELLA..." autocomplete="off">
+                        <button type="submit" class="ov-ai-send" id="ovAiSend" aria-label="Kirim pertanyaan">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <button type="button" class="ov-ai-fab" id="ovAiFab" aria-label="Buka Ask Bella" aria-controls="ovAiPopover" aria-expanded="false">
+                <svg class="ov-ai-chat-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M5.5 5.25h13A3.25 3.25 0 0 1 21.75 8.5v5.25A3.25 3.25 0 0 1 18.5 17h-7.7l-5.05 3v-3.35A3.25 3.25 0 0 1 2.25 13.4V8.5A3.25 3.25 0 0 1 5.5 5.25Z" />
+                    <circle cx="8.25" cy="11.15" r="1" />
+                    <circle cx="12" cy="11.15" r="1" />
+                    <circle cx="15.75" cy="11.15" r="1" />
+                </svg>
+            </button>
+        </div>
+
         {{-- ===== DELIVERY BERISIKO (#6) ===== --}}
         <div class="ov-row">
             <div class="ov-panel">
@@ -1351,6 +2317,19 @@
                 <div class="ov-panel__body ov-panel__body--tight" id="ovAtRisk"><div class="ov-loading">Memuat data</div></div>
             </div>
         </div>
+
+        {{-- ===== SCANNER PULLING (device monitoring ringkas) ===== --}}
+        @can('manage-device-sessions')
+            <div class="ov-row">
+                <div class="ov-panel">
+                    <div class="ov-panel__head">
+                        <div class="ov-panel__title"><i class="fas fa-desktop"></i> Scanner Pulling</div>
+                        <span class="ov-scan-count" id="ovScanCount">—</span>
+                    </div>
+                    <div class="ov-panel__body" id="ovScanners"><div class="ov-loading">Memuat data</div></div>
+                </div>
+            </div>
+        @endcan
 
         {{-- ===== Trend + Stock ===== --}}
         <div class="ov-row ov-row--2a">
@@ -1580,10 +2559,14 @@
     <script>
         (function() {
             var DATA_URL = @json(route('dashboard.overview.data'));
+            var AI_URL = @json(route('dashboard.overview.ai'));
+            var AI_ANSWER_STYLE = @json($bellaAnswerStyle);
             var SLOT_URL = @json(route('dashboard.overview.slot'));
             var STOCK_URL = @json(route('dashboard.productionStock'));
             var LL_URL = @json(url('/loading-list'));
             var CHART_URL = @json(asset('assets/js/apexcharts.js'));
+            var csrfToken = document.querySelector('meta[name="csrf-token"]') ?
+                document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
             var initial = @json($d ?? null);
             var trendChart = null,
                 stockChart = null,
@@ -1592,6 +2575,10 @@
                 chartsLoading = null,
                 latestData = null,
                 activityMode = 'all',
+                aiBusy = false,
+                aiHistory = [],
+                aiRetryTimer = null,
+                scannerStatusCache = null,
                 requestId = 0;
 
             function esc(s) {
@@ -1660,6 +2647,378 @@
             function setHtml(id, v) {
                 var el = document.getElementById(id);
                 if (el) el.innerHTML = v;
+            }
+
+            function aiInlineMd(text) {
+                var s = esc(text);
+                s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                s = s.replace(/(^|[^*])\*([^*\n]+?)\*([^*]|$)/g, function(_, before, inner, after) {
+                    return before + '<em>' + inner + '</em>' + after;
+                });
+                return s;
+            }
+
+            function aiMessageHtml(text) {
+                var lines = String(text == null ? '' : text).split('\n');
+                var out = [];
+                var inUl = false;
+
+                function closeUl() {
+                    if (inUl) {
+                        out.push('</ul>');
+                        inUl = false;
+                    }
+                }
+
+                lines.forEach(function(line) {
+                    var trimmed = line.trim();
+                    if (!trimmed) {
+                        closeUl();
+                        return;
+                    }
+
+                    var heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+                    if (heading) {
+                        closeUl();
+                        out.push('<div class="ov-ai-md__h">' + aiInlineMd(heading[2]) + '</div>');
+                        return;
+                    }
+
+                    var bullet = trimmed.match(/^([\*\+\-])\s+(.+)$/);
+                    if (bullet) {
+                        if (!inUl) {
+                            out.push('<ul class="ov-ai-md__ul">');
+                            inUl = true;
+                        }
+                        var subClass = bullet[1] === '+' ? ' ov-ai-md__li--sub' : '';
+                        out.push('<li class="ov-ai-md__li' + subClass + '">' + aiInlineMd(bullet[2]) + '</li>');
+                        return;
+                    }
+
+                    var numbered = trimmed.match(/^\d+\.\s+(.+)$/);
+                    if (numbered) {
+                        if (!inUl) {
+                            out.push('<ul class="ov-ai-md__ul">');
+                            inUl = true;
+                        }
+                        out.push('<li class="ov-ai-md__li">' + aiInlineMd(numbered[1]) + '</li>');
+                        return;
+                    }
+
+                    closeUl();
+                    out.push('<p class="ov-ai-md__p">' + aiInlineMd(trimmed) + '</p>');
+                });
+
+                closeUl();
+                return out.join('');
+            }
+
+            function aiAssistantHtml(text, actions, options) {
+                options = options || {};
+                var html = '<div class="ov-ai-md">' + aiMessageHtml(text) + '</div>';
+                if (options.showCopy !== false && text) {
+                    html += '<div class="ov-ai-msg__tools"><button type="button" class="ov-ai-msg__tool" data-copy-text="' + esc(text) + '">Salin</button></div>';
+                }
+                if (actions && actions.length) {
+                    html += '<div class="ov-ai-actions">';
+                    actions.forEach(function(action) {
+                        if (!action || !action.url) return;
+                        html += '<a class="ov-ai-action-btn" href="' + esc(action.url) + '">' + esc(action.label || 'Buka halaman') + '</a>';
+                    });
+                    html += '</div>';
+                }
+                return html;
+            }
+
+            function bindAiCopyTools(root) {
+                if (!root) return;
+                root.querySelectorAll('[data-copy-text]').forEach(function(button) {
+                    if (button.dataset.copyBound) return;
+                    button.dataset.copyBound = '1';
+                    button.addEventListener('click', function() {
+                        var text = button.getAttribute('data-copy-text') || '';
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(text).then(function() {
+                                button.textContent = 'Tersalin';
+                                setTimeout(function() { button.textContent = 'Salin'; }, 1500);
+                            });
+                        }
+                    });
+                });
+            }
+
+            function formatAiPeriod(from, to) {
+                if (!from || !to) return '';
+                if (from === to) return 'Data: ' + from;
+                return 'Data: ' + from + ' – ' + to;
+            }
+
+            function updateAiPeriod() {
+                var el = document.getElementById('ovAiPeriod');
+                var from = document.getElementById('ovFrom');
+                var to = document.getElementById('ovTo');
+                if (!el || !from || !to) return;
+                el.textContent = formatAiPeriod(from.value, to.value);
+            }
+
+            function updateAiChips(d) {
+                var wrap = document.getElementById('ovAiChips');
+                if (!wrap) return;
+                var k = (d && d.kpi) || {};
+                var chips = [];
+                var atRisk = ((d && d.atRisk) || []).length;
+                if (atRisk > 0) {
+                    chips.push({
+                        label: atRisk + ' delivery berisiko',
+                        q: 'Delivery atau loading list mana yang paling berisiko? Jelaskan prioritasnya.'
+                    });
+                }
+                if ((k.underStock || 0) > 0) {
+                    chips.push({
+                        label: k.underStock + ' part understock',
+                        q: 'Part understock mana yang paling perlu dicek sekarang?'
+                    });
+                }
+                if ((k.prepTotal || 0) > 0 && (k.prepPct || 0) < 100) {
+                    chips.push({
+                        label: 'Prep ' + (k.prepPct || 0) + '%',
+                        q: 'Loading list mana yang belum lengkap preparation?'
+                    });
+                }
+                if ((k.errPeriod || 0) > 0) {
+                    chips.push({
+                        label: k.errPeriod + ' error',
+                        q: 'Error apa yang paling sering dan di area mana?'
+                    });
+                }
+                chips.push({
+                    label: 'Brief operasional',
+                    q: 'Buat brief operasional singkat untuk periode ini.'
+                });
+                chips.push({
+                    label: 'Prioritas 30 menit',
+                    q: 'Apa prioritas operasional 30 menit ke depan?'
+                });
+                wrap.innerHTML = chips.slice(0, 5).map(function(chip) {
+                    return '<button type="button" class="ov-ai-chip" data-ai-question="' + esc(chip.q) + '">' + esc(chip.label) + '</button>';
+                }).join('');
+            }
+
+            function clearAiChat() {
+                if (aiRetryTimer) {
+                    clearInterval(aiRetryTimer);
+                    aiRetryTimer = null;
+                }
+                aiHistory = [];
+                var chat = document.getElementById('ovAiChat');
+                if (!chat) return;
+                chat.innerHTML = '<div class="ov-ai-msg ov-ai-msg--assistant">Chat dibersihkan. Tanya BELLA tentang data dashboard periode ini.</div>';
+            }
+
+            function aiTextHtml(text) {
+                return esc(text).replace(/\n/g, '<br>');
+            }
+
+            function setAiStatus(text) {
+                var el = document.getElementById('ovAiStatus');
+                if (el) el.textContent = text;
+            }
+
+            function setAiBusy(active) {
+                aiBusy = active;
+                var send = document.getElementById('ovAiSend');
+                var input = document.getElementById('ovAiInput');
+                if (send) send.disabled = active;
+                if (input) input.disabled = active;
+                document.querySelectorAll('.ov-ai-chip').forEach(function(button) {
+                    button.disabled = active;
+                });
+                setAiStatus(active ? 'Mengetik' : 'Online');
+            }
+
+            function setAiOpen(open) {
+                var widget = document.getElementById('ovAiWidget');
+                var popover = document.getElementById('ovAiPopover');
+                var fab = document.getElementById('ovAiFab');
+                var input = document.getElementById('ovAiInput');
+                if (!widget) return;
+
+                widget.classList.toggle('is-open', open);
+                if (popover) popover.setAttribute('aria-hidden', open ? 'false' : 'true');
+                if (fab) {
+                    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    fab.setAttribute('aria-label', open ? 'Tutup Ask Bella' : 'Buka Ask Bella');
+                }
+                if (open && input) {
+                    setTimeout(function() {
+                        input.focus();
+                    }, 180);
+                }
+            }
+
+            function appendAiTyping() {
+                var chat = document.getElementById('ovAiChat');
+                if (!chat) return null;
+                var node = document.createElement('div');
+                node.className = 'ov-ai-msg ov-ai-msg--assistant ov-ai-msg--typing';
+                node.setAttribute('aria-label', 'BELLA sedang mengetik');
+                node.innerHTML = '<span class="ov-ai-typing" aria-hidden="true"><span></span><span></span><span></span></span>';
+                chat.appendChild(node);
+                chat.scrollTop = chat.scrollHeight;
+
+                return node;
+            }
+
+            function appendAiMessage(role, text) {
+                var chat = document.getElementById('ovAiChat');
+                if (!chat) return null;
+                var node = document.createElement('div');
+                node.className = 'ov-ai-msg ov-ai-msg--' + (role === 'user' ? 'user' : 'assistant');
+                node.innerHTML = aiTextHtml(text);
+                chat.appendChild(node);
+                chat.scrollTop = chat.scrollHeight;
+
+                return node;
+            }
+
+            function compactAiHistory() {
+                return aiHistory.slice(-4).map(function(item) {
+                    return {
+                        role: item.role,
+                        content: limit(item.content, 800)
+                    };
+                });
+            }
+
+            function fillAiMessage(node, text, actions) {
+                if (!node) return;
+                node.classList.remove('ov-ai-msg--typing');
+                node.removeAttribute('aria-label');
+                node.innerHTML = aiAssistantHtml(text, actions, { showCopy: true });
+                bindAiCopyTools(node);
+                var chat = document.getElementById('ovAiChat');
+                if (chat) chat.scrollTop = chat.scrollHeight;
+            }
+
+            function fillAiError(node, message, retryAfter, question) {
+                if (!node) return;
+                if (aiRetryTimer) {
+                    clearInterval(aiRetryTimer);
+                    aiRetryTimer = null;
+                }
+                node.classList.remove('ov-ai-msg--typing');
+                node.removeAttribute('aria-label');
+                var html = '<div class="ov-ai-md"><p class="ov-ai-md__p">' + aiInlineMd(message) + '</p></div>';
+                html += '<div class="ov-ai-msg__tools"><button type="button" class="ov-ai-msg__tool" data-copy-text="' + esc(message) + '">Salin</button></div>';
+                if (retryAfter && question) {
+                    html += '<div class="ov-ai-retry"><button type="button" class="ov-ai-retry-btn" id="ovAiRetryBtn" disabled>Coba lagi (<span id="ovAiRetrySec">' + retryAfter + '</span>s)</button></div>';
+                }
+                node.innerHTML = html;
+                bindAiCopyTools(node);
+                if (!retryAfter || !question) return;
+                var sec = retryAfter;
+                var btn = node.querySelector('#ovAiRetryBtn');
+                var secEl = node.querySelector('#ovAiRetrySec');
+                aiRetryTimer = setInterval(function() {
+                    sec -= 1;
+                    if (secEl) secEl.textContent = String(Math.max(sec, 0));
+                    if (sec <= 0) {
+                        clearInterval(aiRetryTimer);
+                        aiRetryTimer = null;
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Coba lagi';
+                        }
+                    }
+                }, 1000);
+                if (btn) {
+                    var autoRetryId = setTimeout(function() {
+                        requestAi(question, { skipUserBubble: true, replaceNode: node });
+                    }, (retryAfter + 1) * 1000);
+                    btn.addEventListener('click', function() {
+                        if (btn.disabled) return;
+                        clearTimeout(autoRetryId);
+                        requestAi(question, { skipUserBubble: true, replaceNode: node });
+                    });
+                }
+            }
+
+            function requestAi(question, options) {
+                options = options || {};
+                question = String(question || '').trim();
+                if (!question || aiBusy) return;
+
+                var input = document.getElementById('ovAiInput');
+                if (input && !options.skipUserBubble) input.value = '';
+
+                var priorHistory = compactAiHistory();
+                var from = document.getElementById('ovFrom').value;
+                var to = document.getElementById('ovTo').value;
+                if (!options.skipUserBubble) {
+                    appendAiMessage('user', question);
+                    aiHistory.push({
+                        role: 'user',
+                        content: limit(question, 800)
+                    });
+                }
+
+                setAiBusy(true);
+                var pending = options.replaceNode || appendAiTyping();
+
+                fetch(AI_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            question: question,
+                            history: priorHistory,
+                            answer_style: AI_ANSWER_STYLE,
+                            from: from,
+                            to: to
+                        })
+                    })
+                    .then(function(r) {
+                        return r.json().then(function(payload) {
+                            return {
+                                ok: r.ok,
+                                payload: payload
+                            };
+                        });
+                    })
+                    .then(function(res) {
+                        if (!res.ok) {
+                            var err = new Error(res.payload.message || 'Maaf, BELLA lagi ada kendala. Coba lagi sebentar ya.');
+                            err.retryAfter = res.payload.retry_after || null;
+                            err.rateLimited = !!res.payload.rate_limited;
+                            throw err;
+                        }
+                        var answer = res.payload.answer || 'Maaf, BELLA belum sempat menyusun jawabannya. Coba tanyakan ulang dengan lebih spesifik.';
+                        fillAiMessage(pending, answer, res.payload.actions || []);
+                        aiHistory.push({
+                            role: 'assistant',
+                            content: limit(answer, 800)
+                        });
+                    })
+                    .catch(function(error) {
+                        var message = error && error.message ? error.message : 'Maaf, BELLA belum bisa memproses pertanyaan itu. Coba lagi ya.';
+                        var retryAfter = error && error.retryAfter ? error.retryAfter : null;
+                        if (retryAfter) {
+                            fillAiError(pending, message, retryAfter, question);
+                        } else {
+                            fillAiMessage(pending, message, []);
+                        }
+                    })
+                    .finally(function() {
+                        setAiBusy(false);
+                    });
+            }
+
+            function askAi(question) {
+                requestAi(question);
             }
 
             function setFilterLoading(active) {
@@ -2229,6 +3588,61 @@
                 return neg ? ('lewat ' + s) : (s + ' lagi');
             }
 
+            function renderScanners(sc) {
+                var list = (sc && sc.list) || [];
+                var online = parseInt((sc && sc.online) || 0) || 0;
+                var total = parseInt((sc && sc.total) || list.length) || 0;
+                var offline = Math.max(total - online, 0);
+                var pct = total ? Math.round((online / total) * 100) : 0;
+
+                if (!list.length) {
+                    scannerStatusCache = {};
+                    return '<div class="ov-scan-empty"><i class="fas fa-barcode"></i><span>Belum ada scanner pulling terpantau.</span></div>';
+                }
+
+                var previousStatuses = scannerStatusCache;
+                var nextStatuses = {};
+                var cards = list.map(function(s) {
+                    var isOnline = !!s.online;
+                    var name = s.name || 'Scanner';
+                    var userName = s.user_name || '-';
+                    var userNpk = s.user_npk ? 'NPK ' + s.user_npk : '';
+                    var key = name + '|' + (s.user_npk || userName);
+                    var changed = previousStatuses &&
+                        Object.prototype.hasOwnProperty.call(previousStatuses, key) &&
+                        previousStatuses[key] !== isOnline;
+                    nextStatuses[key] = isOnline;
+                    return '<div class="ov-scan-item ' + (isOnline ? 'is-online ' : '') +
+                        (changed ? 'is-status-changed ' + (isOnline ? 'is-status-online' : 'is-status-offline') : '') + '">' +
+                        '<div class="ov-scan-avatar" aria-hidden="true"><i class="fas fa-barcode"></i></div>' +
+                        '<div class="ov-scan-main">' +
+                        '<span class="ov-scan-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
+                        '<span class="ov-scan-user" title="' + esc(userName) + '">' +
+                        '<i class="far fa-user"></i><span>' + esc(userName) + '</span>' +
+                        (userNpk ? '<small>' + esc(userNpk) + '</small>' : '') +
+                        '</span>' +
+                        '<span class="ov-scan-seen"><i class="far fa-clock"></i>' + esc(s.last_seen || '-') + '</span>' +
+                        '</div>' +
+                        '<span class="ov-scan-status ' + (isOnline ? 'is-online' : '') + '">' + (isOnline ? 'Online' : 'Offline') + '</span>' +
+                        '</div>';
+                }).join('');
+                scannerStatusCache = nextStatuses;
+
+                return '<div class="ov-scan-shell">' +
+                    '<div class="ov-scan-summary">' +
+                    '<div class="ov-scan-stat ov-scan-stat--online"><span>Online</span><strong>' + online + '</strong></div>' +
+                    '<div class="ov-scan-stat ov-scan-stat--offline"><span>Offline</span><strong>' + offline + '</strong></div>' +
+                    '<div class="ov-scan-stat"><span>Kesiapan</span><strong>' + pct + '%</strong></div>' +
+                    '</div>' +
+                    '<div class="ov-scan-carousel ' + (list.length > 1 ? 'is-moving' : '') + '">' +
+                    '<div class="ov-scan-track">' +
+                    '<div class="ov-scan-group">' + cards + '</div>' +
+                    (list.length > 1 ? '<div class="ov-scan-group" aria-hidden="true">' + cards + '</div>' : '') +
+                    '</div>' +
+                    '</div>' +
+                    '</div>';
+            }
+
             function renderAtRisk(rows) {
                 if (!rows || !rows.length)
                 return '<div class="ov-empty">Tidak ada delivery berisiko hari ini/besok. 👍</div>';
@@ -2260,7 +3674,7 @@
                         '<div class="ov-bar"><div class="ov-bar__fill" style="width:' + r.pct +
                         '%;background:' + col + ';"></div></div></td></tr>';
                 }).join('');
-                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Prep</th><th>ETA Truck</th><th>Status</th><th>Progress</th></tr></thead><tbody>' +
+                return '<table class="ov-table"><thead><tr><th>Loading List</th><th>Customer</th><th>Cycle</th><th>Deadline Preparation</th><th>ETA Truck</th><th>Status</th><th>Progress</th></tr></thead><tbody>' +
                     body + '</tbody></table>';
             }
 
@@ -2327,7 +3741,12 @@
                 setHtml('ovTopUnder', renderTopUnder(d.topUnder));
                 setHtml('ovErrByArea', renderErrByArea(d.errByArea));
                 setHtml('ovRecentErrors', renderRecentErrors(d.recentErrors));
+                var sc = d.scanners || { online: 0, total: 0, list: [] };
+                setText('ovScanCount', sc.total ? (sc.online + '/' + sc.total + ' online') : '—');
+                setHtml('ovScanners', renderScanners(sc));
                 setText('ovUpdated', new Date().toLocaleTimeString('id-ID'));
+                updateAiChips(d);
+                updateAiPeriod();
             }
 
             function loadCharts() {
@@ -2639,11 +4058,44 @@
             }
 
             document.addEventListener('DOMContentLoaded', function() {
+                var aiFab = document.getElementById('ovAiFab');
+                if (aiFab) {
+                    aiFab.addEventListener('click', function() {
+                        var widget = document.getElementById('ovAiWidget');
+                        setAiOpen(!(widget && widget.classList.contains('is-open')));
+                    });
+                }
+                var aiClose = document.getElementById('ovAiClose');
+                if (aiClose) {
+                    aiClose.addEventListener('click', function() {
+                        setAiOpen(false);
+                    });
+                }
                 document.querySelectorAll('.ov-activity-tab').forEach(function(button) {
                     button.addEventListener('click', function() {
                         setActivityMode(button.getAttribute('data-activity-mode'));
                     });
                 });
+                var aiSuggestions = document.getElementById('ovAiSuggestions');
+                if (aiSuggestions) {
+                    aiSuggestions.addEventListener('click', function(e) {
+                        var chip = e.target.closest('.ov-ai-chip');
+                        if (chip) askAi(chip.getAttribute('data-ai-question'));
+                    });
+                }
+                var aiClear = document.getElementById('ovAiClear');
+                if (aiClear) {
+                    aiClear.addEventListener('click', function() {
+                        clearAiChat();
+                    });
+                }
+                var aiForm = document.getElementById('ovAiForm');
+                if (aiForm) {
+                    aiForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        askAi(document.getElementById('ovAiInput').value);
+                    });
+                }
                 setActivityMode(activityMode);
                 loadCharts();
                 if (initial && initial.kpi) {
@@ -2658,13 +4110,22 @@
                     });
                 });
                 document.getElementById('ovFrom').addEventListener('change', function() {
+                    updateAiPeriod();
                     clearActivePreset();
                     refresh(true);
                 });
                 document.getElementById('ovTo').addEventListener('change', function() {
+                    updateAiPeriod();
                     clearActivePreset();
                     refresh(true);
                 });
+                updateAiPeriod();
+                if (new URLSearchParams(window.location.search).get('bella') === 'brief') {
+                    setAiOpen(true);
+                    setTimeout(function() {
+                        askAi('Buat brief operasional singkat untuk periode ini.');
+                    }, 500);
+                }
                 // modal drill-down: tutup via tombol, klik backdrop, atau Esc
                 var slotModal = document.getElementById('ovSlotModal');
                 document.getElementById('ovSlotClose').addEventListener('click', function() {
@@ -2674,6 +4135,7 @@
                     if (e.target === slotModal) slotModal.classList.remove('open');
                 });
                 document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') setAiOpen(false);
                     if (e.key === 'Escape') slotModal.classList.remove('open');
                 });
                 // hemat query: refresh hanya saat tab aktif
@@ -3941,9 +5403,21 @@
             var SPR_E1 = ['  XX', ' XXX', 'XXXX', ' XXX', '  XX'];
             var SPR_E2 = [' XXXX ', 'XXXXXX', 'XX  XX', 'XXXXXX', 'XXXXXX', ' XXXX '];
             var HEART = [' X X ', 'XXXXX', 'XXXXX', ' XXX ', '  X  '];
+            var SPR_DRAGON_HEAD = [
+                '      X       X   ',
+                '     XX      XX   ',
+                '    XXX     XXX   ',
+                '   XXXXXXXXXXXXX  ',
+                '  XX  X  XXXXXX   ',
+                ' XXXXXXXXXXXXXXXXX',
+                'XXXXXXXXXXXXXXXXXX',
+                '    XXXXX         ',
+                '   XXXXXXXXX      ',
+                '    XXXXXX        '
+            ];
 
             var state = 'ready',
-                player, bullets, enemies, ebullets, boss, score, level, kills, need, spawnT, banner, bannerT, terr, scrollA, last;
+                player, bullets, enemies, ebullets, powerups, bosses, score, level, kills, need, spawnT, banner, bannerT, terr, scrollA, last;
             var active = false,
                 rafId = null,
                 keys = {};
@@ -3961,8 +5435,8 @@
             function genH(h) { h += Math.random() * 4 - 2; return Math.max(3, Math.min(16, h)); }
 
             function reset() {
-                player = { x: 14, y: 28, w: 6, h: 5, sp: 52, lives: 5, fire: 0, inv: 0 };
-                bullets = []; enemies = []; ebullets = []; boss = null;
+                player = { x: 14, y: 28, w: 6, h: 5, sp: 52, lives: 5, fire: 0, inv: 0, power: 1, hasLaser: false, laserCd: 0, laserActive: 0 };
+                bullets = []; enemies = []; ebullets = []; powerups = []; bosses = [];
                 score = 0; level = 1; kills = 0; need = 6; spawnT = 600;
                 banner = 'LEVEL 1'; bannerT = 1300;
                 terr = []; var h = 8; for (var i = 0; i < GW + 2; i++) { h = genH(h); terr.push(Math.round(h)); } scrollA = 0;
@@ -3977,9 +5451,11 @@
                 else enemies.push({ x: GW + 6, y: 6 + Math.random() * 36, w: 5, h: 5, sp: 24 + level * 4, hp: 1, b: SPR_E0, pts: 10 });
             }
 
-            function spawnBoss() { boss = { x: GW - 30, y: 24, r: 11, dir: 1, sp: 22 + level * 3, hp: 20 + level * 8, max: 20 + level * 8, shoot: 700 }; bannerSet('BOSS', 1400); }
+            function spawnBoss() { bosses = [{ x: GW - 30, y: 24, r: 11, dir: 1, sp: 22 + level * 3, hp: 20 + level * 8, max: 20 + level * 8, shoot: 700 }]; bannerSet('BOSS', 1400); }
 
-            function nextLevel() { level++; kills = 0; need = 5 + level * 2; if (level % 3 === 0) spawnBoss(); else bannerSet('LEVEL ' + level, 1100); }
+            function spawnDragon() { bosses = [{ x: GW - 30, y: 24, r: 10, dir: 1, sp: 35 + level * 3, hp: 40 + level * 10, max: 40 + level * 10, shoot: 500, type: 'dragon' }]; bannerSet('DRAGON BOSS', 1500); }
+
+            function nextLevel() { level++; kills = 0; need = 5 + level * 2; if (level === 5) spawnDragon(); else if (level % 3 === 0) spawnBoss(); else bannerSet('LEVEL ' + level, 1100); }
 
             function hitB(ax, ay, aw, ah, b) { return ax < b.x + b.w && ax + aw > b.x && ay < b.y + b.h && ay + ah > b.y; }
 
@@ -3994,39 +5470,161 @@
                 player.y = Math.max(3, Math.min(42, player.y + my * player.sp * d));
                 if (player.inv > 0) player.inv -= dt;
                 player.fire -= dt;
-                if (player.fire <= 0) { bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115 }); player.fire = 230; }
-                for (var i = 0; i < bullets.length; i++) bullets[i].x += bullets[i].sp * d;
-                bullets = bullets.filter(function(b) { return b.x < GW + 4; });
-                if (!boss) { spawnT -= dt; if (spawnT <= 0) { spawn(); spawnT = Math.max(420, 1400 - level * 110); } }
+                if (player.fire <= 0) { 
+                    bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: 0 }); 
+                    if (player.power >= 2) {
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: -25 });
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: 25 });
+                    }
+                    if (player.power >= 3) {
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: -50 });
+                        bullets.push({ x: player.x + 6, y: player.y + 2, sp: 115, dy: 50 });
+                    }
+                    player.fire = 230; 
+                }
+                for (var i = 0; i < bullets.length; i++) {
+                    bullets[i].x += bullets[i].sp * d;
+                    if (bullets[i].dy) bullets[i].y += bullets[i].dy * d;
+                }
+                bullets = bullets.filter(function(b) { return b.x < GW + 4 && b.y > 0 && b.y < GH; });
+                
+                if (bosses.length === 0) { spawnT -= dt; if (spawnT <= 0) { spawn(); spawnT = Math.max(420, 1400 - level * 110); } }
+                
                 for (var j = 0; j < enemies.length; j++) enemies[j].x -= enemies[j].sp * d;
                 enemies = enemies.filter(function(e) { return e.x + e.w > -4; });
-                if (boss) {
-                    boss.y += boss.dir * boss.sp * d;
-                    if (boss.y < 14) boss.dir = 1;
-                    if (boss.y > 44) boss.dir = -1;
-                    boss.shoot -= dt;
-                    if (boss.shoot <= 0) { ebullets.push({ x: boss.x - boss.r, y: boss.y, sp: 60 + level * 8 }); boss.shoot = Math.max(420, 1000 - level * 40); }
+                
+                for (var bsi = 0; bsi < bosses.length; bsi++) {
+                    var bs = bosses[bsi];
+                    bs.y += bs.dir * bs.sp * d;
+                    if (bs.y < 14) bs.dir = 1;
+                    if (bs.y > 44) bs.dir = -1;
+                    bs.shoot -= dt;
+                    if (bs.shoot <= 0) { 
+                        if (bs.type === 'dragon') {
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 70 + level * 8, dy: -15 });
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 70 + level * 8, dy: 0 });
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 70 + level * 8, dy: 15 });
+                            if (bs.enraged) {
+                                var tx = bs.x + 70;
+                                var ty = bs.y + Math.sin(performance.now() / 150 + 5) * 12;
+                                ebullets.push({ x: tx, y: ty, sp: 90 + level * 8, dy: -25 });
+                                ebullets.push({ x: tx, y: ty, sp: 90 + level * 8, dy: 25 });
+                            }
+                            bs.shoot = Math.max(300, 800 - level * 40);
+                        } else {
+                            ebullets.push({ x: bs.x - bs.r, y: bs.y, sp: 60 + level * 8, dy: 0 }); 
+                            bs.shoot = Math.max(420, 1000 - level * 40); 
+                        }
+                    }
                 }
-                for (var k = 0; k < ebullets.length; k++) ebullets[k].x -= ebullets[k].sp * d;
-                ebullets = ebullets.filter(function(b) { return b.x > -4; });
+                
+                for (var k = 0; k < ebullets.length; k++) {
+                    ebullets[k].x -= ebullets[k].sp * d;
+                    if (ebullets[k].dy) ebullets[k].y += ebullets[k].dy * d;
+                }
+                ebullets = ebullets.filter(function(b) { return b.x > -4 && b.y > 0 && b.y < GH; });
+                
+                if (player.hasLaser) {
+                    player.laserCd -= dt;
+                    if (player.laserCd <= 0) {
+                        player.laserActive = 200;
+                        player.laserCd = 4000;
+                        var l_x = player.x + player.w;
+                        var l_y = player.y + 1;
+                        for (var ei = 0; ei < enemies.length; ei++) {
+                            var e = enemies[ei];
+                            if (e.hp > 0 && hitB(l_x, l_y, GW, 3, e)) {
+                                e.hp -= 5;
+                                if (e.hp <= 0) { score += e.pts; kills++; }
+                            }
+                        }
+                        for (var bsi = 0; bsi < bosses.length; bsi++) {
+                            var bs = bosses[bsi];
+                            if (bs.hp > 0 && hitB(l_x, l_y, GW, 3, {x: bs.x - bs.r, y: bs.y - bs.r, w: bs.r * 2, h: bs.r * 2})) {
+                                var oldHp = bs.hp;
+                                bs.hp -= 5;
+                                var half = Math.floor(bs.max / 2);
+                                if (oldHp > half && bs.hp <= half) {
+                                    if (bs.type === 'dragon' && !bs.enraged) {
+                                        bs.enraged = true; bs.sp *= 1.5; bs.shoot = 200;
+                                    } else if (bs.type !== 'dragon' && bs.r > 7) {
+                                        bs.r = 7; bs.sp *= 1.3; bs.hp += 5;
+                                        bosses.push({ x: bs.x, y: bs.y + 15, r: 7, dir: -bs.dir, sp: bs.sp, hp: bs.hp, max: bs.max, shoot: bs.shoot });
+                                    }
+                                }
+                                if (bs.hp <= 0) { score += 150 + level * 20; bs.dead = true; }
+                            }
+                        }
+                    }
+                }
+                if (player.laserActive > 0) player.laserActive -= dt;
+
+                for (var pi = 0; pi < powerups.length; pi++) {
+                    powerups[pi].x -= 30 * d;
+                    if (hitB(player.x, player.y, player.w, player.h, powerups[pi])) {
+                        if (powerups[pi].type === 'laser') {
+                            player.hasLaser = true;
+                            player.laserCd = 0;
+                        } else {
+                            player.power = Math.min(3, player.power + 1);
+                        }
+                        powerups[pi].x = -99;
+                        score += 50;
+                    }
+                }
+                powerups = powerups.filter(function(p) { return p.x > -4; });
+
                 for (var bi = 0; bi < bullets.length; bi++) {
                     var b = bullets[bi];
                     for (var ei = 0; ei < enemies.length; ei++) {
                         var e = enemies[ei];
-                        if (e.hp > 0 && hitB(b.x, b.y, 3, 1, e)) { e.hp--; b.x = GW + 99; if (e.hp <= 0) { score += e.pts; kills++; } break; }
+                        if (e.hp > 0 && hitB(b.x, b.y, 3, 1, e)) { 
+                            e.hp--; b.x = GW + 99; 
+                            if (e.hp <= 0) { 
+                                score += e.pts; kills++; 
+                                if (Math.random() < 0.15) powerups.push({ x: e.x, y: e.y, w: 5, h: 5, type: Math.random() < 0.3 ? 'laser' : 'spread' });
+                            } 
+                            break; 
+                        }
                     }
-                    if (boss && boss.hp > 0 && b.x > boss.x - boss.r && b.y > boss.y - boss.r && b.y < boss.y + boss.r) { boss.hp--; b.x = GW + 99; if (boss.hp <= 0) { score += 150 + level * 20; boss = null; nextLevel(); } }
+                    for (var bsi = 0; bsi < bosses.length; bsi++) {
+                        var bs = bosses[bsi];
+                        if (bs.hp > 0 && b.x > bs.x - bs.r && b.y > bs.y - bs.r && b.y < bs.y + bs.r) { 
+                            bs.hp--; b.x = GW + 99; 
+                            if (bs.hp === Math.floor(bs.max / 2)) {
+                                if (bs.type === 'dragon' && !bs.enraged) {
+                                    bs.enraged = true;
+                                    bs.sp *= 1.5;
+                                    bs.shoot = 200;
+                                } else if (bs.type !== 'dragon' && bs.r > 7) {
+                                    bs.r = 7; bs.sp *= 1.3; bs.hp += 5;
+                                    bosses.push({ x: bs.x, y: bs.y + 15, r: 7, dir: -bs.dir, sp: bs.sp, hp: bs.hp, max: bs.max, shoot: bs.shoot });
+                                }
+                            }
+                            if (bs.hp <= 0) { 
+                                score += 150 + level * 20; 
+                                bs.dead = true; 
+                            } 
+                        }
+                    }
                 }
                 enemies = enemies.filter(function(e) { return e.hp > 0; });
-                bullets = bullets.filter(function(b) { return b.x < GW + 4; });
+                var oldLen = bosses.length;
+                bosses = bosses.filter(function(bs) { return !bs.dead; });
+                if (oldLen > 0 && bosses.length === 0) {
+                    nextLevel();
+                }
 
-                function dmg() { if (player.inv > 0) return; player.lives--; player.inv = 1300; if (player.lives <= 0) { state = 'over'; bannerSet('GAME OVER', 9e9); } }
+                function dmg() { if (player.inv > 0) return; player.lives--; player.inv = 1300; player.power = 1; player.hasLaser = false; if (player.lives <= 0) { state = 'over'; bannerSet('GAME OVER', 9e9); } }
                 for (var ci = 0; ci < enemies.length; ci++) if (hitB(player.x, player.y, player.w, player.h, enemies[ci])) { enemies[ci].hp = 0; dmg(); }
                 enemies = enemies.filter(function(e) { return e.hp > 0; });
                 for (var di = 0; di < ebullets.length; di++) { var eb = ebullets[di]; if (player.x < eb.x + 3 && player.x + player.w > eb.x && player.y < eb.y + 2 && player.y + player.h > eb.y) { eb.x = -99; dmg(); } }
                 ebullets = ebullets.filter(function(b) { return b.x > -4; });
-                if (boss && Math.abs((player.x + 3) - boss.x) < boss.r && Math.abs((player.y + 2) - boss.y) < boss.r) dmg();
-                if (!boss && kills >= need) nextLevel();
+                for (var bsi = 0; bsi < bosses.length; bsi++) {
+                    var bs = bosses[bsi];
+                    if (Math.abs((player.x + 3) - bs.x) < bs.r && Math.abs((player.y + 2) - bs.y) < bs.r) dmg();
+                }
+                if (bosses.length === 0 && kills >= need) nextLevel();
                 if (bannerT > 0) bannerT -= dt;
             }
 
@@ -4039,17 +5637,66 @@
                 for (var bi = 0; bi < bullets.length; bi++) px(bullets[bi].x, bullets[bi].y, 3, 1);
                 for (var ei = 0; ei < ebullets.length; ei++) px(ebullets[ei].x, ebullets[ei].y, 3, 2);
                 for (var en = 0; en < enemies.length; en++) spr(enemies[en].b, enemies[en].x | 0, enemies[en].y | 0);
-                if (boss) {
-                    disc(boss.x | 0, boss.y | 0, boss.r);
-                    for (var a = 0; a < 8; a++) { var an = a / 8 * 6.283; px((boss.x + Math.cos(an) * (boss.r + 1)) | 0, (boss.y + Math.sin(an) * (boss.r + 1)) | 0, 2, 2); }
-                    ctx.fillStyle = BG; disc((boss.x - boss.r * 0.45) | 0, (boss.y - 2) | 0, 3);
-                    ctx.fillStyle = FG; px((boss.x - boss.r * 0.45) | 0, (boss.y - 2) | 0, 2, 2);
-                    px(GW / 2 - 22, 4, 44, 1);
-                    ctx.fillStyle = BG; px(GW / 2 - 22 + Math.ceil(44 * boss.hp / boss.max), 4, 44 - Math.ceil(44 * boss.hp / boss.max), 1);
+                
+                if (player.laserActive > 0) {
+                    var l_x = player.x + player.w;
+                    var l_y = player.y + 1;
+                    if ((performance.now() / 30 | 0) % 2 === 0) px(l_x, l_y, GW, 3);
+                    else px(l_x, l_y + 1, GW, 1);
+                }
+
+                for (var pi = 0; pi < powerups.length; pi++) {
+                    var pu = powerups[pi];
+                    px(pu.x | 0, pu.y | 0, 5, 5);
+                    ctx.fillStyle = BG; px((pu.x + 1) | 0, (pu.y + 1) | 0, 3, 3);
+                    ctx.fillStyle = FG; 
+                    if (pu.type === 'laser') px((pu.x + 1) | 0, (pu.y + 2) | 0, 3, 1);
+                    else px((pu.x + 2) | 0, (pu.y + 2) | 0, 1, 1);
+                }
+
+                for (var bsi = 0; bsi < bosses.length; bsi++) {
+                    var bs = bosses[bsi];
+                    
+                    if (bs.type === 'dragon') {
+                        for (var d_i = 10; d_i >= 1; d_i--) {
+                            var dr = Math.max(2, Math.round(bs.r - d_i * 0.7));
+                            var dx = (bs.x + d_i * 7) | 0;
+                            var dy = (bs.y + Math.sin(performance.now() / 150 + d_i * 0.5) * 12) | 0;
+                            ctx.fillStyle = FG;
+                            disc(dx, dy, dr);
+                            ctx.fillStyle = BG; 
+                            disc(dx, dy, Math.max(1, dr - 2)); 
+                            ctx.fillStyle = FG;
+                            px(dx - 1, dy - 1, 2, 2);
+                            px(dx, dy - dr - 2, 2, 3);
+                            px(dx + 1, dy - dr - 3, 1, 1);
+                            if (d_i === 10) {
+                                px(dx + dr, dy - 4, 2, 8);
+                                px(dx + dr + 2, dy - 2, 2, 4);
+                            }
+                        }
+                        ctx.fillStyle = BG; disc(bs.x | 0, bs.y | 0, bs.r - 1); ctx.fillStyle = FG;
+                        spr(SPR_DRAGON_HEAD, bs.x - 9, bs.y - 5);
+                    } else {
+                        disc(bs.x | 0, bs.y | 0, bs.r);
+                        for (var a = 0; a < 8; a++) { var an = a / 8 * 6.283; px((bs.x + Math.cos(an) * (bs.r + 1)) | 0, (bs.y + Math.sin(an) * (bs.r + 1)) | 0, 2, 2); }
+                        ctx.fillStyle = BG; disc((bs.x - bs.r * 0.45) | 0, (bs.y - 2) | 0, 3);
+                        ctx.fillStyle = FG; px((bs.x - bs.r * 0.45) | 0, (bs.y - 2) | 0, 2, 2);
+                    }
+                    
+                    var hw = bs.r > 7 ? 44 : 20;
+                    var hx = bs.r > 7 ? GW / 2 - 22 : bs.x - 10;
+                    var hy = bs.r > 7 ? 4 : bs.y - bs.r - 4;
+                    px(hx, hy, hw, 1);
+                    ctx.fillStyle = BG; px(hx + Math.ceil(hw * bs.hp / bs.max), hy, hw - Math.ceil(hw * bs.hp / bs.max), 1);
                     ctx.fillStyle = FG;
                 }
                 if (!(player.inv > 0 && (performance.now() / 90 | 0) % 2)) spr(SPR_SHIP, player.x | 0, player.y | 0);
                 spr(HEART, 2, 2); text(('0' + player.lives).slice(-2), 9, 2);
+                if (player.hasLaser) {
+                    var cdP = Math.max(0, player.laserCd / 4000);
+                    px(2, GH - 7, 20, 5); ctx.fillStyle = BG; px(3, GH - 6, 18, 3); ctx.fillStyle = FG; px(3, GH - 5, Math.round(18 * (1 - cdP)), 1);
+                }
                 text(('0000' + score).slice(-5), GW - 21, 2);
                 if (bannerT > 0 || state === 'over') {
                     var w = textW(banner) * 2;

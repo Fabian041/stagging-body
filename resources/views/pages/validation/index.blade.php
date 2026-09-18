@@ -100,6 +100,19 @@
             color: #fff !important;
         }
 
+        .act-btn.success {
+            background: #16a34a;
+            border-color: #16a34a;
+            color: #fff !important;
+        }
+
+        .act-btn:disabled {
+            cursor: not-allowed;
+            filter: grayscale(.55);
+            opacity: .48;
+            transform: none;
+        }
+
         .act-btn.secondary {
             background: var(--card);
             border-color: var(--border);
@@ -118,7 +131,7 @@
 
         .scan-info-strip {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 12px;
             margin-bottom: 16px;
         }
@@ -370,6 +383,146 @@
                 padding: 14px;
             }
         }
+
+        /* Layar handheld kecil sekitar 4 inch (320px–375px). */
+        @media (max-width: 480px) {
+            .pairing-page {
+                min-height: 100vh;
+                padding: 6px;
+            }
+
+            .bella-table-card {
+                border-radius: 7px;
+            }
+
+            .bella-table-card-header {
+                align-items: stretch;
+                gap: 9px;
+                padding: 10px;
+            }
+
+            .bella-table-card-title {
+                display: block;
+                font-size: 11px;
+                line-height: 1.35;
+            }
+
+            .bella-table-card-subtitle {
+                font-size: 9.5px;
+                line-height: 1.45;
+            }
+
+            .scan-action-right {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px;
+            }
+
+            .scan-action-right .secondary {
+                grid-column: 1 / -1;
+            }
+
+            .act-btn {
+                width: 100%;
+                height: 38px;
+                padding: 0 8px;
+                font-size: 10.5px;
+            }
+
+            .pairing-body {
+                padding: 8px;
+            }
+
+            .scan-info-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px;
+                margin-bottom: 8px;
+            }
+
+            .scan-mini-card {
+                min-height: 58px;
+                padding: 8px;
+            }
+
+            .scan-mini-card label {
+                margin-bottom: 4px;
+                font-size: 8.5px;
+                line-height: 1.2;
+            }
+
+            .scan-mini-card span {
+                display: block;
+                font-size: 11px;
+                line-height: 1.35;
+                overflow-wrap: anywhere;
+            }
+
+            .scan-grid {
+                gap: 8px;
+            }
+
+            .kanban-status-card {
+                min-height: 170px;
+                border-radius: 7px !important;
+            }
+
+            .kanban-status-card:hover {
+                transform: none;
+            }
+
+            .kanban-status-card .hero-inner {
+                gap: 8px;
+                padding: 10px;
+            }
+
+            .scan-card-title {
+                gap: 6px;
+                padding-bottom: 8px;
+            }
+
+            .scan-card-title h5 {
+                font-size: 10px;
+            }
+
+            .scan-card-title small {
+                display: block;
+                margin-top: 2px;
+                font-size: 8.5px;
+                line-height: 1.35;
+            }
+
+            .scan-card-icon {
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                flex: 0 0 28px;
+            }
+
+            .scan-display-card {
+                min-height: 100px;
+                border-radius: 7px !important;
+                padding: 12px 8px !important;
+            }
+
+            .scan-display-card h3 {
+                font-size: clamp(1.15rem, 7vw, 1.65rem) !important;
+                line-height: 1.25;
+                letter-spacing: 0;
+            }
+
+            #notifModal .modal-dialog {
+                margin: 8px;
+            }
+
+            #notifModal .modal-body {
+                padding: 18px 12px !important;
+            }
+
+            #notif {
+                font-size: 16px !important;
+                line-height: 1.4;
+            }
+        }
     </style>
 
     <div class="pairing-page">
@@ -377,11 +530,15 @@
             <div class="bella-table-card-header">
                 <div>
                     <span class="bella-table-card-title"><i class="fas fa-barcode mr-2"></i>Kanban Pairing Scan</span>
-                    <div class="bella-table-card-subtitle">Scan kanban assembly dan painting sesuai master pairing.</div>
+                    <div class="bella-table-card-subtitle">Scan Dandori Board, lalu kanban assembly dan painting sesuai
+                        master pairing.</div>
                 </div>
                 <div class="scan-action-right">
-                    <button type="button" class="act-btn danger" onclick="resetScanState()">
-                        <i class="fas fa-redo-alt"></i> Reset Scan
+                    <button type="button" class="act-btn danger" id="resetTransactionButton">
+                        <i class="fas fa-redo-alt"></i> Reset Transaksi
+                    </button>
+                    <button type="button" class="act-btn success" id="finishButton" disabled>
+                        <i class="fas fa-check-circle"></i> Finish
                     </button>
                     <form id="logout-form" action="{{ route('logout.auth') }}" method="POST" style="display: none;">
                         @csrf
@@ -399,8 +556,12 @@
 
                 <div class="scan-info-strip">
                     <div class="scan-mini-card">
-                        <label>Mode</label>
-                        <span>Batch Pairing</span>
+                        <label>Status</label>
+                        <span id="pairing-status">Scan Dandori Board</span>
+                    </div>
+                    <div class="scan-mini-card">
+                        <label>Dandori Board</label>
+                        <span id="dandori-part">-</span>
                     </div>
                     <div class="scan-mini-card">
                         <label>Total Assembly</label>
@@ -418,7 +579,7 @@
                             <div class="scan-card-title">
                                 <div>
                                     <h5>Kanban Assembly</h5>
-                                    <small>Scan kanban assembly terlebih dahulu</small>
+                                    <small id="assembly-help">Menunggu Dandori Board</small>
                                 </div>
                                 <span class="scan-card-icon"><i class="fas fa-cubes"></i></span>
                             </div>
@@ -433,7 +594,7 @@
                             <div class="scan-card-title">
                                 <div>
                                     <h5>Kanban Painting</h5>
-                                    <small>Progress painting mengikuti rasio master</small>
+                                    <small id="painting-help">Menunggu Dandori Board</small>
                                 </div>
                                 <span class="scan-card-icon"><i class="fas fa-spray-can"></i></span>
                             </div>
@@ -679,6 +840,10 @@
 
 
     $(document).ready(function() {
+        if (window.ValidationPairingFlow) {
+            return;
+        }
+
         initApp();
         if ($('#modalConfirmation').hasClass('show')) {
             $('#input-confirmation').text('');
@@ -992,4 +1157,7 @@
             $('.total-scan-card').removeClass('bg-info bg-success').addClass('bg-secondary');
         }
     }
+</script>
+<script
+    src="{{ asset('assets/js/validation-pairing.js') }}?v={{ filemtime(public_path('assets/js/validation-pairing.js')) }}">
 </script>

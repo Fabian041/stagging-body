@@ -1046,6 +1046,8 @@
         })();
     </script>
 
+    @include('layouts.partials.device-heartbeat')
+    @include('layouts.partials.ui-polish')
     @yield('custom-script')
     @stack('scripts')
 </body>

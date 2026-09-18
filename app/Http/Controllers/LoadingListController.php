@@ -11,10 +11,12 @@ use App\Models\LoadingList;
 use App\Models\LoadingListDetail;
 use App\Models\MasterCycle;
 use App\Models\Mutation;
+use App\Models\PisScan;
 use App\Models\SkidDetail;
 use App\Support\ConvertsCustomerPartNumber;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -693,11 +695,217 @@ class LoadingListController extends Controller
     public function detail(LoadingList $loadingList)
     {
         $loadingList->loadMissing('customer:id,name');
+        $prepContext = $this->resolveLoadingListPrepContext($loadingList);
 
         return view('pages.loadingListDetail', [
             'loadingListDetail' => $loadingList,
             'loadingListId' => $loadingList->id,
+            'prepContext' => $prepContext,
         ]);
+    }
+
+    private function resolveLoadingListPrepContext(LoadingList $loadingList): array
+    {
+        $context = [
+            'master_cycle_configured' => false,
+            'prep_range_label' => '-',
+            'deadline_iso' => null,
+            'deadline_label' => '-',
+            'pulling_iso' => null,
+            'pulling_label' => '-',
+            'delta_seconds' => null,
+            'delta_label' => '-',
+            'status' => 'unknown',
+            'status_label' => 'Belum ada pulling',
+        ];
+
+        $deadline = null;
+        $master = MasterCycle::query()
+            ->where('customer_id', (int) $loadingList->customer_id)
+            ->get()
+            ->first(function (MasterCycle $master) use ($loadingList) {
+                return $this->cycleLabelMatchesMaster($master->cycle_name, $loadingList->cycle);
+            });
+
+        if ($master && $loadingList->delivery_date) {
+            $meta = $this->formatMasterCycleForApi($master);
+            $absolute = $this->computePrepAbsoluteDatetimes(
+                Carbon::parse($loadingList->delivery_date)->toDateString(),
+                (int) ($meta['prep_day_offset'] ?? 0),
+                (int) ($meta['prep_end_day_offset'] ?? 0),
+                $meta['time'] ?? null,
+                $meta['prep_end_time'] ?? null
+            );
+
+            if (! empty($absolute['absolute_end_datetime'])) {
+                $deadline = Carbon::parse($absolute['absolute_end_datetime']);
+                $context['master_cycle_configured'] = true;
+                $context['deadline_iso'] = $deadline->toIso8601String();
+                $context['deadline_label'] = $this->formatPrepContextDateTime($deadline);
+                $context['prep_range_label'] = trim(($meta['time'] ?? '-').' - '.($meta['prep_end_time'] ?? '-'));
+            }
+        }
+
+        $pullingDate = $this->resolveScopedLoadingListPullingDate($loadingList)
+            ?: $this->resolveFallbackPullingDate($loadingList);
+
+        $context = $this->applyPrepContextPullingDate($context, $pullingDate);
+
+        return $context;
+    }
+
+    private function resolveScopedLoadingListPullingDate(LoadingList $loadingList): ?string
+    {
+        if (! $loadingList->id) {
+            return null;
+        }
+
+        // Precise: pakai linkage loading_list_detail_id supaya tidak salah ambil pull dari cycle lain.
+        $detailIds = DB::table('loading_list_details')
+            ->where('loading_list_id', $loadingList->id)
+            ->pluck('id');
+
+        if ($detailIds->isNotEmpty()) {
+            $linked = DB::table('mutations')
+                ->where('type', 'checkout')
+                ->whereIn('loading_list_detail_id', $detailIds)
+                ->selectRaw('MAX(COALESCE(date, created_at)) as latest')
+                ->value('latest');
+
+            if ($linked) {
+                return (string) $linked;
+            }
+        }
+
+        // Fallback (data lama tanpa linkage): window waktu detail.
+        $latest = DB::table('loading_list_details as lld')
+            ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+            ->join('mutations as m', function ($join) {
+                $join->on('m.internal_part_id', '=', 'cp.internal_part_id')
+                    ->where('m.type', '=', 'checkout')
+                    ->whereColumn('m.created_at', '>=', 'lld.created_at')
+                    ->whereColumn('m.created_at', '<=', 'lld.updated_at');
+            })
+            ->where('lld.loading_list_id', $loadingList->id)
+            ->selectRaw('MAX(COALESCE(m.date, m.created_at)) as latest')
+            ->value('latest');
+
+        return $latest ? (string) $latest : null;
+    }
+
+    private function resolveFallbackPullingDate(LoadingList $loadingList): ?string
+    {
+        $pullingDate = null;
+        if ($loadingList->number) {
+            $pullingDate = DB::table('pullings')
+                ->where('customer_id', (int) $loadingList->customer_id)
+                ->where('loading_list', $loadingList->number)
+                ->whereNotNull('pulling_date')
+                ->max('pulling_date');
+        }
+        if (! $pullingDate && $loadingList->pds_number) {
+            $pullingDate = DB::table('pullings')
+                ->where('customer_id', (int) $loadingList->customer_id)
+                ->where('pds_number', $loadingList->pds_number)
+                ->whereNotNull('pulling_date')
+                ->max('pulling_date');
+        }
+
+        return $pullingDate ? (string) $pullingDate : null;
+    }
+
+    private function applyPrepContextPullingDate(array $context, $pullingDate): array
+    {
+        $context['pulling_iso'] = null;
+        $context['pulling_label'] = '-';
+        $context['delta_seconds'] = null;
+        $context['delta_label'] = '-';
+        $context['status'] = 'unknown';
+
+        if ($pullingDate) {
+            $pulling = Carbon::parse($pullingDate);
+            $deadline = ! empty($context['deadline_iso'])
+                ? Carbon::parse($context['deadline_iso'])
+                : null;
+
+            $context['pulling_iso'] = $pulling->toIso8601String();
+            $context['pulling_label'] = $this->formatPrepContextDateTime($pulling);
+
+            return array_merge($context, $this->buildPrepDeltaPayload($pulling, $deadline));
+        }
+
+        $context['status_label'] = ! empty($context['deadline_iso'])
+            ? 'Belum ada pulling'
+            : 'Master cycle belum lengkap';
+
+        return $context;
+    }
+
+    private function buildPrepDeltaPayload(?Carbon $eventAt, ?Carbon $deadline): array
+    {
+        if (! $eventAt || ! $deadline) {
+            return [
+                'delta_seconds' => null,
+                'delta_label' => '-',
+                'status' => 'unknown',
+                'status_label' => 'Belum bisa dihitung',
+            ];
+        }
+
+        $deltaSeconds = $eventAt->getTimestamp() - $deadline->getTimestamp();
+
+        return [
+            'delta_seconds' => $deltaSeconds,
+            'delta_label' => $this->formatSignedDeltaSeconds($deltaSeconds),
+            'status' => $deltaSeconds > 0 ? 'late' : 'safe',
+            'status_label' => $deltaSeconds > 0 ? 'Telat' : 'Aman',
+        ];
+    }
+
+    private function buildMutationPrepDeltaPayload($eventAt, array $prepContext): array
+    {
+        if (empty($prepContext['deadline_iso']) || empty($eventAt)) {
+            return [
+                'prep_delta_seconds' => null,
+                'prep_delta_label' => '-',
+                'prep_status' => 'unknown',
+                'prep_status_label' => 'Belum bisa dihitung',
+            ];
+        }
+
+        $delta = $this->buildPrepDeltaPayload(
+            Carbon::parse($eventAt),
+            Carbon::parse($prepContext['deadline_iso'])
+        );
+
+        return [
+            'prep_delta_seconds' => $delta['delta_seconds'],
+            'prep_delta_label' => $delta['delta_label'],
+            'prep_status' => $delta['status'],
+            'prep_status_label' => $delta['status_label'],
+        ];
+    }
+
+    private function formatPrepContextDateTime(?Carbon $date): string
+    {
+        return $date ? $date->locale('id')->translatedFormat('d M, H.i') : '-';
+    }
+
+    private function formatSignedDeltaSeconds(int $seconds): string
+    {
+        $minutes = (int) round(abs($seconds) / 60);
+        $hours = intdiv($minutes, 60);
+        $mins = $minutes % 60;
+        $prefix = $seconds > 0 ? '+' : ($seconds < 0 ? '-' : '');
+
+        if ($hours > 0 && $mins > 0) {
+            return $prefix.$hours.'j '.$mins.'m';
+        }
+        if ($hours > 0) {
+            return $prefix.$hours.'j';
+        }
+
+        return $prefix.$minutes.'m';
     }
 
     public function getLoadingListDetail(LoadingList $loadingList)
@@ -727,21 +935,31 @@ class LoadingListController extends Controller
 
     public function getLoadingListDetailComparison(LoadingListDetail $detail)
     {
-        $detail->loadMissing('customerPart:id,internal_part_id');
+        $detail->loadMissing('customerPart:id,internal_part_id', 'loadingList.customer:id,name');
         $internalPartId = $detail->customerPart?->internal_part_id;
+        $prepContext = $detail->loadingList
+            ? $this->resolveLoadingListPrepContext($detail->loadingList)
+            : [];
         $start = $detail->created_at;
         $end = $detail->updated_at;
 
         if (! $internalPartId || ! $start || ! $end || $start->equalTo($end)) {
             return response()->json([
                 'detail_id' => $detail->id,
+                'prep_context' => $prepContext,
                 'pulling' => [],
                 'production' => [],
             ]);
         }
 
+        // Scope presisi ke detail ini via loading_list_detail_id; data lama (belum ada linkage) fallback ke window waktu.
+        $hasLinkage = DB::table('mutations')
+            ->where('loading_list_detail_id', $detail->id)
+            ->where('type', 'checkout')
+            ->exists();
+
         $checkouts = DB::table('mutations as checkout')
-            ->select('checkout.id', 'checkout.serial_number', 'checkout.qty', 'checkout.date', 'checkout.created_at')
+            ->select('checkout.id', 'checkout.serial_number', 'checkout.customer_serial', 'checkout.qty', 'checkout.date', 'checkout.created_at')
             ->selectSub(function ($query) {
                 $query->from('mutations as supply')
                     ->select('supply.id')
@@ -755,22 +973,36 @@ class LoadingListController extends Controller
             }, 'supply_id')
             ->where('checkout.internal_part_id', $internalPartId)
             ->where('checkout.type', 'checkout')
-            ->whereBetween('checkout.created_at', [$start, $end])
+            ->when(
+                $hasLinkage,
+                fn ($q) => $q->where('checkout.loading_list_detail_id', $detail->id),
+                fn ($q) => $q->whereBetween('checkout.created_at', [$start, $end])
+            )
             ->orderBy('checkout.created_at')
             ->get();
+
+        $detailPullingDate = $checkouts
+            ->map(fn ($checkout) => $checkout->date ?: $checkout->created_at)
+            ->filter()
+            ->max();
+        $prepContext = $this->applyPrepContextPullingDate($prepContext, $detailPullingDate);
 
         $supplies = DB::table('mutations')
             ->whereIn('id', $checkouts->pluck('supply_id')->filter()->unique()->values()->all())
             ->get(['id', 'date', 'qty'])
             ->keyBy('id');
 
-        $pulling = $checkouts->map(function ($checkout) {
-            return [
+        $pulling = $checkouts->map(function ($checkout) use ($prepContext) {
+            $eventAt = $checkout->date ?: $checkout->created_at;
+
+            return array_merge([
                 'id' => $checkout->id,
                 'serial_number' => $checkout->serial_number,
+                'customer_serial' => $checkout->customer_serial,
                 'date' => $checkout->date,
+                'created_at' => $checkout->created_at,
                 'qty' => $checkout->qty,
-            ];
+            ], $this->buildMutationPrepDeltaPayload($eventAt, $prepContext));
         });
 
         $production = $checkouts->map(function ($checkout) use ($supplies) {
@@ -789,6 +1021,7 @@ class LoadingListController extends Controller
 
         return response()->json([
             'detail_id' => $detail->id,
+            'prep_context' => $prepContext,
             'pulling' => $pulling,
             'production' => $production,
         ]);
@@ -804,15 +1037,20 @@ class LoadingListController extends Controller
         $start = $detail->created_at;
         $end = $detail->updated_at;
 
-        if (! $start || ! $end || $start->equalTo($end)) {
-            return response()->json(['status' => 'error', 'message' => 'Window waktu detail tidak valid.'], 422);
+        // Validasi: mutation harus checkout milik internal_part ini, dan benar milik detail ini.
+        // Utamakan linkage presisi (loading_list_detail_id); data lama tanpa linkage fallback ke window waktu.
+        if ($mutation->loading_list_detail_id !== null) {
+            $matchesDetail = (int) $mutation->loading_list_detail_id === (int) $detail->id;
+        } else {
+            if (! $start || ! $end || $start->equalTo($end)) {
+                return response()->json(['status' => 'error', 'message' => 'Window waktu detail tidak valid.'], 422);
+            }
+            $matchesDetail = $mutation->created_at >= $start && $mutation->created_at <= $end;
         }
 
-        // Validasi: hanya boleh hapus checkout pada internal_part + window ini
         $isValid = $mutation->internal_part_id == $internalPartId
             && $mutation->type === 'checkout'
-            && $mutation->created_at >= $start
-            && $mutation->created_at <= $end;
+            && $matchesDetail;
 
         if (! $isValid) {
             return response()->json(['status' => 'error', 'message' => 'Mutation tidak valid untuk dihapus.'], 403);
@@ -988,6 +1226,7 @@ class LoadingListController extends Controller
         $customerPartId = DB::table('customer_parts')
                         ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
                         ->select('customer_parts.id')
+                        ->where('customer_parts.customer_id', $loadingListId->customer_id)
                         ->where('internal_parts.part_number', $internalPart)
                         ->where('customer_parts.part_number', $convertedPartNumber)
                         ->first();
@@ -1069,7 +1308,7 @@ class LoadingListController extends Controller
 
         $internalParts = InternalPart::whereIn('part_number', $internalNumbers)
             ->get(['id', 'part_number'])
-            ->keyBy('part_number');
+            ->keyBy(fn ($part) => trim((string) $part->part_number));
 
         $resolved = [];
         foreach ($validated['items'] as $item) {
@@ -1097,6 +1336,7 @@ class LoadingListController extends Controller
         if (! empty($internalIds) && ! empty($convertedNumbers)) {
             DB::table('customer_parts')
                 ->select('id', 'internal_part_id', 'part_number')
+                ->where('customer_id', $loadingList->customer_id)
                 ->whereIn('internal_part_id', $internalIds)
                 ->whereIn('part_number', $convertedNumbers)
                 ->get()
@@ -1176,18 +1416,31 @@ class LoadingListController extends Controller
 
         $convertedPartNumber = $this->convertCustomerPartNumber($customerPart, $loadingListId->customer_id);
 
-        // get customer part id
-        $customerPartId = DB::table('customer_parts')
-                        ->join('internal_parts', 'internal_parts.id', '=', 'customer_parts.internal_part_id')
-                        ->select('customer_parts.id')
-                        ->where('internal_parts.part_number', $internalPart)
-                        ->where('customer_parts.part_number', $convertedPartNumber)
+        // get current actual kanban qty from the exact loading-list detail row
+        $currentQty = LoadingListDetail::query()
+                        ->from('loading_list_details as lld')
+                        ->join('customer_parts as cp', 'cp.id', '=', 'lld.customer_part_id')
+                        ->join('internal_parts as ip', 'ip.id', '=', 'cp.internal_part_id')
+                        ->select(
+                            'lld.id as detail_id',
+                            'lld.kanban_qty',
+                            'lld.actual_kanban_qty',
+                            'lld.qty_per_kanban as lld_qty_per_kanban',
+                            'lld.loading_list_id',
+                            'lld.customer_part_id',
+                            'cp.qty_per_kanban as cp_qty_per_kanban',
+                            'ip.id as internal_part_id'
+                        )
+                        ->where('lld.loading_list_id', $loadingListId->id)
+                        ->where('cp.customer_id', $loadingListId->customer_id)
+                        ->where('ip.part_number', $internalPart)
+                        ->where('cp.part_number', $convertedPartNumber)
                         ->first();
 
-        if (! $customerPartId) {
+        if (! $currentQty) {
             return [
                 'status' => 'notExists',
-                'message' => 'Part number customer tidak terdaftar!',
+                'message' => 'Part number customer / loading list tidak sesuai!',
                 'data' => [
                     'int' => $internalPart,
                     'cust' => $convertedPartNumber,
@@ -1195,32 +1448,36 @@ class LoadingListController extends Controller
             ];
         }
 
-        // get current actual kanban qty
-        $currentQty = LoadingListDetail::select('kanban_qty', 'actual_kanban_qty', 'loading_list_id')
-                        ->where('loading_list_id', $loadingListId->id)
-                        ->where('customer_part_id', $customerPartId->id)
-                        ->first();
-
         $actualQty = (int) $currentQty->actual_kanban_qty;
         $targetQty = (int) $currentQty->kanban_qty;
 
         try {
             DB::beginTransaction();
 
-            // check if actual is below target qty
-            if ($actualQty < $targetQty) {
-                // update actual kanban quantity or scanned kanban quantity
-                LoadingListDetail::where('loading_list_id', $loadingListId->id)
-                                ->where('customer_part_id', $customerPartId->id)
-                                ->update([
-                                    'actual_kanban_qty' => $actualQty + 1,
-                                ]);
-            } else {
+            // Target sudah penuh: tutup transaksi dulu sebelum keluar, jangan
+            // ditinggal menggantung (versi sebelumnya return dari dalam try
+            // tanpa commit/rollback sehingga transaksi dan lock-nya tetap terbuka).
+            if ($actualQty >= $targetQty) {
+                DB::rollBack();
+
                 return [
                     'status' => 'error',
                     'message' => 'kanban sudah penuh',
                 ];
             }
+
+            // update actual kanban quantity or scanned kanban quantity
+            LoadingListDetail::where('loading_list_id', $loadingListId->id)
+                            ->where('customer_part_id', $currentQty->customer_part_id)
+                            ->update([
+                                'actual_kanban_qty' => $actualQty + 1,
+                            ]);
+
+            // Mode direct: pulling hanya scan kanban customer, tidak ada kanban
+            // internal yang membawa serial. Mutation checkout tetap dicatat supaya
+            // stock (SUM supply - SUM checkout) dan riwayat kirim tidak putus —
+            // jalur normal lewat pulling/mutation melakukan hal yang sama.
+            $this->recordDirectPullingMutation($currentQty, $actualQty + 1);
 
             // push to websocket
             // $this->pushData(true);
@@ -1239,6 +1496,50 @@ class LoadingListController extends Controller
             'status' => 'success',
             'data' => $actualQty,
         ], 200);
+    }
+
+    /**
+     * Catat mutation checkout untuk satu box yang ditarik lewat mode direct.
+     *
+     * Serial dibuat sistem karena kanban customer tidak memuat nomor seri; bentuknya
+     * DIRECT-<tanggal>-<id detail loading list>-<box ke berapa>, jadi tiap baris tetap
+     * bisa ditelusuri ke baris loading list-nya.
+     */
+    private function recordDirectPullingMutation($detail, int $newActual): void
+    {
+        $qty = $detail->lld_qty_per_kanban ?? $detail->cp_qty_per_kanban;
+
+        $payload = [
+            'internal_part_id' => $detail->internal_part_id,
+            'serial_number' => sprintf('DIRECT-%s-%d-%03d', Carbon::now()->format('Ymd'), $detail->detail_id, $newActual),
+            'type' => 'checkout',
+            'qty' => (int) ($qty ?? 0),
+            'npk' => Auth::user()->npk ?? 'SYS',
+            'date' => Carbon::now()->format('Y-m-d H:i:s'),
+        ];
+
+        if ($this->mutationsHaveLoadingListColumns()) {
+            $payload['loading_list_id'] = $detail->loading_list_id;
+            $payload['loading_list_detail_id'] = $detail->detail_id;
+        }
+
+        Mutation::create($payload);
+    }
+
+    private function mutationsHaveLoadingListColumns(): bool
+    {
+        static $has = null;
+
+        if ($has === null) {
+            try {
+                $has = \Illuminate\Support\Facades\Schema::hasColumn('mutations', 'loading_list_id')
+                    && \Illuminate\Support\Facades\Schema::hasColumn('mutations', 'loading_list_detail_id');
+            } catch (\Throwable $e) {
+                $has = false;
+            }
+        }
+
+        return $has;
     }
 
     public function fetchLoadingList($pds)
@@ -1647,7 +1948,64 @@ class LoadingListController extends Controller
     {
         return view('pages.dashboard_delivery', [
             'customers' => Customer::query()->orderBy('name')->get(['id', 'name']),
+            'lastLoadingListSync' => Cache::get('dashboard_delivery_last_loading_list_sync'),
         ]);
+    }
+
+    public function syncDeliveryLoadingLists(Request $request)
+    {
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+        $dateFrom = Carbon::createFromFormat('Y-m-d', $validated['date'])->startOfDay();
+        $dateTo = $dateFrom->copy()->addDays(2);
+
+        $exitCode = Artisan::call('sync:loading-lists', [
+            'date' => $validated['date'],
+            '--days' => 3,
+            '--web' => true,
+        ]);
+        $output = trim(Artisan::output());
+        $success = $exitCode === 0;
+        $result = $success ? json_decode($output, true) : null;
+        $skippedItems = is_array($result) && is_array($result['skipped_items'] ?? null)
+            ? $result['skipped_items']
+            : [];
+        $skipped = count($skippedItems);
+        $loadingListCount = (int) ($result['loading_list_count'] ?? 0);
+        $lastSync = null;
+
+        if ($success) {
+            $lastSync = [
+                'date' => $validated['date'],
+                'date_to' => $dateTo->toDateString(),
+                'date_label' => $dateFrom->format('d/m/Y').'–'.$dateTo->format('d/m/Y'),
+                'synced_at' => now()->format('d/m/Y H:i'),
+                'loading_list_count' => $loadingListCount,
+                'skipped' => $skipped,
+            ];
+            Cache::forever('dashboard_delivery_last_loading_list_sync', $lastSync);
+        }
+
+        return response()->json([
+            'status' => ! $success
+                ? 'error'
+                : ($skipped > 0 ? 'warning' : ($loadingListCount === 0 ? 'empty' : 'success')),
+            'message' => ! $success
+                ? 'Sync gagal karena terjadi kendala teknis.'
+                : ($skipped > 0
+                    ? "Sync berhasil dengan catatan: {$skipped} data dilewati."
+                    : ($loadingListCount === 0
+                        ? 'Tidak ada loading list untuk rentang tanggal '.$dateFrom->toDateString().' s.d. '.$dateTo->toDateString().'.'
+                        : 'Loading list tanggal '.$dateFrom->toDateString().' s.d. '.$dateTo->toDateString().' berhasil disinkronkan.')),
+            'date_from' => $dateFrom->toDateString(),
+            'date_to' => $dateTo->toDateString(),
+            'loading_list_count' => $loadingListCount,
+            'skipped' => $skipped,
+            'skipped_items' => $skippedItems,
+            'last_sync' => $lastSync,
+            'detail' => $success ? null : $output,
+        ], $success ? 200 : 422);
     }
 
     public function getMasterCycles()
@@ -1807,41 +2165,6 @@ class LoadingListController extends Controller
             'cycle' => 'nullable|string',
         ]);
 
-        // Gunakan sumber data dan filter yang sama dengan getLoadingList.
-        $baseQuery = LoadingList::with(['customer'])
-            ->withSum('detail as total_kanban', 'kanban_qty')
-            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
-            ->whereNotNull('customer_id')
-            ->latest();
-
-        if ($request->filled('customer')) {
-            $customerName = trim((string) $request->get('customer'));
-            $baseQuery->whereHas('customer', function ($q) use ($customerName) {
-                $q->where('name', $customerName);
-            });
-        }
-
-        if (! empty($validated['customer_id'] ?? null)) {
-            $baseQuery->where('customer_id', (int) $validated['customer_id']);
-        }
-
-        if ($request->filled('cycle')) {
-            $cycleRaw = trim((string) $request->get('cycle'));
-            $cycleNumber = null;
-            if (preg_match('/\d+/', $cycleRaw, $m)) {
-                $cycleNumber = $m[0];
-            }
-
-            $baseQuery->where(function ($q) use ($cycleRaw, $cycleNumber) {
-                $q->where('cycle', $cycleRaw);
-                if ($cycleNumber !== null) {
-                    $q->orWhere('cycle', $cycleNumber)
-                        ->orWhere('cycle', 'Cycle '.$cycleNumber)
-                        ->orWhere('cycle', 'cycle '.$cycleNumber);
-                }
-            });
-        }
-
         $dateFrom = $validated['date_from'] ?? null;
         $dateTo = $validated['date_to'] ?? null;
         $dateFilter = $validated['delivery_date'] ?? ($validated['date'] ?? null);
@@ -1852,23 +2175,89 @@ class LoadingListController extends Controller
             $dateTo = $dateFilter;
         }
 
-        if (! empty($dateFrom) || ! empty($dateTo)) {
-            $start = ! empty($dateFrom) ? Carbon::parse($dateFrom)->startOfDay() : null;
-            $end = ! empty($dateTo) ? Carbon::parse($dateTo)->endOfDay() : null;
+        $start = ! empty($dateFrom) ? Carbon::parse($dateFrom)->startOfDay() : null;
+        $end = ! empty($dateTo) ? Carbon::parse($dateTo)->endOfDay() : null;
 
-            // Jika user terbalik isi from/to, tukar agar tetap valid sebagai rentang.
-            if ($start && $end && $start->gt($end)) {
-                [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        // Jika user terbalik isi from/to, tukar agar tetap valid sebagai rentang.
+        if ($start && $end && $start->gt($end)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        $customerName = $request->filled('customer')
+            ? trim((string) $request->get('customer'))
+            : null;
+        $cycleRaw = $request->filled('cycle')
+            ? trim((string) $request->get('cycle'))
+            : null;
+        $cycleNumber = null;
+        if ($cycleRaw !== null && preg_match('/\d+/', $cycleRaw, $m)) {
+            $cycleNumber = $m[0];
+        }
+
+        $applyFilters = function ($query) use ($validated, $customerName, $cycleRaw, $cycleNumber, $start, $end) {
+            if ($customerName !== null) {
+                $query->whereHas('customer', function ($q) use ($customerName) {
+                    $q->where('name', $customerName);
+                });
+            }
+
+            if (! empty($validated['customer_id'] ?? null)) {
+                $query->where('customer_id', (int) $validated['customer_id']);
+            }
+
+            if ($cycleRaw !== null) {
+                $query->where(function ($q) use ($cycleRaw, $cycleNumber) {
+                    $q->where('cycle', $cycleRaw);
+                    if ($cycleNumber !== null) {
+                        $q->orWhere('cycle', $cycleNumber)
+                            ->orWhere('cycle', 'Cycle '.$cycleNumber)
+                            ->orWhere('cycle', 'cycle '.$cycleNumber);
+                    }
+                });
             }
 
             if ($start && $end) {
-                $baseQuery->whereBetween('delivery_date', [$start, $end]);
+                $query->whereBetween('delivery_date', [$start, $end]);
             } elseif ($start) {
-                $baseQuery->where('delivery_date', '>=', $start);
+                $query->where('delivery_date', '>=', $start);
             } elseif ($end) {
-                $baseQuery->where('delivery_date', '<=', $end);
+                $query->where('delivery_date', '<=', $end);
             }
+
+            return $query;
+        };
+
+        $pisCustomerIds = Customer::query()
+            ->whereIn('name', PisScan::DELIVERY_CUSTOMER_NAMES)
+            ->pluck('id')
+            ->map(function ($id) {
+                return (int) $id;
+            })
+            ->all();
+
+        // Lima customer SPD memakai PIS sebagai sumber eksklusif agar tidak terhitung ganda.
+        $baseQuery = LoadingList::with(['customer'])
+            ->withSum('detail as total_kanban', 'kanban_qty')
+            ->withSum('detail as actual_kanban', 'actual_kanban_qty')
+            ->whereNotNull('customer_id')
+            ->when(! empty($pisCustomerIds), function ($query) use ($pisCustomerIds) {
+                $query->whereNotIn('customer_id', $pisCustomerIds);
+            })
+            ->latest();
+        $applyFilters($baseQuery);
+
+        $pisQuery = PisScan::with(['customer'])
+            ->withSum('details as total_kanban', 'target_qty')
+            ->withSum('details as actual_kanban', 'scanned_qty')
+            ->whereNotNull('customer_id')
+            ->latest();
+
+        if (empty($pisCustomerIds)) {
+            $pisQuery->whereRaw('1 = 0');
+        } else {
+            $pisQuery->whereIn('customer_id', $pisCustomerIds);
         }
+        $applyFilters($pisQuery);
 
         $hasSpecificFilter = $request->filled('customer')
             || ! empty($validated['customer_id'] ?? null)
@@ -1880,15 +2269,107 @@ class LoadingListController extends Controller
         // Saat mode "Semua", jangan dibatasi agar hasil konsisten dengan data aktual.
         $rowLimit = $hasSpecificFilter ? 50000 : null;
 
-        $rawLists = (clone $baseQuery)
+        $loadingLists = (clone $baseQuery)
+            ->when($rowLimit !== null, function ($q) use ($rowLimit) {
+                $q->take($rowLimit);
+            })
+            ->get()
+            ->each(function (LoadingList $loadingList) {
+                $loadingList->setAttribute('delivery_source', 'loading_list');
+                $loadingList->setAttribute('latest_pulling_date', null);
+            });
+
+        $pisLists = (clone $pisQuery)
             ->when($rowLimit !== null, function ($q) use ($rowLimit) {
                 $q->take($rowLimit);
             })
             ->get();
 
+        $latestPisScanById = collect();
+        $pisScanIds = $pisLists->pluck('id')->filter()->unique()->values();
+        if ($pisScanIds->isNotEmpty()) {
+            $latestPisScanById = DB::table('pis_scan_details')
+                ->whereIn('pis_scan_id', $pisScanIds->all())
+                ->where('scanned_qty', '>', 0)
+                ->select('pis_scan_id', DB::raw('MAX(updated_at) as latest_scan_date'))
+                ->groupBy('pis_scan_id')
+                ->get()
+                ->mapWithKeys(function ($row) {
+                    return [(int) $row->pis_scan_id => (string) $row->latest_scan_date];
+                });
+        }
+
+        $pisLists->each(function (PisScan $pisScan) use ($latestPisScanById) {
+            $pisScan->setAttribute('delivery_source', 'pis');
+            $pisScan->setAttribute('number', $pisScan->loading_list_number);
+            $pisScan->setAttribute('truck_status', 'pending');
+            $pisScan->setAttribute('truck_picked_at', null);
+            $pisScan->setAttribute('latest_pulling_date', $latestPisScanById->get((int) $pisScan->id));
+        });
+
+        $rawLists = $loadingLists
+            ->concat($pisLists)
+            ->sortByDesc('created_at')
+            ->values();
+
+        if ($rowLimit !== null) {
+            $rawLists = $rawLists->take($rowLimit)->values();
+        }
+
+        $scopedPullingByLoadingListId = collect();
+        $loadingListIds = $rawLists
+            ->where('delivery_source', 'loading_list')
+            ->pluck('id')
+            ->filter()
+            ->unique()
+            ->values();
+        if ($loadingListIds->isNotEmpty()) {
+            // Precise: latest pulling dari tanggal checkout mutation via loading_list_detail_id.
+            $linkedPulling = DB::table('mutations as m')
+                ->join('loading_list_details as lld', 'lld.id', '=', 'm.loading_list_detail_id')
+                ->whereIn('lld.loading_list_id', $loadingListIds->all())
+                ->where('m.type', 'checkout')
+                ->groupBy('lld.loading_list_id')
+                ->select('lld.loading_list_id', DB::raw('MAX(COALESCE(m.date, m.created_at)) as latest_pulling_date'))
+                ->get()
+                ->mapWithKeys(function ($row) {
+                    return [(int) $row->loading_list_id => (string) $row->latest_pulling_date];
+                });
+
+            // Fallback data lama (mutation belum punya linkage): proxy MAX(lld.updated_at).
+            $fallbackPulling = DB::table('loading_list_details as lld')
+                ->whereIn('lld.loading_list_id', $loadingListIds->all())
+                ->where('lld.actual_kanban_qty', '>', 0)
+                ->whereColumn('lld.updated_at', '>', 'lld.created_at')
+                ->groupBy('lld.loading_list_id')
+                ->select('lld.loading_list_id', DB::raw('MAX(lld.updated_at) as latest_pulling_date'))
+                ->get()
+                ->mapWithKeys(function ($row) {
+                    return [(int) $row->loading_list_id => (string) $row->latest_pulling_date];
+                });
+
+            // Linkage presisi menang; LL tanpa linkage tetap pakai proxy lama.
+            // Pakai replace() (bukan merge) karena merge me-reindex key integer loading_list_id → key hilang.
+            $scopedPullingByLoadingListId = $fallbackPulling->replace($linkedPulling);
+        }
+
+        $pullingByPds = collect();
+        $pdsNumbers = $rawLists->pluck('pds_number')->filter()->unique()->values();
+        if ($pdsNumbers->isNotEmpty()) {
+            $pullingByPds = DB::table('pullings')
+                ->select('customer_id', 'pds_number', 'loading_list', DB::raw('MAX(pulling_date) as latest_pulling_date'))
+                ->whereIn('pds_number', $pdsNumbers->all())
+                ->whereNotNull('pulling_date')
+                ->groupBy('customer_id', 'pds_number', 'loading_list')
+                ->get()
+                ->groupBy(function ($row) {
+                    return ((int) $row->customer_id).'|'.(string) $row->pds_number;
+                });
+        }
+
         $groupedData = $rawLists
             ->groupBy('pds_number')
-            ->map(function ($loadingLists, $pdsNumber) {
+            ->map(function ($loadingLists, $pdsNumber) use ($pullingByPds, $scopedPullingByLoadingListId) {
                 /** @var LoadingList $firstLoadingList */
                 $firstLoadingList = $loadingLists->first();
                 $totalKanban = (int) $loadingLists->sum('total_kanban');
@@ -1896,6 +2377,50 @@ class LoadingListController extends Controller
                 $cycle = $loadingLists->groupBy('cycle')->sortByDesc(function ($items) {
                     return $items->count();
                 })->keys()->first();
+                $scopedPullingItems = $loadingLists
+                    ->map(function ($loadingList) use ($pdsNumber, $scopedPullingByLoadingListId) {
+                        $latest = $loadingList->delivery_source === 'pis'
+                            ? $loadingList->latest_pulling_date
+                            : $scopedPullingByLoadingListId->get((int) $loadingList->id);
+                        if (! $latest) {
+                            return null;
+                        }
+
+                        return [
+                            'pds_number' => (string) $pdsNumber,
+                            'loading_list' => $loadingList->number ? (string) $loadingList->number : null,
+                            'pulling_date' => Carbon::parse($latest)->toIso8601String(),
+                        ];
+                    })
+                    ->filter()
+                    ->values();
+                $scopedLoadingLists = $scopedPullingItems
+                    ->pluck('loading_list')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+                $pullingKey = ((int) $firstLoadingList->customer_id).'|'.(string) $pdsNumber;
+                $fallbackPullingItems = $loadingLists->contains('delivery_source', 'pis')
+                    ? collect()
+                    : $pullingByPds->get($pullingKey, collect())
+                        ->filter(function ($row) use ($scopedPullingItems, $scopedLoadingLists) {
+                            if (! $row->loading_list) {
+                                return $scopedPullingItems->isEmpty();
+                            }
+
+                            return ! in_array((string) $row->loading_list, $scopedLoadingLists, true);
+                        })
+                        ->map(function ($row) use ($pdsNumber) {
+                            return [
+                                'pds_number' => (string) $pdsNumber,
+                                'loading_list' => $row->loading_list ? (string) $row->loading_list : null,
+                                'pulling_date' => Carbon::parse($row->latest_pulling_date)->toIso8601String(),
+                            ];
+                        })
+                        ->values();
+                $pullingItems = $scopedPullingItems->concat($fallbackPullingItems)->values();
+                $latestPullingDate = $pullingItems->pluck('pulling_date')->max();
 
                 return (object) [
                     'id' => 'pds-'.$pdsNumber,
@@ -1906,6 +2431,8 @@ class LoadingListController extends Controller
                     'delivery_date' => $loadingLists->min('delivery_date'),
                     'total_kanban' => $totalKanban,
                     'actual_kanban' => $actualKanban,
+                    'latest_pulling_date' => $latestPullingDate,
+                    'pulling_items' => $pullingItems->all(),
                     'is_complete' => $totalKanban > 0 && $actualKanban >= $totalKanban,
                 ];
             })
@@ -1948,6 +2475,12 @@ class LoadingListController extends Controller
                 $totalLlsInBucket = $bucketLls->count();
                 $pickedLlsInBucket = $bucketLls->where('truck_status', 'picked')->count();
                 $bucketPickedAt = $bucketLls->max('truck_picked_at');
+                $pullingItems = $pdsGroup->flatMap(function ($pds) {
+                    return $pds->pulling_items ?? [];
+                })->values();
+                $latestPullingDate = $pullingItems->pluck('pulling_date')->max();
+                $pdsNumbers = $pdsGroup->pluck('pds_number')->filter()->unique()->values();
+                $loadingListNumbers = $bucketLls->pluck('number')->filter()->unique()->values();
 
                 if ($pickedLlsInBucket === 0) {
                     $truckStatus = 'pending';
@@ -1964,7 +2497,7 @@ class LoadingListController extends Controller
                 );
                 $hasMaster = $this->deliveryChartRowHasConfiguredMasterCycle($master);
 
-                $llCount = $pdsGroup->count();
+                $llCount = $bucketLls->count();
                 $completeCount = $pdsGroup->where('is_complete', true)->count();
                 $totalTarget = (int) $pdsGroup->sum('total_kanban');
                 $totalDone = (int) $pdsGroup->sum('actual_kanban');
@@ -1981,11 +2514,7 @@ class LoadingListController extends Controller
                 $prepDayOffset = 0;
                 $prepEndDayOffset = 0;
                 if ($hasMaster) {
-                    $prepDayOffset = $this->resolvePrepDayOffset(
-                        (int) ($master['prep_day_offset'] ?? 0),
-                        $master['time'] ?? null,
-                        $master['truck_time'] ?? null
-                    );
+                    $prepDayOffset = $this->normalizePrepDayOffset((int) ($master['prep_day_offset'] ?? 0));
                     $prepEndDayOffset = $this->computePrepEndDayOffset(
                         $prepDayOffset,
                         (string) ($master['time'] ?? ''),
@@ -2021,6 +2550,10 @@ class LoadingListController extends Controller
                     'progress_pct' => min(100.0, max(0.0, $progressPct)),
                     'truck_status' => $truckStatus,
                     'truck_picked_at' => $bucketPickedAt ? Carbon::parse($bucketPickedAt)->toIso8601String() : null,
+                    'latest_pulling_date' => $latestPullingDate ? Carbon::parse($latestPullingDate)->toIso8601String() : null,
+                    'pulling_items' => $pullingItems->all(),
+                    'pds_numbers' => $pdsNumbers->all(),
+                    'loading_lists' => $loadingListNumbers->all(),
                 ];
 
                 return $this->appendPrepAbsoluteDatetimesToChartRow($rowPayload);
@@ -2056,6 +2589,12 @@ class LoadingListController extends Controller
                 $totalLlsInBucket = $bucketLls->count();
                 $pickedLlsInBucket = $bucketLls->where('truck_status', 'picked')->count();
                 $bucketPickedAt = $bucketLls->max('truck_picked_at');
+                $pullingItems = $bucket->flatMap(function ($pds) {
+                    return $pds->pulling_items ?? [];
+                })->values();
+                $latestPullingDate = $pullingItems->pluck('pulling_date')->max();
+                $pdsNumbers = $bucket->pluck('pds_number')->filter()->unique()->values();
+                $loadingListNumbers = $bucketLls->pluck('number')->filter()->unique()->values();
 
                 if ($pickedLlsInBucket === 0) {
                     $truckStatus = 'pending';
@@ -2080,11 +2619,7 @@ class LoadingListController extends Controller
                     $prepStart = $master['time'];
                     $prepEnd = $master['prep_end_time'];
                     $truckTime = $master['truck_time'] ?? null;
-                    $prepDayOffset = $this->resolvePrepDayOffset(
-                        (int) ($master['prep_day_offset'] ?? 0),
-                        $master['time'] ?? null,
-                        $master['truck_time'] ?? null
-                    );
+                    $prepDayOffset = $this->normalizePrepDayOffset((int) ($master['prep_day_offset'] ?? 0));
                     $prepEndDayOffset = $this->computePrepEndDayOffset(
                         $prepDayOffset,
                         (string) ($master['time'] ?? ''),
@@ -2130,10 +2665,15 @@ class LoadingListController extends Controller
                     'truck_time' => $truckTime,
                     'total_target' => $target,
                     'total_done' => $done,
+                    'll_count' => $bucketLls->count(),
                     'progress_pct' => min(100.0, max(0.0, $progress)),
                     'is_complete' => $target > 0 && $done >= $target,
                     'truck_status' => $truckStatus,
                     'truck_picked_at' => $bucketPickedAt ? Carbon::parse($bucketPickedAt)->toIso8601String() : null,
+                    'latest_pulling_date' => $latestPullingDate ? Carbon::parse($latestPullingDate)->toIso8601String() : null,
+                    'pulling_items' => $pullingItems->all(),
+                    'pds_numbers' => $pdsNumbers->all(),
+                    'loading_lists' => $loadingListNumbers->all(),
                 ];
             })
             ->sortBy([
@@ -2150,7 +2690,7 @@ class LoadingListController extends Controller
         if ($groupedData->isEmpty()) {
             $hint = 'Tidak ada loading list untuk filter ini. Samakan filter dengan halaman loading list.';
         } elseif ($totalBuckets > 0 && $configuredBucketCount === 0) {
-            $hint = 'Ada data loading list, tetapi semua cycle belum dikonfigurasi di Master Cycle. Customer tetap ditampilkan; atur waktu PREP di tab Master Cycle untuk menampilkan bar timeline.';
+            $hint = 'Ada data loading list, tetapi semua cycle belum dikonfigurasi di Master Cycle. Customer tetap ditampilkan; atur waktu Preparation di tab Master Cycle untuk menampilkan bar timeline.';
         }
 
         return response()->json([
@@ -2785,35 +3325,6 @@ class LoadingListController extends Controller
         return $prepDayOffset;
     }
 
-    /**
-     * Prep malam sebelum truck pagi: jam mulai prep > jam truck → H-1 terhadap delivery.
-     */
-    private function inferPrepDayOffsetFromTruck(?string $prepStart, ?string $truckTime): ?int
-    {
-        $prepStartClock = $prepStart !== null ? substr(trim($prepStart), 0, 5) : '';
-        $truckClock = $truckTime !== null ? substr(trim($truckTime), 0, 5) : '';
-
-        if ($prepStartClock === '' || $truckClock === '') {
-            return null;
-        }
-
-        if ($this->timeOfDayToMinutes($prepStartClock) > $this->timeOfDayToMinutes($truckClock)) {
-            return -1;
-        }
-
-        return null;
-    }
-
-    private function resolvePrepDayOffset(int $storedOffset, ?string $prepStart, ?string $truckTime): int
-    {
-        $inferred = $this->inferPrepDayOffsetFromTruck($prepStart, $truckTime);
-        if ($inferred !== null) {
-            return $inferred;
-        }
-
-        return $this->normalizePrepDayOffset($storedOffset);
-    }
-
     private function formatPrepDayOffsetLabel(int $offset): string
     {
         if ($offset === 0) {
@@ -2900,12 +3411,7 @@ class LoadingListController extends Controller
      */
     private function applyMasterCyclePrepOffsets(array $validated): array
     {
-        $storedOffset = $this->normalizePrepDayOffset($validated['prep_day_offset'] ?? 0);
-        $prepDayOffset = $this->resolvePrepDayOffset(
-            $storedOffset,
-            (string) $validated['time'],
-            isset($validated['truck_time']) ? (string) $validated['truck_time'] : null
-        );
+        $prepDayOffset = $this->normalizePrepDayOffset($validated['prep_day_offset'] ?? 0);
         $validated['prep_day_offset'] = $prepDayOffset;
         $validated['prep_end_day_offset'] = $this->computePrepEndDayOffset(
             $prepDayOffset,
@@ -2925,11 +3431,7 @@ class LoadingListController extends Controller
         $prepEnd = $m->prep_end_time
             ? Carbon::parse($m->prep_end_time)->format('H:i')
             : null;
-        $prepDayOffset = $this->resolvePrepDayOffset(
-            $this->normalizePrepDayOffset($m->prep_day_offset ?? 0),
-            $prepStart,
-            $m->truck_time ? Carbon::parse($m->truck_time)->format('H:i') : null
-        );
+        $prepDayOffset = $this->normalizePrepDayOffset($m->prep_day_offset ?? 0);
         $prepEndDayOffset = $this->computePrepEndDayOffset($prepDayOffset, $prepStart, (string) $prepEnd);
         $crossesMidnight = $prepEnd !== null
             && $this->prepTimeRangeCrossesMidnight($prepStart, $prepEnd);
@@ -3219,11 +3721,7 @@ class LoadingListController extends Controller
             return null;
         }
 
-        $prepDayOffset = $this->resolvePrepDayOffset(
-            (int) ($master['prep_day_offset'] ?? 0),
-            $prepStart,
-            $truckTime
-        );
+        $prepDayOffset = $this->normalizePrepDayOffset((int) ($master['prep_day_offset'] ?? 0));
 
         $prepStartDate = Carbon::parse($deliveryDate)->addDays($prepDayOffset);
 

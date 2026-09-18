@@ -28,7 +28,7 @@
 
                             <div class="card border mt-1" style="border-radius: 12px;">
                                 <div class="p-2" style="padding-left: 10px;">
-                                    <strong>Counter</strong>
+                                    <strong>Counter (pcs)</strong>
                                 </div>
                                 <div class="card-body p-0 d-flex flex-column align-items-center" style="height:60px;">
                                     <div class="display-4 font-weight-bold" id="counter" style="font-size: 40px; line-height:1;">
@@ -47,8 +47,8 @@
                                             <tr>
                                                 <th>PN (Int)</th>
                                                 <th>PN (Cust)</th>
-                                                <th style="width: 50px;" class="text-right">Cur</th>
-                                                <th style="width: 50px;" class="text-right">Tar</th>
+                                                <th style="width: 58px;" class="text-right">Cur (pcs)</th>
+                                                <th style="width: 58px;" class="text-right">Tar (pcs)</th>
                                             </tr>
                                         </thead>
                                         <tbody id="loading_list_body">
@@ -464,20 +464,7 @@
         var pisImageFileEndpoint = "{{ url('/pis/storage-image') }}";
         var pisImageDefault = pisImageFileEndpoint + "?f={{ rawurlencode('default.JPG') }}";
 
-        /** Variasi segmen dock pada nama file (legacy / beda konvensi penamaan). */
-        function pisDockFilenameVariants(dockRaw) {
-            var d = (dockRaw || '').toString().trim().toUpperCase();
-            if (!d) d = 'OTHER';
-            var out = [d];
-            if (d.indexOf(' ') !== -1) {
-                out.push(d.replace(/ /g, '_'));
-                out.push(d.replace(/ /g, '-'));
-                out.push(d.replace(/ /g, ''));
-            }
-            return out.filter(function (x, i, arr) { return arr.indexOf(x) === i; });
-        }
-
-        // Lookup gambar dari part_number_cust + type + dock (sama pola backend PisController).
+        // Lookup seluruh variasi nama file dilakukan sekali di server agar scanner tidak menunggu rangkaian request 404.
         function setPreviewImage(partNumberInt, partNumberCust) {
             var custRaw = (partNumberCust || '').toString().trim();
             var img = document.getElementById('previewImg');
@@ -490,87 +477,27 @@
                 return;
             }
 
-            // Normalisasi nama file:
-            // - trim
-            // - uppercase
-            // - hanya mengizinkan A–Z, 0–9, dan tanda hubung (-)
-            var custUpper = custRaw.toUpperCase();
-            var custSanitized = custUpper.replace(/[^A-Z0-9-]/g, '');
-            var custNoDash = custSanitized.replace(/-/g, '');
-
             var type = ($('#delivery_type').val() || 'OEM').toUpperCase();
-            var docks = pisDockFilenameVariants(pisGetDockType());
+            var imageUrl = pisImageFileEndpoint
+                + '?part=' + encodeURIComponent(custRaw)
+                + '&kind=' + encodeURIComponent(type)
+                + '&dock=' + encodeURIComponent(pisGetDockType());
 
-            var candidates = [];
-            var add = function (fileName) {
-                if (fileName) {
-                    candidates.push(pisImageFileEndpoint + '?f=' + encodeURIComponent(fileName));
-                }
+            img.classList.remove('pis-fit-contain', 'pis-fit-cover');
+            img.classList.add(type === 'DANDORY' ? 'pis-fit-contain' : 'pis-fit-cover');
+            img.onerror = function () {
+                img.onerror = null;
+                img.src = pisImageDefault;
             };
-
-            var addBase = function (base) {
-                if (!base) return;
-                add(base + '.webp');
-                add(base + '.JPG');
-            };
-
-            for (var di = 0; di < docks.length; di++) {
-                var dock = docks[di];
-                // Pola utama: [PART_CUST]-[TYPE]-[DOCK] — utamakan .webp, fallback .JPG
-                if (custSanitized) {
-                    addBase(custSanitized + '-' + type + '-' + dock);
-                }
-                if (custNoDash && custNoDash !== custSanitized) {
-                    addBase(custNoDash + '-' + type + '-' + dock);
-                }
-            }
-
-            // Fallback tambahan: hanya [PART_CUST]
-            if (custSanitized) {
-                addBase(custSanitized);
-            }
-            if (custNoDash && custNoDash !== custSanitized) {
-                addBase(custNoDash);
-            }
-
-            var idx = 0;
-
-            function setPreviewFitModeBySrc() {
-                if (!img || !img.src) return;
-                var srcUpper = img.src.toUpperCase();
-                // DANDORY board cenderung berisi detail sampai sisi tepi, jadi tampilkan utuh (atas-bawah fit).
-                var useContain = srcUpper.indexOf('-DANDORY-') !== -1;
-                img.classList.remove('pis-fit-contain', 'pis-fit-cover');
-                img.classList.add(useContain ? 'pis-fit-contain' : 'pis-fit-cover');
-            }
-
-            function tryNext() {
-                if (idx >= candidates.length) {
-                    // Jika semua kombinasi gagal, pakai gambar default sebagai fallback
-                    img.onerror = null;
-                    img.src = pisImageDefault;
-                    setPreviewFitModeBySrc();
-                    img.style.display = 'block';
-                    if (placeholder) placeholder.style.display = 'none';
-                    if (typeof _savedScrollTop === 'number') window.scrollTo(0, _savedScrollTop);
-                    return;
-                }
-
-                img.src = candidates[idx++];
-                setPreviewFitModeBySrc();
-                img.style.display = 'block';
-                if (placeholder) placeholder.style.display = 'none';
-            }
-
-            img.onerror = tryNext;
             img.onload = function () {
                 img.onerror = null;
                 img.style.display = 'block';
                 if (placeholder) placeholder.style.display = 'none';
                 if (typeof _savedScrollTop === 'number') window.scrollTo(0, _savedScrollTop);
             };
-
-            tryNext();
+            img.src = imageUrl;
+            img.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
         }
 
         function clearPreviewImage() {
@@ -645,8 +572,8 @@
         }
 
         function pisUpdateScanContextOnServer(meta) {
-            if (!meta || !meta.loading_list_number) return;
-            $.ajax({
+            if (!meta || !meta.loading_list_number) return null;
+            return $.ajax({
                 url: '{{ url("pis/save-scan") }}',
                 type: 'POST',
                 data: {
@@ -754,6 +681,7 @@
         var partsStartedInCurrentSession = [];
         // Label part yang sudah divalidasi tetapi belum ditulis ke qty/counter/DB — commit saat "Confirm Packing"
         var pendingLabelPacks = [];
+        var pisConfirmPackingInProgress = false;
 
         // Saat interlock dibuka dan user pindah kanban/part, kita perlu memastikan
         // state part sebelumnya tidak menghalangi proses berikutnya.
@@ -949,141 +877,172 @@
             return isNaN(n) ? 0 : n;
         }
 
-        /**
-         * Terapkan satu label yang sudah divalidasi ke qty, counter harian, dan API (satu langkah scan seperti sebelumnya).
-         * Mengembalikan object { matched } atau null jika gagal.
-         */
-        function applyCommittedLabelPack(matched, raw) {
-            if (!matched || toQtyNumber(matched.remaining) <= 0) return null;
+        function getPisQtyPerKanban(item) {
+            return Math.max(1, toQtyNumber(item && item.qty_per_kanban));
+        }
 
-            var remBase = matched.remaining != null ? matched.remaining : matched.total_qty || 0;
-            matched.remaining = Math.max(0, toQtyNumber(remBase) - 1);
-            matched.actual_kanban_qty = toQtyNumber(matched.actual_kanban_qty) + 1;
-
-            loadingListScanCount += 1;
-            saveDailyCounter();
-
-            var llForUpdate = (matched.loading_list_number || currentLoadingListNumber || '').toString().trim();
-            if (llForUpdate) {
-                $.ajax({
-                    url: '{{ url("pis/update-scan-detail") }}',
-                    type: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        loading_list_number: llForUpdate,
-                        part_number_int: matched.part_number_int || '',
-                        part_number_cust: matched.part_number_cust || '',
-                        // simpan ke tabel log agar tiap scan bisa ditelusuri
-                        label: raw || ''
-                    },
-                    error: function (xhr) {
-                        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal menyimpan scan ke server.';
-                        Swal.fire({ icon: 'error', title: 'Confirm Packing', text: msg });
-                    }
-                });
+        function getPisRemainingKanban(item) {
+            if (!item) return 0;
+            if (item.remaining_kanban_qty != null) {
+                return Math.max(0, toQtyNumber(item.remaining_kanban_qty));
             }
 
-            // Jangan memicu cooldown di sini (ini proses "Confirm Packing", bukan scan label)
-            lastScannedLabel = raw || lastScannedLabel;
+            var targetKanban = toQtyNumber(item.total_kanban_qty);
+            return Math.max(0, targetKanban - toQtyNumber(item.actual_kanban_qty));
+        }
 
-            return { matched: matched };
+        function getPisConfirmedQty(item) {
+            var remainingPcs = Math.max(0, toQtyNumber(item && item.remaining));
+            return Math.min(remainingPcs, 1);
+        }
+
+        /**
+         * Simpan satu Confirm Packing ke server. Qty UI baru diubah setelah server sukses
+         * agar counter dan database tidak berbeda ketika request gagal.
+         */
+        function applyCommittedLabelPack(matched, raw) {
+            if (!matched || toQtyNumber(matched.remaining) <= 0 || getPisRemainingKanban(matched) <= 0) {
+                return null;
+            }
+
+            var llForUpdate = (matched.loading_list_number || currentLoadingListNumber || '').toString().trim();
+            if (!llForUpdate) return null;
+
+            return $.ajax({
+                url: '{{ url("pis/update-scan-detail") }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    loading_list_number: llForUpdate,
+                    part_number_int: matched.part_number_int || '',
+                    part_number_cust: matched.part_number_cust || '',
+                    // simpan ke tabel log agar tiap scan bisa ditelusuri
+                    label: raw || ''
+                }
+            });
         }
 
         /**
          * Setelah scan label valid: hanya antre di frontend sampai user menekan Confirm Packing.
          */
         function confirmPacking() {
-            if (!pendingLabelPacks.length) return;
+            if (!pendingLabelPacks.length || pisConfirmPackingInProgress) return;
 
-            var toApply = pendingLabelPacks.slice();
-            clearPendingLabelPacks();
+            var pack = pendingLabelPacks[0];
+            var matchedItem = null;
+            var packLl = (pack.loading_list_number || '').toString().trim();
 
-            var lastResult = null;
-            var lastAppliedPack = null;
-
-            for (var i = 0; i < toApply.length; i++) {
-                var pack = toApply[i];
-                var matchedItem = null;
-                var packLl = (pack.loading_list_number || '').toString().trim();
-                for (var j = 0; j < loadingListItems.length; j++) {
-                    var it = loadingListItems[j];
-                    if ((it.part_number_int || '').toString().trim() === (pack.part_number_int || '').toString().trim()
-                        && (it.part_number_cust || '').toString().trim() === (pack.part_number_cust || '').toString().trim()
-                        && (it.loading_list_number || '').toString().trim() === packLl) {
-                        matchedItem = it;
-                        break;
-                    }
-
+            for (var j = 0; j < loadingListItems.length; j++) {
+                var it = loadingListItems[j];
+                if ((it.part_number_int || '').toString().trim() === (pack.part_number_int || '').toString().trim()
+                    && (it.part_number_cust || '').toString().trim() === (pack.part_number_cust || '').toString().trim()
+                    && (it.loading_list_number || '').toString().trim() === packLl) {
+                    matchedItem = it;
+                    break;
                 }
-                if (!matchedItem) continue;
+            }
 
-                var res = applyCommittedLabelPack(matchedItem, pack.rawLabel);
-                if (!res) continue;
-                lastResult = res;
-                lastAppliedPack = pack;
+            if (!matchedItem) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Confirm Packing',
+                    text: 'Data part pada Loading List tidak ditemukan. Refresh halaman lalu scan ulang.'
+                });
+                return;
+            }
+
+            var request = applyCommittedLabelPack(matchedItem, pack.rawLabel);
+            if (!request) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Confirm Packing',
+                    text: 'Qty part sudah terpenuhi atau data Loading List tidak valid.'
+                });
+                return;
+            }
+
+            pisConfirmPackingInProgress = true;
+            updatePendingPackingUI();
+
+            request.done(function (response) {
+                matchedItem.total_qty = toQtyNumber(response.order_qty);
+                matchedItem.qty_per_kanban = Math.max(1, toQtyNumber(response.qty_per_kanban));
+                matchedItem.total_kanban_qty = toQtyNumber(response.target_kanban_qty);
+                matchedItem.actual_kanban_qty = toQtyNumber(response.scanned_qty);
+                matchedItem.actual_qty = toQtyNumber(response.actual_qty);
+                matchedItem.remaining = Math.max(0, toQtyNumber(response.remaining_order_qty));
+                matchedItem.remaining_kanban_qty = Math.max(0, toQtyNumber(response.remaining_qty));
+
+                pendingLabelPacks.shift();
+
+                loadingListScanCount += 1;
+                saveDailyCounter();
 
                 if (pack.ttiUnique && ttiScannedUniques.indexOf(pack.ttiUnique) === -1) {
                     ttiScannedUniques.push(pack.ttiUnique);
                 }
 
+                lastScannedLabel = pack.rawLabel || lastScannedLabel;
+
                 if (pisIsDockTti()) {
                     stage = 2;
                     lastScannedKanban = '';
                     $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
-                    if (res.matched.remaining > 0) {
+                    if (matchedItem.remaining > 0) {
                         $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK');
-                        $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
+                        $('#alert-body').text((matchedItem.part_number_cust || matchedItem.part_number_int) + ' berhasil dikonfirmasi. Sisa: ' + matchedItem.remaining + ' pcs.');
                     } else {
                         $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                        $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                        $('#alert-body').text('Qty order untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
                         pisPindahKanbanSound();
                     }
                 } else {
-                    if (res.matched.remaining > 0) {
+                    if (matchedItem.remaining > 0) {
                         stage = 3;
                         $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                         $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                        $('#alert-body').text((res.matched.part_number_cust || res.matched.part_number_int) + ' Berhasil dikonfirmasi. Sisa: ' + res.matched.remaining + ' box.');
+                        $('#alert-body').text((matchedItem.part_number_cust || matchedItem.part_number_int) + ' berhasil dikonfirmasi. Sisa: ' + matchedItem.remaining + ' pcs.');
                     } else {
                         stage = 2;
                         lastScannedKanban = '';
                         $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                         $('#alert-header').html('<i class="fas fa-check-double"></i> Item Selesai');
-                        $('#alert-body').text('Quantity untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
+                        $('#alert-body').text('Qty order untuk part ini sudah terpenuhi. Silahkan scan KANBAN selanjutnya.');
                         pisPindahKanbanSound();
                     }
                 }
+
                 updateStepIndicator();
+                renderLoadingList();
+                updateCounter();
+
+                $('#detail_no').val(pack.ttiUnique || matchedItem.part_number_int || '');
+                if ((matchedItem.part_number_cust || '').toString().trim()) {
+                    currentPreviewItem = matchedItem;
+                } else {
+                    currentPreviewItem = null;
+                    clearPreviewImage();
+                }
 
                 if (isLoadingListComplete()) {
-                    renderLoadingList();
-                    updateCounter();
                     showPisLoadingListCompleteModal(function () {
                         resetPisState();
                         $(window).scrollTop(_savedScrollTop);
                     });
                     return;
                 }
-            }
 
-            renderLoadingList();
-            updateCounter();
-
-            if (lastResult && lastResult.matched && lastAppliedPack) {
-                var m = lastResult.matched;
-                $('#detail_no').val(lastAppliedPack.ttiUnique || m.part_number_int || '');
-                if ((m.part_number_cust || '').toString().trim()) {
-                    currentPreviewItem = m;
-                    setPreviewImage(m.part_number_int || '', m.part_number_cust || '');
-                } else {
-                    currentPreviewItem = null;
-                    clearPreviewImage();
-                }
-            }
-
-            if (lastResult) {
                 $(window).scrollTop(_savedScrollTop);
-            }
+            }).fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.message)
+                    ? xhr.responseJSON.message
+                    : 'Gagal menyimpan Confirm Packing ke server. Qty belum ditambahkan dan dapat dicoba kembali.';
+                Swal.fire({ icon: 'error', title: 'Confirm Packing', text: msg });
+                pisErrorSound();
+            }).always(function () {
+                pisConfirmPackingInProgress = false;
+                updatePendingPackingUI();
+            });
         }
 
         function setSessionStartedPartsFromKanban(partsInThisKanban) {
@@ -1410,7 +1369,10 @@
             var target = 0;
             loadingListItems.forEach(function(item) {
                 var t = item.total_qty != null ? item.total_qty : (item.total_kanban_qty != null ? item.total_kanban_qty : 0);
-                scanned += toQtyNumber(item.actual_kanban_qty);
+                var actualPcs = item.actual_qty != null
+                    ? item.actual_qty
+                    : Math.min(toQtyNumber(t), toQtyNumber(item.actual_kanban_qty));
+                scanned += toQtyNumber(actualPcs);
                 target += toQtyNumber(t);
             });
             if (target === 0) {
@@ -1455,7 +1417,9 @@
                 grp.items.forEach(function (item) {
                     var target = item.total_qty != null ? item.total_qty : (item.total_kanban_qty != null ? item.total_kanban_qty : 0);
                     var remaining = Math.max(0, toQtyNumber(item.remaining != null ? item.remaining : target));
-                    var current = Math.max(0, toQtyNumber(target) - remaining);
+                    var current = item.actual_qty != null
+                        ? Math.max(0, toQtyNumber(item.actual_qty))
+                        : Math.max(0, toQtyNumber(target) - remaining);
                     var row = $('<tr></tr>');
                     if (remaining <= 0) row.addClass('table-success');
                     row.append($('<td></td>').text(item.part_number_int || '—'));
@@ -1744,12 +1708,12 @@
                 clearPreviewImage();
             }
 
-            var effAfterConfirm = Math.max(0, remNum - 1);
+            var effAfterConfirm = Math.max(0, remNum - getPisConfirmedQty(matched));
             stage = 2; // TTI stays in stage 2 (kanban scan)
             $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
             if (effAfterConfirm > 0) {
                 $('#alert-header').html('<i class="fas fa-check-circle"></i> Kanban OK');
-                $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' di-scan. Setelah Confirm Packing, sisa: ' + effAfterConfirm + ' box.');
+                $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' di-scan. Setelah Confirm Packing, sisa: ' + effAfterConfirm + ' pcs.');
                 pisOkSound();
             } else {
                 $('#alert-header').html('<i class="fas fa-lock"></i> Kanban terakhir — wajib Confirm Packing');
@@ -2189,13 +2153,13 @@
                     clearPreviewImage();
                 }
 
-                // --- LOGIKA PERPINDAHAN STAGE: sisa ditampilkan setelah commit konfirmasi (remNum - 1) ---
-                var effAfterConfirm = Math.max(0, remNum - 1);
+                // Sisa ditampilkan dalam pcs setelah satu kanban dikonfirmasi.
+                var effAfterConfirm = Math.max(0, remNum - getPisConfirmedQty(matched));
                 stage = 3;
                 $('#status-container').removeClass('alert-danger alert-warning').addClass('alert-success');
                 if (effAfterConfirm > 0) {
                     $('#alert-header').html('<i class="fas fa-check-circle"></i> Part OK');
-                    $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' di-scan. Setelah Confirm Packing, sisa: ' + effAfterConfirm + ' box.');
+                    $('#alert-body').text((matched.part_number_cust || matched.part_number_int) + ' di-scan. Setelah Confirm Packing, sisa: ' + effAfterConfirm + ' pcs.');
                     pisOkSound();
                 } else {
                     $('#alert-header').html('<i class="fas fa-lock"></i> Label terakhir — wajib Confirm Packing');
@@ -2282,31 +2246,78 @@
 
             function mapPisItemsFromDbOrApi(items) {
                 return (items || []).map(function (it) {
-                    var total = toQtyNumber(it.total_qty != null ? it.total_qty : (it.total_kanban_qty != null ? it.total_kanban_qty : 0));
-                    var remaining = Math.max(0, toQtyNumber(it.remaining != null ? it.remaining : Math.max(0, total - (it.actual_kanban_qty || 0))));
-                    var actual = Math.max(0, toQtyNumber(it.actual_kanban_qty != null ? it.actual_kanban_qty : Math.max(0, total - remaining)));
+                    var totalPcs = toQtyNumber(it.total_qty != null ? it.total_qty : (it.order_qty != null ? it.order_qty : 0));
+                    var totalKanban = Math.max(0, toQtyNumber(it.total_kanban_qty));
+                    var qtyPerKanban = Math.max(0, toQtyNumber(it.qty_per_kanban));
+                    if (qtyPerKanban <= 0 && totalPcs > 0 && totalKanban > 0) {
+                        qtyPerKanban = Math.ceil(totalPcs / totalKanban);
+                    }
+                    qtyPerKanban = Math.max(1, qtyPerKanban);
+                    if (totalKanban <= 0 && totalPcs > 0) {
+                        totalKanban = Math.ceil(totalPcs / qtyPerKanban);
+                    }
+                    var scanTarget = totalPcs > 0 ? totalPcs : totalKanban;
+                    var actualKanban = Math.min(scanTarget, Math.max(0, toQtyNumber(
+                        it.actual_qty != null ? it.actual_qty : it.actual_kanban_qty)));
+                    var actualPcs = Math.max(0, toQtyNumber(it.actual_qty != null
+                        ? it.actual_qty
+                        : actualKanban));
+                    var remainingPcs = Math.max(0, toQtyNumber(it.remaining != null
+                        ? it.remaining
+                        : totalPcs - actualPcs));
                     return {
                         part_number_int: it.part_number_int || '',
                         part_number_cust: it.part_number_cust || '',
-                        total_qty: total,
-                        total_kanban_qty: total,
-                        actual_kanban_qty: actual,
-                        remaining: remaining
+                        total_qty: totalPcs,
+                        qty_per_kanban: qtyPerKanban,
+                        total_kanban_qty: scanTarget,
+                        actual_kanban_qty: actualKanban,
+                        actual_qty: actualPcs,
+                        remaining: remainingPcs,
+                        remaining_kanban_qty: Math.max(0, scanTarget - actualKanban)
                     };
                 });
             }
 
             function mapPisItemsFromDeaApi(items) {
                 return (items || []).map(function (it) {
-                    var total = toQtyNumber(it.total_qty != null ? it.total_qty : (it.quantity != null ? it.quantity : 0));
-                    var done = Math.max(0, toQtyNumber(it.actual_kanban_qty != null ? it.actual_kanban_qty : 0));
+                    var totalPcs = toQtyNumber(it.total_qty != null
+                        ? it.total_qty
+                        : (it.order_qty != null ? it.order_qty : (it.quantity != null ? it.quantity : 0)));
+                    var totalKanban = Math.max(0, toQtyNumber(it.total_kanban_qty != null
+                        ? it.total_kanban_qty
+                        : (it.kanban_qty != null ? it.kanban_qty : 0)));
+                    var qtyPerKanban = Math.max(0, toQtyNumber(
+                        it.qty_per_kanban != null
+                            ? it.qty_per_kanban
+                            : (it.quantity_per_kanban != null
+                                ? it.quantity_per_kanban
+                                : (it.qty_per_pack != null ? it.qty_per_pack : 0))
+                    ));
+                    if (qtyPerKanban <= 0 && totalPcs > 0 && totalKanban > 0) {
+                        qtyPerKanban = Math.ceil(totalPcs / totalKanban);
+                    }
+                    qtyPerKanban = Math.max(1, qtyPerKanban);
+                    if (totalKanban <= 0 && totalPcs > 0) {
+                        totalKanban = Math.ceil(totalPcs / qtyPerKanban);
+                    }
+                    var scanTarget = totalPcs > 0 ? totalPcs : totalKanban;
+                    var doneKanban = Math.min(scanTarget, Math.max(0, toQtyNumber(it.actual_qty != null
+                        ? it.actual_qty
+                        : (it.actual_kanban_qty != null ? it.actual_kanban_qty : 0))));
+                    var donePcs = Math.max(0, toQtyNumber(it.actual_qty != null
+                        ? it.actual_qty
+                        : doneKanban));
                     return {
                         part_number_int: it.part_number_int || '',
                         part_number_cust: it.part_number_cust || '',
-                        total_qty: total,
-                        total_kanban_qty: total,
-                        actual_kanban_qty: done,
-                        remaining: Math.max(0, total - done)
+                        total_qty: totalPcs,
+                        qty_per_kanban: qtyPerKanban,
+                        total_kanban_qty: scanTarget,
+                        actual_kanban_qty: doneKanban,
+                        actual_qty: donePcs,
+                        remaining: Math.max(0, totalPcs - donePcs),
+                        remaining_kanban_qty: Math.max(0, scanTarget - doneKanban)
                     };
                 });
             }
@@ -2452,8 +2463,8 @@
                             items: mapPisItemsFromDbOrApi(res.items)
                         });
 
-                        // Jika backend mengirim kumpulan LL dengan PDS yang sama, muat semua sekaligus.
-                        if (Array.isArray(res.related_loading_lists) && res.related_loading_lists.length > 0) {
+                        // Auto-load related hanya saat sesi kosong (setelah Delay / refresh).
+                        if (pisLoadingListGroups.length === 0 && Array.isArray(res.related_loading_lists) && res.related_loading_lists.length > 0) {
                             pisLoadingListGroups = [];
                             partsStartedInCurrentSession = [];
                             clearPendingLabelPacks();
@@ -2533,7 +2544,7 @@
                                 console.log('Loading list dari API (pertama kali):', payload);
                                 var mapped = mapPisItemsFromDeaApi(items);
 
-                                pisUpdateScanContextOnServer({
+                                var saveScanRequest = pisUpdateScanContextOnServer({
                                     loading_list_number: loadingListNumberForDB,
                                     pds_number: payload.pds_number || payload.pds || '',
                                     cycle: payload.cycle || '',
@@ -2545,12 +2556,21 @@
                                     items: mapped
                                 });
 
-                                finishApplyNewGroup(
-                                    name,
-                                    mapped,
-                                    false,
-                                    payload.pds_number || payload.pds || ''
-                                );
+                                if (!saveScanRequest) {
+                                    failLoadingList('Data Loading List tidak valid dan gagal disimpan.');
+                                    return;
+                                }
+
+                                saveScanRequest.done(function () {
+                                    finishApplyNewGroup(
+                                        name,
+                                        mapped,
+                                        false,
+                                        payload.pds_number || payload.pds || ''
+                                    );
+                                }).fail(function () {
+                                    failLoadingList('Gagal menyimpan Loading List. Silakan scan ulang.');
+                                });
                             } else {
                                 failLoadingList('Barcode tidak sesuai dengan loading list.');
                             }

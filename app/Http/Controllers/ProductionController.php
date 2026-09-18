@@ -17,6 +17,10 @@ use App\Models\ScannedPart;
 use Illuminate\Support\Str;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
+use App\Services\CustomerKanbanResolver;
+use App\Services\KanbanBarcodeParser;
+use App\Models\KanbanPairing;
+use App\Models\KanbanPairingLog;
 use Illuminate\Http\Request;
 use PhpMqtt\Client\MqttClient;
 use App\Models\KanbanAfterProd;
@@ -31,6 +35,115 @@ use PhpMqtt\Client\ConnectionSettings;
 
 class ProductionController extends Controller
 {
+    private const AS547_TYPE_RIGHT = 'as547_kanan';
+
+    private const AS547_TYPE_LEFT = 'as547_kiri';
+
+    private const AS547_LINE = 'AS547';
+
+    /**
+     * Ambang konfirmasi scan beruntun (detik).
+     *
+     * Kanban customer AS547 (5716A871 / 5716A872) hanya memuat nomor part tanpa
+     * serial, jadi dua box tidak bisa dibedakan dari barcode-nya. Sebagai gantinya
+     * scan yang terlalu rapat dimintakan konfirmasi — bukan ditolak, karena dari
+     * 327 jeda produksi nyata ada 7 jeda di bawah 2 menit yang semuanya sah
+     * (MP menyusul input di awal sesi). Tidak ada satu pun jeda nyata antara
+     * 119 dan 290 detik, jadi 120 detik jatuh di celah kosong antara keduanya.
+     */
+    private const AS547_FAST_SCAN_SECONDS = 120;
+
+    /** Rentang pengecekan kanban internal dobel (jam), cukup untuk satu shift. */
+    private const AS547_DUPLICATE_WINDOW_HOURS = 12;
+
+    private ?CustomerKanbanResolver $customerKanbanResolver = null;
+
+    private ?KanbanBarcodeParser $kanbanParser = null;
+
+    private function customerKanban(): CustomerKanbanResolver
+    {
+        return $this->customerKanbanResolver ??= new CustomerKanbanResolver();
+    }
+
+    private function kanbanParser(): KanbanBarcodeParser
+    {
+        return $this->kanbanParser ??= new KanbanBarcodeParser();
+    }
+
+    /**
+     * Kenali satu hasil scan AS547. Halaman menerima dua jenis kanban sekaligus:
+     *
+     *  - kanban internal cetakan plant : barcode panjang (218-241 karakter), punya serial
+     *  - kanban customer               : nomor part pendek (8-15 karakter), tanpa serial
+     *
+     * Keduanya tidak mungkin tertukar karena panjangnya terpaut jauh, jadi tidak
+     * perlu tombol mode — jenisnya ditentukan dari barcode itu sendiri.
+     *
+     * @return array{status: string, message?: string, data?: array}
+     */
+    private function as547ResolveScan(string $raw): array
+    {
+        $code = trim($raw);
+
+        if ($code === '') {
+            return ['status' => 'invalid', 'message' => 'Barcode kosong.'];
+        }
+
+        $parsed = $this->kanbanParser()->parse($code);
+
+        if ($parsed) {
+            $part = InternalPart::with('line')->where('part_number', $parsed['part_number'])->first();
+
+            if (! $part) {
+                return [
+                    'status'  => 'not_found',
+                    'message' => 'Part ' . $parsed['part_number'] . ' dari kanban internal tidak terdaftar di master.',
+                ];
+            }
+
+            return [
+                'status' => 'ok',
+                'data'   => [
+                    'source'          => 'internal',
+                    'code'            => $parsed['part_number'],
+                    'internal_part'   => $part,
+                    'serial'          => $parsed['serial'],
+                    'customer_serial' => null,
+                    'qty_per_kanban'  => $this->as547QtyFor($part),
+                ],
+            ];
+        }
+
+        $resolved = $this->customerKanban()->resolve($code, self::AS547_LINE);
+
+        if ($resolved['status'] !== 'ok') {
+            return $resolved;
+        }
+
+        $data = $resolved['data'];
+
+        return [
+            'status' => 'ok',
+            'data'   => [
+                'source'          => 'customer',
+                'code'            => $data['customer_part_number'],
+                'internal_part'   => $data['internal_part'],
+                'serial'          => null,
+                'customer_serial' => $data['customer_serial'],
+                'qty_per_kanban'  => $data['qty_per_kanban'],
+            ],
+        ];
+    }
+
+    private function as547QtyFor(InternalPart $part): ?int
+    {
+        $customerPart = CustomerPart::where('internal_part_id', $part->id)
+            ->whereNotNull('qty_per_kanban')
+            ->first();
+
+        return $customerPart ? (int) $customerPart->qty_per_kanban : null;
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -48,7 +161,9 @@ class ProductionController extends Controller
      */
     public function indexprdreport()
     {
-        return view('pages.production.prdreport');
+        return view('pages.production.prdreport', [
+            'productionLines' => Line::orderBy('name')->get(['id', 'name']),
+        ]);
     }
 
     public function as523()
@@ -61,6 +176,11 @@ class ProductionController extends Controller
         return view('pages.production.pc2b');
     }
 
+    public function as547()
+    {
+        return view('pages.production.as547');
+    }
+
     /**
      * Simpan scan kanban PC2B ke tabel mutations.
      * Dipanggil setelah parse barcode kanban (part_number + serial_number).
@@ -69,6 +189,380 @@ class ProductionController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function storePc2bKanbanScan(Request $request)
+    {
+        return $this->storePairedKanbanScan($request, 'pc2b');
+    }
+
+    /**
+     * Resolve kanban customer jadi pasangan part RH/LH untuk halaman AS547.
+     * Dipakai saat scan PERTAMA (tanda awal produksi) — tidak menulis mutation apa pun.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function as547Pair(Request $request)
+    {
+        $code = trim((string) $request->query('code', ''));
+
+        if ($code === '') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Barcode kanban customer kosong.',
+            ], 422);
+        }
+
+        $resolved = $this->as547ResolveScan($code);
+
+        if ($resolved['status'] !== 'ok') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $resolved['message'] ?? 'Kanban tidak dikenali.',
+            ], $resolved['status'] === 'not_found' ? 404 : 422);
+        }
+
+        $part = $resolved['data']['internal_part'];
+        $side = $this->as547SideFromPartName($part->part_name);
+
+        if (!$side) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part name "' . $part->part_name . '" tidak diakhiri RH / LH, pasangan tidak bisa ditentukan.',
+            ], 422);
+        }
+
+        $pair = $this->as547FindPair($part, $side);
+
+        if (!$pair) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Pasangan ' . ($side === 'R' ? 'LH' : 'RH') . ' untuk "' . $part->part_name . '" tidak ditemukan di line yang sama.',
+            ], 404);
+        }
+
+        $rh = $side === 'R' ? $part : $pair;
+        $lh = $side === 'R' ? $pair : $part;
+
+        return response()->json([
+            'status' => 'success',
+            'side'   => $side,
+            'line'   => optional($part->line)->name,
+            'source' => $resolved['data']['source'],
+            'data'     => [
+                'R' => $this->as547PartPayload($rh),
+                'L' => $this->as547PartPayload($lh),
+            ],
+        ]);
+    }
+
+    /**
+     * Simpan satu box AS547. Menerima kanban internal maupun kanban customer.
+     *
+     * Penjagaan scan dobel menyesuaikan jenis kanban yang discan:
+     *  - kanban internal punya serial, jadi kartu yang sama persis bisa dikenali
+     *  - kanban customer tanpa serial, jadi yang dipakai kerapatan waktu
+     *
+     * Keduanya tidak menolak mentah-mentah, melainkan meminta konfirmasi MP, supaya
+     * tidak ada box sah yang tertahan dan tidak ada box yang terhitung diam-diam.
+     *
+     * @param  \Illuminate\Http\Request  $request  code, expected_side, expected_part, confirm
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeAs547KanbanScan(Request $request)
+    {
+        $request->validate([
+            'code'          => ['required', 'string', 'max:255'],
+            'expected_side' => ['required', 'string', 'in:R,L'],
+            'expected_part' => ['required', 'string', 'max:64'],
+            'confirm'       => ['nullable', 'boolean'],
+        ]);
+
+        $expectedSide = $request->expected_side;
+        $resolved     = $this->as547ResolveScan($request->code);
+
+        if ($resolved['status'] !== 'ok') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $resolved['message'] ?? 'Kanban tidak dikenali.',
+            ], 422);
+        }
+
+        $data         = $resolved['data'];
+        $internalPart = $data['internal_part'];
+        $side         = $this->as547SideFromPartName($internalPart->part_name);
+
+        if (! $side) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Part name "' . $internalPart->part_name . '" tidak diakhiri RH / LH.',
+            ], 422);
+        }
+
+        if ($side !== $expectedSide) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Kanban ini ' . ($side === 'R' ? 'RH' : 'LH') . ', sekarang harus scan '
+                    . ($expectedSide === 'R' ? 'KANAN (RH)' : 'KIRI (LH)') . '.',
+            ], 422);
+        }
+
+        // Sisi boleh cocok tapi partnya beda model — mis. kanban RH dari line lain.
+        if (strcasecmp($internalPart->part_number, trim($request->expected_part)) !== 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Kanban ini untuk part ' . $internalPart->part_number
+                    . ', sedangkan model yang sedang jalan ' . trim($request->expected_part) . '.',
+            ], 422);
+        }
+
+        $type      = $side === 'R' ? self::AS547_TYPE_RIGHT : self::AS547_TYPE_LEFT;
+        $confirmed = $request->boolean('confirm');
+
+        if (! $confirmed) {
+            $question = $data['source'] === 'internal' && $data['serial']
+                ? $this->as547DuplicateSerialQuestion($internalPart, $data['serial'], $type)
+                : $this->as547FastScanQuestion($internalPart, $type, $side);
+
+            if ($question) {
+                return response()->json($question);
+            }
+        }
+
+        $qty = $data['qty_per_kanban'] ?? 1;
+
+        // Kanban internal wajib terdaftar. Dicek di luar transaksi supaya penolakannya
+        // keluar sebagai 422 yang jelas, bukan 500 dari dalam closure.
+        if ($data['source'] === 'internal') {
+            $registered = Kanban::where('internal_part_id', $internalPart->id)
+                ->where('serial_number', $data['serial'])
+                ->exists();
+
+            if (! $registered) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Kanban ' . $internalPart->part_number . ' / ' . $data['serial']
+                        . ' tidak terdaftar di master kanbans.',
+                ], 422);
+            }
+        }
+
+        try {
+            $mutation = DB::transaction(function () use ($internalPart, $side, $type, $qty, $data) {
+                $now    = Carbon::now();
+                $serial = $data['serial'];
+
+                if ($data['source'] === 'internal') {
+                    // Tandai kartunya sudah diproduksi. Ini yang mengembalikan status 2
+                    // (sudah ditarik pulling) menjadi 1 saat kartu berputar kembali —
+                    // tanpa ini pulling menolak kartu yang sama dengan pesan
+                    // "Kanban sudah pernah discan pulling!".
+                    $kanban = Kanban::where('internal_part_id', $internalPart->id)
+                        ->where('serial_number', $serial)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $kanban) {
+                        throw new \RuntimeException('Kanban ' . $internalPart->part_number . ' / ' . $serial . ' tidak terdaftar.');
+                    }
+
+                    if (! $kanban->update(['status' => Kanban::STATUS_PRODUCED])) {
+                        throw new \RuntimeException('Gagal memperbarui status kanban.');
+                    }
+                } else {
+                    // Kanban customer tidak punya nomor seri dan tidak punya kartu internal,
+                    // jadi nomor box dibuat sistem supaya tiap baris tetap bisa dibedakan.
+                    $sequence = Mutation::where('type', $type)
+                        ->whereDate('date', $now->copy()->startOfDay())
+                        ->count() + 1;
+
+                    $serial = sprintf('%s-%s-%s%03d', self::AS547_LINE, $now->format('Ymd'), $side, $sequence);
+                }
+
+                $payload = [
+                    'internal_part_id' => $internalPart->id,
+                    'serial_number'    => $serial,
+                    'qty'              => (int) $qty,
+                    'type'             => $type,
+                    'npk'              => auth()->user()->npk ?? 'SYS',
+                    'date'             => $now->format('Y-m-d H:i:s'),
+                ];
+
+                if ($data['customer_serial'] !== null && $this->mutationsHaveCustomerSerial()) {
+                    $payload['customer_serial'] = $data['customer_serial'];
+                }
+
+                return Mutation::create($payload);
+            });
+
+            return response()->json([
+                'status'      => 'success',
+                'message'     => $side === 'R' ? 'Box KANAN (RH) OK.' : 'Box KIRI (LH) OK.',
+                'qty'         => (int) $qty,
+                'side'        => $side,
+                'source'      => $data['source'],
+                'back_number' => $internalPart->back_number,
+                'serial'      => $mutation->serial_number,
+                'next_side'   => $side === 'R' ? 'L' : 'R',
+                'mutation_id' => $mutation->id,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal menyimpan mutation / status kanban: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Kanban internal: kartu dengan serial yang sama persis sudah pernah masuk?
+     */
+    private function as547DuplicateSerialQuestion(InternalPart $part, string $serial, string $type): ?array
+    {
+        $duplicate = Mutation::where('internal_part_id', $part->id)
+            ->where('serial_number', $serial)
+            ->whereIn('type', [self::AS547_TYPE_RIGHT, self::AS547_TYPE_LEFT])
+            ->where('date', '>=', Carbon::now()->subHours(self::AS547_DUPLICATE_WINDOW_HOURS))
+            ->orderByDesc('date')
+            ->first(['date']);
+
+        if (! $duplicate) {
+            return null;
+        }
+
+        return [
+            'status'  => 'confirm',
+            'reason'  => 'duplicate',
+            'message' => 'Kanban ' . $part->part_number . ' / ' . $serial . ' sudah discan jam '
+                . Carbon::parse($duplicate->date)->format('H:i:s') . '. Tetap hitung sebagai box baru?',
+        ];
+    }
+
+    /**
+     * Kanban customer: tidak ada serial, jadi yang dinilai kerapatan waktunya.
+     */
+    private function as547FastScanQuestion(InternalPart $part, string $type, string $side): ?array
+    {
+        $last = Mutation::where('internal_part_id', $part->id)
+            ->where('type', $type)
+            ->orderByDesc('date')
+            ->first(['date']);
+
+        if (! $last) {
+            return null;
+        }
+
+        $seconds = Carbon::parse($last->date)->diffInSeconds(Carbon::now());
+
+        if ($seconds >= self::AS547_FAST_SCAN_SECONDS) {
+            return null;
+        }
+
+        return [
+            'status'  => 'confirm',
+            'reason'  => 'fast',
+            'seconds' => $seconds,
+            'message' => 'Box ' . ($side === 'R' ? 'KANAN' : 'KIRI') . ' terakhir baru discan '
+                . $seconds . ' detik lalu (jam ' . Carbon::parse($last->date)->format('H:i:s')
+                . '). Ini box baru?',
+        ];
+    }
+
+    private function mutationsHaveCustomerSerial(): bool
+    {
+        static $has = null;
+
+        return $has ??= \Illuminate\Support\Facades\Schema::hasColumn('mutations', 'customer_serial');
+    }
+
+    /**
+     * Tentukan sisi part dari akhiran part name: "... RH" => R, "... LH" => L.
+     */
+    private function as547SideFromPartName($partName): ?string
+    {
+        $name = strtoupper(trim((string) $partName));
+        if ($name === '') {
+            return null;
+        }
+
+        if (preg_match('/(?:^|[\s,\-])(RH|LH)$/', $name, $match)) {
+            return $match[1] === 'RH' ? 'R' : 'L';
+        }
+
+        return null;
+    }
+
+    /**
+     * Nama dasar part tanpa akhiran RH / LH, dinormalisasi untuk pencocokan pasangan.
+     */
+    private function as547BaseName($partName): string
+    {
+        $name = strtoupper(trim((string) $partName));
+        $name = preg_replace('/(?:^|[\s,\-])(RH|LH)$/', '', $name);
+
+        return preg_replace('/\s+/', ' ', trim((string) $name, " \t\n\r\0\x0B,-"));
+    }
+
+    /**
+     * Cari pasangan part: part name dasar sama, line sama, sisi berlawanan.
+     */
+    private function as547FindPair(InternalPart $part, string $side): ?InternalPart
+    {
+        $base = $this->as547BaseName($part->part_name);
+        if ($base === '') {
+            return null;
+        }
+
+        $wantSide = $side === 'R' ? 'L' : 'R';
+
+        $query = InternalPart::where('id', '!=', $part->id)
+            ->where('part_name', 'like', $base . '%');
+
+        if ($part->line_id === null) {
+            $query->whereNull('line_id');
+        } else {
+            $query->where('line_id', $part->line_id);
+        }
+
+        foreach ($query->get() as $candidate) {
+            if ($this->as547BaseName($candidate->part_name) !== $base) {
+                continue;
+            }
+
+            if ($this->as547SideFromPartName($candidate->part_name) === $wantSide) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Payload part untuk dipakai halaman AS547 (gambar PIS, back number, qty per box).
+     */
+    private function as547PartPayload(InternalPart $part): array
+    {
+        $customerParts = CustomerPart::where('internal_part_id', $part->id)->get();
+        $withQty       = $customerParts->firstWhere('qty_per_kanban', '!=', null);
+
+        return [
+            'id'          => $part->id,
+            'part_number' => $part->part_number,
+            'back_number' => $part->back_number,
+            'part_name'   => $part->part_name,
+            'photo'       => $part->photo,
+            // Halaman mencocokkan hasil scan ke daftar ini, jadi tidak perlu
+            // bolak-balik ke server untuk setiap box.
+            'customer_part_numbers' => $customerParts->pluck('part_number')
+                ->filter()
+                ->map(function ($value) {
+                    return strtoupper(trim($value));
+                })
+                ->unique()
+                ->values()
+                ->all(),
+            'qty_per_kanban' => $withQty ? (int) $withQty->qty_per_kanban : null,
+        ];
+    }
+
+    private function storePairedKanbanScan(Request $request, string $line)
     {
         $request->validate([
             'part_number'   => ['required', 'string', 'max:64'],
@@ -93,7 +587,7 @@ class ProductionController extends Controller
             ? (int) $customerPart->qty_per_kanban
             : 1;
 
-        $type = $side === 'R' ? 'pc2b_kanan' : 'pc2b_kiri';
+        $type = $line . '_' . ($side === 'R' ? 'kanan' : 'kiri');
 
         try {
             Mutation::create([
@@ -234,9 +728,11 @@ class ProductionController extends Controller
             ]);
 
             // update status in kanbans table
-            $kanban->update([
-                'status' => 1
-            ]);
+            if (! $kanban->update([
+                'status' => Kanban::STATUS_PRODUCED
+            ])) {
+                throw new \RuntimeException('Gagal memperbarui status kanban.');
+            }
 
             $result = [];
 
@@ -312,46 +808,46 @@ class ProductionController extends Controller
 
     public function adjust(Request $request)
     {
-        $prod = ProductionStock::where('internal_part_id', $request->internal_part_id)->first();
-        $current_stock = $prod->current_stock;
-        $actual_stock = $request->current_stock;
+        $request->validate([
+            'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
+            'standard_stock' => ['nullable', 'integer', 'min:0'],
+            'current_stock' => ['nullable', 'integer', 'min:0'],
+            'active_line' => ['nullable', 'string', 'max:64'],
+            'back_number' => ['nullable', 'string', 'max:64'],
+        ]);
 
-        if ($actual_stock < $current_stock) {
-            $type = 'checkout';
-            $qty = $current_stock - $actual_stock;
-        } else {
-            $type = 'supply';
-            $qty = $actual_stock - $current_stock;
-        }
+        $redirect = redirect()->route('dashboard.productionStock', array_filter([
+            'line' => trim((string) $request->active_line),
+            'back_number' => trim((string) $request->back_number),
+        ], static fn($value) => $value !== ''));
 
         try {
             DB::beginTransaction();
 
+            $actual_stock = $request->filled('current_stock') ? (int) $request->current_stock : null;
+
             if ($request->standard_stock !== null) {
                 InternalPart::where('id', $request->internal_part_id)
                     ->update([
-                        'standard_stock' => $request->standard_stock,
+                        'standard_stock' => (int) $request->standard_stock,
                     ]);
             }
 
             if ($actual_stock !== null) {
-                Mutation::create([
-                    'internal_part_id' => $request->internal_part_id,
-                    'serial_number' => 'xxxx',
-                    'qty' => $qty,
-                    'type' => $type,
-                    'npk' => auth()->user()->npk,
-                    'date' => Carbon::now()->format('Y-m-d H:i:s'),
-                ]);
+                ProductionStock::adjustCurrentStock(
+                    (int) $request->internal_part_id,
+                    $actual_stock,
+                    auth()->user()->npk ?? 'SYS'
+                );
             }
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Updated Successfully!');
+            return $redirect->with('success', 'Updated Successfully!');
         } catch (\Throwable $th) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Error: ' . $th->getMessage());
+            return $redirect->with('error', 'Error: ' . $th->getMessage());
         }
     }
 
@@ -714,7 +1210,11 @@ class ProductionController extends Controller
         // get customer internalPart based on internal internalPart id
         $customerPart = CustomerPart::select('qty_per_kanban')->where('internal_part_id', $internalPart->id)->first();
 
-        if (!$seri === 'noseri') {
+        $kanban = null;
+        $interlockPair = KanbanPairing::forAssemblyPart((string) $internalPart->part_number);
+        $interlockPair = $interlockPair && $interlockPair->usesProductionInterlock() ? $interlockPair : null;
+
+        if ($seri !== 'noseri') {
             // get kanban_id based on internal part id
             $kanban = Kanban::where('internal_part_id', $internalPart->id)
                 ->where('serial_number', $seri)
@@ -740,11 +1240,37 @@ class ProductionController extends Controller
             }
         }
 
+        if ($interlockPair && !$kanban) {
+            return [
+                'status' => 'error',
+                'message' => 'Kanban assembly project 660A wajib pairing dan memakai serial terdaftar.'
+            ];
+        }
 
         try {
             DB::beginTransaction();
+
+            $pairingLog = null;
+            if ($interlockPair) {
+                $pairingLog = KanbanPairingLog::where('body_kanban_pairing_id', $interlockPair->id)
+                    ->where('assembly_kanban_id', $kanban->id)
+                    ->where('status', KanbanPairingLog::STATUS_READY)
+                    ->lockForUpdate()
+                    ->oldest('id')
+                    ->first();
+
+                if (!$pairingLog) {
+                    DB::rollBack();
+
+                    return [
+                        'status' => 'error',
+                        'message' => 'Kanban belum pairing painting-assy. Lakukan proses Validation dulu.'
+                    ];
+                }
+            }
+
             // insert into mutation table
-            Mutation::create([
+            $mutation = Mutation::create([
                 'internal_part_id' => $internalPart->id,
                 'serial_number' => $seri,
                 'type' => 'supply',
@@ -753,10 +1279,21 @@ class ProductionController extends Controller
                 'date' => Carbon::now()->format('Y-m-d H:i:s')
             ]);
 
-            if (!$seri === 'noseri') {
+            if ($seri !== 'noseri') {
                 // update status in kanbans table
-                $kanban->update([
-                    'status' => 1
+                if (! $kanban->update([
+                    'status' => Kanban::STATUS_PRODUCED
+                ])) {
+                    throw new \RuntimeException('Gagal memperbarui status kanban.');
+                }
+            }
+
+            if ($pairingLog) {
+                $pairingLog->update([
+                    'status' => KanbanPairingLog::STATUS_CONSUMED,
+                    'consumed_mutation_id' => $mutation->id,
+                    'consumed_by' => auth()->user()->npk,
+                    'consumed_at' => now(),
                 ]);
             }
 
@@ -827,7 +1364,8 @@ class ProductionController extends Controller
             return [
                 'status' => 'success',
                 'message' => 'Part Sesuai Dengan Sample',
-                'qty' => $customerPart->qty_per_kanban
+                'qty' => $customerPart->qty_per_kanban,
+                'line_prd' => $lineProd->name
             ];
         } catch (\Throwable $th) {
             DB::rollBack();

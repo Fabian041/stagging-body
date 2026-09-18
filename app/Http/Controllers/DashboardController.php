@@ -4,21 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Exports\MutationMultiSheetExport;
 use App\Exports\PartImportTemplateExport;
+use App\Exports\StockImportTemplateExport;
 use App\Imports\ManifestImport;
 use App\Imports\PartImport;
 use App\Imports\StockImport;
 use App\Models\Customer;
 use App\Models\InternalPart;
+use App\Models\KanbanPairingLog;
 use App\Models\LineStaticSequence;
 use App\Models\ProductionPlan;
 use App\Models\ScannedPart;
 use App\Models\Supplier;
+use App\Services\Ai\BellaContextBuilder;
 use App\Traits\prodPlanOps;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -28,9 +32,11 @@ class DashboardController extends Controller
 {
     use prodPlanOps;
 
+    private const PRODUCTION_RESULT_TYPES = ['supply', 'as547_kanan', 'as547_kiri'];
+
     public function index()
     {
-        // Landing dashboard: jangan langsung menampilkan "Body Plant Stock Monitoring"
+        // Portal (launcher) untuk semua. Blade sembunyikan tombol Login kalau sudah login.
         return view('pages.dashboard_home');
     }
 
@@ -57,7 +63,193 @@ class DashboardController extends Controller
         return response()->json($this->buildOverviewData($from, $to) + [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
+            'scanners' => $request->user()->can('manage-device-sessions') ? $this->scannerSummary() : null,
         ])->header('Cache-Control', 'private, max-age=30');
+    }
+
+    /** Ringkasan status device scanner pulling (panel monitoring ringkas di overview). */
+    private function scannerSummary(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('device_sessions')) {
+            return ['online' => 0, 'total' => 0, 'list' => []];
+        }
+
+        $devices = DB::table('device_sessions')
+            ->join('users', 'users.id', '=', 'device_sessions.user_id')
+            ->where('device_sessions.current_page', '/pulling')
+            ->where('device_sessions.last_seen_at', '>=', now()->subHours(3))
+            ->orderByDesc('device_sessions.last_seen_at')
+            ->limit(24)
+            ->get([
+                'device_sessions.device_id',
+                'device_sessions.device_label',
+                'device_sessions.scanner_no',
+                'device_sessions.last_seen_at',
+                'users.name as user_name',
+                'users.npk as user_npk',
+            ]);
+
+        $online = 0;
+        $list = $devices->map(function ($d) use (&$online) {
+            $lastSeen = $d->last_seen_at ? Carbon::parse($d->last_seen_at) : null;
+            $isOnline = $lastSeen && $lastSeen->gt(now()->subMinutes(2));
+            if ($isOnline) {
+                $online++;
+            }
+
+            return [
+                'name' => $d->device_label
+                    ?: ($d->scanner_no ? 'Scanner #'.$d->scanner_no : 'Scanner #'.substr($d->device_id, 0, 6)),
+                'user_name' => $d->user_name ?: '-',
+                'user_npk' => $d->user_npk ?: null,
+                'online' => $isOnline,
+                'last_seen' => $lastSeen ? $lastSeen->diffForHumans() : '-',
+            ];
+        })->all();
+
+        // online dulu (usort stabil di PHP 8 → urutan last_seen dalam grup dipertahankan)
+        usort($list, fn ($a, $b) => $b['online'] <=> $a['online']);
+
+        return ['online' => $online, 'total' => count($list), 'list' => $list];
+    }
+
+    public function overviewAiAnalyst(Request $request, BellaContextBuilder $contextBuilder)
+    {
+        $validated = $request->validate([
+            'question' => 'required|string|max:700',
+            'history' => 'array|max:8',
+            'history.*.role' => 'required_with:history|string|in:user,assistant',
+            'history.*.content' => 'required_with:history|string|max:5000',
+            'answer_style' => 'nullable|string|in:concise,detailed',
+        ]);
+
+        $apiKey = (string) config('services.groq.key');
+        if ($apiKey === '') {
+            return response()->json([
+                'message' => 'GROQ_API_KEY belum diset di environment.',
+            ], 422);
+        }
+
+        [$from, $to] = $this->overviewRange($request);
+        $question = trim($validated['question']);
+        $answerStyle = $validated['answer_style'] ?? 'concise';
+        $styleInstruction = $answerStyle === 'detailed'
+            ? 'Jawab dalam Bahasa Indonesia yang lebih detail, tetap natural, actionable, dan tidak mengarang data.'
+            : 'Jawab dalam Bahasa Indonesia yang ringkas, natural, dan actionable.';
+
+        // Periode relatif (bulan kemarin, minggu lalu, …) mengalahkan filter dashboard.
+        $questionPeriod = $contextBuilder->explicitQuestionPeriod($question);
+        if ($questionPeriod !== null) {
+            [$from, $to] = $questionPeriod;
+            $from = $from->copy()->startOfDay();
+            $to = $to->copy()->startOfDay();
+        } else {
+            // Tanggal tunggal (mis. "1 Juli 2026") → fokus 1 hari.
+            $explicitDate = $contextBuilder->explicitQuestionDate($question);
+            if ($explicitDate !== null) {
+                $from = $explicitDate->copy()->startOfDay();
+                $to = $explicitDate->copy()->startOfDay();
+            }
+        }
+
+        if ($from->diffInDays($to) > 45) {
+            $from = $to->copy()->subDays(45)->startOfDay();
+        }
+
+        $overview = $this->buildOverviewData($from, $to);
+        $context = $contextBuilder->build($overview, $from, $to, $question);
+        $history = collect($validated['history'] ?? [])
+            ->slice(-4)
+            ->map(fn ($item) => [
+                'role' => $item['role'],
+                'content' => Str::limit(trim((string) $item['content']), 800, ''),
+            ])
+            ->values()
+            ->all();
+
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => implode("\n", [
+                    'Kamu adalah BELLA, AI assistant operasional Body Plant.',
+                    $styleInstruction,
+                    '',
+                    'ATURAN KETAT (wajib):',
+                    '- Hanya gunakan angka, nama, dan status yang ADA persis di JSON system_context. Dilarang mengarang, mengestimasi, atau mengisi data kosong.',
+                    '- Untuk pertanyaan ranking/terbanyak/paling banyak: prioritaskan insights.* dan modules.*.fokus_tanggal.ranking_by_qty — jawab langsung dari top_1 atau items[0].',
+                    '- Untuk pertanyaan pulling jumlah 0 / hari tanpa pulling (tabel pullings): prioritaskan insights.pulling_hari_nol.',
+                    '- Istilah "pulling" punya 2 arti — WAJIB bedakan: (1) "berapa pulling [hari/tanggal]" tanpa menyebut loading list = checkout kanban (mutations) → insights.pulling_metrik.checkout_kanban.total; (2) "berapa loading list yang di pulling/di-pull" = tabel pullings → insights.pulling_metrik.loading_list_di_pulling.jumlah_distinct. Ikuti insights.pulling_metrik.intent_terdeteksi dan rekomendasi_jawaban.',
+                    '- Jangan buat daftar panjang modul/field yang "belum tersedia". Hanya sebut data spesifik yang benar-benar dibutuhkan user dan tidak ada di konteks.',
+                    '- petunjuk_data dan overview.kpi_labels hanya kamus arti field — BUKAN checklist yang wajib dilaporkan.',
+                    '- Bedakan sumber: insights = jawaban siap pakai; ringkasan_operasional/overview.kpi = agregat periode filter; modules.* = detail modul; search_hits = pencarian keyword; referensi = daftar nilai valid (line, customer, area error, judgement) untuk memetakan istilah user & menjawab "apa saja/daftar X".',
+                    '- Untuk pertanyaan spesifik (nomor PDS, loading list, back number), prioritaskan search_hits.matches lalu modules terkait.',
+                    '- Jangan menyebut Groq, API, token, atau istilah teknis backend.',
+                    '',
+                    'Kamu bisa menganalisis: dashboard, loading list, PDS, pulling, produksi, stok, PIS, receiving, quality, error, preparation deadline.',
+                    'Jika system_context.preparation_deadline tersedia, jadikan sumber utama untuk pertanyaan deadline preparation. Telat = pulling_date > deadline_preparation.',
+                    'Jika user minta detail di luar konteks, minta filter spesifik: nomor loading list/PDS/back number/customer/tanggal.',
+                    'Saat rekomendasi, sebut alasan singkat berdasarkan data konteks.',
+                    'Format jawaban: Markdown sederhana — **tebal** untuk label, bullet "-" atau "*". Hindari simbol "+".',
+                ]),
+            ],
+            [
+                'role' => 'user',
+                'content' => "system_context:\n".$this->encodeAiContext($context),
+            ],
+        ];
+
+        foreach ($history as $item) {
+            $messages[] = $item;
+        }
+        $messages[] = [
+            'role' => 'user',
+            'content' => $question,
+        ];
+
+        $messages = $this->fitGroqMessages($messages, (int) config('services.groq.max_prompt_tokens', 5000));
+
+        $http = Http::withToken($apiKey)
+            ->acceptJson()
+            ->timeout(25);
+
+        $caBundle = (string) config('services.groq.ca_bundle');
+        if ($caBundle !== '' && is_file($caBundle)) {
+            $http = $http->withOptions(['verify' => $caBundle]);
+        }
+
+        try {
+            $response = $http
+                ->post(rtrim((string) config('services.groq.base_url'), '/').'/chat/completions', [
+                    'model' => (string) config('services.groq.model', 'llama-3.1-8b-instant'),
+                    'messages' => $messages,
+                    'temperature' => 0.15,
+                    'max_tokens' => $answerStyle === 'detailed' ? 760 : 520,
+                ]);
+        } catch (\Throwable $e) {
+            $err = $this->groqErrorPayload($e->getMessage());
+
+            return response()->json($err, 502);
+        }
+
+        if ($response->failed()) {
+            $raw = (string) data_get($response->json(), 'error.message', 'Groq mengembalikan error.');
+            $err = $this->groqErrorPayload($raw, $response->status());
+
+            return response()->json($err, 502);
+        }
+
+        $answer = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
+        if ($answer === '') {
+            $answer = 'Maaf, BELLA belum sempat menyusun jawabannya. Coba tanyakan ulang dengan pertanyaan yang lebih spesifik ya.';
+        }
+
+        return response()->json([
+            'answer' => $answer,
+            'model' => (string) data_get($response->json(), 'model', config('services.groq.model')),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'actions' => $contextBuilder->actionLinks($question, $context),
+        ]);
     }
 
     /**
@@ -448,6 +640,7 @@ class DashboardController extends Controller
                         'pct' => (int) ($l->total_kanban ?? 0) > 0 ? (int) round(($l->actual_kanban ?? 0) / $l->total_kanban * 100) : 0,
                     ];
                 })
+                ->filter(fn ($row) => in_array($row->urgency, ['overdue', 'urgent', 'soon'], true))
                 ->sortBy('sortKey')
                 ->take(10)
                 ->values();
@@ -481,6 +674,195 @@ class DashboardController extends Controller
         });
     }
 
+    public function bellaNotifications()
+    {
+        $today = Carbon::today();
+        $cacheKey = 'bella_notifications_'.$today->toDateString();
+
+        $payload = Cache::remember($cacheKey, 300, function () use ($today) {
+            $overview = $this->buildOverviewData($today, $today);
+            $brief = app(\App\Services\Ai\BellaBriefService::class)->build($overview, $today);
+
+            return [
+                'notifications' => [$brief],
+                'generated_at' => now()->format('Y-m-d H:i:s'),
+            ];
+        });
+
+        return response()->json($payload)->header('Cache-Control', 'private, max-age=60');
+    }
+
+    private function groqErrorPayload(string $raw, int $status = 502): array
+    {
+        $retryAfter = $this->groqRetrySeconds($raw, $status);
+
+        return [
+            'message' => $this->humanizeGroqError($raw, $status),
+            'retry_after' => $retryAfter,
+            'rate_limited' => $retryAfter !== null,
+        ];
+    }
+
+    private function groqRetrySeconds(string $raw, int $status = 502): ?int
+    {
+        if (preg_match('/try again in ([\d.]+)\s*s/i', $raw, $m)) {
+            return max(1, (int) ceil((float) $m[1]));
+        }
+
+        $lower = strtolower($raw);
+        if ($status === 429
+            || str_contains($lower, 'rate limit')
+            || str_contains($lower, 'tokens per minute')
+            || str_contains($lower, 'tpm')
+            || str_contains($lower, 'too many requests')) {
+            return 15;
+        }
+
+        return null;
+    }
+
+    private function humanizeGroqError(string $raw, int $status = 502): string
+    {
+        $msg = trim($raw);
+        $lower = strtolower($msg);
+
+        if (preg_match('/try again in ([\d.]+)\s*s/i', $msg, $m)) {
+            $seconds = max(1, (int) ceil((float) $m[1]));
+
+            return "Maaf ya, BELLA lagi agak penuh barusan. Coba tanya lagi sekitar {$seconds} detik—biasanya langsung lancar.";
+        }
+
+        if (str_contains($lower, 'rate limit')
+            || str_contains($lower, 'tokens per minute')
+            || str_contains($lower, 'tpm')
+            || str_contains($lower, 'too many requests')) {
+            return 'Maaf, BELLA lagi sibuk dipakai berkali-kali. Tunggu sebentar (~15 detik) lalu coba lagi ya.';
+        }
+
+        if (str_contains($lower, 'request too large')
+            || str_contains($lower, 'reduce your message size')
+            || str_contains($lower, 'context length')) {
+            return 'Pertanyaannya agak banyak datanya nih. Coba lebih spesifik—misalnya sebut nomor PDS, loading list, atau tanggal—supaya BELLA bisa bantu lebih cepat.';
+        }
+
+        if (str_contains($lower, 'invalid api key')
+            || str_contains($lower, 'incorrect api key')
+            || str_contains($lower, 'authentication')) {
+            return 'Sistem AI belum siap dipakai. Hubungi admin untuk cek konfigurasi API key-nya ya.';
+        }
+
+        if (str_contains($lower, 'timeout')
+            || str_contains($lower, 'timed out')
+            || str_contains($lower, 'curl error 28')) {
+            return 'BELLA agak lama merespons barusan. Coba kirim ulang pertanyaannya ya—koneksi mungkin sedang lambat.';
+        }
+
+        if (str_contains($lower, 'could not resolve host')
+            || str_contains($lower, 'connection refused')
+            || str_contains($lower, 'failed to connect')
+            || str_contains($lower, 'ssl')
+            || str_contains($lower, 'certificate')) {
+            return 'BELLA belum bisa nyambung ke server AI. Cek koneksi internet atau coba lagi sebentar ya.';
+        }
+
+        if ($status === 429) {
+            return 'Maaf, BELLA lagi agak penuh. Tunggu sebentar lalu coba tanya lagi ya.';
+        }
+
+        if ($status >= 500) {
+            return 'Ada kendala teknis di server AI barusan. Coba kirim ulang pertanyaannya—BELLA siap bantu.';
+        }
+
+        return 'Maaf, BELLA belum bisa memproses pertanyaan itu. Coba lagi sebentar ya.';
+    }
+
+    private function encodeAiContext(array $context): string
+    {
+        return json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
+    }
+
+    private function compactAiContextForGroq(array $context, int $maxChars): array
+    {
+        $fits = fn (array $ctx) => strlen($this->encodeAiContext($ctx)) <= $maxChars;
+
+        if ($fits($context)) {
+            return $context;
+        }
+
+        $insights = $context['insights'] ?? [];
+        unset($context['modules']);
+        $context['insights'] = $insights;
+        if ($fits($context)) {
+            $context['scope']['catatan'] = ($context['scope']['catatan'] ?? '').' Modul detail di-skip agar muat limit token Groq. Gunakan insights untuk pertanyaan umum.';
+
+            return $context;
+        }
+
+        if (isset($context['overview']['trend_harian']) && is_array($context['overview']['trend_harian'])) {
+            $context['overview']['trend_harian'] = array_slice($context['overview']['trend_harian'], -14);
+        }
+        foreach (['delivery_berisiko', 'preparation_per_customer', 'preparation_per_cycle', 'produksi_per_line', 'part_paling_kurang_stok', 'error_per_area', 'error_terbaru'] as $key) {
+            if (isset($context['overview'][$key]) && is_array($context['overview'][$key])) {
+                $context['overview'][$key] = array_slice($context['overview'][$key], 0, 4);
+            }
+        }
+        if ($fits($context)) {
+            return $context;
+        }
+
+        $context['overview'] = [
+            'periode' => $context['overview']['periode'] ?? [],
+            'kpi' => $context['overview']['kpi'] ?? [],
+            'delta_vs_periode_sebelumnya' => $context['overview']['delta_vs_periode_sebelumnya'] ?? [],
+            'stock_summary' => $context['overview']['stock_summary'] ?? [],
+            'error_rate_percent' => $context['overview']['error_rate_percent'] ?? 0,
+        ];
+        unset($context['petunjuk_data']);
+        $context['scope']['catatan'] = 'Konteks dipadatkan karena melebihi limit token Groq. Minta filter lebih spesifik jika butuh detail.';
+
+        return $context;
+    }
+
+    private function estimateGroqTokens(array $messages): int
+    {
+        $chars = collect($messages)->sum(fn ($message) => strlen((string) ($message['content'] ?? '')));
+
+        return (int) ceil($chars / 3.2);
+    }
+
+    private function fitGroqMessages(array $messages, int $maxPromptTokens): array
+    {
+        if ($this->estimateGroqTokens($messages) <= $maxPromptTokens) {
+            return $messages;
+        }
+
+        $contextIndex = collect($messages)->search(fn ($message) => ($message['role'] ?? '') === 'user' && str_starts_with((string) ($message['content'] ?? ''), 'system_context:'));
+        if ($contextIndex !== false) {
+            $raw = substr((string) $messages[$contextIndex]['content'], strlen('system_context:'));
+            $context = json_decode(ltrim($raw), true);
+            if (is_array($context)) {
+                $budgetChars = max(4000, (int) (($maxPromptTokens - 900) * 3.2));
+                $messages[$contextIndex]['content'] = "system_context:\n".$this->encodeAiContext($this->compactAiContextForGroq($context, $budgetChars));
+            }
+        }
+
+        if ($this->estimateGroqTokens($messages) <= $maxPromptTokens) {
+            return $messages;
+        }
+
+        $system = array_shift($messages);
+        $question = array_pop($messages);
+        $messages = array_slice($messages, -2);
+        if ($system !== null) {
+            array_unshift($messages, $system);
+        }
+        if ($question !== null) {
+            $messages[] = $question;
+        }
+
+        return $messages;
+    }
+
     /**
      * Halaman Production Stock (sebelumnya ada di index()).
      */
@@ -490,19 +872,17 @@ class DashboardController extends Controller
             ->join('internal_parts', 'internal_parts.line_id', '=', 'lines.id')
             ->select('lines.name')
             ->distinct()
-            ->orderByRaw("CASE WHEN lines.name = 'AS711' THEN 0 ELSE 1 END")
             ->orderBy('lines.name')
             ->pluck('name')
             ->map(fn ($line) => (string) $line);
 
+        $requestedLine = trim((string) $request->query('line', ''));
         $focusBackNumber = trim((string) $request->query('back_number', ''));
         $activeLine = $lineNames->first();
 
-        if ($lineNames->contains('AS711')) {
-            $activeLine = 'AS711';
-        }
-
-        if ($focusBackNumber !== '') {
+        if ($requestedLine !== '' && $lineNames->contains($requestedLine)) {
+            $activeLine = $requestedLine;
+        } elseif ($focusBackNumber !== '') {
             $focusLine = DB::table('internal_parts')
                 ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
                 ->where('internal_parts.back_number', $focusBackNumber)
@@ -584,6 +964,55 @@ class DashboardController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
+    public function productionPairingLogs(Request $request)
+    {
+        $status = $request->query('status');
+        $search = trim((string) $request->query('q', ''));
+
+        $logs = KanbanPairingLog::query()
+            ->leftJoin('body_kanban_pairings as pairing_master', 'pairing_master.id', '=', 'kanban_pairing_logs.body_kanban_pairing_id')
+            ->select([
+                'kanban_pairing_logs.*',
+                'pairing_master.assembly_back_number',
+                'pairing_master.painting_back_number',
+            ])
+            ->when($request->filled('project'), fn ($query) => $query->where('kanban_pairing_logs.project', $request->query('project')))
+            ->when(in_array((string) $status, ['0', '1'], true), fn ($query) => $query->where('kanban_pairing_logs.status', (int) $status))
+            ->when($request->filled('date_from'), fn ($query) => $query->whereDate('kanban_pairing_logs.paired_at', '>=', $request->query('date_from')))
+            ->when($request->filled('date_to'), fn ($query) => $query->whereDate('kanban_pairing_logs.paired_at', '<=', $request->query('date_to')))
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+
+                $query->where(function ($query) use ($like) {
+                    $query->where('kanban_pairing_logs.assembly_part', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.painting_part', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.assembly_serial_number', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.painting_serial_numbers', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.paired_by', 'like', $like)
+                        ->orWhere('kanban_pairing_logs.consumed_by', 'like', $like)
+                        ->orWhere('pairing_master.assembly_back_number', 'like', $like)
+                        ->orWhere('pairing_master.painting_back_number', 'like', $like);
+                });
+            })
+            ->orderByDesc('kanban_pairing_logs.paired_at')
+            ->orderByDesc('kanban_pairing_logs.id')
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('pages.production.pairingLogs', [
+            'logs' => $logs,
+            'projects' => KanbanPairingLog::query()
+                ->whereNotNull('project')
+                ->distinct()
+                ->orderBy('project')
+                ->pluck('project'),
+            'statusOptions' => [
+                KanbanPairingLog::STATUS_READY => 'Ready',
+                KanbanPairingLog::STATUS_CONSUMED => 'Consumed',
+            ],
+        ]);
+    }
+
     private function productionStockBaseQuery()
     {
         return DB::table('internal_parts')
@@ -604,6 +1033,14 @@ class DashboardController extends Controller
         return Excel::download(
             new PartImportTemplateExport(),
             'format import new part BELLA.xlsx'
+        );
+    }
+
+    public function downloadStockImportTemplate()
+    {
+        return Excel::download(
+            new StockImportTemplateExport(),
+            'template import stock BELLA.xlsx'
         );
     }
 
@@ -635,6 +1072,7 @@ class DashboardController extends Controller
                 'mutations.serial_number',
                 'mutations.qty',
                 'mutations.type',
+                DB::raw('COALESCE(mutations.is_adjustment, 0) as is_adjustment'),
                 DB::raw("DATE_FORMAT(mutations.date, '%Y-%m-%d %H:%i:%s') as mutation_date")
             )
             ->whereBetween('mutations.date', [$start->toDateTimeString(), $end->toDateTimeString()])
@@ -661,7 +1099,7 @@ class DashboardController extends Controller
         $data = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->where('mutations.type', 'supply')
+            ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             // range, bukan whereDate(), biar bisa pakai index created_at
             ->whereBetween('mutations.created_at', [
                 Carbon::parse($selectedDate)->startOfDay(),
@@ -731,7 +1169,7 @@ class DashboardController extends Controller
         $details = DB::table('mutations')
             ->join('internal_parts', 'mutations.internal_part_id', '=', 'internal_parts.id')
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
-            ->where('mutations.type', 'supply')
+            ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             ->where('internal_parts.back_number', $backNumber)
             ->when($line !== '', fn ($q) => $q->where('lines.name', $line))
             ->whereBetween('mutations.created_at', [
@@ -1566,10 +2004,11 @@ class DashboardController extends Controller
     public function importPart(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required|mimes:xlsx,xls,csv',
+            'file' => 'required|mimes:xlsx,xls,csv|max:10240',
         ], [
             'file.required' => 'Silakan pilih file Master Part terlebih dahulu.',
             'file.mimes' => 'Format file tidak sesuai. Gunakan file Excel dengan format .xlsx, .xls, atau .csv.',
+            'file.max' => 'Ukuran file Master Part maksimal 10 MB.',
         ]);
 
         if ($validator->fails()) {
@@ -1641,7 +2080,7 @@ class DashboardController extends Controller
         }
 
         try {
-            $import = new StockImport();
+            $import = new StockImport(auth()->user()->npk ?? 'SYS');
 
             Excel::import($import, $request->file('file'));
 

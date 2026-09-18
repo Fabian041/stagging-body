@@ -31,7 +31,7 @@ trait ConvertsCustomerPartNumber
                 // SUZUKI
                 return substr_replace($customerPart, '-', 5, 0);
             }
-            if ($customerId == 6 || $customerId == 23 || $customerId == 24) {
+            if ($customerId == 6 || $customerId == 23 || $customerId == 24 || $customerId == 28) {
                 // MMKI
                 return $customerPart;
             }
