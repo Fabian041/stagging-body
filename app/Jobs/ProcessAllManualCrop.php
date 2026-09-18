@@ -24,11 +24,14 @@ class ProcessAllManualCrop implements ShouldQueue
 
     public array $cuts;
 
-    public function __construct(array $files, string $jobId, array $cuts = [])
+    public bool $skipBlank;
+
+    public function __construct(array $files, string $jobId, array $cuts = [], bool $skipBlank = true)
     {
         $this->files = $files;
         $this->jobId = $jobId;
         $this->cuts = $cuts;
+        $this->skipBlank = $skipBlank;
     }
 
     public function handle(AllManualCropProcessor $processor)
@@ -55,7 +58,7 @@ class ProcessAllManualCrop implements ShouldQueue
 
         logger('QUEUE START ALL-MANUAL '.$this->jobId);
 
-        $filename = $processor->process($this->files, $this->jobId, $this->cuts);
+        $filename = $processor->process($this->files, $this->jobId, $this->cuts, $this->skipBlank);
 
         if (file_exists($cancelPath)) {
             $out = $dir.'/'.basename((string) $filename);

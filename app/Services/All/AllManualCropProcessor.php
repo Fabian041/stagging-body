@@ -31,8 +31,9 @@ class AllManualCropProcessor
      * @param  array  $files      absolute path file PDF (urutan = fileIndex)
      * @param  string $jobId
      * @param  array  $cutsByFile [fileIndex => [pageNum => [frac,...]]]
+     * @param  bool   $filterBlank false = jalur cepat tanpa deteksi blank
      */
-    public function process(array $files, string $jobId, array $cutsByFile = []): string
+    public function process(array $files, string $jobId, array $cutsByFile = [], bool $filterBlank = true): string
     {
         $output = new Fpdi();
         $output->setPrintHeader(false);
@@ -50,6 +51,17 @@ class AllManualCropProcessor
 
         $totalPages = 0;
         $skippedBlank = 0;
+        $applyFilter = $filterBlank;
+
+        // 2 pass: pass 1 buang blank, bila hasilnya NOL halaman ulangi tanpa filter
+        // (pengaman agar tidak pernah menghasilkan PDF kosong).
+        for ($pass = 0; $pass < 2; $pass++) {
+            if ($pass === 1) {
+                $totalPages = 0;
+                $skippedBlank = 0;
+                $applyFilter = false;
+                logger()->warning('AllManual all blank, retry without filter', ['job' => $jobId]);
+            }
 
         foreach (array_values($files) as $fileIndex => $file) {
             if (! is_string($file) || ! is_file($file)) {
@@ -94,7 +106,7 @@ class AllManualCropProcessor
 
                 if (empty($cuts)) {
                     // Tanpa garis: salin apa adanya, tapi buang bila blank.
-                    if ($this->isBlankSegment($file, $page, 0.0, 1.0)) {
+                    if ($applyFilter && $this->isBlankSegment($file, $page, 0.0, 1.0)) {
                         $skippedBlank++;
                         continue;
                     }
@@ -120,7 +132,7 @@ class AllManualCropProcessor
                     }
 
                     // Buang segmen blank/putih saja.
-                    if ($this->isBlankSegment($file, $page, (float) $top, (float) $bottom)) {
+                    if ($applyFilter && $this->isBlankSegment($file, $page, (float) $top, (float) $bottom)) {
                         $skippedBlank++;
                         continue;
                     }
@@ -136,12 +148,9 @@ class AllManualCropProcessor
             }
         }
 
-        // Fallback: jangan hasilkan PDF 0 halaman (corrupt) bila semua kebuang.
-        if ($totalPages === 0 && $skippedBlank > 0) {
-            logger()->warning('AllManual all segments blank, keeping first page as fallback', [
-                'job' => $jobId,
-                'skipped' => $skippedBlank,
-            ]);
+            if ($totalPages > 0 || $skippedBlank === 0) {
+                break;
+            }
         }
 
         $filename = 'kanban_all_manual_'.$jobId.'.pdf';
@@ -174,14 +183,175 @@ class AllManualCropProcessor
     }
 
     /**
-     * Cek segmen blank via detector teks (fail-safe: error => anggap berisi).
+     * Varian chunked untuk file raksasa (upload per bagian karena post_max_size).
+     *
+     * @param  array  $chunkMap   [fileIndex => [chunkAbsPath, ...]] urut per file
+     * @param  string $jobId
+     * @param  array  $cutsByFile [fileIndex => [globalPageNum => [frac,...]]]
+     * @param  bool   $filterBlank false = jalur cepat tanpa deteksi blank
+     * @param  array  $pageOffsets [fileIndex => offset] nomor halaman global awal - 1 (untuk part job)
+     */
+    public function processChunked(array $chunkMap, string $jobId, array $cutsByFile = [], bool $filterBlank = true, array $pageOffsets = []): string
+    {
+        $output = new Fpdi();
+        $output->setPrintHeader(false);
+        $output->setPrintFooter(false);
+        $output->SetMargins(0, 0, 0);
+        $output->SetAutoPageBreak(false, 0);
+        $output->SetCreator('BELLA');
+        $output->SetAuthor('BELLA');
+        $output->SetTitle('Kanban ALL Manual Crop Result');
+
+        logger()->info('AllManualCropProcessor chunked start', [
+            'job' => $jobId,
+            'files' => count($chunkMap),
+        ]);
+
+        $totalPages = 0;
+        $skippedBlank = 0;
+        $applyFilter = $filterBlank;
+
+        // 2 pass: pass 1 buang blank, bila hasilnya NOL halaman ulangi tanpa filter
+        // (pengaman agar tidak pernah menghasilkan PDF kosong).
+        for ($pass = 0; $pass < 2; $pass++) {
+            if ($pass === 1) {
+                $totalPages = 0;
+                $skippedBlank = 0;
+                $applyFilter = false;
+                logger()->warning('AllManualChunked all blank, retry without filter', ['job' => $jobId]);
+            }
+
+        foreach ($chunkMap as $fileIndex => $chunks) {
+            $globalPage = 0;
+
+            foreach (array_values((array) $chunks) as $chunk) {
+                if (! is_string($chunk) || ! is_file($chunk)) {
+                    continue;
+                }
+
+                try {
+                    $chunkPages = $output->setSourceFile($chunk);
+                } catch (\Throwable $e) {
+                    logger()->warning('AllManual chunk open failed', [
+                        'file' => basename((string) $chunk),
+                        'error' => $e->getMessage(),
+                    ]);
+                    continue;
+                }
+
+                for ($local = 1; $local <= $chunkPages; $local++) {
+                    $globalPage++;
+
+                    try {
+                        $template = $output->importPage($local);
+                        $size = $output->getTemplateSize($template);
+                    } catch (\Throwable $e) {
+                        continue;
+                    }
+
+                    $pageW = (float) ($size['width'] ?? 0);
+                    $pageH = (float) ($size['height'] ?? 0);
+
+                    if ($pageW <= 0 || $pageH <= 0) {
+                        continue;
+                    }
+
+                    $off = $pageOffsets[$fileIndex] ?? ($pageOffsets[(string) $fileIndex] ?? 0);
+                    $lookup = $globalPage + (int) $off;
+                    $cuts = $this->normalizeCuts(
+                        $cutsByFile[$fileIndex][$lookup]
+                        ?? ($cutsByFile[(string) $fileIndex][(string) $lookup] ?? [])
+                    );
+
+                    if (empty($cuts)) {
+                        if ($applyFilter && $this->isBlankSegment($chunk, $local, 0.0, 1.0)) {
+                            $skippedBlank++;
+                            continue;
+                        }
+                        $output->AddPage($pageW > $pageH ? 'L' : 'P', [$pageW, $pageH]);
+                        $output->useTemplate($template, 0, 0, $pageW, $pageH);
+                        $totalPages++;
+                        continue;
+                    }
+
+                    $bounds = array_merge([0.0], $cuts, [1.0]);
+
+                    foreach ($bounds as $i => $top) {
+                        if (! isset($bounds[$i + 1])) {
+                            break;
+                        }
+                        $bottom = $bounds[$i + 1];
+                        $segH = ($bottom - $top) * $pageH;
+
+                        if ($segH < 3.0) {
+                            continue;
+                        }
+
+                        if ($applyFilter && $this->isBlankSegment($chunk, $local, (float) $top, (float) $bottom)) {
+                            $skippedBlank++;
+                            continue;
+                        }
+
+                        $y = $top * $pageH;
+
+                        $output->AddPage($pageW > $segH ? 'L' : 'P', [$pageW, $segH]);
+                        $output->useTemplate($template, 0.0, -$y, $pageW, $pageH);
+                        $totalPages++;
+                    }
+                }
+            }
+        }
+
+            if ($totalPages > 0 || $skippedBlank === 0) {
+                break;
+            }
+        }
+
+        $filename = 'kanban_all_manual_'.$jobId.'.pdf';
+        $dir = storage_path('app/temp-kanban');
+
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        $output->Output($dir.DIRECTORY_SEPARATOR.$filename, 'F');
+
+        @file_put_contents(
+            $dir.DIRECTORY_SEPARATOR.$jobId.'.info.json',
+            json_encode([
+                'pages' => $totalPages,
+                'skipped_blank' => $skippedBlank,
+            ])
+        );
+
+        logger()->info('AllManualCropProcessor chunked done', [
+            'job' => $jobId,
+            'file' => $filename,
+            'pages' => $totalPages,
+            'skipped_blank' => $skippedBlank,
+        ]);
+
+        return $filename;
+    }
+
+    /**
+     * Segmen blank = tidak ada teks DAN nyaris tidak ada tinta/gambar.
+     * Fail-safe: ragu-ragu => anggap BERISI (jangan buang).
      */
     protected function isBlankSegment(string $file, int $page, float $fracTop, float $fracBottom): bool
     {
         try {
-            return $this->detector->isRegionEmpty($file, $page, $fracTop, $fracBottom);
+            if (! $this->detector->isRegionEmpty($file, $page, $fracTop, $fracBottom)) {
+                return false;
+            }
         } catch (\Throwable $e) {
             return false;
+        }
+
+        try {
+            return $this->detector->countInkInBand($file, $page, $fracTop, $fracBottom) <= 5;
+        } catch (\Throwable $e) {
+            return true;
         }
     }
 

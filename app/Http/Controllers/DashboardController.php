@@ -2066,7 +2066,6 @@ class DashboardController extends Controller
             'files.*' => 'mimes:pdf|max:20480',
             'cuts' => 'nullable|string',
         ]);
-
         $cuts = [];
         if ($request->filled('cuts')) {
             try {
@@ -2099,13 +2098,208 @@ class DashboardController extends Controller
             ])
         );
 
-        \App\Jobs\ProcessAllManualCrop::dispatch($paths, $jobId, $cuts);
+        \App\Jobs\ProcessAllManualCrop::dispatch($paths, $jobId, $cuts, $request->boolean('skip_blank', true));
 
         return response()->json([
             'status' => true,
             'job_id' => $jobId,
             'customer' => 'ALL',
             'message' => 'PDF manual crop started',
+        ]);
+    }
+
+    /**
+     * Terima satu bagian (chunk) PDF untuk tab MANUAL file raksasa.
+     * TERISOLASI: hanya dipakai flow chunked manual.
+     */
+    public function kanbanAllChunkUpload(Request $request)
+    {
+        $request->validate([
+            'uploadId' => ['required', 'string', 'regex:/^[A-Za-z0-9\-]{8,64}$/'],
+            'fileIndex' => 'required|integer|min:0|max:99',
+            'chunkIndex' => 'required|integer|min:0|max:9999',
+            'totalChunks' => 'required|integer|min:1|max:10000',
+            'fileName' => 'required|string|max:255',
+            'chunk' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        $uploadId = basename((string) $request->input('uploadId'));
+        $fi = (int) $request->input('fileIndex');
+        $ci = (int) $request->input('chunkIndex');
+
+        $name = 'chunk_'.$uploadId.'_'.$fi.'_'.$ci.'.pdf';
+        $request->file('chunk')->storeAs('temp-kanban', $name);
+
+        return response()->json(['status' => true]);
+    }
+
+    /**
+     * Finalisasi upload chunk: verifikasi kelengkapan lalu dispatch job gabung+crop.
+     * TERISOLASI: hanya dipakai flow chunked manual.
+     */
+    public function kanbanAllChunksFinalize(Request $request)
+    {
+        $request->validate([
+            'uploadId' => ['required', 'string', 'regex:/^[A-Za-z0-9\-]{8,64}$/'],
+            'files' => 'required|string',
+            'cuts' => 'nullable|string',
+        ]);
+
+        $uploadId = basename((string) $request->input('uploadId'));
+
+        $specs = json_decode((string) $request->input('files'), true);
+        if (! is_array($specs) || empty($specs)) {
+            return response()->json(['status' => false, 'message' => 'Spesifikasi file tidak valid.'], 422);
+        }
+
+        $cuts = [];
+        if ($request->filled('cuts')) {
+            $decoded = json_decode((string) $request->input('cuts'), true);
+            if (is_array($decoded)) {
+                $cuts = $decoded;
+            }
+        }
+
+        $dir = storage_path('app/temp-kanban');
+        $basenames = [];
+
+        // Kumpulkan chunk per file + hitung offset halaman global.
+        // $filePages[fi] = total halaman file; $chunkPagesAll[fi] = halaman per chunk.
+        $fileList = [];
+        $globalBase = 0;
+        foreach ($specs as $sp) {
+            $fi = (int) ($sp['fileIndex'] ?? 0);
+            $n = (int) ($sp['chunks'] ?? 0);
+            if ($n < 1 || $n > 10000) {
+                return response()->json(['status' => false, 'message' => 'Jumlah chunk tidak valid.'], 422);
+            }
+            $cpages = (isset($sp['chunkPages']) && is_array($sp['chunkPages'])) ? array_values($sp['chunkPages']) : null;
+            $totalPages = (int) ($sp['pages'] ?? 0);
+            $chunks = [];
+            for ($ci = 0; $ci < $n; $ci++) {
+                $base = 'chunk_'.$uploadId.'_'.$fi.'_'.$ci.'.pdf';
+                if (! is_file($dir.'/'.$base)) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Chunk hilang: file '.$fi.' bagian '.($ci + 1).'/'.$n.'. Ulangi upload.',
+                    ], 422);
+                }
+                $chunks[] = [
+                    'path' => $dir.'/'.$base,
+                    'pages' => ($cpages !== null && isset($cpages[$ci])) ? max(1, (int) $cpages[$ci]) : null,
+                ];
+                $basenames[] = $base;
+            }
+            $fileList[] = [
+                'fileIndex' => $fi,
+                'chunks' => $chunks,
+                'globalBase' => $globalBase, // halaman global pertama file ini - 1
+            ];
+            $globalBase += $totalPages > 0 ? $totalPages : array_sum(array_map(
+                static fn ($c) => $c['pages'] ?? 0,
+                $chunks
+            ));
+        }
+
+        // Canary: pastikan chunk pertama bisa dibaca FPDI sebelum dispatch.
+        // Gagal = error jelas (422), bukan PDF hasil kosong.
+        try {
+            $probe = new \setasign\Fpdi\Tcpdf\Fpdi();
+            $firstPath = $fileList[0]['chunks'][0]['path'] ?? null;
+            if (! is_string($firstPath) || ! is_file($firstPath)) {
+                throw new \Exception('Chunk tidak ditemukan.');
+            }
+            $probe->setSourceFile($firstPath);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Chunk tidak bisa dibaca server ('.$e->getMessage().'). Refresh halaman lalu ulangi upload.',
+            ], 422);
+        }
+
+        // Bagi jadi part jobs @ ±100 halaman sumber agar tiap job ringan.
+        // Chunk tanpa info halaman (klien lama) = 1 part per file (tetap lebih ringan dari 1 job semua).
+        $BATCH_PAGES = 100;
+        $parts = [];
+        foreach ($fileList as $f) {
+            $fi = (int) $f['fileIndex'];
+            $known = true;
+            foreach ($f['chunks'] as $c) {
+                if (empty($c['pages'])) {
+                    $known = false;
+                    break;
+                }
+            }
+            if (! $known) {
+                $paths = array_map(static fn ($c) => $c['path'], $f['chunks']);
+                $parts[] = ['fileIndex' => $fi, 'chunks' => $paths, 'cutStart' => (int) $f['globalBase'] + 1];
+                continue;
+            }
+            $acc = [];
+            $accPages = 0;
+            $accStart = (int) $f['globalBase'] + 1;
+            $consumed = 0;
+            foreach ($f['chunks'] as $c) {
+                if (! empty($acc) && $accPages + (int) $c['pages'] > $BATCH_PAGES) {
+                    $parts[] = ['fileIndex' => $fi, 'chunks' => $acc, 'cutStart' => $accStart];
+                    $acc = [];
+                    $accPages = 0;
+                    $accStart = (int) $f['globalBase'] + 1 + $consumed;
+                }
+                $acc[] = $c['path'];
+                $accPages += (int) $c['pages'];
+                $consumed += (int) $c['pages'];
+            }
+            if (! empty($acc)) {
+                $parts[] = ['fileIndex' => $fi, 'chunks' => $acc, 'cutStart' => $accStart];
+            }
+        }
+
+        if (empty($parts)) {
+            return response()->json(['status' => false, 'message' => 'Tidak ada chunk untuk diproses.'], 422);
+        }
+
+        $jobId = (string) Str::uuid();
+        $skipBlank = $request->boolean('skip_blank', true);
+
+        // Daftarkan semua file sementara (chunk + parsial deterministik) untuk tombol cancel.
+        $partTotal = count($parts);
+        for ($i = 0; $i < $partTotal; $i++) {
+            $subId = $jobId.'_part'.$i;
+            $basenames[] = 'kanban_all_manual_'.$subId.'.pdf';
+            $basenames[] = $subId.'.done';
+            $basenames[] = $subId.'.info.json';
+        }
+        $basenames[] = $jobId.'.progress.json';
+
+        @file_put_contents(
+            $dir.'/'.$jobId.'.meta.json',
+            json_encode([
+                'customer' => 'ALL-MANUAL-CHUNKED',
+                'files' => array_values($basenames),
+                'cuts' => $cuts,
+                'created_at' => now()->toDateTimeString(),
+            ])
+        );
+
+        @file_put_contents(
+            $dir.'/'.$jobId.'.progress.json',
+            json_encode(['done' => 0, 'total' => $partTotal])
+        );
+
+        $chain = [];
+        foreach ($parts as $i => $g) {
+            $chain[] = new \App\Jobs\ProcessAllManualPart($g, $jobId, $i, $partTotal, $cuts, $skipBlank);
+        }
+        $chain[] = new \App\Jobs\MergeAllManualParts($jobId, $partTotal);
+
+        \Illuminate\Support\Facades\Bus::chain($chain)->dispatch();
+
+        return response()->json([
+            'status' => true,
+            'job_id' => $jobId,
+            'customer' => 'ALL',
+            'message' => 'PDF manual chunked crop started',
         ]);
     }
 
@@ -2138,11 +2332,43 @@ public function kanbanUploadStatus($id)
     if(!file_exists($marker))
     {
 
-        return response()->json([
+        $payload = [
 
             'status'=>'PROCESSING'
 
-        ]);
+        ];
+
+        // Progres part jobs (khusus flow chunked; tidak ada = abaikan agar kompatibel).
+        try {
+            $progPath = storage_path('app/temp-kanban/'.$id.'.progress.json');
+            if (is_file($progPath)) {
+                $prog = json_decode((string) @file_get_contents($progPath), true);
+                if (is_array($prog) && isset($prog['done'], $prog['total'])) {
+                    $payload['parts_done'] = (int) $prog['done'];
+                    $payload['parts_total'] = (int) $prog['total'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // abaikan
+        }
+
+        // Error merge yang dicatat job (tampil di UI walau log tak terbaca).
+        try {
+            $errPath = storage_path('app/temp-kanban/'.$id.'.merge-error.json');
+            if (is_file($errPath)) {
+                $err = json_decode((string) @file_get_contents($errPath), true);
+                if (is_array($err) && ! empty($err['error'])) {
+                    return response()->json([
+                        'status' => 'FAILED',
+                        'message' => (string) $err['error'],
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // abaikan
+        }
+
+        return response()->json($payload);
 
     }
 
@@ -2155,21 +2381,49 @@ public function kanbanUploadStatus($id)
 
 
 
-    $payload = [
+    // .done multi-volume (JSON) vs klasik (nama file). Klasik tidak berubah.
+    $volumes = null;
+    try {
+        $decodedDone = json_decode(trim((string) $filename), true);
+        if (is_array($decodedDone) && ! empty($decodedDone['volumes']) && is_array($decodedDone['volumes'])) {
+            $volumes = [];
+            foreach ($decodedDone['volumes'] as $v) {
+                $b = basename((string) $v);
+                if ($b === '' || $b === '.' || $b === '..') {
+                    continue;
+                }
+                $volumes[] = [
+                    'file' => $b,
+                    'download' => route('dashboard.kanbanDownload', $b),
+                ];
+            }
+        }
+    } catch (\Throwable $e) {
+        $volumes = null;
+    }
 
-        'status'=>'DONE',
+    if (is_array($volumes) && ! empty($volumes)) {
+        $payload = [
+            'status' => 'DONE',
+            'volumes' => $volumes,
+        ];
+    } else {
+        $payload = [
 
-        'download'=>
+            'status'=>'DONE',
 
-            route(
+            'download'=>
 
-                'dashboard.kanbanDownload',
+                route(
 
-                $filename
+                    'dashboard.kanbanDownload',
 
-            )
+                    $filename
 
-    ];
+                )
+
+        ];
+    }
 
     // Sidecar info khusus job manual (ada = tampilkan, tidak ada = abaikan agar kompatibel).
     try {
@@ -2245,26 +2499,34 @@ public function kanbanCancel($id)
         // abaikan, lanjut bersih-bersih
     }
 
-    // 4) Hapus hasil bila job keburu DONE.
+    // 4) Hapus hasil bila job keburu DONE (klasik: 1 file; volume: JSON).
     try {
         $donePath = $dir.'/'.$id.'.done';
         if(is_file($donePath))
         {
-            $out = basename(trim((string) @file_get_contents($donePath)));
-            if($out !== '' && $out !== '.' && $out !== '..' && is_file($dir.'/'.$out))
-            {
-                @unlink($dir.'/'.$out);
-                $deleted++;
+            $rawDone = trim((string) @file_get_contents($donePath));
+            $targets = [];
+            $decodedDone = json_decode($rawDone, true);
+            if (is_array($decodedDone) && ! empty($decodedDone['volumes']) && is_array($decodedDone['volumes'])) {
+                foreach ($decodedDone['volumes'] as $v) {
+                    $targets[] = basename((string) $v);
+                }
+            } elseif ($rawDone !== '') {
+                $targets[] = basename($rawDone);
+            }
+            foreach ($targets as $out) {
+                if($out === '' || $out === '.' || $out === '..') continue;
+                if(is_file($dir.'/'.$out) && @unlink($dir.'/'.$out))
+                {
+                    $deleted++;
+                }
             }
             @unlink($donePath);
         }
-    } catch (\Throwable $e) {
-        // abaikan
-    }
-
-    // 5) Hapus sidecar info manual bila ada (tidak mengganggu job lama).
-    try {
+        // 5) Hapus sidecar manual (info/progress/merge-error) bila ada; job lama tidak punya = abaikan.
         @unlink($dir.'/'.$id.'.info.json');
+        @unlink($dir.'/'.$id.'.progress.json');
+        @unlink($dir.'/'.$id.'.merge-error.json');
     } catch (\Throwable $e) {
         // abaikan
     }

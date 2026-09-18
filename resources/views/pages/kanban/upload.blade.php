@@ -157,7 +157,6 @@
                 <div>
                     <h4 class="mb-0"><i class="fas fa-cut text-danger"></i> Form Manual</h4>
                 </div>
-                <span class="badge badge-danger" id="allManualCount">0 garis</span>
             </div>
             <div class="card-body">
                 <div class="form-group">
@@ -168,7 +167,7 @@
                             <i class="fas fa-redo"></i> Reset
                         </button>
                     </div>
-                    <small class="text-muted">Hanya PDF, maks 20MB per file.</small>
+                    <small class="text-muted">Hanya PDF, maks 20MB per file. Preview hanya 5 halaman pertama agar ringan — garis page 1 berlaku ke semua halaman.</small>
                 </div>
                 <div class="d-flex flex-wrap mb-3" style="gap:16px;">
                     <label class="mb-0" style="font-size:13px;font-weight:700;">
@@ -176,6 +175,9 @@
                     </label>
                     <label class="mb-0" style="font-size:13px;font-weight:700;">
                         <input type="checkbox" id="allManualAutoChk" checked> Auto-lanjutkan garis ke bawah
+                    </label>
+                    <label class="mb-0" style="font-size:13px;font-weight:700;" title="Matikan bila file ribuan halaman agar proses jauh lebih cepat (blank tidak dibuang)">
+                        <input type="checkbox" id="allManualBlankChk" checked> Buang halaman blank
                     </label>
                 </div>
                 {{-- Tombol di atas agar mudah dijangkau --}}
@@ -943,9 +945,9 @@
         .allm-page.is-locked .allm-overlay { cursor: not-allowed; }
         .allm-master-badge { background: #DC2626; color: #fff; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 10px; }
         .allm-lock-badge { background: #6B7A99; color: #fff; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 10px; }
-        .allm-seg-hint { position: absolute; left: 6px; background: rgba(26,35,64,.72); color: #fff; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 2px 8px; pointer-events: none; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script>
         (function() {
             if (!document.getElementById('allManualCard')) return;
@@ -955,7 +957,6 @@
             const filesInput = document.getElementById('files');
             const listEl = document.getElementById('allManualList');
             const emptyEl = document.getElementById('allManualEmpty');
-            const countEl = document.getElementById('allManualCount');
             const processBtn = document.getElementById('allManualProcessBtn');
             const cancelBtn = document.getElementById('allManualCancelBtn');
             const statusText = document.getElementById('allManualStatusText');
@@ -964,12 +965,19 @@
             const progressBar = document.getElementById('allManualProgressBar');
             const downloadBox = document.getElementById('allManualDownload');
             const PROCESS_URL = "{{ route('dashboard.kanbanAllManualProcess') }}";
+            const CHUNK_URL = "{{ route('dashboard.kanbanAllChunkUpload') }}";
+            const FINALIZE_URL = "{{ route('dashboard.kanbanAllChunksFinalize') }}";
+            const CHUNK_THRESHOLD = 6 * 1024 * 1024; // di atas ini pakai upload per bagian
+            const CHUNK_TARGET = 5 * 1024 * 1024; // target ukuran tiap bagian (aman di bawah post_max_size 8MB)
+            let chunking = false, chunkCancelled = false, chunkAbort = null;
 
             let allFiles = []; // File[]
             let pages = [];    // {key,fileIdx,fileName,pageNum,cuts:[],wrap,overlay}
             let busy = false, pollTimer = null, currentJobId = null, currentXhr = null;
             let finished = false; // true setelah DONE: hanya Reset + Download yang available
             function editingLocked() { return busy || finished; }
+            const MAX_PREVIEW_PAGES = 5; // preview ringan: hanya 5 halaman pertama per file
+            let filePageCounts = {}; // fileIdx -> total halaman PDF (untuk perluasan garis ke semua halaman)
 
             function setStatus(msg, kind) {
                 statusText.innerHTML = msg;
@@ -980,11 +988,7 @@
                 progressBar.style.width = v + '%';
                 progressBar.textContent = v + '%';
             }
-            function refreshCount() {
-                let garis = 0, hasil = 0;
-                pages.forEach(function(p) { garis += p.cuts.length; hasil += (p.cuts.length + 1); });
-                if (countEl) countEl.textContent = garis + ' garis → ' + hasil + ' page hasil';
-            }
+            function refreshCount() { /* dihapus: penghitung garis tidak dipakai agar ringan */ }
             function fileKey(f) { return f.name + '|' + f.size + '|' + f.lastModified; }
             function isSyncOn() { const c = document.getElementById('allManualSyncChk'); return c ? c.checked : true; }
             function isAutoOn() { const c = document.getElementById('allManualAutoChk'); return c ? c.checked : true; }
@@ -1009,11 +1013,14 @@
                 if (isAutoOn() && b.length >= 2) {
                     const d = b[1] - b[0];
                     if (d >= 0.03) {
-                        let next = b[1] + d;
+                        // Auto hanya lanjut SETELAH garis merah terakhir — tidak boleh
+                        // di dalam rentang / menumpuk garis merah.
+                        let next = b[b.length - 1] + d;
                         let guard = 0;
                         while (next < 0.98 && guard < 30) {
-                            const last = final[final.length - 1];
-                            if (Math.abs(next - last) >= 0.025) { final.push(next); auto.push(next); }
+                            const clash = b.some(function(v) { return Math.abs(v - next) < 0.03; }) ||
+                                          auto.some(function(v) { return Math.abs(v - next) < 0.025; });
+                            if (!clash) { final.push(next); auto.push(next); }
                             next += d;
                             guard++;
                         }
@@ -1041,7 +1048,7 @@
                 pg.autoCuts = comp.auto;
                 const autoSet = {};
                 comp.auto.forEach(function(v) { autoSet[v.toFixed(4)] = true; });
-                pg.overlay.querySelectorAll('.allm-line,.allm-seg-hint').forEach(function(n) { n.remove(); });
+                pg.overlay.querySelectorAll('.allm-line').forEach(function(n) { n.remove(); });
                 // tandai master / locked
                 if (pg.card) {
                     pg.card.classList.toggle('is-master', isMaster(pg));
@@ -1100,16 +1107,6 @@
                     });
                     pg.overlay.appendChild(line);
                 });
-                // hint segmen hasil
-                const bounds = [0].concat(pg.cuts).concat([1]);
-                for (let i = 0; i < bounds.length - 1; i++) {
-                    const mid = (bounds[i] + bounds[i + 1]) / 2;
-                    const hint = document.createElement('div');
-                    hint.className = 'allm-seg-hint';
-                    hint.style.top = 'calc(' + (mid * 100) + '% - 10px)';
-                    hint.textContent = 'hasil ' + (i + 1);
-                    pg.overlay.appendChild(hint);
-                }
             }
 
             function addPageDom(fileIdx, fileName, pageNum, canvas) {
@@ -1168,7 +1165,9 @@
                 try {
                     const buf = await file.arrayBuffer();
                     const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-                    for (let n = 1; n <= pdf.numPages; n++) {
+                    filePageCounts[fileIdx] = pdf.numPages;
+                    const maxN = Math.min(pdf.numPages, MAX_PREVIEW_PAGES);
+                    for (let n = 1; n <= maxN; n++) {
                         try {
                             const page = await pdf.getPage(n);
                             const viewport = page.getViewport({ scale: 1.3 });
@@ -1180,7 +1179,8 @@
                             addPageDom(fileIdx, file.name, n, canvas);
                         } catch (e) { console.error(e); }
                     }
-                    setStatus(allFiles.length + ' file, ' + pages.length + ' halaman di-preview. Atur garis merah lalu klik Process Manual.', 'info');
+                    const more = pdf.numPages > maxN ? ' (preview ' + maxN + ' pertama dari ' + pdf.numPages + ' hal, garis page 1 berlaku ke semua)' : '';
+                    setStatus(allFiles.length + ' file, preview ' + pages.length + ' halaman' + more + '. Atur garis merah lalu klik Process Manual.', 'info');
                 } catch (e) {
                     console.error(e);
                     setStatus('Gagal preview ' + file.name + ': ' + (e.message || e), 'danger');
@@ -1221,6 +1221,7 @@
             if (resetPreviewBtn) resetPreviewBtn.addEventListener('click', function() {
                 if (busy) return;
                 allFiles = []; pages = [];
+                filePageCounts = {};
                 finished = false;
                 listEl.innerHTML = '';
                 if (emptyEl) emptyEl.style.display = '';
@@ -1256,12 +1257,117 @@
 
             function buildCuts() {
                 const out = {};
+                // Mode copy (default): garis page 1 berlaku ke SEMUA halaman semua file,
+                // termasuk halaman yang tidak di-preview (PDF 1000+ hal tetap kepotong semua).
+                if (isSyncOn() && pages.length > 0) {
+                    const master = pages[0].cuts.slice().sort(function(a, b) { return a - b; });
+                    if (master.length === 0) return out; // tanpa garis = semua disalin apa adanya
+                    Object.keys(filePageCounts).forEach(function(fi) {
+                        const total = parseInt(filePageCounts[fi], 10) || 0;
+                        for (let p = 1; p <= total; p++) {
+                            if (!out[fi]) out[fi] = {};
+                            out[fi][p] = master.slice();
+                        }
+                    });
+                    return out;
+                }
                 pages.forEach(function(pg) {
                     if (!pg.cuts.length) return;
                     if (!out[pg.fileIdx]) out[pg.fileIdx] = {};
                     out[pg.fileIdx][pg.pageNum] = pg.cuts.slice().sort(function(a,b){return a-b;});
                 });
                 return out;
+            }
+
+            // Upload per bagian (chunk) untuk file raksasa: pecah PDF di browser via pdf-lib,
+            // kirim tiap bagian kecil, lalu finalize agar server gabung + crop.
+            async function startChunkedUpload(cuts) {
+                chunking = true; chunkCancelled = false;
+                const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                const uploadId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('up-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+                const plans = [];
+                let totalChunks = 0;
+                for (let fi = 0; fi < allFiles.length; fi++) {
+                    const f = allFiles[fi];
+                    const bytes = await f.arrayBuffer();
+                    const src = await window.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+                    const np = src.getPageCount();
+                    if (!np) throw new Error('File ' + f.name + ' tidak ada halaman.');
+                    const perPage = f.size / np;
+                    const perChunk = Math.max(1, Math.min(50, Math.floor(CHUNK_TARGET / Math.max(1, perPage))));
+                    const ranges = [];
+                    for (let s = 0; s < np; s += perChunk) ranges.push([s, Math.min(s + perChunk, np)]);
+                    plans.push({ file: f, src: src, np: np, ranges: ranges });
+                    totalChunks += ranges.length;
+                }
+                let doneChunks = 0;
+                const specs = [];
+                for (let fi = 0; fi < plans.length; fi++) {
+                    const pl = plans[fi];
+                    for (let ci = 0; ci < pl.ranges.length; ci++) {
+                        if (chunkCancelled) throw { cancelled: true };
+                        const start = pl.ranges[ci][0], end = pl.ranges[ci][1];
+                        const sub = await window.PDFLib.PDFDocument.create();
+                        const idxs = [];
+                        for (let p = start; p < end; p++) idxs.push(p);
+                        const copied = await sub.copyPages(pl.src, idxs);
+                        copied.forEach(function(pg) { sub.addPage(pg); });
+                        // WAJIB tanpa object-stream: FPDI server tidak bisa baca PDF terkompresi modern.
+                        const chunkBytes = await sub.save({ useObjectStreams: false });
+                        const fd = new FormData();
+                        fd.append('uploadId', uploadId);
+                        fd.append('fileIndex', String(fi));
+                        fd.append('chunkIndex', String(ci));
+                        fd.append('totalChunks', String(pl.ranges.length));
+                        fd.append('fileName', pl.file.name);
+                        fd.append('chunk', new Blob([chunkBytes], { type: 'application/pdf' }), 'chunk.pdf');
+                        fd.append('_token', csrf);
+                        chunkAbort = new AbortController();
+                        let res;
+                        try {
+                            res = await fetch(CHUNK_URL, {
+                                method: 'POST', body: fd,
+                                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                                signal: chunkAbort.signal
+                            });
+                        } catch (e) {
+                            if (chunkCancelled || (e && e.name === 'AbortError')) throw { cancelled: true };
+                            throw e;
+                        }
+                        if (!res.ok) {
+                            let t = '';
+                            try { t = await res.text(); } catch (e2) {}
+                            throw new Error('Bagian ' + (ci + 1) + '/' + pl.ranges.length + ' gagal (HTTP ' + res.status + '). ' + t.substring(0, 120));
+                        }
+                        doneChunks++;
+                        setProgress(Math.round(doneChunks / totalChunks * 30));
+                        setStatus('Uploading bagian ' + doneChunks + '/' + totalChunks + '...', 'info');
+                    }
+                    specs.push({ fileIndex: fi, fileName: pl.file.name, chunks: pl.ranges.length, pages: pl.np, chunkPages: pl.ranges.map(function(r) { return r[1] - r[0]; }) });
+                }
+                if (chunkCancelled) throw { cancelled: true };
+                setStatus('Semua bagian terkirim. Server menggabung + crop...', 'info');
+                const fd2 = new FormData();
+                fd2.append('uploadId', uploadId);
+                fd2.append('files', JSON.stringify(specs));
+                fd2.append('cuts', JSON.stringify(cuts));
+                fd2.append('skip_blank', ((document.getElementById('allManualBlankChk') || {}).checked !== false) ? '1' : '0');
+                fd2.append('_token', csrf);
+                const res2 = await fetch(FINALIZE_URL, {
+                    method: 'POST', body: fd2,
+                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+                });
+                let j2 = null;
+                try { j2 = await res2.json(); } catch (e) { j2 = null; }
+                if (!res2.ok || !j2 || !j2.job_id) {
+                    const em = (j2 && j2.message) || ('HTTP ' + res2.status);
+                    throw new Error('Finalisasi gagal: ' + em);
+                }
+                chunking = false;
+                currentJobId = j2.job_id;
+                setProgress(35);
+                setStatus('Step 2/2 — Generating manual...', 'info');
+                pollStatus(j2.job_id);
             }
 
             function pollStatus(jobId) {
@@ -1281,6 +1387,18 @@
                             const ac = document.getElementById('allManualAutoChk');
                             if (ac) ac.disabled = false;
                             setStatus('Dibatalkan.', 'warning');
+                        } else if (st.status === 'FAILED') {
+                            clearInterval(pollTimer); pollTimer = null; busy = false;
+                            processBtn.disabled = false; cancelBtn.disabled = true;
+                            const miF = document.getElementById('allManualFilesInput');
+                            if (miF) miF.disabled = false;
+                            const scF = document.getElementById('allManualSyncChk');
+                            if (scF) scF.disabled = false;
+                            const acF = document.getElementById('allManualAutoChk');
+                            if (acF) acF.disabled = false;
+                            const tmpF = document.createElement('div');
+                            tmpF.textContent = (st.message || 'Proses gagal tanpa pesan.');
+                            setStatus('Gagal: <code>' + tmpF.innerHTML.substring(0, 300) + '</code> — kirim pesan ini agar diperbaiki.', 'danger');
                         } else if (st.status === 'DONE') {
                             clearInterval(pollTimer); pollTimer = null; busy = false;
                             finished = true;
@@ -1292,17 +1410,32 @@
                                 const pgCount = (st.pages !== undefined) ? st.pages : '?';
                                 const skCount = (st.skipped_blank !== undefined) ? st.skipped_blank : 0;
                                 doneMsg = 'Selesai (ALL manual). Hasil <strong>' + pgCount + ' page</strong>' +
-                                    (skCount > 0 ? ' (<strong>' + skCount + ' blank dibuang</strong>)' : ' (tidak ada blank)') +
-                                    '. Klik Download lalu Reset untuk job baru.';
+                                    (skCount > 0 ? ' (<strong>' + skCount + ' blank dibuang</strong>)' : ' (tidak ada blank)');
+                                if (st.volumes && st.volumes.length > 1) {
+                                    doneMsg += ' dalam <strong>' + st.volumes.length + ' file</strong>';
+                                }
+                                doneMsg += '. Klik Download lalu Reset untuk job baru.';
                             } else {
                                 doneMsg = 'Selesai (ALL manual). Blank otomatis dibuang. Klik Download lalu Reset untuk job baru.';
                             }
                             setStatus(doneMsg, 'success');
-                            downloadBox.innerHTML = '<a href="' + st.download + '" download class="btn btn-success"><i class="fas fa-download"></i> Download (ALL manual)</a>';
+                            if (st.volumes && st.volumes.length) {
+                                let html = '';
+                                st.volumes.forEach(function(v, idx) {
+                                    html += '<a href="' + v.download + '" download class="btn btn-success btn-sm m-1"><i class="fas fa-download"></i> Download ' + (idx + 1) + '</a>';
+                                });
+                                downloadBox.innerHTML = html;
+                            } else {
+                                downloadBox.innerHTML = '<a href="' + st.download + '" download class="btn btn-success"><i class="fas fa-download"></i> Download (ALL manual)</a>';
+                            }
                         } else {
                             const cur = parseFloat(progressBar.style.width) || 35;
                             if (cur < 95) setProgress(cur + (95 - cur) * 0.06);
-                            setStatus('Generating manual... job <code>' + jobId + '</code> · cek ke-' + attempts, 'info');
+                            if (st.parts_done !== undefined && st.parts_total) {
+                                setStatus('Generating manual... bagian <strong>' + st.parts_done + '/' + st.parts_total + '</strong> selesai · job <code>' + jobId + '</code>', 'info');
+                            } else {
+                                setStatus('Generating manual... job <code>' + jobId + '</code> · cek ke-' + attempts, 'info');
+                            }
                             if (attempts >= 240) {
                                 clearInterval(pollTimer); pollTimer = null; busy = false;
                                 processBtn.disabled = false; cancelBtn.disabled = true;
@@ -1323,9 +1456,42 @@
                 if (busy) return;
                 if (allFiles.length === 0) { alert('Pilih PDF dulu di form atas.'); return; }
                 const cuts = buildCuts();
+                // File besar (>6MB total): pecah per bagian di browser agar tiap POST di bawah post_max_size.
+                const totalBytes = allFiles.reduce(function(s, f) { return s + (f.size || 0); }, 0);
+                if (totalBytes > CHUNK_THRESHOLD) {
+                    if (!window.PDFLib) { alert('File besar butuh pdf-lib (CDN). Cek internet lalu coba lagi.'); return; }
+                    busy = true; processBtn.disabled = true; cancelBtn.disabled = false;
+                    finished = false;
+                    const miC0 = document.getElementById('allManualFilesInput');
+                    if (miC0) miC0.disabled = true;
+                    const scC0 = document.getElementById('allManualSyncChk');
+                    if (scC0) scC0.disabled = true;
+                    const acC0 = document.getElementById('allManualAutoChk');
+                    if (acC0) acC0.disabled = true;
+                    downloadBox.innerHTML = '';
+                    progressWrap.classList.remove('d-none');
+                    setProgress(2);
+                    setStatus('File besar terdeteksi — upload per bagian...', 'info');
+                    startChunkedUpload(cuts).catch(function(e) {
+                        chunking = false;
+                        console.error(e);
+                        const msg = (e && e.cancelled) ? 'Dibatalkan.' :
+                            ('Gagal upload per bagian: ' + ((e && e.message) || e));
+                        busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                        const miCE = document.getElementById('allManualFilesInput');
+                        if (miCE) miCE.disabled = false;
+                        const scCE = document.getElementById('allManualSyncChk');
+                        if (scCE) scCE.disabled = false;
+                        const acCE = document.getElementById('allManualAutoChk');
+                        if (acCE) acCE.disabled = false;
+                        setStatus(msg, (e && e.cancelled) ? 'warning' : 'danger');
+                    });
+                    return;
+                }
                 const fd = new FormData();
                 allFiles.forEach(function(f) { fd.append('files[]', f); });
                 fd.append('cuts', JSON.stringify(cuts));
+                fd.append('skip_blank', ((document.getElementById('allManualBlankChk') || {}).checked !== false) ? '1' : '0');
                 fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
                 busy = true; processBtn.disabled = true; cancelBtn.disabled = false;
                 finished = false;
@@ -1350,34 +1516,52 @@
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState !== 4) return;
                     currentXhr = null;
+                    const reenable = function() {
+                        busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                        const miR = document.getElementById('allManualFilesInput');
+                        if (miR) miR.disabled = false;
+                        const scR = document.getElementById('allManualSyncChk');
+                        if (scR) scR.disabled = false;
+                        const acR = document.getElementById('allManualAutoChk');
+                        if (acR) acR.disabled = false;
+                    };
                     if (xhr.status >= 200 && xhr.status < 300) {
                         let r = null;
-                        try { r = JSON.parse(xhr.responseText); } catch (e) {}
+                        try { r = JSON.parse(xhr.responseText); } catch (e) { r = null; }
                         if (r && r.job_id) {
                             currentJobId = r.job_id;
                             setProgress(35);
                             setStatus('Step 2/2 — Generating manual...', 'info');
                             pollStatus(r.job_id);
                         } else {
-                            busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
-                            const miE = document.getElementById('allManualFilesInput');
-                            if (miE) miE.disabled = false;
-                            const scE = document.getElementById('allManualSyncChk');
-                            if (scE) scE.disabled = false;
-                            const acE = document.getElementById('allManualAutoChk');
-                            if (acE) acE.disabled = false;
-                            setStatus('Response tidak valid.', 'danger');
+                            reenable();
+                            const raw = (xhr.responseText || '').trim();
+                            console.error('Manual upload bad response:', xhr.status, raw.substring(0, 500));
+                            if (/^\s*</.test(raw) || /<\s*html/i.test(raw)) {
+                                setStatus('Server mengembalikan halaman HTML, bukan JSON — kemungkinan <strong>sesi habis / belum login</strong>. Refresh halaman (Ctrl+F5), login ulang, lalu coba lagi.', 'danger');
+                            } else if (!raw) {
+                                setStatus('Server balas kosong (HTTP ' + xhr.status + '). Coba lagi; bila tetap, cek koneksi / restart queue worker.', 'danger');
+                            } else {
+                                const safe = raw.replace(/<[^>]*>/g, '').substring(0, 200);
+                                const tmp = document.createElement('div');
+                                tmp.textContent = safe;
+                                setStatus('Response tidak valid (HTTP ' + xhr.status + '). Isi: <code>' + tmp.innerHTML + '</code>', 'danger');
+                            }
                         }
                     } else {
                         let msg = 'Upload gagal (HTTP ' + xhr.status + ').';
-                        try { const j = JSON.parse(xhr.responseText); if (j.message) msg += ' ' + j.message; } catch (e) {}
-                        busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
-                        const miF = document.getElementById('allManualFilesInput');
-                        if (miF) miF.disabled = false;
-                        const scF = document.getElementById('allManualSyncChk');
-                        if (scF) scF.disabled = false;
-                        const acF = document.getElementById('allManualAutoChk');
-                        if (acF) acF.disabled = false;
+                        try {
+                            const j = JSON.parse(xhr.responseText);
+                            if (j.errors) {
+                                const firstKey = Object.keys(j.errors)[0];
+                                if (firstKey && j.errors[firstKey] && j.errors[firstKey][0]) msg += ' ' + j.errors[firstKey][0];
+                                else if (j.message) msg += ' ' + j.message;
+                            } else if (j.message) msg += ' ' + j.message;
+                        } catch (e) {}
+                        if (xhr.status === 419) msg = 'Sesi kedaluwarsa (CSRF). Refresh halaman (Ctrl+F5) lalu coba lagi.';
+                        else if (xhr.status === 401) msg = 'Belum login / sesi habis. Refresh halaman dan login ulang.';
+                        else if (xhr.status === 413) msg = 'File terlalu besar untuk server. Kecilkan / pecah PDF lalu coba lagi.';
+                        reenable();
                         setStatus(msg, 'danger');
                     }
                 };
@@ -1397,6 +1581,7 @@
             if (cancelBtn) cancelBtn.addEventListener('click', async function() {
                 if (!busy) return;
                 if (!confirm('Batalkan proses manual ini?')) return;
+                if (chunking) { chunkCancelled = true; if (chunkAbort) { try { chunkAbort.abort(); } catch (e) {} chunkAbort = null; } }
                 if (currentXhr) { try { currentXhr.abort(); } catch (e) {} currentXhr = null; }
                 if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
                 if (currentJobId) {

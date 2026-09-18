@@ -212,6 +212,25 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.kanbanAllManualProcess');
 
+    // ALL manual file raksasa: upload per bagian (chunk) — TERISOLASI.
+    Route::post(
+        '/dashboard/kanban/all/upload-chunk',
+        [
+            DashboardController::class,
+            'kanbanAllChunkUpload'
+        ]
+    )
+    ->name('dashboard.kanbanAllChunkUpload');
+
+    Route::post(
+        '/dashboard/kanban/all/finalize-chunks',
+        [
+            DashboardController::class,
+            'kanbanAllChunksFinalize'
+        ]
+    )
+    ->name('dashboard.kanbanAllChunksFinalize');
+
     Route::get(
         '/dashboard/kanban/download/{file}',
         [

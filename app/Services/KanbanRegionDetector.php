@@ -167,6 +167,81 @@ class KanbanRegionDetector
     }
 
     /**
+     * Cache parse per file & halaman.
+     *
+     * Job manual 1000+ halaman memanggil cek blank ribuan kali (per segmen).
+     * Tanpa cache tiap panggilan baca ulang + parse ulang seluruh file.
+     * Cache hidup sebatas instance (per job), доступ FIFO agar RAM bounded.
+     * Murni optimasi: hasil identik dengan parse ulang.
+     */
+    protected array $fileParseCache = []; // [path => ['objects'=>..,'pages'=>..]|null]
+
+    protected array $pageParseCache = []; // ["path|page" => ['pageH'=>..,'items'=>..,'ink'=>..]|null]
+
+    protected function cachedFileParse(string $file): ?array
+    {
+        if (array_key_exists($file, $this->fileParseCache)) {
+            return $this->fileParseCache[$file];
+        }
+
+        $data = null;
+        try {
+            $raw = @file_get_contents($file);
+            if (is_string($raw) && $raw !== '') {
+                $objects = $this->parseObjects($raw);
+                $pages = $this->orderedPageNumbers($objects);
+                $data = ['objects' => $objects, 'pages' => $pages];
+            }
+        } catch (\Throwable $e) {
+            $data = null;
+        }
+
+        // Simpan tanpa raw (hemat RAM); raw tidak dipakai lagi setelah parse.
+        // Cap 1 file: pemrosesan selalu sekuensial sehingga hit-rate tetap 100%.
+        $this->fileParseCache[$file] = $data;
+        if (count($this->fileParseCache) > 1) {
+            unset($this->fileParseCache[array_key_first($this->fileParseCache)]);
+        }
+
+        return $data;
+    }
+
+    protected function cachedPageParse(string $file, int $page): ?array
+    {
+        $key = $file.'|'.$page;
+        if (array_key_exists($key, $this->pageParseCache)) {
+            return $this->pageParseCache[$key];
+        }
+
+        $data = null;
+        try {
+            $fp = $this->cachedFileParse($file);
+            if ($fp !== null && isset($fp['pages'][$page - 1])) {
+                $pageObj = (int) $fp['pages'][$page - 1];
+                $content = $this->decodedPageContent($fp['objects'], $pageObj);
+                if ($content !== '') {
+                    $media = $this->readMediaBoxPt($fp['objects'], $pageObj);
+                    $pageH = (float) ($media['height'] ?? 0);
+                    if ($pageH > 0) {
+                        $items = $this->extractTextWithPositions($content);
+                        $ink = $this->buildInkHistogram($content, $items, $pageH);
+                        $data = ['pageH' => $pageH, 'items' => $items, 'ink' => $ink];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $data = null;
+        }
+
+        $this->pageParseCache[$key] = $data;
+        if (count($this->pageParseCache) > 100) {
+            unset($this->pageParseCache[array_key_first($this->pageParseCache)]);
+        }
+
+        return $data;
+    }
+
+    /**
      * Cek apakah potongan vertikal benar-benar kosong (tidak ada teks).
      *
      * Dipakai splitter untuk membuang slice whitespace (mis. margin /
@@ -182,31 +257,13 @@ class KanbanRegionDetector
                 return true;
             }
 
-            $raw = @file_get_contents($file);
-            if (! is_string($raw) || $raw === '') {
+            // Hasil identik dengan parse ulang; cache hanya menghindari I/O berulang.
+            $parsed = $this->cachedPageParse($file, $page);
+            if ($parsed === null) {
                 return false;
             }
 
-            $objects = $this->parseObjects($raw);
-            $pages = $this->orderedPageNumbers($objects);
-
-            if (! isset($pages[$page - 1])) {
-                return false;
-            }
-
-            $pageObj = (int) $pages[$page - 1];
-            $content = $this->decodedPageContent($objects, $pageObj);
-
-            if ($content === '') {
-                return false;
-            }
-
-            $media = $this->readMediaBoxPt($objects, $pageObj);
-            $pageH = (float) $media['height'];
-
-            if ($pageH <= 0) {
-                return false;
-            }
+            $pageH = (float) $parsed['pageH'];
 
             // Konversi fraksi-dari-atas ke Y PDF (origin bawah).
             $yTop = (1 - $fracTop) * $pageH;
@@ -221,7 +278,7 @@ class KanbanRegionDetector
                 return true;
             }
 
-            $items = $this->extractTextWithPositions($content);
+            $items = $parsed['items'];
 
             $n = 0;
             foreach ($items as $it) {
@@ -237,6 +294,58 @@ class KanbanRegionDetector
             return true;
         } catch (\Throwable $e) {
             return false;
+        }
+    }
+
+    /**
+     * Hitung "tinta" (teks, garis, rect, kurva, gambar) dalam satu pita vertikal.
+     *
+     * Dipakai flow MANUAL untuk membedakan halaman putih polos vs halaman
+     * scan/gambar (yang tidak punya teks terekstrak tapi jelas berisi).
+     * Inset 2pt dari tiap tepi agar garis potong di batas tidak ikut dihitung.
+     *
+     * @param float $fracTop    fraksi dari atas (0..1) tepi atas pita.
+     * @param float $fracBottom fraksi dari atas (0..1) tepi bawah pita.
+     */
+    public function countInkInBand(string $file, int $page, float $fracTop, float $fracBottom): int
+    {
+        try {
+            if ($fracBottom <= $fracTop) {
+                return 0;
+            }
+
+            // Hasil identik dengan parse ulang; cache hanya menghindari I/O berulang.
+            $parsed = $this->cachedPageParse($file, $page);
+            if ($parsed === null) {
+                return 0;
+            }
+
+            $pageH = (float) $parsed['pageH'];
+            $ink = $parsed['ink'];
+
+            $n = count($ink) - 1;
+            if ($n < 0) {
+                return 0;
+            }
+
+            $yTop = (1 - $fracTop) * $pageH;
+            $yBottom = (1 - $fracBottom) * $pageH;
+
+            $lo = max(0, (int) floor($yBottom + 2.0));
+            $hi = min($n, (int) ceil($yTop - 2.0));
+
+            if ($hi < $lo) {
+                return 0;
+            }
+
+            $sum = 0;
+            for ($k = $lo; $k <= $hi; $k++) {
+                $sum += (int) ($ink[$k] ?? 0);
+            }
+
+            return $sum;
+        } catch (\Throwable $e) {
+            return 0;
         }
     }
 
