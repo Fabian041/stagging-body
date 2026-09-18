@@ -23,15 +23,15 @@ use setasign\Fpdi\Tcpdf\Fpdi;
  */
 class KanbanRegionDetector
 {
-    private const MIN_KANBAN = 1;
-    private const MAX_KANBAN = 6;
-    private const DEFAULT_KANBAN = 3;
+    protected const MIN_KANBAN = 1;
+    protected const MAX_KANBAN = 6;
+    protected const DEFAULT_KANBAN = 3;
 
-    private const TRIM_MM = 2.0;
+    protected const TRIM_MM = 2.0;
 
-    private const MIN_REGION_MM = 20.0;
+    protected const MIN_REGION_MM = 20.0;
 
-    private const MARKERS = [
+    protected const MARKERS = [
         'UNIQUE NO',
         'SUPPLIER DATA',
         'MANIFEST NO',
@@ -41,7 +41,7 @@ class KanbanRegionDetector
         'Printed at Supplier',
     ];
 
-    private const SHORT_MARKERS = [
+    protected const SHORT_MARKERS = [
         'UNIQUE',
         'MANIFEST',
         'SUPPLIER',
@@ -113,7 +113,7 @@ class KanbanRegionDetector
                 }
             }
 
-            $kanbanCount = max(self::MIN_KANBAN, min(self::MAX_KANBAN, $kanbanCount));
+            $kanbanCount = max(static::MIN_KANBAN, min(static::MAX_KANBAN, $kanbanCount));
 
             if ($kanbanCount === 1) {
                 return [
@@ -150,7 +150,7 @@ class KanbanRegionDetector
             $regions = $this->buildRows($pageW, $pageH, $cutsMm);
 
             foreach ($regions as $r) {
-                if ($r['height'] < self::MIN_REGION_MM) {
+                if ($r['height'] < static::MIN_REGION_MM) {
                     $equal = [];
                     for ($i = 1; $i < $kanbanCount; $i++) {
                         $equal[] = ($i / $kanbanCount) * $pageH;
@@ -164,6 +164,81 @@ class KanbanRegionDetector
         } catch (\Throwable $e) {
             return [];
         }
+    }
+
+    /**
+     * Cache parse per file & halaman.
+     *
+     * Job manual 1000+ halaman memanggil cek blank ribuan kali (per segmen).
+     * Tanpa cache tiap panggilan baca ulang + parse ulang seluruh file.
+     * Cache hidup sebatas instance (per job), доступ FIFO agar RAM bounded.
+     * Murni optimasi: hasil identik dengan parse ulang.
+     */
+    protected array $fileParseCache = []; // [path => ['objects'=>..,'pages'=>..]|null]
+
+    protected array $pageParseCache = []; // ["path|page" => ['pageH'=>..,'items'=>..,'ink'=>..]|null]
+
+    protected function cachedFileParse(string $file): ?array
+    {
+        if (array_key_exists($file, $this->fileParseCache)) {
+            return $this->fileParseCache[$file];
+        }
+
+        $data = null;
+        try {
+            $raw = @file_get_contents($file);
+            if (is_string($raw) && $raw !== '') {
+                $objects = $this->parseObjects($raw);
+                $pages = $this->orderedPageNumbers($objects);
+                $data = ['objects' => $objects, 'pages' => $pages];
+            }
+        } catch (\Throwable $e) {
+            $data = null;
+        }
+
+        // Simpan tanpa raw (hemat RAM); raw tidak dipakai lagi setelah parse.
+        // Cap 1 file: pemrosesan selalu sekuensial sehingga hit-rate tetap 100%.
+        $this->fileParseCache[$file] = $data;
+        if (count($this->fileParseCache) > 1) {
+            unset($this->fileParseCache[array_key_first($this->fileParseCache)]);
+        }
+
+        return $data;
+    }
+
+    protected function cachedPageParse(string $file, int $page): ?array
+    {
+        $key = $file.'|'.$page;
+        if (array_key_exists($key, $this->pageParseCache)) {
+            return $this->pageParseCache[$key];
+        }
+
+        $data = null;
+        try {
+            $fp = $this->cachedFileParse($file);
+            if ($fp !== null && isset($fp['pages'][$page - 1])) {
+                $pageObj = (int) $fp['pages'][$page - 1];
+                $content = $this->decodedPageContent($fp['objects'], $pageObj);
+                if ($content !== '') {
+                    $media = $this->readMediaBoxPt($fp['objects'], $pageObj);
+                    $pageH = (float) ($media['height'] ?? 0);
+                    if ($pageH > 0) {
+                        $items = $this->extractTextWithPositions($content);
+                        $ink = $this->buildInkHistogram($content, $items, $pageH);
+                        $data = ['pageH' => $pageH, 'items' => $items, 'ink' => $ink];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $data = null;
+        }
+
+        $this->pageParseCache[$key] = $data;
+        if (count($this->pageParseCache) > 100) {
+            unset($this->pageParseCache[array_key_first($this->pageParseCache)]);
+        }
+
+        return $data;
     }
 
     /**
@@ -182,31 +257,13 @@ class KanbanRegionDetector
                 return true;
             }
 
-            $raw = @file_get_contents($file);
-            if (! is_string($raw) || $raw === '') {
+            // Hasil identik dengan parse ulang; cache hanya menghindari I/O berulang.
+            $parsed = $this->cachedPageParse($file, $page);
+            if ($parsed === null) {
                 return false;
             }
 
-            $objects = $this->parseObjects($raw);
-            $pages = $this->orderedPageNumbers($objects);
-
-            if (! isset($pages[$page - 1])) {
-                return false;
-            }
-
-            $pageObj = (int) $pages[$page - 1];
-            $content = $this->decodedPageContent($objects, $pageObj);
-
-            if ($content === '') {
-                return false;
-            }
-
-            $media = $this->readMediaBoxPt($objects, $pageObj);
-            $pageH = (float) $media['height'];
-
-            if ($pageH <= 0) {
-                return false;
-            }
+            $pageH = (float) $parsed['pageH'];
 
             // Konversi fraksi-dari-atas ke Y PDF (origin bawah).
             $yTop = (1 - $fracTop) * $pageH;
@@ -221,7 +278,7 @@ class KanbanRegionDetector
                 return true;
             }
 
-            $items = $this->extractTextWithPositions($content);
+            $items = $parsed['items'];
 
             $n = 0;
             foreach ($items as $it) {
@@ -237,6 +294,58 @@ class KanbanRegionDetector
             return true;
         } catch (\Throwable $e) {
             return false;
+        }
+    }
+
+    /**
+     * Hitung "tinta" (teks, garis, rect, kurva, gambar) dalam satu pita vertikal.
+     *
+     * Dipakai flow MANUAL untuk membedakan halaman putih polos vs halaman
+     * scan/gambar (yang tidak punya teks terekstrak tapi jelas berisi).
+     * Inset 2pt dari tiap tepi agar garis potong di batas tidak ikut dihitung.
+     *
+     * @param float $fracTop    fraksi dari atas (0..1) tepi atas pita.
+     * @param float $fracBottom fraksi dari atas (0..1) tepi bawah pita.
+     */
+    public function countInkInBand(string $file, int $page, float $fracTop, float $fracBottom): int
+    {
+        try {
+            if ($fracBottom <= $fracTop) {
+                return 0;
+            }
+
+            // Hasil identik dengan parse ulang; cache hanya menghindari I/O berulang.
+            $parsed = $this->cachedPageParse($file, $page);
+            if ($parsed === null) {
+                return 0;
+            }
+
+            $pageH = (float) $parsed['pageH'];
+            $ink = $parsed['ink'];
+
+            $n = count($ink) - 1;
+            if ($n < 0) {
+                return 0;
+            }
+
+            $yTop = (1 - $fracTop) * $pageH;
+            $yBottom = (1 - $fracBottom) * $pageH;
+
+            $lo = max(0, (int) floor($yBottom + 2.0));
+            $hi = min($n, (int) ceil($yTop - 2.0));
+
+            if ($hi < $lo) {
+                return 0;
+            }
+
+            $sum = 0;
+            for ($k = $lo; $k <= $hi; $k++) {
+                $sum += (int) ($ink[$k] ?? 0);
+            }
+
+            return $sum;
+        } catch (\Throwable $e) {
+            return 0;
         }
     }
 
@@ -320,7 +429,7 @@ class KanbanRegionDetector
             }
 
             // Ekspansi untuk ascender/descender + border tabel + padding.
-            $expandY = max(8.0, $maxSize * 0.9 + $padPt);
+            $expandY = max(8.0, $maxSize * 0.5 + $padPt);
             $newTopY = min($yTop, $maxY + $expandY);
             $newBottomY = max($yBottom, $minY - $expandY);
 
@@ -369,7 +478,7 @@ class KanbanRegionDetector
     }
 
 
-    private function countKanbansOnPage(string $raw, int $page): int
+    protected function countKanbansOnPage(string $raw, int $page): int
     {
         $objects = $this->parseObjects($raw);
         $pages = $this->orderedPageNumbers($objects);
@@ -384,11 +493,11 @@ class KanbanRegionDetector
             $text = $this->extractAllText($objects);
 
             if ($text === '') {
-                return self::DEFAULT_KANBAN;
+                return static::DEFAULT_KANBAN;
             }
 
             $perMarker = [];
-            foreach (self::MARKERS as $marker) {
+            foreach (static::MARKERS as $marker) {
                 $c = $this->countMarker($text, $marker);
                 if ($c > 0) {
                     $perMarker[] = $c;
@@ -396,45 +505,45 @@ class KanbanRegionDetector
             }
 
             if (empty($perMarker)) {
-                return self::DEFAULT_KANBAN;
+                return static::DEFAULT_KANBAN;
             }
 
             $total = $this->modeValue($perMarker);
 
             return max(
-                self::MIN_KANBAN,
-                min(self::MAX_KANBAN, (int) round($total / $pageCount))
+                static::MIN_KANBAN,
+                min(static::MAX_KANBAN, (int) round($total / $pageCount))
             );
         }
 
         $counts = [];
-        foreach (self::MARKERS as $marker) {
+        foreach (static::MARKERS as $marker) {
             $c = $this->countMarker($text, $marker);
-            if ($c > 0 && $c <= self::MAX_KANBAN) {
+            if ($c > 0 && $c <= static::MAX_KANBAN) {
                 $counts[] = $c;
             }
         }
 
         if (empty($counts)) {
-            foreach (self::SHORT_MARKERS as $marker) {
+            foreach (static::SHORT_MARKERS as $marker) {
                 $c = $this->countMarker($text, $marker);
-                if ($c > 0 && $c <= self::MAX_KANBAN) {
+                if ($c > 0 && $c <= static::MAX_KANBAN) {
                     $counts[] = $c;
                 }
             }
         }
 
         if (empty($counts)) {
-            return self::DEFAULT_KANBAN;
+            return static::DEFAULT_KANBAN;
         }
 
         return max(
-            self::MIN_KANBAN,
-            min(self::MAX_KANBAN, $this->modeValue($counts))
+            static::MIN_KANBAN,
+            min(static::MAX_KANBAN, $this->modeValue($counts))
         );
     }
 
-    private function modeValue(array $values): int
+    protected function modeValue(array $values): int
     {
         $freq = array_count_values(array_map('intval', $values));
         arsort($freq);
@@ -442,7 +551,7 @@ class KanbanRegionDetector
         return (int) array_key_first($freq);
     }
 
-    private function countMarker(string $haystack, string $marker): int
+    protected function countMarker(string $haystack, string $marker): int
     {
         $h = strtoupper($haystack);
         $m = strtoupper($marker);
@@ -469,7 +578,7 @@ class KanbanRegionDetector
      * @param array<int, array{x?:float, y?:float, size?:float, text?:string}> $items
      * @return array<int, int>
      */
-    private function buildInkHistogram(string $content, array $items, float $pageH): array
+    protected function buildInkHistogram(string $content, array $items, float $pageH): array
     {
         $n = max(1, (int) ceil($pageH));
         $ink = array_fill(0, $n + 1, 0);
@@ -1476,7 +1585,7 @@ class KanbanRegionDetector
      *
      * @return array<int, float> fraksi 0..1 dari atas, terurut naik.
      */
-    private function findTextGapFractions(string $raw, int $page, int $kanbanCount): array
+    protected function findTextGapFractions(string $raw, int $page, int $kanbanCount): array
     {
         if ($kanbanCount <= 1) {
             return [];
@@ -1588,7 +1697,7 @@ class KanbanRegionDetector
     }
 
     /** Kelompokkan posisi Y yang berdekatan (satu baris teks), urut dari atas. */
-    private function uniqueYs(array $ys, float $tol = 2.0): array
+    protected function uniqueYs(array $ys, float $tol = 2.0): array
     {
         rsort($ys);
         $out = [];
@@ -1610,7 +1719,7 @@ class KanbanRegionDetector
      *
      * @return array<int, array{text:string, y:float, size:float}>
      */
-    private function extractTextWithPositions(string $content): array
+    protected function extractTextWithPositions(string $content): array
     {
         $items = [];
 
@@ -1925,7 +2034,7 @@ class KanbanRegionDetector
     // -----------------------------------------------------------------
 
     /** @return array<int, string> objNum => isi object */
-    private function parseObjects(string $raw): array
+    protected function parseObjects(string $raw): array
     {
         $objects = [];
 
@@ -1942,7 +2051,7 @@ class KanbanRegionDetector
     }
 
     /** Nomor object halaman sesuai urutan /Kids (index 0 = halaman 1). */
-    private function orderedPageNumbers(array $objects): array
+    protected function orderedPageNumbers(array $objects): array
     {
         foreach ($objects as $body) {
             if (preg_match('/\/Type\s*\/Pages\b/', $body)
@@ -1990,7 +2099,7 @@ class KanbanRegionDetector
         return $streams;
     }
 
-    private function decodedPageContent(array $objects, int $pageObjNum): string
+    protected function decodedPageContent(array $objects, int $pageObjNum): string
     {
         $out = '';
         foreach ($this->pageContentStreams($objects, $pageObjNum) as $stream) {
@@ -2074,7 +2183,7 @@ class KanbanRegionDetector
         return $out !== '' ? $out : $data;
     }
 
-    private function extractPageText(array $objects, int $pageObjNum): string
+    protected function extractPageText(array $objects, int $pageObjNum): string
     {
         $text = '';
         foreach ($this->pageContentStreams($objects, $pageObjNum) as $stream) {
@@ -2084,7 +2193,7 @@ class KanbanRegionDetector
         return trim($text);
     }
 
-    private function extractAllText(array $objects): string
+    protected function extractAllText(array $objects): string
     {
         $text = '';
         foreach ($objects as $body) {
@@ -2149,7 +2258,7 @@ class KanbanRegionDetector
     }
 
     /** MediaBox/CropBox halaman dalam point (origin kiri-bawah). */
-    private function readMediaBoxPt(array $objects, int $pageObjNum): array
+    protected function readMediaBoxPt(array $objects, int $pageObjNum): array
     {
         $default = ['width' => 595.28, 'height' => 841.89];
 

@@ -17,6 +17,7 @@ use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\InjectionController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\LoadingListController;
+use App\Http\Controllers\LeakController;
 use App\Http\Controllers\TraceabilityController;
 use App\Http\Controllers\DirectPullingSSEController;
 use App\Http\Controllers\MasterDataController;
@@ -224,6 +225,25 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/storeDetails', [LoadingListController::class, 'storeDetails'])->name('loadingList.storeDetails');
     });
 
+    // LEAK (monitoring, struktur menu mirip Upload Kanban)
+    Route::get(
+        '/dashboard/leak',
+        [
+            LeakController::class,
+            'index'
+        ]
+    )
+    ->name('dashboard.leak');
+
+    Route::get(
+        '/dashboard/leak/data',
+        [
+            LeakController::class,
+            'data'
+        ]
+    )
+    ->name('dashboard.leak.data');
+
     // UPLOAD KANBAN
     Route::get(
         '/dashboard/kanban/upload',
@@ -245,6 +265,35 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.kanbanUploadProcess');
 
+    // ALL manual crop (garis merah draggable) — TERISOLASI, tidak dipakai TMMIN/MMKI.
+    Route::post(
+        '/dashboard/kanban/all/process-manual',
+        [
+            DashboardController::class,
+            'kanbanAllManualProcess'
+        ]
+    )
+    ->name('dashboard.kanbanAllManualProcess');
+
+    // ALL manual file raksasa: upload per bagian (chunk) — TERISOLASI.
+    Route::post(
+        '/dashboard/kanban/all/upload-chunk',
+        [
+            DashboardController::class,
+            'kanbanAllChunkUpload'
+        ]
+    )
+    ->name('dashboard.kanbanAllChunkUpload');
+
+    Route::post(
+        '/dashboard/kanban/all/finalize-chunks',
+        [
+            DashboardController::class,
+            'kanbanAllChunksFinalize'
+        ]
+    )
+    ->name('dashboard.kanbanAllChunksFinalize');
+
     Route::get(
         '/dashboard/kanban/download/{file}',
         [
@@ -262,6 +311,15 @@ Route::middleware(['auth'])->group(function () {
         ]
     )
     ->name('dashboard.kanbanStatus');
+
+    Route::post(
+        '/dashboard/kanban/cancel/{id}',
+        [
+            DashboardController::class,
+            'kanbanCancel'
+        ]
+    )
+    ->name('dashboard.kanbanCancel');
 
     // dashboard
 

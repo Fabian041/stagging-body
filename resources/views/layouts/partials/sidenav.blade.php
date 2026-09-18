@@ -31,6 +31,14 @@
             <span class="sb-item-tooltip">Dashboard</span>
         </a>
 
+        {{-- ── Leak ── --}}
+        <a class="sb-item {{ request()->routeIs('dashboard.leak*') ? 'active' : '' }}"
+            href="{{ route('dashboard.leak') }}">
+            <i class="fas fa-tint sb-icon"></i>
+            <span class="sb-item-label">Leak</span>
+            <span class="sb-item-tooltip">Leak</span>
+        </a>
+
         {{-- ── Upload Kanban ── --}}
         <a class="sb-item {{ request()->routeIs('dashboard.kanbanUpload') ? 'active' : '' }}"
             href="{{ route('dashboard.kanbanUpload') }}">
@@ -147,47 +155,47 @@
             </a>
         </div>
 
-        {{-- ── Quality ── --}}
-        @php
-            $qualityActive = request()->routeIs('quality.*');
-        @endphp
+        <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
+            {{-- ── Quality ── --}}
+            @php
+                $qualityActive = request()->routeIs('quality.*');
+            @endphp
 
-        <div class="sb-item {{ $qualityActive ? 'open' : '' }}" data-has-sub>
-            <i class="fas fa-clipboard-check sb-icon"></i>
-            <span class="sb-item-label">Quality</span>
-            <i class="fas fa-chevron-right sb-chevron"></i>
-            <span class="sb-item-tooltip">Quality</span>
-        </div>
-        <div class="sb-submenu">
-            <a class="sb-sub-item {{ request()->routeIs('quality.scan') ? 'active' : '' }}"
-                href="{{ route('quality.scan') }}">
-                <i class="fas fa-barcode"></i>
-                Scan Quality
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('quality.pareto') ? 'active' : '' }}"
-                href="{{ route('quality.pareto') }}">
-                <i class="fas fa-chart-bar"></i>
-                Reject & Pareto
-            </a>
-            <a class="sb-sub-item {{ request()->routeIs('quality.history') || request()->routeIs('quality.show') ? 'active' : '' }}"
-                href="{{ route('quality.history') }}">
-                <i class="fas fa-list-ul"></i>
-                Detail Scan
-            </a>
-        </div>
+            <div class="sb-item {{ $qualityActive ? 'open' : '' }}" data-has-sub>
+                <i class="fas fa-clipboard-check sb-icon"></i>
+                <span class="sb-item-label">Quality</span>
+                <i class="fas fa-chevron-right sb-chevron"></i>
+                <span class="sb-item-tooltip">Quality</span>
+            </div>
+            <div class="sb-submenu">
+                <a class="sb-sub-item {{ request()->routeIs('quality.scan') ? 'active' : '' }}"
+                    href="{{ route('quality.scan') }}">
+                    <i class="fas fa-barcode"></i>
+                    Scan Quality
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('quality.pareto') ? 'active' : '' }}"
+                    href="{{ route('quality.pareto') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    Reject & Pareto
+                </a>
+                <a class="sb-sub-item {{ request()->routeIs('quality.history') || request()->routeIs('quality.show') ? 'active' : '' }}"
+                    href="{{ route('quality.history') }}">
+                    <i class="fas fa-list-ul"></i>
+                    Detail Scan
+                </a>
+            </div>
 
-        {{-- ── Master Data ── --}}
-        @php
-            $masterActive =
-                request()->routeIs('pis.master') ||
-                request()->routeIs('pis.edit') ||
-                request()->routeIs('pis.preview') ||
-                request()->routeIs('dashboard.master.*') ||
-                request()->routeIs('pulling.master-alamat-chute*');
-        @endphp
+            {{-- ── Master Data ── --}}
+            @php
+                $masterActive =
+                    request()->routeIs('pis.master') ||
+                    request()->routeIs('pis.edit') ||
+                    request()->routeIs('pis.preview') ||
+                    request()->routeIs('dashboard.master.*') ||
+                    request()->routeIs('pulling.master-alamat-chute*');
+            @endphp
 
-        <div class="sb-item {{ $masterActive ? 'open' : '' }}" data-has-sub>
-            <div class="sb-item {{ $pisActive ? 'open' : '' }}" data-has-sub>
+            <div class="sb-item {{ $masterActive ? 'open' : '' }}" data-has-sub>
                 <i class="fas fa-database sb-icon"></i>
                 <span class="sb-item-label">Master Data</span>
                 <i class="fas fa-chevron-right sb-chevron"></i>
