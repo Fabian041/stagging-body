@@ -5,6 +5,7 @@ window.ValidationPairingFlow = (() => {
         paintingPart: 'expected_painting',
         pairingId: 'validation_pairing_id',
         pairingInterlockEnabled: 'validation_pairing_interlock_enabled',
+        allowRepeatedSerials: 'validation_allow_repeated_serials',
         uncompleteMode: 'validation_uncomplete_mode',
         assemblyModel: 'model_assy',
         paintingModel: 'model_painting',
@@ -205,6 +206,7 @@ window.ValidationPairingFlow = (() => {
             dandori: localStorage.getItem(keys.dandori) || '',
             pairingId: localStorage.getItem(keys.pairingId) || '',
             interlockEnabled: localStorage.getItem(keys.pairingInterlockEnabled) === '1',
+            allowRepeatedSerials: localStorage.getItem(keys.allowRepeatedSerials) === '1',
             uncompleteMode,
             assemblyPart: localStorage.getItem(keys.assemblyPart) || '',
             paintingPart: localStorage.getItem(keys.paintingPart) || '',
@@ -375,6 +377,7 @@ window.ValidationPairingFlow = (() => {
             localStorage.setItem(keys.dandori, dandoriPart);
             localStorage.setItem(keys.pairingId, String(data.pairing_id || ''));
             localStorage.setItem(keys.pairingInterlockEnabled, data.interlock_enabled ? '1' : '0');
+            localStorage.setItem(keys.allowRepeatedSerials, data.allow_repeated_serials ? '1' : '0');
             localStorage.setItem(keys.assemblyPart, normalizePartNumber(data.assembly));
             localStorage.setItem(keys.paintingPart, normalizePartNumber(data.painting));
             localStorage.setItem(keys.assemblyModel, data.model_assy || '-');
@@ -451,7 +454,7 @@ window.ValidationPairingFlow = (() => {
                 return;
             }
 
-            if (session.assemblySerials.includes(scannedSerial)) {
+            if (!session.allowRepeatedSerials && session.assemblySerials.includes(scannedSerial)) {
                 notify('error', `Serial assembly ${scannedSerial} sudah pernah discan.`);
                 playSound('already-scan-sound');
                 return;
@@ -483,7 +486,7 @@ window.ValidationPairingFlow = (() => {
                 return;
             }
 
-            if (session.paintingSerials.includes(scannedSerial)) {
+            if (!session.allowRepeatedSerials && session.paintingSerials.includes(scannedSerial)) {
                 notify('error', `Serial painting ${scannedSerial} sudah pernah discan.`);
                 playSound('already-scan-sound');
                 return;

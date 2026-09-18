@@ -10,7 +10,7 @@ class KanbanPairing extends Model
     use HasFactory;
 
     // Ganti ke ['*'] untuk mengaktifkan interlock ke semua project.
-    public const INTERLOCK_PROJECTS = ['660A','560B','4L45W'];
+    public const INTERLOCK_PROJECTS = ['660A', '560B', '4L45W'];
 
     protected $table = 'body_kanban_pairings';
 
@@ -36,5 +36,10 @@ class KanbanPairing extends Model
 
         return in_array('*', $projects, true)
             || in_array(strtoupper(trim((string) $this->project)), $projects, true);
+    }
+
+    public function allowsRepeatedSerials(): bool
+    {
+        return strtoupper(trim((string) $this->project)) === '4L45W';
     }
 }

@@ -49,6 +49,7 @@ class ValidationController extends Controller
             'pairing_id' => $pair->id,
             'project' => $pair->project,
             'interlock_enabled' => $pair->usesProductionInterlock(),
+            'allow_repeated_serials' => $pair->allowsRepeatedSerials(),
             'type' => $normalizedPart === $this->normalize($pair->assembly_part) ? 'assembly' : 'painting',
             'assembly' => $pair->assembly_part,
             'painting' => $pair->painting_part,
@@ -92,11 +93,12 @@ class ValidationController extends Controller
             ]);
         }
 
-        $assemblySerials = $this->uniqueSerials($validated['assembly_serials']);
-        $paintingSerials = $this->uniqueSerials($validated['painting_serials']);
+        $assemblySerials = $this->normalizeSerials($validated['assembly_serials']);
+        $paintingSerials = $this->normalizeSerials($validated['painting_serials']);
 
-        if (count($assemblySerials) !== count($validated['assembly_serials'])
-            || count($paintingSerials) !== count($validated['painting_serials'])) {
+        if (!$pair->allowsRepeatedSerials()
+            && (count(array_unique($assemblySerials)) !== count($assemblySerials)
+                || count(array_unique($paintingSerials)) !== count($paintingSerials))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Serial kanban duplikat pada sesi pairing.',
@@ -165,7 +167,7 @@ class ValidationController extends Controller
                 ], 422);
             }
 
-            foreach ($assemblySerials as $serial) {
+            foreach (array_unique($assemblySerials) as $serial) {
                 $kanban = $kanbans->get($serial);
 
                 KanbanPairingLog::create([
@@ -206,9 +208,9 @@ class ValidationController extends Controller
         return strtoupper(trim((string) $value));
     }
 
-    private function uniqueSerials(array $serials): array
+    private function normalizeSerials(array $serials): array
     {
-        return array_values(array_unique(array_map(fn($serial) => $this->normalize($serial), $serials)));
+        return array_map(fn($serial) => $this->normalize($serial), $serials);
     }
 
     private function isValidRatio(KanbanPairing $pair, int $assemblyCount, int $paintingCount): bool
