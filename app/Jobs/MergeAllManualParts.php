@@ -136,6 +136,8 @@ class MergeAllManualParts implements ShouldQueue
             for ($p = 1; $p <= $n; $p++) {
                 if ($volPages >= static::VOLUME_PAGES) {
                     $flushVolume();
+                    // Objek baru = reader hilang: buka ulang file part yang sama.
+                    $output->setSourceFile($partPdf);
                 }
                 $tpl = $output->importPage($p);
                 $size = $output->getTemplateSize($tpl);
