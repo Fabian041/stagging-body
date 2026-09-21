@@ -224,7 +224,7 @@
                 <div id="allManualEmpty"><small class="text-muted">Belum ada preview. Pilih PDF dulu.</small></div>
                 <div id="allManualList"></div>
                 {{-- Save master — setelah preview, simpan garis saat ini sebagai master baru. --}}
-                <!-- <div class="allm-preset-wrap mt-3">
+                <div class="allm-preset-wrap mt-3">
                     <label class="mb-1" style="font-size:13px;font-weight:800;">Simpan Master <small class="text-muted" style="font-weight:600;">— atur garis di preview lalu Save untuk simpan preset</small></label>
                     <div class="d-flex flex-wrap mt-2" style="gap:8px;">
                         <input type="text" id="allManualPresetName" class="form-control" placeholder="ex: AISIN" style="max-width:220px;text-transform:uppercase;" maxlength="50">
@@ -232,7 +232,7 @@
                             <i class="fas fa-save"></i> Save
                         </button>
                     </div>
-                </div> -->
+                </div>
             </div>
         </div>
         @endif
