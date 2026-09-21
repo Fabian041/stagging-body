@@ -32,13 +32,16 @@ class ProcessAllManualPart implements ShouldQueue
 
     public bool $skipBlank;
 
+    public array $vCuts;
+
     public function __construct(
         array $group,
         string $jobId,
         int $partIndex,
         int $partTotal,
         array $cuts = [],
-        bool $skipBlank = true
+        bool $skipBlank = true,
+        array $vCuts = []
     ) {
         $this->group = $group;
         $this->jobId = $jobId;
@@ -46,6 +49,7 @@ class ProcessAllManualPart implements ShouldQueue
         $this->partTotal = $partTotal;
         $this->cuts = $cuts;
         $this->skipBlank = $skipBlank;
+        $this->vCuts = $vCuts;
     }
 
     public function handle(AllManualCropProcessor $processor)
@@ -81,7 +85,8 @@ class ProcessAllManualPart implements ShouldQueue
             $subId,
             $this->cuts,
             $this->skipBlank,
-            [$fi => $cutStart - 1]
+            [$fi => $cutStart - 1],
+            $this->vCuts
         );
 
         // Dibatalkan di tengah jalan: buang parsial, tandai, rantai lanjut no-op.

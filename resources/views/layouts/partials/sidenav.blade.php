@@ -39,9 +39,9 @@
             <span class="sb-item-tooltip">Leak</span>
         </a>
 
-        {{-- ── Upload Kanban ── --}}
+        {{-- ── Upload Kanban (langsung ke tab MANUAL) ── --}}
         <a class="sb-item {{ request()->routeIs('dashboard.kanbanUpload') ? 'active' : '' }}"
-            href="{{ route('dashboard.kanbanUpload') }}">
+            href="{{ route('dashboard.kanbanUpload', ['customer' => 'ALL']) }}">
             <i class="fas fa-upload sb-icon"></i>
             <span class="sb-item-label">Upload Kanban</span>
             <span class="sb-item-tooltip">Upload Kanban</span>

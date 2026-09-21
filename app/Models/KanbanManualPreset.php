@@ -11,11 +11,13 @@ class KanbanManualPreset extends Model
     protected $fillable = [
         'name',
         'lines',
+        'vlines',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
         'lines' => 'array',
+        'vlines' => 'array',
     ];
 }

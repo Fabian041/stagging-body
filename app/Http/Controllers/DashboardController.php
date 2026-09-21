@@ -2504,6 +2504,7 @@ class DashboardController extends Controller
             'files' => 'required|array|min:1',
             'files.*' => 'mimes:pdf|max:20480',
             'cuts' => 'nullable|string',
+            'vcuts' => 'nullable|string',
         ]);
         $cuts = [];
         if ($request->filled('cuts')) {
@@ -2514,6 +2515,17 @@ class DashboardController extends Controller
                 }
             } catch (\Throwable $e) {
                 $cuts = [];
+            }
+        }
+        $vCuts = [];
+        if ($request->filled('vcuts')) {
+            try {
+                $decodedV = json_decode((string) $request->input('vcuts'), true);
+                if (is_array($decodedV)) {
+                    $vCuts = $decodedV;
+                }
+            } catch (\Throwable $e) {
+                $vCuts = [];
             }
         }
 
@@ -2533,11 +2545,12 @@ class DashboardController extends Controller
                 'customer' => 'ALL-MANUAL',
                 'files' => array_values($basenames),
                 'cuts' => $cuts,
+                'vcuts' => $vCuts,
                 'created_at' => now()->toDateTimeString(),
             ])
         );
 
-        \App\Jobs\ProcessAllManualCrop::dispatch($paths, $jobId, $cuts, $request->boolean('skip_blank', true));
+        \App\Jobs\ProcessAllManualCrop::dispatch($paths, $jobId, $cuts, $request->boolean('skip_blank', true), $vCuts);
 
         return response()->json([
             'status' => true,
@@ -2582,6 +2595,7 @@ class DashboardController extends Controller
             'uploadId' => ['required', 'string', 'regex:/^[A-Za-z0-9\-]{8,64}$/'],
             'files' => 'required|string',
             'cuts' => 'nullable|string',
+            'vcuts' => 'nullable|string',
         ]);
 
         $uploadId = basename((string) $request->input('uploadId'));
@@ -2596,6 +2610,14 @@ class DashboardController extends Controller
             $decoded = json_decode((string) $request->input('cuts'), true);
             if (is_array($decoded)) {
                 $cuts = $decoded;
+            }
+        }
+
+        $vCuts = [];
+        if ($request->filled('vcuts')) {
+            $decodedV = json_decode((string) $request->input('vcuts'), true);
+            if (is_array($decodedV)) {
+                $vCuts = $decodedV;
             }
         }
 
@@ -2717,6 +2739,7 @@ class DashboardController extends Controller
                 'customer' => 'ALL-MANUAL-CHUNKED',
                 'files' => array_values($basenames),
                 'cuts' => $cuts,
+                'vcuts' => $vCuts,
                 'created_at' => now()->toDateTimeString(),
             ])
         );
@@ -2728,7 +2751,7 @@ class DashboardController extends Controller
 
         $chain = [];
         foreach ($parts as $i => $g) {
-            $chain[] = new \App\Jobs\ProcessAllManualPart($g, $jobId, $i, $partTotal, $cuts, $skipBlank);
+            $chain[] = new \App\Jobs\ProcessAllManualPart($g, $jobId, $i, $partTotal, $cuts, $skipBlank, $vCuts);
         }
         $chain[] = new \App\Jobs\MergeAllManualParts($jobId, $partTotal);
 
@@ -2993,17 +3016,20 @@ public function kanbanCancel($id)
     {
         $presets = \App\Models\KanbanManualPreset::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'lines', 'updated_at']);
+            ->get(['id', 'name', 'lines', 'vlines', 'updated_at']);
+
+        $normLines = static fn ($raw) => array_values(array_map(
+            static fn ($v) => round((float) $v, 4),
+            is_array($raw) ? $raw : []
+        ));
 
         return response()->json([
             'status' => true,
             'data' => $presets->map(fn ($p) => [
                 'id' => (int) $p->id,
                 'name' => (string) $p->name,
-                'lines' => array_values(array_map(
-                    static fn ($v) => round((float) $v, 4),
-                    is_array($p->lines) ? $p->lines : []
-                )),
+                'lines' => $normLines($p->lines),
+                'vlines' => $normLines($p->vlines),
                 'updated_at' => $p->updated_at,
             ])->values(),
             'can_manage' => auth()->user() ? auth()->user()->can('manage-master') : false,
@@ -3019,13 +3045,17 @@ public function kanbanCancel($id)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:50',
-            'lines' => 'required|array|min:1|max:30',
-            'lines.*' => 'required|numeric|min:0.02|max:0.98',
+            'lines' => 'nullable|array|max:30',
+            'lines.*' => 'numeric|min:0.02|max:0.98',
+            'vlines' => 'nullable|array|max:30',
+            'vlines.*' => 'numeric|min:0.02|max:0.98',
         ], [
             'name.required' => 'Nama preset wajib diisi (mis. AISIN).',
-            'lines.required' => 'Atur minimal 1 garis merah dulu sebelum save.',
-            'lines.min' => 'Atur minimal 1 garis merah dulu sebelum save.',
         ]);
+
+        if (empty($validated['lines']) && empty($validated['vlines'])) {
+            return response()->json(['status' => false, 'message' => 'Atur minimal 1 garis (tidur/berdiri) dulu sebelum save.'], 422);
+        }
 
         $name = strtoupper(trim((string) $validated['name']));
         // Samakan rule frontend: hanya huruf/angka/spasi/dash/underscore.
@@ -3037,26 +3067,32 @@ public function kanbanCancel($id)
             ], 422);
         }
 
-        $lines = collect($validated['lines'])
-            ->map(fn ($v) => round((float) $v, 4))
-            ->filter(fn ($v) => $v > 0.02 && $v < 0.98)
-            ->sort()
-            ->values();
-        // Dedup garis yang terlalu rapat (<3%).
-        $dedup = [];
-        foreach ($lines as $v) {
-            if (empty($dedup) || abs($v - end($dedup)) >= 0.03) {
-                $dedup[] = $v;
+        $cleanLines = function ($raw) {
+            $sorted = collect((array) $raw)
+                ->map(fn ($v) => round((float) $v, 4))
+                ->filter(fn ($v) => $v > 0.02 && $v < 0.98)
+                ->sort()
+                ->values();
+            // Dedup garis yang terlalu rapat (<3%).
+            $dedup = [];
+            foreach ($sorted as $v) {
+                if (empty($dedup) || abs($v - end($dedup)) >= 0.03) {
+                    $dedup[] = $v;
+                }
             }
-        }
-        if (empty($dedup)) {
+
+            return array_values($dedup);
+        };
+        $dedup = $cleanLines($validated['lines'] ?? []);
+        $dedupV = $cleanLines($validated['vlines'] ?? []);
+        if (empty($dedup) && empty($dedupV)) {
             return response()->json(['status' => false, 'message' => 'Garis tidak valid.'], 422);
         }
 
         $npk = auth()->user()->npk ?? auth()->user()->name ?? null;
         $preset = \App\Models\KanbanManualPreset::updateOrCreate(
             ['name' => $name],
-            ['lines' => array_values($dedup), 'updated_by' => $npk]
+            ['lines' => $dedup, 'vlines' => $dedupV, 'updated_by' => $npk]
         );
         if (! $preset->wasRecentlyCreated && empty($preset->created_by)) {
             $preset->created_by = $npk;
@@ -3069,7 +3105,7 @@ public function kanbanCancel($id)
         return response()->json([
             'status' => true,
             'message' => 'Preset '.$name.' tersimpan.',
-            'data' => ['id' => (int) $preset->id, 'name' => $preset->name, 'lines' => $preset->lines],
+            'data' => ['id' => (int) $preset->id, 'name' => $preset->name, 'lines' => $preset->lines, 'vlines' => $preset->vlines],
         ]);
     }
 

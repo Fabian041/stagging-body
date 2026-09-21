@@ -214,6 +214,116 @@ class KanbanRegionDetector
         }
     }
 
+    /**
+     * Cek blank berbasis piksel untuk satu SEL (persegi) halaman:
+     * fraksi vertikal (atas-bawah) × fraksi horizontal (kiri-kanan).
+     * Dipakai crop grid garis tidur × garis berdiri.
+     *
+     * @return bool|null true=blank, false=berisi, null=tidak bisa render (jangan buang)
+     */
+    public function isPixelBlankCell(
+        string $file,
+        int $page,
+        float $fracTop,
+        float $fracBottom,
+        float $fracLeft,
+        float $fracRight
+    ): ?bool {
+        try {
+            if ($fracBottom <= $fracTop || $fracRight <= $fracLeft) {
+                return true;
+            }
+            $png = $this->renderPagePng($file, $page);
+            if (! is_string($png) || ! is_file($png)) {
+                return null;
+            }
+            $ratio = $this->inkRatioInRectPng($png, $fracTop, $fracBottom, $fracLeft, $fracRight);
+            if ($ratio === null) {
+                return null;
+            }
+
+            return $ratio < 0.01;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Rasio piksel bertinta dalam persegi (fraksi halaman) PNG hasil render.
+     * Sama seperti inkRatioInBandPng tapi dibatasi kiri-kanan juga.
+     *
+     * @return float|null null bila GD tidak tersedia / gambar tidak terbaca / area terlalu kecil
+     */
+    protected function inkRatioInRectPng(
+        string $pngPath,
+        float $fracTop,
+        float $fracBottom,
+        float $fracLeft,
+        float $fracRight
+    ): ?float {
+        try {
+            if (! function_exists('imagecreatefrompng') && ! function_exists('imagecreatefromstring')) {
+                return null;
+            }
+            $raw = @file_get_contents($pngPath);
+            if (! is_string($raw) || $raw === '') {
+                return null;
+            }
+            $img = @imagecreatefromstring($raw);
+            if (! $img) {
+                return null;
+            }
+            $w = imagesx($img);
+            $h = imagesy($img);
+            if ($w <= 0 || $h <= 0) {
+                @imagedestroy($img);
+
+                return null;
+            }
+            $y0 = (int) floor($fracTop * $h);
+            $y1 = (int) ceil($fracBottom * $h);
+            $x0 = (int) floor($fracLeft * $w);
+            $x1 = (int) ceil($fracRight * $w);
+            // Inset 2px agar sisa garis potong segmen tetangga tidak ikut dihitung.
+            $y0 += 2;
+            $y1 -= 2;
+            $x0 += 2;
+            $x1 -= 2;
+            $y0 = max(0, $y0);
+            $y1 = min($h - 1, $y1);
+            $x0 = max(0, $x0);
+            $x1 = min($w - 1, $x1);
+            if ($y1 - $y0 < 8 || $x1 - $x0 < 8) {
+                @imagedestroy($img);
+
+                return null;
+            }
+            $step = 3; // sampling tiap 3px agar cepat, tetap akurat untuk teks/gambar
+            $total = 0;
+            $ink = 0;
+            for ($y = $y0; $y <= $y1; $y += $step) {
+                for ($x = $x0; $x <= $x1; $x += $step) {
+                    $rgb = imagecolorat($img, $x, $y);
+                    $r = ($rgb >> 16) & 0xFF;
+                    $g = ($rgb >> 8) & 0xFF;
+                    $b = $rgb & 0xFF;
+                    $total++;
+                    if ((($r + $g + $b) / 3) < 235) {
+                        $ink++;
+                    }
+                }
+            }
+            @imagedestroy($img);
+            if ($total <= 0) {
+                return null;
+            }
+
+            return $ink / $total;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     protected function renderPagePng(string $file, int $page): ?string
     {
         $key = $file.'|'.$page;
