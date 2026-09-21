@@ -60,6 +60,47 @@ class ValidationController extends Controller
         ]);
     }
 
+    public function assemblyStatus(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'pairing_id' => ['required', 'integer', 'exists:body_kanban_pairings,id'],
+            'serial' => ['required', 'string', 'max:64'],
+        ]);
+
+        $pair = KanbanPairing::findOrFail($validated['pairing_id']);
+        if (!$pair->usesProductionInterlock()) {
+            return response()->json(['success' => true]);
+        }
+
+        $internalPart = InternalPart::whereRaw(
+            'UPPER(TRIM(part_number)) = ?',
+            [$this->normalize($pair->assembly_part)]
+        )->first();
+        $kanban = $internalPart
+            ? Kanban::where('internal_part_id', $internalPart->id)
+                ->where('serial_number', $this->normalize($validated['serial']))
+                ->first()
+            : null;
+
+        if (!$kanban) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Serial assembly tidak terdaftar.',
+            ], 404);
+        }
+
+        if (KanbanPairingLog::where('assembly_kanban_id', $kanban->id)
+            ->where('status', KanbanPairingLog::STATUS_READY)
+            ->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kanban assembly masih Ready dari pairing sebelumnya. Scan produksi di Production PRD Report terlebih dahulu.',
+            ], 422);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function completePairing(Request $request): JsonResponse
     {
         $validated = $request->validate([

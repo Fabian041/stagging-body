@@ -66,6 +66,19 @@ window.ValidationPairingFlow = (() => {
         return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     }
 
+    async function checkAssemblyStatus(session, serial) {
+        const params = new URLSearchParams({
+            pairing_id: session.pairingId,
+            serial
+        });
+        const response = await fetch(`/validation/kanban/pairing/assembly-status?${params}`);
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Gagal memeriksa status pairing kanban assembly.');
+        }
+    }
+
     async function savePairingCompletion(session) {
         if (!session.interlockEnabled) {
             return { success: true };
@@ -458,6 +471,16 @@ window.ValidationPairingFlow = (() => {
                 notify('error', `Serial assembly ${scannedSerial} sudah pernah discan.`);
                 playSound('already-scan-sound');
                 return;
+            }
+
+            if (session.interlockEnabled) {
+                try {
+                    await checkAssemblyStatus(session, scannedSerial);
+                } catch (error) {
+                    notify('error', error.message, 3500);
+                    playSound('already-scan-sound');
+                    return;
+                }
             }
 
             const nextCount = session.assemblyCount + 1;

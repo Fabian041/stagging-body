@@ -134,4 +134,33 @@ class ValidationPairingRepeatedSerialsTest extends TestCase
         $this->assertStringContainsString('pairing aktif', $second->getData(true)['message']);
         $this->assertCount(1, KanbanPairingLog::all());
     }
+
+    public function test_assembly_status_rejects_ready_pairing_before_painting_scan(): void
+    {
+        $log = KanbanPairingLog::create([
+            'body_kanban_pairing_id' => 1,
+            'assembly_internal_part_id' => 1,
+            'assembly_kanban_id' => 1,
+            'project' => '4L45W',
+            'assembly_part' => 'ASSEMBLY',
+            'assembly_serial_number' => '0001',
+            'painting_part' => 'PAINTING',
+            'painting_serial_numbers' => ['0101'],
+            'status' => KanbanPairingLog::STATUS_READY,
+        ]);
+        $controller = new ValidationController();
+        $request = Request::create('/validation/kanban/pairing/assembly-status', 'GET', [
+            'pairing_id' => 1,
+            'serial' => '0001',
+        ]);
+
+        $readyResponse = $controller->assemblyStatus($request);
+        $this->assertSame(422, $readyResponse->getStatusCode());
+        $this->assertStringContainsString('Production PRD Report', $readyResponse->getData(true)['message']);
+
+        $log->update(['status' => KanbanPairingLog::STATUS_CONSUMED]);
+        $consumedResponse = $controller->assemblyStatus($request);
+        $this->assertSame(200, $consumedResponse->getStatusCode());
+        $this->assertTrue($consumedResponse->getData(true)['success']);
+    }
 }
