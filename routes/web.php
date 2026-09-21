@@ -236,6 +236,15 @@ Route::middleware(['auth'])->group(function () {
     ->name('dashboard.leak');
 
     Route::get(
+        '/dashboard/leak/machines',
+        [
+            LeakController::class,
+            'machines'
+        ]
+    )
+    ->name('dashboard.leak.machines');
+
+    Route::get(
         '/dashboard/leak/data',
         [
             LeakController::class,
@@ -320,6 +329,36 @@ Route::middleware(['auth'])->group(function () {
         ]
     )
     ->name('dashboard.kanbanCancel');
+
+    // MASTER PRESET garis manual (ALL/MANUAL) — shared via database.
+    // List + save terbuka untuk semua user login; hapus khusus manage-master.
+    Route::get(
+        '/dashboard/kanban/manual-presets',
+        [
+            DashboardController::class,
+            'kanbanManualPresets'
+        ]
+    )
+    ->name('dashboard.kanbanManualPresets');
+
+    Route::post(
+        '/dashboard/kanban/manual-presets',
+        [
+            DashboardController::class,
+            'kanbanManualPresetStore'
+        ]
+    )
+    ->name('dashboard.kanbanManualPresetStore');
+
+    Route::delete(
+        '/dashboard/kanban/manual-presets/{preset}',
+        [
+            DashboardController::class,
+            'kanbanManualPresetDestroy'
+        ]
+    )
+    ->middleware('can:manage-master')
+    ->name('dashboard.kanbanManualPresetDestroy');
 
     // dashboard
 

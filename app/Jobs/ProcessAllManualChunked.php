@@ -27,12 +27,15 @@ class ProcessAllManualChunked implements ShouldQueue
 
     public bool $skipBlank;
 
-    public function __construct(array $chunkMap, string $jobId, array $cuts = [], bool $skipBlank = true)
+    public array $vCuts;
+
+    public function __construct(array $chunkMap, string $jobId, array $cuts = [], bool $skipBlank = true, array $vCuts = [])
     {
         $this->chunkMap = $chunkMap;
         $this->jobId = $jobId;
         $this->cuts = $cuts;
         $this->skipBlank = $skipBlank;
+        $this->vCuts = $vCuts;
     }
 
     public function handle(AllManualCropProcessor $processor)
@@ -66,7 +69,7 @@ class ProcessAllManualChunked implements ShouldQueue
 
         logger('QUEUE START ALL-MANUAL-CHUNKED '.$this->jobId);
 
-        $filename = $processor->processChunked($this->chunkMap, $this->jobId, $this->cuts, $this->skipBlank);
+        $filename = $processor->processChunked($this->chunkMap, $this->jobId, $this->cuts, $this->skipBlank, [], $this->vCuts);
 
         if (file_exists($cancelPath)) {
             $out = $dir.'/'.basename((string) $filename);
