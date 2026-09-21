@@ -47,13 +47,13 @@
 
                 </a>
             </li>
-            <!-- <li class="nav-item">
+            <li class="nav-item">
                 <a class="nav-link {{ $isAll ? 'active' : '' }}"
                     href="{{ route('dashboard.kanbanUpload', ['customer' => 'ALL']) }}">
                     <i class="fas fa-cut"></i> MANUAL
 
                 </a>
-            </li> -->
+            </li>
         </ul>
 
 
@@ -179,6 +179,19 @@
                     <label class="mb-0" style="font-size:13px;font-weight:700;" title="Matikan bila file ribuan halaman agar proses jauh lebih cepat (blank tidak dibuang)">
                         <input type="checkbox" id="allManualBlankChk" checked> Buang halaman blank
                     </label>
+                </div>
+                {{-- MASTER PRESET garis manual (shared DB). Save garis saat ini dengan nama → jadi button baru; klik button load garis. --}}
+                <div class="allm-preset-wrap mb-3">
+                    <label class="mb-1" style="font-size:13px;font-weight:800;">Master Garis <small class="text-muted" style="font-weight:600;">— atur garis lalu Save (mis. AISIN), klik button untuk load</small></label>
+                    <div id="allManualPresetBar" class="d-flex flex-wrap" style="gap:8px;">
+                        <small class="text-muted">Memuat master...</small>
+                    </div>
+                    <div class="d-flex flex-wrap mt-2" style="gap:8px;">
+                        <input type="text" id="allManualPresetName" class="form-control" placeholder="Nama baru, mis. AISIN" style="max-width:220px;text-transform:uppercase;" maxlength="50">
+                        <button id="allManualPresetSaveBtn" class="btn btn-outline-danger btn-sm" type="button">
+                            <i class="fas fa-save"></i> Save garis saat ini
+                        </button>
+                    </div>
                 </div>
                 {{-- Tombol di atas agar mudah dijangkau --}}
                 <div class="action-row">
@@ -945,6 +958,17 @@
         .allm-page.is-locked .allm-overlay { cursor: not-allowed; }
         .allm-master-badge { background: #DC2626; color: #fff; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 10px; }
         .allm-lock-badge { background: #6B7A99; color: #fff; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 10px; }
+        .allm-drop { position: absolute; left: 0; right: 0; z-index: 4; pointer-events: none;
+            background: repeating-linear-gradient(45deg, rgba(220,38,38,.22) 0 8px, rgba(220,38,38,.07) 8px 16px);
+            border-top: 1px dashed rgba(220,38,38,.65); border-bottom: 1px dashed rgba(220,38,38,.65);
+            display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .allm-drop span { background: rgba(220,38,38,.92); color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+        .allm-preset-wrap { border: 1px dashed #F3B4B4; border-radius: 12px; padding: 10px 12px; background: #FFF7F7; }
+        .allm-preset-btn { border: 1px solid #DDE3EF; background: #fff; color: #7F1D1D; font-weight: 800; font-size: 12px; border-radius: 999px; padding: 5px 10px 5px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .allm-preset-btn:hover { border-color: #DC2626; }
+        .allm-preset-btn.active { background: #DC2626; border-color: #DC2626; color: #fff; }
+        .allm-preset-btn .allm-preset-x { border: 0; border-radius: 999px; background: rgba(220,38,38,.12); color: #DC2626; font-weight: 900; width: 20px; height: 20px; line-height: 1; font-size: 13px; cursor: pointer; }
+        .allm-preset-btn.active .allm-preset-x { background: rgba(255,255,255,.25); color: #fff; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -977,6 +1001,7 @@
             let finished = false; // true setelah DONE: hanya Reset + Download yang available
             function editingLocked() { return busy || finished; }
             const MAX_PREVIEW_PAGES = 5; // preview ringan: hanya 5 halaman pertama per file
+            const MIN_SEG_MM = 30.0; // SAMA dengan MIN_SEGMENT_HEIGHT_MM backend: segmen lebih pendek diarsir = dibuang
             let filePageCounts = {}; // fileIdx -> total halaman PDF (untuk perluasan garis ke semua halaman)
 
             function setStatus(msg, kind) {
@@ -1049,6 +1074,7 @@
                 const autoSet = {};
                 comp.auto.forEach(function(v) { autoSet[v.toFixed(4)] = true; });
                 pg.overlay.querySelectorAll('.allm-line').forEach(function(n) { n.remove(); });
+                pg.overlay.querySelectorAll('.allm-drop').forEach(function(n) { n.remove(); });
                 // tandai master / locked
                 if (pg.card) {
                     pg.card.classList.toggle('is-master', isMaster(pg));
@@ -1107,9 +1133,30 @@
                     });
                     pg.overlay.appendChild(line);
                 });
+                // Arsiran segmen pendek (< MIN_SEG_MM): akan dibuang backend sebagai strip putih.
+                try {
+                    const mmH = parseFloat(pg.pageHmm || 0);
+                    if (mmH > 0 && pg.cuts && pg.cuts.length) {
+                        const bounds = [0].concat(pg.cuts.slice(), [1]);
+                        for (let s = 0; s < bounds.length - 1; s++) {
+                            const t = bounds[s], b = bounds[s + 1];
+                            const hfrac = b - t;
+                            if (hfrac > 0.0001 && hfrac * mmH < MIN_SEG_MM) {
+                                const dz = document.createElement('div');
+                                dz.className = 'allm-drop';
+                                dz.style.top = (t * 100) + '%';
+                                dz.style.height = (hfrac * 100) + '%';
+                                const lbl = document.createElement('span');
+                                lbl.textContent = 'dibuang (' + Math.round(hfrac * mmH) + 'mm < ' + MIN_SEG_MM + 'mm)';
+                                dz.appendChild(lbl);
+                                pg.overlay.appendChild(dz);
+                            }
+                        }
+                    }
+                } catch (e) {}
             }
 
-            function addPageDom(fileIdx, fileName, pageNum, canvas) {
+            function addPageDom(fileIdx, fileName, pageNum, canvas, pageHmm) {
                 const key = fileIdx + ':' + pageNum;
                 const card = document.createElement('div');
                 card.className = 'allm-page';
@@ -1125,10 +1172,11 @@
                 wrap.appendChild(overlay);
                 card.appendChild(wrap);
                 listEl.appendChild(card);
-                // Default 2 garis; page 2+ copy posisi page 1.
+                // Default 2 garis; page 2+ copy posisi page 1; preset aktif ikut bila ada.
                 let initBase = [1 / 3, 2 / 3];
-                if (isSyncOn() && pages.length > 0) initBase = (pages[0].base || [1 / 3, 2 / 3]).slice();
-                const pg = { key: key, fileIdx: fileIdx, fileName: fileName, pageNum: pageNum, base: initBase, cuts: [], autoCuts: [], card: card, wrap: wrap, overlay: overlay };
+                if (typeof pendingPresetLines !== 'undefined' && pendingPresetLines && pendingPresetLines.length) initBase = pendingPresetLines.slice();
+                else if (isSyncOn() && pages.length > 0) initBase = (pages[0].base || [1 / 3, 2 / 3]).slice();
+                const pg = { key: key, fileIdx: fileIdx, fileName: fileName, pageNum: pageNum, base: initBase, cuts: [], autoCuts: [], card: card, wrap: wrap, overlay: overlay, pageHmm: parseFloat(pageHmm || 0) };
                 pages.push(pg);
                 card.querySelector('.allm-add').addEventListener('click', function() {
                     if (editingLocked()) { setStatus(finished ? 'Sudah finish. Klik Reset untuk job baru.' : 'Tunggu proses selesai dulu.', 'warning'); return; }
@@ -1176,7 +1224,10 @@
                             canvas.height = Math.floor(viewport.height);
                             const ctx = canvas.getContext('2d');
                             await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                            addPageDom(fileIdx, file.name, n, canvas);
+                            // Tinggi halaman dalam mm (viewport / skala = point; 1pt = 25.4/72mm)
+                            // agar arsiran segmen pendek sama dengan rule backend.
+                            const mmH = (viewport.height / 1.3) * 25.4 / 72;
+                            addPageDom(fileIdx, file.name, n, canvas, mmH);
                         } catch (e) { console.error(e); }
                     }
                     const more = pdf.numPages > maxN ? ' (preview ' + maxN + ' pertama dari ' + pdf.numPages + ' hal, garis page 1 berlaku ke semua)' : '';
@@ -1254,6 +1305,132 @@
                 if (isSyncOn()) syncFromMaster();
                 refreshCount();
             });
+
+            // ===== MASTER PRESET garis (shared DB): save base page-1, klik button load ke semua preview =====
+            const PRESET_LIST_URL = "{{ route('dashboard.kanbanManualPresets') }}";
+            const PRESET_STORE_URL = "{{ route('dashboard.kanbanManualPresetStore') }}";
+            const presetBar = document.getElementById('allManualPresetBar');
+            const presetNameInput = document.getElementById('allManualPresetName');
+            const presetSaveBtn = document.getElementById('allManualPresetSaveBtn');
+            let presetsCache = [];
+            let canManagePreset = false;
+            let activePresetName = '';
+            let pendingPresetLines = null; // dipakai bila preset diklik sebelum ada preview
+            function csrfToken() { const m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
+            function currentBaseLines() {
+                if (pages.length > 0) return normBase(pages[0].base || []);
+                return normBase(pendingPresetLines || []);
+            }
+            function applyPresetLines(lines, name) {
+                const norm = normBase(lines || []);
+                if (!norm.length) { setStatus('Preset ' + (name || '') + ' kosong.', 'warning'); return; }
+                activePresetName = (name || '').toUpperCase();
+                pendingPresetLines = norm.slice();
+                if (pages.length === 0) {
+                    setStatus('Preset <strong>' + activePresetName + '</strong> dimuat — pilih PDF, garis otomatis ikut preset.', 'info');
+                    renderPresetBar();
+                    return;
+                }
+                pages.forEach(function(pg) { pg.base = norm.slice(); });
+                pages.forEach(function(pg) { renderPageLines(pg, true); });
+                if (isSyncOn()) syncFromMaster();
+                refreshCount();
+                renderPresetBar();
+                setStatus('Preset <strong>' + activePresetName + '</strong> dimuat (' + norm.length + ' garis). Klik Process bila sudah oke.', 'success');
+            }
+            function renderPresetBar() {
+                if (!presetBar) return;
+                presetBar.innerHTML = '';
+                if (!presetsCache.length) {
+                    const s = document.createElement('small');
+                    s.className = 'text-muted';
+                    s.textContent = 'Belum ada master. Atur garis lalu Save, mis. AISIN.';
+                    presetBar.appendChild(s);
+                    return;
+                }
+                presetsCache.forEach(function(p) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'allm-preset-btn' + (activePresetName === String(p.name).toUpperCase() ? ' active' : '');
+                    const label = document.createElement('span');
+                    label.textContent = p.name + ' (' + (p.lines || []).length + ')';
+                    b.appendChild(label);
+                    b.title = 'Load garis ' + p.name;
+                    b.addEventListener('click', function() { applyPresetLines(p.lines, p.name); });
+                    if (canManagePreset) {
+                        const x = document.createElement('button');
+                        x.type = 'button';
+                        x.className = 'allm-preset-x';
+                        x.textContent = '×';
+                        x.title = 'Hapus ' + p.name;
+                        x.addEventListener('click', function(ev) {
+                            ev.stopPropagation();
+                            deletePreset(p);
+                        });
+                        b.appendChild(x);
+                    }
+                    presetBar.appendChild(b);
+                });
+            }
+            async function loadPresets() {
+                if (!presetBar) return;
+                try {
+                    const res = await fetch(PRESET_LIST_URL, { headers: { 'Accept': 'application/json' } });
+                    const j = await res.json();
+                    presetsCache = (j && j.data) || [];
+                    canManagePreset = !!(j && j.can_manage);
+                    // Save terbuka untuk semua user login; hanya tombol hapus (×) yang khusus manage-master.
+                    if (presetSaveBtn) { presetSaveBtn.disabled = false; presetSaveBtn.title = ''; }
+                    if (presetNameInput) presetNameInput.disabled = false;
+                    renderPresetBar();
+                } catch (e) {
+                    if (presetBar) presetBar.innerHTML = '<small class="text-danger">Gagal memuat master.</small>';
+                }
+            }
+            async function deletePreset(p) {
+                if (!confirm('Hapus master ' + p.name + '?')) return;
+                try {
+                    const res = await fetch(PRESET_STORE_URL + '/' + p.id, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' }
+                    });
+                    const j = await res.json();
+                    if (!res.ok || !j.status) throw new Error((j && j.message) || ('HTTP ' + res.status));
+                    if (activePresetName === String(p.name).toUpperCase()) activePresetName = '';
+                    await loadPresets();
+                    setStatus('Master <strong>' + p.name + '</strong> dihapus.', 'warning');
+                } catch (e) { setStatus('Gagal hapus: ' + (e.message || e), 'danger'); }
+            }
+            if (presetSaveBtn) presetSaveBtn.addEventListener('click', async function() {
+                if (editingLocked()) { setStatus(finished ? 'Sudah finish. Klik Reset untuk job baru.' : 'Tunggu proses selesai dulu.', 'warning'); return; }
+                const base = currentBaseLines();
+                if (!base.length) { alert('Atur minimal 1 garis merah dulu (klik + Garis tengah atau double-click preview).'); return; }
+                const rawName = presetNameInput ? presetNameInput.value : '';
+                const name = String(rawName || '').trim().toUpperCase();
+                if (!name) { alert('Isi nama dulu, mis. AISIN.'); if (presetNameInput) presetNameInput.focus(); return; }
+                if (!/^[A-Z0-9 _\-]{1,50}$/.test(name)) { alert('Nama hanya boleh huruf, angka, spasi, - dan _.'); return; }
+                presetSaveBtn.disabled = true;
+                try {
+                    const fd = new FormData();
+                    fd.append('name', name);
+                    base.forEach(function(v) { fd.append('lines[]', String(v)); });
+                    fd.append('_token', csrfToken());
+                    const res = await fetch(PRESET_STORE_URL, { method: 'POST', body: fd, headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' } });
+                    const j = await res.json();
+                    if (!res.ok || !j.status) throw new Error((j && j.message) || ('HTTP ' + res.status));
+                    activePresetName = name;
+                    pendingPresetLines = base.slice();
+                    if (presetNameInput) presetNameInput.value = '';
+                    await loadPresets();
+                    setStatus('Master <strong>' + name + '</strong> tersimpan (' + base.length + ' garis). Klik button-nya kapan saja untuk load.', 'success');
+                } catch (e) {
+                    console.error(e);
+                    setStatus('Gagal save: ' + (e.message || e), 'danger');
+                } finally {
+                    presetSaveBtn.disabled = false;
+                }
+            });
+            loadPresets();
 
             function buildCuts() {
                 const out = {};

@@ -22,6 +22,14 @@ use setasign\Fpdi\Tcpdf\Fpdi;
  */
 class AllManualCropProcessor
 {
+    /**
+     * Tinggi minimum segmen agar disimpan (mm, satuan dokumen FPDI).
+     * Segmen lebih pendek dari ini = strip sisa/margin putih → buang.
+     * Kanban asli umumnya >= 40mm (3–6 kanban per halaman A4),
+     * jadi 30mm aman dari kanban valid.
+     */
+    private const MIN_SEGMENT_HEIGHT_MM = 30.0;
+
     public function __construct(
         protected KanbanRegionDetector $detector
     ) {
@@ -44,14 +52,23 @@ class AllManualCropProcessor
         $output->SetAuthor('BELLA');
         $output->SetTitle('Kanban ALL Manual Crop Result');
 
+        try {
+            $renderer = $this->detector->availableRenderer();
+        } catch (\Throwable $e) {
+            $renderer = null;
+        }
         logger()->info('AllManualCropProcessor start', [
             'job' => $jobId,
             'files' => count($files),
+            'blank_renderer' => $renderer ?? 'none-vector-only',
+            'filter_blank' => $filterBlank,
+            'min_seg_mm' => self::MIN_SEGMENT_HEIGHT_MM,
         ]);
 
         $totalPages = 0;
         $skippedBlank = 0;
         $applyFilter = $filterBlank;
+        $debugSamples = [];
 
         // 2 pass: pass 1 buang blank, bila hasilnya NOL halaman ulangi tanpa filter
         // (pengaman agar tidak pernah menghasilkan PDF kosong).
@@ -126,8 +143,15 @@ class AllManualCropProcessor
                     $bottom = $bounds[$i + 1];
                     $segH = ($bottom - $top) * $pageH;
 
-                    // Abaikan segmen terlalu tipis (< 3mm) agar tidak jadi page sampah.
-                    if ($segH < 3.0) {
+                    // Rule tinggi: segmen pendek (< 30mm) = strip sisa/margin
+                    // putih → SELALU buang (tidak ikut checkbox blank).
+                    // Pada pass 2 (retry tanpa filter) kembali ke batas
+                    // struktural 3mm agar tidak pernah menghasilkan PDF kosong.
+                    $minSegH = ($pass === 0) ? self::MIN_SEGMENT_HEIGHT_MM : 3.0;
+                    if ($segH < $minSegH) {
+                        if ($pass === 0) {
+                            $skippedBlank++;
+                        }
                         continue;
                     }
 
@@ -135,6 +159,18 @@ class AllManualCropProcessor
                     if ($applyFilter && $this->isBlankSegment($file, $page, (float) $top, (float) $bottom)) {
                         $skippedBlank++;
                         continue;
+                    }
+
+                    // Sampling diagnostik: rekam metrik segmen yang LOLOS (maks 8/job)
+                    // agar terlihat dari log kenapa strip putih tidak terbuang.
+                    if ($pass === 0 && $applyFilter && count($debugSamples) < 8) {
+                        try {
+                            $debugSamples[] = array_merge(
+                                ['fi' => $fileIndex, 'pg' => $page, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3)],
+                                $this->detector->debugSegmentMetrics($file, $page, (float) $top, (float) $bottom)
+                            );
+                        } catch (\Throwable $e) {
+                        }
                     }
 
                     $y = $top * $pageH;
@@ -179,6 +215,18 @@ class AllManualCropProcessor
             'skipped_blank' => $skippedBlank,
         ]);
 
+        if (! empty($debugSamples)) {
+            logger()->info('AllManual blank-debug', [
+                'job' => $jobId,
+                'kept_samples' => $debugSamples,
+            ]);
+        }
+
+        try {
+            $this->detector->clearRenderCache();
+        } catch (\Throwable $e) {
+        }
+
         return $filename;
     }
 
@@ -202,14 +250,23 @@ class AllManualCropProcessor
         $output->SetAuthor('BELLA');
         $output->SetTitle('Kanban ALL Manual Crop Result');
 
+        try {
+            $chunkRenderer = $this->detector->availableRenderer();
+        } catch (\Throwable $e) {
+            $chunkRenderer = null;
+        }
         logger()->info('AllManualCropProcessor chunked start', [
             'job' => $jobId,
             'files' => count($chunkMap),
+            'blank_renderer' => $chunkRenderer ?? 'none-vector-only',
+            'filter_blank' => $filterBlank,
+            'min_seg_mm' => self::MIN_SEGMENT_HEIGHT_MM,
         ]);
 
         $totalPages = 0;
         $skippedBlank = 0;
         $applyFilter = $filterBlank;
+        $chunkDebugSamples = [];
 
         // 2 pass: pass 1 buang blank, bila hasilnya NOL halaman ulangi tanpa filter
         // (pengaman agar tidak pernah menghasilkan PDF kosong).
@@ -283,13 +340,29 @@ class AllManualCropProcessor
                         $bottom = $bounds[$i + 1];
                         $segH = ($bottom - $top) * $pageH;
 
-                        if ($segH < 3.0) {
+                        // Rule tinggi (sama seperti jalur normal): segmen pendek
+                        // (< 30mm) SELALU buang sebagai strip putih.
+                        $minSegH = ($pass === 0) ? self::MIN_SEGMENT_HEIGHT_MM : 3.0;
+                        if ($segH < $minSegH) {
+                            if ($pass === 0) {
+                                $skippedBlank++;
+                            }
                             continue;
                         }
 
                         if ($applyFilter && $this->isBlankSegment($chunk, $local, (float) $top, (float) $bottom)) {
                             $skippedBlank++;
                             continue;
+                        }
+
+                        if ($pass === 0 && $applyFilter && count($chunkDebugSamples) < 8) {
+                            try {
+                                $chunkDebugSamples[] = array_merge(
+                                    ['fi' => $fileIndex, 'pg' => $lookup, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3)],
+                                    $this->detector->debugSegmentMetrics($chunk, $local, (float) $top, (float) $bottom)
+                                );
+                            } catch (\Throwable $e) {
+                            }
                         }
 
                         $y = $top * $pageH;
@@ -331,15 +404,55 @@ class AllManualCropProcessor
             'skipped_blank' => $skippedBlank,
         ]);
 
+        if (! empty($chunkDebugSamples)) {
+            logger()->info('AllManual blank-debug', [
+                'job' => $jobId,
+                'kept_samples' => $chunkDebugSamples,
+            ]);
+        }
+
+        try {
+            $this->detector->clearRenderCache();
+        } catch (\Throwable $e) {
+        }
+
         return $filename;
     }
 
     /**
-     * Segmen blank = tidak ada teks DAN nyaris tidak ada tinta/gambar.
-     * Fail-safe: ragu-ragu => anggap BERISI (jangan buang).
+     * Segmen blank = halaman/potongan putih polos tanpa isi.
+     * Urutan cek: (0) halaman tanpa operator, (1) piksel render
+     * (scan gambar & sisa border), (2) fallback vektor teks+tinta.
+     * Fail-safe: ragu-ragu => BERISI (jangan buang).
      */
     protected function isBlankSegment(string $file, int $page, float $fracTop, float $fracBottom): bool
     {
+        // 0) Halaman-penuh tanpa teks & tanpa gambar (atau tanpa operator
+        //    sama sekali) = blank. Berlaku untuk segmen mana pun di halaman
+        //    tersebut — halaman kosong sumber tidak lolos jadi strip putih.
+        try {
+            if ($this->detector->isFullPageBlank($file, $page) === true) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // abaikan, lanjut cek berikut
+        }
+
+        // 1) Cek piksel: akurat untuk PDF scan (gambar) maupun vektor.
+        try {
+            $pixel = $this->detector->isPixelBlank($file, $page, $fracTop, $fracBottom);
+            if ($pixel === true) {
+                return true;
+            }
+            if ($pixel === false) {
+                return false;
+            }
+            // null = tidak bisa render, lanjut ke fallback vektor.
+        } catch (\Throwable $e) {
+            // abaikan, lanjut fallback
+        }
+
+        // 2) Fallback vektor: tidak ada teks DAN nyaris tidak ada tinta.
         try {
             if (! $this->detector->isRegionEmpty($file, $page, $fracTop, $fracBottom)) {
                 return false;
@@ -351,7 +464,7 @@ class AllManualCropProcessor
         try {
             return $this->detector->countInkInBand($file, $page, $fracTop, $fracBottom) <= 5;
         } catch (\Throwable $e) {
-            return true;
+            return false;
         }
     }
 

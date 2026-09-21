@@ -178,6 +178,500 @@ class KanbanRegionDetector
 
     protected array $pageParseCache = []; // ["path|page" => ['pageH'=>..,'items'=>..,'ink'=>..]|null]
 
+    protected array $renderCache = []; // ["path|page" => pngPath|string|false]
+
+    /**
+     * Cek blank berbasis piksel (render halaman ke PNG lalu hitung % tinta).
+     *
+     * Menangani kasus yang lolos dari deteksi vektor:
+     * - halaman scan berupa gambar (Do/BI selalu dihitung tinta sehingga
+     *   halaman putih polos tidak pernah dianggap blank),
+     * - halaman putih dengan sisa border/garis tipis.
+     *
+     * @return bool|null true=blank, false=berisi, null=tidak bisa render (fallback vektor)
+     */
+    public function isPixelBlank(string $file, int $page, float $fracTop, float $fracBottom): ?bool
+    {
+        try {
+            if ($fracBottom <= $fracTop) {
+                return true;
+            }
+            $png = $this->renderPagePng($file, $page);
+            if (! is_string($png) || ! is_file($png)) {
+                return null;
+            }
+            $ratio = $this->inkRatioInBandPng($png, $fracTop, $fracBottom);
+            if ($ratio === null) {
+                return null;
+            }
+            // < 1% piksel bertinta = blank. Ambang ini juga membuang strip
+            // sisa garis potong putus-putus (ink ~0,5%), sementara kanban
+            // asli (teks+tabel+barcode) umumnya > 5% sehingga tetap aman.
+            // Noise JPEG / anti-aliasing jauh di bawah ambang ini.
+            return $ratio < 0.01;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    protected function renderPagePng(string $file, int $page): ?string
+    {
+        $key = $file.'|'.$page;
+        if (array_key_exists($key, $this->renderCache)) {
+            $cached = $this->renderCache[$key];
+            if (is_string($cached) && is_file($cached)) {
+                return $cached;
+            }
+            return null;
+        }
+
+        $png = null;
+        try {
+            $png = $this->renderWithImagick($file, $page)
+                ?? $this->renderWithPdftoppm($file, $page)
+                ?? $this->renderWithGhostscript($file, $page);
+        } catch (\Throwable $e) {
+            $png = null;
+        }
+
+        $this->renderCache[$key] = (is_string($png) && is_file($png)) ? $png : false;
+        if (count($this->renderCache) > 120) {
+            unset($this->renderCache[array_key_first($this->renderCache)]);
+        }
+
+        return (is_string($png) && is_file($png)) ? $png : null;
+    }
+
+    protected function blankRenderDir(): string
+    {
+        $dir = storage_path('app/temp-kanban/blank-render');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        return $dir;
+    }
+
+    /**
+     * Nama renderer piksel yang tersedia di server ini (imagick/pdftoppm/gs),
+     * atau null bila tidak ada (cek blank hanya mengandalkan fallback vektor).
+     */
+    public function availableRenderer(): ?string
+    {
+        try {
+            if (extension_loaded('imagick') && class_exists('Imagick')) {
+                return 'imagick';
+            }
+            if (function_exists('shell_exec') || function_exists('exec')) {
+                $pp = @shell_exec('command -v pdftoppm 2>/dev/null || where pdftoppm 2>nul');
+                if (is_string($pp) && trim($pp) !== '') {
+                    return 'pdftoppm';
+                }
+                $gs = @shell_exec('command -v gs 2>/dev/null || where gswin64c 2>nul || where gs 2>nul');
+                if (is_string($gs) && trim($gs) !== '') {
+                    return 'ghostscript';
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return null;
+    }
+
+    /**
+     * True bila halaman TIDAK punya operator gambar/teks sama sekali
+     * (content stream kosong / hanya q/Q/BT/ET) → halaman putih polos.
+     * False bila ada operator. Null bila tidak bisa dipastikan.
+     *
+     * Menutup celah fallback vektor: halaman kosong total membuat
+     * cachedPageParse() return null yang selama ini dibaca "berisi".
+     * Guard panjang stream mentah: stream besar yang gagal ter-decode
+     * (mis. filter tak dikenal) return null agar konten tak terbuang.
+     */
+    public function isPageWithoutOps(string $file, int $page): ?bool
+    {
+        try {
+            $fp = $this->cachedFileParse($file);
+            if ($fp === null || ! isset($fp['pages'][$page - 1])) {
+                return null;
+            }
+            $pageObj = (int) $fp['pages'][$page - 1];
+            $content = $this->decodedPageContent($fp['objects'], $pageObj);
+            $stripped = $this->stripStreamStrings($content);
+            // Buang angka, nama resource, dan kurung array → sisa token operator.
+            $ops = trim((string) preg_replace('/(-?\d+(?:\.\d+)?)|(\/[^\s<>\[\]()\/]+)|(\[|\])/', ' ', $stripped));
+            $ops = trim((string) preg_replace('/\s+/', ' ', $ops));
+            $isEmpty = ($ops === '')
+                || (bool) preg_match('/^(q|Q|BT|ET|W\*?|n)(\s+(q|Q|BT|ET|W\*?|n))*$/', $ops);
+            if (! $isEmpty) {
+                return false;
+            }
+            // Ops kosong TAPI stream mentah besar = kemungkinan gagal decode,
+            // bukan halaman kosong → nyatakan tidak tahu (jangan buang).
+            if ($this->pageRawContentLength($fp['objects'], $pageObj) > 500) {
+                return null;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Panjang mentah (encoded) semua stream /Contents halaman. */
+    protected function pageRawContentLength(array $objects, int $pageObjNum): int
+    {
+        try {
+            $len = 0;
+            foreach ($this->pageContentStreams($objects, $pageObjNum) as $stream) {
+                $len += strlen($stream);
+            }
+
+            return $len;
+        } catch (\Throwable $e) {
+            return PHP_INT_MAX; // tak terukur → anggap besar (fail-safe: jangan buang)
+        }
+    }
+
+    /**
+     * Metrik diagnostik satu segmen (dipakai sampling log job ALL-manual).
+     * Semua key diisi int/bool; 'err' bila gagal total.
+     */
+    public function debugSegmentMetrics(string $file, int $page, float $fracTop, float $fracBottom): array
+    {
+        $out = [];
+        try {
+            $out['text_page'] = $this->pageTextCount($file, $page);
+        } catch (\Throwable $e) {
+            $out['text_page'] = 'err';
+        }
+        try {
+            $out['text_band'] = $this->countTextInBand($file, $page, $fracTop, $fracBottom);
+        } catch (\Throwable $e) {
+            $out['text_band'] = 'err';
+        }
+        try {
+            $out['img'] = $this->pageHasImageOp($file, $page);
+        } catch (\Throwable $e) {
+            $out['img'] = 'err';
+        }
+        try {
+            $fp = $this->cachedFileParse($file);
+            $out['raw'] = ($fp !== null && isset($fp['pages'][$page - 1]))
+                ? $this->pageRawContentLength($fp['objects'], (int) $fp['pages'][$page - 1])
+                : 'noparse';
+        } catch (\Throwable $e) {
+            $out['raw'] = 'err';
+        }
+        try {
+            $out['ink'] = $this->countInkInBand($file, $page, $fracTop, $fracBottom);
+        } catch (\Throwable $e) {
+            $out['ink'] = 'err';
+        }
+        try {
+            $out['noops'] = $this->isPageWithoutOps($file, $page);
+        } catch (\Throwable $e) {
+            $out['noops'] = 'err';
+        }
+
+        return $out;
+    }
+
+    /** Jumlah item teks dalam pita vertikal (mirip isRegionEmpty tapi mengembalikan hitungan). */
+    public function countTextInBand(string $file, int $page, float $fracTop, float $fracBottom): ?int
+    {
+        try {
+            if ($fracBottom <= $fracTop) {
+                return 0;
+            }
+            $parsed = $this->cachedPageParse($file, $page);
+            if ($parsed === null) {
+                return null;
+            }
+            $pageH = (float) $parsed['pageH'];
+            $yTop = (1 - $fracTop) * $pageH - 1.0;
+            $yBottom = (1 - $fracBottom) * $pageH + 1.0;
+            if ($yTop <= $yBottom) {
+                return 0;
+            }
+            $n = 0;
+            foreach ($parsed['items'] as $it) {
+                $y = (float) $it['y'];
+                if ($y >= $yBottom && $y <= $yTop) {
+                    $n++;
+                }
+            }
+
+            return $n;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Jumlah item teks terekstrak pada halaman (0 bila konten kosong). Null bila gagal. */
+    public function pageTextCount(string $file, int $page): ?int
+    {
+        try {
+            $parsed = $this->cachedPageParse($file, $page);
+            if ($parsed === null) {
+                return 0;
+            }
+
+            return count($parsed['items'] ?? []);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** True bila halaman memakai gambar (operator Do / inline BI). Null bila gagal. */
+    public function pageHasImageOp(string $file, int $page): ?bool
+    {
+        try {
+            $fp = $this->cachedFileParse($file);
+            if ($fp === null || ! isset($fp['pages'][$page - 1])) {
+                return null;
+            }
+            $content = $this->decodedPageContent($fp['objects'], (int) $fp['pages'][$page - 1]);
+            if (trim($content) === '') {
+                return false;
+            }
+            $stripped = $this->stripStreamStrings($content);
+            if (preg_match('/\bDo\b/', $stripped)) {
+                return true;
+            }
+            if (preg_match('/\bBI\b/', $stripped)) {
+                return true;
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Aturan halaman-penuh: halaman tanpa teks & tanpa gambar praktis
+     * pasti bukan kanban (kanban selalu ada teks; scan selalu ada gambar).
+     * Guard stream mentah < 2KB agar halaman vektor yang gagal ter-decode
+     * tidak ikut terbuang.
+     */
+    public function isFullPageBlank(string $file, int $page): ?bool
+    {
+        try {
+            $noOps = $this->isPageWithoutOps($file, $page);
+            if ($noOps === true) {
+                return true;
+            }
+            if ($this->pageTextCount($file, $page) !== 0) {
+                return false;
+            }
+            if ($this->pageHasImageOp($file, $page) !== false) {
+                return false;
+            }
+            $fp = $this->cachedFileParse($file);
+            if ($fp === null || ! isset($fp['pages'][$page - 1])) {
+                return null;
+            }
+            if ($this->pageRawContentLength($fp['objects'], (int) $fp['pages'][$page - 1]) > 2000) {
+                return null; // konten vektor cukup besar tapi tak terbaca → jangan buang
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Hapus PNG render sementara milik job ini agar disk tidak bengkak. */
+    public function clearRenderCache(): void
+    {
+        try {
+            foreach ($this->renderCache as $png) {
+                if (is_string($png) && $png !== '' && is_file($png)) {
+                    @unlink($png);
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        $this->renderCache = [];
+        // Best-effort: bersihkan render basi > 2 jam dari job lain.
+        try {
+            $dir = $this->blankRenderDir();
+            foreach ((array) glob($dir.'/*.png') as $g) {
+                if (is_file($g) && (time() - (int) @filemtime($g)) > 7200) {
+                    @unlink($g);
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function renderWithImagick(string $file, int $page): ?string
+    {
+        if (! extension_loaded('imagick') || ! class_exists('Imagick')) {
+            return null;
+        }
+        try {
+            $im = new \Imagick();
+            $im->setResolution(72, 72);
+            $im->readImage($file.'['.max(0, $page - 1).']');
+            $im->setImageFormat('png');
+            // Flatten transparansi ke putih agar tidak dihitung tinta.
+            try {
+                $im->setImageBackgroundColor('white');
+                $im = $im->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+            } catch (\Throwable $e) {
+                // abaikan, lanjut tanpa flatten
+            }
+            $out = $this->blankRenderDir().'/p'.md5($file).'_'.$page.'.png';
+            $im->writeImage($out);
+            try {
+                $im->clear();
+                $im->destroy();
+            } catch (\Throwable $e) {
+            }
+            if (is_file($out) && filesize($out) > 0) {
+                return $out;
+            }
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    protected function renderWithPdftoppm(string $file, int $page): ?string
+    {
+        try {
+            if (! function_exists('shell_exec') && ! function_exists('exec')) {
+                return null;
+            }
+            $which = @shell_exec('command -v pdftoppm 2>/dev/null || where pdftoppm 2>nul');
+            if (! is_string($which) || trim($which) === '') {
+                return null;
+            }
+            $prefix = $this->blankRenderDir().'/p'.md5($file).'_'.$page;
+            $cmd = 'pdftoppm -png -r 72 -f '.(int) $page.' -l '.(int) $page.' '
+                .escapeshellarg($file).' '.escapeshellarg($prefix).' 2>&1';
+            @exec($cmd, $outLines, $code);
+            if ((int) $code !== 0) {
+                return null;
+            }
+            // pdftoppm menamai output "<prefix>-<page>.png" (page = nomor global).
+            $candidates = [
+                $prefix.'-'.$page.'.png',
+                $prefix.'-'.str_pad((string) $page, 2, '0', STR_PAD_LEFT).'.png',
+            ];
+            foreach ($candidates as $c) {
+                if (is_file($c) && filesize($c) > 0) {
+                    return $c;
+                }
+            }
+            foreach ((array) glob($prefix.'*.png') as $g) {
+                if (is_file($g) && filesize($g) > 0) {
+                    return $g;
+                }
+            }
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    protected function renderWithGhostscript(string $file, int $page): ?string
+    {
+        try {
+            if (! function_exists('shell_exec') && ! function_exists('exec')) {
+                return null;
+            }
+            $which = @shell_exec('command -v gs 2>/dev/null || where gswin64c 2>nul || where gs 2>nul');
+            if (! is_string($which) || trim($which) === '') {
+                return null;
+            }
+            // Pakai binary pertama yang ditemukan.
+            $bin = trim(strtok(trim($which), "\r\n"));
+            if ($bin === '') {
+                return null;
+            }
+            $out = $this->blankRenderDir().'/p'.md5($file).'_'.$page.'.png';
+            $cmd = escapeshellarg($bin).' -dBATCH -dNOPAUSE -dSAFER -sDEVICE=png16m -r72 '
+                .'-dFirstPage='.(int) $page.' -dLastPage='.(int) $page.' '
+                .'-sOutputFile='.escapeshellarg($out).' '.escapeshellarg($file).' 2>&1';
+            @exec($cmd, $outLines, $code);
+            if (is_file($out) && filesize($out) > 0) {
+                return $out;
+            }
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Rasio piksel bertinta dalam pita vertikal PNG hasil render.
+     * Piksel dianggap tinta bila rata-rata RGB < 235 (putih/noise JPEG diabaikan).
+     *
+     * @return float|null null bila GD tidak tersedia / gambar tidak terbaca
+     */
+    protected function inkRatioInBandPng(string $pngPath, float $fracTop, float $fracBottom): ?float
+    {
+        try {
+            if (! function_exists('imagecreatefrompng') && ! function_exists('imagecreatefromstring')) {
+                return null;
+            }
+            $raw = @file_get_contents($pngPath);
+            if (! is_string($raw) || $raw === '') {
+                return null;
+            }
+            $img = @imagecreatefromstring($raw);
+            if (! $img) {
+                return null;
+            }
+            $w = imagesx($img);
+            $h = imagesy($img);
+            if ($w <= 0 || $h <= 0) {
+                @imagedestroy($img);
+                return null;
+            }
+            $y0 = (int) floor($fracTop * $h);
+            $y1 = (int) ceil($fracBottom * $h);
+            // Inset 2px agar sisa garis potong segmen tetangga tidak ikut dihitung.
+            $y0 += 2;
+            $y1 -= 2;
+            $y0 = max(0, $y0);
+            $y1 = min($h - 1, $y1);
+            if ($y1 - $y0 < 8) {
+                @imagedestroy($img);
+                return null;
+            }
+            $step = 3; // sampling tiap 3px agar cepat, tetap akurat untuk teks/gambar
+            $total = 0;
+            $ink = 0;
+            for ($y = $y0; $y <= $y1; $y += $step) {
+                for ($x = 0; $x < $w; $x += $step) {
+                    $rgb = imagecolorat($img, $x, $y);
+                    $r = ($rgb >> 16) & 0xFF;
+                    $g = ($rgb >> 8) & 0xFF;
+                    $b = $rgb & 0xFF;
+                    $total++;
+                    if ((($r + $g + $b) / 3) < 235) {
+                        $ink++;
+                    }
+                }
+            }
+            @imagedestroy($img);
+            if ($total <= 0) {
+                return null;
+            }
+
+            return $ink / $total;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     protected function cachedFileParse(string $file): ?array
     {
         if (array_key_exists($file, $this->fileParseCache)) {

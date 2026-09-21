@@ -2,7 +2,8 @@
 
 @section('main')
     @php
-        $machine = $machine ?? request()->query('machine', 'TMEJ003');
+        // Generic: tidak ada default hardcode. Kosong = user harus search/pilih mesin.
+        $machine = $machine ?? request()->query('machine', '');
     @endphp
 
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
@@ -47,10 +48,12 @@
                 </div>
 
                 <div class="ml-auto flex flex-wrap justify-end items-end gap-2 self-end">
-                    <div>
+                    <div class="relative">
                         <label class="block text-[11px] font-extrabold uppercase tracking-wider text-sky-100/80" for="machineInput">Mesin</label>
-                        <input id="machineInput" type="text" value="{{ $machine }}"
-                            class="mt-1 w-[140px] rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 shadow-inner backdrop-blur focus:outline-none focus:ring-2 focus:ring-white/70 focus:bg-white/15" />
+                        <input id="machineInput" type="text" value="{{ $machine }}" placeholder="Cari mesin…"
+                            autocomplete="off" role="combobox" aria-expanded="false" aria-controls="machineList"
+                            class="mt-1 w-[200px] rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 shadow-inner backdrop-blur focus:outline-none focus:ring-2 focus:ring-white/70 focus:bg-white/15" />
+                        <div id="machineList" class="absolute z-20 mt-1 w-[200px] overflow-hidden rounded-xl bg-white text-slate-800 shadow-lg" style="display:none"></div>
                     </div>
                     <div>
                         <label class="block text-[11px] font-extrabold uppercase tracking-wider text-sky-100/80" for="intervalSelect">Refresh</label>
@@ -80,19 +83,26 @@
     <script>
         (function () {
             const baseDataUrl = @json(route('dashboard.leak.data'));
+            const machinesUrl = @json(route('dashboard.leak.machines'));
             const $ = (id) => document.getElementById(id);
             const machineInput = $('machineInput');
+            const machineList = $('machineList');
             const intervalSelect = $('intervalSelect');
             let timer = null;
-            let firstLoad = true;
-
-            const META = {
-                'REGISTER_GENERAL_DATA_LEAK': { label: 'General Data Leak', icon: 'fa-tint', unit: '' },
-                'FLOW_MEASUREMENT_VALUE': { label: 'Flow Measurement', icon: 'fa-wind', unit: '' },
-            };
+            let searchTimer = null;
 
             const prettyKey = (k) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
             const prettyVal = (v) => (v === null || v === undefined || v === '') ? '-' : String(v);
+
+            // Generic: tentukan ikon dari nama key, bukan daftar key hardcode per mesin.
+            function iconFor(key) {
+                const k = String(key || '').toLowerCase();
+                if (k.includes('flow')) return 'fa-wind';
+                if (k.includes('leak')) return 'fa-tint';
+                if (k.includes('temp')) return 'fa-thermometer-half';
+                if (k.includes('press')) return 'fa-gauge-high';
+                return 'fa-microchip';
+            }
 
             // Escape semua string dari API sebelum dimasukkan ke innerHTML (anti-XSS).
             function esc(s) {
@@ -111,11 +121,12 @@
             }
 
             function cardHtml(key, inner) {
-                const m = META[key] || { label: prettyKey(key), icon: 'fa-microchip', unit: '' };
+                const label = prettyKey(key);
+                const icon = iconFor(key);
                 return '<div class="leak-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm" data-key="' + esc(key) + '">'
                     + '<div class="flex items-center gap-3 mb-3">'
-                    + '<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#294795] to-[#00a8e8] text-white flex items-center justify-center"><i class="fas ' + esc(m.icon) + '"></i></div>'
-                    + '<div><p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0">' + esc(m.label) + '</p></div>'
+                    + '<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#294795] to-[#00a8e8] text-white flex items-center justify-center"><i class="fas ' + esc(icon) + '"></i></div>'
+                    + '<div><p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0">' + esc(label) + '</p></div>'
                     + '</div>'
                     + '<p class="leak-value font-extrabold text-slate-900 mb-0" style="font-size:2rem;line-height:1">' + inner + '</p>'
                     + '</div>';
@@ -123,26 +134,31 @@
 
             const SPINNER = '<i class="fas fa-circle-notch fa-spin text-[#294795]" style="font-size:1.75rem"></i>';
 
-            function drawCards(data) {
+            function drawEmpty(text) {
                 const grid = $('cardsGrid');
+                grid.innerHTML = '<div class="md:col-span-2 bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center">'
+                    + '<div class="mx-auto mb-3 w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-inbox fa-lg"></i></div>'
+                    + '<p class="font-bold text-slate-600 mb-1">' + esc(text) + '</p>'
+                    + '<button id="leakRetryBtn" type="button" class="rounded-xl bg-[#294795] px-4 py-2 text-sm font-bold text-white shadow hover:opacity-90 active:scale-[.98] transition"><i class="fas fa-redo"></i> Coba Lagi</button>'
+                    + '</div>';
+                const rb = $('leakRetryBtn');
+                if (rb) rb.addEventListener('click', load);
+            }
+
+            function drawCards(data) {
                 const entries = Object.entries(data || {});
                 if (!entries.length) {
-                    grid.innerHTML = '<div class="md:col-span-2 bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center">'
-                        + '<div class="mx-auto mb-3 w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-inbox fa-lg"></i></div>'
-                        + '<p class="font-bold text-slate-600 mb-1">Belum ada data</p>'
-                        + '<button id="leakRetryBtn" type="button" class="rounded-xl bg-[#294795] px-4 py-2 text-sm font-bold text-white shadow hover:opacity-90 active:scale-[.98] transition"><i class="fas fa-redo"></i> Coba Lagi</button>'
-                        + '</div>';
-                    const rb = $('leakRetryBtn');
-                    if (rb) rb.addEventListener('click', load);
+                    drawEmpty('Belum ada data');
                     return;
                 }
-                grid.innerHTML = entries.map(([key, val]) => cardHtml(key, esc(prettyVal(val)))).join('');
+                $('cardsGrid').innerHTML = entries.map(([key, val]) => cardHtml(key, esc(prettyVal(val)))).join('');
             }
 
             function drawLoadingCards() {
                 const grid = $('cardsGrid');
                 const existing = [...grid.querySelectorAll('.leak-card')].map((c) => c.dataset.key).filter(Boolean);
-                const list = existing.length ? existing : Object.keys(META);
+                // Generic skeleton: pakai key yang sudah ada, atau 4 placeholder netral.
+                const list = existing.length ? existing : ['loading-1', 'loading-2', 'loading-3', 'loading-4'];
                 grid.innerHTML = list.map((key) => cardHtml(key, SPINNER)).join('');
             }
 
@@ -160,24 +176,36 @@
             }
 
             function setLoading(on) {
-                const grid = $('cardsGrid');
                 const sync = $('syncSpin');
                 const btnIcon = document.querySelector('#leakRefreshBtn i');
                 if (on) {
                     if (sync) sync.style.display = 'inline';
                     if (btnIcon) btnIcon.classList.add('fa-spin');
-                    if (firstLoad || grid.querySelectorAll('.leak-card').length) {
-                        drawLoadingCards();
-                    }
+                    drawLoadingCards();
                 } else {
                     if (sync) sync.style.display = 'none';
                     if (btnIcon) btnIcon.classList.remove('fa-spin');
                 }
             }
 
+            function currentMachine() {
+                return ((machineInput.value || '').trim() || '').toUpperCase();
+            }
+
             async function load() {
-                const machine = (machineInput.value || '').trim() || @json($machine);
+                const machine = currentMachine();
+                if (!machine) {
+                    setBadge(false);
+                    $('machineTitle').textContent = '-';
+                    $('lastUpdate').textContent = '-';
+                    hideError();
+                    drawEmpty('Pilih mesin dulu via kolom search');
+                    return;
+                }
                 $('machineTitle').textContent = machine;
+                const url = new URL(window.location.href);
+                url.searchParams.set('machine', machine);
+                window.history.replaceState(null, '', url);
                 $('leakRefreshBtn').disabled = true;
                 setLoading(true);
                 try {
@@ -192,13 +220,48 @@
                     $('lastUpdate').textContent = new Date().toLocaleString();
                 } catch (e) {
                     setBadge(false);
-                    drawCards({});
+                    drawEmpty('Belum ada data');
                     drawError(e.message || 'Gagal mengambil data.');
                     $('lastUpdate').textContent = '-';
                 } finally {
-                    firstLoad = false;
                     setLoading(false);
                     $('leakRefreshBtn').disabled = false;
+                }
+            }
+
+            function hideMachineList() {
+                machineList.style.display = 'none';
+                machineInput.setAttribute('aria-expanded', 'false');
+            }
+
+            function showMachineList(items) {
+                if (!items.length) { hideMachineList(); return; }
+                machineList.innerHTML = items.map((m) =>
+                    '<button type="button" data-code="' + esc(m.code) + '" class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100">'
+                    + '<span class="font-bold">' + esc(m.code) + '</span>'
+                    + (m.name && m.name !== m.code ? ' <span class="text-slate-500">· ' + esc(m.name) + '</span>' : '')
+                    + '</button>'
+                ).join('');
+                machineList.style.display = 'block';
+                machineInput.setAttribute('aria-expanded', 'true');
+                machineList.querySelectorAll('button[data-code]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        machineInput.value = btn.dataset.code;
+                        hideMachineList();
+                        load();
+                    });
+                });
+            }
+
+            async function searchMachines(term) {
+                try {
+                    const res = await fetch(machinesUrl + '?q=' + encodeURIComponent(term), {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const json = await res.json();
+                    showMachineList(json.machines || []);
+                } catch (e) {
+                    hideMachineList();
                 }
             }
 
@@ -209,7 +272,16 @@
             }
 
             $('leakRefreshBtn').addEventListener('click', load);
-            machineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+            machineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { hideMachineList(); load(); } });
+            machineInput.addEventListener('input', () => {
+                const term = machineInput.value.trim();
+                if (searchTimer) clearTimeout(searchTimer);
+                if (term.length < 1) { hideMachineList(); return; }
+                searchTimer = setTimeout(() => searchMachines(term), 250);
+            });
+            document.addEventListener('click', (e) => {
+                if (!machineList.contains(e.target) && e.target !== machineInput) hideMachineList();
+            });
             intervalSelect.addEventListener('change', restartTimer);
             restartTimer();
             load();
