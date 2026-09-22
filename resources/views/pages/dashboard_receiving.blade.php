@@ -158,6 +158,29 @@ document.addEventListener('DOMContentLoaded', function () {
         current.setDate(current.getDate() + 1); // next day
     }
 
+    // Pindahkan garis merah (anotasi) ke belakang bar agar tidak menutupi data.
+    // Target elemen <line>-nya langsung; label jam tetap di depan (di area padding atas).
+    function sendAnnotationsBehind() {
+        try {
+            const svg = chartEl.querySelector('svg');
+            if (!svg) {
+                return;
+            }
+            const series = svg.querySelector('[class*="bar-series"], [class*="plot-series"], g.apexcharts-series');
+            if (!series || !series.parentNode) {
+                return;
+            }
+            const lines = svg.querySelectorAll('line');
+            lines.forEach(function(ln) {
+                const stroke = (ln.getAttribute('stroke') || '').toLowerCase().replace(/\s/g, '');
+                const isRed = stroke === '#ff0000' || stroke === '#f00' || stroke === 'red' || stroke === 'rgb(255,0,0)';
+                if (isRed) {
+                    series.parentNode.insertBefore(ln, series);
+                }
+            });
+        } catch (e) { /* abaikan, garis tetap di depan */ }
+    }
+
     const options = {
         chart: {
             type: 'rangeBar',
@@ -181,6 +204,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }],
             events: {
+                // Garis anotasi (merah + harian) dipindah ke belakang bar agar tidak menutupi data
+                mounted: function() { sendAnnotationsBehind(); },
+                updated: function() { sendAnnotationsBehind(); },
                 dataPointSelection: function(event, chartContext, config) {
                     const dataPoint = config.w.config.series[config.seriesIndex].data[config.dataPointIndex];
                     if (dataPoint.isEmpty) {
@@ -298,6 +324,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const chart = new ApexCharts(chartEl, options);
     chart.render();
+    // Retry: pastikan garis merah di belakang bar setelah render selesai
+    setTimeout(sendAnnotationsBehind, 500);
+    setTimeout(sendAnnotationsBehind, 1500);
 
     // ⏱ Perbarui anotasi garis setiap 30 detik
     setInterval(() => {
@@ -329,6 +358,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 ]
             }
         });
+        setTimeout(sendAnnotationsBehind, 500);
     }, 1000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik
 
     // Auto refresh 120 dtk + tampilkan hitung mundur
