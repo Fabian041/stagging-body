@@ -2952,6 +2952,7 @@ public function kanbanUploadStatus($id)
                 $volumes[] = [
                     'file' => $b,
                     'download' => route('dashboard.kanbanDownload', $b),
+                    'preview' => route('dashboard.kanbanPreview', $b),
                 ];
             }
         }
@@ -2974,6 +2975,16 @@ public function kanbanUploadStatus($id)
                 route(
 
                     'dashboard.kanbanDownload',
+
+                    $filename
+
+                ),
+
+            'preview'=>
+
+                route(
+
+                    'dashboard.kanbanPreview',
 
                     $filename
 
@@ -3233,4 +3244,18 @@ public function kanbanCancel($id)
     );
 
 }
+
+    public function kanbanPreview($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        $path = storage_path('app/temp-kanban/'.$base);
+        abort_if(! is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$base.'"',
+        ]);
+    }
 }

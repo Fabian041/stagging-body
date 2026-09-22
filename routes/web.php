@@ -313,6 +313,15 @@ Route::middleware(['auth'])->group(function () {
     ->name('dashboard.kanbanDownload');
 
     Route::get(
+        '/dashboard/kanban/preview/{file}',
+        [
+            DashboardController::class,
+            'kanbanPreview'
+        ]
+    )
+    ->name('dashboard.kanbanPreview');
+
+    Route::get(
         '/dashboard/kanban/status/{id}',
         [
             DashboardController::class,
