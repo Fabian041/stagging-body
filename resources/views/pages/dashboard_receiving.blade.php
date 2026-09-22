@@ -57,6 +57,9 @@
     .modal-backdrop {
     z-index: 1050;
     }
+    #timelineChart .apexcharts-xaxis-annotation-label {
+        pointer-events: none;
+    }
 
 </style>
 
@@ -112,6 +115,11 @@ document.addEventListener('DOMContentLoaded', function () {
             strokeDashArray: 4,
             label: {
                 text: current.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' }),
+                orientation: 'vertical',
+                position: 'top',
+                textAnchor: 'middle',
+                offsetY: -70,
+                borderColor: '#dddddd',
                 style: {
                     color: '#555',
                     background: '#f8f9fa',
@@ -164,6 +172,15 @@ document.addEventListener('DOMContentLoaded', function () {
             type: 'datetime',
             labels: {
                 datetimeUTC: false
+            },
+            // Agar garis merah (now = 22 Sep) selalu masuk view 01-30 Sep,
+            // paksa range mengikuti filter tanggal bukan mengikuti data
+            min: new Date(startDate).setHours(0, 0, 0, 0),
+            max: new Date(endDate).setHours(23, 59, 59, 999)
+        },
+        grid: {
+            padding: {
+                top: 100
             }
         },
         tooltip: {
@@ -178,15 +195,24 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         annotations: {
             xaxis: [
-                // Garis waktu saat ini
+                // Garis merah waktu saat ini + jam di ujung atas (di luar bar)
                 {
                     x: Date.now(),
                     borderColor: '#FF0000',
+                    borderWidth: 2,
+                    strokeDashArray: 0,
                     label: {
-                        text: new Date().toLocaleTimeString(),
+                        text: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                        orientation: 'horizontal',
+                        position: 'top',
+                        textAnchor: 'middle',
+                        offsetY: -8,
+                        borderColor: '#FF0000',
                         style: {
                             color: '#fff',
-                            background: '#FF0000'
+                            background: '#FF0000',
+                            fontSize: '11px',
+                            fontWeight: 'bold'
                         }
                     }
                 },
@@ -204,18 +230,26 @@ document.addEventListener('DOMContentLoaded', function () {
     // ⏱ Perbarui anotasi garis setiap 30 detik
     setInterval(() => {
         const now = Date.now();
-        const nowLabel = new Date().toLocaleTimeString();
 
         chart.updateOptions({
             annotations: {
                 xaxis: [{
                     x: now,
                     borderColor: '#FF0000',
+                    borderWidth: 2,
+                    strokeDashArray: 0,
                     label: {
-                        text: nowLabel,
+                        text: new Date(now).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                        orientation: 'horizontal',
+                        position: 'top',
+                        textAnchor: 'middle',
+                        offsetY: -8,
+                        borderColor: '#FF0000',
                         style: {
                             color: '#fff',
-                            background: '#FF0000'
+                            background: '#FF0000',
+                            fontSize: '11px',
+                            fontWeight: 'bold'
                         }
                     }
                 },
