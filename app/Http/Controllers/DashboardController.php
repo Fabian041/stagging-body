@@ -2144,7 +2144,9 @@ class DashboardController extends Controller
         $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->startOfWeek()->addWeeks(2)->endOfWeek();
         // dd($startOfWeek->toDateString(), $endOfWeek->toDateString());
 
-        $area = request('area') ? request('area') : 'unit';
+        // Belum pilih area -> tampilkan semua; unitbody ikut di kedua view
+        $area = in_array(request('area'), ['unit', 'body']) ? request('area') : null;
+        $areaFilter = $area ? [$area, 'unitbody'] : null;
         $statusColorss = [
             0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
@@ -2171,8 +2173,16 @@ class DashboardController extends Controller
                 'suppliers.name as supplier_name'
             )
             ->whereBetween('delivery_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
-            ->where('area', 'LIKE', '%'.$area.'%') // Filter berdasarkan area
+            ->when($areaFilter, fn ($q) => $q->whereIn('suppliers.area', $areaFilter))
             ->get();
+
+        // Rule 2: ambil semua supplier sesuai area agar row tetap tampil meski kosong
+        $allSuppliers = DB::table('suppliers')
+            ->when($areaFilter, fn ($q) => $q->whereIn('area', $areaFilter))
+            ->orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values();
 
         $seriesData = [];
 
@@ -2200,8 +2210,89 @@ class DashboardController extends Controller
                 'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
                 'fillColor' => $color,
                 'pick_list' => $delivery->pick_list, // ini penting untuk buka modal
+                'status' => (int) ($delivery->status ?? 0),
             ];
         }
+
+        // Rule 4: jika 1 supplier punya data berjarak 0-30 menit, gabung jadi 1 kotak
+        $clustered = [];
+        foreach (collect($seriesData)->groupBy('x') as $supplierName => $points) {
+            $sorted = $points->sortBy(fn ($p) => $p['y'][0])->values();
+            $cluster = [];
+            $prevStart = null;
+            $flush = function ($cluster) use (&$clustered, $supplierName) {
+                if (empty($cluster)) {
+                    return;
+                }
+                if (count($cluster) === 1) {
+                    $clustered[] = $cluster[0];
+                    return;
+                }
+                $starts = array_column(array_column($cluster, 'y'), 0);
+                $ends = array_column(array_column($cluster, 'y'), 1);
+                $group = [];
+                foreach ($cluster as $c) {
+                    $group[] = [
+                        'pick_list' => $c['pick_list'],
+                        'start' => $c['y'][0],
+                        'end' => $c['y'][1],
+                        'status' => $c['status'] ?? 0,
+                    ];
+                }
+                $clustered[] = [
+                    'x' => $supplierName,
+                    'y' => [min($starts), max($ends)],
+                    'fillColor' => $cluster[0]['fillColor'],
+                    'pick_list' => $cluster[0]['pick_list'],
+                    'isMerged' => true,
+                    'group' => $group,
+                    'meta' => count($cluster).' pengiriman',
+                ];
+            };
+            foreach ($sorted as $p) {
+                if ($prevStart === null || ($p['y'][0] - $prevStart) <= 30 * 60 * 1000) {
+                    $cluster[] = $p;
+                } else {
+                    $flush($cluster);
+                    $cluster = [$p];
+                }
+                $prevStart = $p['y'][0];
+            }
+            $flush($cluster);
+        }
+        $seriesData = $clustered;
+
+        // Rule 2: tambah dummy transparan agar supplier tanpa data tetap punya row
+        $filledSuppliers = collect($seriesData)->pluck('x')->unique()->values();
+        $emptyAnchor = $startOfWeek->copy()->startOfDay()->timestamp * 1000;
+        foreach ($allSuppliers as $supplierName) {
+            if (! $filledSuppliers->contains($supplierName)) {
+                $seriesData[] = [
+                    'x' => $supplierName,
+                    'y' => [$emptyAnchor, $emptyAnchor],
+                    'fillColor' => 'transparent',
+                    'pick_list' => null,
+                    'isEmpty' => true,
+                ];
+            }
+        }
+
+        // Rule 3: urut supplier paling pagi di atas (contoh jam 10 di atas jam 11)
+        $grouped = collect($seriesData)->groupBy('x');
+        $earliest = [];
+        foreach ($grouped as $supplierName => $points) {
+            $real = $points->filter(fn ($p) => empty($p['isEmpty']));
+            $earliest[$supplierName] = $real->isNotEmpty() ? $real->min(fn ($p) => $p['y'][0]) : PHP_INT_MAX;
+        }
+        $sortedSuppliers = collect($earliest)->sortBy(fn ($time, $name) => [$time === PHP_INT_MAX ? 1 : 0, $time, $name])->keys()->values();
+        $orderedData = [];
+        foreach ($sortedSuppliers as $supplierName) {
+            $points = $grouped[$supplierName]->sortBy(fn ($p) => $p['y'][0])->values()->all();
+            foreach ($points as $p) {
+                $orderedData[] = $p;
+            }
+        }
+        $seriesData = $orderedData;
 
         $series = [[
             'name' => 'Pengiriman Aktual',
@@ -2275,6 +2366,10 @@ class DashboardController extends Controller
                 'a.DEC_COD_BINID as flight',
             )
             ->first();
+
+        if (! $ia31nt) {
+            return response()->json([]);
+        }
 
         $data = DB::connection('mssql_external')
             ->table('IA16NT as a')
@@ -2857,6 +2952,7 @@ public function kanbanUploadStatus($id)
                 $volumes[] = [
                     'file' => $b,
                     'download' => route('dashboard.kanbanDownload', $b),
+                    'preview' => route('dashboard.kanbanPreview', $b),
                 ];
             }
         }
@@ -2879,6 +2975,16 @@ public function kanbanUploadStatus($id)
                 route(
 
                     'dashboard.kanbanDownload',
+
+                    $filename
+
+                ),
+
+            'preview'=>
+
+                route(
+
+                    'dashboard.kanbanPreview',
 
                     $filename
 
@@ -3138,4 +3244,18 @@ public function kanbanCancel($id)
     );
 
 }
+
+    public function kanbanPreview($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        $path = storage_path('app/temp-kanban/'.$base);
+        abort_if(! is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$base.'"',
+        ]);
+    }
 }

@@ -1645,8 +1645,13 @@
                         a.href = href; a.setAttribute('download', ''); a.className = 'btn btn-success btn-sm'; a.textContent = txt;
                         acts.appendChild(a);
                     };
-                    if (row.download) addDl(row.download, 'Download');
-                    else if (row.volumes && row.volumes.length) row.volumes.forEach(function(v, idx) { addDl(v.download, 'Download ' + (idx + 1)); });
+                    const addPreview = function(href, txt) {
+                        const a = document.createElement('a');
+                        a.href = href; a.target = '_blank'; a.rel = 'noopener'; a.className = 'btn btn-info btn-sm'; a.textContent = txt;
+                        acts.appendChild(a);
+                    };
+                    if (row.download) { addDl(row.download, 'Download'); if (row.preview) addPreview(row.preview, 'Preview / Print'); }
+                    else if (row.volumes && row.volumes.length) row.volumes.forEach(function(v, idx) { addDl(v.download, 'Download ' + (idx + 1)); if (v.preview) addPreview(v.preview, 'Preview / Print ' + (idx + 1)); });
                     div.appendChild(meta);
                     div.appendChild(acts);
                     fileRowsEl.appendChild(div);
@@ -1842,8 +1847,8 @@
                         else if (st.status === 'DONE') {
                             clearInterval(row.pollTimer); row.pollTimer = null;
                             row.status = 'done'; row.jobId = null;
-                            if (st.volumes && st.volumes.length) { row.volumes = st.volumes; row.download = null; }
-                            else { row.download = st.download; row.volumes = null; }
+                            if (st.volumes && st.volumes.length) { row.volumes = st.volumes; row.download = null; row.preview = null; }
+                            else { row.download = st.download; row.preview = st.preview || null; row.volumes = null; }
                             let msg = 'Selesai';
                             if (st.pages !== undefined) msg += ' (' + st.pages + ' page' + (st.skipped_blank ? ', ' + st.skipped_blank + ' blank dibuang' : '') + ')';
                             row.note = msg + '. Klik Download.';
