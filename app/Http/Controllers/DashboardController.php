@@ -2144,7 +2144,9 @@ class DashboardController extends Controller
         $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->startOfWeek()->addWeeks(2)->endOfWeek();
         // dd($startOfWeek->toDateString(), $endOfWeek->toDateString());
 
-        $area = request('area') ? request('area') : 'unit';
+        // Belum pilih area -> tampilkan semua; unitbody ikut di kedua view
+        $area = in_array(request('area'), ['unit', 'body']) ? request('area') : null;
+        $areaFilter = $area ? [$area, 'unitbody'] : null;
         $statusColorss = [
             0 => '#cccccc', // Default / tidak diketahui
             1 => '#007bff', // Terdaftar
@@ -2171,12 +2173,12 @@ class DashboardController extends Controller
                 'suppliers.name as supplier_name'
             )
             ->whereBetween('delivery_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
-            ->where('suppliers.area', 'LIKE', '%'.$area.'%') // Filter berdasarkan area
+            ->when($areaFilter, fn ($q) => $q->whereIn('suppliers.area', $areaFilter))
             ->get();
 
         // Rule 2: ambil semua supplier sesuai area agar row tetap tampil meski kosong
         $allSuppliers = DB::table('suppliers')
-            ->where('area', 'LIKE', '%'.$area.'%')
+            ->when($areaFilter, fn ($q) => $q->whereIn('area', $areaFilter))
             ->orderBy('name')
             ->pluck('name')
             ->unique()

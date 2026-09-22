@@ -79,14 +79,15 @@
 <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
+      <div class="modal-header" style="flex-direction: column; align-items: center; text-align: center;">
         <h5 class="modal-title">Detail Pick List</h5>
+        <div id="detailPickListInfo" style="font-weight: bold; font-size: 15px;"></div>
       </div>
       <div class="modal-body">
         <table class="table table-bordered" id="detailTable">
           <thead>
             <tr>
-              <th>Picklist</th>
+              <th style="width:60px;">No</th>
               <th>Part Number</th>
               <th>Back Number</th>
               <th>Qty Ordered</th>
@@ -193,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     const pickList = dataPoint.pick_list || null;
                     if (pickList) {
-                        showDetailModal(pickList);
+                        showDetailModal(pickList, formatRange(dataPoint.y[0], dataPoint.y[1]));
                     }
                 },
                 // Rule 4: hover -> popup khusus dengan jeda agar mouse sempat pindah ke select
@@ -365,6 +366,7 @@ function getDetailModal() {
 function showMergeChooser(dataPoint) {
     hideHoverChooser();
     const group = dataPoint.group || [];
+    currentMergeGroup = group;
     const titleEl = document.getElementById('mergeModalTitle');
     if (titleEl) {
         titleEl.textContent = 'Pilih Pengiriman - ' + dataPoint.x;
@@ -379,6 +381,19 @@ function showMergeChooser(dataPoint) {
 
 // Rule 4: popup hover dengan jeda 500ms agar mouse sempat pindah ke select
 let hoverHideTimer = null;
+let currentHoverGroup = [];
+let currentMergeGroup = [];
+// Jam kegiatan: rentang start to finish, cth "22 Sep, 10:00 - 12:00"
+function formatRange(startMs, endMs) {
+    const s = new Date(startMs);
+    const e = new Date(endMs);
+    const sStr = s.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const sameDay = s.toDateString() === e.toDateString();
+    const eStr = sameDay
+        ? e.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : e.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return sStr + ' - ' + eStr;
+}
 function showHoverChooser(event, dataPoint) {
     if (hoverHideTimer) {
         clearTimeout(hoverHideTimer);
@@ -394,14 +409,17 @@ function showHoverChooser(event, dataPoint) {
     }
     titleEl.textContent = dataPoint.x + ' (' + dataPoint.group.length + ' pengiriman)';
     infoEl.textContent = 'Pilih salah satu, detail otomatis terbuka:';
+    currentHoverGroup = dataPoint.group;
     sel.innerHTML = '<option value="">Pilih data...</option>' + dataPoint.group.map((g) => {
         const t = new Date(g.start).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         return `<option value="${g.pick_list}">${g.pick_list} - ${t}</option>`;
     }).join('');
     sel.onchange = function() {
         if (this.value) {
+            const found = currentHoverGroup.find((g) => g.pick_list === this.value);
+            const t = found ? formatRange(found.start, found.end) : '';
             hideHoverChooser();
-            showDetailModal(this.value);
+            showDetailModal(this.value, t);
             this.value = '';
         }
     };
@@ -468,9 +486,11 @@ function openMergeSelection() {
     if (!val) {
         return;
     }
+    const found = currentMergeGroup.find((g) => g.pick_list === val);
+    const t = found ? formatRange(found.start, found.end) : '';
     hideHoverChooser();
     const mergeEl = document.getElementById('mergeModal');
-    const doShow = () => showDetailModal(val);
+    const doShow = () => showDetailModal(val, t);
     try {
         const inst = getMergeModal();
         let shown = false;
@@ -494,8 +514,13 @@ function openMergeSelection() {
     }
 }
 
-function showDetailModal(pickList) {
+function showDetailModal(pickList, timeLabel = '') {
     console.log("Showing details for pick list:", pickList);
+
+    const infoEl = document.getElementById('detailPickListInfo');
+    if (infoEl) {
+        infoEl.textContent = timeLabel ? pickList + ' - ' + timeLabel : pickList;
+    }
 
     getDetailModal().show();
 
@@ -512,9 +537,9 @@ function showDetailModal(pickList) {
             }
 
             let rows = '';
-            response.forEach(item => {
+            response.forEach((item, idx) => {
                 rows += `<tr>
-                    <td>${item.pick_list}</td>
+                    <td>${idx + 1}</td>
                     <td>${item.part_number}</td>
                     <td>${item.back_number}</td>
                     <td>${item.qty_ordered}</td>
