@@ -27,6 +27,7 @@
                         <input type="date" id="end_date" name="end_date" class="form-control mr-5" value="{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}">
 
                         <button type="submit" class="btn btn-primary">Tampilkan</button>
+                        <span class="ml-3 text-muted" style="font-size:13px;">Refresh in <span id="refreshCountdown">120</span> dtk</span>
                     </form>
                         <div id="timelineChartWrapper" style="position: relative;">
                             <div id="timelineChart"></div>
@@ -329,9 +330,21 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }, 1000); // setiap 30 detik, bisa ubah ke 1000 untuk real-time per detik
 
+    // Auto refresh 120 dtk + tampilkan hitung mundur
+    let refreshLeft = 120;
+    const refreshEl = document.getElementById('refreshCountdown');
     setInterval(function() {
-    window.location.reload();
-}, 120000); // 120000 ms = 2 menit
+        refreshLeft -= 1;
+        if (refreshLeft < 0) {
+            refreshLeft = 0;
+        }
+        if (refreshEl) {
+            refreshEl.textContent = refreshLeft;
+        }
+        if (refreshLeft <= 0) {
+            window.location.reload();
+        }
+    }, 1000);
 });
 
 // Rule 4: klik kotak gabungan -> pilih salah satu dari 2+ data (satu instance agar hide/show konsisten)
