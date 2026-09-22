@@ -2171,8 +2171,16 @@ class DashboardController extends Controller
                 'suppliers.name as supplier_name'
             )
             ->whereBetween('delivery_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
-            ->where('area', 'LIKE', '%'.$area.'%') // Filter berdasarkan area
+            ->where('suppliers.area', 'LIKE', '%'.$area.'%') // Filter berdasarkan area
             ->get();
+
+        // Rule 2: ambil semua supplier sesuai area agar row tetap tampil meski kosong
+        $allSuppliers = DB::table('suppliers')
+            ->where('area', 'LIKE', '%'.$area.'%')
+            ->orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values();
 
         $seriesData = [];
 
@@ -2202,6 +2210,38 @@ class DashboardController extends Controller
                 'pick_list' => $delivery->pick_list, // ini penting untuk buka modal
             ];
         }
+
+        // Rule 2: tambah dummy transparan agar supplier tanpa data tetap punya row
+        $filledSuppliers = collect($seriesData)->pluck('x')->unique()->values();
+        $emptyAnchor = $startOfWeek->copy()->startOfDay()->timestamp * 1000;
+        foreach ($allSuppliers as $supplierName) {
+            if (! $filledSuppliers->contains($supplierName)) {
+                $seriesData[] = [
+                    'x' => $supplierName,
+                    'y' => [$emptyAnchor, $emptyAnchor],
+                    'fillColor' => 'transparent',
+                    'pick_list' => null,
+                    'isEmpty' => true,
+                ];
+            }
+        }
+
+        // Rule 3: urut supplier paling pagi di atas (contoh jam 10 di atas jam 11)
+        $grouped = collect($seriesData)->groupBy('x');
+        $earliest = [];
+        foreach ($grouped as $supplierName => $points) {
+            $real = $points->filter(fn ($p) => empty($p['isEmpty']));
+            $earliest[$supplierName] = $real->isNotEmpty() ? $real->min(fn ($p) => $p['y'][0]) : PHP_INT_MAX;
+        }
+        $sortedSuppliers = collect($earliest)->sortBy(fn ($time, $name) => [$time === PHP_INT_MAX ? 1 : 0, $time, $name])->keys()->values();
+        $orderedData = [];
+        foreach ($sortedSuppliers as $supplierName) {
+            $points = $grouped[$supplierName]->sortBy(fn ($p) => $p['y'][0])->values()->all();
+            foreach ($points as $p) {
+                $orderedData[] = $p;
+            }
+        }
+        $seriesData = $orderedData;
 
         $series = [[
             'name' => 'Pengiriman Aktual',

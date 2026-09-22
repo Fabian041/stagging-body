@@ -186,6 +186,12 @@ document.addEventListener('DOMContentLoaded', function () {
         tooltip: {
             custom: function({ series, seriesIndex, dataPointIndex, w }) {
                 const point = w.config.series[seriesIndex].data[dataPointIndex];
+                if (point.isEmpty) {
+                    return `<div class="px-2 py-1 text-sm">
+                        <strong>${point.x}</strong><br/>
+                        Tidak ada data pengiriman
+                    </div>`;
+                }
                 return `<div class="px-2 py-1 text-sm">
                     <strong>${point.x}</strong><br/>
                     ${new Date(point.y[0]).toLocaleString()} - ${new Date(point.y[1]).toLocaleTimeString()}<br/>
