@@ -2208,8 +2208,57 @@ class DashboardController extends Controller
                 'y' => [$start->timestamp * 1000, $end->timestamp * 1000],
                 'fillColor' => $color,
                 'pick_list' => $delivery->pick_list, // ini penting untuk buka modal
+                'status' => (int) ($delivery->status ?? 0),
             ];
         }
+
+        // Rule 4: jika 1 supplier punya data berjarak 0-30 menit, gabung jadi 1 kotak
+        $clustered = [];
+        foreach (collect($seriesData)->groupBy('x') as $supplierName => $points) {
+            $sorted = $points->sortBy(fn ($p) => $p['y'][0])->values();
+            $cluster = [];
+            $prevStart = null;
+            $flush = function ($cluster) use (&$clustered, $supplierName) {
+                if (empty($cluster)) {
+                    return;
+                }
+                if (count($cluster) === 1) {
+                    $clustered[] = $cluster[0];
+                    return;
+                }
+                $starts = array_column(array_column($cluster, 'y'), 0);
+                $ends = array_column(array_column($cluster, 'y'), 1);
+                $group = [];
+                foreach ($cluster as $c) {
+                    $group[] = [
+                        'pick_list' => $c['pick_list'],
+                        'start' => $c['y'][0],
+                        'end' => $c['y'][1],
+                        'status' => $c['status'] ?? 0,
+                    ];
+                }
+                $clustered[] = [
+                    'x' => $supplierName,
+                    'y' => [min($starts), max($ends)],
+                    'fillColor' => $cluster[0]['fillColor'],
+                    'pick_list' => $cluster[0]['pick_list'],
+                    'isMerged' => true,
+                    'group' => $group,
+                    'meta' => count($cluster).' pengiriman',
+                ];
+            };
+            foreach ($sorted as $p) {
+                if ($prevStart === null || ($p['y'][0] - $prevStart) <= 30 * 60 * 1000) {
+                    $cluster[] = $p;
+                } else {
+                    $flush($cluster);
+                    $cluster = [$p];
+                }
+                $prevStart = $p['y'][0];
+            }
+            $flush($cluster);
+        }
+        $seriesData = $clustered;
 
         // Rule 2: tambah dummy transparan agar supplier tanpa data tetap punya row
         $filledSuppliers = collect($seriesData)->pluck('x')->unique()->values();
@@ -2315,6 +2364,10 @@ class DashboardController extends Controller
                 'a.DEC_COD_BINID as flight',
             )
             ->first();
+
+        if (! $ia31nt) {
+            return response()->json([]);
+        }
 
         $data = DB::connection('mssql_external')
             ->table('IA16NT as a')
