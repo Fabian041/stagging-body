@@ -6906,7 +6906,7 @@
             var dlaShownKey = 'dla_delay_shown_v1';
             var dlaConfirmedKey = 'dla_delay_confirmed_v1';
             var dlaSoundKey = 'dla_sound_enabled_v1';
-            var dlaCooldownMs = 2 * 1000;
+            var dlaCooldownMs = 60 * 60 * 1000;
             var dlaAudioCtx = null;
             var dlaAlarmTimer = null;
             var dlaSoundEnabled = true;
