@@ -6883,11 +6883,59 @@
                 return null;
             }
 
+            function dlaAllowedDeliveryDates() {
+                try {
+                    var map = {};
+                    var today = '';
+                    try {
+                        if (typeof todayLocalDateKey === 'function') {
+                            today = todayLocalDateKey();
+                        }
+                    } catch (err) {}
+                    if (!today) {
+                        var nd = new Date();
+                        today = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2,
+                            '0') + '-' + String(nd.getDate()).padStart(2, '0');
+                    }
+                    if (today) {
+                        map[today] = true;
+                    }
+                    try {
+                        if (typeof getDailyFilterViewDate === 'function') {
+                            var v = getDailyFilterViewDate();
+                            if (typeof formatLocalDateKey === 'function') {
+                                v = formatLocalDateKey(v);
+                            } else {
+                                v = String(v || '').substring(0, 10);
+                            }
+                            if (v) {
+                                map[v] = true;
+                            }
+                        }
+                    } catch (err) {}
+                    return map;
+                } catch (err) {
+                    return {};
+                }
+            }
+
             function dlaIsCritical(row) {
                 try {
                     if (!row) {
                         return false;
                     }
+                    try {
+                        var dd = '';
+                        if (typeof formatLocalDateKey === 'function') {
+                            dd = formatLocalDateKey(row.delivery_date);
+                        } else {
+                            dd = String((row && row.delivery_date) || '').substring(0, 10);
+                        }
+                        var allowed = dlaAllowedDeliveryDates();
+                        if (dd && Object.keys(allowed).length && !allowed[dd]) {
+                            return false;
+                        }
+                    } catch (err) {}
                     if (typeof rowHasConfiguredMasterCycle === 'function' && !rowHasConfiguredMasterCycle(
                             row)) {
                         return false;
