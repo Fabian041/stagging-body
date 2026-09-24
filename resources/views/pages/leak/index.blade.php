@@ -1,4 +1,4 @@
-@extends('layouts.root.dashboard')
+@extends('layouts.root.main')
 
 @section('main')
     @php
