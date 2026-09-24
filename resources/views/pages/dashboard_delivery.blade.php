@@ -3,8 +3,8 @@
 @section('main')
     <style>
         /* ===================================================
-                                 * BELLA DESIGN SYSTEM — Shell overrides for this page
-                                 * =================================================== */
+                                     * BELLA DESIGN SYSTEM — Shell overrides for this page
+                                     * =================================================== */
 
         /* ── Page wrapper ── */
         .delivery-dash {
@@ -173,11 +173,51 @@
             animation-delay: -.8s;
         }
 
-        @keyframes dstBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-        @keyframes dstSpin { to { transform: rotate(360deg); } }
-        @keyframes dstDash { to { stroke-dashoffset: -34; } }
-        @keyframes dstRun { from { transform: translateX(330px); } to { transform: translateX(-70px); } }
-        @keyframes dstPuff { 0% { transform: translate(0, 0) scale(.6); opacity: .45; } 100% { transform: translate(-18px, -13px) scale(1.6); opacity: 0; } }
+        @keyframes dstBob {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+
+        @keyframes dstSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes dstDash {
+            to {
+                stroke-dashoffset: -34;
+            }
+        }
+
+        @keyframes dstRun {
+            from {
+                transform: translateX(330px);
+            }
+
+            to {
+                transform: translateX(-70px);
+            }
+        }
+
+        @keyframes dstPuff {
+            0% {
+                transform: translate(0, 0) scale(.6);
+                opacity: .45;
+            }
+
+            100% {
+                transform: translate(-18px, -13px) scale(1.6);
+                opacity: 0;
+            }
+        }
 
         .delivery-sync-title {
             margin-bottom: 6px;
@@ -227,7 +267,15 @@
             animation: dstProgress 1.25s ease-in-out infinite;
         }
 
-        @keyframes dstProgress { 0% { left: -40%; } 100% { left: 100%; } }
+        @keyframes dstProgress {
+            0% {
+                left: -40%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
 
         .delivery-sync-result-popup {
             width: min(680px, calc(100vw - 32px)) !important;
@@ -327,12 +375,15 @@
         }
 
         @media (prefers-reduced-motion: reduce) {
+
             .dst-body,
             .dst-wheel,
             .dst-dash,
             .dst-bush,
             .dst-puff,
-            .delivery-sync-progress::after { animation: none !important; }
+            .delivery-sync-progress::after {
+                animation: none !important;
+            }
         }
 
         /* ── Page header card ── */
@@ -623,8 +674,8 @@
         }
 
         /* ====================================================
-                                 * GANTT CHART — kept exactly as original, do not touch
-                                 * ==================================================== */
+                                     * GANTT CHART — kept exactly as original, do not touch
+                                     * ==================================================== */
         :root {
             --dm-bg: var(--bs-body-bg, #ffffff);
             --dm-card: var(--bs-light, #f8f9fa);
@@ -2532,7 +2583,8 @@
                             @can('manage-master')
                                 <div class="delivery-sync-control">
                                     <div class="bella-filter-group">
-                                        <label class="bella-filter-label" for="syncLoadingListDate">Tanggal awal sync (3 hari)</label>
+                                        <label class="bella-filter-label" for="syncLoadingListDate">Tanggal awal sync (3
+                                            hari)</label>
                                         <input type="date" class="bella-filter-input" id="syncLoadingListDate"
                                             value="{{ now()->toDateString() }}">
                                     </div>
@@ -3357,7 +3409,8 @@
                 var prepEnd = ($('#mcyclePrepEnd').val() || '').trim();
                 var truckTime = ($('#mcycleTruckTime').val() || '').trim();
                 var inferred = inferPrepDayOffsetFromTruck(prepStart, truckTime);
-                var shouldInfer = event && ['mcyclePrepStart', 'mcycleTruckTime'].indexOf(event.currentTarget.id) !== -1;
+                var shouldInfer = event && ['mcyclePrepStart', 'mcycleTruckTime'].indexOf(event.currentTarget
+                    .id) !== -1;
                 if (shouldInfer && inferred !== null) {
                     $('#mcyclePrepDayOffset').val(String(inferred));
                 }
@@ -4839,7 +4892,8 @@
                         .done(function(res) {
                             var newId = (res && res.data && res.data.id) ? res.data.id : null;
                             $('#masterCycleModal').one('hidden.bs.modal', function() {
-                                showMasterCycleAddedSwal(payload, savedCustomerName, savedOffsetLabel);
+                                showMasterCycleAddedSwal(payload, savedCustomerName,
+                                    savedOffsetLabel);
                             }).modal('hide');
                             fetchMasters(newId);
                             loadStackedChart();
@@ -4963,7 +5017,8 @@
                 var $viewport = isDaily ? $('#ganttWrap') : $('#deliveryWeeklyCard .weekly-card-body');
                 var $header = isDaily ? $('#ganttContainer .gantt-grid-header') : $(
                     '#weeklyGanttContainer thead');
-                var availableHeight = ($viewport.innerHeight() || window.innerHeight) - ($header.outerHeight() || 30);
+                var availableHeight = ($viewport.innerHeight() || window.innerHeight) - ($header.outerHeight() ||
+                    30);
                 if (rowCount > 0) {
                     var rowHeight = Math.max(26, Math.min(88, Math.floor(availableHeight / rowCount)));
                     $dash.css('--tv-row-height', rowHeight + 'px');
@@ -5979,7 +6034,8 @@
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer" data-customer-name="' +
                         escapeAttr(cn) + '">' +
-                        escapeHtml(cn) + buildCustomerLoadingListSummaryHtml(allBucketsForDate) + lateSummary +
+                        escapeHtml(cn) + buildCustomerLoadingListSummaryHtml(allBucketsForDate) +
+                        lateSummary +
                         (unconfiguredHint || '') + '</div>';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type">';
@@ -6699,7 +6755,8 @@
                         '</div>' +
                         '<div class="delivery-sync-title">Sinkronisasi loading list</div>' +
                         '<div class="delivery-sync-copy">Mengantar jadwal ke dashboard</div>' +
-                        '<div class="delivery-sync-date"><i class="far fa-calendar-alt"></i>' + escapeHtml(date) +
+                        '<div class="delivery-sync-date"><i class="far fa-calendar-alt"></i>' +
+                        escapeHtml(date) +
                         ' s.d. ' + escapeHtml(dateTo) +
                         '</div>' +
                         '<div class="delivery-sync-progress" aria-hidden="true"></div>' +
@@ -6735,39 +6792,51 @@
                     }
                     var hasNotes = response.status === 'warning';
                     var isEmpty = response.status === 'empty';
-                    var skippedItems = Array.isArray(response.skipped_items) ? response.skipped_items : [];
+                    var skippedItems = Array.isArray(response.skipped_items) ? response
+                        .skipped_items : [];
                     var skippedHtml = skippedItems.map(function(item) {
                         var parts = [];
                         if (item.part_number_int) {
-                            parts.push('<strong>Internal:</strong> ' + escapeHtml(String(item.part_number_int)));
+                            parts.push('<strong>Internal:</strong> ' + escapeHtml(String(
+                                item.part_number_int)));
                         }
                         if (item.part_number_cust) {
-                            parts.push('<strong>Customer:</strong> ' + escapeHtml(String(item.part_number_cust)));
+                            parts.push('<strong>Customer:</strong> ' + escapeHtml(String(
+                                item.part_number_cust)));
                         }
 
                         return '<div class="delivery-sync-note-item">' +
                             '<div class="delivery-sync-note-head">' +
-                            '<strong>' + escapeHtml(String(item.loading_list || '-')) + '</strong>' +
-                            '<span class="delivery-sync-note-reason">' + escapeHtml(String(item.reason || '-')) + '</span>' +
+                            '<strong>' + escapeHtml(String(item.loading_list || '-')) +
+                            '</strong>' +
+                            '<span class="delivery-sync-note-reason">' + escapeHtml(String(
+                                item.reason || '-')) + '</span>' +
                             '</div>' +
-                            (parts.length ? '<div class="delivery-sync-note-parts">' + parts.join(' &middot; ') + '</div>' : '') +
+                            (parts.length ? '<div class="delivery-sync-note-parts">' + parts
+                                .join(' &middot; ') + '</div>' : '') +
                             '</div>';
                     }).join('');
-                    var resultHtml = hasNotes
-                        ? '<p class="delivery-sync-result-copy">' + escapeHtml(response.message) + '</p>' +
-                            '<details class="delivery-sync-notes">' +
-                            '<summary><span>Detail data yang dilewati</span>' +
-                            '<span class="delivery-sync-notes-count">' + escapeHtml(String(response.skipped || 0)) + '</span></summary>' +
-                            '<div class="delivery-sync-notes-list">' + skippedHtml + '</div>' +
-                            '</details>'
-                        : null;
+                    var resultHtml = hasNotes ?
+                        '<p class="delivery-sync-result-copy">' + escapeHtml(response.message) +
+                        '</p>' +
+                        '<details class="delivery-sync-notes">' +
+                        '<summary><span>Detail data yang dilewati</span>' +
+                        '<span class="delivery-sync-notes-count">' + escapeHtml(String(response
+                            .skipped || 0)) + '</span></summary>' +
+                        '<div class="delivery-sync-notes-list">' + skippedHtml + '</div>' +
+                        '</details>' :
+                        null;
                     Swal.fire({
                         icon: hasNotes ? 'warning' : (isEmpty ? 'info' : 'success'),
-                        title: hasNotes ? 'Berhasil dengan catatan' : (isEmpty ? 'Data tidak ditemukan' : 'Sync selesai'),
+                        title: hasNotes ? 'Berhasil dengan catatan' : (isEmpty ?
+                            'Data tidak ditemukan' : 'Sync selesai'),
                         text: hasNotes ? undefined : response.message,
                         html: resultHtml,
-                        confirmButtonColor: hasNotes ? '#f59e0b' : (isEmpty ? '#64748b' : '#0097d8'),
-                        customClass: hasNotes ? { popup: 'delivery-sync-result-popup' } : {}
+                        confirmButtonColor: hasNotes ? '#f59e0b' : (isEmpty ? '#64748b' :
+                            '#0097d8'),
+                        customClass: hasNotes ? {
+                            popup: 'delivery-sync-result-popup'
+                        } : {}
                     });
                 }).fail(function(xhr) {
                     var response = xhr.responseJSON || {};
@@ -6775,7 +6844,8 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Sync gagal',
-                        text: (response.message || 'Loading list gagal disinkronkan.') + detail,
+                        text: (response.message || 'Loading list gagal disinkronkan.') +
+                            detail,
                         confirmButtonColor: '#0097d8'
                     });
                 }).always(function() {
@@ -6834,8 +6904,9 @@
              var dlaCooldownMs = 30 * 60 * 1000; _____ 30 menit
              * ============================================================ */
             var dlaShownKey = 'dla_delay_shown_v1';
+            var dlaConfirmedKey = 'dla_delay_confirmed_v1';
             var dlaSoundKey = 'dla_sound_enabled_v1';
-            var dlaCooldownMs = 2 * 60 * 1000;
+            var dlaCooldownMs = 2 * 1000;
             var dlaAudioCtx = null;
             var dlaAlarmTimer = null;
             var dlaSoundEnabled = true;
@@ -6854,6 +6925,20 @@
             function dlaSetShownMap(map) {
                 try {
                     localStorage.setItem(dlaShownKey, JSON.stringify(map));
+                } catch (err) {}
+            }
+
+            function dlaGetConfirmedMap() {
+                try {
+                    return JSON.parse(localStorage.getItem(dlaConfirmedKey) || '{}');
+                } catch (err) {
+                    return {};
+                }
+            }
+
+            function dlaSetConfirmedMap(map) {
+                try {
+                    localStorage.setItem(dlaConfirmedKey, JSON.stringify(map));
                 } catch (err) {}
             }
 
@@ -7087,21 +7172,40 @@
                         return '<div style="text-align:left;border:1px solid #fecaca;background:#fff7f7;border-radius:8px;padding:8px 10px;margin-bottom:8px;">' +
                             '<div style="font-weight:800;color:#991b1b;font-size:13px;">' + escapeHtml(
                                 (r.customer_name || '-') + ' | Cycle ' + (r.cycle_name || '-')) + '</div>' +
-                            '<div style="font-size:12px;color:#444;">Progress ' + pct + '% (' + (r.total_done || 0) + ' / ' + (r.total_target || 0) + ') · ' + (r.ll_count || 0) + ' LL</div>' +
-                            '<div style="font-size:11px;color:#777;">Prep ' + escapeHtml((r.cycle_time || '-') + (r.prep_end_time ? '–' + r.prep_end_time : '')) + ' · Delivery ' + escapeHtml(String(r.delivery_date || '').substring(0, 10)) + '</div>' +
+                            '<div style="font-size:12px;color:#444;">Progress ' + pct + '% (' + (r
+                                .total_done || 0) + ' / ' + (r.total_target || 0) + ') · ' + (r.ll_count ||
+                                0) + ' LL</div>' +
+                            '<div style="font-size:11px;color:#777;">Prep ' + escapeHtml((r.cycle_time ||
+                                '-') + (r.prep_end_time ? '–' + r.prep_end_time : '')) + ' · Delivery ' +
+                            escapeHtml(String(r.delivery_date || '').substring(0, 10)) + '</div>' +
                             '</div>';
                     }).join('');
-                    var extra = rows.length > 5 ? '<div style="font-size:11px;color:#777;">+' + (rows.length - 5) + ' lainnya</div>' : '';
+                    var extra = rows.length > 5 ? '<div style="font-size:11px;color:#777;">+' + (rows.length - 5) +
+                        ' lainnya</div>' : '';
                     dlaStartAlarm();
                     Swal.fire({
                         icon: 'warning',
                         title: 'Delay Delivery Terdeteksi',
-                        html: '<div style="font-size:12px;color:#555;margin-bottom:10px;">Ada ' + rows.length + ' preparation yang masih On Progress tetapi sudah melewati Finish Preparation.</div>' + items + extra,
+                        html: '<div style="font-size:12px;color:#555;margin-bottom:10px;">Ada ' + rows
+                            .length +
+                            ' preparation yang masih On Progress tetapi sudah melewati Finish Preparation.</div>' +
+                            items + extra,
                         confirmButtonText: 'Mengerti, matikan alarm',
                         confirmButtonColor: '#dc3545',
-                        allowOutsideClick: true
-                    }).then(function() {
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showCloseButton: false
+                    }).then(function(result) {
                         dlaStopAlarm();
+                        try {
+                            if (result && result.isConfirmed) {
+                                var confirmed = dlaGetConfirmedMap();
+                                rows.forEach(function(r) {
+                                    confirmed[dlaBucketKey(r)] = Date.now();
+                                });
+                                dlaSetConfirmedMap(confirmed);
+                            }
+                        } catch (err) {}
                     });
                 } catch (err) {}
             }
@@ -7117,6 +7221,7 @@
                     }
                     var now = Date.now();
                     var shown = dlaGetShownMap();
+                    var confirmed = dlaGetConfirmedMap();
                     var fresh = [];
                     chartMergedByCustTime.forEach(function(row) {
                         try {
@@ -7124,6 +7229,9 @@
                                 return;
                             }
                             var key = dlaBucketKey(row);
+                            if (confirmed[key]) {
+                                return;
+                            }
                             var last = parseInt(shown[key] || 0, 10);
                             if (last && (now - last) < dlaCooldownMs) {
                                 return;
@@ -7155,8 +7263,8 @@
 
     @can('manage-master')
         {{-- ===== MODAL MASTER CYCLE ===== --}}
-        <div class="modal fade" id="masterCycleModal" tabindex="-1" role="dialog"
-            aria-labelledby="masterCycleModalTitle" aria-hidden="true">
+        <div class="modal fade" id="masterCycleModal" tabindex="-1" role="dialog" aria-labelledby="masterCycleModalTitle"
+            aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
                 <div class="modal-content">
                     <form id="masterCycleForm">
@@ -7191,8 +7299,7 @@
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <input type="time" class="bella-form-control" id="mcyclePrepStart" required
                                             step="60">
-                                        <span
-                                            style="font-size:11px;color:var(--text-muted);white-space:nowrap;">sampai</span>
+                                        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">sampai</span>
                                         <input type="time" class="bella-form-control" id="mcyclePrepEnd" required
                                             step="60">
                                     </div>
