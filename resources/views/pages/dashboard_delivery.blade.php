@@ -6825,6 +6825,281 @@
                 }
             }, 60000);
 
+            /* ============================================================
+             * DLA: Delay popup + alarm (ISOLATED ADD-ON, tidak ubah logic lain)
+             * - Hanya baca chartMergedByCustTime (read-only).
+             * - Trigger: progress 0<x<100 (IN PROGRESS) + sudah lewat Finish Prep.
+             * - Popup via Swal (sudah ada), suara via Web Audio (tanpa file).
+             * - Dedupe per bucket + cooldown agar tidak spam.
+             var dlaCooldownMs = 30 * 60 * 1000; _____ 30 menit
+             * ============================================================ */
+            var dlaShownKey = 'dla_delay_shown_v1';
+            var dlaSoundKey = 'dla_sound_enabled_v1';
+            var dlaCooldownMs = 2 * 60 * 1000;
+            var dlaAudioCtx = null;
+            var dlaAlarmTimer = null;
+            var dlaSoundEnabled = true;
+            try {
+                dlaSoundEnabled = localStorage.getItem(dlaSoundKey) !== '0';
+            } catch (err) {}
+
+            function dlaGetShownMap() {
+                try {
+                    return JSON.parse(localStorage.getItem(dlaShownKey) || '{}');
+                } catch (err) {
+                    return {};
+                }
+            }
+
+            function dlaSetShownMap(map) {
+                try {
+                    localStorage.setItem(dlaShownKey, JSON.stringify(map));
+                } catch (err) {}
+            }
+
+            function dlaGetProgress(row) {
+                try {
+                    if (typeof getRowRawProgressPct === 'function') {
+                        return parseFloat(getRowRawProgressPct(row)) || 0;
+                    }
+                } catch (err) {}
+                var target = parseInt((row && row.total_target) || 0, 10);
+                var done = parseInt((row && row.total_done) || 0, 10);
+                if (target > 0) {
+                    return (done / target) * 100;
+                }
+                return 0;
+            }
+
+            function dlaCurrentFrac() {
+                try {
+                    if (typeof timeToFrac === 'function') {
+                        var n = new Date();
+                        var clock = String(n.getHours()).padStart(2, '0') + ':' + String(n
+                            .getMinutes()).padStart(2, '0');
+                        return timeToFrac(clock);
+                    }
+                } catch (err) {}
+                return null;
+            }
+
+            function dlaIsCritical(row) {
+                try {
+                    if (!row) {
+                        return false;
+                    }
+                    if (typeof rowHasConfiguredMasterCycle === 'function' && !rowHasConfiguredMasterCycle(
+                            row)) {
+                        return false;
+                    }
+                    var pct = dlaGetProgress(row);
+                    if (!(pct > 0 && pct < 100)) {
+                        return false;
+                    }
+                    if (typeof isRowPastFinishPrep === 'function') {
+                        try {
+                            if (isRowPastFinishPrep(row, dlaCurrentFrac())) {
+                                return true;
+                            }
+                        } catch (err) {}
+                    }
+                    if (typeof buildPrepLateInfo === 'function') {
+                        try {
+                            var info = buildPrepLateInfo(row, {});
+                            if (info && info.isLate) {
+                                return true;
+                            }
+                        } catch (err) {}
+                    }
+                    return false;
+                } catch (err) {
+                    return false;
+                }
+            }
+
+            function dlaBucketKey(row) {
+                return [(row && row.customer_id) || '-', (row && row.cycle_name) || '-',
+                    String((row && row.delivery_date) || '').substring(0, 10),
+                    (row && row.cycle_time) || '-'
+                ].join('|');
+            }
+
+            function dlaUnlockAudio() {
+                try {
+                    if (!dlaAudioCtx && (window.AudioContext || window.webkitAudioContext)) {
+                        var AC = window.AudioContext || window.webkitAudioContext;
+                        dlaAudioCtx = new AC();
+                    }
+                    if (dlaAudioCtx && dlaAudioCtx.state === 'suspended') {
+                        dlaAudioCtx.resume();
+                    }
+                } catch (err) {}
+            }
+
+            function dlaBeepOnce() {
+                try {
+                    if (!dlaSoundEnabled) {
+                        return;
+                    }
+                    dlaUnlockAudio();
+                    if (!dlaAudioCtx) {
+                        return;
+                    }
+                    var t = dlaAudioCtx.currentTime;
+                    [0, 0.35, 0.7].forEach(function(offset) {
+                        var osc = dlaAudioCtx.createOscillator();
+                        var gain = dlaAudioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.value = 880;
+                        gain.gain.setValueAtTime(0.0001, t + offset);
+                        gain.gain.exponentialRampToValueAtTime(0.5, t + offset + 0.03);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, t + offset + 0.28);
+                        osc.connect(gain);
+                        gain.connect(dlaAudioCtx.destination);
+                        osc.start(t + offset);
+                        osc.stop(t + offset + 0.3);
+                    });
+                } catch (err) {}
+            }
+
+            function dlaStartAlarm() {
+                try {
+                    dlaStopAlarm();
+                    if (!dlaSoundEnabled) {
+                        return;
+                    }
+                    dlaBeepOnce();
+                    dlaAlarmTimer = setInterval(dlaBeepOnce, 2500);
+                } catch (err) {}
+            }
+
+            function dlaStopAlarm() {
+                try {
+                    if (dlaAlarmTimer) {
+                        clearInterval(dlaAlarmTimer);
+                        dlaAlarmTimer = null;
+                    }
+                } catch (err) {}
+            }
+
+            function dlaEnsureButton() {
+                try {
+                    if ($('#dlaSoundBtn').length) {
+                        return;
+                    }
+                    var btn = $(
+                        '<button type="button" id="dlaSoundBtn" title="Alarm delay on/off (klik sekali untuk aktifkan suara)"></button>'
+                    );
+                    btn.css({
+                        position: 'fixed',
+                        right: '16px',
+                        bottom: '16px',
+                        zIndex: 1060,
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        border: '1px solid var(--border)',
+                        background: '#fff',
+                        boxShadow: '0 4px 14px rgba(0,0,0,.18)',
+                        fontSize: '18px',
+                        cursor: 'pointer'
+                    });
+                    var renderIcon = function() {
+                        btn.text(dlaSoundEnabled ? '\uD83D\uDD14' : '\uD83D\uDD15');
+                        btn.css('opacity', dlaSoundEnabled ? '1' : '.55');
+                    };
+                    renderIcon();
+                    btn.on('click', function() {
+                        dlaSoundEnabled = !dlaSoundEnabled;
+                        try {
+                            localStorage.setItem(dlaSoundKey, dlaSoundEnabled ? '1' : '0');
+                        } catch (err) {}
+                        if (dlaSoundEnabled) {
+                            dlaUnlockAudio();
+                            dlaBeepOnce();
+                        } else {
+                            dlaStopAlarm();
+                        }
+                        renderIcon();
+                    });
+                    $('body').append(btn);
+                } catch (err) {}
+            }
+
+            function dlaShowPopup(rows) {
+                try {
+                    if (!rows.length || typeof Swal === 'undefined') {
+                        return;
+                    }
+                    if (Swal.isVisible && Swal.isVisible()) {
+                        return;
+                    }
+                    var items = rows.slice(0, 5).map(function(r) {
+                        var pct = Math.round(dlaGetProgress(r) * 10) / 10;
+                        return '<div style="text-align:left;border:1px solid #fecaca;background:#fff7f7;border-radius:8px;padding:8px 10px;margin-bottom:8px;">' +
+                            '<div style="font-weight:800;color:#991b1b;font-size:13px;">' + escapeHtml(
+                                (r.customer_name || '-') + ' | Cycle ' + (r.cycle_name || '-')) + '</div>' +
+                            '<div style="font-size:12px;color:#444;">Progress ' + pct + '% (' + (r.total_done || 0) + ' / ' + (r.total_target || 0) + ') · ' + (r.ll_count || 0) + ' LL</div>' +
+                            '<div style="font-size:11px;color:#777;">Prep ' + escapeHtml((r.cycle_time || '-') + (r.prep_end_time ? '–' + r.prep_end_time : '')) + ' · Delivery ' + escapeHtml(String(r.delivery_date || '').substring(0, 10)) + '</div>' +
+                            '</div>';
+                    }).join('');
+                    var extra = rows.length > 5 ? '<div style="font-size:11px;color:#777;">+' + (rows.length - 5) + ' lainnya</div>' : '';
+                    dlaStartAlarm();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Delay Delivery Terdeteksi',
+                        html: '<div style="font-size:12px;color:#555;margin-bottom:10px;">Ada ' + rows.length + ' preparation yang masih On Progress tetapi sudah melewati Finish Preparation.</div>' + items + extra,
+                        confirmButtonText: 'Mengerti, matikan alarm',
+                        confirmButtonColor: '#dc3545',
+                        allowOutsideClick: true
+                    }).then(function() {
+                        dlaStopAlarm();
+                    });
+                } catch (err) {}
+            }
+
+            function dlaCheck() {
+                try {
+                    if (document.hidden) {
+                        return;
+                    }
+                    if (typeof chartMergedByCustTime === 'undefined' || !Array.isArray(
+                            chartMergedByCustTime) || !chartMergedByCustTime.length) {
+                        return;
+                    }
+                    var now = Date.now();
+                    var shown = dlaGetShownMap();
+                    var fresh = [];
+                    chartMergedByCustTime.forEach(function(row) {
+                        try {
+                            if (!dlaIsCritical(row)) {
+                                return;
+                            }
+                            var key = dlaBucketKey(row);
+                            var last = parseInt(shown[key] || 0, 10);
+                            if (last && (now - last) < dlaCooldownMs) {
+                                return;
+                            }
+                            shown[key] = now;
+                            fresh.push(row);
+                        } catch (err) {}
+                    });
+                    dlaSetShownMap(shown);
+                    if (fresh.length) {
+                        dlaShowPopup(fresh);
+                    }
+                } catch (err) {}
+            }
+
+            try {
+                dlaEnsureButton();
+                document.addEventListener('click', dlaUnlockAudio, {
+                    once: true
+                });
+                setTimeout(dlaCheck, 8000);
+                setInterval(dlaCheck, 45000);
+            } catch (err) {}
+
             tickDeliveryHeaderClock();
             setInterval(tickDeliveryHeaderClock, 1000);
         });
