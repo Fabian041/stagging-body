@@ -90,8 +90,9 @@
               <th style="width:60px;">No</th>
               <th>Part Number</th>
               <th>Back Number</th>
-              <th>Qty Ordered</th>
-              <th>UOM</th>
+              <th id="qtyOrderedHeader">Qty Ordered (UOM)</th>
+              <th>Qty Ordered (KBN)</th>
+              <th>QTY/KBN</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -554,32 +555,54 @@ function showDetailModal(pickList, timeLabel = '') {
 
     getDetailModal().show();
 
-    $('#detailTable tbody').html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
+    $('#detailTable tbody').html('<tr><td colspan="6" class="text-center">Loading...</td></tr>');
+
+    // Hilangkan .0000 / trailing zero: "100.0000" -> "100", "10.5000" -> "10.5"
+    function formatQty(val) {
+        if (val === null || val === undefined || val === '') {
+            return '-';
+        }
+        const num = Number(String(val).replace(/,/g, '.'));
+        if (isNaN(num)) {
+            return val;
+        }
+        let s = num.toFixed(4);
+        s = s.replace(/\.?0+$/, '');
+        return s === '-0' ? '0' : s;
+    }
 
     $.ajax({
         url: "{{ route('dashboard.receiving.detail') }}",
         type: 'GET',
         data: { pick_list: pickList },
         success: function(response) {
-            if (response.length === 0) {
-                $('#detailTable tbody').html('<tr><td colspan="5" class="text-center">Data tidak ditemukan</td></tr>');
+            if (!response || response.length === 0) {
+                $('#detailTable tbody').html('<tr><td colspan="6" class="text-center">Data tidak ditemukan</td></tr>');
                 return;
+            }
+
+            // Header dinamis: Qty Ordered (UOM), cth: Qty Ordered (PCS)
+            const uoms = [...new Set(response.map((item) => (item.uom || '').toString().trim()).filter(Boolean))];
+            const headerEl = document.getElementById('qtyOrderedHeader');
+            if (headerEl) {
+                headerEl.textContent = uoms.length === 1 ? `Qty Ordered (${uoms[0]})` : 'Qty Ordered (UOM)';
             }
 
             let rows = '';
             response.forEach((item, idx) => {
                 rows += `<tr>
                     <td>${idx + 1}</td>
-                    <td>${item.part_number}</td>
-                    <td>${item.back_number}</td>
-                    <td>${item.qty_ordered}</td>
-                    <td>${item.uom}</td>
+                    <td>${item.part_number ?? '-'}</td>
+                    <td>${item.back_number ?? '-'}</td>
+                    <td>${formatQty(item.qty_ordered)}</td>
+                    <td>${item.qty_ordered_kbn !== null && item.qty_ordered_kbn !== undefined && item.qty_ordered_kbn !== '' ? formatQty(item.qty_ordered_kbn) : '-'}</td>
+                    <td>${item.qty_per_kanban !== null && item.qty_per_kanban !== undefined && item.qty_per_kanban !== '' ? formatQty(item.qty_per_kanban) : '-'}</td>
                 </tr>`;
             });
             $('#detailTable tbody').html(rows);
         },
         error: function() {
-            $('#detailTable tbody').html('<tr><td colspan="5" class="text-center text-danger">Gagal mengambil data</td></tr>');
+            $('#detailTable tbody').html('<tr><td colspan="6" class="text-center text-danger">Gagal mengambil data</td></tr>');
         }
     });
 }

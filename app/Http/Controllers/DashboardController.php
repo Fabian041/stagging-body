@@ -2378,24 +2378,108 @@ class DashboardController extends Controller
                 'a.CHR_NUB_MLNO as supplier_code',
                 'a.CHR_COD_HINB as part_number',
                 'a.DEC_SUR_KKSUH as qty_ordered',
-                'a.CHR_INF_HTTN as uom'
+                'a.DEC_SUR_KKSUK as qty_per_kanban_raw',
+                'a.CHR_INF_HTTN as uom',
+                'a.CHR_INF_BHTTN as uom_kbn'
             )
-            ->get()
-            ->map(function ($item) use ($pickList) {
-                $item->pick_list = $pickList;
+            ->get();
 
+        $partNumbers = $data->pluck('part_number')->filter()->unique()->values()->all();
+        $qtyPerKanbanMap = collect();
+        if (! empty($partNumbers)) {
+            $qtyPerKanbanMap = DB::table('customer_parts')
+                ->whereIn('part_number', $partNumbers)
+                ->get(['part_number', 'back_number', 'qty_per_kanban'])
+                ->groupBy('part_number');
+        }
+
+        $trimNumber = function ($value) {
+            if ($value === null || $value === '') {
+                return null;
+            }
+            if (! is_numeric($value)) {
+                return $value;
+            }
+            $float = (float) $value;
+            // Hilangkan .0000 / trailing zero: 100.0000 -> 100, 10.5000 -> 10.5
+            $str = rtrim(rtrim(sprintf('%.4F', $float), '0'), '.');
+
+            return $str === '-0' ? '0' : $str;
+        };
+
+        $data = $data->map(function ($item) use ($pickList, $qtyPerKanbanMap, $trimNumber) {
+            $item->pick_list = $pickList;
+
+            // IAA1NT: coba picklist+part dulu (baris picklist tsb), fallback part saja (master).
+            // DEC_SUR_SHSU di sini = Quantity/Kanban (cth: 25.00 untuk AM-8030F).
+            $iaa1nt = DB::connection('mssql_external')
+                ->table('IAA1NT as a')
+                ->where('a.CHR_NUB_NYSJNO', $pickList)
+                ->where('a.CHR_COD_HINB', $item->part_number)
+                ->select(
+                    'a.CHR_NUB_SBNG as back_number',
+                    'a.DEC_SUR_SHSU as shsu',
+                    'a.DEC_SUR_HSSU as hssu'
+                )
+                ->first();
+            if (! $iaa1nt) {
                 $iaa1nt = DB::connection('mssql_external')
                     ->table('IAA1NT as a')
                     ->where('a.CHR_COD_HINB', $item->part_number)
                     ->select(
                         'a.CHR_NUB_SBNG as back_number',
+                        'a.DEC_SUR_SHSU as shsu',
+                        'a.DEC_SUR_HSSU as hssu'
                     )
                     ->first();
+            }
 
-                $item->back_number = $iaa1nt->back_number; // Menambahkan custom2 dengan part_number
+            $item->back_number = $iaa1nt->back_number ?? null; // Menambahkan custom2 dengan part_number
+            $item->uom = $item->uom ? trim((string) $item->uom) : $item->uom;
+            $item->uom_kbn = isset($item->uom_kbn) ? trim((string) $item->uom_kbn) : null;
 
-                return $item;
-            });
+            $qtyOrderedFloat = is_numeric($item->qty_ordered) ? (float) $item->qty_ordered : null;
+            $qtyPerKanbanRaw = isset($item->qty_per_kanban_raw) && is_numeric($item->qty_per_kanban_raw)
+                ? (float) $item->qty_per_kanban_raw
+                : null;
+            unset($item->qty_per_kanban_raw);
+            $shsuFloat = isset($iaa1nt->shsu) && is_numeric($iaa1nt->shsu)
+                ? (float) $iaa1nt->shsu
+                : null;
+
+            $item->qty_ordered = $trimNumber($item->qty_ordered);
+
+            // Quantity/Kanban: IA16NT.DEC_SUR_KKSUK dulu, lalu IAA1NT.DEC_SUR_SHSU,
+            // terakhir master lokal customer_parts (KKSUK terbukti .0000 bahkan di data 2026).
+            $qtyPerKanban = ($qtyPerKanbanRaw !== null && $qtyPerKanbanRaw > 0)
+                ? $qtyPerKanbanRaw
+                : null;
+            if ($qtyPerKanban === null && $shsuFloat !== null && $shsuFloat > 0) {
+                $qtyPerKanban = $shsuFloat;
+            }
+            if ($qtyPerKanban === null && isset($qtyPerKanbanMap[$item->part_number])) {
+                $candidates = $qtyPerKanbanMap[$item->part_number];
+                $matched = $item->back_number
+                    ? $candidates->firstWhere('back_number', $item->back_number)
+                    : null;
+                $fallback = $matched->qty_per_kanban ?? $candidates->first()->qty_per_kanban ?? null;
+                if (is_numeric($fallback) && (float) $fallback > 0) {
+                    $qtyPerKanban = (float) $fallback;
+                }
+            }
+            $item->qty_per_kanban = ($qtyPerKanban !== null && $qtyPerKanban !== '')
+                ? $trimNumber($qtyPerKanban)
+                : null;
+
+            // QTY Ordered (KBN) = qty_ordered / qty_per_kanban (cth: 1800 / 300 = 6)
+            if ($qtyOrderedFloat !== null && $qtyPerKanban !== null && (float) $qtyPerKanban > 0) {
+                $item->qty_ordered_kbn = $trimNumber($qtyOrderedFloat / (float) $qtyPerKanban);
+            } else {
+                $item->qty_ordered_kbn = null;
+            }
+
+            return $item;
+        });
 
         return response()->json($data);
     }
