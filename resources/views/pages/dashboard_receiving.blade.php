@@ -5,29 +5,32 @@
     <div class="row">
         <div class="col-12 col-sm-12 col-lg-12">
 
-            <div class="card card-primary">
-                <div class="card-header justify-content-center mt-3 ">
+            <div class="card card-primary" id="receivingCard">
+                <div class="card-header justify-content-center mt-3" style="position: relative;">
                     <h3>Receiving Dashborad Monitoring</h3>
+                    <button type="button" id="fullscreenBtn" class="btn btn-sm btn-outline-primary" title="Fullscreen" onclick="toggleReceivingFullscreen()" style="position:absolute; right:15px; top:50%; transform:translateY(-50%);">
+                        <i class="fas fa-expand"></i>
+                    </button>
                 </div>
 
-                <div class="card-body">
+                <div class="card-body" id="receivingBody">
 
-                    <form method="GET" class="form-inline mb-3">
+                    <form method="GET" class="form-inline mb-2" id="receivingFilterForm">
                         <label for="area" class="mr-2">Area:</label>
-                        <select id="area" name="area" class="form-control mr-5">
+                        <select id="area" name="area" class="form-control form-control-sm mr-3">
                             <option value="">Pilih Area</option>
                             <option value="unit" {{ request('area') == 'unit' ? 'selected' : '' }}>Unit</option>
                             <option value="body" {{ request('area') == 'body' ? 'selected' : '' }}>Body</option>
                         </select>
                         
                         <label for="start_date" class="mr-2">Tanggal Mulai:</label>
-                        <input type="date" id="start_date" name="start_date" class="form-control mr-5" value="{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}">
+                        <input type="date" id="start_date" name="start_date" class="form-control form-control-sm mr-3" value="{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}">
 
                         <label for="end_date" class="mr-2">Tanggal Akhir:</label>
-                        <input type="date" id="end_date" name="end_date" class="form-control mr-5" value="{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}">
+                        <input type="date" id="end_date" name="end_date" class="form-control form-control-sm mr-3" value="{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}">
 
-                        <button type="submit" class="btn btn-primary">Tampilkan</button>
-                        <span class="ml-3 text-muted" style="font-size:13px;">Refresh in <span id="refreshCountdown">120</span> dtk</span>
+                        <button type="submit" class="btn btn-sm btn-primary">Tampilkan</button>
+                        <span class="ml-3 text-muted" style="font-size:12px;">Refresh in <span id="refreshCountdown">120</span> dtk</span>
                     </form>
                         <div id="timelineChartWrapper" style="position: relative;">
                             <div id="timelineChart"></div>
@@ -38,20 +41,15 @@
                                 <select id="hoverChooserSelect" class="form-control form-control-sm"></select>
                             </div>
                         </div>
+                    <div class="receiving-legend mt-2">
+                        <strong>Status:</strong>
+                        <span class="ml-2"><span style="background:#cccccc;" class="legend-box"></span> Sudah Order</span>
+                        <span class="ml-3"><span style="background:#28a745;" class="legend-box"></span> Diterima Semua</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="legend mb-3">
-    <strong>Status Legend:</strong>
-    <ul class="list-inline mt-2">
-        <li class="list-inline-item"><span style="background:#cccccc;" class="legend-box"></span> Sudah Order</li>
-        {{-- <li class="list-inline-item"><span style="background:#007bff;" class="legend-box"></span> Dikemas</li>
-        <li class="list-inline-item"><span style="background:#f52899;" class="legend-box"></span> Sedang Dijalan</li>
-        <li class="list-inline-item"><span style="background:#ffc107;" class="legend-box"></span> Diterima Sebagian</li> --}}
-        <li class="list-inline-item"><span style="background:#28a745;" class="legend-box"></span> Diterima Semua</li>
-    </ul>
-</div>
 <style>
     .legend-box {
         display: inline-block;
@@ -69,6 +67,101 @@
     #timelineChart .apexcharts-xaxis-annotation-label {
         pointer-events: none;
     }
+    .receiving-legend {
+        font-size: 12.5px;
+        color: #444;
+        padding: 4px 2px 0;
+    }
+    #receivingCard:fullscreen {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+    }
+    #receivingCard:fullscreen .card-header {
+        margin-top: 0 !important;
+        padding: 4px 48px 4px 12px;
+        flex: 0 0 auto;
+        border-bottom: 1px solid #e9ecef;
+        min-height: auto;
+    }
+    #receivingCard:fullscreen .card-header h3 {
+        font-size: 16px;
+        margin: 0;
+        line-height: 1.2;
+    }
+    #receivingCard:fullscreen #fullscreenBtn {
+        right: 12px;
+    }
+    #receivingCard:fullscreen #receivingBody {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 2px 12px 4px;
+        overflow: hidden;
+    }
+    #receivingCard:fullscreen #receivingFilterForm {
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 4px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 2px 8px;
+        margin-bottom: 0 !important;
+        line-height: 1.2;
+    }
+    #receivingCard:fullscreen #timelineChartWrapper {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        margin-top: -4px;
+    }
+    #receivingCard:fullscreen #timelineChart {
+        min-height: 0;
+        height: 100%;
+    }
+    /* Fullscreen: hide strip 3 tombol unduh + label hari/tanggal di atas */
+    #receivingCard:fullscreen .apexcharts-toolbar,
+    #receivingCard:fullscreen .apexcharts-menu {
+        display: none !important;
+    }
+    #receivingCard:fullscreen .apexcharts-xaxis-annotation-label {
+        display: none !important;
+    }
+    #receivingCard:fullscreen .receiving-legend {
+        flex: 0 0 auto;
+        border-top: 1px solid #eef1f4;
+        padding-top: 6px;
+    }
+    #detailModal .modal-dialog {
+        max-width: 95%;
+        width: 95%;
+        margin: 1rem auto;
+    }
+    #detailModal .modal-body {
+        overflow-x: visible;
+        padding: 1rem 1.5rem;
+    }
+    #detailTable {
+        width: 100% !important;
+        table-layout: auto;
+        margin-bottom: 0;
+        font-size: 13.5px;
+    }
+    #detailTable th, #detailTable td {
+        white-space: nowrap;
+        padding: 6px 12px;
+        vertical-align: middle;
+    }
 
 </style>
 
@@ -77,22 +170,22 @@
 
 <!-- Modal -->
 <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog" style="max-width:95%; width:95%;">
     <div class="modal-content">
       <div class="modal-header" style="flex-direction: column; align-items: center; text-align: center;">
         <h5 class="modal-title">Detail Pick List</h5>
         <div id="detailPickListInfo" style="font-weight: bold; font-size: 15px;"></div>
       </div>
       <div class="modal-body">
-        <table class="table table-bordered" id="detailTable">
+        <table class="table table-bordered table-sm text-nowrap" id="detailTable" style="white-space: nowrap; width: 100%;">
           <thead>
             <tr>
-              <th style="width:60px;">No</th>
+              <th style="width:50px;">No</th>
               <th>Part Number</th>
               <th>Back Number</th>
-              <th id="qtyOrderedHeader">Qty Ordered (UOM)</th>
-              <th>Qty Ordered (KBN)</th>
-              <th>QTY/KBN</th>
+              <th class="text-center">QTY/KBN</th>
+              <th id="qtyOrderedHeader" class="text-center">Qty Ordered (UOM)</th>
+              <th class="text-center">Qty Ordered (KBN)</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -128,8 +221,8 @@
 document.addEventListener('DOMContentLoaded', function () {
     const chartEl = document.querySelector("#timelineChart");
     // Ambil dari PHP blade
-    const startDate = new Date("{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}");
-    const endDate = new Date("{{ request('end_date') ?? now()->addDays(14)->toDateString() }}");
+    const startDate = new Date("{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}T00:00:00");
+    const endDate = new Date("{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}T23:59:59");
 
     const dailyAnnotations = [];
     let current = new Date(startDate);
@@ -325,6 +418,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const chart = new ApexCharts(chartEl, options);
     chart.render();
+    window._receivingChart = chart;
     // Retry: pastikan garis merah di belakang bar setelah render selesai
     setTimeout(sendAnnotationsBehind, 500);
     setTimeout(sendAnnotationsBehind, 1500);
@@ -377,6 +471,48 @@ document.addEventListener('DOMContentLoaded', function () {
             window.location.reload();
         }
     }, 1000);
+});
+
+// Fullscreen monitoring receiving agar tampilan lebih besar
+function toggleReceivingFullscreen() {
+    const card = document.getElementById('receivingCard');
+    if (!card) {
+        return;
+    }
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else if (card.requestFullscreen) {
+        card.requestFullscreen();
+    } else if (card.webkitRequestFullscreen) {
+        card.webkitRequestFullscreen();
+    }
+}
+document.addEventListener('fullscreenchange', function() {
+    const btn = document.getElementById('fullscreenBtn');
+    const icon = btn ? btn.querySelector('i') : null;
+    const isFull = !!document.fullscreenElement;
+    if (icon) {
+        icon.className = isFull ? 'fas fa-compress' : 'fas fa-expand';
+    }
+    // Resize chart agar mengisi layar fullscreen, fokus ke data
+    // Fullscreen: hide toolbar unduh + rapatkan padding atas (label hari/tanggal disembunyikan via CSS)
+    if (window._receivingChart) {
+        setTimeout(function() {
+            try {
+                let h = 700;
+                if (isFull) {
+                    const wrap = document.getElementById('timelineChartWrapper');
+                    const wrapH = wrap ? wrap.clientHeight : 0;
+                    h = Math.max(400, (wrapH > 100 ? wrapH : (window.innerHeight - 120)));
+                }
+                window._receivingChart.updateOptions({
+                    chart: { height: h, toolbar: { show: !isFull } },
+                    grid: { padding: { top: isFull ? 0 : 100, bottom: isFull ? 0 : 10 } }
+                });
+            } catch (e) { /* abaikan */ }
+            window.dispatchEvent(new Event('resize'));
+        }, 300);
+    }
 });
 
 // Rule 4: klik kotak gabungan -> pilih salah satu dari 2+ data (satu instance agar hide/show konsisten)
@@ -594,9 +730,9 @@ function showDetailModal(pickList, timeLabel = '') {
                     <td>${idx + 1}</td>
                     <td>${item.part_number ?? '-'}</td>
                     <td>${item.back_number ?? '-'}</td>
-                    <td>${formatQty(item.qty_ordered)}</td>
-                    <td>${item.qty_ordered_kbn !== null && item.qty_ordered_kbn !== undefined && item.qty_ordered_kbn !== '' ? formatQty(item.qty_ordered_kbn) : '-'}</td>
-                    <td>${item.qty_per_kanban !== null && item.qty_per_kanban !== undefined && item.qty_per_kanban !== '' ? formatQty(item.qty_per_kanban) : '-'}</td>
+                    <td class="text-center">${item.qty_per_kanban !== null && item.qty_per_kanban !== undefined && item.qty_per_kanban !== '' ? formatQty(item.qty_per_kanban) : '-'}</td>
+                    <td class="text-center">${formatQty(item.qty_ordered)}</td>
+                    <td class="text-center">${item.qty_ordered_kbn !== null && item.qty_ordered_kbn !== undefined && item.qty_ordered_kbn !== '' ? formatQty(item.qty_ordered_kbn) : '-'}</td>
                 </tr>`;
             });
             $('#detailTable tbody').html(rows);

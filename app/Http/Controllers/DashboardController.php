@@ -2141,7 +2141,7 @@ class DashboardController extends Controller
     public function receivingDashboard()
     {
         $startOfWeek = request('start_date') ? Carbon::parse(request('start_date')) : now()->startOfWeek();
-        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->startOfWeek()->addWeeks(2)->endOfWeek();
+        $endOfWeek = request('end_date') ? Carbon::parse(request('end_date')) : now()->endOfWeek();
         // dd($startOfWeek->toDateString(), $endOfWeek->toDateString());
 
         // Belum pilih area -> tampilkan semua; unitbody ikut di kedua view
