@@ -2298,6 +2298,16 @@ class DashboardController extends Controller
             'name' => 'Pengiriman Aktual',
             'data' => $seriesData,
         ]];
+
+        // Filter via AJAX (mode fullscreen): kembalikan JSON tanpa reload halaman
+        // agar browser tidak keluar fullscreen.
+        if (request()->boolean('ajax')) {
+            return response()->json([
+                'series' => $series,
+                'start_date' => $startOfWeek->toDateString(),
+                'end_date' => $endOfWeek->toDateString(),
+            ]);
+        }
         $now = now();
 
         if ($now->between($startOfWeek, $endOfWeek)) {

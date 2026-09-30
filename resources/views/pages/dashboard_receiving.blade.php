@@ -243,33 +243,60 @@ document.addEventListener('DOMContentLoaded', function () {
     const startDate = new Date("{{ request('start_date') ?? now()->startOfWeek()->toDateString() }}T00:00:00");
     const endDate = new Date("{{ request('end_date') ?? now()->endOfWeek()->toDateString() }}T23:59:59");
 
-    const dailyAnnotations = [];
-    let current = new Date(startDate);
-
-    while (current <= endDate) {
-
-        const adjustedTime = current.getTime() - (6 * 60 * 60 * 1000);
-
-        dailyAnnotations.push({
-            x: adjustedTime,
-            borderColor: '#dddddd',
-            strokeDashArray: 4,
+    function buildDailyList(s, e) {
+        const list = [];
+        const cur = new Date(s);
+        const end = new Date(e);
+        while (cur <= end) {
+            const adjustedTime = cur.getTime() - (6 * 60 * 60 * 1000);
+            list.push({
+                x: adjustedTime,
+                borderColor: '#dddddd',
+                strokeDashArray: 4,
+                label: {
+                    text: cur.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' }),
+                    orientation: 'vertical',
+                    position: 'top',
+                    textAnchor: 'middle',
+                    offsetY: -70,
+                    borderColor: '#dddddd',
+                    style: {
+                        color: '#555',
+                        background: '#f8f9fa',
+                        fontSize: '10px'
+                    }
+                }
+            });
+            cur.setDate(cur.getDate() + 1); // next day
+        }
+        return list;
+    }
+    function receivingNowAnnotation(t) {
+        const tt = t || Date.now();
+        return {
+            x: tt,
+            borderColor: '#FF0000',
+            borderWidth: 2,
+            strokeDashArray: 0,
             label: {
-                text: current.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' }),
-                orientation: 'vertical',
+                text: new Date(tt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                orientation: 'horizontal',
                 position: 'top',
                 textAnchor: 'middle',
-                offsetY: -70,
-                borderColor: '#dddddd',
+                offsetY: -8,
+                borderColor: '#FF0000',
                 style: {
-                    color: '#555',
-                    background: '#f8f9fa',
-                    fontSize: '10px'
+                    color: '#fff',
+                    background: '#FF0000',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
                 }
             }
-        });
-        current.setDate(current.getDate() + 1); // next day
+        };
     }
+
+    const dailyAnnotations = buildDailyList(startDate, endDate);
+    window._receivingDaily = dailyAnnotations;
 
     // Pindahkan garis merah (anotasi) ke belakang bar agar tidak menutupi data.
     // Target elemen <line>-nya langsung; label jam tetap di depan (di area padding atas).
@@ -438,6 +465,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const chart = new ApexCharts(chartEl, options);
     chart.render();
     window._receivingChart = chart;
+    // Dipakai filter AJAX: ganti series + range tanggal tanpa reload (tetap fullscreen).
+    // dailyAnnotations dimutasi in-place agar interval garis merah ikut memakai range baru.
+    window._applyReceivingData = function(json, startStr, endStr) {
+        try {
+            const ns = new Date(startStr + 'T00:00:00');
+            const ne = new Date(endStr + 'T23:59:59');
+            const fresh = buildDailyList(ns, ne);
+            dailyAnnotations.length = 0;
+            fresh.forEach(function(a) { dailyAnnotations.push(a); });
+            const isFull = !!document.fullscreenElement;
+            chart.updateOptions({
+                series: json.series,
+                xaxis: {
+                    min: new Date(ns).setHours(0, 0, 0, 0),
+                    max: new Date(ne).setHours(23, 59, 59, 999)
+                },
+                grid: { padding: { top: isFull ? 0 : 100 } },
+                annotations: { xaxis: [receivingNowAnnotation(Date.now())].concat(dailyAnnotations) }
+            });
+            setTimeout(sendAnnotationsBehind, 300);
+            window.dispatchEvent(new Event('resize'));
+        } catch (e) { /* abaikan */ }
+    };
     // Retry: pastikan garis merah di belakang bar setelah render selesai
     setTimeout(sendAnnotationsBehind, 500);
     setTimeout(sendAnnotationsBehind, 1500);
@@ -487,29 +537,168 @@ document.addEventListener('DOMContentLoaded', function () {
             refreshEl.textContent = refreshLeft;
         }
         if (refreshLeft <= 0) {
+            // Saat fullscreen jangan reload (reload selalu keluar fullscreen).
+            // Tahan dulu, lanjutkan hitungan agar tetap fullscreen.
+            if (document.fullscreenElement) {
+                refreshLeft = 120;
+                return;
+            }
             window.location.reload();
         }
     }, 1000);
+
+    // Filter TANPA reload: cegah browser keluar fullscreen.
+    // Submit normal hanya dipakai sebagai fallback jika fetch gagal.
+    (function() {
+        const form = document.getElementById('receivingFilterForm');
+        if (!form || form.dataset.ajaxBound) {
+            return;
+        }
+        form.dataset.ajaxBound = '1';
+        form.addEventListener('submit', function(ev) {
+            ev.preventDefault();
+            const btn = form.querySelector('button[type="submit"]');
+            const params = new URLSearchParams(new FormData(form));
+            const startStr = params.get('start_date') || '';
+            const endStr = params.get('end_date') || '';
+            params.set('ajax', '1');
+            const base = form.getAttribute('action') || window.location.pathname;
+            const url = base + '?' + params.toString();
+            if (btn) {
+                btn.disabled = true;
+                btn.dataset.label = btn.textContent;
+                btn.textContent = 'Memuat...';
+            }
+            // Tandai agar jika fallback reload terjadi, restore fullscreen dipicu.
+            try {
+                if (document.fullscreenElement) {
+                    sessionStorage.setItem(RECEIVING_FS_KEY, '1');
+                    sessionStorage.setItem(RECEIVING_FS_RELOAD_KEY, '1');
+                }
+            } catch (e) {}
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(res) {
+                    if (!res.ok) {
+                        throw new Error('http ' + res.status);
+                    }
+                    return res.json();
+                })
+                .then(function(json) {
+                    if (!json || !json.series || !window._applyReceivingData) {
+                        throw new Error('bad payload');
+                    }
+                    try {
+                        sessionStorage.removeItem(RECEIVING_FS_RELOAD_KEY);
+                    } catch (e) {}
+                    window._applyReceivingData(json, json.start_date || startStr, json.end_date || endStr);
+                    // Samakan URL dengan filter (tanpa ajax=1) agar F5 konsisten
+                    try {
+                        const clean = new URLSearchParams(new FormData(form));
+                        history.replaceState(null, '', base + '?' + clean.toString());
+                    } catch (e) {}
+                })
+                .catch(function() {
+                    // Fallback: submit normal (akan keluar fullscreen, lalu dipulihkan via restore)
+                    form.submit();
+                })
+                .finally(function() {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = btn.dataset.label || 'Tampilkan';
+                    }
+                });
+        });
+    })();
 });
 
 // Fullscreen monitoring receiving agar tampilan lebih besar
 // Fullscreen pakai <html> agar modal detail pick list (di luar card) tetap bisa muncul
+// Browser keluar fullscreen setiap reload/navigasi (termasuk filter Tampilkan),
+// jadi status disimpan di sessionStorage dan dipulihkan setelah halaman kembali.
+var RECEIVING_FS_KEY = 'receivingFullscreen';
+var RECEIVING_FS_RELOAD_KEY = 'receivingFsReload';
+function enterReceivingFullscreen() {
+    var el = document.documentElement;
+    try {
+        if (el.requestFullscreen) {
+            var p = el.requestFullscreen();
+            if (p && p.catch) {
+                p.catch(function() { /* butuh gesture user, dipulihkan di interaksi pertama */ });
+            }
+        } else if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+        }
+    } catch (e) { /* abaikan */ }
+}
 function toggleReceivingFullscreen() {
     if (document.fullscreenElement) {
+        try {
+            sessionStorage.removeItem(RECEIVING_FS_KEY);
+            sessionStorage.removeItem(RECEIVING_FS_RELOAD_KEY);
+        } catch (e) {}
         document.exitFullscreen();
         return;
     }
-    const el = document.documentElement;
-    if (el.requestFullscreen) {
-        el.requestFullscreen();
-    } else if (el.webkitRequestFullscreen) {
-        el.webkitRequestFullscreen();
-    }
+    try {
+        sessionStorage.setItem(RECEIVING_FS_KEY, '1');
+        sessionStorage.removeItem(RECEIVING_FS_RELOAD_KEY);
+    } catch (e) {}
+    enterReceivingFullscreen();
 }
+function restoreReceivingFullscreen() {
+    var want = false;
+    var reloaded = false;
+    try {
+        want = sessionStorage.getItem(RECEIVING_FS_KEY) === '1';
+        reloaded = sessionStorage.getItem(RECEIVING_FS_RELOAD_KEY) === '1';
+        // Hanya pulihkan jika sebelumnya fullscreen lalu terjadi reload/navigasi
+        // (filter Tampilkan / F5). Keluar via ESC tanpa reload tidak dipulihkan.
+        if (reloaded) {
+            sessionStorage.removeItem(RECEIVING_FS_RELOAD_KEY);
+        }
+    } catch (e) {}
+    if (!want || !reloaded || document.fullscreenElement) {
+        return;
+    }
+    // Coba langsung (berhasil jika masih ada activation), kalau ditolak
+    // browser, masuk di interaksi pertama user setelah reload/filter.
+    enterReceivingFullscreen();
+    var once = function() {
+        if (!document.fullscreenElement) {
+            enterReceivingFullscreen();
+        }
+        document.removeEventListener('pointerdown', once);
+        document.removeEventListener('keydown', once);
+    };
+    document.addEventListener('pointerdown', once);
+    document.addEventListener('keydown', once);
+}
+document.addEventListener('DOMContentLoaded', restoreReceivingFullscreen);
+if (document.readyState !== 'loading') {
+    restoreReceivingFullscreen();
+}
+// Tandai reload/navigasi saat fullscreen (filter Tampilkan / F5 / auto-refresh)
+// agar fullscreen dipulihkan setelah halaman kembali.
+// Keluar via ESC tanpa reload tidak menandai, jadi tidak dipulihkan.
+window.addEventListener('beforeunload', function() {
+    try {
+        if (document.fullscreenElement) {
+            sessionStorage.setItem(RECEIVING_FS_KEY, '1');
+            sessionStorage.setItem(RECEIVING_FS_RELOAD_KEY, '1');
+        }
+    } catch (e) {}
+});
 document.addEventListener('fullscreenchange', function() {
     const btn = document.getElementById('fullscreenBtn');
     const icon = btn ? btn.querySelector('i') : null;
     const isFull = !!document.fullscreenElement;
+    try {
+        if (isFull) {
+            sessionStorage.setItem(RECEIVING_FS_KEY, '1');
+        }
+        // Jangan hapus flag saat exit: pembeda ESC vs reload ada di
+        // RECEIVING_FS_RELOAD_KEY yang hanya diset di beforeunload.
+    } catch (e) {}
     if (icon) {
         icon.className = isFull ? 'fas fa-compress' : 'fas fa-expand';
     }
