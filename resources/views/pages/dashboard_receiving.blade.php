@@ -159,24 +159,67 @@
         padding-top: 6px;
     }
     #detailModal .modal-dialog {
+        width: auto;
         max-width: 95%;
-        width: 95%;
         margin: 1rem auto;
     }
+    #detailModal .modal-content {
+        width: fit-content;
+        max-width: 100%;
+        min-width: min(640px, 94vw);
+        margin-left: auto;
+        margin-right: auto;
+    }
     #detailModal .modal-body {
-        overflow-x: visible;
-        padding: 1rem 1.5rem;
+        overflow-x: auto;
+        padding: 0.75rem 1rem;
     }
     #detailTable {
-        width: 100% !important;
+        width: auto !important;
+        max-width: 100%;
+        margin: 0 auto;
         table-layout: auto;
-        margin-bottom: 0;
-        font-size: 13.5px;
+        border-collapse: collapse;
+        font-size: 13px;
+        line-height: 1.35;
     }
     #detailTable th, #detailTable td {
-        white-space: nowrap;
-        padding: 6px 12px;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 4px 8px;
         vertical-align: middle;
+        max-width: 240px;
+    }
+    #detailTable thead th {
+        padding: 5px 8px;
+    }
+    /* Kolom fit per konten */
+    #detailTable th:nth-child(1),
+    #detailTable td:nth-child(1) {
+        width: 36px;
+        max-width: 36px;
+        min-width: 36px;
+        text-align: center;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+    #detailTable th:nth-child(2),
+    #detailTable td:nth-child(2),
+    #detailTable th:nth-child(3),
+    #detailTable td:nth-child(3) {
+        width: 1%;
+        max-width: 220px;
+    }
+    #detailTable th:nth-child(4),
+    #detailTable td:nth-child(4),
+    #detailTable th:nth-child(5),
+    #detailTable td:nth-child(5),
+    #detailTable th:nth-child(6),
+    #detailTable td:nth-child(6) {
+        width: 1%;
+        max-width: 140px;
+        text-align: center;
     }
 
 </style>
@@ -186,17 +229,18 @@
 
 <!-- Modal -->
 <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-  <div class="modal-dialog" style="max-width:95%; width:95%;">
+  <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header" style="flex-direction: column; align-items: center; text-align: center;">
         <h5 class="modal-title">Detail Pick List</h5>
         <div id="detailPickListInfo" style="font-weight: bold; font-size: 15px;"></div>
       </div>
       <div class="modal-body">
-        <table class="table table-bordered table-sm text-nowrap" id="detailTable" style="white-space: nowrap; width: 100%;">
+        <div style="overflow-x:auto;">
+        <table class="table table-bordered table-sm text-nowrap mb-0 mx-auto" id="detailTable" style="white-space: nowrap; width: auto;">
           <thead>
             <tr>
-              <th style="width:50px;">No</th>
+              <th style="width:36px;">No</th>
               <th>Part Number</th>
               <th>Back Number</th>
               <th class="text-center">QTY/KBN</th>
@@ -206,6 +250,7 @@
           </thead>
           <tbody></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
@@ -968,8 +1013,8 @@ function showDetailModal(pickList, timeLabel = '') {
             response.forEach((item, idx) => {
                 rows += `<tr>
                     <td>${idx + 1}</td>
-                    <td>${item.part_number ?? '-'}</td>
-                    <td>${item.back_number ?? '-'}</td>
+                    <td title="${item.part_number ?? '-'}">${item.part_number ?? '-'}</td>
+                    <td title="${item.back_number ?? '-'}">${item.back_number ?? '-'}</td>
                     <td class="text-center">${item.qty_per_kanban !== null && item.qty_per_kanban !== undefined && item.qty_per_kanban !== '' ? formatQty(item.qty_per_kanban) : '-'}</td>
                     <td class="text-center">${formatQty(item.qty_ordered)}</td>
                     <td class="text-center">${item.qty_ordered_kbn !== null && item.qty_ordered_kbn !== undefined && item.qty_ordered_kbn !== '' ? formatQty(item.qty_ordered_kbn) : '-'}</td>
