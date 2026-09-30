@@ -148,12 +148,9 @@
         min-height: 0;
         height: 100%;
     }
-    /* Fullscreen: hide strip 3 tombol unduh + label hari/tanggal di atas */
+    /* Fullscreen: hide strip 3 tombol unduh (jam merah garis now tetap tampil) */
     html:fullscreen #receivingCard .apexcharts-toolbar,
     html:fullscreen #receivingCard .apexcharts-menu {
-        display: none !important;
-    }
-    html:fullscreen #receivingCard .apexcharts-xaxis-annotation-label {
         display: none !important;
     }
     html:fullscreen #receivingCard .receiving-legend {
@@ -297,6 +294,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const dailyAnnotations = buildDailyList(startDate, endDate);
     window._receivingDaily = dailyAnnotations;
+    // Fullscreen: garis harian tetap tampil, hanya label teks tanggalnya disembunyikan
+    // (anotasi dikirim ulang tanpa teks + box transparan, garisnya utuh).
+    window._stripDailyLabel = function(a) {
+        const c = Object.assign({}, a);
+        const st = Object.assign({}, ((a && a.label && a.label.style) || {}), { fontSize: '0px', color: 'transparent', background: 'transparent' });
+        c.label = Object.assign({}, (a && a.label) || {}, { text: '', borderColor: 'transparent', style: st });
+        return c;
+    };
 
     // Pindahkan garis merah (anotasi) ke belakang bar agar tidak menutupi data.
     // Target elemen <line>-nya langsung; label jam tetap di depan (di area padding atas).
@@ -481,8 +486,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     min: new Date(ns).setHours(0, 0, 0, 0),
                     max: new Date(ne).setHours(23, 59, 59, 999)
                 },
-                grid: { padding: { top: isFull ? 0 : 100 } },
-                annotations: { xaxis: [receivingNowAnnotation(Date.now())].concat(dailyAnnotations) }
+                grid: { padding: { top: isFull ? 30 : 100 } },
+                annotations: { xaxis: [receivingNowAnnotation(Date.now())].concat(isFull ? dailyAnnotations.map(window._stripDailyLabel) : dailyAnnotations) }
             });
             setTimeout(sendAnnotationsBehind, 300);
             window.dispatchEvent(new Event('resize'));
@@ -518,7 +523,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     }
                 },
-                ...dailyAnnotations
+                // Fullscreen: garis harian tetap ada, hanya label tanggalnya (mis. Kamis, 24) disembunyikan
+                ...(document.fullscreenElement ? dailyAnnotations.map(window._stripDailyLabel) : dailyAnnotations)
                 ]
             }
         });
@@ -703,7 +709,7 @@ document.addEventListener('fullscreenchange', function() {
         icon.className = isFull ? 'fas fa-compress' : 'fas fa-expand';
     }
     // Resize chart agar mengisi layar fullscreen, fokus ke data
-    // Fullscreen: hide toolbar unduh + rapatkan padding atas (label hari/tanggal disembunyikan via CSS)
+    // Fullscreen: hide toolbar unduh + teks label tanggal harian (garisnya tetap); jam merah tetap tampil
     if (window._receivingChart) {
         setTimeout(function() {
             try {
@@ -713,9 +719,33 @@ document.addEventListener('fullscreenchange', function() {
                     const wrapH = wrap ? wrap.clientHeight : 0;
                     h = Math.max(400, (wrapH > 100 ? wrapH : (window.innerHeight - 120)));
                 }
+                const nowT = Date.now();
+                const redLine = {
+                    x: nowT,
+                    borderColor: '#FF0000',
+                    borderWidth: 2,
+                    strokeDashArray: 0,
+                    label: {
+                        text: new Date(nowT).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                        orientation: 'horizontal',
+                        position: 'top',
+                        textAnchor: 'middle',
+                        offsetY: -8,
+                        borderColor: '#FF0000',
+                        style: {
+                            color: '#fff',
+                            background: '#FF0000',
+                            fontSize: '11px',
+                            fontWeight: 'bold'
+                        }
+                    }
+                };
+                const daily = (window._receivingDaily || []).slice();
+                const strip = window._stripDailyLabel || function(a) { return a; };
                 window._receivingChart.updateOptions({
                     chart: { height: h, toolbar: { show: !isFull } },
-                    grid: { padding: { top: isFull ? 0 : 100, bottom: isFull ? 0 : 10 } }
+                    grid: { padding: { top: isFull ? 30 : 100, bottom: isFull ? 0 : 10 } },
+                    annotations: { xaxis: [redLine].concat(isFull ? daily.map(strip) : daily) }
                 });
             } catch (e) { /* abaikan */ }
             window.dispatchEvent(new Event('resize'));
