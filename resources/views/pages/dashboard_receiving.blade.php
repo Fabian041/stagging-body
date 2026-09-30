@@ -72,34 +72,53 @@
         color: #444;
         padding: 4px 2px 0;
     }
-    #receivingCard:fullscreen {
+    html:fullscreen body,
+    html:fullscreen #app,
+    html:fullscreen .section {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff;
+    }
+    html:fullscreen body {
+        overflow: hidden;
+    }
+    html:fullscreen #app {
+        height: 100vh !important;
+    }
+    html:fullscreen .section .row,
+    html:fullscreen .section .row > [class*="col-"] {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    html:fullscreen #receivingCard {
         margin: 0;
         padding: 0;
         border: 0;
         border-radius: 0;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
         overflow: hidden;
         background: #fff;
         display: flex;
         flex-direction: column;
     }
-    #receivingCard:fullscreen .card-header {
+    html:fullscreen #receivingCard .card-header {
         margin-top: 0 !important;
         padding: 4px 48px 4px 12px;
         flex: 0 0 auto;
         border-bottom: 1px solid #e9ecef;
         min-height: auto;
     }
-    #receivingCard:fullscreen .card-header h3 {
+    html:fullscreen #receivingCard .card-header h3 {
         font-size: 16px;
         margin: 0;
         line-height: 1.2;
     }
-    #receivingCard:fullscreen #fullscreenBtn {
+    html:fullscreen #receivingCard #fullscreenBtn {
         right: 12px;
     }
-    #receivingCard:fullscreen #receivingBody {
+    html:fullscreen #receivingCard #receivingBody {
         flex: 1 1 auto;
         min-height: 0;
         display: flex;
@@ -108,7 +127,7 @@
         padding: 2px 12px 4px;
         overflow: hidden;
     }
-    #receivingCard:fullscreen #receivingFilterForm {
+    html:fullscreen #receivingCard #receivingFilterForm {
         flex: 0 0 auto;
         align-items: center;
         gap: 4px;
@@ -119,25 +138,25 @@
         margin-bottom: 0 !important;
         line-height: 1.2;
     }
-    #receivingCard:fullscreen #timelineChartWrapper {
+    html:fullscreen #receivingCard #timelineChartWrapper {
         flex: 1 1 auto;
         min-height: 0;
         height: auto;
         margin-top: -4px;
     }
-    #receivingCard:fullscreen #timelineChart {
+    html:fullscreen #receivingCard #timelineChart {
         min-height: 0;
         height: 100%;
     }
     /* Fullscreen: hide strip 3 tombol unduh + label hari/tanggal di atas */
-    #receivingCard:fullscreen .apexcharts-toolbar,
-    #receivingCard:fullscreen .apexcharts-menu {
+    html:fullscreen #receivingCard .apexcharts-toolbar,
+    html:fullscreen #receivingCard .apexcharts-menu {
         display: none !important;
     }
-    #receivingCard:fullscreen .apexcharts-xaxis-annotation-label {
+    html:fullscreen #receivingCard .apexcharts-xaxis-annotation-label {
         display: none !important;
     }
-    #receivingCard:fullscreen .receiving-legend {
+    html:fullscreen #receivingCard .receiving-legend {
         flex: 0 0 auto;
         border-top: 1px solid #eef1f4;
         padding-top: 6px;
@@ -474,17 +493,17 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // Fullscreen monitoring receiving agar tampilan lebih besar
+// Fullscreen pakai <html> agar modal detail pick list (di luar card) tetap bisa muncul
 function toggleReceivingFullscreen() {
-    const card = document.getElementById('receivingCard');
-    if (!card) {
-        return;
-    }
     if (document.fullscreenElement) {
         document.exitFullscreen();
-    } else if (card.requestFullscreen) {
-        card.requestFullscreen();
-    } else if (card.webkitRequestFullscreen) {
-        card.webkitRequestFullscreen();
+        return;
+    }
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+        el.requestFullscreen();
+    } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
     }
 }
 document.addEventListener('fullscreenchange', function() {
