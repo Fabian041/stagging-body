@@ -245,7 +245,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const cur = new Date(s);
         const end = new Date(e);
         while (cur <= end) {
-            const adjustedTime = cur.getTime() - (6 * 60 * 60 * 1000);
+            // Garis tepat di tengah malam hari tersebut (waktu lokal),
+            // sejajar dengan tick tanggal di sumbu bawah.
+            const adjustedTime = cur.getTime();
             list.push({
                 x: adjustedTime,
                 borderColor: '#dddddd',
