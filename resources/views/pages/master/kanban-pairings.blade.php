@@ -4,20 +4,63 @@
     @include('pages.master.partials.styles')
 
     <style>
-        .pairing-section {
-            margin-bottom: 16px;
-            padding: 14px;
-            background: #f8fafc;
-            border: 1px solid #e3eaf2;
-            border-radius: 7px;
+        #pairing-entries {
+            display: grid;
+            gap: 12px;
         }
 
-        .pairing-section-title {
-            margin-bottom: 12px;
+        .pairing-entry {
+            overflow: hidden;
+            background: #f8fafc;
+            border: 1px solid #e3eaf2;
+            border-radius: 8px;
+        }
+
+        .pairing-entry-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 9px 12px;
+            background: #f1f6fa;
+            border-bottom: 1px solid #e3eaf2;
+        }
+
+        .pairing-entry-title {
+            margin: 0;
             color: #294795;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
+        }
+
+        .pairing-entry-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .pairing-entry-body {
+            padding: 12px;
+        }
+
+        .pairing-field-group {
+            margin-bottom: 12px;
+        }
+
+        .pairing-field-group-title {
+            margin-bottom: 7px;
+            color: #6b7a90;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .pairing-bulk-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 14px;
         }
 
         .pairing-filter {
@@ -87,139 +130,148 @@
             </div>
         @endif
 
-        <div class="row g-3">
-            <div class="col-xl-4">
-                <div class="master-panel">
-                    <div class="master-panel-header">
-                        <h2 class="master-panel-title">
-                            <i class="fas fa-link"></i>{{ $editingPairing ? 'Edit Pairing' : 'Tambah Pairing' }}
-                        </h2>
-                    </div>
-                    <div class="master-panel-body">
-                        <form class="master-form" method="POST"
-                            action="{{ $editingPairing ? route('dashboard.master.kanban-pairings.update', $editingPairing) : route('dashboard.master.kanban-pairings.store') }}">
-                            @csrf
-                            @if ($editingPairing)
-                                @method('PUT')
-                            @endif
+        <datalist id="pairing-project-options">
+            @foreach ($projects as $project)
+                <option value="{{ $project }}">
+            @endforeach
+        </datalist>
 
-                            <div class="pairing-section">
-                                <div class="pairing-section-title">Informasi Umum</div>
-                                <div class="mb-3">
-                                    <label class="form-label">Project</label>
-                                    <input type="text" name="project" class="form-control" list="pairing-project-options"
-                                        value="{{ old('project', $editingPairing?->project ?? '') }}" placeholder="Contoh: 560B" required>
-                                    <datalist id="pairing-project-options">
-                                        @foreach ($projects as $project)
-                                            <option value="{{ $project }}">
-                                        @endforeach
-                                    </datalist>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Part Number Customer</label>
-                                    <input type="text" name="part_number_customer" class="form-control"
-                                        value="{{ old('part_number_customer', $editingPairing?->part_number_customer ?? '') }}" required>
-                                </div>
-                            </div>
-
-                            <div class="pairing-section">
-                                <div class="pairing-section-title">Kanban Assembly</div>
-                                <div class="mb-3">
-                                    <label class="form-label">Part Number Assembly</label>
-                                    <input type="text" name="assembly_part" class="form-control"
-                                        value="{{ old('assembly_part', $editingPairing?->assembly_part ?? '') }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Back Number Assembly</label>
-                                    <input type="text" name="assembly_back_number" class="form-control"
-                                        value="{{ old('assembly_back_number', $editingPairing?->assembly_back_number ?? '') }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Nama Part Assembly</label>
-                                    <input type="text" name="part_name" class="form-control"
-                                        value="{{ old('part_name', $editingPairing?->part_name ?? '') }}" required>
-                                </div>
-                                <div>
-                                    <label class="form-label">Qty Assembly</label>
-                                    <input type="number" name="qty_assy" class="form-control" min="1"
-                                        value="{{ old('qty_assy', $editingPairing?->qty_assy ?? 1) }}" required>
-                                </div>
-                            </div>
-
-                            <div class="pairing-section">
-                                <div class="pairing-section-title">Kanban Painting</div>
-                                <div class="mb-3">
-                                    <label class="form-label">Part Number Painting</label>
-                                    <input type="text" name="painting_part" class="form-control"
-                                        value="{{ old('painting_part', $editingPairing?->painting_part ?? '') }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Back Number Painting</label>
-                                    <input type="text" name="painting_back_number" class="form-control"
-                                        value="{{ old('painting_back_number', $editingPairing?->painting_back_number ?? '') }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Product / Nama Part Painting</label>
-                                    <input type="text" name="product" class="form-control"
-                                        value="{{ old('product', $editingPairing?->product ?? '') }}" required>
-                                </div>
-                                <div>
-                                    <label class="form-label">Qty Painting</label>
-                                    <input type="number" name="qty_painting" class="form-control" min="1"
-                                        value="{{ old('qty_painting', $editingPairing?->qty_painting ?? 1) }}" required>
-                                </div>
-                            </div>
-
-                            <div class="master-submit-row">
-                                <button class="master-btn primary w-100">
-                                    <i class="fas fa-save"></i> {{ $editingPairing ? 'Update Pairing' : 'Simpan Pairing' }}
-                                </button>
-                                @if ($editingPairing)
-                                    <a href="{{ route('dashboard.master.kanban-pairings.index') }}" class="master-btn w-100">Batal Edit</a>
-                                @endif
-                            </div>
-                        </form>
-                    </div>
+        @if ($editingPairing)
+            @php
+                $values = [];
+                foreach (['project', 'product', 'part_name', 'part_number_customer', 'assembly_part', 'assembly_back_number', 'qty_assy', 'painting_part', 'painting_back_number', 'qty_painting'] as $field) {
+                    $values[$field] = old($field, $editingPairing->{$field});
+                }
+            @endphp
+            <div class="master-panel mb-3">
+                <div class="master-panel-header">
+                    <h2 class="master-panel-title"><i class="fas fa-pen"></i>Edit Pairing</h2>
+                </div>
+                <div class="master-panel-body">
+                    <form class="master-form" method="POST"
+                        action="{{ route('dashboard.master.kanban-pairings.update', $editingPairing) }}">
+                        @csrf
+                        @method('PUT')
+                        @include('pages.master.partials.kanban-pairing-fields', ['prefix' => '', 'values' => $values])
+                        <div class="pairing-bulk-footer">
+                            <a href="{{ route('dashboard.master.kanban-pairings.index') }}" class="master-btn">Batal Edit</a>
+                            <button class="master-btn primary"><i class="fas fa-save"></i> Update Pairing</button>
+                        </div>
+                    </form>
                 </div>
             </div>
-
-            <div class="col-xl-8">
-                <div class="master-panel">
-                    <div class="master-panel-header">
-                        <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Kanban Pairing</h2>
-                        <span class="master-record-count">{{ $pairingCount }} record</span>
-                    </div>
-                    <div class="master-table-toolbar justify-content-end">
-                        <div class="pairing-filter">
-                            <label for="pairing-project-filter"><i class="fas fa-filter"></i> Project</label>
-                            <select id="pairing-project-filter" aria-label="Filter berdasarkan project">
-                                <option value="">Semua Project</option>
-                                @foreach ($projects as $project)
-                                    <option value="{{ $project }}">{{ $project }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                    <div class="master-table-wrap">
-                        <table id="kanban-pairings-table" class="table master-table align-middle w-100">
-                            <thead>
-                                <tr>
-                                    <th>Project</th>
-                                    <th>Assembly Part</th>
-                                    <th>Back No. Assy</th>
-                                    <th>Qty Assy</th>
-                                    <th>Painting Part</th>
-                                    <th>Back No. Painting</th>
-                                    <th>Qty Painting</th>
-                                    <th>Part Customer</th>
-                                    <th>Product</th>
-                                    <th class="text-end">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
+        @else
+            @php
+                $emptyPairing = [
+                    'project' => '',
+                    'product' => '',
+                    'part_name' => '',
+                    'part_number_customer' => '',
+                    'assembly_part' => '',
+                    'assembly_back_number' => '',
+                    'qty_assy' => 1,
+                    'painting_part' => '',
+                    'painting_back_number' => '',
+                    'qty_painting' => 1,
+                ];
+                $pairingRows = old('pairings', [$emptyPairing]);
+                $pairingRows = is_array($pairingRows) && count($pairingRows) ? $pairingRows : [$emptyPairing];
+            @endphp
+            <div class="master-panel mb-3">
+                <div class="master-panel-header">
+                    <h2 class="master-panel-title"><i class="fas fa-plus"></i>Tambah Multiple Pairing</h2>
+                    <button type="button" id="add-pairing-entry" class="master-btn info">
+                        <i class="fas fa-plus"></i> Tambah Baris
+                    </button>
                 </div>
+                <div class="master-panel-body">
+                    <form id="pairing-bulk-form" class="master-form" method="POST"
+                        action="{{ route('dashboard.master.kanban-pairings.store') }}">
+                        @csrf
+                        <div id="pairing-entries">
+                            @foreach ($pairingRows as $index => $values)
+                                <div class="pairing-entry" data-pairing-entry>
+                                    <div class="pairing-entry-header">
+                                        <h3 class="pairing-entry-title">Pairing #{{ $loop->iteration }}</h3>
+                                        <div class="pairing-entry-actions">
+                                            <button type="button" class="master-btn" data-duplicate-pairing>
+                                                <i class="far fa-copy"></i> Duplikat
+                                            </button>
+                                            <button type="button" class="master-btn danger" data-remove-pairing>
+                                                <i class="fas fa-times"></i> Hapus
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="pairing-entry-body">
+                                        @include('pages.master.partials.kanban-pairing-fields', ['prefix' => 'pairings['.$index.']', 'values' => $values])
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="pairing-bulk-footer">
+                            <button class="master-btn primary"><i class="fas fa-save"></i> Simpan Semua Pairing</button>
+                        </div>
+                    </form>
+
+                    <template id="pairing-entry-template">
+                        <div class="pairing-entry" data-pairing-entry>
+                            <div class="pairing-entry-header">
+                                <h3 class="pairing-entry-title">Pairing</h3>
+                                <div class="pairing-entry-actions">
+                                    <button type="button" class="master-btn" data-duplicate-pairing>
+                                        <i class="far fa-copy"></i> Duplikat
+                                    </button>
+                                    <button type="button" class="master-btn danger" data-remove-pairing>
+                                        <i class="fas fa-times"></i> Hapus
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="pairing-entry-body">
+                                @include('pages.master.partials.kanban-pairing-fields', [
+                                    'prefix' => 'pairings[__INDEX__]',
+                                    'values' => ['qty_assy' => 1, 'qty_painting' => 1],
+                                ])
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        @endif
+
+        <div class="master-panel">
+            <div class="master-panel-header">
+                <h2 class="master-panel-title"><i class="fas fa-list"></i>Daftar Kanban Pairing</h2>
+                <span class="master-record-count">{{ $pairingCount }} record</span>
+            </div>
+            <div class="master-table-toolbar justify-content-end">
+                <div class="pairing-filter">
+                    <label for="pairing-project-filter"><i class="fas fa-filter"></i> Project</label>
+                    <select id="pairing-project-filter" aria-label="Filter berdasarkan project">
+                        <option value="">Semua Project</option>
+                        @foreach ($projects as $project)
+                            <option value="{{ $project }}">{{ $project }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="master-table-wrap">
+                <table id="kanban-pairings-table" class="table master-table align-middle w-100">
+                    <thead>
+                        <tr>
+                            <th>Project</th>
+                            <th>Assembly Part</th>
+                            <th>Back No. Assy</th>
+                            <th>Qty Assy</th>
+                            <th>Painting Part</th>
+                            <th>Back No. Painting</th>
+                            <th>Qty Painting</th>
+                            <th>Part Customer</th>
+                            <th>Product</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -228,6 +280,72 @@
 @push('scripts')
     <script>
         $(function() {
+            const entries = document.getElementById('pairing-entries');
+            const template = document.getElementById('pairing-entry-template');
+            const addButton = document.getElementById('add-pairing-entry');
+
+            if (entries && template && addButton) {
+                let nextIndex = 0;
+
+                entries.querySelectorAll('[name]').forEach(function(input) {
+                    const match = input.name.match(/pairings\[(\d+)\]/);
+                    if (match) {
+                        nextIndex = Math.max(nextIndex, Number(match[1]) + 1);
+                    }
+                });
+
+                const updateEntryNumbers = function() {
+                    const cards = entries.querySelectorAll('[data-pairing-entry]');
+                    cards.forEach(function(card, index) {
+                        card.querySelector('.pairing-entry-title').textContent = 'Pairing #' + (index + 1);
+                        card.querySelector('[data-remove-pairing]').style.display = cards.length === 1 ? 'none' : '';
+                    });
+                };
+
+                const assignIndex = function(card, index) {
+                    card.querySelectorAll('[name]').forEach(function(input) {
+                        input.name = input.name.replace(/pairings\[(?:\d+|__INDEX__)\]/, 'pairings[' + index + ']');
+                    });
+                };
+
+                const appendCard = function(card) {
+                    if (entries.querySelectorAll('[data-pairing-entry]').length >= 50) {
+                        alert('Maksimal 50 pairing dalam satu kali simpan.');
+                        return;
+                    }
+
+                    assignIndex(card, nextIndex++);
+                    entries.appendChild(card);
+                    updateEntryNumbers();
+                };
+
+                addButton.addEventListener('click', function() {
+                    appendCard(template.content.firstElementChild.cloneNode(true));
+                });
+
+                entries.addEventListener('click', function(event) {
+                    const duplicateButton = event.target.closest('[data-duplicate-pairing]');
+                    const removeButton = event.target.closest('[data-remove-pairing]');
+
+                    if (duplicateButton) {
+                        const source = duplicateButton.closest('[data-pairing-entry]');
+                        const clone = source.cloneNode(true);
+                        const sourceInputs = source.querySelectorAll('input');
+                        clone.querySelectorAll('input').forEach(function(input, index) {
+                            input.value = sourceInputs[index].value;
+                        });
+                        appendCard(clone);
+                    }
+
+                    if (removeButton && entries.querySelectorAll('[data-pairing-entry]').length > 1) {
+                        removeButton.closest('[data-pairing-entry]').remove();
+                        updateEntryNumbers();
+                    }
+                });
+
+                updateEntryNumbers();
+            }
+
             if (!$.fn.DataTable) {
                 return;
             }

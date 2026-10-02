@@ -31,7 +31,8 @@ class MasterKanbanPairingTest extends TestCase
             ->get('/dashboard/master/kanban-pairings')
             ->assertOk()
             ->assertSee('Master Kanban Pairing')
-            ->assertSee('Tambah Pairing');
+            ->assertSee('Tambah Multiple Pairing')
+            ->assertSee('Tambah Baris');
 
         $response = $this->actingAs($this->admin())->post('/dashboard/master/kanban-pairings', [
             'project' => ' 560b ',
@@ -59,6 +60,55 @@ class MasterKanbanPairingTest extends TestCase
             'qty_assy' => 6,
             'qty_painting' => 6,
         ]);
+    }
+
+    public function test_multiple_pairings_can_be_created_in_one_request(): void
+    {
+        $response = $this->actingAs($this->admin())->post('/dashboard/master/kanban-pairings', [
+            'pairings' => [
+                array_merge($this->pairingValues(), [
+                    'project' => ' 560b ',
+                    'assembly_part' => ' assy-001 ',
+                    'painting_part' => ' paint-001 ',
+                ]),
+                array_merge($this->pairingValues(), [
+                    'project' => ' 660a ',
+                    'assembly_part' => ' assy-002 ',
+                    'painting_part' => ' paint-002 ',
+                ]),
+            ],
+        ]);
+
+        $response->assertRedirect('/dashboard/master/kanban-pairings')
+            ->assertSessionHas('success', '2 Master Kanban Pairing berhasil ditambah.');
+
+        $this->assertSame(2, KanbanPairing::count());
+        $this->assertDatabaseHas('body_kanban_pairings', [
+            'project' => '560B',
+            'assembly_part' => 'ASSY-001',
+            'painting_part' => 'PAINT-001',
+        ]);
+        $this->assertDatabaseHas('body_kanban_pairings', [
+            'project' => '660A',
+            'assembly_part' => 'ASSY-002',
+            'painting_part' => 'PAINT-002',
+        ]);
+    }
+
+    public function test_duplicate_assembly_inside_batch_rejects_the_whole_request(): void
+    {
+        $response = $this->actingAs($this->admin())->post('/dashboard/master/kanban-pairings', [
+            'pairings' => [
+                array_merge($this->pairingValues(), ['assembly_part' => ' assy-duplicate ']),
+                array_merge($this->pairingValues(), [
+                    'assembly_part' => 'ASSY-DUPLICATE',
+                    'painting_part' => 'PAINT-002',
+                ]),
+            ],
+        ]);
+
+        $response->assertSessionHasErrors();
+        $this->assertSame(0, KanbanPairing::count());
     }
 
     public function test_pairing_can_be_updated_and_duplicate_assembly_is_rejected(): void

@@ -565,15 +565,37 @@ class MasterDataController extends Controller
 
     public function storeKanbanPairing(Request $request)
     {
-        $this->normalizeKanbanPairingRequest($request);
-        $values = $request->validate($this->kanbanPairingRules(), [
-            'assembly_part.unique' => 'Part number assembly sudah terdaftar pada master pairing lain.',
+        if (!$request->has('pairings')) {
+            $this->normalizeKanbanPairingRequest($request);
+            $values = $request->validate($this->kanbanPairingRules(), [
+                'assembly_part.unique' => 'Part number assembly sudah terdaftar pada master pairing lain.',
+            ]);
+
+            KanbanPairing::create($values);
+
+            return redirect()->route('dashboard.master.kanban-pairings.index')
+                ->with('success', 'Master Kanban Pairing berhasil ditambah.');
+        }
+
+        $pairings = array_values(array_map(
+            fn ($values) => $this->normalizeKanbanPairingValues(is_array($values) ? $values : []),
+            (array) $request->input('pairings', [])
+        ));
+        $request->merge(['pairings' => $pairings]);
+
+        $validated = $request->validate($this->kanbanPairingBatchRules(), [
+            'pairings.*.assembly_part.unique' => 'Part number assembly pada baris :position sudah terdaftar pada master pairing lain.',
+            'pairings.*.assembly_part.distinct' => 'Part number assembly pada baris :position duplikat di dalam form.',
         ]);
 
-        KanbanPairing::create($values);
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['pairings'] as $pairing) {
+                KanbanPairing::create($pairing);
+            }
+        });
 
         return redirect()->route('dashboard.master.kanban-pairings.index')
-            ->with('success', 'Master Kanban Pairing berhasil ditambah.');
+            ->with('success', count($validated['pairings']).' Master Kanban Pairing berhasil ditambah.');
     }
 
     public function updateKanbanPairing(Request $request, KanbanPairing $kanbanPairing)
@@ -624,16 +646,25 @@ class MasterDataController extends Controller
 
     private function normalizeKanbanPairingRequest(Request $request): void
     {
-        $request->merge([
-            'project' => strtoupper(trim((string) $request->input('project'))),
-            'product' => strtoupper(trim((string) $request->input('product'))),
-            'part_name' => strtoupper(trim((string) $request->input('part_name'))),
-            'part_number_customer' => strtoupper(trim((string) $request->input('part_number_customer'))),
-            'assembly_part' => strtoupper(trim((string) $request->input('assembly_part'))),
-            'assembly_back_number' => strtoupper(trim((string) $request->input('assembly_back_number'))),
-            'painting_part' => strtoupper(trim((string) $request->input('painting_part'))),
-            'painting_back_number' => strtoupper(trim((string) $request->input('painting_back_number'))),
-        ]);
+        $request->merge($this->normalizeKanbanPairingValues($request->all()));
+    }
+
+    private function normalizeKanbanPairingValues(array $values): array
+    {
+        foreach ([
+            'project',
+            'product',
+            'part_name',
+            'part_number_customer',
+            'assembly_part',
+            'assembly_back_number',
+            'painting_part',
+            'painting_back_number',
+        ] as $field) {
+            $values[$field] = strtoupper(trim((string) ($values[$field] ?? '')));
+        }
+
+        return $values;
     }
 
     private function kanbanPairingRules(?KanbanPairing $kanbanPairing = null): array
@@ -655,6 +686,21 @@ class MasterDataController extends Controller
             'qty_assy' => ['required', 'integer', 'min:1'],
             'qty_painting' => ['required', 'integer', 'min:1'],
         ];
+    }
+
+    private function kanbanPairingBatchRules(): array
+    {
+        $rules = [
+            'pairings' => ['required', 'array', 'min:1', 'max:50'],
+        ];
+
+        foreach ($this->kanbanPairingRules() as $field => $fieldRules) {
+            $rules['pairings.*.'.$field] = $fieldRules;
+        }
+
+        $rules['pairings.*.assembly_part'][] = 'distinct';
+
+        return $rules;
     }
 
     private function storeInternalPartPhoto($photo, ?string $backNumber, string $partNumber): string
