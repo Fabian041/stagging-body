@@ -789,8 +789,9 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <form action="{{ route('dashboard.mutation.export') }}" method="GET">
+                    <input type="hidden" name="production_result" value="1">
                     <div class="modal-header">
-                        <h5 class="modal-title">Export Mutasi</h5>
+                        <h5 class="modal-title">Export Production Result</h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>

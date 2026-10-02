@@ -1047,6 +1047,7 @@ class DashboardController extends Controller
     public function exportMutation()
     {
         $tz = 'Asia/Jakarta';
+        $productionResultExport = request()->boolean('production_result');
 
         $date = request('date');
         $from = request('from');
@@ -1073,16 +1074,20 @@ class DashboardController extends Controller
                 'mutations.qty',
                 'mutations.type',
                 DB::raw('COALESCE(mutations.is_adjustment, 0) as is_adjustment'),
-                DB::raw("DATE_FORMAT(mutations.date, '%Y-%m-%d %H:%i:%s') as mutation_date")
+                'mutations.date as mutation_date'
             )
             ->whereBetween('mutations.date', [$start->toDateTimeString(), $end->toDateTimeString()])
-            ->where('mutations.type', 'supply')
+            ->whereIn(
+                'mutations.type',
+                $productionResultExport ? self::PRODUCTION_RESULT_TYPES : ['supply']
+            )
             ->orderBy('lines.name')
             ->orderBy('mutations.date')
             ->orderBy('internal_parts.back_number')
             ->get();
 
-        $filename = 'Mutation_'.$start->format('Ymd').'_'.$end->format('Ymd').'.xlsx';
+        $filename = ($productionResultExport ? 'Production_Result_' : 'Mutation_')
+            .$start->format('Ymd').'_'.$end->format('Ymd').'.xlsx';
 
         return Excel::download(
             new MutationMultiSheetExport($rows),
