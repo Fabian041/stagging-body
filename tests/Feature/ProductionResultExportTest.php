@@ -71,6 +71,9 @@ class ProductionResultExportTest extends TestCase
 
             $this->assertEqualsCanonicalizing(['AS523', 'AS547'], $sheets->keys()->all());
             $this->assertCount(2, $sheets['AS547']->collection());
+            $mappedRow = $sheets['AS547']->map($sheets['AS547']->collection()->first());
+            $this->assertIsFloat($mappedRow[7]);
+            $this->assertSame('yyyy-mm-dd hh:mm:ss', $sheets['AS547']->columnFormats()['H']);
 
             return true;
         });

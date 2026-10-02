@@ -286,7 +286,9 @@
             border-bottom: none !important;
         }
 
-        .detail-row td {
+        .prod-table tbody .detail-row>td {
+            padding: 0 !important;
+            border-bottom: none !important;
             background: #fbfdff !important;
         }
 
@@ -323,6 +325,7 @@
         .detail-panel {
             padding: 14px;
             background: #fbfdff;
+            border-bottom: 1px solid var(--border);
         }
 
         .detail-panel-head {

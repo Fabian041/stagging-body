@@ -4,13 +4,15 @@ namespace App\Exports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, WithMapping, WithStyles
+class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, WithMapping, WithStyles, WithColumnFormatting
 {
     protected int $no = 0;
 
@@ -48,6 +50,9 @@ class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, W
         $this->no++;
 
         $rawType = strtoupper(trim((string) $row->type));
+        $mutationDate = $row->mutation_date
+            ? Date::dateTimeToExcel(new \DateTimeImmutable((string) $row->mutation_date))
+            : null;
 
         // mapping output Type (hasil export)
         if (in_array($rawType, ['IN', 'SUPPLY', 'S', 'ADD', 'PLUS', 'MASUK'])) {
@@ -67,13 +72,20 @@ class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, W
             (int) $row->qty,
             $exportType,          // ✅ SUPPLY / CHECKOUT
             ! empty($row->is_adjustment) ? 'YES' : 'NO',
-            $row->mutation_date,
+            $mutationDate,
+        ];
+    }
+
+    public function columnFormats(): array
+    {
+        return [
+            'H' => 'yyyy-mm-dd hh:mm:ss',
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
-        $sheet->getStyle('A1:G1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:H1')->getFont()->setBold(true);
 
         $sheet->getColumnDimension('A')->setWidth(6);
         $sheet->getColumnDimension('B')->setWidth(12);
@@ -82,6 +94,7 @@ class MutationPerLineSheet implements FromCollection, WithTitle, WithHeadings, W
         $sheet->getColumnDimension('E')->setWidth(10);
         $sheet->getColumnDimension('F')->setWidth(20);
         $sheet->getColumnDimension('G')->setWidth(14);
+        $sheet->getColumnDimension('H')->setWidth(20);
 
         return [];
     }
