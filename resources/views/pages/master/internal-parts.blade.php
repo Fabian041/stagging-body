@@ -287,6 +287,28 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">Foto Quality Scan</label>
+                                <div class="part-photo-field">
+                                    <div class="part-photo-preview" id="qualityPhotoPreview">
+                                        @if ($editingQualityPhotoUrl)
+                                            <img src="{{ $editingQualityPhotoUrl }}" alt="Foto Quality {{ $editingPart?->back_number }}">
+                                        @else
+                                            <i class="fas fa-image"></i>
+                                        @endif
+                                    </div>
+                                    <div class="part-photo-copy">
+                                        <label for="qualityPhotoInput" class="master-btn mb-0">
+                                            <i class="fas fa-camera"></i> Pilih Foto Quality
+                                        </label>
+                                        <input type="file" name="quality_photo" id="qualityPhotoInput"
+                                            accept="image/jpeg,image/png,image/webp" hidden>
+                                        <div class="part-photo-name" id="qualityPhotoName">
+                                            {{ $editingPart?->quality_photo ?: 'Khusus /quality/scan - maks. 5 MB' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="master-submit-row">
                                 <button class="master-btn primary w-100">
                                     <i class="fas fa-save"></i> {{ $editingPart ? 'Update Part' : 'Simpan Part' }}
@@ -308,11 +330,14 @@
                     </div>
                     <div class="master-table-toolbar internal-parts-toolbar">
                         <div class="master-segmented" aria-label="Filter status foto">
-                            <button type="button" class="part-photo-filter active" data-missing-photo="0">
+                            <button type="button" class="part-photo-filter active" data-missing-photo="">
                                 Semua Part
                             </button>
-                            <button type="button" class="part-photo-filter" data-missing-photo="1">
-                                <i class="fas fa-image"></i> Belum Ada Foto
+                            <button type="button" class="part-photo-filter" data-missing-photo="pis">
+                                <i class="fas fa-image"></i> Belum Ada Foto PIS
+                            </button>
+                            <button type="button" class="part-photo-filter" data-missing-photo="quality">
+                                <i class="fas fa-camera"></i> Belum Ada Foto Quality
                             </button>
                         </div>
                         <div class="part-line-filter-wrap">
@@ -329,7 +354,8 @@
                         <table id="internal-parts-table" class="table master-table align-middle w-100">
                             <thead>
                                 <tr>
-                                    <th>Foto</th>
+                                    <th>Foto PIS</th>
+                                    <th>Foto Quality</th>
                                     <th>Line</th>
                                     <th>Part Number</th>
                                     <th>Back Number</th>
@@ -355,6 +381,9 @@
             const photoInput = document.getElementById('partPhotoInput');
             const photoPreview = document.getElementById('partPhotoPreview');
             const photoName = document.getElementById('partPhotoName');
+            const qualityPhotoInput = document.getElementById('qualityPhotoInput');
+            const qualityPhotoPreview = document.getElementById('qualityPhotoPreview');
+            const qualityPhotoName = document.getElementById('qualityPhotoName');
             const importInput = document.getElementById('partImportFile');
             const importDropzone = document.getElementById('partImportDropzone');
             const importFileCard = document.getElementById('partImportFileCard');
@@ -408,27 +437,32 @@
                 return true;
             };
 
-            if (photoInput) {
-                photoInput.addEventListener('change', function() {
+            const bindPhotoPreview = function(input, preview, name) {
+                if (!input || !preview || !name) return;
+
+                input.addEventListener('change', function() {
                     const file = this.files?.[0];
                     if (!file) return;
 
                     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
                         this.value = '';
-                        photoName.textContent = 'Gunakan JPG, PNG, atau WebP maksimal 5 MB.';
+                        name.textContent = 'Gunakan JPG, PNG, atau WebP maksimal 5 MB.';
                         return;
                     }
 
                     const imageUrl = URL.createObjectURL(file);
-                    photoPreview.innerHTML = '';
+                    preview.innerHTML = '';
                     const image = document.createElement('img');
                     image.src = imageUrl;
                     image.alt = 'Preview foto part';
                     image.onload = function() { URL.revokeObjectURL(imageUrl); };
-                    photoPreview.appendChild(image);
-                    photoName.textContent = file.name + ' - ' + formatBytes(file.size);
+                    preview.appendChild(image);
+                    name.textContent = file.name + ' - ' + formatBytes(file.size);
                 });
-            }
+            };
+
+            bindPhotoPreview(photoInput, photoPreview, photoName);
+            bindPhotoPreview(qualityPhotoInput, qualityPhotoPreview, qualityPhotoName);
 
             if (importInput && importDropzone) {
                 importDropzone.addEventListener('click', function() { importInput.click(); });
@@ -483,16 +517,17 @@
                     ajax: {
                         url: '{{ route('dashboard.master.parts.data') }}',
                         data: function(payload) {
-                            payload.missing_photo = $('.part-photo-filter.active').data('missing-photo') || 0;
+                            payload.missing_photo = $('.part-photo-filter.active').attr('data-missing-photo') || '';
                             payload.line_id = $('#part-line-filter').val() || '';
                         }
                     },
                     pageLength: 10,
                     lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-                    order: [[2, 'asc']],
+                    order: [[3, 'asc']],
                     autoWidth: false,
                     columns: [
                         { data: 'photo_preview', name: 'photo_preview', orderable: false, searchable: false },
+                        { data: 'quality_photo_preview', name: 'quality_photo_preview', orderable: false, searchable: false },
                         { data: 'line_name', name: 'lines.name' },
                         { data: 'part_number', name: 'internal_parts.part_number' },
                         { data: 'back_number', name: 'internal_parts.back_number' },

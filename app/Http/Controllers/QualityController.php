@@ -10,6 +10,7 @@ use App\Models\QualityInspectionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -111,7 +112,7 @@ class QualityController extends Controller
             'internal_part' => $part?->part_number ?? '-',
             'back_number' => $backNumber,
             'qty_per_box' => $customerPart?->qty_per_kanban ?? $this->extractQty($kanban),
-            'photo' => $part?->photo ?? null,
+            'photo' => $this->qualityPhotoUrl($part),
             'customer' => $customerPart?->customer?->name ?? $customerPart?->customer?->customer_name ?? '-',
             'line' => 'QC GATE R1',
             'check_options' => ['FIRST', 'LAST', '100% CHECK'],
@@ -1067,7 +1068,7 @@ class QualityController extends Controller
         $compactKanban = $this->compactPartText($normalizedKanban);
 
         $parts = InternalPart::query()
-            ->select('id', 'part_number', 'back_number', 'part_name', 'photo')
+            ->select('id', 'part_number', 'back_number', 'part_name', 'photo', 'quality_photo')
             ->with(['customerPart.customer'])
             ->where(function ($query) {
                 $query->whereNotNull('part_number')
@@ -1099,7 +1100,7 @@ class QualityController extends Controller
     {
         if (!empty($inspection->part_number)) {
             $part = InternalPart::query()
-                ->select('id', 'part_number', 'back_number', 'part_name', 'photo')
+                ->select('id', 'part_number', 'back_number', 'part_name', 'photo', 'quality_photo')
                 ->with(['customerPart.customer'])
                 ->where('part_number', $inspection->part_number)
                 ->first();
@@ -1157,5 +1158,16 @@ class QualityController extends Controller
         preg_match('/QTY[:\s-]*(\d+)/i', $kanban, $matches);
 
         return $matches[1] ?? '-';
+    }
+
+    private function qualityPhotoUrl(?InternalPart $part): ?string
+    {
+        $filename = basename((string) $part?->quality_photo);
+
+        if ($filename === '' || ! File::isFile(public_path('assets/img/quality/'.$filename))) {
+            return null;
+        }
+
+        return asset('assets/img/quality/'.rawurlencode($filename));
     }
 }

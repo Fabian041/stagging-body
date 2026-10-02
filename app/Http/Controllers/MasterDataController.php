@@ -265,6 +265,7 @@ class MasterDataController extends Controller
         $internalPartCount = InternalPart::count();
         $lines = Line::orderBy('name')->get();
         $editingPhotoUrl = null;
+        $editingQualityPhotoUrl = null;
 
         if ($editingPart?->photo) {
             $filename = basename((string) $editingPart->photo);
@@ -273,11 +274,19 @@ class MasterDataController extends Controller
             }
         }
 
+        if ($editingPart?->quality_photo) {
+            $filename = basename((string) $editingPart->quality_photo);
+            if (File::isFile(public_path('assets/img/quality/'.$filename))) {
+                $editingQualityPhotoUrl = asset('assets/img/quality/'.rawurlencode($filename));
+            }
+        }
+
         return view('pages.master.internal-parts', compact(
             'editingPart',
             'internalPartCount',
             'lines',
-            'editingPhotoUrl'
+            'editingPhotoUrl',
+            'editingQualityPhotoUrl'
         ));
     }
 
@@ -291,17 +300,20 @@ class MasterDataController extends Controller
             $query->where('internal_parts.line_id', $request->integer('line_id'));
         }
 
-        if ($request->boolean('missing_photo')) {
-            $photoDirectory = public_path('assets/img/pis');
+        $missingPhoto = (string) $request->input('missing_photo', '');
+        if (in_array($missingPhoto, ['1', 'pis', 'quality'], true)) {
+            $isQualityPhoto = $missingPhoto === 'quality';
+            $photoColumn = $isQualityPhoto ? 'quality_photo' : 'photo';
+            $photoDirectory = public_path($isQualityPhoto ? 'assets/img/quality' : 'assets/img/pis');
             $availablePhotos = File::isDirectory($photoDirectory)
                 ? collect(File::files($photoDirectory))->map->getFilename()->values()->all()
                 : [];
 
             if ($availablePhotos) {
-                $query->where(function ($builder) use ($availablePhotos) {
-                    $builder->whereNull('internal_parts.photo')
-                        ->orWhere('internal_parts.photo', '')
-                        ->orWhereNotIn('internal_parts.photo', $availablePhotos);
+                $query->where(function ($builder) use ($availablePhotos, $photoColumn) {
+                    $builder->whereNull('internal_parts.'.$photoColumn)
+                        ->orWhere('internal_parts.'.$photoColumn, '')
+                        ->orWhereNotIn('internal_parts.'.$photoColumn, $availablePhotos);
                 });
             }
         }
@@ -330,10 +342,24 @@ class MasterDataController extends Controller
                     .'<img src="'.e($url).'" alt="Foto '.e($part->back_number ?? $part->part_number).'">'
                     .'</a>';
             })
+            ->addColumn('quality_photo_preview', function (InternalPart $part) {
+                $filename = basename((string) $part->quality_photo);
+                $path = $filename !== '' ? public_path('assets/img/quality/'.$filename) : null;
+
+                if (! $path || ! File::isFile($path)) {
+                    return '<span class="master-photo-empty" title="Foto Quality belum tersedia"><i class="fas fa-image"></i></span>';
+                }
+
+                $url = asset('assets/img/quality/'.rawurlencode($filename));
+
+                return '<a class="master-photo-thumb" href="'.e($url).'" target="_blank" rel="noopener" title="Lihat foto Quality">'
+                    .'<img src="'.e($url).'" alt="Foto Quality '.e($part->back_number ?? $part->part_number).'">'
+                    .'</a>';
+            })
             ->addColumn('action', function (InternalPart $part) {
                 return view('pages.master.partials.internal-part-actions', compact('part'))->render();
             })
-            ->rawColumns(['photo_preview', 'action'])
+            ->rawColumns(['photo_preview', 'quality_photo_preview', 'action'])
             ->make(true);
     }
 
@@ -351,11 +377,15 @@ class MasterDataController extends Controller
             'back_number' => ['nullable', 'string', 'max:100'],
             'part_name' => ['nullable', 'string', 'max:150'],
             'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'quality_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
 
         $photo = $request->hasFile('photo')
             ? $this->storeInternalPartPhoto($request->file('photo'), $request->back_number, $request->part_number)
             : ($request->back_number ? $request->back_number.'.jpeg' : null);
+        $qualityPhoto = $request->hasFile('quality_photo')
+            ? $this->storeInternalPartQualityPhoto($request->file('quality_photo'), $request->part_number)
+            : null;
 
         InternalPart::create([
             'line_id' => $request->line_id,
@@ -363,6 +393,7 @@ class MasterDataController extends Controller
             'back_number' => $request->back_number,
             'part_name' => $request->part_name,
             'photo' => $photo,
+            'quality_photo' => $qualityPhoto,
         ]);
 
         return redirect()->route('dashboard.master.parts.index')->with('success', 'Master Part berhasil ditambah.');
@@ -390,6 +421,7 @@ class MasterDataController extends Controller
             'back_number' => ['nullable', 'string', 'max:100'],
             'part_name' => ['nullable', 'string', 'max:150'],
             'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'quality_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
 
         $values = [
@@ -407,18 +439,34 @@ class MasterDataController extends Controller
             );
         }
 
+        $oldQualityPhoto = $internalPart->quality_photo;
+        if ($request->hasFile('quality_photo')) {
+            $values['quality_photo'] = $this->storeInternalPartQualityPhoto(
+                $request->file('quality_photo'),
+                $request->part_number
+            );
+        }
+
         $internalPart->update($values);
+
+        if (isset($values['quality_photo']) && $oldQualityPhoto !== $values['quality_photo']) {
+            $this->deleteInternalPartQualityPhoto($oldQualityPhoto);
+        }
 
         return redirect()->route('dashboard.master.parts.index')->with('success', 'Master Part berhasil diperbarui.');
     }
 
     public function destroyInternalPart(InternalPart $internalPart)
     {
+        $qualityPhoto = $internalPart->quality_photo;
+
         DB::transaction(function () use ($internalPart) {
             $internalPart->moldHasParts()->delete();
             $internalPart->customerParts()->delete();
             $internalPart->delete();
         });
+
+        $this->deleteInternalPartQualityPhoto($qualityPhoto);
 
         return redirect()->route('dashboard.master.parts.index')->with('success', 'Master Part berhasil dihapus.');
     }
@@ -714,6 +762,27 @@ class MasterDataController extends Controller
         $photo->move($directory, $filename);
 
         return $filename;
+    }
+
+    private function storeInternalPartQualityPhoto($photo, string $partNumber): string
+    {
+        $baseName = preg_replace('/[^A-Za-z0-9._-]+/', '_', trim($partNumber)) ?: 'part';
+        $filename = $baseName.'-quality.'.strtolower($photo->extension());
+        $directory = public_path('assets/img/quality');
+
+        File::ensureDirectoryExists($directory);
+        $photo->move($directory, $filename);
+
+        return $filename;
+    }
+
+    private function deleteInternalPartQualityPhoto(?string $photo): void
+    {
+        $filename = basename((string) $photo);
+
+        if ($filename !== '') {
+            File::delete(public_path('assets/img/quality/'.$filename));
+        }
     }
 
     private function storeMoldPhoto($photo, string $tag): string
