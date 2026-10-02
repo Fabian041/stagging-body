@@ -411,6 +411,12 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/customer-parts', [MasterDataController::class, 'storeCustomerPart'])->name('dashboard.master.customer-parts.store');
             Route::put('/customer-parts/{customerPart}', [MasterDataController::class, 'updateCustomerPart'])->name('dashboard.master.customer-parts.update');
             Route::delete('/customer-parts/{customerPart}', [MasterDataController::class, 'destroyCustomerPart'])->name('dashboard.master.customer-parts.destroy');
+
+            Route::get('/kanban-pairings', [MasterDataController::class, 'kanbanPairings'])->name('dashboard.master.kanban-pairings.index');
+            Route::get('/kanban-pairings/data', [MasterDataController::class, 'kanbanPairingsData'])->name('dashboard.master.kanban-pairings.data');
+            Route::post('/kanban-pairings', [MasterDataController::class, 'storeKanbanPairing'])->name('dashboard.master.kanban-pairings.store');
+            Route::put('/kanban-pairings/{kanbanPairing}', [MasterDataController::class, 'updateKanbanPairing'])->name('dashboard.master.kanban-pairings.update');
+            Route::delete('/kanban-pairings/{kanbanPairing}', [MasterDataController::class, 'destroyKanbanPairing'])->name('dashboard.master.kanban-pairings.destroy');
         });
 
         Route::get('/production/landing', [DashboardController::class, 'boardLanding'])->name('board.landing');

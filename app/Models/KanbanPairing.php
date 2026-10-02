@@ -15,8 +15,14 @@ class KanbanPairing extends Model
     protected $table = 'body_kanban_pairings';
 
     protected $fillable = [
+        'project',
+        'product',
+        'part_name',
+        'part_number_customer',
         'painting_part',
+        'painting_back_number',
         'assembly_part',
+        'assembly_back_number',
         'qty_painting',
         'qty_assy',
     ];

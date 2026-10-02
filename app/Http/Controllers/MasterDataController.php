@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\CustomerPart;
 use App\Models\InternalPart;
+use App\Models\KanbanPairing;
 use App\Models\Line;
 use App\Models\Mold;
 use Illuminate\Http\Request;
@@ -527,6 +528,75 @@ class MasterDataController extends Controller
         return redirect()->route('dashboard.master.customer-parts.index')->with('success', 'Master Part Customer berhasil dihapus.');
     }
 
+    public function kanbanPairings(Request $request)
+    {
+        $editingPairing = $request->filled('edit')
+            ? KanbanPairing::find($request->integer('edit'))
+            : null;
+        $pairingCount = KanbanPairing::count();
+        $projects = KanbanPairing::query()
+            ->select('project')
+            ->distinct()
+            ->orderBy('project')
+            ->pluck('project');
+
+        return view('pages.master.kanban-pairings', compact(
+            'editingPairing',
+            'pairingCount',
+            'projects'
+        ));
+    }
+
+    public function kanbanPairingsData(Request $request)
+    {
+        $query = KanbanPairing::query();
+
+        if ($request->filled('project')) {
+            $query->where('project', strtoupper(trim((string) $request->input('project'))));
+        }
+
+        return DataTables::of($query)
+            ->addColumn('action', function (KanbanPairing $kanbanPairing) {
+                return view('pages.master.partials.kanban-pairing-actions', compact('kanbanPairing'))->render();
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function storeKanbanPairing(Request $request)
+    {
+        $this->normalizeKanbanPairingRequest($request);
+        $values = $request->validate($this->kanbanPairingRules(), [
+            'assembly_part.unique' => 'Part number assembly sudah terdaftar pada master pairing lain.',
+        ]);
+
+        KanbanPairing::create($values);
+
+        return redirect()->route('dashboard.master.kanban-pairings.index')
+            ->with('success', 'Master Kanban Pairing berhasil ditambah.');
+    }
+
+    public function updateKanbanPairing(Request $request, KanbanPairing $kanbanPairing)
+    {
+        $this->normalizeKanbanPairingRequest($request);
+        $values = $request->validate($this->kanbanPairingRules($kanbanPairing), [
+            'assembly_part.unique' => 'Part number assembly sudah terdaftar pada master pairing lain.',
+        ]);
+
+        $kanbanPairing->update($values);
+
+        return redirect()->route('dashboard.master.kanban-pairings.index')
+            ->with('success', 'Master Kanban Pairing berhasil diperbarui.');
+    }
+
+    public function destroyKanbanPairing(KanbanPairing $kanbanPairing)
+    {
+        $kanbanPairing->delete();
+
+        return redirect()->route('dashboard.master.kanban-pairings.index')
+            ->with('success', 'Master Kanban Pairing berhasil dihapus.');
+    }
+
     private function normalizeLineRequest(Request $request): void
     {
         $request->merge([
@@ -550,6 +620,41 @@ class MasterDataController extends Controller
             'part_number' => strtoupper(trim((string) $request->input('part_number'))),
             'back_number' => $this->nullableTrimmedValue($request->input('back_number'), true),
         ]);
+    }
+
+    private function normalizeKanbanPairingRequest(Request $request): void
+    {
+        $request->merge([
+            'project' => strtoupper(trim((string) $request->input('project'))),
+            'product' => strtoupper(trim((string) $request->input('product'))),
+            'part_name' => strtoupper(trim((string) $request->input('part_name'))),
+            'part_number_customer' => strtoupper(trim((string) $request->input('part_number_customer'))),
+            'assembly_part' => strtoupper(trim((string) $request->input('assembly_part'))),
+            'assembly_back_number' => strtoupper(trim((string) $request->input('assembly_back_number'))),
+            'painting_part' => strtoupper(trim((string) $request->input('painting_part'))),
+            'painting_back_number' => strtoupper(trim((string) $request->input('painting_back_number'))),
+        ]);
+    }
+
+    private function kanbanPairingRules(?KanbanPairing $kanbanPairing = null): array
+    {
+        return [
+            'project' => ['required', 'string', 'max:255'],
+            'product' => ['required', 'string', 'max:255'],
+            'part_name' => ['required', 'string', 'max:255'],
+            'part_number_customer' => ['required', 'string', 'max:255'],
+            'assembly_part' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('body_kanban_pairings', 'assembly_part')->ignore($kanbanPairing?->id),
+            ],
+            'assembly_back_number' => ['required', 'string', 'max:255'],
+            'painting_part' => ['required', 'string', 'max:255'],
+            'painting_back_number' => ['required', 'string', 'max:255'],
+            'qty_assy' => ['required', 'integer', 'min:1'],
+            'qty_painting' => ['required', 'integer', 'min:1'],
+        ];
     }
 
     private function storeInternalPartPhoto($photo, ?string $backNumber, string $partNumber): string

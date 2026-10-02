@@ -221,6 +221,11 @@
                 <i class="fas fa-box-open"></i>
                 Part Customer
             </a>
+            <a class="sb-sub-item {{ request()->routeIs('dashboard.master.kanban-pairings.*') ? 'active' : '' }}"
+                href="{{ route('dashboard.master.kanban-pairings.index') }}">
+                <i class="fas fa-link"></i>
+                Kanban Pairing
+            </a>
             <a class="sb-sub-item {{ request()->routeIs('pis.master') || request()->routeIs('pis.edit') || request()->routeIs('pis.preview') ? 'active' : '' }}"
                 href="{{ route('pis.master') }}">
                 <i class="fas fa-database"></i>
