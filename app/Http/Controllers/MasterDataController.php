@@ -530,7 +530,13 @@ class MasterDataController extends Controller
         $request->validate([
             'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
-            'part_number' => ['required', 'string', 'max:100', 'unique:customer_parts,part_number'],
+            'part_number' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('customer_parts', 'part_number')
+                    ->where(fn ($query) => $query->where('customer_id', $request->integer('customer_id'))),
+            ],
             'back_number' => ['nullable', 'string', 'max:100'],
             'qty_per_kanban' => ['required', 'integer', 'min:1'],
         ]);
@@ -553,7 +559,14 @@ class MasterDataController extends Controller
         $request->validate([
             'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
-            'part_number' => ['required', 'string', 'max:100', Rule::unique('customer_parts', 'part_number')->ignore($customerPart->id)],
+            'part_number' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('customer_parts', 'part_number')
+                    ->where(fn ($query) => $query->where('customer_id', $request->integer('customer_id')))
+                    ->ignore($customerPart->id),
+            ],
             'back_number' => ['nullable', 'string', 'max:100'],
             'qty_per_kanban' => ['required', 'integer', 'min:1'],
         ]);
