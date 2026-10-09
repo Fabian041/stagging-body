@@ -2481,6 +2481,33 @@ class LoadingListController extends Controller
                 $latestPullingDate = $pullingItems->pluck('pulling_date')->max();
                 $pdsNumbers = $pdsGroup->pluck('pds_number')->filter()->unique()->values();
                 $loadingListNumbers = $bucketLls->pluck('number')->filter()->unique()->values();
+                $pdsBreakdown = $pdsGroup->map(function ($pds) use ($bucketLls) {
+                    $total = (int) ($pds->total_kanban ?? 0);
+                    $done = (int) ($pds->actual_kanban ?? 0);
+                    $pct = $total > 0 ? round(($done / $total) * 100, 1) : 0.0;
+
+                    return [
+                        'pds_number' => (string) $pds->pds_number,
+                        'cycle' => (string) ($pds->cycle ?? ''),
+                        'delivery_date' => $pds->delivery_date
+                            ? Carbon::parse($pds->delivery_date)->format('Y-m-d')
+                            : null,
+                        'total' => $total,
+                        'done' => $done,
+                        'progress_pct' => min(100.0, max(0.0, $pct)),
+                        'is_complete' => $total > 0 && $done >= $total,
+                        'status' => $total > 0 && $done >= $total
+                            ? 'COMPLETE'
+                            : ($done > 0 ? 'IN PROGRESS' : 'INCOMPLETE'),
+                        'loading_lists' => $bucketLls
+                            ->where('pds_number', (string) $pds->pds_number)
+                            ->pluck('number')
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all(),
+                    ];
+                })->sortBy('pds_number')->values()->all();
 
                 if ($pickedLlsInBucket === 0) {
                     $truckStatus = 'pending';
@@ -2553,6 +2580,7 @@ class LoadingListController extends Controller
                     'latest_pulling_date' => $latestPullingDate ? Carbon::parse($latestPullingDate)->toIso8601String() : null,
                     'pulling_items' => $pullingItems->all(),
                     'pds_numbers' => $pdsNumbers->all(),
+                    'pds_breakdown' => $pdsBreakdown ?? [],
                     'loading_lists' => $loadingListNumbers->all(),
                 ];
 
@@ -2595,6 +2623,33 @@ class LoadingListController extends Controller
                 $latestPullingDate = $pullingItems->pluck('pulling_date')->max();
                 $pdsNumbers = $bucket->pluck('pds_number')->filter()->unique()->values();
                 $loadingListNumbers = $bucketLls->pluck('number')->filter()->unique()->values();
+                $pdsBreakdown = $bucket->map(function ($pds) use ($bucketLls) {
+                    $total = (int) ($pds->total_kanban ?? 0);
+                    $done = (int) ($pds->actual_kanban ?? 0);
+                    $pct = $total > 0 ? round(($done / $total) * 100, 1) : 0.0;
+
+                    return [
+                        'pds_number' => (string) $pds->pds_number,
+                        'cycle' => (string) ($pds->cycle ?? ''),
+                        'delivery_date' => $pds->delivery_date
+                            ? Carbon::parse($pds->delivery_date)->format('Y-m-d')
+                            : null,
+                        'total' => $total,
+                        'done' => $done,
+                        'progress_pct' => min(100.0, max(0.0, $pct)),
+                        'is_complete' => $total > 0 && $done >= $total,
+                        'status' => $total > 0 && $done >= $total
+                            ? 'COMPLETE'
+                            : ($done > 0 ? 'IN PROGRESS' : 'INCOMPLETE'),
+                        'loading_lists' => $bucketLls
+                            ->where('pds_number', (string) $pds->pds_number)
+                            ->pluck('number')
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all(),
+                    ];
+                })->sortBy('pds_number')->values()->all();
 
                 if ($pickedLlsInBucket === 0) {
                     $truckStatus = 'pending';
@@ -2673,6 +2728,7 @@ class LoadingListController extends Controller
                     'latest_pulling_date' => $latestPullingDate ? Carbon::parse($latestPullingDate)->toIso8601String() : null,
                     'pulling_items' => $pullingItems->all(),
                     'pds_numbers' => $pdsNumbers->all(),
+                    'pds_breakdown' => $pdsBreakdown ?? [],
                     'loading_lists' => $loadingListNumbers->all(),
                 ];
             })

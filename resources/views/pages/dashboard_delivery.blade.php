@@ -930,7 +930,7 @@
         .weekly-prep-bar {
             position: absolute;
             top: 6px;
-            height: 26px;
+            height: 26px; /* SPLIT: 12px */
             min-width: 48px;
             border-radius: 4px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
@@ -941,6 +941,58 @@
             align-items: center;
             padding: 0 6px;
             overflow: visible;
+        }
+
+        .weekly-prep-bar.prep-orig {
+            top: 6px; /* SPLIT: 36px */
+        }
+
+        /* SPLIT-ONLY (pengecil teks bar lama, nonaktif selama split off):
+        .weekly-prep-bar.prep-orig>span {
+            font-size: 8px;
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        */
+
+        .weekly-prep-bar.prep-split-top {
+            top: 2px;
+            height: 28px;
+            padding: 2px;
+            gap: 2px;
+            align-items: stretch;
+            transition: filter .15s ease, box-shadow .15s ease;
+        }
+
+        .weekly-prep-bar.prep-split-top:hover {
+            filter: brightness(1.04);
+            box-shadow: 0 0 0 2px rgba(0, 151, 216, .45), 0 1px 2px rgba(0, 0, 0, .08);
+        }
+
+        .weekly-split-top-seg {
+            position: relative;
+            flex: 1 1 0%;
+            min-width: 0;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, .45);
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .weekly-split-top-seg:hover {
+            outline: 2px solid rgba(255, 255, 255, .95);
+            outline-offset: -2px;
+            filter: brightness(1.1);
+            z-index: 2;
+        }
+
+        .weekly-split-top-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
         }
 
         .weekly-prep-bar.is-cross-day {
@@ -1448,7 +1500,7 @@
 
         .delivery-timeline-card .gantt-bar-wrap {
             top: 4px;
-            height: 36px;
+            height: 36px; /* SPLIT: 14px */
             min-width: 48px;
             container-type: inline-size;
             container-name: gantt-bar;
@@ -1465,9 +1517,175 @@
             border: none;
             border-radius: 6px;
             overflow: hidden;
-            height: 36px;
+            height: 36px; /* SPLIT: 14px */
             box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
             align-items: stretch;
+        }
+
+        /* ── Bar split baru di atas bar lama (tanpa label) ── */
+        .delivery-timeline-card .gantt-grid-track-lane.prep-lane .gantt-track {
+            height: 40px; /* SPLIT: 54px */
+            margin: 16px 0 6px 0; /* SPLIT: 2px 0 */
+            overflow: visible;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-orig {
+            top: 4px; /* SPLIT: 36px */
+        }
+
+        /* SPLIT-ONLY (pengecil bar lama, nonaktif selama split off):
+        .delivery-timeline-card .gantt-bar-wrap.prep-orig .pill-avatar {
+            width: 14px;
+            height: 14px;
+            font-size: 8px;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-orig .pill-meta {
+            padding-left: 3px;
+            gap: 2px;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-orig .pill-offset-badge {
+            display: none;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-orig .gantt-bar-pct {
+            font-size: 7px;
+        }
+        */
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-split-top {
+            top: 2px;
+            height: 28px;
+            min-width: 48px;
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-split-top:hover .gantt-bar-stack.is-split-top {
+            outline: 2px solid rgba(0, 151, 216, .45);
+            outline-offset: 1px;
+            filter: brightness(1.03);
+        }
+
+        .delivery-timeline-card .gantt-bar-wrap.prep-split-top .gantt-bar-stack.is-split-top {
+            display: flex;
+            gap: 2px;
+            padding: 2px;
+            height: 28px;
+            border-radius: 4px;
+            background: transparent;
+            box-shadow: none;
+            align-items: stretch;
+            transition: outline .15s ease, filter .15s ease;
+        }
+
+        .delivery-timeline-card .prep-split-top-seg {
+            position: relative;
+            flex: 1 1 0%;
+            min-width: 0;
+            border-radius: 3px;
+            background: #e8ecf1;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .delivery-timeline-card .prep-split-top-seg:hover {
+            outline: 2px solid rgba(0, 151, 216, .75);
+            outline-offset: -1px;
+            filter: brightness(1.08);
+            z-index: 2;
+        }
+
+        /* ── Hover tooltip info PDS per segmen split ── */
+        .prep-pds-tip {
+            position: fixed;
+            z-index: 9999;
+            min-width: 230px;
+            max-width: 300px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 12px 32px rgba(8, 32, 56, .22);
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #1f2937;
+            pointer-events: none;
+        }
+
+        .prep-pds-tip .tip-pds {
+            font-weight: 800;
+            font-size: 13px;
+            color: #0d365c;
+            margin-bottom: 4px;
+        }
+
+        .prep-pds-tip .tip-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 1px 0;
+            color: #4b5563;
+        }
+
+        .prep-pds-tip .tip-row strong {
+            color: #111827;
+        }
+
+        .prep-pds-tip .tip-bar {
+            height: 8px;
+            border-radius: 99px;
+            background: #eef0f3;
+            overflow: hidden;
+            margin: 6px 0 4px;
+        }
+
+        .prep-pds-tip .tip-bar>div {
+            height: 100%;
+        }
+
+        .prep-pds-tip .tip-status {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 99px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .prep-pds-tip .tip-status.is-complete {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .prep-pds-tip .tip-status.is-progress {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .prep-pds-tip .tip-status.is-incomplete {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .delivery-timeline-card .prep-split-top-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+        }
+
+        .delivery-timeline-card .prep-split-top-fill.ontime {
+            background: var(--dm-complete);
+        }
+
+        .delivery-timeline-card .prep-split-top-fill.delay {
+            background: var(--dm-yellow);
+        }
+
+        .delivery-timeline-card .prep-split-top-fill.overdue {
+            background: #dc3545;
+        }
+
+        .delivery-timeline-card .prep-split-top-fill.empty {
+            background: transparent;
         }
 
         .delivery-timeline-card .gantt-bar-wrap.truck-pill .gantt-bar-stack {
@@ -2815,6 +3033,7 @@
             var stackedUrl = "{{ route('dashboard.delivery.stackedChart') }}";
             var syncLoadingListsUrl = "{{ route('dashboard.delivery.syncLoadingLists') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
+            var kanbanSourceFilesUrl = "{{ route('dashboard.kanbanSourceFiles') }}";
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
             var masterStore = "{{ route('dashboard.delivery.masterCycles.store') }}";
@@ -3656,6 +3875,7 @@
                     latest_pulling_date: wp.latest_pulling_date,
                     pulling_items: wp.pulling_items || [],
                     pds_numbers: wp.pds_numbers || [],
+                    pds_breakdown: wp.pds_breakdown || [],
                     loading_lists: wp.loading_lists || [],
                     ll_count: wp.ll_count != null ? wp.ll_count : (wp.total_target > 0 ? 1 : 0)
                 });
@@ -4046,7 +4266,7 @@
                     }).replace(/"/g, '&quot;');
                     segs.forEach(function(seg) {
                         html +=
-                            '<div class="gantt-bar-wrap is-prep-from-yesterday is-cross-day-continuation' +
+                            '<div class="gantt-bar-wrap prep-orig is-prep-from-yesterday is-cross-day-continuation' +
                             (lateInfo.isLate ? ' is-prep-late' : '') + '" style="left:' +
                             seg.leftPct + '%;width:' + Math.max(seg.widthPct, 100 /
                                 ganttHourWindow) +
@@ -5308,16 +5528,30 @@
                         map[key] = Object.assign({}, row, {
                             total_done: 0,
                             total_target: 0,
-                            ll_count: 0
+                            ll_count: 0,
+                            pds_breakdown: [],
+                            _pdsSeen: {}
                         });
                     }
                     map[key].total_done += parseInt(row.total_done || 0, 10);
                     map[key].total_target += parseInt(row.total_target || 0, 10);
                     map[key].ll_count += parseInt(row.ll_count || 0, 10);
+                    (Array.isArray(row.pds_breakdown) ? row.pds_breakdown : []).forEach(function(b) {
+                        var bk = String((b && b.pds_number) || '');
+                        if (!bk || map[key]._pdsSeen[bk]) {
+                            return;
+                        }
+                        map[key]._pdsSeen[bk] = true;
+                        map[key].pds_breakdown.push(b);
+                    });
                 });
                 Object.keys(map).forEach(function(k) {
                     var m = map[k];
                     m.progress_pct = m.total_target > 0 ? (m.total_done / m.total_target) * 100 : 0;
+                    m.pds_breakdown.sort(function(a, b) {
+                        return String(a.pds_number || '').localeCompare(String(b.pds_number || ''));
+                    });
+                    delete m._pdsSeen;
                 });
                 return Object.values(map).sort(function(a, b) {
                     var cn = (a.customer_name || '').localeCompare(b.customer_name || '');
@@ -5583,6 +5817,259 @@
                     html += '<span class="gantt-seg gantt-trail" style="width:' + (100 - progressWidth) +
                         '%"></span>';
                 }
+                html += '</div>';
+                return html;
+            }
+
+            /* ── Bar split baru di atas bar lama: tanpa number / % ── */
+            function getPrepSplitItems(row) {
+                var lists = (row && Array.isArray(row.loading_lists)) ? row.loading_lists.filter(function(v) {
+                    return String(v || '').trim().length;
+                }) : [];
+                if (lists.length > 1) {
+                    return lists.map(function(v) {
+                        return String(v);
+                    }).slice(0, 24);
+                }
+                var n = parseInt((row && row.ll_count) || 0, 10);
+                if (!n || n <= 1) {
+                    var pds = (row && Array.isArray(row.pds_numbers)) ? row.pds_numbers.length : 0;
+                    n = pds > 1 ? pds : 0;
+                }
+                if (!n || n <= 1) {
+                    return [];
+                }
+                n = Math.min(n, 24);
+                var out = [];
+                for (var i = 0; i < n; i++) {
+                    out.push(lists[i] || ('#' + (i + 1)));
+                }
+                return out;
+            }
+
+            /* Selalu ada minimal 1 segmen agar bar atas tetap tampil walau data cuma 1 */
+            function getPrepSplitTopItems(row) {
+                var items = getPrepSplitItems(row);
+                if (items.length) {
+                    return items;
+                }
+                var lists = (row && Array.isArray(row.loading_lists)) ? row.loading_lists.filter(function(v) {
+                    return String(v || '').trim().length;
+                }) : [];
+                if (lists.length === 1) {
+                    return [String(lists[0])];
+                }
+                return ['#1'];
+            }
+
+            /* Segmen split per PDS + info hover seperti tabel monitoring */
+            function getPrepSplitTopSegments(row) {
+                if (row && Array.isArray(row.pds_breakdown) && row.pds_breakdown.length) {
+                    return row.pds_breakdown.slice(0, 24).map(function(b) {
+                        var total = parseInt((b && b.total) || 0, 10);
+                        var done = parseInt((b && b.done) || 0, 10);
+                        var pct = b && b.progress_pct != null ? parseFloat(b.progress_pct) : (total >
+                            0 ? (done / total) * 100 : 0);
+                        pct = Math.min(100, Math.max(0, Math.round(pct * 10) / 10));
+                        return {
+                            pds: String((b && b.pds_number) || '-'),
+                            cycle: String((b && b.cycle) || (row.cycle_name || '')),
+                            deliveryDate: (b && b.delivery_date) || formatLocalDateKey(row
+                                .delivery_date),
+                            customer: row.customer_name || '-',
+                            total: total,
+                            done: done,
+                            pct: pct,
+                            status: (b && b.status) || (total > 0 && done >= total ? 'COMPLETE' : (
+                                done > 0 ? 'IN PROGRESS' : 'INCOMPLETE'))
+                        };
+                    });
+                }
+                return getPrepSplitTopItems(row).map(function(ll) {
+                    return {
+                        pds: String(ll),
+                        cycle: String(row.cycle_name || ''),
+                        deliveryDate: formatLocalDateKey(row.delivery_date),
+                        customer: row.customer_name || '-',
+                        total: parseInt(row.total_target || 0, 10),
+                        done: parseInt(row.total_done || 0, 10),
+                        pct: Math.round(getRowRawProgressPct(row) * 10) / 10,
+                        status: '-'
+                    };
+                });
+            }
+
+            function formatPrepSplitSegTitle(seg) {
+                var pctLbl = formatGanttBarPctLabel(seg.pct);
+                var prog = seg.done + '/' + seg.total;
+                return 'PDS ' + seg.pds + ' | ' + seg.customer + ' | Cycle ' + seg.cycle + ' | ' +
+                    seg.deliveryDate + ' | ' + prog + ' (' + pctLbl + ') | ' + seg.status;
+            }
+
+            function prepSplitSegStatusClass(seg) {
+                if (seg.total > 0 && seg.done >= seg.total) {
+                    return 'ontime';
+                }
+                if (seg.done > 0) {
+                    return 'delay';
+                }
+                return 'empty';
+            }
+
+            function prepSplitSegWeeklyColor(seg) {
+                if (seg.total > 0 && seg.done >= seg.total) {
+                    return 'var(--dm-complete)';
+                }
+                if (seg.done > 0) {
+                    return 'var(--dm-yellow)';
+                }
+                return '#e8ecf1';
+            }
+
+            /* Pemisah bar bertumpuk (overlap) ke sub-lajur vertikal agar C1/C2 tidak bertumpuk */
+            function assignPrepOverlapLanes(items) {
+                var lanes = [];
+                var sorted = (items || []).slice().sort(function(a, b) {
+                    var al = (a.prepLayout && a.prepLayout.leftPct) || 0;
+                    var bl = (b.prepLayout && b.prepLayout.leftPct) || 0;
+                    return al - bl;
+                });
+                sorted.forEach(function(item) {
+                    var layout = item.prepLayout || {};
+                    var left = parseFloat(layout.leftPct || 0);
+                    var w = parseFloat(layout.widthPct || 0);
+                    if (layout.continuesTomorrow) {
+                        w = Math.max(w, 100 - left);
+                    }
+                    var right = left + (isNaN(w) ? 0 : w);
+                    var laneIdx = -1;
+                    for (var i = 0; i < lanes.length; i++) {
+                        if (left >= lanes[i] - 0.3) {
+                            laneIdx = i;
+                            break;
+                        }
+                    }
+                    if (laneIdx < 0) {
+                        laneIdx = lanes.length;
+                        lanes.push(right);
+                    } else {
+                        lanes[laneIdx] = right;
+                    }
+                    item._lane = laneIdx;
+                });
+                return Math.max(lanes.length, 1);
+            }
+
+            function assignWeeklyOverlapLanes(items) {
+                var lanes = [];
+                items.forEach(function(item) {
+                    var left = parseFloat((item.span && item.span.leftPct) || 0);
+                    var w = parseFloat((item.span && item.span.widthPct) || (item.span &&
+                        item.span.barWidthPct) || 0);
+                    var right = left + (isNaN(w) ? 0 : w);
+                    var laneIdx = -1;
+                    for (var i = 0; i < lanes.length; i++) {
+                        if (left >= lanes[i] - 0.3) {
+                            laneIdx = i;
+                            break;
+                        }
+                    }
+                    if (laneIdx < 0) {
+                        laneIdx = lanes.length;
+                        lanes.push(right);
+                    } else {
+                        lanes[laneIdx] = right;
+                    }
+                    item._lane = laneIdx;
+                });
+                return Math.max(lanes.length, 1);
+            }
+
+            function buildSplitTopStackHtml(row, progressWidth, barClass) {
+                var segs = getPrepSplitTopSegments(row);
+                if (!segs.length) {
+                    return null;
+                }
+                var html = '<div class="gantt-bar-stack is-split-top">';
+                segs.forEach(function(seg, idx) {
+                    var segFill = Math.min(100, Math.max(0, parseFloat(seg.pct || 0)));
+                    var segClass = prepSplitSegStatusClass(seg);
+                    var title = formatPrepSplitSegTitle(seg);
+                    html += '<div class="prep-split-top-seg" data-split-index="' + idx +
+                        '" data-split-total="' + segs.length + '" data-pds-number="' +
+                        escapeAttr(seg.pds) + '" data-customer="' + escapeAttr(seg.customer) +
+                        '" data-cycle="' + escapeAttr(seg.cycle) + '" data-delivery="' +
+                        escapeAttr(seg.deliveryDate) + '" data-done="' + seg.done + '" data-total="' +
+                        seg.total + '" data-pct="' + seg.pct + '" data-status="' + escapeAttr(seg
+                            .status) + '" title="' + escapeAttr(title) + '">' +
+                        '<div class="prep-split-top-fill ' + segClass + '" style="width:' + segFill +
+                        '%;"></div></div>';
+                });
+                html += '</div>';
+                return html;
+            }
+
+            function buildSplitTopBarHtmlForItem(item, viewDate, gateRows, currentFrac, overdueLatch, sortIndex) {
+                if (!item || !item.row) {
+                    return '';
+                }
+                var row = item.row;
+                var prepLayout = item.prepLayout || computePrepBarSegmentOnViewDate(row, viewDate,
+                    ganttHourWindow);
+                if (!prepLayout) {
+                    return '';
+                }
+                var prepStatus = resolvePrepBarStatus(row, gateRows, viewDate, currentFrac, overdueLatch ||
+                    {}, prepLayout);
+                var splitStack = buildSplitTopStackHtml(row, prepStatus.progressWidth, prepStatus
+                    .barClass);
+                if (!splitStack) {
+                    return '';
+                }
+                var laneIdx = parseInt(item._lane || 0, 10) || 0;
+                var zIndex = 5 + (parseInt(sortIndex, 10) || 0);
+                var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';top:' + (
+                    2 + laneIdx * 48) + 'px;';
+                var html = '<div class="gantt-bar-wrap prep-split-top" style="' + inlineStyle + '"';
+                html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) +
+                    '"';
+                html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) + '"';
+                html += '>' + splitStack + '</div>';
+                return html;
+            }
+
+            function buildWeeklySplitTopBarHtml(row, span, pct, barColor, laneIdx) {
+                var segs = getPrepSplitTopSegments(row);
+                if (!segs.length) {
+                    return '';
+                }
+                var lane = parseInt(laneIdx || 0, 10) || 0;
+                var topPx = 2 + lane * 48;
+                var html = '<div class="weekly-prep-bar prep-split-top" style="left:' + span.leftPct +
+                    '%;width:' + span.barWidthPct + '%;top:' + topPx + 'px;background:transparent;"';
+                html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
+                html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
+                html += ' data-delivery-date-from="' + escapeAttr(formatLocalDateKey(row.delivery_date)) +
+                    '"';
+                html += ' data-delivery-date-to="' + escapeAttr(formatLocalDateKey(row.delivery_date)) +
+                    '"';
+                html += '>';
+                segs.forEach(function(seg, idx) {
+                    var segFill = Math.min(100, Math.max(0, parseFloat(seg.pct || 0)));
+                    var segColor = prepSplitSegWeeklyColor(seg);
+                    var title = formatPrepSplitSegTitle(seg);
+                    html += '<div class="weekly-split-top-seg" data-split-index="' + idx +
+                        '" data-split-total="' + segs.length + '" data-pds-number="' +
+                        escapeAttr(seg.pds) + '" data-customer="' + escapeAttr(seg.customer) +
+                        '" data-cycle="' + escapeAttr(seg.cycle) + '" data-delivery="' +
+                        escapeAttr(seg.deliveryDate) + '" data-done="' + seg.done + '" data-total="' +
+                        seg.total + '" data-pct="' + seg.pct + '" data-status="' + escapeAttr(seg
+                            .status) + '" title="' + escapeAttr(title) + '">' +
+                        '<div class="weekly-split-top-fill" style="width:' + segFill + '%;background:' +
+                        segColor + ';"></div></div>';
+                });
                 html += '</div>';
                 return html;
             }
@@ -5877,12 +6364,14 @@
                 if (lateInfo.isLate) {
                     prepExtraClass += ' is-prep-late';
                 }
-                var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';';
+                var laneIdx = parseInt(item._lane || 0, 10) || 0;
+                var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';top:' + (
+                    4 + laneIdx * 44 /* SPLIT: 36 + laneIdx * 48 */) + 'px;';
                 if (isContinuationBar) {
                     inlineStyle += '--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;;';
                 }
                 var barTitle = buildGanttTooltip(row, tooltipOpts).replace(/"/g, '&quot;');
-                var html = '<div class="gantt-bar-wrap' + prepExtraClass + '" style="' + inlineStyle +
+                var html = '<div class="gantt-bar-wrap prep-orig' + prepExtraClass + '" style="' + inlineStyle +
                     '" title="' + barTitle + '"';
                 html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                 html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
@@ -6021,6 +6510,9 @@
                         return false;
                     });
                     var prepBarItems = collectCustomerPrepBarItems(cn, viewDate);
+                    var prepLaneCount = assignPrepOverlapLanes(prepBarItems);
+                    var prepRowH = 136 + (prepLaneCount - 1) * 48; /* SPLIT: * 56 */
+                    var prepTrackH = 40 + (prepLaneCount - 1) * 48; /* SPLIT: 54 + * 56 */
                     var truckRows = collectCustomerTruckRows(cn, viewDate);
                     var allBucketsForDate = deliveryBucketsForDate.slice();
                     var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
@@ -6033,21 +6525,29 @@
                     gridHtml += '<div class="gantt-grid-row">';
                     gridHtml +=
                         '<div class="gantt-grid-cell gantt-grid-customer gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-customer" data-customer-name="' +
-                        escapeAttr(cn) + '">' +
+                        escapeAttr(cn) + '" style="height:' + prepRowH + 'px;">' +
                         escapeHtml(cn) + buildCustomerLoadingListSummaryHtml(allBucketsForDate) +
                         lateSummary +
                         (unconfiguredHint || '') + '</div>';
                     gridHtml +=
-                        '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type">';
+                        '<div class="gantt-grid-cell gantt-grid-type gantt-grid-type-split gantt-grid-left-cell gantt-grid-sticky-col gantt-grid-sticky-type" style="height:' +
+                        prepRowH + 'px;">';
                     gridHtml +=
                         '<div class="gantt-type-lane is-prep">PREPARATION</div><div class="gantt-type-lane is-truck">TRUCK</div>';
                     gridHtml += '</div>';
-                    gridHtml += '<div class="gantt-grid-cell gantt-grid-track-cell">';
+                    gridHtml += '<div class="gantt-grid-cell gantt-grid-track-cell" style="height:' +
+                        prepRowH + 'px;">';
                     gridHtml += '<div class="gantt-grid-track-split">';
                     /* PREP lane */
-                    gridHtml += '<div class="gantt-grid-track-lane"><div class="gantt-track">';
+                    gridHtml += '<div class="gantt-grid-track-lane prep-lane"><div class="gantt-track" style="height:' +
+                        prepTrackH + 'px;">';
                     gridHtml += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' +
                         fillWidth + '%;"></div>';
+                    // SPLIT-OFF (uncomment untuk tampilkan bar split):
+                    // prepBarItems.forEach(function(item, sortIdx) {
+                    //     gridHtml += buildSplitTopBarHtmlForItem(item, viewDate, gateRows, currentFrac,
+                    //         overdueLatch, sortIdx);
+                    // });
                     prepBarItems.forEach(function(item, sortIdx) {
                         gridHtml += buildPrepBarHtmlForItem(item, viewDate, gateRows, currentFrac,
                             overdueLatch, sortIdx);
@@ -6141,8 +6641,7 @@
                 updateTvTimelineLayout();
             }
 
-            function openLoadingListFromBar($bar) {
-                var customer = $bar.attr('data-customer-name') || '';
+            function openLoadingListFromBar($bar) {                var customer = $bar.attr('data-customer-name') || '';
                 var cycle = $bar.attr('data-cycle') || '';
                 var deliveryDateFrom = $bar.attr('data-delivery-date-from') || '';
                 var deliveryDateTo = $bar.attr('data-delivery-date-to') || '';
@@ -6276,7 +6775,110 @@
                 });
             }
 
-            $('#ganttContainer').on('click', '.gantt-bar-wrap', function(e) {
+            /* ── Popup file kanban arsip per segmen split (PDS/manifest) ── */
+            function collectSplitBarPds($bar) {
+                var pds = [];
+                $bar.find('.prep-split-top-seg, .weekly-split-top-seg').each(function() {
+                    var v = $(this).attr('data-pds-number') || '';
+                    if (v && v !== '-' && pds.indexOf(v) < 0) {
+                        pds.push(v);
+                    }
+                });
+                return pds.slice(0, 24);
+            }
+
+            function buildKanbanSourceTableHtml(groups) {
+                var html = '<div style="text-align:left;">';
+                html +=
+                    '<table class="prep-late-detail__table"><thead><tr><th>PDS / Manifest</th><th>File Kanban</th><th style="text-align:right;">Aksi</th></tr></thead><tbody>';
+                var hasFile = false;
+                (groups || []).forEach(function(g) {
+                    var files = (g && g.files) || [];
+                    if (!files.length) {
+                        html += '<tr><td>' + escapeHtml(g.pds || '-') +
+                            '</td><td colspan="2"><span style="color:#6b7280;">Belum ada file arsip — upload ulang via dashboard kanban.</span></td></tr>';
+                        return;
+                    }
+                    files.forEach(function(f, idx) {
+                        hasFile = true;
+                        html += '<tr>' + (idx === 0 ?
+                            '<td rowspan="' + files.length + '"><strong>' + escapeHtml(g
+                                .pds || '-') + '</strong></td>' :
+                            '') + '<td>' + escapeHtml(f.file || '-') + '</td>' +
+                            '<td style="text-align:right;white-space:nowrap;">' +
+                            '<button type="button" class="act-btn primary btn-kanban-print" data-preview="' +
+                            escapeAttr(f.preview || '') +
+                            '" style="height:28px;padding:0 10px;font-size:11px;margin-right:4px;"><i class="fas fa-print mr-1"></i>Print</button>' +
+                            '<a class="act-btn success" href="' + escapeAttr(f.download || '') +
+                            '" style="height:28px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;text-decoration:none;"><i class="fas fa-download mr-1"></i>Download</a>' +
+                            '</td></tr>';
+                    });
+                });
+                html += '</tbody></table></div>';
+                return {
+                    html: html,
+                    hasFile: hasFile
+                };
+            }
+
+            function openKanbanSourcePopup($bar) {
+                var pdsList = collectSplitBarPds($bar);
+                if (!pdsList.length) {
+                    Swal.fire({
+                        title: 'File Kanban',
+                        html: '<div style="min-height:60px;"></div>',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                    return;
+                }
+                Swal.fire({
+                    title: 'File Kanban',
+                    html: '<div style="color:#6b7280;font-size:12px;">Memuat daftar file...</div>',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    didOpen: function() {
+                        Swal.showLoading();
+                    }
+                });
+                $.get(kanbanSourceFilesUrl, {
+                    pds: pdsList.join(',')
+                }).done(function(res) {
+                    var built = buildKanbanSourceTableHtml((res && res.data) || []);
+                    Swal.fire({
+                        title: 'File Kanban',
+                        html: built.html,
+                        width: 720,
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                }).fail(function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal memuat',
+                        text: 'File kanban tidak bisa dimuat. Coba lagi.',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                });
+            }
+
+            $(document).on('click', '.btn-kanban-print', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var url = $(this).attr('data-preview') || '';
+                if (url) {
+                    window.open(url, '_blank');
+                }
+            });
+
+            $('#ganttContainer').on('click', '.gantt-bar-wrap.prep-split-top', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openKanbanSourcePopup($(this));
+            });
+
+            $('#ganttContainer').on('click', '.gantt-bar-wrap:not(.prep-split-top)', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 var $bar = $(this);
@@ -6287,7 +6889,13 @@
                 openLoadingListFromBar($bar);
             });
 
-            $('#weeklyGanttContainer').on('click', '.weekly-prep-bar', function(e) {
+            $('#weeklyGanttContainer').on('click', '.weekly-prep-bar.prep-split-top', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openKanbanSourcePopup($(this));
+            });
+
+            $('#weeklyGanttContainer').on('click', '.weekly-prep-bar:not(.prep-split-top)', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 var $bar = $(this);
@@ -6296,6 +6904,66 @@
                     return;
                 }
                 openLoadingListFromBar($bar);
+            });
+
+            /* ── Hover tooltip info PDS per segmen split ── */
+            function buildPrepPdsTipHtml($seg) {
+                var pds = $seg.attr('data-pds-number') || '-';
+                var customer = $seg.attr('data-customer') || '-';
+                var cycle = $seg.attr('data-cycle') || '-';
+                var delivery = $seg.attr('data-delivery') || '-';
+                var done = $seg.attr('data-done') || '0';
+                var total = $seg.attr('data-total') || '0';
+                var pct = parseFloat($seg.attr('data-pct') || 0);
+                var status = $seg.attr('data-status') || '-';
+                var pctLbl = formatGanttBarPctLabel(pct);
+                var statusCls = status === 'COMPLETE' ? 'is-complete' : (status ===
+                    'IN PROGRESS' ? 'is-progress' : 'is-incomplete');
+                var barColor = status === 'COMPLETE' ? '#22c55e' : (status === 'IN PROGRESS' ?
+                    '#eab308' : '#e5e7eb');
+                return '<div class="tip-pds">' + escapeHtml(pds) + '</div>' +
+                    '<div class="tip-row"><span>Customer</span><strong>' + escapeHtml(customer) +
+                    '</strong></div>' +
+                    '<div class="tip-row"><span>Cycle</span><strong>' + escapeHtml(cycle) +
+                    '</strong></div>' +
+                    '<div class="tip-row"><span>Delivery</span><strong>' + escapeHtml(delivery) +
+                    '</strong></div>' +
+                    '<div class="tip-bar"><div style="width:' + Math.min(100, Math.max(0, pct)) +
+                    '%;background:' + barColor + ';"></div></div>' +
+                    '<div class="tip-row"><span>' + escapeHtml(done + ' / ' + total) + ' · ' +
+                    escapeHtml(pctLbl) + '</span><span class="tip-status ' + statusCls + '">' +
+                    escapeHtml(status) + '</span></div>';
+            }
+
+            function positionPrepPdsTip($tip, e) {
+                var x = (e.clientX != null ? e.clientX : 0) + 14;
+                var y = (e.clientY != null ? e.clientY : 0) + 14;
+                var w = $tip.outerWidth() || 240;
+                var h = $tip.outerHeight() || 120;
+                if (x + w > window.innerWidth - 8) {
+                    x = (e.clientX != null ? e.clientX : 0) - w - 12;
+                }
+                if (y + h > window.innerHeight - 8) {
+                    y = (e.clientY != null ? e.clientY : 0) - h - 12;
+                }
+                $tip.css({
+                    left: Math.max(8, x) + 'px',
+                    top: Math.max(8, y) + 'px'
+                });
+            }
+
+            $(document).on('mouseenter', '.prep-split-top-seg, .weekly-split-top-seg', function(e) {
+                $('.prep-pds-tip').remove();
+                var $tip = $('<div class="prep-pds-tip"></div>').html(buildPrepPdsTipHtml($(this)));
+                $('body').append($tip);
+                positionPrepPdsTip($tip, e);
+            }).on('mousemove', '.prep-split-top-seg, .weekly-split-top-seg', function(e) {
+                var $tip = $('.prep-pds-tip').first();
+                if ($tip.length) {
+                    positionPrepPdsTip($tip, e);
+                }
+            }).on('mouseleave', '.prep-split-top-seg, .weekly-split-top-seg', function() {
+                $('.prep-pds-tip').remove();
             });
 
             function resolveWeeklyDayColWidth(nSlots) {
@@ -6416,14 +7084,16 @@
                         weeklyLateSummary +
                         buildUnconfiguredTimelineHintHtml(filterRowsInWeeklySlots(rows, slots)) +
                         '</td>';
-                    // Kolom TYPE – PREP
+                    // Kolom TYPE – PREP (tinggi mengikuti jumlah sub-lajur anti-tumpuk)
+                    var weeklyPrepItems = collectWeeklyPrepBarsForCustomer(cust, rowsForBars, slots);
+                    var weeklyLaneCount = assignWeeklyOverlapLanes(weeklyPrepItems);
+                    var prepLaneH = (rowHeight / 2) + (weeklyLaneCount - 1) * 36; /* SPLIT: * 56 */
                     html += '<td class="weekly-col-type" style="' +
-                        'height:' + (rowHeight / 2) + 'px;' +
+                        'height:' + prepLaneH + 'px;' +
                         'text-align:center;vertical-align:middle;' +
                         'font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5c7f2b;' +
                         '">PREPARATION</td>';
                     // Lane PREP mingguan: satu track lintas semua hari (bar boleh melewati garis antarhari)
-                    var prepLaneH = rowHeight / 2;
                     html += '<td colspan="' + nSlots + '" class="weekly-prep-lane-cell">';
                     html += '<div class="weekly-prep-track" style="height:' + prepLaneH + 'px;">';
                     slots.forEach(function(slotDateStr, dayIdx) {
@@ -6432,9 +7102,10 @@
                             '" style="left:' + ((dayIdx / nSlots) * 100) + '%;width:' + slotWPct +
                             '%;"></div>';
                     });
-                    collectWeeklyPrepBarsForCustomer(cust, rowsForBars, slots).forEach(function(item) {
+                    weeklyPrepItems.forEach(function(item) {
                         var row = item.row;
                         var span = item.span;
+                        var laneIdx = parseInt(item._lane || 0, 10) || 0;
                         var anchorDate = span.anchorDate;
                         var gateDate = span.isIncomingFromPriorRange ? formatLocalDateKey(slots[
                                 0]) :
@@ -6473,10 +7144,16 @@
                         var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
                         var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24),
                             minPrepBarWidthPct);
-                        html += '<div class="weekly-prep-bar' + crossClass + incomingClass +
+                        // SPLIT-OFF (uncomment untuk tampilkan bar split):
+                        // html += buildWeeklySplitTopBarHtml(row, {
+                        //     leftPct: span.leftPct,
+                        //     barWidthPct: barWidthPct
+                        // }, pct, barColor, laneIdx);
+                        html += '<div class="weekly-prep-bar prep-orig' + crossClass + incomingClass +
                             (lateInfo.isLate ? ' is-prep-late' : '') + ' ' + offsetClass +
                             '" title="' + tipText + '" style="left:' +
-                            span.leftPct + '%;width:' + barWidthPct + '%;' +
+                            span.leftPct + '%;width:' + barWidthPct + '%;top:' + (6 + laneIdx *
+                                36 /* SPLIT: 36 + laneIdx * 48 */) + 'px;' +
                             'background:' + barColor + ';"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';

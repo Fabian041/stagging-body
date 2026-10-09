@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Jobs\ProcessKanbanUpload;
@@ -2628,13 +2629,23 @@ class DashboardController extends Controller
 
     $basenames = [];
 
+    $originals = [];
+
+    $usedNames = [];
+
 
     foreach($request->file('files') as $file)
     {
 
+        // Simpan dengan NAMA ASLI (disanitasi), bukan hash acak — agar di future
+        // bisa di-fetch berdasarkan nama file yang tampil di dashboard delivery
+        // (bar PDS / manifest).
+        [$storedName, $originalName] = $this->resolveKanbanStoredName($file, $usedNames);
+
         $path =
-            $file->store(
-                'temp-kanban'
+            $file->storeAs(
+                'temp-kanban',
+                $storedName
             );
 
 
@@ -2645,16 +2656,20 @@ class DashboardController extends Controller
 
         $basenames[] = basename($path);
 
+        $originals[basename($path)] = $originalName;
+
     }
 
 
 
     // Meta job untuk tombol Cancel total (lacak file input tanpa ubah logic PDF).
+    // 'originals' dipakai job untuk menamai arsip HASIL generate di kanban-source.
     @file_put_contents(
         storage_path('app/temp-kanban/'.$jobId.'.meta.json'),
         json_encode([
             'customer' => $customer,
             'files' => array_values($basenames ?? []),
+            'originals' => $originals,
             'created_at' => now()->toDateTimeString(),
         ])
     );
@@ -2681,12 +2696,46 @@ class DashboardController extends Controller
 
         'customer'=>$customer,
 
+        'files'=>array_values($basenames ?? []),
+
+        'originals'=>$originals,
+
         'message'=>
             'PDF processing started'
 
     ]);
 
 }
+
+    /**
+     * Tentukan nama simpan yang aman berbasis NAMA ASLI upload.
+     * Return [storedName, originalName]. Tabrakan (antar file se-request maupun
+     * sisa file lama di storage) diatasi dengan suffix _2, _3, ... agar tidak
+     * menimpa file lain. Validasi mimes:pdf sudah menjamin ekstensi PDF.
+     * Nama ini dipakai job untuk menamai arsip HASIL generate di kanban-source.
+     */
+    private function resolveKanbanStoredName($file, array &$used): array
+    {
+        $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
+        $stem = pathinfo($original, PATHINFO_FILENAME);
+        $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
+        $stem = trim($stem, '._');
+        if ($stem === '') {
+            $stem = 'kanban';
+        }
+        $stem = substr($stem, 0, 120);
+
+        $candidate = $stem.'.pdf';
+        $i = 1;
+        while (isset($used[$candidate]) || Storage::exists('temp-kanban/'.$candidate)) {
+            $i++;
+            $suffix = '_'.$i;
+            $candidate = substr($stem, 0, 120 - strlen($suffix)).$suffix.'.pdf';
+        }
+        $used[$candidate] = true;
+
+        return [$candidate, $original !== '' ? $original : $candidate];
+    }
 
     /**
      * Proses MANUAL khusus tab ALL (crop garis merah draggable).
@@ -2726,11 +2775,17 @@ class DashboardController extends Controller
         $jobId = (string) Str::uuid();
         $paths = [];
         $basenames = [];
+        $originals = [];
+        $usedNames = [];
 
         foreach ($request->file('files') as $file) {
-            $path = $file->store('temp-kanban');
+            // Sama seperti flow auto: pertahankan nama asli (disanitasi).
+            // Nama ini dipakai job untuk menamai arsip HASIL crop di kanban-source.
+            [$storedName, $originalName] = $this->resolveKanbanStoredName($file, $usedNames);
+            $path = $file->storeAs('temp-kanban', $storedName);
             $paths[] = storage_path('app/'.$path);
             $basenames[] = basename($path);
+            $originals[basename($path)] = $originalName;
         }
 
         @file_put_contents(
@@ -2738,6 +2793,7 @@ class DashboardController extends Controller
             json_encode([
                 'customer' => 'ALL-MANUAL',
                 'files' => array_values($basenames),
+                'originals' => $originals,
                 'cuts' => $cuts,
                 'vcuts' => $vCuts,
                 'created_at' => now()->toDateTimeString(),
@@ -2821,6 +2877,7 @@ class DashboardController extends Controller
         // Kumpulkan chunk per file + hitung offset halaman global.
         // $filePages[fi] = total halaman file; $chunkPagesAll[fi] = halaman per chunk.
         $fileList = [];
+        $originalFiles = [];
         $globalBase = 0;
         foreach ($specs as $sp) {
             $fi = (int) ($sp['fileIndex'] ?? 0);
@@ -2850,6 +2907,11 @@ class DashboardController extends Controller
                 'chunks' => $chunks,
                 'globalBase' => $globalBase, // halaman global pertama file ini - 1
             ];
+            // Pertahankan nama asli untuk future fetch berdasarkan nama file.
+            $origName = $sp['fileName'] ?? $sp['name'] ?? null;
+            if (is_string($origName) && trim($origName) !== '') {
+                $originalFiles[$fi] = basename(str_replace('\\', '/', trim($origName)));
+            }
             $globalBase += $totalPages > 0 ? $totalPages : array_sum(array_map(
                 static fn ($c) => $c['pages'] ?? 0,
                 $chunks
@@ -2932,6 +2994,7 @@ class DashboardController extends Controller
             json_encode([
                 'customer' => 'ALL-MANUAL-CHUNKED',
                 'files' => array_values($basenames),
+                'original_files' => $originalFiles,
                 'cuts' => $cuts,
                 'vcuts' => $vCuts,
                 'created_at' => now()->toDateTimeString(),
@@ -3350,6 +3413,81 @@ public function kanbanCancel($id)
         abort_if($base === '' || $base === '.' || $base === '..', 404);
 
         $path = storage_path('app/temp-kanban/'.$base);
+        abort_if(! is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$base.'"',
+        ]);
+    }
+
+    /**
+     * Daftar file kanban arsip (kanban-source) untuk 1..N nomor PDS/manifest.
+     * GET /dashboard/kanban/source-files?pds=2004481852,2004485062
+     * Dipakai popup bar split di dashboard delivery.
+     */
+    public function kanbanSourceFiles(Request $request)
+    {
+        $raw = $request->input('pds', []);
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+
+        $wanted = collect((array) $raw)
+            ->map(fn ($v) => preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->take(24)
+            ->values();
+
+        if ($wanted->isEmpty()) {
+            return response()->json(['status' => false, 'message' => 'Parameter PDS kosong.'], 422);
+        }
+
+        try {
+            $diskFiles = Storage::files('kanban-source');
+        } catch (\Throwable $e) {
+            $diskFiles = [];
+        }
+
+        $data = [];
+        foreach ($wanted as $pds) {
+            $matched = [];
+            foreach ($diskFiles as $path) {
+                $base = basename($path);
+                if (stripos($base, $pds) === false) {
+                    continue;
+                }
+                $matched[] = [
+                    'file' => $base,
+                    'download' => route('dashboard.kanbanSourceDownload', $base),
+                    'preview' => route('dashboard.kanbanSourcePreview', $base),
+                ];
+            }
+            usort($matched, static fn ($a, $b) => strcmp($a['file'], $b['file']));
+            $data[] = ['pds' => $pds, 'files' => $matched];
+        }
+
+        return response()->json(['status' => true, 'data' => $data]);
+    }
+
+    public function kanbanSourceDownload($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        $path = storage_path('app/kanban-source/'.$base);
+        abort_if(! is_file($path), 404);
+
+        return response()->download($path, $base);
+    }
+
+    public function kanbanSourcePreview($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        $path = storage_path('app/kanban-source/'.$base);
         abort_if(! is_file($path), 404);
 
         return response()->file($path, [

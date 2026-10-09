@@ -191,6 +191,9 @@ class MergeAllManualParts implements ShouldQueue
             file_put_contents($dir.'/'.$this->jobId.'.done', json_encode(['volumes' => $finalFiles]));
         }
 
+        // Arsip HASIL merge ke kanban-source dengan nama asli (fetch per PDS/manifest).
+        \App\Support\KanbanSourceArchive::archiveJobOutputs($this->jobId, $finalFiles);
+
         $this->cleanupPartials($dir);
         @unlink($dir.'/'.$this->jobId.'.meta.json');
         @unlink($dir.'/'.$this->jobId.'.progress.json');
