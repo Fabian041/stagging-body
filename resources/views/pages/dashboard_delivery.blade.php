@@ -3029,6 +3029,7 @@
             var stackedUrl = "{{ route('dashboard.delivery.stackedChart') }}";
             var syncLoadingListsUrl = "{{ route('dashboard.delivery.syncLoadingLists') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
+            var kanbanSourceFilesUrl = "{{ route('dashboard.kanbanSourceFiles') }}";
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
             var masterStore = "{{ route('dashboard.delivery.masterCycles.store') }}";
@@ -6769,15 +6770,107 @@
                 });
             }
 
+            /* ── Popup file kanban arsip per segmen split (PDS/manifest) ── */
+            function collectSplitBarPds($bar) {
+                var pds = [];
+                $bar.find('.prep-split-top-seg, .weekly-split-top-seg').each(function() {
+                    var v = $(this).attr('data-pds-number') || '';
+                    if (v && v !== '-' && pds.indexOf(v) < 0) {
+                        pds.push(v);
+                    }
+                });
+                return pds.slice(0, 24);
+            }
+
+            function buildKanbanSourceTableHtml(groups) {
+                var html = '<div style="text-align:left;">';
+                html +=
+                    '<table class="prep-late-detail__table"><thead><tr><th>PDS / Manifest</th><th>File Kanban</th><th style="text-align:right;">Aksi</th></tr></thead><tbody>';
+                var hasFile = false;
+                (groups || []).forEach(function(g) {
+                    var files = (g && g.files) || [];
+                    if (!files.length) {
+                        html += '<tr><td>' + escapeHtml(g.pds || '-') +
+                            '</td><td colspan="2"><span style="color:#6b7280;">Belum ada file arsip — upload ulang via dashboard kanban.</span></td></tr>';
+                        return;
+                    }
+                    files.forEach(function(f, idx) {
+                        hasFile = true;
+                        html += '<tr>' + (idx === 0 ?
+                            '<td rowspan="' + files.length + '"><strong>' + escapeHtml(g
+                                .pds || '-') + '</strong></td>' :
+                            '') + '<td>' + escapeHtml(f.file || '-') + '</td>' +
+                            '<td style="text-align:right;white-space:nowrap;">' +
+                            '<button type="button" class="act-btn primary btn-kanban-print" data-preview="' +
+                            escapeAttr(f.preview || '') +
+                            '" style="height:28px;padding:0 10px;font-size:11px;margin-right:4px;"><i class="fas fa-print mr-1"></i>Print</button>' +
+                            '<a class="act-btn success" href="' + escapeAttr(f.download || '') +
+                            '" style="height:28px;padding:0 10px;font-size:11px;display:inline-flex;align-items:center;text-decoration:none;"><i class="fas fa-download mr-1"></i>Download</a>' +
+                            '</td></tr>';
+                    });
+                });
+                html += '</tbody></table></div>';
+                return {
+                    html: html,
+                    hasFile: hasFile
+                };
+            }
+
+            function openKanbanSourcePopup($bar) {
+                var pdsList = collectSplitBarPds($bar);
+                if (!pdsList.length) {
+                    Swal.fire({
+                        title: 'File Kanban',
+                        html: '<div style="min-height:60px;"></div>',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                    return;
+                }
+                Swal.fire({
+                    title: 'File Kanban',
+                    html: '<div style="color:#6b7280;font-size:12px;">Memuat daftar file...</div>',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    didOpen: function() {
+                        Swal.showLoading();
+                    }
+                });
+                $.get(kanbanSourceFilesUrl, {
+                    pds: pdsList.join(',')
+                }).done(function(res) {
+                    var built = buildKanbanSourceTableHtml((res && res.data) || []);
+                    Swal.fire({
+                        title: 'File Kanban',
+                        html: built.html,
+                        width: 720,
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                }).fail(function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal memuat',
+                        text: 'File kanban tidak bisa dimuat. Coba lagi.',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                });
+            }
+
+            $(document).on('click', '.btn-kanban-print', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var url = $(this).attr('data-preview') || '';
+                if (url) {
+                    window.open(url, '_blank');
+                }
+            });
+
             $('#ganttContainer').on('click', '.gantt-bar-wrap.prep-split-top', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                Swal.fire({
-                    title: '',
-                    html: '<div style="min-height:60px;"></div>',
-                    confirmButtonText: 'Tutup',
-                    confirmButtonColor: '#6b7280'
-                });
+                openKanbanSourcePopup($(this));
             });
 
             $('#ganttContainer').on('click', '.gantt-bar-wrap:not(.prep-split-top)', function(e) {
@@ -6794,12 +6887,7 @@
             $('#weeklyGanttContainer').on('click', '.weekly-prep-bar.prep-split-top', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                Swal.fire({
-                    title: '',
-                    html: '<div style="min-height:60px;"></div>',
-                    confirmButtonText: 'Tutup',
-                    confirmButtonColor: '#6b7280'
-                });
+                openKanbanSourcePopup($(this));
             });
 
             $('#weeklyGanttContainer').on('click', '.weekly-prep-bar:not(.prep-split-top)', function(e) {

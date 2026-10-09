@@ -76,6 +76,12 @@ class ProcessAllManualCrop implements ShouldQueue
 
         file_put_contents($dir.'/'.$this->jobId.'.done', $filename);
 
+        // Arsip HASIL crop ke kanban-source dengan nama asli (fetch per PDS/manifest).
+        \App\Support\KanbanSourceArchive::archiveJobOutputs(
+            $this->jobId,
+            \App\Support\KanbanSourceArchive::parseDoneMarker((string) $filename)
+        );
+
         foreach ($this->files as $file) {
             if (is_string($file) && file_exists($file)) {
                 @unlink($file);

@@ -321,6 +321,34 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.kanbanPreview');
 
+    // Arsip kanban permanen (kanban-source) — dipakai popup bar PDS di dashboard delivery.
+    Route::get(
+        '/dashboard/kanban/source-files',
+        [
+            DashboardController::class,
+            'kanbanSourceFiles'
+        ]
+    )
+    ->name('dashboard.kanbanSourceFiles');
+
+    Route::get(
+        '/dashboard/kanban/source-download/{file}',
+        [
+            DashboardController::class,
+            'kanbanSourceDownload'
+        ]
+    )
+    ->name('dashboard.kanbanSourceDownload');
+
+    Route::get(
+        '/dashboard/kanban/source-preview/{file}',
+        [
+            DashboardController::class,
+            'kanbanSourcePreview'
+        ]
+    )
+    ->name('dashboard.kanbanSourcePreview');
+
     Route::get(
         '/dashboard/kanban/status/{id}',
         [
