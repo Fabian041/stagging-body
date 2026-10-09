@@ -661,6 +661,27 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
         });
+        // Auto-update: setiap perubahan area / tanggal langsung reload data
+        // tanpa perlu klik Tampilkan (pakai jalur AJAX yang sama).
+        var autoTimer = null;
+        ['area', 'start_date', 'end_date'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) {
+                return;
+            }
+            el.addEventListener('change', function() {
+                if (autoTimer) {
+                    clearTimeout(autoTimer);
+                }
+                autoTimer = setTimeout(function() {
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        form.dispatchEvent(new Event('submit', { cancelable: true }));
+                    }
+                }, 350);
+            });
+        });
     })();
 });
 
