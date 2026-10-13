@@ -930,7 +930,7 @@
         .weekly-prep-bar {
             position: absolute;
             top: 6px;
-            height: 26px; /* SPLIT: 12px */
+            height: 12px; /* SPLIT: 12px */
             min-width: 48px;
             border-radius: 4px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
@@ -944,10 +944,10 @@
         }
 
         .weekly-prep-bar.prep-orig {
-            top: 6px; /* SPLIT: 36px */
+            top: 36px; /* SPLIT: 36px */
         }
 
-        /* SPLIT-ONLY (pengecil teks bar lama, nonaktif selama split off):
+        /* SPLIT-ONLY (pengecil teks bar lama, aktif selama split on) */
         .weekly-prep-bar.prep-orig>span {
             font-size: 8px;
             line-height: 1;
@@ -955,7 +955,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        */
 
         .weekly-prep-bar.prep-split-top {
             top: 2px;
@@ -1500,7 +1499,7 @@
 
         .delivery-timeline-card .gantt-bar-wrap {
             top: 4px;
-            height: 36px; /* SPLIT: 14px */
+            height: 14px; /* SPLIT: 14px */
             min-width: 48px;
             container-type: inline-size;
             container-name: gantt-bar;
@@ -1517,23 +1516,23 @@
             border: none;
             border-radius: 6px;
             overflow: hidden;
-            height: 36px; /* SPLIT: 14px */
+            height: 14px; /* SPLIT: 14px */
             box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
             align-items: stretch;
         }
 
         /* ── Bar split baru di atas bar lama (tanpa label) ── */
         .delivery-timeline-card .gantt-grid-track-lane.prep-lane .gantt-track {
-            height: 40px; /* SPLIT: 54px */
-            margin: 16px 0 6px 0; /* SPLIT: 2px 0 */
+            height: 54px; /* SPLIT: 54px */
+            margin: 2px 0; /* SPLIT: 2px 0 */
             overflow: visible;
         }
 
         .delivery-timeline-card .gantt-bar-wrap.prep-orig {
-            top: 4px; /* SPLIT: 36px */
+            top: 36px; /* SPLIT: 36px */
         }
 
-        /* SPLIT-ONLY (pengecil bar lama, nonaktif selama split off):
+        /* SPLIT-ONLY (pengecil bar lama, aktif selama split on) */
         .delivery-timeline-card .gantt-bar-wrap.prep-orig .pill-avatar {
             width: 14px;
             height: 14px;
@@ -1552,7 +1551,6 @@
         .delivery-timeline-card .gantt-bar-wrap.prep-orig .gantt-bar-pct {
             font-size: 7px;
         }
-        */
 
         .delivery-timeline-card .gantt-bar-wrap.prep-split-top {
             top: 2px;
@@ -6366,7 +6364,7 @@
                 }
                 var laneIdx = parseInt(item._lane || 0, 10) || 0;
                 var inlineStyle = buildPrepBarInlineStyle(prepLayout) + 'z-index:' + zIndex + ';top:' + (
-                    4 + laneIdx * 44 /* SPLIT: 36 + laneIdx * 48 */) + 'px;';
+                    36 + laneIdx * 48 /* SPLIT: 36 + laneIdx * 48 */) + 'px;';
                 if (isContinuationBar) {
                     inlineStyle += '--cross-day-label:&quot;' + escapeAttr(crossDayLabel) + '&quot;;';
                 }
@@ -6511,8 +6509,8 @@
                     });
                     var prepBarItems = collectCustomerPrepBarItems(cn, viewDate);
                     var prepLaneCount = assignPrepOverlapLanes(prepBarItems);
-                    var prepRowH = 136 + (prepLaneCount - 1) * 48; /* SPLIT: * 56 */
-                    var prepTrackH = 40 + (prepLaneCount - 1) * 48; /* SPLIT: 54 + * 56 */
+                    var prepRowH = 136 + (prepLaneCount - 1) * 56; /* SPLIT: * 56 */
+                    var prepTrackH = 54 + (prepLaneCount - 1) * 56; /* SPLIT: 54 + * 56 */
                     var truckRows = collectCustomerTruckRows(cn, viewDate);
                     var allBucketsForDate = deliveryBucketsForDate.slice();
                     var gateRows = getCustomerPrepRowsForSequentialGate(cn, viewDate);
@@ -6543,11 +6541,11 @@
                         prepTrackH + 'px;">';
                     gridHtml += '<div class="gantt-window-fill" style="left:' + fillLeft + '%;width:' +
                         fillWidth + '%;"></div>';
-                    // SPLIT-OFF (uncomment untuk tampilkan bar split):
-                    // prepBarItems.forEach(function(item, sortIdx) {
-                    //     gridHtml += buildSplitTopBarHtmlForItem(item, viewDate, gateRows, currentFrac,
-                    //         overdueLatch, sortIdx);
-                    // });
+                    // SPLIT-ON (tampilkan bar split):
+                    prepBarItems.forEach(function(item, sortIdx) {
+                        gridHtml += buildSplitTopBarHtmlForItem(item, viewDate, gateRows, currentFrac,
+                            overdueLatch, sortIdx);
+                    });
                     prepBarItems.forEach(function(item, sortIdx) {
                         gridHtml += buildPrepBarHtmlForItem(item, viewDate, gateRows, currentFrac,
                             overdueLatch, sortIdx);
@@ -7087,7 +7085,7 @@
                     // Kolom TYPE – PREP (tinggi mengikuti jumlah sub-lajur anti-tumpuk)
                     var weeklyPrepItems = collectWeeklyPrepBarsForCustomer(cust, rowsForBars, slots);
                     var weeklyLaneCount = assignWeeklyOverlapLanes(weeklyPrepItems);
-                    var prepLaneH = (rowHeight / 2) + (weeklyLaneCount - 1) * 36; /* SPLIT: * 56 */
+                    var prepLaneH = (rowHeight / 2) + (weeklyLaneCount - 1) * 56; /* SPLIT: * 56 */
                     html += '<td class="weekly-col-type" style="' +
                         'height:' + prepLaneH + 'px;' +
                         'text-align:center;vertical-align:middle;' +
@@ -7144,16 +7142,16 @@
                         var offsetClass = getPrepOffsetCssClass(getRowPrepDayOffset(row));
                         var barWidthPct = Math.max(span.widthPct, (100 / nSlots / 24),
                             minPrepBarWidthPct);
-                        // SPLIT-OFF (uncomment untuk tampilkan bar split):
-                        // html += buildWeeklySplitTopBarHtml(row, {
-                        //     leftPct: span.leftPct,
-                        //     barWidthPct: barWidthPct
-                        // }, pct, barColor, laneIdx);
+                        // SPLIT-ON (tampilkan bar split):
+                        html += buildWeeklySplitTopBarHtml(row, {
+                            leftPct: span.leftPct,
+                            barWidthPct: barWidthPct
+                        }, pct, barColor, laneIdx);
                         html += '<div class="weekly-prep-bar prep-orig' + crossClass + incomingClass +
                             (lateInfo.isLate ? ' is-prep-late' : '') + ' ' + offsetClass +
                             '" title="' + tipText + '" style="left:' +
-                            span.leftPct + '%;width:' + barWidthPct + '%;top:' + (6 + laneIdx *
-                                36 /* SPLIT: 36 + laneIdx * 48 */) + 'px;' +
+                            span.leftPct + '%;width:' + barWidthPct + '%;top:' + (36 + laneIdx *
+                                48 /* SPLIT: 36 + laneIdx * 48 */) + 'px;' +
                             'background:' + barColor + ';"';
                         html += ' data-customer-name="' + escapeAttr(row.customer_name) + '"';
                         html += ' data-cycle="' + escapeAttr(row.cycle_name) + '"';
