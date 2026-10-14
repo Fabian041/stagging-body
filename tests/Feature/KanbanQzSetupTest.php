@@ -66,16 +66,29 @@ class KanbanQzSetupTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('status', true)
-            ->assertJsonPath('created', true);
+            ->assertJsonPath('created', true)
+            ->assertJsonPath('rotated', false);
 
         $this->assertFileExists($this->testStoragePath.'/app/qz-signing/private-key.pem');
-        $this->assertFileExists($this->testStoragePath.'/app/qz-signing/digital-certificate.txt');
+        $certificatePath = $this->testStoragePath.'/app/qz-signing/digital-certificate.txt';
+        $this->assertFileExists($certificatePath);
+        $certificate = openssl_x509_parse(file_get_contents($certificatePath));
+        $this->assertStringContainsString(
+            'CA:TRUE',
+            strtoupper(str_replace(' ', '', $certificate['extensions']['basicConstraints'] ?? ''))
+        );
+
+        $this->actingAs($admin)
+            ->get('/dashboard/kanban/qz-cert')
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 
         $this->actingAs($admin)
             ->withServerVariables(['REMOTE_ADDR' => '10.10.10.20'])
             ->get('/dashboard/kanban/qz-setup')
             ->assertOk()
-            ->assertJsonPath('created', false);
+            ->assertJsonPath('created', false)
+            ->assertJsonPath('rotated', false);
     }
 
     private function user(string $role): User

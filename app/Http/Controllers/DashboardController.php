@@ -3498,10 +3498,9 @@ public function kanbanCancel($id)
 
     /**
      * QZ Tray message signing — hilangkan popup trust per-print (Opsi 1).
-     * Setup sekali: admin membuka qz-setup agar keypair dibuat di server aktif,
-     * lalu di tiap PC printer: download sertifikat, stop QZ Tray,
-     * `"C:\Program Files\QZ Tray\qz-tray-console.exe" --allow digital-certificate.txt`,
-     * start QZ Tray. Private key TIDAK pernah keluar dari storage/app.
+     * Setup sekali: admin membuka qz-setup agar keypair dibuat di server aktif.
+     * Sertifikat publik dipasang sebagai override.crt di tiap PC printer.
+     * Private key TIDAK pernah keluar dari storage/app.
      */
     public function kanbanQzSetup(Request $request)
     {
@@ -3517,8 +3516,10 @@ public function kanbanCancel($id)
             $keyPath = $dir.'/private-key.pem';
             $crtPath = $dir.'/digital-certificate.txt';
 
+            $missingKeypair = ! is_file($keyPath) || ! is_file($crtPath);
+            $rotated = ! $missingKeypair && $this->qzNeedsTrustedRootUpgrade($crtPath);
             $created = false;
-            if (! is_file($keyPath) || ! is_file($crtPath)) {
+            if ($missingKeypair || $rotated) {
                 // Config minimal bawaan aplikasi (Windows sering tidak punya openssl.cnf).
                 $localCnf = $this->qzEnsureLocalOpenSslConfig($dir);
                 @putenv('OPENSSL_CONF='.$localCnf);
@@ -3557,7 +3558,10 @@ public function kanbanCancel($id)
                         'Gagal membuat CSR (openssl.cnf tidak ditemukan). Dicoba: '.implode(', ', $tried)
                     );
                 }
-                $signArgs = $usedConfig ? ['config' => $usedConfig] : [];
+                $signArgs = $usedConfig ? [
+                    'config' => $usedConfig,
+                    'x509_extensions' => 'v3_self',
+                ] : [];
                 $crt = @openssl_csr_sign($csr, null, $key, 3650, $signArgs);
                 if ($crt === false) {
                     throw new \RuntimeException('Gagal self-sign sertifikat.');
@@ -3574,10 +3578,11 @@ public function kanbanCancel($id)
             return response()->json([
                 'status' => true,
                 'created' => $created,
+                'rotated' => $rotated,
                 'cert_path' => $crtPath,
                 'fingerprint_sha256' => $fingerprint ?: null,
                 'cert_download' => route('dashboard.kanbanQzCert', ['download' => 1]),
-                'next' => 'Download sertifikat, lalu di tiap PC printer: stop QZ Tray, jalankan qz-tray-console.exe --allow digital-certificate.txt, start QZ Tray.',
+                'next' => 'Download sertifikat, tutup QZ Tray, salin sebagai C:\\Program Files\\QZ Tray\\override.crt, lalu jalankan kembali QZ Tray.',
             ]);
         } catch (\Throwable $e) {
             return response()->json([
@@ -3591,27 +3596,48 @@ public function kanbanCancel($id)
     private function qzEnsureLocalOpenSslConfig(string $dir): string
     {
         $path = $dir.'/openssl.cnf';
-        if (! is_file($path)) {
-            file_put_contents($path, implode("\n", [
-                '[ req ]',
-                'default_bits = 2048',
-                'default_md = sha256',
-                'distinguished_name = req_dn',
-                'prompt = no',
-                'x509_extensions = v3_self',
-                '',
-                '[ req_dn ]',
-                'CN = bella-local-qz',
-                'O = BELLA',
-                '',
-                '[ v3_self ]',
-                'basicConstraints = CA:false',
-                'keyUsage = digitalSignature, nonRepudiation',
-                '',
-            ]));
+        $config = implode("\n", [
+            '[ req ]',
+            'default_bits = 2048',
+            'default_md = sha256',
+            'distinguished_name = req_dn',
+            'prompt = no',
+            'x509_extensions = v3_self',
+            '',
+            '[ req_dn ]',
+            'CN = bella-local-qz',
+            'O = BELLA',
+            '',
+            '[ v3_self ]',
+            'basicConstraints = critical,CA:true',
+            'keyUsage = critical,digitalSignature,keyCertSign,cRLSign',
+            'subjectKeyIdentifier = hash',
+            'authorityKeyIdentifier = keyid:always,issuer',
+            '',
+        ]);
+
+        if (! is_file($path) || file_get_contents($path) !== $config) {
+            file_put_contents($path, $config);
         }
 
         return str_replace('\\', '/', $path);
+    }
+
+    /** Rotasi hanya sertifikat self-signed BELLA lama; jangan timpa sertifikat resmi QZ. */
+    private function qzNeedsTrustedRootUpgrade(string $path): bool
+    {
+        $certificate = @openssl_x509_parse(file_get_contents($path));
+        if (! is_array($certificate)) {
+            return true;
+        }
+
+        $subject = $certificate['subject'] ?? [];
+        $issuer = $certificate['issuer'] ?? [];
+        $constraints = strtoupper(str_replace(' ', '', $certificate['extensions']['basicConstraints'] ?? ''));
+
+        return ($subject['CN'] ?? null) === 'bella-local-qz'
+            && $subject === $issuer
+            && ! str_contains($constraints, 'CA:TRUE');
     }
 
     /** Kandidat openssl.cnf di stack Windows umum (XAMPP/Laragon/PHP/Git). */
@@ -3658,10 +3684,14 @@ public function kanbanCancel($id)
         $path = storage_path('app/qz-signing/digital-certificate.txt');
         abort_if(! is_file($path), 404, 'Sertifikat QZ belum dibuat. Buka qz-setup dulu.');
         if ($request->boolean('download')) {
-            return response()->download($path, 'digital-certificate.txt');
+            return response()->download($path, 'override.crt');
         }
 
-        return response(file_get_contents($path), 200, ['Content-Type' => 'text/plain']);
+        return response(file_get_contents($path), 200, [
+            'Content-Type' => 'text/plain',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
     }
 
     /** Sign request QZ (format resmi: RSA-SHA512, output base64 text/plain). */
