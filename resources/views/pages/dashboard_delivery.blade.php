@@ -2229,7 +2229,7 @@
             font-size: 13px;
             table-layout: fixed;
             width: 100%;
-            min-width: calc(var(--gantt-customer-col-width) + var(--gantt-type-col-width) + (var(--weekly-day-count, 1) * var(--gantt-hour-width)));
+            min-width: calc(var(--gantt-customer-col-width) + var(--gantt-type-col-width) + (var(--weekly-day-count, 1) * 240px));
         }
 
         .delivery-weekly-card .weekly-col-customer,
@@ -2521,13 +2521,13 @@
         .delivery-dash.is-tv-mode .weekly-gantt-scroll {
             flex: 1 1 auto;
             min-height: 0;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .delivery-dash.is-tv-mode .gantt-grid-scroll {
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .delivery-dash.is-tv-mode .gantt-grid {
@@ -2553,7 +2553,8 @@
 
         .delivery-dash.is-tv-mode .gantt-grid-left-cell,
         .delivery-dash.is-tv-mode .gantt-grid-track-cell {
-            height: var(--tv-row-height);
+            height: auto;
+            min-height: var(--tv-row-height);
         }
 
         .delivery-dash.is-tv-mode .gantt-grid-customer {
@@ -2580,15 +2581,41 @@
             background-size: calc(100% / var(--gantt-slot-count)) 100%;
         }
 
+        /* TV + SPLIT: jangan timpa track prep (tinggi 54px + lane dari JS) */
+        .delivery-dash.is-tv-mode .gantt-grid-track-lane.prep-lane .gantt-track {
+            height: auto;
+            min-height: 56px;
+            margin: 2px 0;
+        }
+
         .delivery-dash.is-tv-mode .gantt-bar-wrap {
             top: 2px;
             height: calc(100% - 4px);
             min-width: 22px;
         }
 
+        /* TV + SPLIT: kembalikan height split & old bar seperti mode normal */
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-split-top {
+            top: 2px;
+            height: 28px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-split-top .gantt-bar-stack.is-split-top {
+            height: 28px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-orig {
+            top: 36px;
+            height: 14px;
+        }
+
         .delivery-dash.is-tv-mode .gantt-bar-stack {
             height: 100%;
             border-radius: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-orig .gantt-bar-stack {
+            height: 14px;
         }
 
         .delivery-dash.is-tv-mode .gantt-bar-wrap.truck-pill {
@@ -2666,7 +2693,13 @@
         .delivery-dash.is-tv-mode .weekly-col-day,
         .delivery-dash.is-tv-mode .weekly-prep-track,
         .delivery-dash.is-tv-mode .weekly-col-day>div {
-            height: calc(var(--tv-row-height) / 2) !important;
+            height: auto !important;
+            min-height: calc(var(--tv-row-height) / 2) !important;
+        }
+
+        /* TV + SPLIT weekly: beri ruang minimal untuk 2 bar (split 28px + orig 12px) */
+        .delivery-dash.is-tv-mode .weekly-prep-track {
+            min-height: 56px !important;
         }
 
         .delivery-dash.is-tv-mode .weekly-col-type {
@@ -2680,6 +2713,17 @@
             height: calc(100% - 6px) !important;
             min-height: 12px;
             font-size: 7px;
+        }
+
+        /* TV + SPLIT weekly: kembalikan posisi split & old bar seperti mode normal */
+        .delivery-dash.is-tv-mode .weekly-prep-bar.prep-split-top {
+            top: 2px !important;
+            height: 28px !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-prep-bar.prep-orig {
+            top: 36px !important;
+            height: 12px !important;
         }
 
         .delivery-dash.is-tv-mode .weekly-offset-badge {
@@ -6819,8 +6863,8 @@
                 };
             }
 
-            function openKanbanSourcePopup($bar) {
-                var pdsList = collectSplitBarPds($bar);
+            function openKanbanSourcePopup($bar, overridePdsList) {
+                var pdsList = (overridePdsList && overridePdsList.length) ? overridePdsList : collectSplitBarPds($bar);
                 if (!pdsList.length) {
                     Swal.fire({
                         title: 'File Kanban',
@@ -6873,6 +6917,14 @@
             $('#ganttContainer').on('click', '.gantt-bar-wrap.prep-split-top', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                var $seg = $(e.target).closest('.prep-split-top-seg');
+                if ($seg.length) {
+                    var single = $seg.attr('data-pds-number') || '';
+                    if (single && single !== '-') {
+                        openKanbanSourcePopup($(this), [single]);
+                        return;
+                    }
+                }
                 openKanbanSourcePopup($(this));
             });
 
@@ -6890,6 +6942,14 @@
             $('#weeklyGanttContainer').on('click', '.weekly-prep-bar.prep-split-top', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                var $seg = $(e.target).closest('.weekly-split-top-seg');
+                if ($seg.length) {
+                    var single = $seg.attr('data-pds-number') || '';
+                    if (single && single !== '-') {
+                        openKanbanSourcePopup($(this), [single]);
+                        return;
+                    }
+                }
                 openKanbanSourcePopup($(this));
             });
 
@@ -6967,7 +7027,7 @@
             function resolveWeeklyDayColWidth(nSlots) {
                 var custColWidth = 200;
                 var typeColWidth = 120;
-                var minDayWidth = 120;
+                var minDayWidth = 240;
                 var slots = Math.max(parseInt(nSlots, 10) || 1, 1);
                 var $host = $('#deliveryWeeklyCard .weekly-card-body');
                 var containerW = $host.length ? $host.innerWidth() : 0;
