@@ -3505,7 +3505,10 @@ public function kanbanCancel($id)
      */
     public function kanbanQzSetup(Request $request)
     {
-        abort_unless(in_array($request->ip(), ['127.0.0.1', '::1'], true), 403, 'Setup hanya dari server lokal.');
+        // Cek status boleh dari mana saja (manage-master); GENERATE hanya dari server lokal.
+        // Di produksi: copy private-key.pem + digital-certificate.txt dari lokal, lalu
+        // buka URL ini untuk verifikasi fingerprint — tidak perlu generate di sana.
+        $isLocal = in_array($request->ip(), ['127.0.0.1', '::1'], true);
 
         try {
             if (! function_exists('openssl_pkey_new')) {
@@ -3521,6 +3524,12 @@ public function kanbanCancel($id)
 
             $created = false;
             if (! is_file($keyPath) || ! is_file($crtPath)) {
+                if (! $isLocal) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Keypair belum ada di server ini. Copy private-key.pem + digital-certificate.txt dari server lokal ke storage/app/qz-signing/.',
+                    ], 404);
+                }
                 // Config minimal bawaan aplikasi (Windows sering tidak punya openssl.cnf).
                 $localCnf = $this->qzEnsureLocalOpenSslConfig($dir);
                 @putenv('OPENSSL_CONF='.$localCnf);
