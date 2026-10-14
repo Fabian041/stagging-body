@@ -3490,4 +3490,188 @@ public function kanbanCancel($id)
             'Content-Disposition' => 'inline; filename="'.$base.'"',
         ]);
     }
+
+    /**
+     * QZ Tray message signing — hilangkan popup trust per-print (Opsi 1).
+     * Setup sekali: buka qz-setup (generate keypair lokal), download sertifikat,
+     * lalu di tiap PC printer: stop QZ Tray,
+     * `"C:\Program Files\QZ Tray\qz-tray-console.exe" --allow digital-certificate.txt`,
+     * start QZ Tray. Private key TIDAK pernah keluar dari storage/app.
+     */
+    public function kanbanQzSetup(Request $request)
+    {
+        abort_unless(in_array($request->ip(), ['127.0.0.1', '::1'], true), 403, 'Setup hanya dari server lokal.');
+
+        try {
+            if (! function_exists('openssl_pkey_new')) {
+                throw new \RuntimeException('Ekstensi PHP openssl tidak aktif.');
+            }
+
+            $dir = storage_path('app/qz-signing');
+            if (! is_dir($dir)) {
+                mkdir($dir, 0700, true);
+            }
+            $keyPath = $dir.'/private-key.pem';
+            $crtPath = $dir.'/digital-certificate.txt';
+
+            $created = false;
+            if (! is_file($keyPath) || ! is_file($crtPath)) {
+                // Config minimal bawaan aplikasi (Windows sering tidak punya openssl.cnf).
+                $localCnf = $this->qzEnsureLocalOpenSslConfig($dir);
+                @putenv('OPENSSL_CONF='.$localCnf);
+
+                $key = openssl_pkey_new([
+                    'private_key_bits' => 2048,
+                    'private_key_type' => OPENSSL_KEYTYPE_RSA,
+                    'config' => $localCnf,
+                ]);
+                if ($key === false) {
+                    throw new \RuntimeException('Gagal membuat private key.');
+                }
+                openssl_pkey_export($key, $privatePem);
+                $dn = ['commonName' => 'bella-local-qz', 'organizationName' => 'BELLA'];
+
+                // Windows/XAMPP/Laragon sering gagal CSR tanpa openssl.cnf eksplisit.
+                $tried = [];
+                $csr = false;
+                $usedConfig = null;
+                $allCandidates = array_merge([$localCnf], $this->qzOpenSslConfigCandidates());
+                foreach ($allCandidates as $cnf) {
+                    $tried[] = $cnf;
+                    $attempt = @openssl_csr_new($dn, $key, ['config' => $cnf, 'digest_alg' => 'sha256']);
+                    if ($attempt !== false) {
+                        $csr = $attempt;
+                        $usedConfig = $cnf;
+                        break;
+                    }
+                }
+                if ($csr === false) {
+                    $tried[] = '(default system lookup)';
+                    $csr = @openssl_csr_new($dn, $key);
+                }
+                if ($csr === false) {
+                    throw new \RuntimeException(
+                        'Gagal membuat CSR (openssl.cnf tidak ditemukan). Dicoba: '.implode(', ', $tried)
+                    );
+                }
+                $signArgs = $usedConfig ? ['config' => $usedConfig] : [];
+                $crt = @openssl_csr_sign($csr, null, $key, 3650, $signArgs);
+                if ($crt === false) {
+                    throw new \RuntimeException('Gagal self-sign sertifikat.');
+                }
+                openssl_x509_export($crt, $crtPem);
+                file_put_contents($keyPath, $privatePem);
+                @chmod($keyPath, 0600);
+                file_put_contents($crtPath, $crtPem);
+                $created = true;
+            }
+
+            $fingerprint = openssl_x509_fingerprint(file_get_contents($crtPath), 'sha256');
+
+            return response()->json([
+                'status' => true,
+                'created' => $created,
+                'cert_path' => $crtPath,
+                'fingerprint_sha256' => $fingerprint ?: null,
+                'cert_download' => route('dashboard.kanbanQzCert', ['download' => 1]),
+                'next' => 'Download sertifikat, lalu di tiap PC printer: stop QZ Tray, jalankan qz-tray-console.exe --allow digital-certificate.txt, start QZ Tray.',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /** Tulis openssl.cnf minimal milik aplikasi (agar tidak tergantung stack server). */
+    private function qzEnsureLocalOpenSslConfig(string $dir): string
+    {
+        $path = $dir.'/openssl.cnf';
+        if (! is_file($path)) {
+            file_put_contents($path, implode("\n", [
+                '[ req ]',
+                'default_bits = 2048',
+                'default_md = sha256',
+                'distinguished_name = req_dn',
+                'prompt = no',
+                'x509_extensions = v3_self',
+                '',
+                '[ req_dn ]',
+                'CN = bella-local-qz',
+                'O = BELLA',
+                '',
+                '[ v3_self ]',
+                'basicConstraints = CA:false',
+                'keyUsage = digitalSignature, nonRepudiation',
+                '',
+            ]));
+        }
+
+        return str_replace('\\', '/', $path);
+    }
+
+    /** Kandidat openssl.cnf di stack Windows umum (XAMPP/Laragon/PHP/Git). */
+    private function qzOpenSslConfigCandidates(): array
+    {
+        $candidates = [];
+        $push = function ($p) use (&$candidates) {
+            if ($p && is_string($p)) {
+                $p = str_replace('\\', '/', $p);
+                if (is_file($p) && ! in_array($p, $candidates, true)) {
+                    $candidates[] = $p;
+                }
+            }
+        };
+
+        foreach (['OPENSSL_CONF', 'SSL_CERT_FILE'] as $env) {
+            $push(getenv($env) ?: null);
+        }
+        if (defined('PHP_BINARY')) {
+            $phpDir = str_replace('\\', '/', dirname((string) PHP_BINARY));
+            $push($phpDir.'/extras/ssl/openssl.cnf');
+            $push($phpDir.'/../ssl/openssl.cnf');
+        }
+        foreach (['C:', 'D:'] as $drive) {
+            $push($drive.'/xampp/apache/conf/openssl.cnf');
+            $push($drive.'/xampp/php/extras/ssl/openssl.cnf');
+            $push($drive.'/laragon/bin/apache/apache-2.4.*/conf/openssl.cnf');
+            foreach (glob($drive.'/laragon/bin/apache/*/conf/openssl.cnf') ?: [] as $g) {
+                $push($g);
+            }
+            foreach (glob($drive.'/*/bin/php/*/extras/ssl/openssl.cnf') ?: [] as $g) {
+                $push($g);
+            }
+            $push($drive.'/Program Files/Git/usr/ssl/openssl.cnf');
+            $push($drive.'/Program Files (x86)/Git/usr/ssl/openssl.cnf');
+        }
+
+        return $candidates;
+    }
+
+    /** Sertifikat publik QZ (dibaca qz.security.setCertificatePromise). */
+    public function kanbanQzCert(Request $request)
+    {
+        $path = storage_path('app/qz-signing/digital-certificate.txt');
+        abort_if(! is_file($path), 404, 'Sertifikat QZ belum dibuat. Buka qz-setup dulu.');
+        if ($request->boolean('download')) {
+            return response()->download($path, 'digital-certificate.txt');
+        }
+
+        return response(file_get_contents($path), 200, ['Content-Type' => 'text/plain']);
+    }
+
+    /** Sign request QZ (format resmi: RSA-SHA512, output base64 text/plain). */
+    public function kanbanQzSign(Request $request)
+    {
+        $data = $request->validate(['request' => 'required|string|max:12000000']);
+        $keyPath = storage_path('app/qz-signing/private-key.pem');
+        abort_if(! is_file($keyPath), 404, 'Private key QZ belum dibuat. Buka qz-setup dulu.');
+        $key = openssl_get_privatekey(file_get_contents($keyPath));
+        abort_if($key === false, 500, 'Private key QZ tidak valid.');
+        $ok = openssl_sign($data['request'], $signature, $key, 'sha512');
+        abort_if(! $ok || $signature === null, 500, 'Gagal signing request QZ.');
+
+        return response(base64_encode($signature), 200, ['Content-Type' => 'text/plain']);
+    }
 }
