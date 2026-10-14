@@ -375,7 +375,7 @@ Route::middleware(['auth'])->group(function () {
             'kanbanQzSetup'
         ]
     )
-    ->middleware('can:manage-master')
+    ->middleware('can:manage-qz-signing')
     ->name('dashboard.kanbanQzSetup');
 
     Route::get(

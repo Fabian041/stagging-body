@@ -3498,18 +3498,13 @@ public function kanbanCancel($id)
 
     /**
      * QZ Tray message signing — hilangkan popup trust per-print (Opsi 1).
-     * Setup sekali: buka qz-setup (generate keypair lokal), download sertifikat,
-     * lalu di tiap PC printer: stop QZ Tray,
+     * Setup sekali: admin membuka qz-setup agar keypair dibuat di server aktif,
+     * lalu di tiap PC printer: download sertifikat, stop QZ Tray,
      * `"C:\Program Files\QZ Tray\qz-tray-console.exe" --allow digital-certificate.txt`,
      * start QZ Tray. Private key TIDAK pernah keluar dari storage/app.
      */
     public function kanbanQzSetup(Request $request)
     {
-        // Cek status boleh dari mana saja (manage-master); GENERATE hanya dari server lokal.
-        // Di produksi: copy private-key.pem + digital-certificate.txt dari lokal, lalu
-        // buka URL ini untuk verifikasi fingerprint — tidak perlu generate di sana.
-        $isLocal = in_array($request->ip(), ['127.0.0.1', '::1'], true);
-
         try {
             if (! function_exists('openssl_pkey_new')) {
                 throw new \RuntimeException('Ekstensi PHP openssl tidak aktif.');
@@ -3524,12 +3519,6 @@ public function kanbanCancel($id)
 
             $created = false;
             if (! is_file($keyPath) || ! is_file($crtPath)) {
-                if (! $isLocal) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Keypair belum ada di server ini. Copy private-key.pem + digital-certificate.txt dari server lokal ke storage/app/qz-signing/.',
-                    ], 404);
-                }
                 // Config minimal bawaan aplikasi (Windows sering tidak punya openssl.cnf).
                 $localCnf = $this->qzEnsureLocalOpenSslConfig($dir);
                 @putenv('OPENSSL_CONF='.$localCnf);
