@@ -2229,7 +2229,7 @@
             font-size: 13px;
             table-layout: fixed;
             width: 100%;
-            min-width: calc(var(--gantt-customer-col-width) + var(--gantt-type-col-width) + (var(--weekly-day-count, 1) * var(--gantt-hour-width)));
+            min-width: calc(var(--gantt-customer-col-width) + var(--gantt-type-col-width) + (var(--weekly-day-count, 1) * 240px));
         }
 
         .delivery-weekly-card .weekly-col-customer,
@@ -2521,13 +2521,13 @@
         .delivery-dash.is-tv-mode .weekly-gantt-scroll {
             flex: 1 1 auto;
             min-height: 0;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .delivery-dash.is-tv-mode .gantt-grid-scroll {
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .delivery-dash.is-tv-mode .gantt-grid {
@@ -2553,7 +2553,8 @@
 
         .delivery-dash.is-tv-mode .gantt-grid-left-cell,
         .delivery-dash.is-tv-mode .gantt-grid-track-cell {
-            height: var(--tv-row-height);
+            height: auto;
+            min-height: var(--tv-row-height);
         }
 
         .delivery-dash.is-tv-mode .gantt-grid-customer {
@@ -2580,15 +2581,41 @@
             background-size: calc(100% / var(--gantt-slot-count)) 100%;
         }
 
+        /* TV + SPLIT: jangan timpa track prep (tinggi 54px + lane dari JS) */
+        .delivery-dash.is-tv-mode .gantt-grid-track-lane.prep-lane .gantt-track {
+            height: auto;
+            min-height: 56px;
+            margin: 2px 0;
+        }
+
         .delivery-dash.is-tv-mode .gantt-bar-wrap {
             top: 2px;
             height: calc(100% - 4px);
             min-width: 22px;
         }
 
+        /* TV + SPLIT: kembalikan height split & old bar seperti mode normal */
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-split-top {
+            top: 2px;
+            height: 28px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-split-top .gantt-bar-stack.is-split-top {
+            height: 28px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-orig {
+            top: 36px;
+            height: 14px;
+        }
+
         .delivery-dash.is-tv-mode .gantt-bar-stack {
             height: 100%;
             border-radius: 3px;
+        }
+
+        .delivery-dash.is-tv-mode .gantt-bar-wrap.prep-orig .gantt-bar-stack {
+            height: 14px;
         }
 
         .delivery-dash.is-tv-mode .gantt-bar-wrap.truck-pill {
@@ -2666,7 +2693,13 @@
         .delivery-dash.is-tv-mode .weekly-col-day,
         .delivery-dash.is-tv-mode .weekly-prep-track,
         .delivery-dash.is-tv-mode .weekly-col-day>div {
-            height: calc(var(--tv-row-height) / 2) !important;
+            height: auto !important;
+            min-height: calc(var(--tv-row-height) / 2) !important;
+        }
+
+        /* TV + SPLIT weekly: beri ruang minimal untuk 2 bar (split 28px + orig 12px) */
+        .delivery-dash.is-tv-mode .weekly-prep-track {
+            min-height: 56px !important;
         }
 
         .delivery-dash.is-tv-mode .weekly-col-type {
@@ -2680,6 +2713,17 @@
             height: calc(100% - 6px) !important;
             min-height: 12px;
             font-size: 7px;
+        }
+
+        /* TV + SPLIT weekly: kembalikan posisi split & old bar seperti mode normal */
+        .delivery-dash.is-tv-mode .weekly-prep-bar.prep-split-top {
+            top: 2px !important;
+            height: 28px !important;
+        }
+
+        .delivery-dash.is-tv-mode .weekly-prep-bar.prep-orig {
+            top: 36px !important;
+            height: 12px !important;
         }
 
         .delivery-dash.is-tv-mode .weekly-offset-badge {
@@ -3032,6 +3076,8 @@
             var syncLoadingListsUrl = "{{ route('dashboard.delivery.syncLoadingLists') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
             var kanbanSourceFilesUrl = "{{ route('dashboard.kanbanSourceFiles') }}";
+            var qzCertUrl = "{{ route('dashboard.kanbanQzCert') }}";
+            var qzSignUrl = "{{ route('dashboard.kanbanQzSign') }}";
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
             var masterStore = "{{ route('dashboard.delivery.masterCycles.store') }}";
@@ -6819,8 +6865,8 @@
                 };
             }
 
-            function openKanbanSourcePopup($bar) {
-                var pdsList = collectSplitBarPds($bar);
+            function openKanbanSourcePopup($bar, overridePdsList) {
+                var pdsList = (overridePdsList && overridePdsList.length) ? overridePdsList : collectSplitBarPds($bar);
                 if (!pdsList.length) {
                     Swal.fire({
                         title: 'File Kanban',
@@ -6861,18 +6907,346 @@
                 });
             }
 
+            /* Print hemat kertas (TRIAL): 2 halaman pertama, kertas 150mm x 80mm, tanpa tab preview */
+            var kanbanPdfJsPromise = null;
+
+            function ensureKanbanPdfJs() {
+                if (window.pdfjsLib) {
+                    return $.Deferred().resolve().promise();
+                }
+                if (kanbanPdfJsPromise) {
+                    return kanbanPdfJsPromise;
+                }
+                kanbanPdfJsPromise = $.Deferred(function(dfd) {
+                    var s = document.createElement('script');
+                    s.src =
+                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
+                    s.onload = function() {
+                        try {
+                            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+                        } catch (err) {}
+                        dfd.resolve();
+                    };
+                    s.onerror = function() {
+                        dfd.reject();
+                    };
+                    document.head.appendChild(s);
+                }).promise();
+                return kanbanPdfJsPromise;
+            }
+
+            /* SILENT PRINT via QZ Tray: kertas 150x80mm, tanpa dialog browser */
+            var kanbanQzScriptPromise = null;
+
+            function ensureQzTrayScript() {
+                if (window.qz) {
+                    return $.Deferred().resolve().promise();
+                }
+                if (kanbanQzScriptPromise) {
+                    return kanbanQzScriptPromise;
+                }
+                kanbanQzScriptPromise = $.Deferred(function(dfd) {
+                    var s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js';
+                    s.onload = function() {
+                        dfd.resolve();
+                    };
+                    s.onerror = function() {
+                        dfd.reject();
+                    };
+                    document.head.appendChild(s);
+                }).promise();
+                return kanbanQzScriptPromise;
+            }
+
+            /* QZ message signing (Opsi 1): request di-sign server, popup trust hilang permanen */
+            var kanbanQzSecurityArmed = false;
+
+            function armKanbanQzSigning() {
+                if (kanbanQzSecurityArmed || !window.qz) {
+                    return;
+                }
+                kanbanQzSecurityArmed = true;
+                try {
+                    qz.security.setSignatureAlgorithm('SHA512');
+                } catch (err) {}
+                qz.security.setCertificatePromise(function(resolve, reject) {
+                    $.get(qzCertUrl).done(function(cert) {
+                        resolve(String(cert || '').trim());
+                    }).fail(reject);
+                });
+                qz.security.setSignaturePromise(function(toSign) {
+                    return function(resolve, reject) {
+                        $.post(qzSignUrl, {
+                            _token: csrf,
+                            request: toSign
+                        }).done(function(sig) {
+                            resolve($.trim(sig));
+                        }).fail(reject);
+                    };
+                });
+            }
+
+            function ensureQzConnected() {
+                var dfd = $.Deferred();
+                ensureQzTrayScript().done(function() {
+                    armKanbanQzSigning();
+                    try {
+                        if (window.qz && qz.websocket.isActive()) {
+                            dfd.resolve();
+                            return;
+                        }
+                        qz.websocket.connect().then(function() {
+                            dfd.resolve();
+                        }).catch(function(err) {
+                            dfd.reject(err);
+                        });
+                    } catch (err) {
+                        dfd.reject(err);
+                    }
+                }).fail(function(err) {
+                    dfd.reject(err);
+                });
+                return dfd.promise();
+            }
+
+            function resolveQzPrinter() {
+                var dfd = $.Deferred();
+                try {
+                    var saved = localStorage.getItem('kanban_qz_printer') || '';
+                    if (saved) {
+                        dfd.resolve(saved);
+                        return dfd.promise();
+                    }
+                    qz.printers.getDefault().then(function(name) {
+                        if (name) {
+                            dfd.resolve(name);
+                        } else {
+                            qz.printers.find().then(function(list) {
+                                dfd.resolve((list && list[0]) || '');
+                            }).catch(function() {
+                                dfd.resolve('');
+                            });
+                        }
+                    }).catch(function() {
+                        qz.printers.find().then(function(list) {
+                            dfd.resolve((list && list[0]) || '');
+                        }).catch(function() {
+                            dfd.resolve('');
+                        });
+                    });
+                } catch (err) {
+                    dfd.reject(err);
+                }
+                return dfd.promise();
+            }
+
+            /* Ganti printer silent: localStorage.setItem('kanban_qz_printer','NAMA_PRINTER') */
+            window.setKanbanPrinter = function(name) {
+                localStorage.setItem('kanban_qz_printer', String(name || ''));
+                return 'Printer silent: ' + String(name || '(default)');
+            };
+
+            function printKanbanIframeFallback(imgList, url, $btn, origHtml) {
+                var $frame = $('#kanbanDirectPrintFrame');
+                if (!$frame.length) {
+                    $frame = $(
+                        '<iframe id="kanbanDirectPrintFrame" title="print" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;" aria-hidden="true"></iframe>'
+                    );
+                    $('body').append($frame);
+                }
+                var sheets = '';
+                (imgList && imgList.length ? imgList : []).forEach(function(imgData) {
+                    sheets += '<div class="sheet"><img src="' + imgData + '"></div>';
+                });
+                /* Jika render gambar gagal total, print PDF apa adanya */
+                if (!sheets) {
+                    $frame.off('load').on('load', function() {
+                        try {
+                            $frame[0].contentWindow.focus();
+                            $frame[0].contentWindow.print();
+                        } catch (err) {}
+                        $btn.prop('disabled', false).html(origHtml);
+                    });
+                    var sep = String(url).indexOf('?') >= 0 ? '&' : '?';
+                    $frame.removeAttr('srcdoc').attr('src', url + sep + '_print=' + Date.now());
+                    return;
+                }
+                var doc = $frame[0].contentWindow.document;
+                doc.open();
+                doc.write(
+                    '<!doctype html><html><head><title>Kanban</title>' +
+                    '<style>@page{size:150mm 80mm;margin:2mm;}' +
+                    'html,body{margin:0;padding:0;background:#fff;}' +
+                    '.sheet{width:146mm;height:76mm;page-break-after:always;overflow:hidden;}' +
+                    '.sheet:last-child{page-break-after:auto;}' +
+                    '.sheet img{display:block;width:100%;height:100%;object-fit:contain;}' +
+                    '</style></head><body>' +
+                    sheets +
+                    '<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},150);}<\/script>' +
+                    '</body></html>'
+                );
+                doc.close();
+                $btn.prop('disabled', false).html(origHtml);
+            }
+
+            function printKanbanImagesSilent(imgList, url, $btn, origHtml) {
+                if (!imgList || !imgList.length) {
+                    printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                    return;
+                }
+                ensureQzConnected().done(function() {
+                    resolveQzPrinter().done(function(printerName) {
+                        if (!printerName) {
+                            printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                            return;
+                        }
+                        try {
+                            var config = qz.configs.create(printerName, {
+                                size: {
+                                    width: 150,
+                                    height: 80
+                                },
+                                units: 'mm',
+                                margins: 0,
+                                scaleContent: true,
+                                copies: 1
+                            });
+                            var data = (imgList || []).map(function(imgData) {
+                                var b64 = String(imgData || '').split(',')[1] || '';
+                                return {
+                                    type: 'pixel',
+                                    format: 'image',
+                                    flavor: 'base64',
+                                    data: b64,
+                                    options: {
+                                        pageWidth: 150,
+                                        pageHeight: 80
+                                    }
+                                };
+                            }).filter(function(d) {
+                                return !!d.data;
+                            });
+                            if (!data.length) {
+                                printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                                return;
+                            }
+                            qz.print(config, data).then(function() {
+                                $btn.prop('disabled', false).html(origHtml);
+                            }).catch(function() {
+                                printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                            });
+                        } catch (err) {
+                            printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                        }
+                    }).fail(function() {
+                        printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                    });
+                }).fail(function() {
+                    printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                });
+            }
+
+            /* TRIAL: 2 halaman pertama, kertas 150mm x 80mm */
+            function printKanbanPdfFirstPageOnly(url, $btn, origHtml) {
+                var cleanUrl = String(url || '').split('#')[0];
+                fetch(cleanUrl, {
+                        credentials: 'same-origin'
+                    })
+                    .then(function(r) {
+                        if (!r.ok) {
+                            throw new Error('fetch failed');
+                        }
+                        return r.arrayBuffer();
+                    })
+                    .then(function(buf) {
+                        return window.pdfjsLib.getDocument({
+                            data: buf
+                        }).promise;
+                    })
+                    .then(function(pdf) {
+                        var total = Math.min(pdf.numPages || 1, 2);
+                        var chain = $.Deferred().resolve([]).promise();
+                        for (var p = 1; p <= total; p++) {
+                            (function(pageNo) {
+                                chain = chain.then(function(imgs) {
+                                    return pdf.getPage(pageNo).then(function(page) {
+                                        var viewport = page.getViewport({
+                                            scale: 2
+                                        });
+                                        var canvas = document.createElement('canvas');
+                                        canvas.width = Math.floor(viewport.width);
+                                        canvas.height = Math.floor(viewport.height);
+                                        return page.render({
+                                            canvasContext: canvas.getContext('2d'),
+                                            viewport: viewport
+                                        }).promise.then(function() {
+                                            imgs.push(canvas.toDataURL('image/png'));
+                                            return imgs;
+                                        });
+                                    });
+                                });
+                            })(p);
+                        }
+                        return chain;
+                    })
+                    .then(function(imgList) {
+                        /* SILENT via QZ Tray (tanpa dialog). Gagal → fallback iframe/dialog. */
+                        printKanbanImagesSilent(imgList, url, $btn, origHtml);
+                    })
+                    .catch(function() {
+                        /* Fallback: print PDF apa adanya via iframe */
+                        var $frame = $('#kanbanDirectPrintFrame');
+                        if (!$frame.length) {
+                            $frame = $(
+                                '<iframe id="kanbanDirectPrintFrame" title="print" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;" aria-hidden="true"></iframe>'
+                            );
+                            $('body').append($frame);
+                        }
+                        $frame.off('load').on('load', function() {
+                            try {
+                                $frame[0].contentWindow.focus();
+                                $frame[0].contentWindow.print();
+                            } catch (err) {}
+                            $btn.prop('disabled', false).html(origHtml);
+                        });
+                        var sep = String(url).indexOf('?') >= 0 ? '&' : '?';
+                        $frame.removeAttr('srcdoc').attr('src', url + sep + '_print=' +
+                            Date.now());
+                    });
+            }
+
             $(document).on('click', '.btn-kanban-print', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 var url = $(this).attr('data-preview') || '';
-                if (url) {
-                    window.open(url, '_blank');
+                if (!url) {
+                    return;
                 }
+                var $btn = $(this);
+                var origHtml = $btn.html();
+                $btn.prop('disabled', true).html(
+                    '<i class="fas fa-spinner fa-spin mr-1"></i>Print...');
+                ensureKanbanPdfJs().done(function() {
+                    printKanbanPdfFirstPageOnly(url, $btn, origHtml);
+                }).fail(function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    window.open(url, '_blank');
+                });
             });
 
             $('#ganttContainer').on('click', '.gantt-bar-wrap.prep-split-top', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                var $seg = $(e.target).closest('.prep-split-top-seg');
+                if ($seg.length) {
+                    var single = $seg.attr('data-pds-number') || '';
+                    if (single && single !== '-') {
+                        openKanbanSourcePopup($(this), [single]);
+                        return;
+                    }
+                }
                 openKanbanSourcePopup($(this));
             });
 
@@ -6890,6 +7264,14 @@
             $('#weeklyGanttContainer').on('click', '.weekly-prep-bar.prep-split-top', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                var $seg = $(e.target).closest('.weekly-split-top-seg');
+                if ($seg.length) {
+                    var single = $seg.attr('data-pds-number') || '';
+                    if (single && single !== '-') {
+                        openKanbanSourcePopup($(this), [single]);
+                        return;
+                    }
+                }
                 openKanbanSourcePopup($(this));
             });
 
@@ -6967,7 +7349,7 @@
             function resolveWeeklyDayColWidth(nSlots) {
                 var custColWidth = 200;
                 var typeColWidth = 120;
-                var minDayWidth = 120;
+                var minDayWidth = 240;
                 var slots = Math.max(parseInt(nSlots, 10) || 1, 1);
                 var $host = $('#deliveryWeeklyCard .weekly-card-body');
                 var containerW = $host.length ? $host.innerWidth() : 0;

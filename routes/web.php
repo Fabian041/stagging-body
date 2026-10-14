@@ -349,6 +349,35 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.kanbanSourcePreview');
 
+    // QZ Tray message signing (hilangkan popup trust per-print)
+    Route::get(
+        '/dashboard/kanban/qz-cert',
+        [
+            DashboardController::class,
+            'kanbanQzCert'
+        ]
+    )
+    ->name('dashboard.kanbanQzCert');
+
+    Route::post(
+        '/dashboard/kanban/qz-sign',
+        [
+            DashboardController::class,
+            'kanbanQzSign'
+        ]
+    )
+    ->name('dashboard.kanbanQzSign');
+
+    Route::get(
+        '/dashboard/kanban/qz-setup',
+        [
+            DashboardController::class,
+            'kanbanQzSetup'
+        ]
+    )
+    ->middleware('can:manage-master')
+    ->name('dashboard.kanbanQzSetup');
+
     Route::get(
         '/dashboard/kanban/status/{id}',
         [
