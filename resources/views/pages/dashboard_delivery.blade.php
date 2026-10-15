@@ -6907,7 +6907,7 @@
                 });
             }
 
-            /* Print hemat kertas (TRIAL): 2 halaman pertama, kertas 150mm x 80mm, tanpa tab preview */
+            /* Print silent QZ: semua halaman, kertas 150mm x 80mm, tanpa tab preview */
             var kanbanPdfJsPromise = null;
 
             function ensureKanbanPdfJs() {
@@ -7148,7 +7148,7 @@
                 });
             }
 
-            /* TRIAL: 2 halaman pertama, kertas 150mm x 80mm */
+            /* PROD: semua halaman, kertas 150mm x 80mm */
             function printKanbanPdfFirstPageOnly(url, $btn, origHtml) {
                 var cleanUrl = String(url || '').split('#')[0];
                 fetch(cleanUrl, {
@@ -7166,7 +7166,7 @@
                         }).promise;
                     })
                     .then(function(pdf) {
-                        var total = Math.min(pdf.numPages || 1, 2);
+                        var total = pdf.numPages || 1;
                         var chain = $.Deferred().resolve([]).promise();
                         for (var p = 1; p <= total; p++) {
                             (function(pageNo) {
