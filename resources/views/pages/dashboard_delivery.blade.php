@@ -5739,12 +5739,49 @@
                 return (rows || []).filter(rowHasConfiguredMasterCycle);
             }
 
-            /* Customer MMKI/TMMIN selalu di baris paling atas (alfabetis di dalam grup). */
+            /* Urutan customer operasional (1-18). Di luar daftar: MMKI/TMMIN dulu lalu alfabetis. */
+            var CUSTOMER_PRIORITY_ORDER = [
+                'TMMINKRW1', 'MMKI', 'TMMINSUNTER', 'SENOPATI', 'FUJITRANS',
+                'SUZUKIGA11', 'SUZUKIRKK', 'ADMKAP', 'HINO', 'TBINA', 'PT. OTICS Indonesia',
+                'TMMIN53', 'TTI', 'ADMSPD', 'TAMSPD', 'MMKISPD', 'HINOSPD', 'SUZUKISPD'
+            ];
+
+            function normalizeCustomerKey(name) {
+                return String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            }
+
+            function customerPriorityRank(name) {
+                var key = normalizeCustomerKey(name);
+                if (!key) {
+                    return CUSTOMER_PRIORITY_ORDER.length;
+                }
+                var exact = CUSTOMER_PRIORITY_ORDER.indexOf(key);
+                if (exact >= 0) {
+                    return exact;
+                }
+                /* Prefix terpanjang (mis. HINOSPD ikut HINO SPD, bukan HINO). */
+                var best = -1;
+                for (var i = 0; i < CUSTOMER_PRIORITY_ORDER.length; i++) {
+                    var want = CUSTOMER_PRIORITY_ORDER[i];
+                    if (key.indexOf(want) === 0 && (best < 0 || want.length > CUSTOMER_PRIORITY_ORDER[best].length)) {
+                        best = i;
+                    }
+                }
+                return best >= 0 ? best : CUSTOMER_PRIORITY_ORDER.length;
+            }
+
             function compareCustomerPriority(a, b) {
-                var pa = /mmki|tmmin/i.test(String(a || '')) ? 0 : 1;
-                var pb = /mmki|tmmin/i.test(String(b || '')) ? 0 : 1;
+                var pa = customerPriorityRank(a);
+                var pb = customerPriorityRank(b);
                 if (pa !== pb) {
                     return pa - pb;
+                }
+                if (pa >= CUSTOMER_PRIORITY_ORDER.length) {
+                    var fa = /mmki|tmmin/i.test(String(a || '')) ? 0 : 1;
+                    var fb = /mmki|tmmin/i.test(String(b || '')) ? 0 : 1;
+                    if (fa !== fb) {
+                        return fa - fb;
+                    }
                 }
                 return String(a || '').localeCompare(String(b || ''));
             }
@@ -7916,6 +7953,20 @@
                 });
             });
             $('#filterDateFrom, #filterDateTo, #filterCustomer').on('change', loadStackedChart);
+
+            /* Samakan urutan dropdown customer dengan urutan baris chart (Semua tetap paling atas). */
+            (function sortCustomerDropdown() {
+                var $sel = $('#filterCustomer');
+                if (!$sel.length) {
+                    return;
+                }
+                var $all = $sel.find('option[value=""]');
+                var rest = $sel.find('option[value!=""]').toArray();
+                rest.sort(function(x, y) {
+                    return compareCustomerPriority($(x).text(), $(y).text());
+                });
+                $sel.empty().append($all).append(rest);
+            })();
 
             $('#etaWindowModalForm').on('submit', function(e) {
                 e.preventDefault();
