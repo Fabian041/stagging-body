@@ -1725,6 +1725,7 @@
                 fd.append('cuts', JSON.stringify(cuts));
                 fd.append('vcuts', JSON.stringify(vcuts || {}));
                 fd.append('skip_blank', '1');
+                fd.append('reverse', '1');
                 fd.append('_token', csrfToken());
                 const xhr = new XMLHttpRequest();
                 row.xhr = xhr;
@@ -1816,6 +1817,7 @@
                     fd2.append('cuts', JSON.stringify(cuts));
                     fd2.append('vcuts', JSON.stringify(vcuts || {}));
                     fd2.append('skip_blank', '1');
+                    fd2.append('reverse', '1');
                     fd2.append('_token', csrf);
                     const res2 = await fetch(FINALIZE_URL, {
                         method: 'POST', body: fd2,
@@ -1989,6 +1991,7 @@
                 fd2.append('cuts', JSON.stringify(cuts));
                 fd2.append('vcuts', JSON.stringify(vcuts || {}));
                 fd2.append('skip_blank', '1'); // permanent: selalu buang halaman blank
+                fd2.append('reverse', '1'); // permanent: hasil split selalu dibalik (nama file tetap)
                 fd2.append('_token', csrf);
                 const res2 = await fetch(FINALIZE_URL, {
                     method: 'POST', body: fd2,
@@ -2138,6 +2141,7 @@
                 fd.append('cuts', JSON.stringify(cuts));
                 fd.append('vcuts', JSON.stringify(vcuts));
                 fd.append('skip_blank', '1'); // permanent: selalu buang halaman blank
+                fd.append('reverse', '1'); // permanent: hasil split selalu dibalik (nama file tetap)
                 fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
                 busy = true; processBtn.disabled = true; cancelBtn.disabled = false;
                 finished = false;

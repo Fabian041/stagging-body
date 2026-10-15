@@ -145,6 +145,18 @@ class ProcessKanbanUpload implements ShouldQueue
         */
 
 
+        /*
+            arsip HASIL generate ke kanban-source dengan nama asli
+            (untuk fetch dari dashboard delivery per PDS/manifest).
+            Arsip dulu, marker DONE belakangan: DONE terlihat = info arsip pasti sudah ada.
+        */
+
+        \App\Support\KanbanSourceArchive::archiveJobOutputs(
+            $this->jobId,
+            \App\Support\KanbanSourceArchive::parseDoneMarker((string) $filename)
+        );
+
+
         file_put_contents(
 
             storage_path(
@@ -155,17 +167,6 @@ class ProcessKanbanUpload implements ShouldQueue
 
             $filename
 
-        );
-
-
-        /*
-            arsip HASIL generate ke kanban-source dengan nama asli
-            (untuk fetch dari dashboard delivery per PDS/manifest)
-        */
-
-        \App\Support\KanbanSourceArchive::archiveJobOutputs(
-            $this->jobId,
-            \App\Support\KanbanSourceArchive::parseDoneMarker((string) $filename)
         );
 
 

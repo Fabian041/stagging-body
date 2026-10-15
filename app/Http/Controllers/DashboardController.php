@@ -2670,6 +2670,7 @@ class DashboardController extends Controller
             'customer' => $customer,
             'files' => array_values($basenames ?? []),
             'originals' => $originals,
+            'reverse' => $request->boolean('reverse', true),
             'created_at' => now()->toDateTimeString(),
         ])
     );
@@ -2796,6 +2797,7 @@ class DashboardController extends Controller
                 'originals' => $originals,
                 'cuts' => $cuts,
                 'vcuts' => $vCuts,
+                'reverse' => $request->boolean('reverse', true),
                 'created_at' => now()->toDateTimeString(),
             ])
         );
@@ -2997,6 +2999,7 @@ class DashboardController extends Controller
                 'original_files' => $originalFiles,
                 'cuts' => $cuts,
                 'vcuts' => $vCuts,
+                'reverse' => $request->boolean('reverse', true),
                 'created_at' => now()->toDateTimeString(),
             ])
         );
@@ -3166,6 +3169,17 @@ public function kanbanUploadStatus($id)
                 }
                 if (isset($info['skipped_blank'])) {
                     $payload['skipped_blank'] = (int) $info['skipped_blank'];
+                }
+                // Arsip kanban-source (1 file, sudah reverse): sajikan ini untuk
+                // tombol download/preview, bukan file temp. Tanpa arsip = fallback
+                // temp (kompatibel job lama / arsip gagal).
+                if (! empty($info['archived']) && is_array($info['archived'])) {
+                    $b = basename((string) $info['archived'][0]);
+                    if ($b !== '' && $b !== '.' && $b !== '..') {
+                        unset($payload['volumes']);
+                        $payload['download'] = route('dashboard.kanbanSourceDownload', $b);
+                        $payload['preview'] = route('dashboard.kanbanSourcePreview', $b);
+                    }
                 }
             }
         }

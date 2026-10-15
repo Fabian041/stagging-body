@@ -185,14 +185,15 @@ class MergeAllManualParts implements ShouldQueue
             ])
         );
 
+        // Arsip dulu, marker DONE belakangan: DONE terlihat = info arsip pasti sudah ada.
+        // Arsip HASIL merge ke kanban-source dengan nama asli (fetch per PDS/manifest).
+        \App\Support\KanbanSourceArchive::archiveJobOutputs($this->jobId, $finalFiles);
+
         if (count($finalFiles) === 1) {
             file_put_contents($dir.'/'.$this->jobId.'.done', $finalFiles[0]);
         } else {
             file_put_contents($dir.'/'.$this->jobId.'.done', json_encode(['volumes' => $finalFiles]));
         }
-
-        // Arsip HASIL merge ke kanban-source dengan nama asli (fetch per PDS/manifest).
-        \App\Support\KanbanSourceArchive::archiveJobOutputs($this->jobId, $finalFiles);
 
         $this->cleanupPartials($dir);
         @unlink($dir.'/'.$this->jobId.'.meta.json');

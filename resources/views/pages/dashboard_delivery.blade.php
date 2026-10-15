@@ -5739,15 +5739,23 @@
                 return (rows || []).filter(rowHasConfiguredMasterCycle);
             }
 
+            /* Customer MMKI/TMMIN selalu di baris paling atas (alfabetis di dalam grup). */
+            function compareCustomerPriority(a, b) {
+                var pa = /mmki|tmmin/i.test(String(a || '')) ? 0 : 1;
+                var pb = /mmki|tmmin/i.test(String(b || '')) ? 0 : 1;
+                if (pa !== pb) {
+                    return pa - pb;
+                }
+                return String(a || '').localeCompare(String(b || ''));
+            }
+
             function buildChartCustomerOrder(rows) {
                 var custSet = {};
                 (rows || []).forEach(function(row) {
                     var cn = row.customer_name || '-';
                     custSet[cn] = true;
                 });
-                return Object.keys(custSet).sort(function(a, b) {
-                    return a.localeCompare(b);
-                });
+                return Object.keys(custSet).sort(compareCustomerPriority);
             }
 
             function buildUnconfiguredTimelineHintHtml(rows) {
@@ -6503,9 +6511,7 @@
                         custNames.push(cn);
                     }
                 });
-                custNames.sort(function(a, b) {
-                    return a.localeCompare(b);
-                });
+                custNames.sort(compareCustomerPriority);
                 if (!custNames.length) {
                     setGanttSlotCount(24);
                     $('#ganttContainer').empty();
