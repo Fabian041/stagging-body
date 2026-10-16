@@ -80,6 +80,11 @@ class AllManualCropProcessor
         $applyFilter = $filterBlank;
         $debugSamples = [];
 
+        // Peta segmen untuk diagnostik (logging saja, tidak mengubah hasil):
+        // kept = segmen jadi halaman hasil, skipped = segmen dibuang + alasan.
+        $keptSegs = [];
+        $skipSegs = [];
+
         // 2 pass: pass 1 buang blank, bila hasilnya NOL halaman ulangi tanpa filter
         // (pengaman agar tidak pernah menghasilkan PDF kosong).
         for ($pass = 0; $pass < 2; $pass++) {
@@ -87,6 +92,8 @@ class AllManualCropProcessor
                 $totalPages = 0;
                 $skippedBlank = 0;
                 $applyFilter = false;
+                $keptSegs = [];
+                $skipSegs = [];
                 logger()->warning('AllManual all blank, retry without filter', ['job' => $jobId]);
             }
 
@@ -136,17 +143,26 @@ class AllManualCropProcessor
                     // Tanpa garis: salin apa adanya, tapi buang bila blank.
                     if ($applyFilter && $this->isBlankSegment($file, $page, 0.0, 1.0)) {
                         $skippedBlank++;
+                        try {
+                            $skipSegs[] = array_merge(
+                                ['fi' => $fileIndex, 'pg' => $page, 'top' => 0.0, 'bot' => 1.0, 'reason' => 'blank_fullpage'],
+                                $this->detector->debugSegmentMetrics($file, $page, 0.0, 1.0)
+                            );
+                        } catch (\Throwable $e) {
+                            $skipSegs[] = ['fi' => $fileIndex, 'pg' => $page, 'top' => 0.0, 'bot' => 1.0, 'reason' => 'blank_fullpage'];
+                        }
                         continue;
                     }
                     $output->AddPage($pageW > $pageH ? 'L' : 'P', [$pageW, $pageH]);
                     $output->useTemplate($template, 0, 0, $pageW, $pageH);
                     $totalPages++;
+                    $keptSegs[] = ['fi' => $fileIndex, 'pg' => $page, 'top' => 0.0, 'bot' => 1.0];
                     continue;
                 }
 
                 // Ada garis berdiri: potong grid (tidur × berdiri) → sel.
                 if (! empty($vCuts)) {
-                    $this->emitGridCells($output, $template, $file, $page, $pageW, $pageH, $cuts, $vCuts, $applyFilter, $pass, $totalPages, $skippedBlank);
+                    $this->emitGridCells($output, $template, $file, $page, $pageW, $pageH, $cuts, $vCuts, $applyFilter, $pass, $totalPages, $skippedBlank, $fileIndex, $keptSegs, $skipSegs);
                     continue;
                 }
 
@@ -169,12 +185,21 @@ class AllManualCropProcessor
                         if ($pass === 0) {
                             $skippedBlank++;
                         }
+                        $skipSegs[] = ['fi' => $fileIndex, 'pg' => $page, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3), 'reason' => 'min_seg', 'seg_mm' => round($segH, 1)];
                         continue;
                     }
 
                     // Buang segmen blank/putih saja.
                     if ($applyFilter && $this->isBlankSegment($file, $page, (float) $top, (float) $bottom)) {
                         $skippedBlank++;
+                        try {
+                            $skipSegs[] = array_merge(
+                                ['fi' => $fileIndex, 'pg' => $page, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3), 'reason' => 'blank', 'seg_mm' => round($segH, 1)],
+                                $this->detector->debugSegmentMetrics($file, $page, (float) $top, (float) $bottom)
+                            );
+                        } catch (\Throwable $e) {
+                            $skipSegs[] = ['fi' => $fileIndex, 'pg' => $page, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3), 'reason' => 'blank', 'seg_mm' => round($segH, 1)];
+                        }
                         continue;
                     }
 
@@ -197,6 +222,7 @@ class AllManualCropProcessor
                     $output->AddPage($pageW > $segH ? 'L' : 'P', [$pageW, $segH]);
                     $output->useTemplate($template, $offX, $offY, $pageW, $pageH);
                     $totalPages++;
+                    $keptSegs[] = ['fi' => $fileIndex, 'pg' => $page, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3)];
                 }
             }
         }
@@ -231,6 +257,23 @@ class AllManualCropProcessor
             'pages' => $totalPages,
             'skipped_blank' => $skippedBlank,
         ]);
+
+        // Peta segmen final (pass terakhir): mana jadi halaman, mana dibuang + alasan.
+        // fi=fileIndex, pg=halaman sumber, top/bot=fraksi garis. Cap agar log tidak bengkak.
+        try {
+            $keptLog = array_slice($keptSegs, 0, 500);
+            $skipLog = array_slice($skipSegs, 0, 200);
+            logger()->info('AllManual segment-map', [
+                'job' => $jobId,
+                'kept' => count($keptSegs),
+                'skipped' => count($skipSegs),
+                'kept_segs' => $keptLog,
+                'skipped_segs' => $skipLog,
+                'kept_truncated' => count($keptSegs) > count($keptLog),
+                'skipped_truncated' => count($skipSegs) > count($skipLog),
+            ]);
+        } catch (\Throwable $e) {
+        }
 
         if (! empty($debugSamples)) {
             logger()->info('AllManual blank-debug', [
@@ -287,6 +330,8 @@ class AllManualCropProcessor
         $skippedBlank = 0;
         $applyFilter = $filterBlank;
         $chunkDebugSamples = [];
+        $keptSegs = [];
+        $skipSegs = [];
 
         // 2 pass: pass 1 buang blank, bila hasilnya NOL halaman ulangi tanpa filter
         // (pengaman agar tidak pernah menghasilkan PDF kosong).
@@ -295,6 +340,8 @@ class AllManualCropProcessor
                 $totalPages = 0;
                 $skippedBlank = 0;
                 $applyFilter = false;
+                $keptSegs = [];
+                $skipSegs = [];
                 logger()->warning('AllManualChunked all blank, retry without filter', ['job' => $jobId]);
             }
 
@@ -347,17 +394,26 @@ class AllManualCropProcessor
                     if (empty($cuts) && empty($vCuts)) {
                         if ($applyFilter && $this->isBlankSegment($chunk, $local, 0.0, 1.0)) {
                             $skippedBlank++;
+                            try {
+                                $skipSegs[] = array_merge(
+                                    ['fi' => $fileIndex, 'pg' => $lookup, 'top' => 0.0, 'bot' => 1.0, 'reason' => 'blank_fullpage'],
+                                    $this->detector->debugSegmentMetrics($chunk, $local, 0.0, 1.0)
+                                );
+                            } catch (\Throwable $e) {
+                                $skipSegs[] = ['fi' => $fileIndex, 'pg' => $lookup, 'top' => 0.0, 'bot' => 1.0, 'reason' => 'blank_fullpage'];
+                            }
                             continue;
                         }
                         $output->AddPage($pageW > $pageH ? 'L' : 'P', [$pageW, $pageH]);
                         $output->useTemplate($template, 0, 0, $pageW, $pageH);
                         $totalPages++;
+                        $keptSegs[] = ['fi' => $fileIndex, 'pg' => $lookup, 'top' => 0.0, 'bot' => 1.0];
                         continue;
                     }
 
                     // Ada garis berdiri: potong grid (tidur × berdiri) → sel.
                     if (! empty($vCuts)) {
-                        $this->emitGridCells($output, $template, $chunk, $local, $pageW, $pageH, $cuts, $vCuts, $applyFilter, $pass, $totalPages, $skippedBlank);
+                        $this->emitGridCells($output, $template, $chunk, $local, $pageW, $pageH, $cuts, $vCuts, $applyFilter, $pass, $totalPages, $skippedBlank, (int) $fileIndex, $keptSegs, $skipSegs);
                         continue;
                     }
 
@@ -377,11 +433,20 @@ class AllManualCropProcessor
                             if ($pass === 0) {
                                 $skippedBlank++;
                             }
+                            $skipSegs[] = ['fi' => $fileIndex, 'pg' => $lookup, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3), 'reason' => 'min_seg', 'seg_mm' => round($segH, 1)];
                             continue;
                         }
 
                         if ($applyFilter && $this->isBlankSegment($chunk, $local, (float) $top, (float) $bottom)) {
                             $skippedBlank++;
+                            try {
+                                $skipSegs[] = array_merge(
+                                    ['fi' => $fileIndex, 'pg' => $lookup, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3), 'reason' => 'blank', 'seg_mm' => round($segH, 1)],
+                                    $this->detector->debugSegmentMetrics($chunk, $local, (float) $top, (float) $bottom)
+                                );
+                            } catch (\Throwable $e) {
+                                $skipSegs[] = ['fi' => $fileIndex, 'pg' => $lookup, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3), 'reason' => 'blank', 'seg_mm' => round($segH, 1)];
+                            }
                             continue;
                         }
 
@@ -400,6 +465,7 @@ class AllManualCropProcessor
                         $output->AddPage($pageW > $segH ? 'L' : 'P', [$pageW, $segH]);
                         $output->useTemplate($template, 0.0, -$y, $pageW, $pageH);
                         $totalPages++;
+                        $keptSegs[] = ['fi' => $fileIndex, 'pg' => $lookup, 'top' => round((float) $top, 3), 'bot' => round((float) $bottom, 3)];
                     }
                 }
             }
@@ -434,6 +500,19 @@ class AllManualCropProcessor
             'skipped_blank' => $skippedBlank,
         ]);
 
+        try {
+            logger()->info('AllManual segment-map', [
+                'job' => $jobId,
+                'kept' => count($keptSegs),
+                'skipped' => count($skipSegs),
+                'kept_segs' => array_slice($keptSegs, 0, 500),
+                'skipped_segs' => array_slice($skipSegs, 0, 200),
+                'kept_truncated' => count($keptSegs) > 500,
+                'skipped_truncated' => count($skipSegs) > 200,
+            ]);
+        } catch (\Throwable $e) {
+        }
+
         if (! empty($chunkDebugSamples)) {
             logger()->info('AllManual blank-debug', [
                 'job' => $jobId,
@@ -452,7 +531,8 @@ class AllManualCropProcessor
     /**
      * Segmen blank = halaman/potongan putih polos tanpa isi.
      * Urutan cek: (0) halaman tanpa operator, (1) piksel render
-     * (scan gambar & sisa border), (2) fallback vektor teks+tinta.
+     * (scan gambar & sisa border), (2) fallback vektor teks+tinta,
+     * (3) veto parse-degenere (stream besar tapi tak terekstrak).
      * Fail-safe: ragu-ragu => BERISI (jangan buang).
      */
     protected function isBlankSegment(string $file, int $page, float $fracTop, float $fracBottom): bool
@@ -492,10 +572,56 @@ class AllManualCropProcessor
         }
 
         try {
-            return $this->detector->countInkInBand($file, $page, $fracTop, $fracBottom) <= 5;
+            if ($this->detector->countInkInBand($file, $page, $fracTop, $fracBottom) > 5) {
+                return false;
+            }
         } catch (\Throwable $e) {
             return false;
         }
+
+        // 3) Veto parse-degenere (kasus 4260669054 hal-1): segmen mau dibuang
+        //    TAPI parser nyaris tidak mengekstrak apa pun dari SELURUH halaman
+        //    padahal stream mentah besar (filter tak dikenal / object stream /
+        //    encoding aneh) → parse tidak bisa dipercaya, anggap BERISI.
+        //    Bukti: raw 12802 byte, text_page 5 (normal 135-138), ink total ~0
+        //    (normal puluhan ribu). Halaman blank beneran punya raw kecil
+        //    sehingga tetap terbuang. Fail-safe: ragu-ragu => BERISI.
+        //    Ambang longgar (500, bukan 5) karena 5 item teks stray saja sudah
+        //    menandai ~45 bin; halaman kanban asli ber-ink puluhan ribu.
+        try {
+            $metrics = $this->detector->debugSegmentMetrics($file, $page, $fracTop, $fracBottom);
+            $rawTotal = $metrics['raw'] ?? null;
+            $textTotal = $metrics['text_page'] ?? null;
+            if (is_int($rawTotal) && is_int($textTotal) && $rawTotal > 5000 && $textTotal < 30) {
+                $inkTotal = $this->detector->countInkInBand($file, $page, 0.0, 1.0);
+                if ($inkTotal < 500) {
+                    logger()->info('AllManual blank-veto', [
+                        'file' => basename($file),
+                        'pg' => $page,
+                        'top' => round($fracTop, 3),
+                        'bot' => round($fracBottom, 3),
+                        'metrics' => $metrics,
+                        'ink_total' => $inkTotal,
+                    ]);
+
+                    return false;
+                }
+                // Halaman mencurigakan tapi ink total tak terduga tinggi:
+                // catat agar terlihat bila veto lolos palsu.
+                logger()->info('AllManual blank-veto-skip', [
+                    'file' => basename($file),
+                    'pg' => $page,
+                    'top' => round($fracTop, 3),
+                    'bot' => round($fracBottom, 3),
+                    'metrics' => $metrics,
+                    'ink_total' => $inkTotal,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // abaikan, lanjut putusan blank di bawah
+        }
+
+        return true;
     }
 
     /**
@@ -516,10 +642,22 @@ class AllManualCropProcessor
         bool $applyFilter,
         int $pass,
         int &$totalPages,
-        int &$skippedBlank
+        int &$skippedBlank,
+        int $fileIndex = 0,
+        ?array &$keptSegs = null,
+        ?array &$skipSegs = null
     ): void {
         $hBounds = array_merge([0.0], array_values($hCuts), [1.0]);
         $vBounds = array_merge([0.0], array_values($vCuts), [1.0]);
+
+        $cell = function (float $top, float $bottom, float $left, float $right, string $reason, array $extra = []) use ($fileIndex, $page, &$keptSegs, &$skipSegs): void {
+            try {
+                if ($skipSegs !== null) {
+                    $skipSegs[] = array_merge(['fi' => $fileIndex, 'pg' => $page, 'top' => round($top, 3), 'bot' => round($bottom, 3), 'left' => round($left, 3), 'right' => round($right, 3), 'reason' => $reason], $extra);
+                }
+            } catch (\Throwable $e) {
+            }
+        };
 
         for ($hi = 0; $hi < count($hBounds) - 1; $hi++) {
             $top = (float) $hBounds[$hi];
@@ -531,6 +669,7 @@ class AllManualCropProcessor
                 if ($pass === 0) {
                     $skippedBlank++;
                 }
+                $cell($top, $bottom, 0.0, 1.0, 'min_seg_h', ['seg_mm' => round($segH, 1)]);
                 continue;
             }
 
@@ -544,11 +683,18 @@ class AllManualCropProcessor
                     if ($pass === 0) {
                         $skippedBlank++;
                     }
+                    $cell($top, $bottom, $left, $right, 'min_seg_w', ['seg_mm' => round($segW, 1)]);
                     continue;
                 }
 
                 if ($applyFilter && $this->isBlankCell($file, $page, $top, $bottom, $left, $right)) {
                     $skippedBlank++;
+                    $extra = [];
+                    try {
+                        $extra = $this->detector->debugSegmentMetrics($file, $page, $top, $bottom);
+                    } catch (\Throwable $e) {
+                    }
+                    $cell($top, $bottom, $left, $right, 'blank_cell', $extra);
                     continue;
                 }
 
@@ -558,6 +704,12 @@ class AllManualCropProcessor
                 $output->AddPage($segW > $segH ? 'L' : 'P', [$segW, $segH]);
                 $output->useTemplate($template, -$x, -$y, $pageW, $pageH);
                 $totalPages++;
+                try {
+                    if ($keptSegs !== null) {
+                        $keptSegs[] = ['fi' => $fileIndex, 'pg' => $page, 'top' => round($top, 3), 'bot' => round($bottom, 3), 'left' => round($left, 3), 'right' => round($right, 3)];
+                    }
+                } catch (\Throwable $e) {
+                }
             }
         }
     }
