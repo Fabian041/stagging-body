@@ -3472,6 +3472,10 @@ public function kanbanCancel($id)
                 if (stripos($base, $pds) === false) {
                     continue;
                 }
+                // Manifest files are served by manifest endpoint, not kanban.
+                if (stripos($base, 'manifest') !== false) {
+                    continue;
+                }
                 $matched[] = [
                     'file' => $base,
                     'download' => route('dashboard.kanbanSourceDownload', $base),
@@ -3511,6 +3515,97 @@ public function kanbanCancel($id)
     }
 
     /**
+     * Daftar file manifest arsip (manifest-source, dan kanban-source yang namanya mengandung manifest)
+     * untuk 1..N nomor PDS/manifest.
+     */
+    public function manifestSourceFiles(Request $request)
+    {
+        $raw = $request->input('pds', []);
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+
+        $wanted = collect((array) $raw)
+            ->map(fn ($v) => preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->take(24)
+            ->values();
+
+        if ($wanted->isEmpty()) {
+            return response()->json(['status' => false, 'message' => 'Parameter PDS kosong.'], 422);
+        }
+
+        $diskFiles = [];
+        foreach (['manifest-source', 'kanban-source'] as $dir) {
+            try {
+                foreach (Storage::files($dir) as $path) {
+                    $diskFiles[$dir][] = $path;
+                }
+            } catch (\Throwable $e) {
+                $diskFiles[$dir] = [];
+            }
+        }
+
+        $data = [];
+        foreach ($wanted as $pds) {
+            $matched = [];
+            foreach ($diskFiles as $dir => $paths) {
+                foreach ((array) $paths as $path) {
+                    $base = basename($path);
+                    if (stripos($base, $pds) === false) {
+                        continue;
+                    }
+                    $isManifest = $dir === 'manifest-source' || stripos($base, 'manifest') !== false;
+                    if (! $isManifest) {
+                        continue;
+                    }
+                    $matched[] = [
+                        'file' => $base,
+                        'download' => route('dashboard.manifestSourceDownload', $base),
+                        'preview' => route('dashboard.manifestSourcePreview', $base),
+                    ];
+                }
+            }
+            usort($matched, static fn ($a, $b) => strcmp($a['file'], $b['file']));
+            $data[] = ['pds' => $pds, 'files' => $matched];
+        }
+
+        return response()->json(['status' => true, 'data' => $data]);
+    }
+
+    public function manifestSourceDownload($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        foreach (['manifest-source', 'kanban-source'] as $dir) {
+            $path = storage_path('app/'.$dir.'/'.$base);
+            if (is_file($path)) {
+                return response()->download($path, $base);
+            }
+        }
+        abort(404);
+    }
+
+    public function manifestSourcePreview($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        foreach (['manifest-source', 'kanban-source'] as $dir) {
+            $path = storage_path('app/'.$dir.'/'.$base);
+            if (is_file($path)) {
+                return response()->file($path, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="'.$base.'"',
+                ]);
+            }
+        }
+        abort(404);
+    }
+
+    /**
      * QZ Tray message signing — hilangkan popup trust per-print (Opsi 1).
      * Setup sekali: admin membuka qz-setup agar keypair dibuat di server aktif.
      * Sertifikat publik dipasang sebagai override.crt di tiap PC printer.
@@ -3530,7 +3625,9 @@ public function kanbanCancel($id)
             $keyPath = $dir.'/private-key.pem';
             $crtPath = $dir.'/digital-certificate.txt';
 
-            $missingKeypair = ! is_file($keyPath) || ! is_file($crtPath);
+            $missingKeypair = ! is_file($keyPath) || ! is_file($crtPath)
+                || trim((string) @file_get_contents($keyPath)) === ''
+                || trim((string) @file_get_contents($crtPath)) === '';
             $rotated = ! $missingKeypair && $this->qzNeedsTrustedRootUpgrade($crtPath);
             $created = false;
             if ($missingKeypair || $rotated) {
@@ -3546,7 +3643,10 @@ public function kanbanCancel($id)
                 if ($key === false) {
                     throw new \RuntimeException('Gagal membuat private key.');
                 }
-                openssl_pkey_export($key, $privatePem);
+                $exported = openssl_pkey_export($key, $privatePem, null, ['config' => $localCnf]);
+                if (! $exported || ! isset($privatePem) || trim((string) $privatePem) === '') {
+                    throw new \RuntimeException('Gagal mengekspor private key. '.(openssl_error_string() ?: ''));
+                }
                 $dn = ['commonName' => 'bella-local-qz', 'organizationName' => 'BELLA'];
 
                 // Windows/XAMPP/Laragon sering gagal CSR tanpa openssl.cnf eksplisit.
@@ -3708,16 +3808,33 @@ public function kanbanCancel($id)
         ]);
     }
 
-    /** Sign request QZ (format resmi: RSA-SHA512, output base64 text/plain). */
     public function kanbanQzSign(Request $request)
     {
         $data = $request->validate(['request' => 'required|string|max:12000000']);
         $keyPath = storage_path('app/qz-signing/private-key.pem');
-        abort_if(! is_file($keyPath), 404, 'Private key QZ belum dibuat. Buka qz-setup dulu.');
-        $key = openssl_get_privatekey(file_get_contents($keyPath));
-        abort_if($key === false, 500, 'Private key QZ tidak valid.');
+        if (! is_file($keyPath)) {
+            \Log::error('QZ sign: private key file missing', ['path' => $keyPath]);
+            abort(404, 'Private key QZ belum dibuat. Buka qz-setup dulu.');
+        }
+        $keyContents = @file_get_contents($keyPath);
+        if ($keyContents === false || trim($keyContents) === '') {
+            \Log::error('QZ sign: private key empty/unreadable', ['path' => $keyPath, 'size' => @filesize($keyPath)]);
+            abort(500, 'Private key QZ tidak valid.');
+        }
+        $key = openssl_get_privatekey($keyContents);
+        if ($key === false) {
+            \Log::error('QZ sign: openssl_get_privatekey failed', [
+                'path' => $keyPath,
+                'size' => strlen($keyContents),
+                'openssl_error' => openssl_error_string(),
+            ]);
+            abort(500, 'Private key QZ tidak valid.');
+        }
         $ok = openssl_sign($data['request'], $signature, $key, 'sha512');
-        abort_if(! $ok || $signature === null, 500, 'Gagal signing request QZ.');
+        if (! $ok || $signature === null) {
+            \Log::error('QZ sign: openssl_sign failed', ['openssl_error' => openssl_error_string()]);
+            abort(500, 'Gagal signing request QZ.');
+        }
 
         return response(base64_encode($signature), 200, ['Content-Type' => 'text/plain']);
     }

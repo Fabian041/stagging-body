@@ -3076,8 +3076,54 @@
             var syncLoadingListsUrl = "{{ route('dashboard.delivery.syncLoadingLists') }}";
             var loadingListUrl = "{{ route('loadingList.index') }}";
             var kanbanSourceFilesUrl = "{{ route('dashboard.kanbanSourceFiles') }}";
+            var manifestSourceFilesUrl = "{{ route('dashboard.manifestSourceFiles') }}";
             var qzCertUrl = "{{ route('dashboard.kanbanQzCert') }}";
             var qzSignUrl = "{{ route('dashboard.kanbanQzSign') }}";
+            window.DOCUMENT_PRINTER_CONFIG = {
+                kanban: "{{ config('printing.printers.kanban', 'Printer A') }}",
+                manifest: "{{ config('printing.printers.manifest', 'Printer B') }}"
+            };
+            try {
+                if (localStorage.getItem('qz_printer_kanban')) {
+                    window.DOCUMENT_PRINTER_CONFIG.kanban = localStorage.getItem('qz_printer_kanban');
+                }
+                if (localStorage.getItem('qz_printer_manifest')) {
+                    window.DOCUMENT_PRINTER_CONFIG.manifest = localStorage.getItem('qz_printer_manifest');
+                }
+            } catch (err) {}
+            window.DOCUMENT_PAPER_CONFIG = {
+                kanban: {
+                    width: {{ (int) config('printing.paper.kanban.width', 150) }},
+                    height: {{ (int) config('printing.paper.kanban.height', 80) }},
+                    units: "{{ config('printing.paper.kanban.units', 'mm') }}",
+                    margins: {{ (int) config('printing.paper.kanban.margins', 0) }},
+                    scale_content: {{ config('printing.paper.kanban.scale_content', true) ? 'true' : 'false' }},
+                    copies: {{ (int) config('printing.paper.kanban.copies', 1) }}
+                },
+                manifest: {
+                    width: {{ (int) config('printing.paper.manifest.width', 210) }},
+                    height: {{ (int) config('printing.paper.manifest.height', 297) }},
+                    units: "{{ config('printing.paper.manifest.units', 'mm') }}",
+                    margins: {{ (int) config('printing.paper.manifest.margins', 0) }},
+                    scale_content: {{ config('printing.paper.manifest.scale_content', true) ? 'true' : 'false' }},
+                    copies: {{ (int) config('printing.paper.manifest.copies', 1) }}
+                }
+            };
+            // Backward-compatible helpers.
+            window.setKanbanPrinter = function(name) {
+                try { localStorage.setItem('qz_printer_kanban', String(name || '')); } catch (err) {}
+                window.DOCUMENT_PRINTER_CONFIG.kanban = String(name || '');
+                return 'Printer silent: ' + String(name || '(default)');
+            };
+            window.setManifestPrinter = function(name) {
+                try { localStorage.setItem('qz_printer_manifest', String(name || '')); } catch (err) {}
+                window.DOCUMENT_PRINTER_CONFIG.manifest = String(name || '');
+                return 'Printer silent: ' + String(name || '(default)');
+            };
+            window.setPrinterForDocumentType = function(type, name) {
+                if (type === 'manifest') return window.setManifestPrinter(name);
+                return window.setKanbanPrinter(name);
+            };
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
             var masterIndex = "{{ route('dashboard.delivery.masterCycles.index') }}";
             var masterStore = "{{ route('dashboard.delivery.masterCycles.store') }}";
@@ -6874,16 +6920,18 @@
                 return pds.slice(0, 24);
             }
 
-            function buildKanbanSourceTableHtml(groups) {
+            function buildDocumentSourceTableHtml(groups, documentType) {
+                documentType = documentType || 'kanban';
+                var label = documentType === 'manifest' ? 'Manifest' : 'Kanban';
                 var html = '<div style="text-align:left;">';
                 html +=
-                    '<table class="prep-late-detail__table"><thead><tr><th>PDS / Manifest</th><th>File Kanban</th><th style="text-align:right;">Aksi</th></tr></thead><tbody>';
+                    '<table class="prep-late-detail__table"><thead><tr><th>PDS / Manifest</th><th>File ' + escapeHtml(label) + '</th><th style="text-align:right;">Aksi</th></tr></thead><tbody>';
                 var hasFile = false;
                 (groups || []).forEach(function(g) {
                     var files = (g && g.files) || [];
                     if (!files.length) {
                         html += '<tr><td>' + escapeHtml(g.pds || '-') +
-                            '</td><td colspan="2"><span style="color:#6b7280;">Belum ada file arsip — upload ulang via dashboard kanban.</span></td></tr>';
+                            '</td><td colspan="2"><span style="color:#6b7280;">Belum ada file arsip ' + escapeHtml(label.toLowerCase()) + ' — upload ulang via dashboard kanban.</span></td></tr>';
                         return;
                     }
                     files.forEach(function(f, idx) {
@@ -6893,7 +6941,7 @@
                                 .pds || '-') + '</strong></td>' :
                             '') + '<td>' + escapeHtml(f.file || '-') + '</td>' +
                             '<td style="text-align:right;white-space:nowrap;">' +
-                            '<button type="button" class="act-btn primary btn-kanban-print" data-preview="' +
+                            '<button type="button" class="act-btn primary btn-kanban-print" data-document-type="' + escapeAttr(documentType) + '" data-preview="' +
                             escapeAttr(f.preview || '') +
                             '" style="height:28px;padding:0 10px;font-size:11px;margin-right:4px;"><i class="fas fa-print mr-1"></i>Print</button>' +
                             '<a class="act-btn success" href="' + escapeAttr(f.download || '') +
@@ -6908,11 +6956,15 @@
                 };
             }
 
+            function buildKanbanSourceTableHtml(groups) {
+                return buildDocumentSourceTableHtml(groups, 'kanban');
+            }
+
             function openKanbanSourcePopup($bar, overridePdsList) {
                 var pdsList = (overridePdsList && overridePdsList.length) ? overridePdsList : collectSplitBarPds($bar);
                 if (!pdsList.length) {
                     Swal.fire({
-                        title: 'File Kanban',
+                        title: 'File Dokumen',
                         html: '<div style="min-height:60px;"></div>',
                         confirmButtonText: 'Tutup',
                         confirmButtonColor: '#6b7280'
@@ -6920,7 +6972,7 @@
                     return;
                 }
                 Swal.fire({
-                    title: 'File Kanban',
+                    title: 'File Dokumen',
                     html: '<div style="color:#6b7280;font-size:12px;">Memuat daftar file...</div>',
                     showConfirmButton: false,
                     allowOutsideClick: false,
@@ -6928,26 +6980,65 @@
                         Swal.showLoading();
                     }
                 });
+
+                var pending = 2;
+                var kanbanGroups = [];
+                var manifestGroups = [];
+                var failed = 0;
+                function finish() {
+                    pending--;
+                    if (pending > 0) {
+                        return;
+                    }
+                    if (failed === 2) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal memuat',
+                            text: 'File dokumen tidak bisa dimuat. Coba lagi.',
+                            confirmButtonText: 'Tutup',
+                            confirmButtonColor: '#6b7280'
+                        });
+                        return;
+                    }
+                    var html = '';
+                    var kb = buildDocumentSourceTableHtml(kanbanGroups, 'kanban');
+                    var mf = buildDocumentSourceTableHtml(manifestGroups, 'manifest');
+                    if (kanbanGroups.length) {
+                        html += '<div style="margin-bottom:12px;"><strong style="color:#0d365c;">Kanban</strong>' + kb.html + '</div>';
+                    }
+                    if (manifestGroups.length) {
+                        html += '<div><strong style="color:#0d365c;">Manifest</strong>' + mf.html + '</div>';
+                    }
+                    if (!html) {
+                        html = '<div style="color:#6b7280;font-size:12px;">Belum ada file arsip.</div>';
+                    }
+                    if (failed === 1) {
+                        html += '<div style="color:#b91c1c;font-size:11px;margin-top:8px;">Sebagian data gagal dimuat.</div>';
+                    }
+                    Swal.fire({
+                        title: 'File Dokumen',
+                        html: html,
+                        width: 760,
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                }
+
                 $.get(kanbanSourceFilesUrl, {
                     pds: pdsList.join(',')
                 }).done(function(res) {
-                    var built = buildKanbanSourceTableHtml((res && res.data) || []);
-                    Swal.fire({
-                        title: 'File Kanban',
-                        html: built.html,
-                        width: 720,
-                        confirmButtonText: 'Tutup',
-                        confirmButtonColor: '#6b7280'
-                    });
+                    kanbanGroups = (res && res.data) || [];
                 }).fail(function() {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal memuat',
-                        text: 'File kanban tidak bisa dimuat. Coba lagi.',
-                        confirmButtonText: 'Tutup',
-                        confirmButtonColor: '#6b7280'
-                    });
-                });
+                    failed++;
+                }).always(finish);
+
+                $.get(manifestSourceFilesUrl, {
+                    pds: pdsList.join(',')
+                }).done(function(res) {
+                    manifestGroups = (res && res.data) || [];
+                }).fail(function() {
+                    failed++;
+                }).always(finish);
             }
 
             /* Print silent QZ: semua halaman, kertas 150mm x 80mm, tanpa tab preview */
@@ -7054,41 +7145,21 @@
                 return dfd.promise();
             }
 
-            function resolveQzPrinter() {
+            function resolveQzPrinter(documentType) {
+                documentType = documentType || 'kanban';
                 var dfd = $.Deferred();
-                try {
-                    var saved = localStorage.getItem('kanban_qz_printer') || '';
-                    if (saved) {
-                        dfd.resolve(saved);
-                        return dfd.promise();
-                    }
-                    qz.printers.getDefault().then(function(name) {
-                        if (name) {
-                            dfd.resolve(name);
-                        } else {
-                            qz.printers.find().then(function(list) {
-                                dfd.resolve((list && list[0]) || '');
-                            }).catch(function() {
-                                dfd.resolve('');
-                            });
-                        }
-                    }).catch(function() {
-                        qz.printers.find().then(function(list) {
-                            dfd.resolve((list && list[0]) || '');
-                        }).catch(function() {
-                            dfd.resolve('');
-                        });
-                    });
-                } catch (err) {
-                    dfd.reject(err);
+                var name = (window.DOCUMENT_PRINTER_CONFIG && window.DOCUMENT_PRINTER_CONFIG[documentType]) || '';
+                if (name) {
+                    dfd.resolve(name);
+                    return dfd.promise();
                 }
+                dfd.reject(new Error('Printer belum dikonfigurasi untuk ' + documentType + '.'));
                 return dfd.promise();
             }
 
             /* Ganti printer silent: localStorage.setItem('kanban_qz_printer','NAMA_PRINTER') */
             window.setKanbanPrinter = function(name) {
-                localStorage.setItem('kanban_qz_printer', String(name || ''));
-                return 'Printer silent: ' + String(name || '(default)');
+                return window.setPrinterForDocumentType('kanban', name);
             };
 
             function printKanbanIframeFallback(imgList, url, $btn, origHtml) {
@@ -7134,27 +7205,43 @@
                 $btn.prop('disabled', false).html(origHtml);
             }
 
-            function printKanbanImagesSilent(imgList, url, $btn, origHtml) {
+            function printKanbanImagesSilent(imgList, url, $btn, origHtml, documentType) {
+                documentType = documentType || 'kanban';
+                var paperCfg = (window.DOCUMENT_PAPER_CONFIG && window.DOCUMENT_PAPER_CONFIG[documentType]) || window.DOCUMENT_PAPER_CONFIG.kanban;
                 if (!imgList || !imgList.length) {
-                    printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                    $btn.prop('disabled', false).html(origHtml);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal mencetak',
+                        text: 'Dokumen tidak dapat dirender untuk dicetak.',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
                     return;
                 }
                 ensureQzConnected().done(function() {
-                    resolveQzPrinter().done(function(printerName) {
+                    resolveQzPrinter(documentType).done(function(printerName) {
                         if (!printerName) {
-                            printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                            $btn.prop('disabled', false).html(origHtml);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Printer tidak ditemukan',
+                                text: 'Printer untuk ' + documentType + ' belum dikonfigurasi atau tidak terdeteksi oleh QZ Tray.',
+                                confirmButtonText: 'Tutup',
+                                confirmButtonColor: '#6b7280'
+                            });
                             return;
                         }
                         try {
                             var config = qz.configs.create(printerName, {
                                 size: {
-                                    width: 150,
-                                    height: 80
+                                    width: paperCfg.width,
+                                    height: paperCfg.height
                                 },
-                                units: 'mm',
-                                margins: 0,
-                                scaleContent: true,
-                                copies: 1
+                                units: paperCfg.units,
+                                margins: paperCfg.margins,
+                                scaleContent: paperCfg.scale_content,
+                                copies: paperCfg.copies
                             });
                             var data = (imgList || []).map(function(imgData) {
                                 var b64 = String(imgData || '').split(',')[1] || '';
@@ -7164,35 +7251,77 @@
                                     flavor: 'base64',
                                     data: b64,
                                     options: {
-                                        pageWidth: 150,
-                                        pageHeight: 80
+                                        pageWidth: paperCfg.width,
+                                        pageHeight: paperCfg.height
                                     }
                                 };
                             }).filter(function(d) {
                                 return !!d.data;
                             });
                             if (!data.length) {
-                                printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                                $btn.prop('disabled', false).html(origHtml);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal mencetak',
+                                    text: 'Dokumen tidak dapat diproses untuk dicetak.',
+                                    confirmButtonText: 'Tutup',
+                                    confirmButtonColor: '#6b7280'
+                                });
                                 return;
                             }
                             qz.print(config, data).then(function() {
                                 $btn.prop('disabled', false).html(origHtml);
-                            }).catch(function() {
-                                printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil dicetak',
+                                    text: documentType + ' dikirim ke ' + printerName + '.',
+                                    timer: 1800,
+                                    showConfirmButton: false
+                                });
+                            }).catch(function(err) {
+                                $btn.prop('disabled', false).html(origHtml);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal mencetak',
+                                    text: (err && err.message) ? err.message : 'Proses cetak QZ Tray gagal.',
+                                    confirmButtonText: 'Tutup',
+                                    confirmButtonColor: '#6b7280'
+                                });
                             });
                         } catch (err) {
-                            printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                            $btn.prop('disabled', false).html(origHtml);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal mencetak',
+                                text: (err && err.message) ? err.message : 'Proses cetak QZ Tray gagal.',
+                                confirmButtonText: 'Tutup',
+                                confirmButtonColor: '#6b7280'
+                            });
                         }
-                    }).fail(function() {
-                        printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                    }).fail(function(err) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Printer tidak ditemukan',
+                            text: (err && err.message) ? err.message : 'Printer untuk ' + documentType + ' belum dikonfigurasi.',
+                            confirmButtonText: 'Tutup',
+                            confirmButtonColor: '#6b7280'
+                        });
                     });
-                }).fail(function() {
-                    printKanbanIframeFallback(imgList, url, $btn, origHtml);
+                }).fail(function(err) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'QZ Tray tidak terhubung',
+                        text: (err && err.message) ? err.message : 'Pastikan QZ Tray berjalan dan terhubung.',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
                 });
             }
 
-            /* PROD: semua halaman, kertas 150mm x 80mm */
-            function printKanbanPdfFirstPageOnly(url, $btn, origHtml) {
+            function printKanbanPdfFirstPageOnly(url, $btn, origHtml, documentType) {
+                documentType = documentType || 'kanban';
                 var cleanUrl = String(url || '').split('#')[0];
                 fetch(cleanUrl, {
                         credentials: 'same-origin'
@@ -7235,47 +7364,46 @@
                         return chain;
                     })
                     .then(function(imgList) {
-                        /* SILENT via QZ Tray (tanpa dialog). Gagal → fallback iframe/dialog. */
-                        printKanbanImagesSilent(imgList, url, $btn, origHtml);
+                        printKanbanImagesSilent(imgList, url, $btn, origHtml, documentType);
                     })
-                    .catch(function() {
-                        /* Fallback: print PDF apa adanya via iframe */
-                        var $frame = $('#kanbanDirectPrintFrame');
-                        if (!$frame.length) {
-                            $frame = $(
-                                '<iframe id="kanbanDirectPrintFrame" title="print" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;" aria-hidden="true"></iframe>'
-                            );
-                            $('body').append($frame);
-                        }
-                        $frame.off('load').on('load', function() {
-                            try {
-                                $frame[0].contentWindow.focus();
-                                $frame[0].contentWindow.print();
-                            } catch (err) {}
-                            $btn.prop('disabled', false).html(origHtml);
+                    .catch(function(err) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal mencetak',
+                            text: (err && err.message) ? err.message : 'Dokumen gagal diambil atau diproses.',
+                            confirmButtonText: 'Tutup',
+                            confirmButtonColor: '#6b7280'
                         });
-                        var sep = String(url).indexOf('?') >= 0 ? '&' : '?';
-                        $frame.removeAttr('srcdoc').attr('src', url + sep + '_print=' +
-                            Date.now());
                     });
             }
 
             $(document).on('click', '.btn-kanban-print', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                var url = $(this).attr('data-preview') || '';
+                var $btn = $(this);
+                if ($btn.prop('disabled')) {
+                    return;
+                }
+                var url = $btn.attr('data-preview') || '';
                 if (!url) {
                     return;
                 }
-                var $btn = $(this);
+                var documentType = $btn.attr('data-document-type') || 'kanban';
                 var origHtml = $btn.html();
                 $btn.prop('disabled', true).html(
                     '<i class="fas fa-spinner fa-spin mr-1"></i>Print...');
                 ensureKanbanPdfJs().done(function() {
-                    printKanbanPdfFirstPageOnly(url, $btn, origHtml);
+                    printKanbanPdfFirstPageOnly(url, $btn, origHtml, documentType);
                 }).fail(function() {
                     $btn.prop('disabled', false).html(origHtml);
-                    window.open(url, '_blank');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal memuat PDF.js',
+                        text: 'Tidak dapat memuat pustaka PDF untuk mencetak.',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
                 });
             });
 

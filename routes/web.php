@@ -349,6 +349,34 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.kanbanSourcePreview');
 
+    // Arsip manifest permanen — dipakai popup bar PDS di dashboard delivery.
+    Route::get(
+        '/dashboard/manifest/source-files',
+        [
+            DashboardController::class,
+            'manifestSourceFiles'
+        ]
+    )
+    ->name('dashboard.manifestSourceFiles');
+
+    Route::get(
+        '/dashboard/manifest/source-download/{file}',
+        [
+            DashboardController::class,
+            'manifestSourceDownload'
+        ]
+    )
+    ->name('dashboard.manifestSourceDownload');
+
+    Route::get(
+        '/dashboard/manifest/source-preview/{file}',
+        [
+            DashboardController::class,
+            'manifestSourcePreview'
+        ]
+    )
+    ->name('dashboard.manifestSourcePreview');
+
     // QZ Tray message signing (hilangkan popup trust per-print)
     Route::get(
         '/dashboard/kanban/qz-cert',
