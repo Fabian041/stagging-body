@@ -200,11 +200,12 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 48px;
-            padding: 4px 9px;
+            min-width: 44px;
+            padding: 4px 10px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 800;
+            letter-spacing: .04em;
         }
 
         .history-direction-in {
@@ -218,11 +219,204 @@
         }
 
         .history-adjustment {
-            display: block;
-            margin-top: 3px;
+            display: inline-flex;
+            margin-left: 6px;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: #fef3c7;
             color: #b45309;
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+        }
+
+        #stockHistoryModal .modal-dialog {
+            width: calc(100% - 28px);
+            max-width: 880px;
+            margin: 14px auto;
+        }
+
+        #stockHistoryModal .modal-content {
+            max-height: calc(100vh - 28px);
+        }
+
+        #stockHistoryModal .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 20px !important;
+            background: var(--card, #ffffff) !important;
+        }
+
+        .history-modal-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .history-modal-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+            border-radius: 10px;
+            color: var(--primary, #0070b7);
+            background: rgba(0, 112, 183, .1);
+        }
+
+        .history-modal-title h5 {
+            margin: 0 0 5px;
+            color: var(--text, #0f172a) !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+        }
+
+        .history-part-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            color: var(--text-muted, #64748b);
+            font-size: 11.5px;
+        }
+
+        .history-back-number {
+            display: inline-flex;
+            padding: 3px 8px;
+            border-radius: 5px;
+            color: var(--primary, #0070b7);
+            background: rgba(0, 112, 183, .08);
+            font-weight: 800;
+        }
+
+        .history-current-summary {
+            min-width: 132px;
+            padding: 8px 12px;
+            border: 1px solid var(--border, #e5e7eb);
+            border-radius: 8px;
+            background: var(--bg, #f8fafc);
+            text-align: right;
+        }
+
+        .history-current-summary span {
+            display: block;
+            margin-bottom: 1px;
+            color: var(--text-muted, #64748b);
+            font-size: 9.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .history-current-summary strong {
+            color: var(--text, #0f172a);
+            font-size: 18px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #stockHistoryModal .modal-body {
+            padding: 0 !important;
+            max-height: calc(100vh - 176px);
+            overflow-y: auto;
+            background: var(--card, #ffffff) !important;
+        }
+
+        .history-table {
+            width: 100%;
+            margin: 0;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .history-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            padding: 10px 14px;
+            border: 0;
+            border-bottom: 1px solid var(--border, #e5e7eb);
+            background: var(--bg, #f8fafc);
+            color: var(--text-muted, #64748b);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            white-space: nowrap;
+        }
+
+        .history-table tbody td {
+            height: 64px;
+            padding: 10px 14px;
+            border: 0;
+            border-bottom: 1px solid var(--border, #e5e7eb);
+            background: var(--card, #ffffff);
+            color: var(--text, #0f172a);
+            font-size: 12.5px;
+            vertical-align: middle;
+        }
+
+        .history-table tbody tr:hover td {
+            background: var(--bg, #f8fafc);
+        }
+
+        .history-time {
+            white-space: nowrap;
+        }
+
+        .history-time strong,
+        .history-time span {
+            display: block;
+        }
+
+        .history-time strong {
+            margin-bottom: 2px;
+            font-size: 12px;
+            font-weight: 750;
+        }
+
+        .history-time span {
+            color: var(--text-muted, #64748b);
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .history-mutation {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .history-qty,
+        .history-balance,
+        .history-code {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .history-qty,
+        .history-balance {
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .history-balance {
+            color: var(--navy, #294795);
+        }
+
+        #stockHistoryModal .modal-footer {
+            min-height: 58px;
+        }
+
+        .history-pagination-actions {
+            display: flex;
+            gap: 6px;
         }
 
         .bella-badge {
@@ -840,6 +1034,33 @@
             .pis-row .form-group.full-span {
                 grid-column: 1;
             }
+
+            #stockHistoryModal .modal-header {
+                align-items: flex-start;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .history-current-summary {
+                order: 3;
+                width: 100%;
+                text-align: left;
+            }
+
+            #stockHistoryModal .modal-header .close {
+                margin-left: auto;
+            }
+
+            .history-table thead th,
+            .history-table tbody td {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .history-table th:nth-child(4),
+            .history-table td:nth-child(4) {
+                display: none;
+            }
         }
     </style>
 
@@ -985,41 +1206,50 @@
 {{-- end of modal --}}
 
 <div class="modal fade" tabindex="-1" role="dialog" id="stockHistoryModal">
-    <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <div>
-                    <h5 class="modal-title mb-1">Riwayat Transaksi <code id="historyBackNumber">-</code></h5>
-                    <small class="text-muted" id="historyPartNumber">-</small>
+                <div class="history-modal-title">
+                    <span class="history-modal-icon"><i class="fas fa-exchange-alt"></i></span>
+                    <div>
+                        <h5>Riwayat Transaksi Stock</h5>
+                        <div class="history-part-meta">
+                            <span class="history-back-number" id="historyBackNumber">-</span>
+                            <span id="historyPartNumber">-</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="history-current-summary">
+                    <span>Current Stock</span>
+                    <strong id="historyCurrentStock">0</strong>
                 </div>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered stock-table mb-0">
+                <div class="table-responsive mb-0">
+                    <table class="history-table">
                         <thead>
                             <tr>
-                                <th>Tanggal</th>
-                                <th>Tipe</th>
-                                <th>Qty</th>
-                                <th>Serial Number</th>
+                                <th style="width: 24%">Waktu</th>
+                                <th style="width: 23%">Mutasi</th>
+                                <th style="width: 20%">Serial</th>
                                 <th>Operator</th>
-                                <th>Saldo</th>
+                                <th style="width: 18%" class="text-right">Saldo Akhir</th>
                             </tr>
                         </thead>
                         <tbody id="stockHistoryBody">
-                            <tr><td colspan="6" class="text-center text-muted py-4">Memuat riwayat transaksi...</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted py-4">Memuat riwayat transaksi...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             <div class="modal-footer justify-content-between">
                 <span class="text-muted" id="stockHistoryPageInfo">-</span>
-                <div>
-                    <button type="button" class="act-btn secondary" id="stockHistoryPrev">Sebelumnya</button>
-                    <button type="button" class="act-btn secondary" id="stockHistoryNext">Berikutnya</button>
+                <div class="history-pagination-actions">
+                    <button type="button" class="act-btn secondary" id="stockHistoryPrev"><i class="fas fa-chevron-left"></i> Sebelumnya</button>
+                    <button type="button" class="act-btn secondary" id="stockHistoryNext">Berikutnya <i class="fas fa-chevron-right"></i></button>
                 </div>
             </div>
         </div>
@@ -1153,6 +1383,7 @@
             details: @json(session('import_errors', [])),
             validationErrors: @json($errors->all()),
         };
+        const stockNumberFormatter = new Intl.NumberFormat('id-ID');
 
         function escapeHtml(value) {
             return String(value ?? '')
@@ -1224,7 +1455,12 @@
                 return value;
             }
 
-            return '<span class="stock-number">' + escapeHtml(value) + '</span>';
+            return '<span class="stock-number">' + escapeHtml(formatStockNumber(value)) + '</span>';
+        }
+
+        function formatStockNumber(value) {
+            const number = Number(value);
+            return Number.isFinite(number) ? stockNumberFormatter.format(number) : String(value || '0');
         }
 
         function renderStockMovement(value, type, direction) {
@@ -1232,9 +1468,10 @@
                 return value;
             }
 
-            const prefix = direction === 'in' ? '+' : '−';
+            const number = Number(value) || 0;
+            const prefix = number === 0 ? '' : (direction === 'in' ? '+' : '−');
             return '<span class="stock-number stock-movement-' + direction + '">' +
-                prefix + escapeHtml(value) + '</span>';
+                prefix + escapeHtml(formatStockNumber(Math.abs(number))) + '</span>';
         }
 
         function renderBackNumber(value, type) {
@@ -1252,7 +1489,9 @@
                 return gap;
             }
 
-            const label = gap > 0 ? '+' + gap : String(gap);
+            const label = gap > 0
+                ? '+' + formatStockNumber(gap)
+                : (gap < 0 ? '−' + formatStockNumber(Math.abs(gap)) : '0');
             const badgeClass = gap < 0 ? 'red' : (gap === 0 ? 'yellow' : 'green');
 
             return '<span class="bella-badge bella-badge-' + badgeClass + '">' + escapeHtml(label) + '</span>';
@@ -1291,22 +1530,41 @@
         let stockHistoryPartId = null;
         let stockHistoryPage = 1;
 
+        function formatHistoryDate(value) {
+            const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+            if (!match) {
+                return {
+                    date: value || '-',
+                    time: ''
+                };
+            }
+
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            return {
+                date: Number(match[3]) + ' ' + monthNames[Number(match[2]) - 1] + ' ' + match[1],
+                time: match[4]
+            };
+        }
+
         function renderStockHistoryRow(row) {
             const direction = row.direction === 'in' ? 'in' : 'out';
-            const sign = direction === 'in' ? '+' : '−';
+            const qty = Number(row.qty) || 0;
+            const sign = qty === 0 ? '' : (direction === 'in' ? '+' : '−');
+            const occurredAt = formatHistoryDate(row.date);
             const adjustment = row.is_adjustment
                 ? '<span class="history-adjustment">Adjustment</span>'
                 : '';
 
             return '<tr>' +
-                '<td>' + escapeHtml(row.date || '-') + adjustment + '</td>' +
-                '<td class="text-center"><span class="history-direction history-direction-' + direction + '">' +
-                direction.toUpperCase() + '</span></td>' +
-                '<td class="text-center"><span class="stock-number stock-movement-' + direction + '">' +
-                sign + escapeHtml(row.qty) + '</span></td>' +
-                '<td>' + escapeHtml(row.serial_number || '-') + '</td>' +
-                '<td>' + escapeHtml(row.npk || '-') + '</td>' +
-                '<td class="text-center"><span class="stock-number">' + escapeHtml(row.balance_after) + '</span></td>' +
+                '<td><div class="history-time"><strong>' + escapeHtml(occurredAt.date) + '</strong>' +
+                '<span>' + escapeHtml(occurredAt.time) + '</span></div></td>' +
+                '<td><div class="history-mutation"><span class="history-direction history-direction-' + direction + '">' +
+                direction.toUpperCase() + '</span><span class="history-qty stock-movement-' + direction + '">' +
+                sign + escapeHtml(formatStockNumber(Math.abs(qty))) + '</span>' + adjustment + '</div></td>' +
+                '<td><span class="history-code">' + escapeHtml(row.serial_number || '-') + '</span></td>' +
+                '<td><span class="history-code">' + escapeHtml(row.npk || '-') + '</span></td>' +
+                '<td class="text-right"><span class="history-balance">' +
+                escapeHtml(formatStockNumber(row.balance_after)) + '</span></td>' +
                 '</tr>';
         }
 
@@ -1315,7 +1573,7 @@
 
             stockHistoryPage = page;
             $('#stockHistoryBody').html(
-                '<tr><td colspan="6" class="text-center text-muted py-4">Memuat riwayat transaksi...</td></tr>'
+                '<tr><td colspan="5" class="text-center text-muted py-4">Memuat riwayat transaksi...</td></tr>'
             );
             $('#stockHistoryPrev, #stockHistoryNext').prop('disabled', true);
 
@@ -1328,10 +1586,11 @@
                 const part = response.part || {};
 
                 $('#historyBackNumber').text(part.back_number || '-');
-                $('#historyPartNumber').text((part.part_number || '-') + ' · Current Stock ' + (part.current_stock || 0));
+                $('#historyPartNumber').text(part.part_number || '-');
+                $('#historyCurrentStock').text(formatStockNumber(part.current_stock || 0));
                 $('#stockHistoryBody').html(rows.length
                     ? rows.map(renderStockHistoryRow).join('')
-                    : '<tr><td colspan="6" class="text-center text-muted py-4">Belum ada transaksi IN/OUT.</td></tr>');
+                    : '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada transaksi IN/OUT.</td></tr>');
                 $('#stockHistoryPageInfo').text(
                     'Halaman ' + (pagination.current_page || 1) + ' dari ' + (pagination.last_page || 1) +
                     ' · ' + (pagination.total || 0) + ' transaksi'
@@ -1343,7 +1602,7 @@
                     ? xhr.responseJSON.message
                     : 'Gagal memuat riwayat transaksi.';
                 $('#stockHistoryBody').html(
-                    '<tr><td colspan="6" class="text-center text-danger py-4">' + escapeHtml(message) + '</td></tr>'
+                    '<tr><td colspan="5" class="text-center text-danger py-4">' + escapeHtml(message) + '</td></tr>'
                 );
                 $('#stockHistoryPageInfo').text('-');
             });
@@ -1668,6 +1927,7 @@
             stockHistoryPage = 1;
             $('#historyBackNumber').text(this.dataset.backNumber || '-');
             $('#historyPartNumber').text('-');
+            $('#historyCurrentStock').text('0');
             $('#stockHistoryModal').modal('show');
             loadStockHistory(1);
         });
