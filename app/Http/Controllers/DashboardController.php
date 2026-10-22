@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\MutationMultiSheetExport;
 use App\Exports\PartImportTemplateExport;
 use App\Exports\StockImportTemplateExport;
+use App\Exports\StockTransactionHistoryExport;
 use App\Imports\ManifestImport;
 use App\Imports\PartImport;
 use App\Imports\StockImport;
@@ -984,6 +985,8 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
             'page' => ['sometimes', 'integer', 'min:1'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
 
         $part = DB::table('internal_parts')
@@ -997,25 +1000,96 @@ class DashboardController extends Controller
             )
             ->first();
 
-        $transactions = DB::table('mutations')
-            ->where('internal_part_id', $part->id)
-            ->whereIn('type', ['supply', 'checkout'])
-            ->select('id', 'date', 'type', 'qty', 'serial_number', 'npk', 'is_adjustment')
-            ->orderByDesc('id')
+        $transactions = $this->stockTransactionQuery(
+            (int) $part->id,
+            $validated['date_from'] ?? null,
+            $validated['date_to'] ?? null
+        )
             ->paginate(10);
+        $rows = $this->stockTransactionRows(
+            $transactions->getCollection(),
+            (int) $part->id,
+            (int) $part->current_stock
+        );
 
-        $firstTransaction = $transactions->getCollection()->first();
+        return response()->json([
+            'part' => [
+                'id' => (int) $part->id,
+                'back_number' => (string) $part->back_number,
+                'part_number' => (string) $part->part_number,
+                'current_stock' => (int) $part->current_stock,
+            ],
+            'data' => $rows,
+            'pagination' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'total' => $transactions->total(),
+            ],
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    public function productionStockTransactionsExport(Request $request)
+    {
+        $validated = $request->validate([
+            'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $part = DB::table('internal_parts')
+            ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+            ->where('internal_parts.id', $validated['internal_part_id'])
+            ->select(
+                'internal_parts.id',
+                'internal_parts.back_number',
+                'internal_parts.part_number',
+                DB::raw('COALESCE(production_stocks.current_stock, 0) as current_stock')
+            )
+            ->first();
+
+        $transactions = $this->stockTransactionQuery(
+            (int) $part->id,
+            $validated['date_from'] ?? null,
+            $validated['date_to'] ?? null
+        )->get();
+        $rows = $this->stockTransactionRows(
+            $transactions,
+            (int) $part->id,
+            (int) $part->current_stock
+        );
+        $dateSuffix = ($validated['date_from'] ?? 'awal').'_'.($validated['date_to'] ?? 'akhir');
+        $filename = 'Riwayat_Stock_'
+            .preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) $part->back_number).'_'
+            .str_replace('-', '', $dateSuffix).'.xlsx';
+
+        return Excel::download(new StockTransactionHistoryExport($part, $rows), $filename);
+    }
+
+    private function stockTransactionQuery(int $internalPartId, ?string $dateFrom = null, ?string $dateTo = null)
+    {
+        return DB::table('mutations')
+            ->where('internal_part_id', $internalPartId)
+            ->whereIn('type', ['supply', 'checkout'])
+            ->when($dateFrom, fn ($query) => $query->whereDate('date', '>=', $dateFrom))
+            ->when($dateTo, fn ($query) => $query->whereDate('date', '<=', $dateTo))
+            ->select('id', 'date', 'type', 'qty', 'serial_number', 'npk', 'is_adjustment')
+            ->orderByDesc('id');
+    }
+
+    private function stockTransactionRows($transactions, int $internalPartId, int $currentStock)
+    {
+        $firstTransaction = $transactions->first();
         $newerBalanceChange = $firstTransaction
             ? (int) DB::table('mutations')
-                ->where('internal_part_id', $part->id)
+                ->where('internal_part_id', $internalPartId)
                 ->whereIn('type', ['supply', 'checkout'])
                 ->where('id', '>', $firstTransaction->id)
                 ->selectRaw("COALESCE(SUM(CASE WHEN type = 'supply' THEN qty ELSE -qty END), 0) as balance_change")
                 ->value('balance_change')
             : 0;
-        $balance = (int) $part->current_stock - $newerBalanceChange;
+        $balance = $currentStock - $newerBalanceChange;
 
-        $rows = $transactions->getCollection()->map(function ($transaction) use (&$balance) {
+        return $transactions->map(function ($transaction) use (&$balance) {
             $row = [
                 'id' => (int) $transaction->id,
                 'date' => $transaction->date,
@@ -1033,21 +1107,6 @@ class DashboardController extends Controller
 
             return $row;
         });
-
-        return response()->json([
-            'part' => [
-                'id' => (int) $part->id,
-                'back_number' => (string) $part->back_number,
-                'part_number' => (string) $part->part_number,
-                'current_stock' => (int) $part->current_stock,
-            ],
-            'data' => $rows,
-            'pagination' => [
-                'current_page' => $transactions->currentPage(),
-                'last_page' => $transactions->lastPage(),
-                'total' => $transactions->total(),
-            ],
-        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     public function productionPairingLogs(Request $request)

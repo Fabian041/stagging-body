@@ -419,6 +419,43 @@
             gap: 6px;
         }
 
+        .history-filter-bar {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border, #e5e7eb);
+            background: var(--bg, #f8fafc);
+        }
+
+        .history-filter-field {
+            min-width: 150px;
+        }
+
+        .history-filter-field label {
+            display: block;
+            margin: 0 0 4px;
+            color: var(--text-muted, #64748b);
+            font-size: 9.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .history-filter-field .form-control {
+            height: 34px;
+            padding: 5px 9px;
+            border-color: var(--border, #e5e7eb);
+            border-radius: 5px;
+            background: var(--card, #ffffff);
+            color: var(--text, #0f172a);
+            font-size: 11.5px;
+        }
+
+        .history-download-button {
+            margin-left: auto;
+        }
+
         .bella-badge {
             display: inline-flex;
             align-items: center;
@@ -1061,6 +1098,20 @@
             .history-table td:nth-child(4) {
                 display: none;
             }
+
+            .history-filter-bar {
+                align-items: stretch;
+                flex-wrap: wrap;
+            }
+
+            .history-filter-field {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 130px;
+            }
+
+            .history-download-button {
+                margin-left: 0;
+            }
         }
     </style>
 
@@ -1228,6 +1279,25 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div class="history-filter-bar">
+                    <div class="history-filter-field">
+                        <label for="stockHistoryDateFrom">Dari Tanggal</label>
+                        <input type="date" class="form-control" id="stockHistoryDateFrom">
+                    </div>
+                    <div class="history-filter-field">
+                        <label for="stockHistoryDateTo">Sampai Tanggal</label>
+                        <input type="date" class="form-control" id="stockHistoryDateTo">
+                    </div>
+                    <button type="button" class="act-btn primary" id="stockHistoryApply">
+                        <i class="fas fa-filter"></i> Terapkan
+                    </button>
+                    <button type="button" class="act-btn secondary" id="stockHistoryReset" title="Reset filter">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button type="button" class="act-btn success history-download-button" id="stockHistoryDownload">
+                        <i class="fas fa-file-excel"></i> Download Excel
+                    </button>
+                </div>
                 <div class="table-responsive mb-0">
                     <table class="history-table">
                         <thead>
@@ -1370,6 +1440,7 @@
         const stockConfig = {
             dataUrl: @json(route('dashboard.productionStock.data')),
             transactionsUrl: @json(route('dashboard.productionStock.transactions')),
+            transactionsExportUrl: @json(route('dashboard.productionStock.transactions.export')),
             activeLine: @json($activeLine),
             focusBackNumber: @json($focusBackNumber),
             refreshMs: 30000,
@@ -1530,6 +1601,32 @@
         let stockHistoryPartId = null;
         let stockHistoryPage = 1;
 
+        function stockHistoryFilters() {
+            return {
+                date_from: $('#stockHistoryDateFrom').val() || '',
+                date_to: $('#stockHistoryDateTo').val() || ''
+            };
+        }
+
+        function stockHistoryFilterIsValid() {
+            const filters = stockHistoryFilters();
+            if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
+                if (window.iziToast) {
+                    iziToast.warning({
+                        title: 'Filter tanggal tidak valid',
+                        message: 'Tanggal mulai tidak boleh setelah tanggal akhir.',
+                        position: 'bottomRight',
+                        timeout: 4000,
+                        class: 'iziToast-warning'
+                    });
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
         function formatHistoryDate(value) {
             const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})/);
             if (!match) {
@@ -1577,10 +1674,10 @@
             );
             $('#stockHistoryPrev, #stockHistoryNext').prop('disabled', true);
 
-            $.getJSON(stockConfig.transactionsUrl, {
+            $.getJSON(stockConfig.transactionsUrl, Object.assign({
                 internal_part_id: stockHistoryPartId,
                 page: page
-            }).done(function(response) {
+            }, stockHistoryFilters())).done(function(response) {
                 const rows = response.data || [];
                 const pagination = response.pagination || {};
                 const part = response.part || {};
@@ -1597,6 +1694,7 @@
                 );
                 $('#stockHistoryPrev').prop('disabled', (pagination.current_page || 1) <= 1);
                 $('#stockHistoryNext').prop('disabled', (pagination.current_page || 1) >= (pagination.last_page || 1));
+                $('#stockHistoryDownload').prop('disabled', (pagination.total || 0) === 0);
             }).fail(function(xhr) {
                 const message = xhr.responseJSON && xhr.responseJSON.message
                     ? xhr.responseJSON.message
@@ -1605,6 +1703,7 @@
                     '<tr><td colspan="5" class="text-center text-danger py-4">' + escapeHtml(message) + '</td></tr>'
                 );
                 $('#stockHistoryPageInfo').text('-');
+                $('#stockHistoryDownload').prop('disabled', true);
             });
         }
 
@@ -1928,8 +2027,27 @@
             $('#historyBackNumber').text(this.dataset.backNumber || '-');
             $('#historyPartNumber').text('-');
             $('#historyCurrentStock').text('0');
+            $('#stockHistoryDateFrom, #stockHistoryDateTo').val('');
             $('#stockHistoryModal').modal('show');
             loadStockHistory(1);
+        });
+
+        $('#stockHistoryApply').on('click', function() {
+            if (stockHistoryFilterIsValid()) loadStockHistory(1);
+        });
+
+        $('#stockHistoryReset').on('click', function() {
+            $('#stockHistoryDateFrom, #stockHistoryDateTo').val('');
+            loadStockHistory(1);
+        });
+
+        $('#stockHistoryDownload').on('click', function() {
+            if (!stockHistoryPartId || !stockHistoryFilterIsValid()) return;
+
+            const params = new URLSearchParams(Object.assign({
+                internal_part_id: stockHistoryPartId
+            }, stockHistoryFilters()));
+            window.location.href = stockConfig.transactionsExportUrl + '?' + params.toString();
         });
 
         $('#stockHistoryPrev').on('click', function() {
