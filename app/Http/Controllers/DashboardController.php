@@ -928,10 +928,22 @@ class DashboardController extends Controller
         $items = $this->productionStockBaseQuery()
             ->where('lines.name', $line)
             ->orderBy('internal_parts.back_number')
+            ->get();
+
+        $transactionTotals = DB::table('mutations')
+            ->whereIn('internal_part_id', $items->pluck('id'))
+            ->select('internal_part_id')
+            ->selectRaw("SUM(CASE WHEN type = 'supply' THEN COALESCE(qty, 0) ELSE 0 END) as stock_in")
+            ->selectRaw("SUM(CASE WHEN type = 'checkout' THEN COALESCE(qty, 0) ELSE 0 END) as stock_out")
+            ->groupBy('internal_part_id')
             ->get()
-            ->map(function ($item) {
+            ->keyBy('internal_part_id');
+
+        $items = $items
+            ->map(function ($item) use ($transactionTotals) {
                 $qty = (int) $item->current_stock;
                 $standard = (int) $item->standard_stock;
+                $totals = $transactionTotals->get($item->id);
 
                 if ($qty < $standard) {
                     $status = 'Under Stock';
@@ -953,6 +965,8 @@ class DashboardController extends Controller
                     'back_number' => (string) $item->back_number,
                     'qty' => $qty,
                     'standard' => $standard,
+                    'stock_in' => (int) ($totals->stock_in ?? 0),
+                    'stock_out' => (int) ($totals->stock_out ?? 0),
                     'status' => $status,
                     'status_class' => $statusClass,
                     'status_icon' => $statusIcon,

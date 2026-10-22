@@ -180,6 +180,14 @@
             color: var(--text, #0f172a);
         }
 
+        .stock-movement-in {
+            color: #15803d;
+        }
+
+        .stock-movement-out {
+            color: #dc2626;
+        }
+
         .bella-badge {
             display: inline-flex;
             align-items: center;
@@ -802,8 +810,7 @@
         <div class="bella-table-card-header">
             <div>
                 <span class="bella-table-card-title"><i class="fas fa-boxes mr-1"></i>Body Plant Stock Monitoring</span>
-                <div class="bella-table-card-subtitle">Monitoring standard stock, current stock, dan status inventory per
-                    line.</div>
+                <div class="bella-table-card-subtitle">Total IN − Total OUT menghasilkan current stock, termasuk transaksi adjustment.</div>
             </div>
             <div class="stock-header-actions">
                 <a href="{{ route('dashboard.stock.template') }}" class="act-btn secondary">
@@ -864,6 +871,8 @@
                                         <th>Back Number</th>
                                         <th>Part Number</th>
                                         <th>Standard Stock</th>
+                                        <th>Total In</th>
+                                        <th>Total Out</th>
                                         <th>Current Stock</th>
                                         <th>Gap</th>
                                         <th>Status</th>
@@ -872,7 +881,7 @@
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">Memuat data stock...</td>
+                                        <td colspan="10" class="text-center text-muted py-4">Memuat data stock...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1054,7 +1063,7 @@
             activeLine: @json($activeLine),
             focusBackNumber: @json($focusBackNumber),
             refreshMs: 30000,
-            statusColumn: 6,
+            statusColumn: 8,
         };
 
         const flashMessage = {
@@ -1136,6 +1145,16 @@
             }
 
             return '<span class="stock-number">' + escapeHtml(value) + '</span>';
+        }
+
+        function renderStockMovement(value, type, direction) {
+            if (type !== 'display') {
+                return value;
+            }
+
+            const prefix = direction === 'in' ? '+' : '−';
+            return '<span class="stock-number stock-movement-' + direction + '">' +
+                prefix + escapeHtml(value) + '</span>';
         }
 
         function renderBackNumber(value, type) {
@@ -1266,6 +1285,18 @@
                     {
                         data: 'standard',
                         render: renderStockNumber
+                    },
+                    {
+                        data: 'stock_in',
+                        render: function(value, type) {
+                            return renderStockMovement(value, type, 'in');
+                        }
+                    },
+                    {
+                        data: 'stock_out',
+                        render: function(value, type) {
+                            return renderStockMovement(value, type, 'out');
+                        }
                     },
                     {
                         data: 'qty',
