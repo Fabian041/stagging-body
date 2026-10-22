@@ -979,6 +979,77 @@ class DashboardController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
+    public function productionStockTransactions(Request $request)
+    {
+        $validated = $request->validate([
+            'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        $part = DB::table('internal_parts')
+            ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
+            ->where('internal_parts.id', $validated['internal_part_id'])
+            ->select(
+                'internal_parts.id',
+                'internal_parts.back_number',
+                'internal_parts.part_number',
+                DB::raw('COALESCE(production_stocks.current_stock, 0) as current_stock')
+            )
+            ->first();
+
+        $transactions = DB::table('mutations')
+            ->where('internal_part_id', $part->id)
+            ->whereIn('type', ['supply', 'checkout'])
+            ->select('id', 'date', 'type', 'qty', 'serial_number', 'npk', 'is_adjustment')
+            ->orderByDesc('id')
+            ->paginate(10);
+
+        $firstTransaction = $transactions->getCollection()->first();
+        $newerBalanceChange = $firstTransaction
+            ? (int) DB::table('mutations')
+                ->where('internal_part_id', $part->id)
+                ->whereIn('type', ['supply', 'checkout'])
+                ->where('id', '>', $firstTransaction->id)
+                ->selectRaw("COALESCE(SUM(CASE WHEN type = 'supply' THEN qty ELSE -qty END), 0) as balance_change")
+                ->value('balance_change')
+            : 0;
+        $balance = (int) $part->current_stock - $newerBalanceChange;
+
+        $rows = $transactions->getCollection()->map(function ($transaction) use (&$balance) {
+            $row = [
+                'id' => (int) $transaction->id,
+                'date' => $transaction->date,
+                'direction' => $transaction->type === 'supply' ? 'in' : 'out',
+                'qty' => (int) $transaction->qty,
+                'serial_number' => (string) ($transaction->serial_number ?? ''),
+                'npk' => (string) ($transaction->npk ?? ''),
+                'is_adjustment' => (bool) $transaction->is_adjustment,
+                'balance_after' => $balance,
+            ];
+
+            $balance -= $transaction->type === 'supply'
+                ? (int) $transaction->qty
+                : -(int) $transaction->qty;
+
+            return $row;
+        });
+
+        return response()->json([
+            'part' => [
+                'id' => (int) $part->id,
+                'back_number' => (string) $part->back_number,
+                'part_number' => (string) $part->part_number,
+                'current_stock' => (int) $part->current_stock,
+            ],
+            'data' => $rows,
+            'pagination' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'total' => $transactions->total(),
+            ],
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
     public function productionPairingLogs(Request $request)
     {
         $status = $request->query('status');

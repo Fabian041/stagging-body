@@ -468,6 +468,7 @@ Route::middleware(['auth'])->group(function () {
         // Production stock monitoring (sebelumnya ada di /dashboard)
         Route::get('/production/stock', [DashboardController::class, 'productionStock'])->name('dashboard.productionStock');
         Route::get('/production/stock/data', [DashboardController::class, 'productionStockData'])->name('dashboard.productionStock.data');
+        Route::get('/production/stock/transactions', [DashboardController::class, 'productionStockTransactions'])->name('dashboard.productionStock.transactions');
         Route::get('/production/pairing-logs', [DashboardController::class, 'productionPairingLogs'])->name('dashboard.productionPairingLogs');
 
         Route::prefix('master')->group(function () {

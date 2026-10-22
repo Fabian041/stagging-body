@@ -43,6 +43,10 @@ class ProductionStockBreakdownTest extends TestCase
             $table->unsignedBigInteger('internal_part_id');
             $table->string('type');
             $table->integer('qty');
+            $table->string('serial_number')->nullable();
+            $table->string('npk')->nullable();
+            $table->boolean('is_adjustment')->default(false);
+            $table->dateTime('date')->nullable();
         });
 
         DB::table('lines')->insert(['id' => 1, 'name' => 'AS546']);
@@ -58,9 +62,9 @@ class ProductionStockBreakdownTest extends TestCase
             'current_stock' => 104,
         ]);
         DB::table('mutations')->insert([
-            ['internal_part_id' => 10, 'type' => 'supply', 'qty' => 120],
-            ['internal_part_id' => 10, 'type' => 'checkout', 'qty' => 20],
-            ['internal_part_id' => 10, 'type' => 'supply', 'qty' => 4],
+            ['internal_part_id' => 10, 'type' => 'supply', 'qty' => 120, 'serial_number' => '0001', 'npk' => '1001', 'is_adjustment' => false, 'date' => '2026-10-22 08:00:00'],
+            ['internal_part_id' => 10, 'type' => 'checkout', 'qty' => 20, 'serial_number' => '0002', 'npk' => '1002', 'is_adjustment' => false, 'date' => '2026-10-22 09:00:00'],
+            ['internal_part_id' => 10, 'type' => 'supply', 'qty' => 4, 'serial_number' => 'ADJUSTMENT', 'npk' => '1003', 'is_adjustment' => true, 'date' => '2026-10-22 10:00:00'],
         ]);
     }
 
@@ -75,5 +79,19 @@ class ProductionStockBreakdownTest extends TestCase
         $this->assertSame(124, $row['stock_in']);
         $this->assertSame(20, $row['stock_out']);
         $this->assertSame(104, $row['qty']);
+    }
+
+    public function test_transaction_history_contains_latest_rows_and_running_balance(): void
+    {
+        $response = (new DashboardController())->productionStockTransactions(
+            Request::create('/dashboard/production/stock/transactions', 'GET', ['internal_part_id' => 10])
+        );
+
+        $payload = $response->getData(true);
+
+        $this->assertSame(3, $payload['pagination']['total']);
+        $this->assertSame([104, 100, 120], array_column($payload['data'], 'balance_after'));
+        $this->assertSame(['in', 'out', 'in'], array_column($payload['data'], 'direction'));
+        $this->assertTrue($payload['data'][0]['is_adjustment']);
     }
 }

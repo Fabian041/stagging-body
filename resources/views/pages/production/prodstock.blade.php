@@ -188,6 +188,43 @@
             color: #dc2626;
         }
 
+        .stock-row-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .history-direction {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .history-direction-in {
+            color: #15803d;
+            background: #dcfce7;
+        }
+
+        .history-direction-out {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+
+        .history-adjustment {
+            display: block;
+            margin-top: 3px;
+            color: #b45309;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
         .bella-badge {
             display: inline-flex;
             align-items: center;
@@ -947,6 +984,48 @@
 </div>
 {{-- end of modal --}}
 
+<div class="modal fade" tabindex="-1" role="dialog" id="stockHistoryModal">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1">Riwayat Transaksi <code id="historyBackNumber">-</code></h5>
+                    <small class="text-muted" id="historyPartNumber">-</small>
+                </div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered stock-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Tipe</th>
+                                <th>Qty</th>
+                                <th>Serial Number</th>
+                                <th>Operator</th>
+                                <th>Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockHistoryBody">
+                            <tr><td colspan="6" class="text-center text-muted py-4">Memuat riwayat transaksi...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <span class="text-muted" id="stockHistoryPageInfo">-</span>
+                <div>
+                    <button type="button" class="act-btn secondary" id="stockHistoryPrev">Sebelumnya</button>
+                    <button type="button" class="act-btn secondary" id="stockHistoryNext">Berikutnya</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- modal --}}
 <div class="modal fade" tabindex="-1" role="dialog" id="stockModal">
     <div class="modal-dialog" role="document">
@@ -1060,6 +1139,7 @@
 
         const stockConfig = {
             dataUrl: @json(route('dashboard.productionStock.data')),
+            transactionsUrl: @json(route('dashboard.productionStock.transactions')),
             activeLine: @json($activeLine),
             focusBackNumber: @json($focusBackNumber),
             refreshMs: 30000,
@@ -1193,13 +1273,80 @@
                 return row.id;
             }
 
-            return '<button type="button" class="act-btn primary edit-stock" ' +
+            return '<span class="stock-row-actions">' +
+                '<button type="button" class="act-btn secondary stock-history" ' +
+                'data-id="' + escapeHtml(row.id) + '" ' +
+                'data-back-number="' + escapeHtml(row.back_number) + '">' +
+                '<i class="fas fa-history"></i> Riwayat' +
+                '</button>' +
+                '<button type="button" class="act-btn primary edit-stock" ' +
                 'data-id="' + escapeHtml(row.id) + '" ' +
                 'data-back-number="' + escapeHtml(row.back_number) + '" ' +
                 'data-standard="' + escapeHtml(row.standard) + '" ' +
                 'data-qty="' + escapeHtml(row.qty) + '">' +
                 '<i class="fas fa-edit"></i> Edit' +
-                '</button>';
+                '</button></span>';
+        }
+
+        let stockHistoryPartId = null;
+        let stockHistoryPage = 1;
+
+        function renderStockHistoryRow(row) {
+            const direction = row.direction === 'in' ? 'in' : 'out';
+            const sign = direction === 'in' ? '+' : '−';
+            const adjustment = row.is_adjustment
+                ? '<span class="history-adjustment">Adjustment</span>'
+                : '';
+
+            return '<tr>' +
+                '<td>' + escapeHtml(row.date || '-') + adjustment + '</td>' +
+                '<td class="text-center"><span class="history-direction history-direction-' + direction + '">' +
+                direction.toUpperCase() + '</span></td>' +
+                '<td class="text-center"><span class="stock-number stock-movement-' + direction + '">' +
+                sign + escapeHtml(row.qty) + '</span></td>' +
+                '<td>' + escapeHtml(row.serial_number || '-') + '</td>' +
+                '<td>' + escapeHtml(row.npk || '-') + '</td>' +
+                '<td class="text-center"><span class="stock-number">' + escapeHtml(row.balance_after) + '</span></td>' +
+                '</tr>';
+        }
+
+        function loadStockHistory(page) {
+            if (!stockHistoryPartId) return;
+
+            stockHistoryPage = page;
+            $('#stockHistoryBody').html(
+                '<tr><td colspan="6" class="text-center text-muted py-4">Memuat riwayat transaksi...</td></tr>'
+            );
+            $('#stockHistoryPrev, #stockHistoryNext').prop('disabled', true);
+
+            $.getJSON(stockConfig.transactionsUrl, {
+                internal_part_id: stockHistoryPartId,
+                page: page
+            }).done(function(response) {
+                const rows = response.data || [];
+                const pagination = response.pagination || {};
+                const part = response.part || {};
+
+                $('#historyBackNumber').text(part.back_number || '-');
+                $('#historyPartNumber').text((part.part_number || '-') + ' · Current Stock ' + (part.current_stock || 0));
+                $('#stockHistoryBody').html(rows.length
+                    ? rows.map(renderStockHistoryRow).join('')
+                    : '<tr><td colspan="6" class="text-center text-muted py-4">Belum ada transaksi IN/OUT.</td></tr>');
+                $('#stockHistoryPageInfo').text(
+                    'Halaman ' + (pagination.current_page || 1) + ' dari ' + (pagination.last_page || 1) +
+                    ' · ' + (pagination.total || 0) + ' transaksi'
+                );
+                $('#stockHistoryPrev').prop('disabled', (pagination.current_page || 1) <= 1);
+                $('#stockHistoryNext').prop('disabled', (pagination.current_page || 1) >= (pagination.last_page || 1));
+            }).fail(function(xhr) {
+                const message = xhr.responseJSON && xhr.responseJSON.message
+                    ? xhr.responseJSON.message
+                    : 'Gagal memuat riwayat transaksi.';
+                $('#stockHistoryBody').html(
+                    '<tr><td colspan="6" class="text-center text-danger py-4">' + escapeHtml(message) + '</td></tr>'
+                );
+                $('#stockHistoryPageInfo').text('-');
+            });
         }
 
         function highlightFocusedRow(table) {
@@ -1514,6 +1661,23 @@
             $('#standard_stock_input').val(button.dataset.standard || '0');
             $('#current_stock_input').val(button.dataset.qty || '0');
             modal.modal('show');
+        });
+
+        $(document).on('click', '.stock-history', function() {
+            stockHistoryPartId = this.dataset.id || null;
+            stockHistoryPage = 1;
+            $('#historyBackNumber').text(this.dataset.backNumber || '-');
+            $('#historyPartNumber').text('-');
+            $('#stockHistoryModal').modal('show');
+            loadStockHistory(1);
+        });
+
+        $('#stockHistoryPrev').on('click', function() {
+            if (stockHistoryPage > 1) loadStockHistory(stockHistoryPage - 1);
+        });
+
+        $('#stockHistoryNext').on('click', function() {
+            loadStockHistory(stockHistoryPage + 1);
         });
     })(jQuery);
 </script>
