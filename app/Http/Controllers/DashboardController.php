@@ -1194,9 +1194,15 @@ class DashboardController extends Controller
         $tz = 'Asia/Jakarta';
         $productionResultExport = request()->boolean('production_result');
 
-        $date = request('date');
-        $from = request('from');
-        $to = request('to');
+        $validated = request()->validate([
+            'date' => ['nullable', 'date'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+
+        $date = $validated['date'] ?? null;
+        $from = $validated['from'] ?? null;
+        $to = $validated['to'] ?? null;
 
         // Resolve range
         if ($date) {
@@ -1204,8 +1210,12 @@ class DashboardController extends Controller
             $end = Carbon::parse($date, $tz)->endOfDay();
         } else {
             // default: hari ini kalau kosong semua
-            $start = $from ? Carbon::parse($from, $tz)->startOfDay() : Carbon::now($tz)->startOfDay();
-            $end = $to ? Carbon::parse($to, $tz)->endOfDay() : Carbon::now($tz)->endOfDay();
+            $start = $from ? Carbon::parse($from, $tz) : Carbon::now($tz)->startOfDay();
+            $end = $to ? Carbon::parse($to, $tz) : Carbon::now($tz)->endOfDay();
+
+            // Input lama bertipe date tetap mencakup sehari penuh; datetime-local memakai menit yang dipilih.
+            $start = $from && str_contains($from, ':') ? $start->startOfMinute() : $start->startOfDay();
+            $end = $to && str_contains($to, ':') ? $end->endOfMinute() : $end->endOfDay();
         }
 
         // Ambil data mutasi

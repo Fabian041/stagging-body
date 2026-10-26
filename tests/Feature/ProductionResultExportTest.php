@@ -54,7 +54,7 @@ class ProductionResultExportTest extends TestCase
         ]);
         DB::table('mutations')->insert([
             ['internal_part_id' => 1, 'serial_number' => '0001', 'qty' => 5, 'type' => 'supply', 'date' => '2026-10-02 08:00:00'],
-            ['internal_part_id' => 2, 'serial_number' => 'R001', 'qty' => 5, 'type' => 'as547_kanan', 'date' => '2026-10-02 08:01:00'],
+            ['internal_part_id' => 2, 'serial_number' => 'R001', 'qty' => 5, 'type' => 'as547_kanan', 'date' => '2026-10-02 08:01:30'],
             ['internal_part_id' => 3, 'serial_number' => 'L001', 'qty' => 5, 'type' => 'as547_kiri', 'date' => '2026-10-02 08:02:00'],
             ['internal_part_id' => 2, 'serial_number' => 'OUT1', 'qty' => 5, 'type' => 'checkout', 'date' => '2026-10-02 08:03:00'],
         ]);
@@ -93,12 +93,32 @@ class ProductionResultExportTest extends TestCase
         });
     }
 
+    public function test_production_result_export_can_filter_to_a_specific_minute(): void
+    {
+        $this->export([
+            'production_result' => 1,
+            'from' => '2026-10-02T08:01',
+            'to' => '2026-10-02T08:01',
+        ]);
+
+        Excel::assertDownloaded('Production_Result_20261002_20261002.xlsx', function (MutationMultiSheetExport $export) {
+            $sheets = $export->sheets();
+
+            $this->assertCount(1, $sheets);
+            $this->assertSame('AS547', $sheets[0]->title());
+            $this->assertCount(1, $sheets[0]->collection());
+            $this->assertSame('R001', $sheets[0]->collection()->first()->serial_number);
+
+            return true;
+        });
+    }
+
     private function export(array $extra = []): void
     {
-        $request = Request::create('/dashboard/mutation/export', 'GET', $extra + [
+        $request = Request::create('/dashboard/mutation/export', 'GET', array_merge([
             'from' => '2026-10-02',
             'to' => '2026-10-02',
-        ]);
+        ], $extra));
         $this->app->instance('request', $request);
 
         (new DashboardController())->exportMutation();

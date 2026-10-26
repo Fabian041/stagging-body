@@ -802,15 +802,15 @@
 
                     <div class="modal-body">
                         <div class="modal-form-group form-group">
-                            <label>Dari Tanggal</label>
-                            <input type="date" class="form-control" name="from"
-                                value="{{ now()->format('Y-m-d') }}" required>
+                            <label>Dari Waktu</label>
+                            <input type="datetime-local" class="form-control" name="from"
+                                value="{{ now()->startOfDay()->format('Y-m-d\TH:i') }}" required>
                         </div>
 
                         <div class="modal-form-group form-group mb-0">
-                            <label>Sampai Tanggal</label>
-                            <input type="date" class="form-control" name="to"
-                                value="{{ now()->format('Y-m-d') }}" required>
+                            <label>Sampai Waktu</label>
+                            <input type="datetime-local" class="form-control" name="to"
+                                value="{{ now()->endOfDay()->format('Y-m-d\TH:i') }}" required>
                         </div>
                     </div>
 
