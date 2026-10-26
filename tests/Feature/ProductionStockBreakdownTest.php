@@ -135,7 +135,16 @@ class ProductionStockBreakdownTest extends TestCase
         );
 
         Excel::assertDownloaded('Riwayat_Stock_MP21_20261022_20261022.xlsx', function (StockTransactionHistoryExport $export) {
-            return $export->collection()->count() === 2;
+            $mappedRow = $export->map($export->collection()->first());
+
+            $this->assertCount(2, $export->collection());
+            $this->assertCount(11, $export->headings());
+            $this->assertIsFloat($mappedRow[3]);
+            $this->assertIsFloat($mappedRow[4]);
+            $this->assertSame('dd-mmm-yyyy', $export->columnFormats()['D']);
+            $this->assertSame('hh:mm:ss', $export->columnFormats()['E']);
+
+            return true;
         });
     }
 }

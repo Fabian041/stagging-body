@@ -33,6 +33,7 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
             'Back Number',
             'Part Number',
             'Tanggal',
+            'Waktu',
             'Tipe',
             'Qty',
             'Serial Number',
@@ -44,13 +45,16 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
 
     public function map($row): array
     {
+        $dateTime = ! empty($row['date'])
+            ? Date::dateTimeToExcel(new \DateTimeImmutable((string) $row['date']))
+            : null;
+
         return [
             ++$this->number,
             $this->part->back_number,
             $this->part->part_number,
-            ! empty($row['date'])
-                ? Date::dateTimeToExcel(new \DateTimeImmutable((string) $row['date']))
-                : null,
+            $dateTime !== null ? floor($dateTime) : null,
+            $dateTime !== null ? $dateTime - floor($dateTime) : null,
             strtoupper((string) $row['direction']),
             (int) $row['qty'],
             $row['serial_number'] ?: '-',
@@ -65,21 +69,22 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
         return [
             'B' => NumberFormat::FORMAT_TEXT,
             'C' => NumberFormat::FORMAT_TEXT,
-            'D' => 'dd-mmm-yyyy hh:mm:ss',
-            'G' => NumberFormat::FORMAT_TEXT,
+            'D' => 'dd-mmm-yyyy',
+            'E' => 'hh:mm:ss',
             'H' => NumberFormat::FORMAT_TEXT,
-            'F' => '#,##0',
-            'J' => '#,##0',
+            'I' => NumberFormat::FORMAT_TEXT,
+            'G' => '#,##0',
+            'K' => '#,##0',
         ];
     }
 
     public function styles(Worksheet $sheet): array
     {
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:J1');
-        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $sheet->setAutoFilter('A1:K1');
+        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
 
-        foreach (range('A', 'J') as $column) {
+        foreach (range('A', 'K') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
