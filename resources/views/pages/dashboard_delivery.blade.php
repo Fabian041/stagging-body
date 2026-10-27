@@ -3077,11 +3077,13 @@
             var loadingListUrl = "{{ route('loadingList.index') }}";
             var kanbanSourceFilesUrl = "{{ route('dashboard.kanbanSourceFiles') }}";
             var manifestSourceFilesUrl = "{{ route('dashboard.manifestSourceFiles') }}";
+            var skidSourceFilesUrl = "{{ route('dashboard.skidSourceFiles') }}";
             var qzCertUrl = "{{ route('dashboard.kanbanQzCert') }}";
             var qzSignUrl = "{{ route('dashboard.kanbanQzSign') }}";
             window.DOCUMENT_PRINTER_CONFIG = {
                 kanban: "{{ config('printing.printers.kanban', 'Printer A') }}",
-                manifest: "{{ config('printing.printers.manifest', 'Printer B') }}"
+                manifest: "{{ config('printing.printers.manifest', 'Printer B') }}",
+                skid: "{{ config('printing.printers.skid', 'Printer B') }}"
             };
             try {
                 if (localStorage.getItem('qz_printer_kanban')) {
@@ -3089,6 +3091,9 @@
                 }
                 if (localStorage.getItem('qz_printer_manifest')) {
                     window.DOCUMENT_PRINTER_CONFIG.manifest = localStorage.getItem('qz_printer_manifest');
+                }
+                if (localStorage.getItem('qz_printer_skid')) {
+                    window.DOCUMENT_PRINTER_CONFIG.skid = localStorage.getItem('qz_printer_skid');
                 }
             } catch (err) {}
             window.DOCUMENT_PAPER_CONFIG = {
@@ -3107,6 +3112,14 @@
                     margins: {{ (int) config('printing.paper.manifest.margins', 0) }},
                     scale_content: {{ config('printing.paper.manifest.scale_content', true) ? 'true' : 'false' }},
                     copies: {{ (int) config('printing.paper.manifest.copies', 1) }}
+                },
+                skid: {
+                    width: {{ (int) config('printing.paper.skid.width', 210) }},
+                    height: {{ (int) config('printing.paper.skid.height', 297) }},
+                    units: "{{ config('printing.paper.skid.units', 'mm') }}",
+                    margins: {{ (int) config('printing.paper.skid.margins', 0) }},
+                    scale_content: {{ config('printing.paper.skid.scale_content', true) ? 'true' : 'false' }},
+                    copies: {{ (int) config('printing.paper.skid.copies', 1) }}
                 }
             };
             // Backward-compatible helpers.
@@ -3120,8 +3133,14 @@
                 window.DOCUMENT_PRINTER_CONFIG.manifest = String(name || '');
                 return 'Printer silent: ' + String(name || '(default)');
             };
+            window.setSkidPrinter = function(name) {
+                try { localStorage.setItem('qz_printer_skid', String(name || '')); } catch (err) {}
+                window.DOCUMENT_PRINTER_CONFIG.skid = String(name || '');
+                return 'Printer silent: ' + String(name || '(default)');
+            };
             window.setPrinterForDocumentType = function(type, name) {
                 if (type === 'manifest') return window.setManifestPrinter(name);
+                if (type === 'skid') return window.setSkidPrinter(name);
                 return window.setKanbanPrinter(name);
             };
             var notifyUnfinishedUrl = "{{ route('dashboard.delivery.notifyUnfinished') }}";
@@ -6922,7 +6941,7 @@
 
             function buildDocumentSourceTableHtml(groups, documentType) {
                 documentType = documentType || 'kanban';
-                var label = documentType === 'manifest' ? 'Manifest' : 'Kanban';
+                var label = documentType === 'manifest' ? 'Manifest' : (documentType === 'skid' ? 'Skid' : 'Kanban');
                 var html = '<div style="text-align:left;">';
                 html +=
                     '<table class="prep-late-detail__table"><thead><tr><th>PDS / Manifest</th><th>File ' + escapeHtml(label) + '</th><th style="text-align:right;">Aksi</th></tr></thead><tbody>';
@@ -6931,7 +6950,7 @@
                     var files = (g && g.files) || [];
                     if (!files.length) {
                         html += '<tr><td>' + escapeHtml(g.pds || '-') +
-                            '</td><td colspan="2"><span style="color:#6b7280;">Belum ada file arsip ' + escapeHtml(label.toLowerCase()) + ' — upload ulang via dashboard kanban.</span></td></tr>';
+                            '</td><td colspan="2"><span style="color:#6b7280;">Belum ada file arsip ' + escapeHtml(label.toLowerCase()) + ' — upload ulang via menu upload.</span></td></tr>';
                         return;
                     }
                     files.forEach(function(f, idx) {
@@ -6981,16 +7000,17 @@
                     }
                 });
 
-                var pending = 2;
+                var pending = 3;
                 var kanbanGroups = [];
                 var manifestGroups = [];
+                var skidGroups = [];
                 var failed = 0;
                 function finish() {
                     pending--;
                     if (pending > 0) {
                         return;
                     }
-                    if (failed === 2) {
+                    if (failed === 3) {
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal memuat',
@@ -7003,16 +7023,20 @@
                     var html = '';
                     var kb = buildDocumentSourceTableHtml(kanbanGroups, 'kanban');
                     var mf = buildDocumentSourceTableHtml(manifestGroups, 'manifest');
+                    var sk = buildDocumentSourceTableHtml(skidGroups, 'skid');
                     if (kanbanGroups.length) {
                         html += '<div style="margin-bottom:12px;"><strong style="color:#0d365c;">Kanban</strong>' + kb.html + '</div>';
                     }
                     if (manifestGroups.length) {
-                        html += '<div><strong style="color:#0d365c;">Manifest</strong>' + mf.html + '</div>';
+                        html += '<div style="margin-bottom:12px;"><strong style="color:#0d365c;">Manifest</strong>' + mf.html + '</div>';
+                    }
+                    if (skidGroups.length) {
+                        html += '<div><strong style="color:#0d365c;">Skid</strong>' + sk.html + '</div>';
                     }
                     if (!html) {
                         html = '<div style="color:#6b7280;font-size:12px;">Belum ada file arsip.</div>';
                     }
-                    if (failed === 1) {
+                    if (failed > 0 && failed < 3) {
                         html += '<div style="color:#b91c1c;font-size:11px;margin-top:8px;">Sebagian data gagal dimuat.</div>';
                     }
                     Swal.fire({
@@ -7036,6 +7060,14 @@
                     pds: pdsList.join(',')
                 }).done(function(res) {
                     manifestGroups = (res && res.data) || [];
+                }).fail(function() {
+                    failed++;
+                }).always(finish);
+
+                $.get(skidSourceFilesUrl, {
+                    pds: pdsList.join(',')
+                }).done(function(res) {
+                    skidGroups = (res && res.data) || [];
                 }).fail(function() {
                     failed++;
                 }).always(finish);

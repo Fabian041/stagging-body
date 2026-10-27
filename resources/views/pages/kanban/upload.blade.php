@@ -117,7 +117,13 @@
             var ext = lastDot !== -1 ? filename.slice(lastDot) : '';
             var hyphenIdx = name.indexOf('-');
             if (hyphenIdx !== -1) {
-                name = name.slice(0, hyphenIdx);
+                var prefix = name.slice(0, hyphenIdx);
+                var suffix = name.slice(hyphenIdx + 1);
+                if (/\d/.test(prefix) || !/\d/.test(suffix)) {
+                    name = prefix;
+                } else {
+                    name = suffix;
+                }
             }
             return name + ext;
         };
@@ -140,31 +146,43 @@
 
                 if (!buttons.length || !formPanes.length) return;
 
+                function activateTab(btn) {
+                    var targetSelector = btn.getAttribute('data-target');
+                    if (!targetSelector) return;
+
+                    buttons.forEach(function (b) {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-selected', 'false');
+                    });
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-selected', 'true');
+
+                    formPanes.forEach(function (pane) {
+                        pane.style.display = 'none';
+                    });
+
+                    var activePane = document.querySelector(targetSelector);
+                    if (activePane) {
+                        activePane.style.display = 'block';
+                    }
+                }
+
                 buttons.forEach(function (btn) {
                     btn.addEventListener('click', function () {
-                        var targetSelector = this.getAttribute('data-target');
-                        if (!targetSelector) return;
-
-                        // Update active styling on selector buttons
-                        buttons.forEach(function (b) {
-                            b.classList.remove('active');
-                            b.setAttribute('aria-selected', 'false');
-                        });
-                        this.classList.add('active');
-                        this.setAttribute('aria-selected', 'true');
-
-                        // Hide all form panes
-                        formPanes.forEach(function (pane) {
-                            pane.style.display = 'none';
-                        });
-
-                        // Show only the selected form pane
-                        var activePane = document.querySelector(targetSelector);
-                        if (activePane) {
-                            activePane.style.display = 'block';
-                        }
+                        activateTab(this);
                     });
                 });
+
+                // Support ?tab=manifest or ?tab=skid in URL
+                var urlParams = new URLSearchParams(window.location.search);
+                var tab = (urlParams.get('tab') || '').toLowerCase();
+                if (tab === 'manifest') {
+                    var mBtn = document.getElementById('btnUploadManifest');
+                    if (mBtn) activateTab(mBtn);
+                } else if (tab === 'skid') {
+                    var sBtn = document.getElementById('btnUploadSkid');
+                    if (sBtn) activateTab(sBtn);
+                }
             }
 
             if (document.readyState === 'loading') {

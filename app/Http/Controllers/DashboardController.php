@@ -2841,7 +2841,13 @@ class DashboardController extends Controller
         $ext = pathinfo($filename, PATHINFO_EXTENSION);
         $hyphenPos = strpos($name, '-');
         if ($hyphenPos !== false) {
-            $name = substr($name, 0, $hyphenPos);
+            $prefix = substr($name, 0, $hyphenPos);
+            $suffix = substr($name, $hyphenPos + 1);
+            if (preg_match('/\d/', $prefix) || ! preg_match('/\d/', $suffix)) {
+                $name = $prefix;
+            } else {
+                $name = $suffix;
+            }
         }
 
         return $ext !== '' ? $name . '.' . $ext : $name;
@@ -3623,20 +3629,24 @@ public function kanbanCancel($id)
                 if (stripos($base, $pds) === false) {
                     continue;
                 }
-                // Manifest files are served by manifest endpoint, not kanban.
-                if (stripos($base, 'manifest') !== false) {
+                // Manifest and Skid files are served by their respective endpoints, not kanban.
+                if (stripos($base, 'manifest') !== false || stripos($base, 'skid') !== false) {
                     continue;
                 }
-                $matched[] = [
+                if (isset($matched[$base])) {
+                    continue;
+                }
+                $matched[$base] = [
                     'file' => $base,
                     'download' => route('dashboard.kanbanSourceDownload', $base),
                     'preview' => route('dashboard.kanbanSourcePreview', $base),
                 ];
             }
-            usort($matched, function ($a, $b) {
+            $matchedValues = array_values($matched);
+            usort($matchedValues, function ($a, $b) {
                 return strcmp($a['file'], $b['file']);
             });
-            $data[] = ['pds' => $pds, 'files' => $matched];
+            $data[] = ['pds' => $pds, 'files' => $matchedValues];
         }
 
         return response()->json(['status' => true, 'data' => $data]);
@@ -3713,21 +3723,25 @@ public function kanbanCancel($id)
                     if (stripos($base, $pds) === false) {
                         continue;
                     }
-                    $isManifest = $dir === 'manifest-source' || stripos($base, 'manifest') !== false;
+                    $isManifest = $dir === 'manifest-source' || (stripos($base, 'manifest') !== false && stripos($base, 'skid') === false);
                     if (! $isManifest) {
                         continue;
                     }
-                    $matched[] = [
+                    if (isset($matched[$base])) {
+                        continue;
+                    }
+                    $matched[$base] = [
                         'file' => $base,
                         'download' => route('dashboard.manifestSourceDownload', $base),
                         'preview' => route('dashboard.manifestSourcePreview', $base),
                     ];
                 }
             }
-            usort($matched, function ($a, $b) {
+            $matchedValues = array_values($matched);
+            usort($matchedValues, function ($a, $b) {
                 return strcmp($a['file'], $b['file']);
             });
-            $data[] = ['pds' => $pds, 'files' => $matched];
+            $data[] = ['pds' => $pds, 'files' => $matchedValues];
         }
 
         return response()->json(['status' => true, 'data' => $data]);
@@ -3762,6 +3776,193 @@ public function kanbanCancel($id)
             }
         }
         abort(404);
+    }
+
+    /**
+     * Upload proses file Manifest PDF langsung ke storage manifest-source
+     */
+    public function manifestUploadProcess(Request $request)
+    {
+        $request->validate([
+            'files' => 'required|array|min:1',
+            'files.*' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        if (! Storage::exists('manifest-source')) {
+            Storage::makeDirectory('manifest-source');
+        }
+
+        $savedFiles = [];
+        foreach ($request->file('files') as $file) {
+            $storedName = $this->resolveManifestStoredName($file);
+            Storage::putFileAs('manifest-source', $file, $storedName);
+            $savedFiles[] = $storedName;
+        }
+
+        return response()->json([
+            'status' => true,
+            'files' => $savedFiles,
+            'count' => count($savedFiles),
+            'message' => 'Berhasil mengunggah ' . count($savedFiles) . ' file manifest.',
+        ]);
+    }
+
+    /**
+     * Daftar file skid arsip (skid-source, dan kanban-source yang namanya mengandung skid)
+     * untuk 1..N nomor PDS/manifest.
+     */
+    public function skidSourceFiles(Request $request)
+    {
+        $raw = $request->input('pds', []);
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+
+        $wanted = collect((array) $raw)
+            ->map(function ($v) {
+                return preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v);
+            })
+            ->filter(function ($v) {
+                return $v !== '';
+            })
+            ->unique()
+            ->take(24)
+            ->values();
+
+        if ($wanted->isEmpty()) {
+            return response()->json(['status' => false, 'message' => 'Parameter PDS kosong.'], 422);
+        }
+
+        $diskFiles = [];
+        foreach (['skid-source', 'kanban-source'] as $dir) {
+            try {
+                foreach (Storage::files($dir) as $path) {
+                    $diskFiles[$dir][] = $path;
+                }
+            } catch (\Throwable $e) {
+                $diskFiles[$dir] = [];
+            }
+        }
+
+        $data = [];
+        foreach ($wanted as $pds) {
+            $matched = [];
+            foreach ($diskFiles as $dir => $paths) {
+                foreach ((array) $paths as $path) {
+                    $base = basename($path);
+                    if (stripos($base, $pds) === false) {
+                        continue;
+                    }
+                    $isSkid = $dir === 'skid-source' || stripos($base, 'skid') !== false;
+                    if (! $isSkid) {
+                        continue;
+                    }
+                    if (isset($matched[$base])) {
+                        continue;
+                    }
+                    $matched[$base] = [
+                        'file' => $base,
+                        'download' => route('dashboard.skidSourceDownload', $base),
+                        'preview' => route('dashboard.skidSourcePreview', $base),
+                    ];
+                }
+            }
+            $matchedValues = array_values($matched);
+            usort($matchedValues, function ($a, $b) {
+                return strcmp($a['file'], $b['file']);
+            });
+            $data[] = ['pds' => $pds, 'files' => $matchedValues];
+        }
+
+        return response()->json(['status' => true, 'data' => $data]);
+    }
+
+    public function skidSourceDownload($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        foreach (['skid-source', 'kanban-source'] as $dir) {
+            $path = storage_path('app/'.$dir.'/'.$base);
+            if (is_file($path)) {
+                return response()->download($path, $base);
+            }
+        }
+        abort(404);
+    }
+
+    public function skidSourcePreview($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        foreach (['skid-source', 'kanban-source'] as $dir) {
+            $path = storage_path('app/'.$dir.'/'.$base);
+            if (is_file($path)) {
+                return response()->file($path, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="'.$base.'"',
+                ]);
+            }
+        }
+        abort(404);
+    }
+
+    /**
+     * Upload proses file Skid PDF langsung ke storage skid-source
+     */
+    public function skidUploadProcess(Request $request)
+    {
+        $request->validate([
+            'files' => 'required|array|min:1',
+            'files.*' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        if (! Storage::exists('skid-source')) {
+            Storage::makeDirectory('skid-source');
+        }
+
+        $savedFiles = [];
+        foreach ($request->file('files') as $file) {
+            $storedName = $this->resolveSkidStoredName($file);
+            Storage::putFileAs('skid-source', $file, $storedName);
+            $savedFiles[] = $storedName;
+        }
+
+        return response()->json([
+            'status' => true,
+            'files' => $savedFiles,
+            'count' => count($savedFiles),
+            'message' => 'Berhasil mengunggah ' . count($savedFiles) . ' file skid.',
+        ]);
+    }
+
+    private function resolveManifestStoredName($file): string
+    {
+        $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
+        $normalized = $this->normalizeFileName($original);
+        $stem = pathinfo($normalized, PATHINFO_FILENAME);
+        $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
+        $stem = trim($stem, '._');
+        if ($stem === '') {
+            $stem = 'manifest';
+        }
+
+        return substr($stem, 0, 120) . '.pdf';
+    }
+
+    private function resolveSkidStoredName($file): string
+    {
+        $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
+        $normalized = $this->normalizeFileName($original);
+        $stem = pathinfo($normalized, PATHINFO_FILENAME);
+        $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
+        $stem = trim($stem, '._');
+        if ($stem === '') {
+            $stem = 'skid';
+        }
+
+        return substr($stem, 0, 120) . '.pdf';
     }
 
     /**
