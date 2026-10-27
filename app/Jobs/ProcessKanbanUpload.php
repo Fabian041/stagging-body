@@ -6,6 +6,7 @@ namespace App\Jobs;
 use App\Services\KanbanPdfProcessor;
 use App\Services\Mmki\MmkiKanbanPdfProcessor;
 use App\Services\All\AllKanbanPdfProcessor;
+use App\Services\KanbanPdfOptimizer;
 
 
 use Illuminate\Bus\Queueable;
@@ -66,6 +67,8 @@ class ProcessKanbanUpload implements ShouldQueue
         MmkiKanbanPdfProcessor $mmkiProcessor,
 
         AllKanbanPdfProcessor $allProcessor,
+
+        KanbanPdfOptimizer $optimizer,
 
     )
     {
@@ -151,10 +154,36 @@ class ProcessKanbanUpload implements ShouldQueue
             Arsip dulu, marker DONE belakangan: DONE terlihat = info arsip pasti sudah ada.
         */
 
-        \App\Support\KanbanSourceArchive::archiveJobOutputs(
+        // Optimasi ukuran file hasil (opsional; fallback ke asli bila gagal/tidak lebih kecil).
+        if (is_string($filename) && $filename !== '') {
+            $beforePath = $dir . DIRECTORY_SEPARATOR . basename((string) $filename);
+            $beforeSize = is_file($beforePath) ? (int) @filesize($beforePath) : null;
+            $optimized = $optimizer->optimizeFiles([(string) $filename], $dir);
+            if (! empty($optimized[0]) && is_string($optimized[0])) {
+                $filename = $optimized[0];
+            }
+            $afterPath = $dir . DIRECTORY_SEPARATOR . basename((string) $filename);
+            $afterSize = is_file($afterPath) ? (int) @filesize($afterPath) : null;
+            try {
+                logger()->info('KanbanPdfOptimizer size', [
+                    'job' => $this->jobId,
+                    'file' => (string) $filename,
+                    'before_bytes' => $beforeSize,
+                    'after_bytes' => $afterSize,
+                ]);
+            } catch (\Throwable $ignored) {
+            }
+        }
+
+        $archived = \App\Support\KanbanSourceArchive::archiveJobOutputs(
             $this->jobId,
             \App\Support\KanbanSourceArchive::parseDoneMarker((string) $filename)
         );
+
+        // Hemat space: setelah arsip berhasil, hapus file hasil temp (arsip ada di kanban-source).
+        if (! empty($archived) && is_string($filename) && $filename !== '') {
+            @unlink($dir . DIRECTORY_SEPARATOR . basename((string) $filename));
+        }
 
 
         file_put_contents(
