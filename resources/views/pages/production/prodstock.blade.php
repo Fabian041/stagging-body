@@ -456,6 +456,70 @@
             margin-left: auto;
         }
 
+        #edit .modal-content,
+        #edit form,
+        #stockHistoryModal .modal-content {
+            background: #ffffff !important;
+        }
+
+        #edit .modal-header,
+        #edit .modal-body,
+        #edit .modal-footer,
+        #stockHistoryModal .modal-header,
+        #stockHistoryModal .modal-body,
+        #stockHistoryModal .modal-footer {
+            background: #ffffff !important;
+        }
+
+        #edit .modal-body {
+            padding: 22px !important;
+        }
+
+        #edit .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #edit #title {
+            display: inline-flex;
+            align-items: center;
+            min-height: 26px;
+            padding: 3px 9px;
+            border: 1px solid rgba(0, 112, 183, .15);
+            border-radius: 6px;
+            background: rgba(0, 112, 183, .07);
+            color: var(--primary, #0070b7);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .04em;
+        }
+
+        #edit .stock-summary-card {
+            background: var(--bg, #f8fafc);
+        }
+
+        #edit .pis-row {
+            padding: 0;
+            border: 0;
+            background: #ffffff;
+        }
+
+        #edit .pis-row .form-control {
+            height: 42px;
+            border-radius: 8px !important;
+        }
+
+        #edit .modal-footer .act-btn {
+            height: 38px;
+            border-radius: 7px;
+        }
+
+        #stockHistoryModal .history-filter-bar {
+            background: #ffffff;
+        }
+
         #stockHistoryExportModal .modal-dialog {
             max-width: 640px;
         }
@@ -1333,7 +1397,7 @@
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="modal-body mt-3">
+                <div class="modal-body">
                     <div class="stock-summary-card">
                         <div class="row text-center">
                             <div class="col-6">
@@ -2179,7 +2243,7 @@
                 return;
             }
 
-            $('#title').empty().append($('<h4>').text(button.dataset.backNumber || '-'));
+            $('#title').text(button.dataset.backNumber || '-');
             $('#internal_part_id').val(button.dataset.id || '');
             $('#active_line_input').val($(button).closest('table.stock-table').data('line') || stockConfig.activeLine || '');
             $('#back_number_input').val(button.dataset.backNumber || '');
