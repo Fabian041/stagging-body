@@ -151,6 +151,9 @@
                 </div>
                 <div class="action-right">
                     <span id="allManualDownload"></span>
+                    <button id="allManualDoneBtn" class="btn btn-outline-success btn-equal d-none" type="button">
+                        <i class="fas fa-check"></i> Done
+                    </button>
                 </div>
             </div>
             <div class="progress my-3 d-none" id="allManualProgressWrap" style="height:22px;">
@@ -976,6 +979,7 @@
             const emptyEl = document.getElementById('allManualEmpty');
             const processBtn = document.getElementById('allManualProcessBtn');
             const cancelBtn = document.getElementById('allManualCancelBtn');
+            const doneBtn = document.getElementById('allManualDoneBtn');
             const statusText = document.getElementById('allManualStatusText');
             const statusBox = document.getElementById('allManualStatusBox');
             const progressWrap = document.getElementById('allManualProgressWrap');
@@ -1414,6 +1418,7 @@
                 // Kembali ke awal: process available lagi.
                 processBtn.disabled = false;
                 cancelBtn.disabled = true;
+                if (doneBtn) doneBtn.classList.add('d-none');
                 const mi = document.getElementById('allManualFilesInput');
                 if (mi) mi.disabled = false;
                 const sc = document.getElementById('allManualSyncChk');
@@ -1652,23 +1657,35 @@
                 if (row.xhr) { try { row.xhr.abort(); } catch (e) {} row.xhr = null; }
                 if (row.chunkAbort) { try { row.chunkAbort.abort(); } catch (e) {} row.chunkAbort = null; }
                 row.chunkCancelled = true;
+                if (row._resolve) {
+                    const r = row._resolve;
+                    row._resolve = null;
+                    r({ status: 'cleared' });
+                }
             }
             function stopRowCancel(fi) {
                 const row = fileRows[fi]; if (!row) return;
+                const r = row._resolve;
+                row._resolve = null;
                 clearRowJob(row);
                 row.status = 'ready'; row.jobId = null; row.note = 'Dibatalkan.';
                 renderFileRows();
+                if (r) r({ status: 'cancelled' });
             }
             function stopRowFail(fi, msg) {
                 const row = fileRows[fi]; if (!row) return;
+                const r = row._resolve;
+                row._resolve = null;
                 clearRowJob(row);
                 row.status = 'fail'; row.jobId = null; row.note = 'Gagal: ' + msg;
                 renderFileRows();
+                if (r) r({ status: 'fail', message: msg });
             }
-            async function cancelRowJob(fi) {
+            async function cancelRowJobSilently(fi) {
                 const row = fileRows[fi];
-                if (!row || row.status !== 'running') return;
-                if (!confirm('Batalkan proses file ini?')) return;
+                if (!row) return;
+                const r = row._resolve;
+                row._resolve = null;
                 row.chunkCancelled = true;
                 if (row.xhr) { try { row.xhr.abort(); } catch (e) {} row.xhr = null; }
                 if (row.chunkAbort) { try { row.chunkAbort.abort(); } catch (e) {} row.chunkAbort = null; }
@@ -1684,27 +1701,62 @@
                 }
                 row.status = 'ready'; row.note = 'Dibatalkan.';
                 renderFileRows();
+                if (r) r({ status: 'cancelled' });
             }
-            function processSingleFile(fi) {
+            async function cancelRowJob(fi) {
                 const row = fileRows[fi];
-                const f = allFiles[fi];
-                if (!row || !f || row.status === 'running') return;
-                if (busy) { setStatus('Tunggu proses gabungan selesai dulu.', 'warning'); return; }
-                const comp = computeFinal(currentBaseLines());
-                const vlines = normBase(currentVLines());
-                if (!comp.final.length && !vlines.length) { alert('Atur minimal 1 garis dulu (tidur/berdiri).'); return; }
-                const total = parseInt(filePageCounts[fi], 10) || 0;
-                if (!total) { alert('Info halaman belum siap, coba sesaat lagi.'); return; }
-                const cuts = { 0: {} };
-                const vcuts = { 0: {} };
-                for (let p = 1; p <= total; p++) {
-                    if (comp.final.length) cuts[0][p] = comp.final.slice();
-                    if (vlines.length) vcuts[0][p] = vlines.slice();
-                }
-                row.status = 'running'; row.note = 'Memproses...'; row.download = null; row.volumes = null; row.jobId = null;
-                renderFileRows();
-                if ((f.size || 0) > CHUNK_THRESHOLD && window.PDFLib) chunkedSingleFile(fi, cuts, vcuts);
-                else simpleSingleFile(fi, cuts, vcuts);
+                if (!row || row.status !== 'running') return;
+                if (!confirm('Batalkan proses file ini?')) return;
+                await cancelRowJobSilently(fi);
+            }
+            function processSingleFile(fi, isBulk) {
+                return new Promise(function(resolve) {
+                    const row = fileRows[fi];
+                    const f = allFiles[fi];
+                    if (!row || !f) { resolve({ status: 'skipped' }); return; }
+                    if (row.status === 'running') {
+                        const prev = row._resolve;
+                        row._resolve = function(res) {
+                            if (prev) prev(res);
+                            resolve(res);
+                        };
+                        return;
+                    }
+                    if (row.status === 'done') {
+                        resolve({ status: 'done', alreadyDone: true });
+                        return;
+                    }
+                    if (!isBulk && busy) {
+                        setStatus('Tunggu proses selesai dulu.', 'warning');
+                        resolve({ status: 'busy' });
+                        return;
+                    }
+                    const comp = computeFinal(currentBaseLines());
+                    const vlines = normBase(currentVLines());
+                    if (!comp.final.length && !vlines.length) {
+                        if (!isBulk) alert('Atur minimal 1 garis dulu (tidur/berdiri).');
+                        resolve({ status: 'fail', message: 'Garis belum diatur.' });
+                        return;
+                    }
+                    const total = parseInt(filePageCounts[fi], 10) || 0;
+                    if (!total) {
+                        if (!isBulk) alert('Info halaman belum siap, coba sesaat lagi.');
+                        row._resolve = resolve;
+                        stopRowFail(fi, 'Info halaman belum siap.');
+                        return;
+                    }
+                    const cuts = { 0: {} };
+                    const vcuts = { 0: {} };
+                    for (let p = 1; p <= total; p++) {
+                        if (comp.final.length) cuts[0][p] = comp.final.slice();
+                        if (vlines.length) vcuts[0][p] = vlines.slice();
+                    }
+                    row._resolve = resolve;
+                    row.status = 'running'; row.note = 'Memproses...'; row.download = null; row.volumes = null; row.jobId = null;
+                    renderFileRows();
+                    if ((f.size || 0) > CHUNK_THRESHOLD && window.PDFLib) chunkedSingleFile(fi, cuts, vcuts);
+                    else simpleSingleFile(fi, cuts, vcuts);
+                });
             }
             function simpleSingleFile(fi, cuts, vcuts) {
                 const row = fileRows[fi];
@@ -1837,6 +1889,8 @@
                         else if (st.status === 'FAILED') stopRowFail(fi, st.message || 'Proses gagal.');
                         else if (st.status === 'DONE') {
                             clearInterval(row.pollTimer); row.pollTimer = null;
+                            const r = row._resolve;
+                            row._resolve = null;
                             row.status = 'done'; row.jobId = null;
                             if (st.volumes && st.volumes.length) { row.volumes = st.volumes; row.download = null; row.preview = null; }
                             else { row.download = st.download; row.preview = st.preview || null; row.volumes = null; }
@@ -1844,10 +1898,23 @@
                             if (st.pages !== undefined) msg += ' (' + st.pages + ' page' + (st.skipped_blank ? ', ' + st.skipped_blank + ' blank dibuang' : '') + ')';
                             row.note = msg + '. Klik Download.';
                             renderFileRows();
+                            if (doneBtn && fileRows.length > 0 && fileRows.every(function(r) { return r && r.status === 'done'; })) {
+                                doneBtn.classList.remove('d-none');
+                            }
+                            if (r) r({ status: 'done', data: st });
                         } else {
                             if (st.parts_done !== undefined && st.parts_total) row.note = 'Generating... bagian ' + st.parts_done + '/' + st.parts_total;
                             else row.note = 'Generating... (cek ke-' + attempts + ')';
                             renderFileRows();
+                            if (busy && currentBulkFi === fi && allFiles[fi]) {
+                                const fileNum = fi + 1;
+                                const totalFiles = allFiles.length;
+                                if (st.parts_done !== undefined && st.parts_total) {
+                                    setStatus('Memproses file <strong>' + fileNum + '/' + totalFiles + '</strong> (' + allFiles[fi].name + ') — Generating bagian ' + st.parts_done + '/' + st.parts_total + '...', 'info');
+                                } else {
+                                    setStatus('Memproses file <strong>' + fileNum + '/' + totalFiles + '</strong> (' + allFiles[fi].name + ') — Generating (cek ke-' + attempts + ')...', 'info');
+                                }
+                            }
                             if (attempts >= 240) stopRowFail(fi, 'Timeout ~10 menit.');
                         }
                     } catch (e) {
@@ -1858,282 +1925,25 @@
                 }, 2500);
             }
 
-            function buildCuts() {
-                const out = {};
-                // Mode copy (default): garis page 1 berlaku ke SEMUA halaman semua file,
-                // termasuk halaman yang tidak di-preview (PDF 1000+ hal tetap kepotong semua).
-                if (isSyncOn() && pages.length > 0) {
-                    const master = pages[0].cuts.slice().sort(function(a, b) { return a - b; });
-                    if (master.length === 0) return out; // tanpa garis = semua disalin apa adanya
-                    Object.keys(filePageCounts).forEach(function(fi) {
-                        const total = parseInt(filePageCounts[fi], 10) || 0;
-                        for (let p = 1; p <= total; p++) {
-                            if (!out[fi]) out[fi] = {};
-                            out[fi][p] = master.slice();
-                        }
-                    });
-                    return out;
-                }
-                pages.forEach(function(pg) {
-                    if (!pg.cuts.length) return;
-                    if (!out[pg.fileIdx]) out[pg.fileIdx] = {};
-                    out[pg.fileIdx][pg.pageNum] = pg.cuts.slice().sort(function(a,b){return a-b;});
-                });
-                return out;
-            }
+            let bulkCancelled = false;
+            let currentBulkFi = -1;
 
-            // Garis BERDIRI per halaman — bentuk sama seperti cuts (tanpa auto).
-            function buildVCuts() {
-                const out = {};
-                if (isSyncOn() && pages.length > 0) {
-                    const master = normBase(pages[0].vbase || []);
-                    if (master.length === 0) return out;
-                    Object.keys(filePageCounts).forEach(function(fi) {
-                        const total = parseInt(filePageCounts[fi], 10) || 0;
-                        for (let p = 1; p <= total; p++) {
-                            if (!out[fi]) out[fi] = {};
-                            out[fi][p] = master.slice();
-                        }
-                    });
-                    return out;
-                }
-                pages.forEach(function(pg) {
-                    const v = normBase(pg.vbase || []);
-                    if (!v.length) return;
-                    if (!out[pg.fileIdx]) out[pg.fileIdx] = {};
-                    out[pg.fileIdx][pg.pageNum] = v.slice();
-                });
-                return out;
-            }
-
-            // Upload per bagian (chunk) untuk file raksasa: pecah PDF di browser via pdf-lib,
-            // kirim tiap bagian kecil, lalu finalize agar server gabung + crop.
-            async function startChunkedUpload(cuts, vcuts) {
-                chunking = true; chunkCancelled = false;
-                const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-                const uploadId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('up-' + Date.now() + '-' + Math.random().toString(16).slice(2));
-                const plans = [];
-                let totalChunks = 0;
-                for (let fi = 0; fi < allFiles.length; fi++) {
-                    const f = allFiles[fi];
-                    const bytes = await f.arrayBuffer();
-                    const src = await window.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
-                    const np = src.getPageCount();
-                    if (!np) throw new Error('File ' + f.name + ' tidak ada halaman.');
-                    const perPage = f.size / np;
-                    const perChunk = Math.max(1, Math.min(50, Math.floor(CHUNK_TARGET / Math.max(1, perPage))));
-                    const ranges = [];
-                    for (let s = 0; s < np; s += perChunk) ranges.push([s, Math.min(s + perChunk, np)]);
-                    plans.push({ file: f, src: src, np: np, ranges: ranges });
-                    totalChunks += ranges.length;
-                }
-                let doneChunks = 0;
-                const specs = [];
-                for (let fi = 0; fi < plans.length; fi++) {
-                    const pl = plans[fi];
-                    for (let ci = 0; ci < pl.ranges.length; ci++) {
-                        if (chunkCancelled) throw { cancelled: true };
-                        const start = pl.ranges[ci][0], end = pl.ranges[ci][1];
-                        const sub = await window.PDFLib.PDFDocument.create();
-                        const idxs = [];
-                        for (let p = start; p < end; p++) idxs.push(p);
-                        const copied = await sub.copyPages(pl.src, idxs);
-                        copied.forEach(function(pg) { sub.addPage(pg); });
-                        // WAJIB tanpa object-stream: FPDI server tidak bisa baca PDF terkompresi modern.
-                        const chunkBytes = await sub.save({ useObjectStreams: false });
-                        const fd = new FormData();
-                        fd.append('uploadId', uploadId);
-                        fd.append('fileIndex', String(fi));
-                        fd.append('chunkIndex', String(ci));
-                        fd.append('totalChunks', String(pl.ranges.length));
-                        fd.append('fileName', pl.file.name);
-                        fd.append('chunk', new Blob([chunkBytes], { type: 'application/pdf' }), 'chunk.pdf');
-                        fd.append('_token', csrf);
-                        chunkAbort = new AbortController();
-                        let res;
-                        try {
-                            res = await fetch(CHUNK_URL, {
-                                method: 'POST', body: fd,
-                                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-                                signal: chunkAbort.signal
-                            });
-                        } catch (e) {
-                            if (chunkCancelled || (e && e.name === 'AbortError')) throw { cancelled: true };
-                            throw e;
-                        }
-                        if (!res.ok) {
-                            let t = '';
-                            try { t = await res.text(); } catch (e2) {}
-                            throw new Error('Bagian ' + (ci + 1) + '/' + pl.ranges.length + ' gagal (HTTP ' + res.status + '). ' + t.substring(0, 120));
-                        }
-                        doneChunks++;
-                        setProgress(Math.round(doneChunks / totalChunks * 30));
-                        setStatus('Uploading bagian ' + doneChunks + '/' + totalChunks + '...', 'info');
-                    }
-                    specs.push({ fileIndex: fi, fileName: pl.file.name, chunks: pl.ranges.length, pages: pl.np, chunkPages: pl.ranges.map(function(r) { return r[1] - r[0]; }) });
-                }
-                if (chunkCancelled) throw { cancelled: true };
-                setStatus('Semua bagian terkirim. Server menggabung + crop...', 'info');
-                const fd2 = new FormData();
-                fd2.append('uploadId', uploadId);
-                fd2.append('files', JSON.stringify(specs));
-                fd2.append('cuts', JSON.stringify(cuts));
-                fd2.append('vcuts', JSON.stringify(vcuts || {}));
-                fd2.append('skip_blank', '1'); // permanent: selalu buang halaman blank
-                fd2.append('reverse', '1'); // permanent: hasil split selalu dibalik (nama file tetap)
-                fd2.append('_token', csrf);
-                const res2 = await fetch(FINALIZE_URL, {
-                    method: 'POST', body: fd2,
-                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
-                });
-                let j2 = null;
-                try { j2 = await res2.json(); } catch (e) { j2 = null; }
-                if (!res2.ok || !j2 || !j2.job_id) {
-                    const em = (j2 && j2.message) || ('HTTP ' + res2.status);
-                    throw new Error('Finalisasi gagal: ' + em);
-                }
-                chunking = false;
-                currentJobId = j2.job_id;
-                setProgress(35);
-                setStatus('Step 2/2 — Generating manual...', 'info');
-                pollStatus(j2.job_id);
-            }
-
-            function pollStatus(jobId) {
-                let attempts = 0;
-                pollTimer = setInterval(async function() {
-                    attempts++;
-                    try {
-                        const res = await fetch('/dashboard/kanban/status/' + jobId);
-                        const st = await res.json();
-                        if (st.status === 'CANCELLED') {
-                            clearInterval(pollTimer); pollTimer = null; busy = false;
-                            processBtn.disabled = false; cancelBtn.disabled = true;
-                            const mi = document.getElementById('allManualFilesInput');
-                            if (mi) mi.disabled = false;
-                            const sc = document.getElementById('allManualSyncChk');
-                            if (sc) sc.disabled = false;
-                            const ac = document.getElementById('allManualAutoChk');
-                            if (ac) ac.disabled = false;
-                            setStatus('Dibatalkan.', 'warning');
-                            setManualStep({ active: 1, done: [], failed: null });
-                        } else if (st.status === 'FAILED') {
-                            clearInterval(pollTimer); pollTimer = null; busy = false;
-                            processBtn.disabled = false; cancelBtn.disabled = true;
-                            const miF = document.getElementById('allManualFilesInput');
-                            if (miF) miF.disabled = false;
-                            const scF = document.getElementById('allManualSyncChk');
-                            if (scF) scF.disabled = false;
-                            const acF = document.getElementById('allManualAutoChk');
-                            if (acF) acF.disabled = false;
-                            const tmpF = document.createElement('div');
-                            tmpF.textContent = (st.message || 'Proses gagal tanpa pesan.');
-                            setStatus('Gagal: <code>' + tmpF.innerHTML.substring(0, 300) + '</code> — kirim pesan ini agar diperbaiki.', 'danger');
-                            setManualStep({ active: 0, done: [1], failed: 2 });
-                        } else if (st.status === 'DONE') {
-                            clearInterval(pollTimer); pollTimer = null; busy = false;
-                            finished = true;
-                            // Finish: process TETAP disable, cancel disable. Hanya Reset + Download yang available.
-                            processBtn.disabled = true; cancelBtn.disabled = true;
-                            setProgress(100);
-                            let doneMsg = 'Selesai (ALL manual). File siap diunduh.';
-                            if (st && (st.pages !== undefined || st.skipped_blank !== undefined)) {
-                                const pgCount = (st.pages !== undefined) ? st.pages : '?';
-                                const skCount = (st.skipped_blank !== undefined) ? st.skipped_blank : 0;
-                                doneMsg = 'Selesai (ALL manual). Hasil <strong>' + pgCount + ' page</strong>' +
-                                    (skCount > 0 ? ' (<strong>' + skCount + ' blank dibuang</strong>)' : ' (tidak ada blank)');
-                                if (st.volumes && st.volumes.length > 1) {
-                                    doneMsg += ' dalam <strong>' + st.volumes.length + ' file</strong>';
-                                }
-                                doneMsg += '. Klik Download lalu Reset untuk job baru.';
-                            } else {
-                                doneMsg = 'Selesai (ALL manual). Blank otomatis dibuang. Klik Download lalu Reset untuk job baru.';
-                            }
-                            setStatus(doneMsg, 'success');
-                            setManualStep({ active: 0, done: [1, 2, 3], failed: null });
-                            if (st.volumes && st.volumes.length) {
-                                let html = '';
-                                st.volumes.forEach(function(v, idx) {
-                                    html += '<a href="' + v.download + '" download class="btn btn-success btn-sm m-1"><i class="fas fa-download"></i> Download ' + (idx + 1) + '</a>';
-                                });
-                                downloadBox.innerHTML = html;
-                            } else {
-                                downloadBox.innerHTML = '<a href="' + st.download + '" download class="btn btn-success"><i class="fas fa-download"></i> Download (ALL manual)</a>';
-                            }
-                        } else {
-                            const cur = parseFloat(progressBar.style.width) || 35;
-                            if (cur < 95) setProgress(cur + (95 - cur) * 0.06);
-                            if (st.parts_done !== undefined && st.parts_total) {
-                                setStatus('Generating manual... bagian <strong>' + st.parts_done + '/' + st.parts_total + '</strong> selesai · job <code>' + jobId + '</code>', 'info');
-                            } else {
-                                setStatus('Generating manual... job <code>' + jobId + '</code> · cek ke-' + attempts, 'info');
-                            }
-                            if (attempts >= 240) {
-                                clearInterval(pollTimer); pollTimer = null; busy = false;
-                                processBtn.disabled = false; cancelBtn.disabled = true;
-                                const mi2 = document.getElementById('allManualFilesInput');
-                                if (mi2) mi2.disabled = false;
-                                const sc2 = document.getElementById('allManualSyncChk');
-                                if (sc2) sc2.disabled = false;
-                                const ac2 = document.getElementById('allManualAutoChk');
-                                if (ac2) ac2.disabled = false;
-                                setStatus('Timeout ~10 menit.', 'danger');
-                                setManualStep({ active: 0, done: [1], failed: 2 });
-                            }
-                        }
-                    } catch (e) { console.error(e); }
-                }, 2500);
-            }
-
-            if (processBtn) processBtn.addEventListener('click', function() {
+            if (processBtn) processBtn.addEventListener('click', async function() {
                 if (busy) return;
                 if (anyRowRunning()) { setStatus('Tunggu proses satuan selesai dulu.', 'warning'); return; }
                 if (allFiles.length === 0) { alert('Pilih PDF dulu di form atas.'); return; }
-                const cuts = buildCuts();
-                const vcuts = buildVCuts();
-                // File besar (>6MB total): pecah per bagian di browser agar tiap POST di bawah post_max_size.
-                const totalBytes = allFiles.reduce(function(s, f) { return s + (f.size || 0); }, 0);
-                if (totalBytes > CHUNK_THRESHOLD) {
-                    if (!window.PDFLib) { alert('File besar butuh pdf-lib (CDN). Cek internet lalu coba lagi.'); return; }
-                    busy = true; processBtn.disabled = true; cancelBtn.disabled = false;
-                    finished = false;
-                    const miC0 = document.getElementById('allManualFilesInput');
-                    if (miC0) miC0.disabled = true;
-                    const scC0 = document.getElementById('allManualSyncChk');
-                    if (scC0) scC0.disabled = true;
-                    const acC0 = document.getElementById('allManualAutoChk');
-                    if (acC0) acC0.disabled = true;
-                    downloadBox.innerHTML = '';
-                    progressWrap.classList.remove('d-none');
-                    setProgress(2);
-                    setManualStep({ active: 2, done: [1], failed: null });
-                    setStatus('File besar terdeteksi — upload per bagian...', 'info');
-                    startChunkedUpload(cuts, vcuts).catch(function(e) {
-                        chunking = false;
-                        console.error(e);
-                        const msg = (e && e.cancelled) ? 'Dibatalkan.' :
-                            ('Gagal upload per bagian: ' + ((e && e.message) || e));
-                        busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
-                        const miCE = document.getElementById('allManualFilesInput');
-                        if (miCE) miCE.disabled = false;
-                        const scCE = document.getElementById('allManualSyncChk');
-                        if (scCE) scCE.disabled = false;
-                        const acCE = document.getElementById('allManualAutoChk');
-                        if (acCE) acCE.disabled = false;
-                        setStatus(msg, (e && e.cancelled) ? 'warning' : 'danger');
-                        setManualStep((e && e.cancelled) ? { active: 1, done: [], failed: null } : { active: 0, done: [1], failed: 2 });
-                    });
-                    return;
-                }
-                const fd = new FormData();
-                allFiles.forEach(function(f) { fd.append('files[]', f); });
-                fd.append('cuts', JSON.stringify(cuts));
-                fd.append('vcuts', JSON.stringify(vcuts));
-                fd.append('skip_blank', '1'); // permanent: selalu buang halaman blank
-                fd.append('reverse', '1'); // permanent: hasil split selalu dibalik (nama file tetap)
-                fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                busy = true; processBtn.disabled = true; cancelBtn.disabled = false;
+                const comp = computeFinal(currentBaseLines());
+                const vlines = normBase(currentVLines());
+                if (!comp.final.length && !vlines.length) { alert('Atur minimal 1 garis dulu (tidur/berdiri).'); return; }
+                const waitingInfo = allFiles.some(function(f, i) { return !parseInt(filePageCounts[i], 10); });
+                if (waitingInfo) { alert('Info halaman belum siap, coba sesaat lagi.'); return; }
+
+                busy = true;
                 finished = false;
+                bulkCancelled = false;
+                processBtn.disabled = true;
+                cancelBtn.disabled = false;
+                if (doneBtn) doneBtn.classList.add('d-none');
                 const mi0 = document.getElementById('allManualFilesInput');
                 if (mi0) mi0.disabled = true;
                 const sc0 = document.getElementById('allManualSyncChk');
@@ -2142,101 +1952,88 @@
                 if (ac0) ac0.disabled = true;
                 downloadBox.innerHTML = '';
                 progressWrap.classList.remove('d-none');
-                setProgress(5);
+                setProgress(0);
                 setManualStep({ active: 2, done: [1], failed: null });
-                setStatus('Step 1/2 — Uploading manual (ALL)...', 'info');
-                const xhr = new XMLHttpRequest();
-                currentXhr = xhr;
-                xhr.open('POST', PROCESS_URL, true);
-                xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                xhr.setRequestHeader('Accept', 'application/json');
-                xhr.upload.addEventListener('progress', function(e) {
-                    if (e.lengthComputable) setProgress(Math.round(e.loaded / e.total * 30));
-                });
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState !== 4) return;
-                    currentXhr = null;
-                    const reenable = function() {
-                        busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
-                        const miR = document.getElementById('allManualFilesInput');
-                        if (miR) miR.disabled = false;
-                        const scR = document.getElementById('allManualSyncChk');
-                        if (scR) scR.disabled = false;
-                        const acR = document.getElementById('allManualAutoChk');
-                        if (acR) acR.disabled = false;
-                    };
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        let r = null;
-                        try { r = JSON.parse(xhr.responseText); } catch (e) { r = null; }
-                        if (r && r.job_id) {
-                            currentJobId = r.job_id;
-                            setProgress(35);
-                            setStatus('Step 2/2 — Generating manual...', 'info');
-                            pollStatus(r.job_id);
+
+                let successCount = 0;
+                let failCount = 0;
+                const totalFiles = allFiles.length;
+
+                for (let fi = 0; fi < totalFiles; fi++) {
+                    if (bulkCancelled) break;
+                    currentBulkFi = fi;
+                    const fileNum = fi + 1;
+                    const f = allFiles[fi];
+
+                    const pct = Math.round((fi / totalFiles) * 100);
+                    setProgress(pct);
+                    setStatus('Memproses file <strong>' + fileNum + '/' + totalFiles + '</strong> (' + (f ? f.name : '') + ')...', 'info');
+
+                    try {
+                        const res = await processSingleFile(fi, true);
+                        if (bulkCancelled) break;
+                        if (res && (res.status === 'done' || res.status === 'already_done')) {
+                            successCount++;
+                        } else if (res && res.status === 'cancelled') {
+                            // File dibatalkan
                         } else {
-                            reenable();
-                            const raw = (xhr.responseText || '').trim();
-                            console.error('Manual upload bad response:', xhr.status, raw.substring(0, 500));
-                            if (/^\s*</.test(raw) || /<\s*html/i.test(raw)) {
-                                setStatus('Server mengembalikan halaman HTML, bukan JSON — kemungkinan <strong>sesi habis / belum login</strong>. Refresh halaman (Ctrl+F5), login ulang, lalu coba lagi.', 'danger');
-                            } else if (!raw) {
-                                setStatus('Server balas kosong (HTTP ' + xhr.status + '). Coba lagi; bila tetap, cek koneksi / restart queue worker.', 'danger');
-                            } else {
-                                const safe = raw.replace(/<[^>]*>/g, '').substring(0, 200);
-                                const tmp = document.createElement('div');
-                                tmp.textContent = safe;
-                                setStatus('Response tidak valid (HTTP ' + xhr.status + '). Isi: <code>' + tmp.innerHTML + '</code>', 'danger');
-                            }
-                            setManualStep({ active: 0, done: [1], failed: 2 });
+                            failCount++;
                         }
-                    } else {
-                        let msg = 'Upload gagal (HTTP ' + xhr.status + ').';
-                        try {
-                            const j = JSON.parse(xhr.responseText);
-                            if (j.errors) {
-                                const firstKey = Object.keys(j.errors)[0];
-                                if (firstKey && j.errors[firstKey] && j.errors[firstKey][0]) msg += ' ' + j.errors[firstKey][0];
-                                else if (j.message) msg += ' ' + j.message;
-                            } else if (j.message) msg += ' ' + j.message;
-                        } catch (e) {}
-                        if (xhr.status === 419) msg = 'Sesi kedaluwarsa (CSRF). Refresh halaman (Ctrl+F5) lalu coba lagi.';
-                        else if (xhr.status === 401) msg = 'Belum login / sesi habis. Refresh halaman dan login ulang.';
-                        else if (xhr.status === 413) msg = 'File terlalu besar untuk server. Kecilkan / pecah PDF lalu coba lagi.';
-                        reenable();
-                        setStatus(msg, 'danger');
-                        setManualStep({ active: 0, done: [1], failed: 2 });
+                    } catch (e) {
+                        console.error('Error saat proses file ' + fi + ':', e);
+                        failCount++;
                     }
-                };
-                xhr.onerror = function() {
-                    busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
-                    const miG = document.getElementById('allManualFilesInput');
-                    if (miG) miG.disabled = false;
-                    const scG = document.getElementById('allManualSyncChk');
-                    if (scG) scG.disabled = false;
-                    const acG = document.getElementById('allManualAutoChk');
-                    if (acG) acG.disabled = false;
-                    setStatus('System error saat uploading manual.', 'danger');
+                    setProgress(Math.round(((fi + 1) / totalFiles) * 100));
+                }
+
+                currentBulkFi = -1;
+
+                if (bulkCancelled) {
+                    return;
+                }
+
+                busy = false;
+                cancelBtn.disabled = true;
+                const miR = document.getElementById('allManualFilesInput');
+                if (miR) miR.disabled = false;
+                const scR = document.getElementById('allManualSyncChk');
+                if (scR) scR.disabled = false;
+                const acR = document.getElementById('allManualAutoChk');
+                if (acR) acR.disabled = false;
+
+                if (failCount === 0 && successCount > 0) {
+                    finished = true;
+                    processBtn.disabled = true;
+                    if (doneBtn) doneBtn.classList.remove('d-none');
+                    setProgress(100);
+                    setStatus('Selesai. Semua <strong>' + successCount + ' file</strong> berhasil diproses secara individual. Silakan unduh hasil per file di daftar atas, lalu klik Done bila sudah selesai.', 'success');
+                    setManualStep({ active: 3, done: [1, 2, 3], failed: null });
+                } else if (successCount > 0 && failCount > 0) {
+                    processBtn.disabled = false;
+                    setStatus('Selesai dengan catatan: <strong>' + successCount + ' berhasil</strong>, <strong>' + failCount + ' gagal</strong>. Silakan unduh hasil yang berhasil atau ulangi proses untuk file yang gagal.', 'warning');
+                    setManualStep({ active: 3, done: [1, 2], failed: 2 });
+                } else {
+                    processBtn.disabled = false;
+                    setStatus('Gagal memproses file. Periksa status error pada masing-masing file di atas.', 'danger');
                     setManualStep({ active: 0, done: [1], failed: 2 });
-                };
-                xhr.send(fd);
+                }
             });
 
             if (cancelBtn) cancelBtn.addEventListener('click', async function() {
                 if (!busy) return;
-                if (!confirm('Batalkan proses manual ini?')) return;
-                if (chunking) { chunkCancelled = true; if (chunkAbort) { try { chunkAbort.abort(); } catch (e) {} chunkAbort = null; } }
-                if (currentXhr) { try { currentXhr.abort(); } catch (e) {} currentXhr = null; }
-                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-                if (currentJobId) {
-                    try {
-                        await fetch('/dashboard/kanban/cancel/' + currentJobId, {
-                            method: 'POST',
-                            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' }
-                        });
-                    } catch (e) {}
-                    currentJobId = null;
+                if (!confirm('Batalkan semua proses manual yang sedang berjalan?')) return;
+                bulkCancelled = true;
+                cancelBtn.disabled = true;
+                setStatus('Membatalkan proses...', 'warning');
+                for (let i = 0; i < fileRows.length; i++) {
+                    if (fileRows[i] && fileRows[i].status === 'running') {
+                        await cancelRowJobSilently(i);
+                    }
                 }
-                busy = false; processBtn.disabled = false; cancelBtn.disabled = true;
+                busy = false;
+                processBtn.disabled = false;
+                cancelBtn.disabled = true;
+                if (doneBtn) doneBtn.classList.add('d-none');
                 const miC = document.getElementById('allManualFilesInput');
                 if (miC) miC.disabled = false;
                 const scC = document.getElementById('allManualSyncChk');
@@ -2246,14 +2043,11 @@
                 setStatus('Dibatalkan.', 'warning');
                 setManualStep({ active: 1, done: [], failed: null });
             });
-            // Download gabungan diklik semua → reset otomatis agar siap job baru.
-            if (downloadBox) downloadBox.addEventListener('click', function(e) {
-                const a = e.target && e.target.closest ? e.target.closest('a') : null;
-                if (!a || !resetPreviewBtn) return;
-                a.dataset.dl = '1';
-                const links = downloadBox.querySelectorAll('a');
-                const all = links.length > 0 && Array.from(links).every(function(l) { return l.dataset.dl === '1'; });
-                if (all) setTimeout(function() { resetPreviewBtn.click(); }, 1500);
+
+            if (doneBtn) doneBtn.addEventListener('click', function() {
+                if (resetPreviewBtn) resetPreviewBtn.click();
+                doneBtn.classList.add('d-none');
+                setStatus('Selesai. Silakan upload lagi dari awal.', 'secondary');
             });
             // Init stepper manual: mulai di Setup.
             setManualStep({ active: 1, done: [], failed: null });
