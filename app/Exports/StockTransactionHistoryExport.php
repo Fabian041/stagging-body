@@ -16,10 +16,7 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
 {
     private int $number = 0;
 
-    public function __construct(
-        private object $part,
-        private Collection $rows
-    ) {}
+    public function __construct(private Collection $rows) {}
 
     public function collection(): Collection
     {
@@ -30,6 +27,7 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
     {
         return [
             'No',
+            'Line',
             'Back Number',
             'Part Number',
             'Tanggal',
@@ -51,8 +49,9 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
 
         return [
             ++$this->number,
-            $this->part->back_number,
-            $this->part->part_number,
+            $row['line_name'],
+            $row['back_number'],
+            $row['part_number'],
             $dateTime !== null ? floor($dateTime) : null,
             $dateTime !== null ? $dateTime - floor($dateTime) : null,
             strtoupper((string) $row['direction']),
@@ -69,22 +68,23 @@ class StockTransactionHistoryExport implements FromCollection, WithHeadings, Wit
         return [
             'B' => NumberFormat::FORMAT_TEXT,
             'C' => NumberFormat::FORMAT_TEXT,
-            'D' => 'dd-mmm-yyyy',
-            'E' => 'hh:mm:ss',
-            'H' => NumberFormat::FORMAT_TEXT,
+            'D' => NumberFormat::FORMAT_TEXT,
+            'E' => 'dd-mmm-yyyy',
+            'F' => 'hh:mm:ss',
             'I' => NumberFormat::FORMAT_TEXT,
-            'G' => '#,##0',
-            'K' => '#,##0',
+            'J' => NumberFormat::FORMAT_TEXT,
+            'H' => '#,##0',
+            'L' => '#,##0',
         ];
     }
 
     public function styles(Worksheet $sheet): array
     {
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:K1');
-        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
+        $sheet->setAutoFilter('A1:L1');
+        $sheet->getStyle('A1:L1')->getFont()->setBold(true);
 
-        foreach (range('A', 'K') as $column) {
+        foreach (range('A', 'L') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 

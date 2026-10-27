@@ -990,10 +990,12 @@ class DashboardController extends Controller
         ]);
 
         $part = DB::table('internal_parts')
+            ->join('lines', 'lines.id', '=', 'internal_parts.line_id')
             ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
             ->where('internal_parts.id', $validated['internal_part_id'])
             ->select(
                 'internal_parts.id',
+                'lines.name as line_name',
                 'internal_parts.back_number',
                 'internal_parts.part_number',
                 DB::raw('COALESCE(production_stocks.current_stock, 0) as current_stock')
@@ -1010,7 +1012,11 @@ class DashboardController extends Controller
             $transactions->getCollection(),
             (int) $part->id,
             (int) $part->current_stock
-        );
+        )->map(fn ($row) => $row + [
+            'line_name' => (string) $part->line_name,
+            'back_number' => (string) $part->back_number,
+            'part_number' => (string) $part->part_number,
+        ]);
 
         return response()->json([
             'part' => [
@@ -1031,38 +1037,84 @@ class DashboardController extends Controller
     public function productionStockTransactionsExport(Request $request)
     {
         $validated = $request->validate([
-            'internal_part_id' => ['required', 'integer', 'exists:internal_parts,id'],
+            'internal_part_id' => ['nullable', 'integer', 'exists:internal_parts,id'],
+            'line' => ['nullable', 'string', 'exists:lines,name'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
 
-        $part = DB::table('internal_parts')
-            ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
-            ->where('internal_parts.id', $validated['internal_part_id'])
-            ->select(
-                'internal_parts.id',
-                'internal_parts.back_number',
-                'internal_parts.part_number',
-                DB::raw('COALESCE(production_stocks.current_stock, 0) as current_stock')
+        $parts = $this->productionStockBaseQuery()
+            ->when($validated['internal_part_id'] ?? null, fn ($query, $partId) => $query->where('internal_parts.id', $partId))
+            ->when(
+                empty($validated['internal_part_id']) && ! empty($validated['line']),
+                fn ($query) => $query->where('lines.name', $validated['line'])
             )
-            ->first();
+            ->orderBy('lines.name')
+            ->orderBy('internal_parts.back_number')
+            ->get();
 
-        $transactions = $this->stockTransactionQuery(
-            (int) $part->id,
-            $validated['date_from'] ?? null,
-            $validated['date_to'] ?? null
-        )->get();
-        $rows = $this->stockTransactionRows(
-            $transactions,
-            (int) $part->id,
-            (int) $part->current_stock
-        );
-        $dateSuffix = ($validated['date_from'] ?? 'awal').'_'.($validated['date_to'] ?? 'akhir');
+        $from = ! empty($validated['from'])
+            ? Carbon::parse($validated['from'], 'Asia/Jakarta')->startOfMinute()
+            : (! empty($validated['date_from'])
+                ? Carbon::parse($validated['date_from'], 'Asia/Jakarta')->startOfDay()
+                : null);
+        $to = ! empty($validated['to'])
+            ? Carbon::parse($validated['to'], 'Asia/Jakarta')->endOfMinute()
+            : (! empty($validated['date_to'])
+                ? Carbon::parse($validated['date_to'], 'Asia/Jakarta')->endOfDay()
+                : null);
+
+        $transactions = DB::table('mutations')
+            ->whereIn('internal_part_id', $parts->pluck('id'))
+            ->whereIn('type', ['supply', 'checkout'])
+            ->when($from, fn ($query) => $query->where('date', '>=', $from->toDateTimeString()))
+            ->when($to, fn ($query) => $query->where('date', '<=', $to->toDateTimeString()))
+            ->select('id', 'internal_part_id', 'date', 'type', 'qty', 'serial_number', 'npk', 'is_adjustment')
+            ->orderByDesc('id')
+            ->get();
+        $transactionsByPart = $transactions->groupBy('internal_part_id');
+        $newerBalanceChanges = $this->newerStockBalanceChanges($transactions);
+        $rows = collect();
+
+        foreach ($parts as $part) {
+            $partTransactions = $transactionsByPart->get($part->id, collect());
+            if ($partTransactions->isEmpty()) {
+                continue;
+            }
+
+            $partRows = $this->stockTransactionRows(
+                $partTransactions,
+                (int) $part->id,
+                (int) $part->current_stock,
+                (int) $newerBalanceChanges->get($part->id, 0)
+            )->map(fn ($row) => $row + [
+                'line_name' => (string) $part->line_name,
+                'back_number' => (string) $part->back_number,
+                'part_number' => (string) $part->part_number,
+            ]);
+
+            $rows = $rows->concat($partRows);
+        }
+
+        $rows = $rows->sortByDesc('id')->values();
+        $scope = $parts->count() === 1 && ! empty($validated['internal_part_id'])
+            ? (string) $parts->first()->back_number
+            : ((string) ($validated['line'] ?? '') ?: 'ALL');
+        $fromSuffix = $from ? $from->format('Ymd_Hi') : 'AWAL';
+        $toSuffix = $to ? $to->format('Ymd_Hi') : 'AKHIR';
+
+        if (! empty($validated['internal_part_id']) && empty($validated['from']) && empty($validated['to'])) {
+            $fromSuffix = ! empty($validated['date_from']) ? str_replace('-', '', $validated['date_from']) : 'awal';
+            $toSuffix = ! empty($validated['date_to']) ? str_replace('-', '', $validated['date_to']) : 'akhir';
+        }
+
         $filename = 'Riwayat_Stock_'
-            .preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) $part->back_number).'_'
-            .str_replace('-', '', $dateSuffix).'.xlsx';
+            .preg_replace('/[^A-Za-z0-9_-]+/', '_', $scope).'_'
+            .$fromSuffix.'_'.$toSuffix.'.xlsx';
 
-        return Excel::download(new StockTransactionHistoryExport($part, $rows), $filename);
+        return Excel::download(new StockTransactionHistoryExport($rows), $filename);
     }
 
     private function stockTransactionQuery(int $internalPartId, ?string $dateFrom = null, ?string $dateTo = null)
@@ -1076,10 +1128,15 @@ class DashboardController extends Controller
             ->orderByDesc('id');
     }
 
-    private function stockTransactionRows($transactions, int $internalPartId, int $currentStock)
+    private function stockTransactionRows(
+        $transactions,
+        int $internalPartId,
+        int $currentStock,
+        ?int $newerBalanceChange = null
+    )
     {
         $firstTransaction = $transactions->first();
-        $newerBalanceChange = $firstTransaction
+        $newerBalanceChange ??= $firstTransaction
             ? (int) DB::table('mutations')
                 ->where('internal_part_id', $internalPartId)
                 ->whereIn('type', ['supply', 'checkout'])
@@ -1107,6 +1164,37 @@ class DashboardController extends Controller
 
             return $row;
         });
+    }
+
+    private function newerStockBalanceChanges($transactions)
+    {
+        $firstIds = $transactions
+            ->groupBy('internal_part_id')
+            ->map(fn ($rows) => (int) $rows->max('id'));
+        $changes = collect();
+
+        foreach ($firstIds->chunk(100) as $chunk) {
+            $chunkChanges = DB::table('mutations')
+                ->whereIn('type', ['supply', 'checkout'])
+                ->where(function ($query) use ($chunk) {
+                    foreach ($chunk as $partId => $firstId) {
+                        $query->orWhere(function ($partQuery) use ($partId, $firstId) {
+                            $partQuery->where('internal_part_id', $partId)
+                                ->where('id', '>', $firstId);
+                        });
+                    }
+                })
+                ->select('internal_part_id')
+                ->selectRaw("COALESCE(SUM(CASE WHEN type = 'supply' THEN qty ELSE -qty END), 0) as balance_change")
+                ->groupBy('internal_part_id')
+                ->pluck('balance_change', 'internal_part_id');
+
+            foreach ($chunkChanges as $partId => $change) {
+                $changes->put($partId, (int) $change);
+            }
+        }
+
+        return $changes;
     }
 
     public function productionPairingLogs(Request $request)

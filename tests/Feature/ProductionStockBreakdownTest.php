@@ -51,22 +51,35 @@ class ProductionStockBreakdownTest extends TestCase
             $table->dateTime('date')->nullable();
         });
 
-        DB::table('lines')->insert(['id' => 1, 'name' => 'AS546']);
+        DB::table('lines')->insert([
+            ['id' => 1, 'name' => 'AS546'],
+            ['id' => 2, 'name' => 'AS547'],
+        ]);
         DB::table('internal_parts')->insert([
-            'id' => 10,
-            'line_id' => 1,
-            'part_number' => '423105-11660',
-            'back_number' => 'MP21',
-            'standard_stock' => 40,
+            [
+                'id' => 10,
+                'line_id' => 1,
+                'part_number' => '423105-11660',
+                'back_number' => 'MP21',
+                'standard_stock' => 40,
+            ],
+            [
+                'id' => 11,
+                'line_id' => 2,
+                'part_number' => '423106-11670',
+                'back_number' => 'MP22',
+                'standard_stock' => 5,
+            ],
         ]);
         DB::table('production_stocks')->insert([
-            'internal_part_id' => 10,
-            'current_stock' => 104,
+            ['internal_part_id' => 10, 'current_stock' => 104],
+            ['internal_part_id' => 11, 'current_stock' => 5],
         ]);
         DB::table('mutations')->insert([
             ['internal_part_id' => 10, 'type' => 'supply', 'qty' => 120, 'serial_number' => '0001', 'npk' => '1001', 'is_adjustment' => false, 'date' => '2026-10-21 08:00:00'],
             ['internal_part_id' => 10, 'type' => 'checkout', 'qty' => 20, 'serial_number' => '0002', 'npk' => '1002', 'is_adjustment' => false, 'date' => '2026-10-22 09:00:00'],
             ['internal_part_id' => 10, 'type' => 'supply', 'qty' => 4, 'serial_number' => 'ADJUSTMENT', 'npk' => '1003', 'is_adjustment' => true, 'date' => '2026-10-22 10:00:00'],
+            ['internal_part_id' => 11, 'type' => 'supply', 'qty' => 5, 'serial_number' => '0001', 'npk' => '1004', 'is_adjustment' => false, 'date' => '2026-10-23 11:00:00'],
         ]);
     }
 
@@ -138,11 +151,51 @@ class ProductionStockBreakdownTest extends TestCase
             $mappedRow = $export->map($export->collection()->first());
 
             $this->assertCount(2, $export->collection());
-            $this->assertCount(11, $export->headings());
-            $this->assertIsFloat($mappedRow[3]);
+            $this->assertCount(12, $export->headings());
             $this->assertIsFloat($mappedRow[4]);
-            $this->assertSame('dd-mmm-yyyy', $export->columnFormats()['D']);
-            $this->assertSame('hh:mm:ss', $export->columnFormats()['E']);
+            $this->assertIsFloat($mappedRow[5]);
+            $this->assertSame('AS546', $mappedRow[1]);
+            $this->assertSame('dd-mmm-yyyy', $export->columnFormats()['E']);
+            $this->assertSame('hh:mm:ss', $export->columnFormats()['F']);
+
+            return true;
+        });
+    }
+
+    public function test_transaction_history_export_can_filter_by_line_and_time(): void
+    {
+        Excel::fake();
+
+        (new DashboardController())->productionStockTransactionsExport(
+            Request::create('/dashboard/production/stock/transactions/export', 'GET', [
+                'line' => 'AS546',
+                'from' => '2026-10-22T09:30',
+                'to' => '2026-10-22T10:30',
+            ])
+        );
+
+        Excel::assertDownloaded(
+            'Riwayat_Stock_AS546_20261022_0930_20261022_1030.xlsx',
+            function (StockTransactionHistoryExport $export) {
+                $this->assertCount(1, $export->collection());
+                $this->assertSame('AS546', $export->map($export->collection()->first())[1]);
+
+                return true;
+            }
+        );
+    }
+
+    public function test_transaction_history_export_can_include_all_lines_and_dates(): void
+    {
+        Excel::fake();
+
+        (new DashboardController())->productionStockTransactionsExport(
+            Request::create('/dashboard/production/stock/transactions/export', 'GET')
+        );
+
+        Excel::assertDownloaded('Riwayat_Stock_ALL_AWAL_AKHIR.xlsx', function (StockTransactionHistoryExport $export) {
+            $this->assertCount(4, $export->collection());
+            $this->assertSame(['AS546', 'AS547'], $export->collection()->pluck('line_name')->unique()->sort()->values()->all());
 
             return true;
         });

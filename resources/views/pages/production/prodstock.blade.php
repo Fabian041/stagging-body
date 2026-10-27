@@ -1122,6 +1122,9 @@
                 <div class="bella-table-card-subtitle">Total IN − Total OUT menghasilkan current stock, termasuk transaksi adjustment.</div>
             </div>
             <div class="stock-header-actions">
+                <button type="button" class="act-btn primary" data-toggle="modal" data-target="#stockHistoryExportModal">
+                    <i class="fas fa-download"></i> Export Riwayat
+                </button>
                 <a href="{{ route('dashboard.stock.template') }}" class="act-btn secondary">
                     <i class="fas fa-file-excel"></i> Template Excel
                 </a>
@@ -1322,6 +1325,53 @@
                     <button type="button" class="act-btn secondary" id="stockHistoryNext">Berikutnya <i class="fas fa-chevron-right"></i></button>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" tabindex="-1" role="dialog" id="stockHistoryExportModal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ route('dashboard.productionStock.transactions.export') }}" method="GET"
+                id="stockHistoryExportForm">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-file-excel mr-2"></i>Export Riwayat Transaksi</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body mt-3">
+                    <div class="form-group">
+                        <label for="stockHistoryExportLine">Line</label>
+                        <select class="form-control" name="line" id="stockHistoryExportLine">
+                            <option value="">Semua Line</option>
+                            @foreach ($lines as $line)
+                                <option value="{{ $line['name'] }}" @selected($line['active'])>{{ $line['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="pis-row">
+                        <div class="form-group">
+                            <label for="stockHistoryExportFrom">Dari Waktu</label>
+                            <input type="datetime-local" class="form-control" name="from" id="stockHistoryExportFrom">
+                        </div>
+                        <div class="form-group">
+                            <label for="stockHistoryExportTo">Sampai Waktu</label>
+                            <input type="datetime-local" class="form-control" name="to" id="stockHistoryExportTo">
+                        </div>
+                    </div>
+                    <div class="upload-hint mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Pilih Semua Line dan kosongkan waktu untuk mengunduh seluruh riwayat.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="act-btn secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="act-btn success">
+                        <i class="fas fa-download"></i> Download Excel
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -2048,6 +2098,22 @@
                 internal_part_id: stockHistoryPartId
             }, stockHistoryFilters()));
             window.location.href = stockConfig.transactionsExportUrl + '?' + params.toString();
+        });
+
+        $('#stockHistoryExportForm').on('submit', function(event) {
+            const from = $('#stockHistoryExportFrom').val();
+            const to = $('#stockHistoryExportTo').val();
+
+            if (from && to && from > to) {
+                event.preventDefault();
+                iziToast.warning({
+                    title: 'Filter waktu tidak valid',
+                    message: 'Waktu mulai tidak boleh setelah waktu akhir.',
+                    position: 'bottomRight',
+                    timeout: 4000,
+                    class: 'iziToast-warning'
+                });
+            }
         });
 
         $('#stockHistoryPrev').on('click', function() {
