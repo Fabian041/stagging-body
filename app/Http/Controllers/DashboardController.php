@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Jobs\ProcessKanbanUpload;
+use App\Services\ManifestPdfOverlayService;
 
 class DashboardController extends Controller
 {
@@ -3779,9 +3780,9 @@ public function kanbanCancel($id)
     }
 
     /**
-     * Upload proses file Manifest PDF langsung ke storage manifest-source
+     * Upload proses file Manifest PDF dengan image overlay ke storage manifest-source
      */
-    public function manifestUploadProcess(Request $request)
+    public function manifestUploadProcess(Request $request, ManifestPdfOverlayService $overlayService)
     {
         $request->validate([
             'files' => 'required|array|min:1',
@@ -3793,10 +3794,44 @@ public function kanbanCancel($id)
         }
 
         $savedFiles = [];
-        foreach ($request->file('files') as $file) {
-            $storedName = $this->resolveManifestStoredName($file);
-            Storage::putFileAs('manifest-source', $file, $storedName);
-            $savedFiles[] = $storedName;
+        $tempOutputs = [];
+
+        try {
+            foreach ($request->file('files') as $file) {
+                $storedName = $this->resolveManifestStoredName($file);
+
+                // Insert configured image overlay into Manifest PDF
+                $tempPath = $overlayService->applyOverlay(
+                    $file->getRealPath(),
+                    $file->getClientOriginalName()
+                );
+                $tempOutputs[] = $tempPath;
+
+                // Save processed PDF only after successful overlay generation
+                Storage::put('manifest-source/' . $storedName, file_get_contents($tempPath));
+                $savedFiles[] = $storedName;
+            }
+        } catch (\Throwable $e) {
+            // Clean up files written in this failed batch
+            foreach ($savedFiles as $saved) {
+                Storage::delete('manifest-source/' . $saved);
+            }
+
+            \Log::error('Manifest upload failed during image overlay processing', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memproses file manifest: ' . $e->getMessage(),
+            ], 422);
+        } finally {
+            // Clean up temporary files
+            foreach ($tempOutputs as $tempPath) {
+                if (is_file($tempPath)) {
+                    @unlink($tempPath);
+                }
+            }
         }
 
         return response()->json([
