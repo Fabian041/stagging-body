@@ -2,9 +2,9 @@
 
 @section('main')
     @php
-        $customer = strtoupper($customer ?? request()->query('customer', 'TMMIN'));
+        $customer = strtoupper($customer ?? request()->query('customer', 'ALL'));
         if (!in_array($customer, ['TMMIN', 'MMKI', 'ALL'], true)) {
-            $customer = 'TMMIN';
+            $customer = 'ALL';
         }
         $isTmmin = $customer === 'TMMIN';
         $isMmki = $customer === 'MMKI';
@@ -110,6 +110,29 @@
 
     {{-- Form Switcher Script (Kanban, Manifest, Skid) --}}
     <script>
+        window.normalizeFileName = function (filename) {
+            if (typeof filename !== 'string') return filename;
+            var lastDot = filename.lastIndexOf('.');
+            var name = lastDot !== -1 ? filename.slice(0, lastDot) : filename;
+            var ext = lastDot !== -1 ? filename.slice(lastDot) : '';
+            var hyphenIdx = name.indexOf('-');
+            if (hyphenIdx !== -1) {
+                name = name.slice(0, hyphenIdx);
+            }
+            return name + ext;
+        };
+
+        window.normalizeFile = function (f) {
+            if (!f || !f.name) return f;
+            var normName = window.normalizeFileName(f.name);
+            if (normName === f.name) return f;
+            try {
+                return new File([f], normName, { type: f.type, lastModified: f.lastModified });
+            } catch (e) {
+                return f;
+            }
+        };
+
         (function () {
             function setupUploadTypeTabs() {
                 var buttons = document.querySelectorAll('.upload-type-btn');

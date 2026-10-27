@@ -334,6 +334,10 @@ class KanbanSourceArchive
     {
         $base = basename(str_replace('\\', '/', trim($name)));
         $stem = pathinfo($base, PATHINFO_FILENAME);
+        $hyphenPos = strpos($stem, '-');
+        if ($hyphenPos !== false) {
+            $stem = substr($stem, 0, $hyphenPos);
+        }
         $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
         $stem = trim($stem, '._');
         if ($stem === '') {

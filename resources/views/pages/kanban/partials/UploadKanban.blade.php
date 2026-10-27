@@ -1,33 +1,6 @@
 {{-- ===== FORM AREA: UPLOAD KANBAN (DEFAULT ACTIVE) ===== --}}
 <div id="formAreaUploadKanban" class="upload-form-pane">
 
-    {{-- NAV customer (statis: TMMIN, MMKI & MANUAL). Tab MANUAL = customer ALL, khusus manual crop. --}}
-    <!-- <ul class="nav nav-pills mb-3" id="customerNav">
-        <li class="nav-item">
-            <a class="nav-link {{ $isTmmin ? 'active' : '' }}"
-                href="{{ route('dashboard.kanbanUpload', ['customer' => 'TMMIN']) }}">
-                <i class="fas fa-industry"></i> TMMIN
-
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {{ $isMmki ? 'active' : '' }}"
-                href="{{ route('dashboard.kanbanUpload', ['customer' => 'MMKI']) }}">
-                <i class="fas fa-industry"></i> MMKI
-
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {{ $isAll ? 'active' : '' }}"
-                href="{{ route('dashboard.kanbanUpload', ['customer' => 'ALL']) }}">
-                <i class="fas fa-cut"></i> MANUAL
-
-            </a>
-        </li>
-    </ul> -->
-
-
-
     {{-- Form auto (TMMIN/MMKI). Disembunyikan saat MANUAL karena MANUAL khusus manual crop. DOM tetap ada (hidden) agar JS lama tidak error. --}}
     <div class="card" @if($isAll) style="display:none;" @endif>
         <div class="card-header">
@@ -569,12 +542,35 @@
             });
         }
 
+        function normalizeFileName(filename) {
+            if (typeof filename !== 'string') return filename;
+            const lastDot = filename.lastIndexOf('.');
+            let name = lastDot !== -1 ? filename.slice(0, lastDot) : filename;
+            const ext = lastDot !== -1 ? filename.slice(lastDot) : '';
+            const hyphenIdx = name.indexOf('-');
+            if (hyphenIdx !== -1) {
+                name = name.slice(0, hyphenIdx);
+            }
+            return name + ext;
+        }
+
+        function normalizeFile(f) {
+            if (!f || !f.name) return f;
+            const normName = normalizeFileName(f.name);
+            if (normName === f.name) return f;
+            try {
+                return new File([f], normName, { type: f.type, lastModified: f.lastModified });
+            } catch (e) {
+                return f;
+            }
+        }
+
         if (filesInput) filesInput.addEventListener('change', function() {
             if (isBusy) {
                 filesInput.value = '';
                 return;
             }
-            const incoming = Array.from(filesInput.files || []);
+            const incoming = Array.from(filesInput.files || []).map(normalizeFile);
             filesInput.value = '';
             if (incoming.length === 0) return;
 
@@ -1347,10 +1343,33 @@
                 }
             }
 
+            function normalizeFileName(filename) {
+                if (typeof window.normalizeFileName === 'function') return window.normalizeFileName(filename);
+                if (typeof filename !== 'string') return filename;
+                var lastDot = filename.lastIndexOf('.');
+                var name = lastDot !== -1 ? filename.slice(0, lastDot) : filename;
+                var ext = lastDot !== -1 ? filename.slice(lastDot) : '';
+                var hyphenIdx = name.indexOf('-');
+                if (hyphenIdx !== -1) name = name.slice(0, hyphenIdx);
+                return name + ext;
+            }
+
+            function normalizeFile(f) {
+                if (typeof window.normalizeFile === 'function') return window.normalizeFile(f);
+                if (!f || !f.name) return f;
+                var normName = normalizeFileName(f.name);
+                if (normName === f.name) return f;
+                try {
+                    return new File([f], normName, { type: f.type, lastModified: f.lastModified });
+                } catch (e) {
+                    return f;
+                }
+            }
+
             function addIncomingFiles(incoming) {
                 if (finished) { setStatus('Sudah finish. Klik Reset dulu untuk job baru.', 'warning'); return; }
                 if (busy) return;
-                (incoming || []).forEach(function(f) {
+                (incoming || []).map(normalizeFile).forEach(function(f) {
                     if (!/\.pdf$/i.test(f.name)) return;
                     const k = fileKey(f);
                     const dup = allFiles.some(function(e) { return fileKey(e) === k; });
