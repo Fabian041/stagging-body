@@ -456,6 +456,116 @@
             margin-left: auto;
         }
 
+        #stockHistoryExportModal .modal-dialog {
+            max-width: 640px;
+        }
+
+        #stockHistoryExportModal .modal-content,
+        #stockHistoryExportModal form {
+            background: #ffffff !important;
+        }
+
+        #stockHistoryExportModal .modal-header {
+            display: flex;
+            align-items: center;
+            padding: 18px 22px !important;
+            background: #ffffff !important;
+        }
+
+        .stock-export-title {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            margin: 0;
+        }
+
+        .stock-export-title-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            background: rgba(0, 112, 183, .09);
+            color: var(--primary, #0070b7);
+        }
+
+        #stockHistoryExportModal .modal-body {
+            padding: 22px !important;
+            background: #ffffff !important;
+        }
+
+        .stock-export-fields {
+            display: grid;
+            gap: 16px;
+        }
+
+        .stock-export-fields .form-group {
+            margin: 0;
+        }
+
+        .stock-export-fields label {
+            display: block;
+            margin: 0 0 6px;
+            color: var(--text-muted, #64748b);
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .stock-export-fields .form-control {
+            height: 42px;
+            border: 1px solid var(--border, #e5e7eb) !important;
+            border-radius: 8px !important;
+            background: var(--bg, #f8fafc) !important;
+            color: var(--text, #0f172a) !important;
+            box-shadow: none !important;
+            font-size: 12.5px !important;
+        }
+
+        .stock-export-fields .form-control:focus {
+            border-color: var(--sky, #0097d8) !important;
+            background: #ffffff !important;
+            box-shadow: 0 0 0 3px rgba(0, 151, 216, .1) !important;
+        }
+
+        .stock-export-time-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .stock-export-hint {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 10px 12px;
+            border: 1px solid rgba(0, 112, 183, .12);
+            border-radius: 8px;
+            background: rgba(0, 112, 183, .05);
+            color: var(--text-muted, #64748b);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .stock-export-hint i {
+            margin-top: 2px;
+            color: var(--primary, #0070b7);
+        }
+
+        #stockHistoryExportModal .modal-footer {
+            gap: 8px;
+            padding: 14px 22px !important;
+            background: #ffffff !important;
+        }
+
+        #stockHistoryExportModal .modal-footer .act-btn {
+            height: 38px;
+            border-radius: 7px;
+        }
+
         .bella-badge {
             display: inline-flex;
             align-items: center;
@@ -1112,6 +1222,10 @@
             .history-download-button {
                 margin-left: 0;
             }
+
+            .stock-export-time-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 
@@ -1335,32 +1449,37 @@
             <form action="{{ route('dashboard.productionStock.transactions.export') }}" method="GET"
                 id="stockHistoryExportForm">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-file-excel mr-2"></i>Export Riwayat Transaksi</h5>
+                    <h5 class="modal-title stock-export-title">
+                        <span class="stock-export-title-icon"><i class="fas fa-file-excel"></i></span>
+                        <span>Export Riwayat Transaksi</span>
+                    </h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="modal-body mt-3">
-                    <div class="form-group">
-                        <label for="stockHistoryExportLine">Line</label>
-                        <select class="form-control" name="line" id="stockHistoryExportLine">
-                            <option value="">Semua Line</option>
-                            @foreach ($lines as $line)
-                                <option value="{{ $line['name'] }}" @selected($line['active'])>{{ $line['name'] }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="pis-row">
+                <div class="modal-body">
+                    <div class="stock-export-fields">
                         <div class="form-group">
-                            <label for="stockHistoryExportFrom">Dari Waktu</label>
-                            <input type="datetime-local" class="form-control" name="from" id="stockHistoryExportFrom">
+                            <label for="stockHistoryExportLine">Line</label>
+                            <select class="form-control" name="line" id="stockHistoryExportLine">
+                                <option value="">Semua Line</option>
+                                @foreach ($lines as $line)
+                                    <option value="{{ $line['name'] }}" @selected($line['active'])>{{ $line['name'] }}</option>
+                                @endforeach
+                            </select>
                         </div>
-                        <div class="form-group">
-                            <label for="stockHistoryExportTo">Sampai Waktu</label>
-                            <input type="datetime-local" class="form-control" name="to" id="stockHistoryExportTo">
+                        <div class="stock-export-time-grid">
+                            <div class="form-group">
+                                <label for="stockHistoryExportFrom">Dari Waktu</label>
+                                <input type="datetime-local" class="form-control" name="from" id="stockHistoryExportFrom">
+                            </div>
+                            <div class="form-group">
+                                <label for="stockHistoryExportTo">Sampai Waktu</label>
+                                <input type="datetime-local" class="form-control" name="to" id="stockHistoryExportTo">
+                            </div>
                         </div>
                     </div>
-                    <div class="upload-hint mb-0">
+                    <div class="stock-export-hint">
                         <i class="fas fa-info-circle"></i>
                         <span>Pilih Semua Line dan kosongkan waktu untuk mengunduh seluruh riwayat.</span>
                     </div>
