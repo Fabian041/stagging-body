@@ -1462,12 +1462,12 @@
             <div class="modal-body">
                 <div class="history-filter-bar">
                     <div class="history-filter-field">
-                        <label for="stockHistoryDateFrom">Dari Tanggal</label>
-                        <input type="date" class="form-control" id="stockHistoryDateFrom">
+                        <label for="stockHistoryDateFrom">Dari Waktu</label>
+                        <input type="datetime-local" class="form-control" id="stockHistoryDateFrom">
                     </div>
                     <div class="history-filter-field">
-                        <label for="stockHistoryDateTo">Sampai Tanggal</label>
-                        <input type="date" class="form-control" id="stockHistoryDateTo">
+                        <label for="stockHistoryDateTo">Sampai Waktu</label>
+                        <input type="datetime-local" class="form-control" id="stockHistoryDateTo">
                     </div>
                     <button type="button" class="act-btn primary" id="stockHistoryApply">
                         <i class="fas fa-filter"></i> Terapkan
@@ -1836,18 +1836,18 @@
 
         function stockHistoryFilters() {
             return {
-                date_from: $('#stockHistoryDateFrom').val() || '',
-                date_to: $('#stockHistoryDateTo').val() || ''
+                from: $('#stockHistoryDateFrom').val() || '',
+                to: $('#stockHistoryDateTo').val() || ''
             };
         }
 
         function stockHistoryFilterIsValid() {
             const filters = stockHistoryFilters();
-            if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
+            if (filters.from && filters.to && filters.from > filters.to) {
                 if (window.iziToast) {
                     iziToast.warning({
-                        title: 'Filter tanggal tidak valid',
-                        message: 'Tanggal mulai tidak boleh setelah tanggal akhir.',
+                        title: 'Filter waktu tidak valid',
+                        message: 'Waktu mulai tidak boleh setelah waktu akhir.',
                         position: 'bottomRight',
                         timeout: 4000,
                         class: 'iziToast-warning'

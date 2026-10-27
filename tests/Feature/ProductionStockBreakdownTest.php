@@ -133,6 +133,17 @@ class ProductionStockBreakdownTest extends TestCase
         );
 
         $this->assertSame(1, $untilResponse->getData(true)['pagination']['total']);
+
+        $timeResponse = (new DashboardController())->productionStockTransactions(
+            Request::create('/dashboard/production/stock/transactions', 'GET', [
+                'internal_part_id' => 10,
+                'from' => '2026-10-22T09:30',
+                'to' => '2026-10-22T10:30',
+            ])
+        );
+
+        $this->assertSame(1, $timeResponse->getData(true)['pagination']['total']);
+        $this->assertSame('10:00:00', substr($timeResponse->getData(true)['data'][0]['date'], 11));
     }
 
     public function test_filtered_transaction_history_can_be_downloaded(): void

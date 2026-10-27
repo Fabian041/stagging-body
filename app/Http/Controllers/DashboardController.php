@@ -987,6 +987,8 @@ class DashboardController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
 
         $part = DB::table('internal_parts')
@@ -1002,10 +1004,21 @@ class DashboardController extends Controller
             )
             ->first();
 
+        $from = ! empty($validated['from'])
+            ? Carbon::parse($validated['from'], 'Asia/Jakarta')->startOfMinute()
+            : (! empty($validated['date_from'])
+                ? Carbon::parse($validated['date_from'], 'Asia/Jakarta')->startOfDay()
+                : null);
+        $to = ! empty($validated['to'])
+            ? Carbon::parse($validated['to'], 'Asia/Jakarta')->endOfMinute()
+            : (! empty($validated['date_to'])
+                ? Carbon::parse($validated['date_to'], 'Asia/Jakarta')->endOfDay()
+                : null);
+
         $transactions = $this->stockTransactionQuery(
             (int) $part->id,
-            $validated['date_from'] ?? null,
-            $validated['date_to'] ?? null
+            $from?->toDateTimeString(),
+            $to?->toDateTimeString()
         )
             ->paginate(10);
         $rows = $this->stockTransactionRows(
@@ -1117,13 +1130,13 @@ class DashboardController extends Controller
         return Excel::download(new StockTransactionHistoryExport($rows), $filename);
     }
 
-    private function stockTransactionQuery(int $internalPartId, ?string $dateFrom = null, ?string $dateTo = null)
+    private function stockTransactionQuery(int $internalPartId, ?string $from = null, ?string $to = null)
     {
         return DB::table('mutations')
             ->where('internal_part_id', $internalPartId)
             ->whereIn('type', ['supply', 'checkout'])
-            ->when($dateFrom, fn ($query) => $query->whereDate('date', '>=', $dateFrom))
-            ->when($dateTo, fn ($query) => $query->whereDate('date', '<=', $dateTo))
+            ->when($from, fn ($query) => $query->where('date', '>=', $from))
+            ->when($to, fn ($query) => $query->where('date', '<=', $to))
             ->select('id', 'date', 'type', 'qty', 'serial_number', 'npk', 'is_adjustment')
             ->orderByDesc('id');
     }
