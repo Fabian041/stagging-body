@@ -17,11 +17,13 @@ return [
             'copies' => 1,
         ],
         'manifest' => [
-            'width' => 218.4,
-            'height' => 279.4,
+            // 'width' => 218.4,
+            // 'height' => 279.4,
+            'width' => 228.4,
+            'height' => 289.4,
             'units' => 'mm',
             'margins' => 0,
-            'scale_content' => true,
+            // 'scale_content' => true,
             'copies' => 1,
         ],
         'skid' => [

@@ -21,10 +21,10 @@ return [
 
         'image_path' => env('MANIFEST_OVERLAY_IMAGE_PATH', public_path('assets/img/stamp.jpeg')),
 
-        'x' => (float) env('MANIFEST_OVERLAY_X', 60.0),
+        'x' => (float) env('MANIFEST_OVERLAY_X', 50.0),
         'y' => (float) env('MANIFEST_OVERLAY_Y', 223.0),
-        'width' => (float) env('MANIFEST_OVERLAY_WIDTH', 30),
-        'height' => (float) env('MANIFEST_OVERLAY_HEIGHT', 30),
+        'width' => (float) env('MANIFEST_OVERLAY_WIDTH', 50),
+        'height' => (float) env('MANIFEST_OVERLAY_HEIGHT', 50),
 
         // Maintain aspect ratio inside the bounding box and center the image.
         'preserve_aspect_ratio' => (bool) env('MANIFEST_OVERLAY_PRESERVE_ASPECT', true),
