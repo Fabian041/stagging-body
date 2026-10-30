@@ -4,6 +4,7 @@ return [
     'printers' => [
         'kanban' => env('QZ_PRINTER_KANBAN', 'Printer Office AIIA'),
         'manifest' => env('QZ_PRINTER_MANIFEST', 'Brother PT-9800PCN'),
+        'skid' => env('QZ_PRINTER_SKID', 'Brother PT-9800PCN'),
     ],
     'paper' => [
         'kanban' => [
@@ -15,6 +16,14 @@ return [
             'copies' => 1,
         ],
         'manifest' => [
+            'width' => 210,
+            'height' => 297,
+            'units' => 'mm',
+            'margins' => 0,
+            'scale_content' => true,
+            'copies' => 1,
+        ],
+        'skid' => [
             'width' => 210,
             'height' => 297,
             'units' => 'mm',

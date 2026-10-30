@@ -377,6 +377,52 @@ Route::middleware(['auth'])->group(function () {
     )
     ->name('dashboard.manifestSourcePreview');
 
+    Route::post(
+        '/dashboard/manifest/upload/process',
+        [
+            DashboardController::class,
+            'manifestUploadProcess'
+        ]
+    )
+    ->name('dashboard.manifestUploadProcess');
+
+    // Arsip skid permanen — dipakai popup bar PDS di dashboard delivery.
+    Route::get(
+        '/dashboard/skid/source-files',
+        [
+            DashboardController::class,
+            'skidSourceFiles'
+        ]
+    )
+    ->name('dashboard.skidSourceFiles');
+
+    Route::get(
+        '/dashboard/skid/source-download/{file}',
+        [
+            DashboardController::class,
+            'skidSourceDownload'
+        ]
+    )
+    ->name('dashboard.skidSourceDownload');
+
+    Route::get(
+        '/dashboard/skid/source-preview/{file}',
+        [
+            DashboardController::class,
+            'skidSourcePreview'
+        ]
+    )
+    ->name('dashboard.skidSourcePreview');
+
+    Route::post(
+        '/dashboard/skid/upload/process',
+        [
+            DashboardController::class,
+            'skidUploadProcess'
+        ]
+    )
+    ->name('dashboard.skidUploadProcess');
+
     // QZ Tray message signing (hilangkan popup trust per-print)
     Route::get(
         '/dashboard/kanban/qz-cert',

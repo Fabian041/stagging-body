@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Jobs\ProcessKanbanUpload;
+use App\Services\ManifestPdfOverlayService;
 
 class DashboardController extends Controller
 {
@@ -110,7 +111,11 @@ class DashboardController extends Controller
         })->all();
 
         // online dulu (usort stabil di PHP 8 → urutan last_seen dalam grup dipertahankan)
-        usort($list, fn ($a, $b) => $b['online'] <=> $a['online']);
+        // usort($list, fn ($a, $b) => $b['online'] <=> $a['online']);
+        
+        usort($list, function ($a, $b) {
+            return $b['online'] <=> $a['online'];
+        });
 
         return ['online' => $online, 'total' => count($list), 'list' => $list];
     }
@@ -161,13 +166,15 @@ class DashboardController extends Controller
         $overview = $this->buildOverviewData($from, $to);
         $context = $contextBuilder->build($overview, $from, $to, $question);
         $history = collect($validated['history'] ?? [])
-            ->slice(-4)
-            ->map(fn ($item) => [
+        ->slice(-4)
+        ->map(function ($item) {
+            return [
                 'role' => $item['role'],
                 'content' => Str::limit(trim((string) $item['content']), 800, ''),
-            ])
-            ->values()
-            ->all();
+            ];
+        })
+        ->values()
+        ->all();
 
         $messages = [
             [
@@ -338,7 +345,11 @@ class DashboardController extends Controller
             $lenDays = $from->diffInDays($to) + 1;
             $prevFrom = $from->copy()->subDays($lenDays)->startOfDay();
             $currentFromKey = $from->toDateString();
-            $delta = fn ($cur, $prev) => $prev > 0 ? (int) round(($cur - $prev) / $prev * 100) : ($cur > 0 ? 100 : 0);
+            $delta = function ($cur, $prev) {
+                return $prev > 0
+                    ? (int) round(($cur - $prev) / $prev * 100)
+                    : ($cur > 0 ? 100 : 0);
+            };
 
             // ===== PPIC: loading list delivery dalam rentang =====
             $ll = \App\Models\LoadingList::query()
@@ -348,14 +359,17 @@ class DashboardController extends Controller
                 ->whereBetween('delivery_date', [$start, $end])
                 ->get();
 
-            $isComplete = fn ($l) => (int) ($l->total_kanban ?? 0) > 0
-                && (int) ($l->actual_kanban ?? 0) >= (int) $l->total_kanban;
-
+            $isComplete = function ($l) {
+                return (int) ($l->total_kanban ?? 0) > 0
+                    && (int) ($l->actual_kanban ?? 0) >= (int) $l->total_kanban;
+            };
             $prepTotal = $ll->count();
             $prepComplete = $ll->filter($isComplete)->count();
             $prepPct = $prepTotal > 0 ? (int) round($prepComplete / $prepTotal * 100) : 0;
 
-            $prepByCycle = $ll->groupBy(fn ($l) => $l->cycle ?: '-')
+            $prepByCycle = $ll->groupBy(function ($l) {
+                    return $l->cycle ?: '-';
+                })
                 ->map(function ($items, $cycle) use ($isComplete) {
                     $total = $items->count();
                     $complete = $items->filter($isComplete)->count();
@@ -364,9 +378,13 @@ class DashboardController extends Controller
                         'cycle' => (string) $cycle,
                         'total' => $total,
                         'complete' => $complete,
-                        'pct' => $total > 0 ? (int) round($complete / $total * 100) : 0,
+                        'pct' => $total > 0
+                            ? (int) round($complete / $total * 100)
+                            : 0,
                     ];
-                })->sortBy('cycle')->values();
+                })
+                ->sortBy('cycle')
+                ->values();
 
             // Satu scan terindeks untuk KPI, tren harian, dan pembanding periode sebelumnya.
             $mutationDailyRows = DB::table('mutations')
@@ -403,10 +421,14 @@ class DashboardController extends Controller
                 ->groupBy('d')
                 ->pluck('c', 'd');
             $pullingDone = (int) $pullingDaily
-                ->filter(fn ($count, $date) => $date >= $currentFromKey)
+                ->filter(function ($count, $date) use ($currentFromKey) {
+                    return $date >= $currentFromKey;
+                })
                 ->sum();
             $prevPulling = (int) $pullingDaily
-                ->filter(fn ($count, $date) => $date < $currentFromKey)
+                ->filter(function ($count, $date) use ($currentFromKey) {
+                    return $date < $currentFromKey;
+                })
                 ->sum();
 
             $pisByDay = DB::table('pis_scan_logs')
@@ -422,9 +444,9 @@ class DashboardController extends Controller
                 ->selectRaw('COALESCE(production_stocks.current_stock, 0) as cur, COALESCE(internal_parts.standard_stock, 0) as std')
                 ->get();
             $totalPart = $stockRows->count();
-            $stockUnder = $stockRows->filter(fn ($r) => $r->cur < $r->std)->count();
-            $stockLow = $stockRows->filter(fn ($r) => $r->cur == $r->std)->count();
-            $stockIn = $stockRows->filter(fn ($r) => $r->cur > $r->std)->count();
+            $stockUnder = $stockRows->filter(function ($r) { return $r->cur < $r->std; })->count();
+            $stockLow = $stockRows->filter(function ($r) { return $r->cur == $r->std; })->count();
+            $stockIn = $stockRows->filter(function ($r) { return $r->cur > $r->std; })->count();
 
             $topUnder = DB::table('internal_parts')
                 ->leftJoin('production_stocks', 'production_stocks.internal_part_id', '=', 'internal_parts.id')
@@ -468,11 +490,13 @@ class DashboardController extends Controller
             $errByArea = $errorAreaCounts
                 ->sortDesc()
                 ->take(6)
-                ->map(fn ($count, $area) => (object) [
-                    'area' => $area,
-                    'c' => $count,
-                    'delta' => $delta($count, (int) ($errorAreaCountsPrev[$area] ?? 0)),
-                ])
+                ->map(function ($count, $area) use ($delta, $errorAreaCountsPrev) {
+                    return (object) [
+                        'area' => $area,
+                        'c' => $count,
+                        'delta' => $delta($count, (int) ($errorAreaCountsPrev[$area] ?? 0)),
+                    ];
+                })
                 ->values();
             $recentErrors = DB::table('error_logs')
                 ->orderByDesc('date')->limit(8)
@@ -516,7 +540,9 @@ class DashboardController extends Controller
                 ->groupBy('lines.name')->orderByDesc('c')->limit(8)->get();
 
             // ===== Preparation per customer (#2) =====
-            $prepByCustomer = $ll->groupBy(fn ($l) => optional($l->customer)->name ?: '-')
+            $prepByCustomer = $ll->groupBy(function ($l) {
+                    return optional($l->customer)->name ?: '-';
+                })
                 ->map(function ($items, $cust) use ($isComplete) {
                     $total = $items->count();
                     $complete = $items->filter($isComplete)->count();
@@ -582,7 +608,9 @@ class DashboardController extends Controller
             // ===== Delivery berisiko (#6): hari ini + besok, belum lengkap, + deadline master cycle =====
             // Lookup master cycle per (customer_id, cycle) — cocokkan exact lalu by-angka.
             $mcRows = \App\Models\MasterCycle::get(['customer_id', 'cycle_name', 'truck_time', 'prep_end_time', 'prep_day_offset', 'prep_end_day_offset']);
-            $normCycle = fn ($s) => strtolower(trim((string) $s));
+            $normCycle = function ($s) {
+                return strtolower(trim((string) $s));
+            };
             $digitCycle = function ($s) {
                 preg_match('/\d+/', (string) $s, $m);
 
@@ -605,7 +633,9 @@ class DashboardController extends Controller
                 ->with('customer:id,name')
                 ->whereBetween('delivery_date', [Carbon::today()->startOfDay(), Carbon::tomorrow()->endOfDay()])
                 ->get()
-                ->filter(fn ($l) => (int) ($l->total_kanban ?? 0) > 0 && (int) ($l->actual_kanban ?? 0) < (int) $l->total_kanban)
+                ->filter(function ($l) {
+                    return (int) ($l->total_kanban ?? 0) > 0 && (int) ($l->actual_kanban ?? 0) < (int) $l->total_kanban;
+                })
                 ->map(function ($l) use ($mcExact, $mcDigit, $normCycle, $digitCycle, $now) {
                     $m = $mcExact[$l->customer_id.'|'.$normCycle($l->cycle)]
                         ?? ($mcDigit[$l->customer_id.'|'.$digitCycle($l->cycle)] ?? null);
@@ -642,7 +672,9 @@ class DashboardController extends Controller
                         'pct' => (int) ($l->total_kanban ?? 0) > 0 ? (int) round(($l->actual_kanban ?? 0) / $l->total_kanban * 100) : 0,
                     ];
                 })
-                ->filter(fn ($row) => in_array($row->urgency, ['overdue', 'urgent', 'soon'], true))
+                ->filter(function ($row) {
+                    return in_array($row->urgency, ['overdue', 'urgent', 'soon'], true);
+                })
                 ->sortBy('sortKey')
                 ->take(10)
                 ->values();
@@ -785,7 +817,9 @@ class DashboardController extends Controller
 
     private function compactAiContextForGroq(array $context, int $maxChars): array
     {
-        $fits = fn (array $ctx) => strlen($this->encodeAiContext($ctx)) <= $maxChars;
+        $fits = function (array $ctx) use ($maxChars) {
+            return strlen($this->encodeAiContext($ctx)) <= $maxChars;
+        };
 
         if ($fits($context)) {
             return $context;
@@ -827,7 +861,9 @@ class DashboardController extends Controller
 
     private function estimateGroqTokens(array $messages): int
     {
-        $chars = collect($messages)->sum(fn ($message) => strlen((string) ($message['content'] ?? '')));
+        $chars = collect($messages)->sum(function ($message) {
+            return strlen((string) ($message['content'] ?? ''));
+        });
 
         return (int) ceil($chars / 3.2);
     }
@@ -838,7 +874,14 @@ class DashboardController extends Controller
             return $messages;
         }
 
-        $contextIndex = collect($messages)->search(fn ($message) => ($message['role'] ?? '') === 'user' && str_starts_with((string) ($message['content'] ?? ''), 'system_context:'));
+        $contextIndex = collect($messages)->search(function ($message) {
+            return ($message['role'] ?? '') === 'user'
+                && strpos(
+                    (string) ($message['content'] ?? ''),
+                    'system_context:'
+                ) === 0;
+        });
+
         if ($contextIndex !== false) {
             $raw = substr((string) $messages[$contextIndex]['content'], strlen('system_context:'));
             $context = json_decode(ltrim($raw), true);
@@ -876,7 +919,9 @@ class DashboardController extends Controller
             ->distinct()
             ->orderBy('lines.name')
             ->pluck('name')
-            ->map(fn ($line) => (string) $line);
+            ->map(function ($line) {
+                return (string) $line;
+            });
 
         $requestedLine = trim((string) $request->query('line', ''));
         $focusBackNumber = trim((string) $request->query('back_number', ''));
@@ -1222,12 +1267,35 @@ class DashboardController extends Controller
                 'pairing_master.assembly_back_number',
                 'pairing_master.painting_back_number',
             ])
-            ->when($request->filled('project'), fn ($query) => $query->where('kanban_pairing_logs.project', $request->query('project')))
-            ->when(in_array((string) $status, ['0', '1'], true), fn ($query) => $query->where('kanban_pairing_logs.status', (int) $status))
-            ->when($request->filled('date_from'), fn ($query) => $query->whereDate('kanban_pairing_logs.paired_at', '>=', $request->query('date_from')))
-            ->when($request->filled('date_to'), fn ($query) => $query->whereDate('kanban_pairing_logs.paired_at', '<=', $request->query('date_to')))
+           ->when($request->filled('project'), function ($query) use ($request) {
+                return $query->where(
+                    'kanban_pairing_logs.project',
+                    $request->query('project')
+                );
+            })
+            ->when(in_array((string) $status, ['0', '1'], true), function ($query) use ($status) {
+                return $query->where(
+                    'kanban_pairing_logs.status',
+                    (int) $status
+                );
+            })
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                return $query->whereDate(
+                    'kanban_pairing_logs.paired_at',
+                    '>=',
+                    $request->query('date_from')
+                );
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                return $query->whereDate(
+                    'kanban_pairing_logs.paired_at',
+                    '<=',
+                    $request->query('date_to')
+                );
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $like = '%'.$search.'%';
+
 
                 $query->where(function ($query) use ($like) {
                     $query->where('kanban_pairing_logs.assembly_part', 'like', $like)
@@ -1432,7 +1500,9 @@ class DashboardController extends Controller
             ->join('lines', 'internal_parts.line_id', '=', 'lines.id')
             ->whereIn('mutations.type', self::PRODUCTION_RESULT_TYPES)
             ->where('internal_parts.back_number', $backNumber)
-            ->when($line !== '', fn ($q) => $q->where('lines.name', $line))
+            ->when($line !== '', function ($q) use ($line) {
+                return $q->where('lines.name', $line);
+            })
             ->whereBetween('mutations.created_at', [
                 Carbon::parse($date)->startOfDay(),
                 Carbon::parse($date)->endOfDay(),
@@ -1567,19 +1637,25 @@ class DashboardController extends Controller
 
         // === Kumpulkan kandidat line dari CONFIG & dari DB (UNION) ===
         $cfgLines = collect(array_keys($this->backNosByLine ?? []))
-            ->map(fn ($s) => strtoupper(trim((string) $s)));
+            ->map(function ($s) {
+                return strtoupper(trim((string) $s));
+            });
 
         $dbLines = ProductionPlan::whereDate('plan_date', $todayISO)
             ->select('line')->distinct()->pluck('line')
             ->filter()
-            ->map(fn ($s) => strtoupper(trim((string) $s)));
+            ->map(function ($s) {
+                return strtoupper(trim((string) $s));
+            });
 
         // UNION lalu filter sesuai group (MA atau AS), urut natural (prefix|angka 3 digit)
         $LINES = $cfgLines->merge($dbLines)
             ->unique()
-            ->filter(fn ($L) => strtoupper($group) === 'MA'
-                ? str_starts_with($L, 'MA')
-                : str_starts_with($L, 'AS'))
+            ->filter(function ($L) use ($group) {
+                return strtoupper($group) === 'MA'
+                    ? str_starts_with($L, 'MA')
+                    : str_starts_with($L, 'AS');
+            })
             ->sortBy(function ($L) {
                 $prefix = substr($L, 0, 2);
                 $num = (int) preg_replace('/^\D+/', '', $L);
@@ -1593,11 +1669,15 @@ class DashboardController extends Controller
         if (empty($LINES)) {
             $fallback = ProductionPlan::whereDate('plan_date', $todayISO)
                 ->select('line')->distinct()->pluck('line')
-                ->filter()->map(fn ($s) => strtoupper(trim($s)))->values();
+                ->filter()->map(function ($s) {
+                    return strtoupper(trim($s));
+                })->values();
 
-            $LINES = $fallback->filter(fn ($L) => strtoupper($group) === 'MA'
-                ? str_starts_with($L, 'MA')
-                : str_starts_with($L, 'AS'))
+            $LINES = $fallback->filter(function ($L) use ($group) {
+                return strtoupper($group) === 'MA'
+                    ? str_starts_with($L, 'MA')
+                    : str_starts_with($L, 'AS');
+            })
                 ->sortBy(function ($L) {
                     $prefix = substr($L, 0, 2);
                     $num = (int) preg_replace('/^\D+/', '', $L);
@@ -1610,7 +1690,9 @@ class DashboardController extends Controller
 
         // === Ambil plan hari itu untuk line yang tampil, urut ala prodPlan ===
         $items = ProductionPlan::whereDate('plan_date', $todayISO)
-            ->when(! empty($LINES), fn ($q) => $q->whereIn('line', $LINES))
+            ->when(! empty($LINES), function ($q) use ($LINES) {
+                return $q->whereIn('line', $LINES);
+            })
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
             ->orderBy('seq_no')
@@ -1618,9 +1700,15 @@ class DashboardController extends Controller
             ->get();
 
         // Helper normalisasi
-        $normBack = fn ($bn) => $this->normalizeBackNo($bn);   // D111 → CI12
-        $normDock = fn ($dk) => $this->normalizeDock($dk);     // DOM/DOMESTIC → NR; EXPORT → EXP
-        $present = fn ($bn) => $this->presentBackNoForGroup($bn, strtoupper($group)); // <<— NEW
+        $normBack = function ($bn) {
+            return $this->normalizeBackNo($bn);   // D111 → CI12
+        };
+        $normDock = function ($dk) {
+            return $this->normalizeDock($dk);     // DOM/DOMESTIC → NR; EXPORT → EXP
+        };
+        $present = function ($bn) use ($group) {
+            return $this->presentBackNoForGroup($bn, strtoupper($group)); // <<— NEW
+        };
 
         // === Kelompok per line
         $byLine = [];
@@ -1703,7 +1791,9 @@ class DashboardController extends Controller
 
             if ($rows->count() > 0 && ($mQty + $nQty) === 0) {
                 $mQty = (int) $rows->sum('order_qty');
-                $mAct = (int) $rows->sum(fn ($i) => (int) ($i->direct_pulling_qty ?? 0));
+                $mAct = (int) $rows->sum(function ($i) {
+                    return (int) ($i->direct_pulling_qty ?? 0);
+                });
                 $nQty = 0;
                 $nAct = 0;
             }
@@ -1721,8 +1811,12 @@ class DashboardController extends Controller
 
             // Hitung uniq berdasarkan PRESENTED back_no (setelah CI->CH untuk MA)
             $uniqBackNo = $rows->pluck('back_no')
-                ->filter(fn ($v) => filled($v))
-                ->map(fn ($v) => $present($normBack($v)))   // <<— penting
+                ->filter(function ($v) {
+                    return filled($v);
+                })
+                ->map(function ($v) use ($present, $normBack) {
+                    return $present($normBack($v));
+                })   // <<— penting
                 ->unique()
                 ->count();
 
@@ -1763,19 +1857,27 @@ class DashboardController extends Controller
 
             $nextCandidates = collect();
             if ($currentIdx !== null) {
-                $nextCandidates = $rows->slice($currentIdx + 1)->filter(fn ($it) => ! $isComplete($it))->values();
+                $nextCandidates = $rows->slice($currentIdx + 1)->filter(function ($it) use ($isComplete) {
+                    return ! $isComplete($it);
+                })->values();
             }
 
-            $norm = fn ($s) => strtoupper(trim((string) $s));
+            $norm = function ($s) {
+                return strtoupper(trim((string) $s));
+            };
             $unifyForMerge = function ($bn) use ($normBack) {
                 // Samakan “keluarga” CI12 / CI19 dari alias (D111→CI12, D500→CI19)
                 return $normBack($bn);
             };
-            $isMergeTargetBN = fn ($bnU) => in_array($bnU, ['CI12', 'CI19'], true);
+            $isMergeTargetBN = function ($bnU) {
+                return in_array($bnU, ['CI12', 'CI19'], true);
+            };
 
             $groups = [];
             $idxCounter = 0;
-            $rawDock = fn ($s) => strtoupper(trim((string) $s));
+            $rawDock = function ($s) {
+                return strtoupper(trim((string) $s));
+            };
             foreach ($nextCandidates as $it) {
                 $bnU = $unifyForMerge($it->back_no);
                 $merge = $isMergeTargetBN($bnU);
@@ -1848,14 +1950,16 @@ class DashboardController extends Controller
                     'delivery_time' => $first['delivery_time'],
                     'delivery_date' => $first['delivery_date'],
                 ];
-                $nextList = $aggregatedNext->slice(1, 20)->map(fn ($a) => [
-                    'back_no' => $present($a['back_no']),
-                    'customer' => $a['customer'],
-                    'dock' => $a['dock'],
-                    'order_qty' => $a['order_qty'],
-                    'delivery_time' => $a['delivery_time'],
-                    'delivery_date' => $a['delivery_date'],
-                ])->values()->all();
+                $nextList = $aggregatedNext->slice(1, 20)->map(function ($a) use ($present) {
+                    return [
+                        'back_no' => $present($a['back_no']),
+                        'customer' => $a['customer'],
+                        'dock' => $a['dock'],
+                        'order_qty' => $a['order_qty'],
+                        'delivery_time' => $a['delivery_time'],
+                        'delivery_date' => $a['delivery_date'],
+                    ];
+                })->values()->all();
             }
 
             return [
@@ -1899,12 +2003,13 @@ class DashboardController extends Controller
     {
         $B = strtoupper(trim((string) $bn));
 
-        return match ($B) {
+        $map = [
             'D111' => 'CI12',
             'D500' => 'CI19',
             'D403' => 'CI18',
-            default => $B,
-        };
+        ];
+
+        return $map[$B] ?? $B;
     }
 
     private function normalizeDock(?string $dock): ?string
@@ -2161,8 +2266,12 @@ class DashboardController extends Controller
 
             $morningShiftQty = (int) $morningItems->sum('order_qty');
             $nightShiftQty = (int) $nightItems->sum('order_qty');
-            $morningShiftActual = (int) $morningItems->sum(fn ($i) => (int) ($i->direct_pulling_qty ?? 0));
-            $nightShiftActual = (int) $nightItems->sum(fn ($i) => (int) ($i->direct_pulling_qty ?? 0));
+            $morningShiftActual = (int) $morningItems->sum(function ($i) {
+                return (int) ($i->direct_pulling_qty ?? 0);
+            });
+            $nightShiftActual = (int) $nightItems->sum(function ($i) {
+                return (int) ($i->direct_pulling_qty ?? 0);
+            });
 
             $grouped[$line] = [
                 'data' => $lineData->groupBy(function ($item) {
@@ -2434,12 +2543,16 @@ class DashboardController extends Controller
                 'suppliers.name as supplier_name'
             )
             ->whereBetween('delivery_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
-            ->when($areaFilter, fn ($q) => $q->whereIn('suppliers.area', $areaFilter))
+            ->when($areaFilter, function ($q) use ($areaFilter) {
+                return $q->whereIn('suppliers.area', $areaFilter);
+            })
             ->get();
 
         // Rule 2: ambil semua supplier sesuai area agar row tetap tampil meski kosong
         $allSuppliers = DB::table('suppliers')
-            ->when($areaFilter, fn ($q) => $q->whereIn('area', $areaFilter))
+            ->when($areaFilter, function ($q) use ($areaFilter) {
+                return $q->whereIn('area', $areaFilter);
+            })
             ->orderBy('name')
             ->pluck('name')
             ->unique()
@@ -2478,7 +2591,9 @@ class DashboardController extends Controller
         // Rule 4: jika 1 supplier punya data berjarak 0-30 menit, gabung jadi 1 kotak
         $clustered = [];
         foreach (collect($seriesData)->groupBy('x') as $supplierName => $points) {
-            $sorted = $points->sortBy(fn ($p) => $p['y'][0])->values();
+            $sorted = $points->sortBy(function ($p) {
+                return $p['y'][0];
+            })->values();
             $cluster = [];
             $prevStart = null;
             $flush = function ($cluster) use (&$clustered, $supplierName) {
@@ -2542,13 +2657,21 @@ class DashboardController extends Controller
         $grouped = collect($seriesData)->groupBy('x');
         $earliest = [];
         foreach ($grouped as $supplierName => $points) {
-            $real = $points->filter(fn ($p) => empty($p['isEmpty']));
-            $earliest[$supplierName] = $real->isNotEmpty() ? $real->min(fn ($p) => $p['y'][0]) : PHP_INT_MAX;
+            $real = $points->filter(function ($p) {
+                return empty($p['isEmpty']);
+            });
+            $earliest[$supplierName] = $real->isNotEmpty() ? $real->min(function ($p) {
+                return $p['y'][0];
+            }) : PHP_INT_MAX;
         }
-        $sortedSuppliers = collect($earliest)->sortBy(fn ($time, $name) => [$time === PHP_INT_MAX ? 1 : 0, $time, $name])->keys()->values();
+        $sortedSuppliers = collect($earliest)->sortBy(function ($time, $name) {
+            return [$time === PHP_INT_MAX ? 1 : 0, $time, $name];
+        })->keys()->values();
         $orderedData = [];
         foreach ($sortedSuppliers as $supplierName) {
-            $points = $grouped[$supplierName]->sortBy(fn ($p) => $p['y'][0])->values()->all();
+            $points = $grouped[$supplierName]->sortBy(function ($p) {
+                return $p['y'][0];
+            })->values()->all();
             foreach ($points as $p) {
                 $orderedData[] = $p;
             }
@@ -2633,9 +2756,7 @@ class DashboardController extends Controller
         $ia31nt = DB::connection('mssql_external')
             ->table('IA31NT as a')
             ->where('a.CHR_NUB_NYSJNO', $pickList)
-            ->select(
-                'a.DEC_COD_BINID as flight',
-            )
+            ->select('a.DEC_COD_BINID as flight')
             ->first();
 
         if (! $ia31nt) {
@@ -2848,9 +2969,9 @@ class DashboardController extends Controller
 
     public function kanbanUpload(Request $request)
     {
-        $customer = strtoupper((string) $request->query('customer', 'TMMIN'));
+        $customer = strtoupper((string) $request->query('customer', 'ALL'));
         if (! in_array($customer, ['TMMIN', 'MMKI', 'ALL'], true)) {
-            $customer = 'TMMIN';
+            $customer = 'ALL';
         }
 
         return view('pages.kanban.upload', compact('customer'));
@@ -2970,9 +3091,28 @@ class DashboardController extends Controller
      * menimpa file lain. Validasi mimes:pdf sudah menjamin ekstensi PDF.
      * Nama ini dipakai job untuk menamai arsip HASIL generate di kanban-source.
      */
+    private function normalizeFileName(string $filename): string
+    {
+        $name = pathinfo($filename, PATHINFO_FILENAME);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        $hyphenPos = strpos($name, '-');
+        if ($hyphenPos !== false) {
+            $prefix = substr($name, 0, $hyphenPos);
+            $suffix = substr($name, $hyphenPos + 1);
+            if (preg_match('/\d/', $prefix) || ! preg_match('/\d/', $suffix)) {
+                $name = $prefix;
+            } else {
+                $name = $suffix;
+            }
+        }
+
+        return $ext !== '' ? $name . '.' . $ext : $name;
+    }
+
     private function resolveKanbanStoredName($file, array &$used): array
     {
         $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
+        $original = $this->normalizeFileName($original);
         $stem = pathinfo($original, PATHINFO_FILENAME);
         $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
         $stem = trim($stem, '._');
@@ -3167,10 +3307,12 @@ class DashboardController extends Controller
             // Pertahankan nama asli untuk future fetch berdasarkan nama file.
             $origName = $sp['fileName'] ?? $sp['name'] ?? null;
             if (is_string($origName) && trim($origName) !== '') {
-                $originalFiles[$fi] = basename(str_replace('\\', '/', trim($origName)));
+                $originalFiles[$fi] = $this->normalizeFileName(basename(str_replace('\\', '/', trim($origName))));
             }
             $globalBase += $totalPages > 0 ? $totalPages : array_sum(array_map(
-                static fn ($c) => $c['pages'] ?? 0,
+                function ($c) {
+                    return $c['pages'] ?? 0;
+                },
                 $chunks
             ));
         }
@@ -3205,7 +3347,9 @@ class DashboardController extends Controller
                 }
             }
             if (! $known) {
-                $paths = array_map(static fn ($c) => $c['path'], $f['chunks']);
+                $paths = array_map(function ($c) {
+                    return $c['path'];
+                }, $f['chunks']);
                 $parts[] = ['fileIndex' => $fi, 'chunks' => $paths, 'cutStart' => (int) $f['globalBase'] + 1];
                 continue;
             }
@@ -3555,20 +3699,26 @@ public function kanbanCancel($id)
             ->orderBy('name')
             ->get(['id', 'name', 'lines', 'vlines', 'updated_at']);
 
-        $normLines = static fn ($raw) => array_values(array_map(
-            static fn ($v) => round((float) $v, 4),
-            is_array($raw) ? $raw : []
-        ));
+        $normLines = function ($raw) {
+            return array_values(array_map(
+                function ($v) {
+                    return round((float) $v, 4);
+                },
+                is_array($raw) ? $raw : []
+            ));
+        };
 
         return response()->json([
             'status' => true,
-            'data' => $presets->map(fn ($p) => [
-                'id' => (int) $p->id,
-                'name' => (string) $p->name,
-                'lines' => $normLines($p->lines),
-                'vlines' => $normLines($p->vlines),
-                'updated_at' => $p->updated_at,
-            ])->values(),
+            'data' => $presets->map(function ($p) use ($normLines) {
+                return [
+                    'id' => (int) $p->id,
+                    'name' => (string) $p->name,
+                    'lines' => $normLines($p->lines),
+                    'vlines' => $normLines($p->vlines),
+                    'updated_at' => $p->updated_at,
+                ];
+            })->values(),
             'can_manage' => auth()->user() ? auth()->user()->can('manage-master') : false,
             'can_save' => true,
         ]);
@@ -3606,8 +3756,12 @@ public function kanbanCancel($id)
 
         $cleanLines = function ($raw) {
             $sorted = collect((array) $raw)
-                ->map(fn ($v) => round((float) $v, 4))
-                ->filter(fn ($v) => $v > 0.02 && $v < 0.98)
+                ->map(function ($v) {
+                    return round((float) $v, 4);
+                })
+                ->filter(function ($v) {
+                    return $v > 0.02 && $v < 0.98;
+                })
                 ->sort()
                 ->values();
             // Dedup garis yang terlalu rapat (<3%).
@@ -3703,8 +3857,12 @@ public function kanbanCancel($id)
         }
 
         $wanted = collect((array) $raw)
-            ->map(fn ($v) => preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v))
-            ->filter(fn ($v) => $v !== '')
+            ->map(function ($v) {
+                return preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v);
+            })
+            ->filter(function ($v) {
+                return $v !== '';
+            })
             ->unique()
             ->take(24)
             ->values();
@@ -3727,18 +3885,24 @@ public function kanbanCancel($id)
                 if (stripos($base, $pds) === false) {
                     continue;
                 }
-                // Manifest files are served by manifest endpoint, not kanban.
-                if (stripos($base, 'manifest') !== false) {
+                // Manifest and Skid files are served by their respective endpoints, not kanban.
+                if (stripos($base, 'manifest') !== false || stripos($base, 'skid') !== false) {
                     continue;
                 }
-                $matched[] = [
+                if (isset($matched[$base])) {
+                    continue;
+                }
+                $matched[$base] = [
                     'file' => $base,
                     'download' => route('dashboard.kanbanSourceDownload', $base),
                     'preview' => route('dashboard.kanbanSourcePreview', $base),
                 ];
             }
-            usort($matched, static fn ($a, $b) => strcmp($a['file'], $b['file']));
-            $data[] = ['pds' => $pds, 'files' => $matched];
+            $matchedValues = array_values($matched);
+            usort($matchedValues, function ($a, $b) {
+                return strcmp($a['file'], $b['file']);
+            });
+            $data[] = ['pds' => $pds, 'files' => $matchedValues];
         }
 
         return response()->json(['status' => true, 'data' => $data]);
@@ -3781,8 +3945,12 @@ public function kanbanCancel($id)
         }
 
         $wanted = collect((array) $raw)
-            ->map(fn ($v) => preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v))
-            ->filter(fn ($v) => $v !== '')
+            ->map(function ($v) {
+                return preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v);
+            })
+            ->filter(function ($v) {
+                return $v !== '';
+            })
             ->unique()
             ->take(24)
             ->values();
@@ -3811,19 +3979,25 @@ public function kanbanCancel($id)
                     if (stripos($base, $pds) === false) {
                         continue;
                     }
-                    $isManifest = $dir === 'manifest-source' || stripos($base, 'manifest') !== false;
+                    $isManifest = $dir === 'manifest-source' || (stripos($base, 'manifest') !== false && stripos($base, 'skid') === false);
                     if (! $isManifest) {
                         continue;
                     }
-                    $matched[] = [
+                    if (isset($matched[$base])) {
+                        continue;
+                    }
+                    $matched[$base] = [
                         'file' => $base,
                         'download' => route('dashboard.manifestSourceDownload', $base),
                         'preview' => route('dashboard.manifestSourcePreview', $base),
                     ];
                 }
             }
-            usort($matched, static fn ($a, $b) => strcmp($a['file'], $b['file']));
-            $data[] = ['pds' => $pds, 'files' => $matched];
+            $matchedValues = array_values($matched);
+            usort($matchedValues, function ($a, $b) {
+                return strcmp($a['file'], $b['file']);
+            });
+            $data[] = ['pds' => $pds, 'files' => $matchedValues];
         }
 
         return response()->json(['status' => true, 'data' => $data]);
@@ -3858,6 +4032,227 @@ public function kanbanCancel($id)
             }
         }
         abort(404);
+    }
+
+    /**
+     * Upload proses file Manifest PDF dengan image overlay ke storage manifest-source
+     */
+    public function manifestUploadProcess(Request $request, ManifestPdfOverlayService $overlayService)
+    {
+        $request->validate([
+            'files' => 'required|array|min:1',
+            'files.*' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        if (! Storage::exists('manifest-source')) {
+            Storage::makeDirectory('manifest-source');
+        }
+
+        $savedFiles = [];
+        $tempOutputs = [];
+
+        try {
+            foreach ($request->file('files') as $file) {
+                $storedName = $this->resolveManifestStoredName($file);
+
+                // Insert configured image overlay into Manifest PDF
+                $tempPath = $overlayService->applyOverlay(
+                    $file->getRealPath(),
+                    $file->getClientOriginalName()
+                );
+                $tempOutputs[] = $tempPath;
+
+                // Save processed PDF only after successful overlay generation
+                Storage::put('manifest-source/' . $storedName, file_get_contents($tempPath));
+                $savedFiles[] = $storedName;
+            }
+        } catch (\Throwable $e) {
+            // Clean up files written in this failed batch
+            foreach ($savedFiles as $saved) {
+                Storage::delete('manifest-source/' . $saved);
+            }
+
+            \Log::error('Manifest upload failed during image overlay processing', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memproses file manifest: ' . $e->getMessage(),
+            ], 422);
+        } finally {
+            // Clean up temporary files
+            foreach ($tempOutputs as $tempPath) {
+                if (is_file($tempPath)) {
+                    @unlink($tempPath);
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'files' => $savedFiles,
+            'count' => count($savedFiles),
+            'message' => 'Berhasil mengunggah ' . count($savedFiles) . ' file manifest.',
+        ]);
+    }
+
+    /**
+     * Daftar file skid arsip (skid-source, dan kanban-source yang namanya mengandung skid)
+     * untuk 1..N nomor PDS/manifest.
+     */
+    public function skidSourceFiles(Request $request)
+    {
+        $raw = $request->input('pds', []);
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+
+        $wanted = collect((array) $raw)
+            ->map(function ($v) {
+                return preg_replace('/[^A-Za-z0-9\-_]/', '', (string) $v);
+            })
+            ->filter(function ($v) {
+                return $v !== '';
+            })
+            ->unique()
+            ->take(24)
+            ->values();
+
+        if ($wanted->isEmpty()) {
+            return response()->json(['status' => false, 'message' => 'Parameter PDS kosong.'], 422);
+        }
+
+        $diskFiles = [];
+        foreach (['skid-source', 'kanban-source'] as $dir) {
+            try {
+                foreach (Storage::files($dir) as $path) {
+                    $diskFiles[$dir][] = $path;
+                }
+            } catch (\Throwable $e) {
+                $diskFiles[$dir] = [];
+            }
+        }
+
+        $data = [];
+        foreach ($wanted as $pds) {
+            $matched = [];
+            foreach ($diskFiles as $dir => $paths) {
+                foreach ((array) $paths as $path) {
+                    $base = basename($path);
+                    if (stripos($base, $pds) === false) {
+                        continue;
+                    }
+                    $isSkid = $dir === 'skid-source' || stripos($base, 'skid') !== false;
+                    if (! $isSkid) {
+                        continue;
+                    }
+                    if (isset($matched[$base])) {
+                        continue;
+                    }
+                    $matched[$base] = [
+                        'file' => $base,
+                        'download' => route('dashboard.skidSourceDownload', $base),
+                        'preview' => route('dashboard.skidSourcePreview', $base),
+                    ];
+                }
+            }
+            $matchedValues = array_values($matched);
+            usort($matchedValues, function ($a, $b) {
+                return strcmp($a['file'], $b['file']);
+            });
+            $data[] = ['pds' => $pds, 'files' => $matchedValues];
+        }
+
+        return response()->json(['status' => true, 'data' => $data]);
+    }
+
+    public function skidSourceDownload($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        foreach (['skid-source', 'kanban-source'] as $dir) {
+            $path = storage_path('app/'.$dir.'/'.$base);
+            if (is_file($path)) {
+                return response()->download($path, $base);
+            }
+        }
+        abort(404);
+    }
+
+    public function skidSourcePreview($file)
+    {
+        $base = basename((string) $file);
+        abort_if($base === '' || $base === '.' || $base === '..', 404);
+
+        foreach (['skid-source', 'kanban-source'] as $dir) {
+            $path = storage_path('app/'.$dir.'/'.$base);
+            if (is_file($path)) {
+                return response()->file($path, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="'.$base.'"',
+                ]);
+            }
+        }
+        abort(404);
+    }
+
+    /**
+     * Upload proses file Skid PDF langsung ke storage skid-source
+     */
+    public function skidUploadProcess(Request $request)
+    {
+        $request->validate([
+            'files' => 'required|array|min:1',
+            'files.*' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        if (! Storage::exists('skid-source')) {
+            Storage::makeDirectory('skid-source');
+        }
+
+        $savedFiles = [];
+        foreach ($request->file('files') as $file) {
+            $storedName = $this->resolveSkidStoredName($file);
+            Storage::putFileAs('skid-source', $file, $storedName);
+            $savedFiles[] = $storedName;
+        }
+
+        return response()->json([
+            'status' => true,
+            'files' => $savedFiles,
+            'count' => count($savedFiles),
+            'message' => 'Berhasil mengunggah ' . count($savedFiles) . ' file skid.',
+        ]);
+    }
+
+    private function resolveManifestStoredName($file): string
+    {
+        $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
+        $normalized = $this->normalizeFileName($original);
+        $stem = pathinfo($normalized, PATHINFO_FILENAME);
+        $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
+        $stem = trim($stem, '._');
+        if ($stem === '') {
+            $stem = 'manifest';
+        }
+
+        return substr($stem, 0, 120) . '.pdf';
+    }
+
+    private function resolveSkidStoredName($file): string
+    {
+        $original = basename(str_replace('\\', '/', (string) $file->getClientOriginalName()));
+        $normalized = $this->normalizeFileName($original);
+        $stem = pathinfo($normalized, PATHINFO_FILENAME);
+        $stem = (string) preg_replace('/[^A-Za-z0-9._-]+/', '_', $stem);
+        $stem = trim($stem, '._');
+        if ($stem === '') {
+            $stem = 'skid';
+        }
+
+        return substr($stem, 0, 120) . '.pdf';
     }
 
     /**

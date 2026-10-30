@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Services\All\AllManualCropProcessor;
+use App\Services\KanbanPdfOptimizer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -63,6 +64,27 @@ class ProcessAllManualCrop implements ShouldQueue
 
         $filename = $processor->process($this->files, $this->jobId, $this->cuts, $this->skipBlank, $this->vCuts);
 
+        // Optimasi ukuran file hasil (opsional; fallback ke asli).
+        if (is_string($filename) && $filename !== '') {
+            $beforePath = $dir . DIRECTORY_SEPARATOR . basename((string) $filename);
+            $beforeSize = is_file($beforePath) ? (int) @filesize($beforePath) : null;
+            $optimized = app(KanbanPdfOptimizer::class)->optimizeFiles([(string) $filename], $dir);
+            if (! empty($optimized[0]) && is_string($optimized[0])) {
+                $filename = $optimized[0];
+            }
+            $afterPath = $dir . DIRECTORY_SEPARATOR . basename((string) $filename);
+            $afterSize = is_file($afterPath) ? (int) @filesize($afterPath) : null;
+            try {
+                logger()->info('KanbanPdfOptimizer size', [
+                    'job' => $this->jobId,
+                    'file' => (string) $filename,
+                    'before_bytes' => $beforeSize,
+                    'after_bytes' => $afterSize,
+                ]);
+            } catch (\Throwable $ignored) {
+            }
+        }
+
         if (file_exists($cancelPath)) {
             $out = $dir.'/'.basename((string) $filename);
             if (is_file($out)) {
@@ -76,10 +98,15 @@ class ProcessAllManualCrop implements ShouldQueue
 
         // Arsip dulu, marker DONE belakangan: DONE terlihat = info arsip pasti sudah ada.
         // Arsip HASIL crop ke kanban-source dengan nama asli (fetch per PDS/manifest).
-        \App\Support\KanbanSourceArchive::archiveJobOutputs(
+        $archived = \App\Support\KanbanSourceArchive::archiveJobOutputs(
             $this->jobId,
             \App\Support\KanbanSourceArchive::parseDoneMarker((string) $filename)
         );
+
+        // Hemat space: hapus hasil temp setelah arsip berhasil.
+        if (! empty($archived) && is_string($filename) && $filename !== '') {
+            @unlink($dir . DIRECTORY_SEPARATOR . basename((string) $filename));
+        }
 
         file_put_contents($dir.'/'.$this->jobId.'.done', $filename);
 

@@ -116,6 +116,22 @@ class ProcessAllManualPart implements ShouldQueue
             // progres informatif saja, jangan gagalkan job
         }
 
+        // Optimasi ukuran file parsial (opsional; fallback ke asli).
+        $partName = 'kanban_all_manual_'.$subId.'.pdf';
+        $beforePath = $dir . DIRECTORY_SEPARATOR . $partName;
+        $beforeSize = is_file($beforePath) ? (int) @filesize($beforePath) : null;
+        app(\App\Services\KanbanPdfOptimizer::class)->optimizeFiles([$partName], $dir);
+        $afterSize = is_file($beforePath) ? (int) @filesize($beforePath) : null;
+        try {
+            logger()->info('KanbanPdfOptimizer size', [
+                'job' => $this->jobId,
+                'file' => $partName,
+                'before_bytes' => $beforeSize,
+                'after_bytes' => $afterSize,
+            ]);
+        } catch (\Throwable $ignored) {
+        }
+
         $cleanupChunks();
 
         logger('QUEUE FINISH ALL-MANUAL-PART '.$subId);

@@ -176,6 +176,27 @@ class MergeAllManualParts implements ShouldQueue
             $finalFiles = array_values($createdVolumes);
         }
 
+        // Optimasi ukuran file hasil (opsional; fallback ke asli).
+        $beforeSizes = [];
+        foreach ($finalFiles as $f) {
+            $p = $dir . DIRECTORY_SEPARATOR . basename((string) $f);
+            $beforeSizes[(string) $f] = is_file($p) ? (int) @filesize($p) : null;
+        }
+        $finalFiles = app(\App\Services\KanbanPdfOptimizer::class)->optimizeFiles($finalFiles, $dir);
+        foreach ($finalFiles as $f) {
+            $p = $dir . DIRECTORY_SEPARATOR . basename((string) $f);
+            $afterSize = is_file($p) ? (int) @filesize($p) : null;
+            try {
+                logger()->info('KanbanPdfOptimizer size', [
+                    'job' => $this->jobId,
+                    'file' => (string) $f,
+                    'before_bytes' => $beforeSizes[(string) $f] ?? null,
+                    'after_bytes' => $afterSize,
+                ]);
+            } catch (\Throwable $ignored) {
+            }
+        }
+
         @file_put_contents(
             $dir.DIRECTORY_SEPARATOR.$this->jobId.'.info.json',
             json_encode([
@@ -187,7 +208,14 @@ class MergeAllManualParts implements ShouldQueue
 
         // Arsip dulu, marker DONE belakangan: DONE terlihat = info arsip pasti sudah ada.
         // Arsip HASIL merge ke kanban-source dengan nama asli (fetch per PDS/manifest).
-        \App\Support\KanbanSourceArchive::archiveJobOutputs($this->jobId, $finalFiles);
+        $archived = \App\Support\KanbanSourceArchive::archiveJobOutputs($this->jobId, $finalFiles);
+
+        // Hemat space: hapus volume temp setelah arsip berhasil.
+        if (! empty($archived)) {
+            foreach ($finalFiles as $f) {
+                @unlink($dir . DIRECTORY_SEPARATOR . basename((string) $f));
+            }
+        }
 
         if (count($finalFiles) === 1) {
             file_put_contents($dir.'/'.$this->jobId.'.done', $finalFiles[0]);
