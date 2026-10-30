@@ -7410,6 +7410,118 @@
                     });
             }
 
+            function arrayBufferToBase64(buffer) {
+                var binary = '';
+                var bytes = new Uint8Array(buffer);
+                var len = bytes.byteLength;
+                var chunkSize = 0x8000;
+                for (var i = 0; i < len; i += chunkSize) {
+                    var chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+                    binary += String.fromCharCode.apply(null, chunk);
+                }
+                return window.btoa(binary);
+            }
+
+            function printPdfDirectSilent(url, $btn, origHtml, documentType) {
+                documentType = documentType || 'manifest';
+                var paperCfg = (window.DOCUMENT_PAPER_CONFIG && window.DOCUMENT_PAPER_CONFIG[documentType]) || window.DOCUMENT_PAPER_CONFIG.manifest;
+                var cleanUrl = String(url || '').split('#')[0];
+
+                ensureQzConnected().done(function() {
+                    resolveQzPrinter(documentType).done(function(printerName) {
+                        if (!printerName) {
+                            $btn.prop('disabled', false).html(origHtml);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Printer tidak ditemukan',
+                                text: 'Printer untuk ' + documentType + ' belum dikonfigurasi atau tidak terdeteksi oleh QZ Tray.',
+                                confirmButtonText: 'Tutup',
+                                confirmButtonColor: '#6b7280'
+                            });
+                            return;
+                        }
+
+                        fetch(cleanUrl, {
+                                credentials: 'same-origin'
+                            })
+                            .then(function(r) {
+                                if (!r.ok) {
+                                    throw new Error('Gagal mengambil file PDF (HTTP ' + r.status + ')');
+                                }
+                                return r.arrayBuffer();
+                            })
+                            .then(function(buf) {
+                                var b64 = arrayBufferToBase64(buf);
+                                if (!b64) {
+                                    throw new Error('File PDF kosong atau gagal diproses.');
+                                }
+
+                                var configOptions = {
+                                    units: paperCfg.units || 'mm',
+                                    margins: paperCfg.margins !== undefined ? paperCfg.margins : 0,
+                                    scaleContent: paperCfg.scale_content !== undefined ? paperCfg.scale_content : true,
+                                    copies: paperCfg.copies || 1,
+                                    rasterize: false
+                                };
+                                if (paperCfg.width && paperCfg.height) {
+                                    configOptions.size = {
+                                        width: paperCfg.width,
+                                        height: paperCfg.height
+                                    };
+                                }
+
+                                var config = qz.configs.create(printerName, configOptions);
+                                var data = [{
+                                    type: 'pixel',
+                                    format: 'pdf',
+                                    flavor: 'base64',
+                                    data: b64
+                                }];
+
+                                return qz.print(config, data);
+                            })
+                            .then(function() {
+                                $btn.prop('disabled', false).html(origHtml);
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil dicetak',
+                                    text: documentType + ' dikirim ke ' + printerName + '.',
+                                    timer: 1800,
+                                    showConfirmButton: false
+                                });
+                            })
+                            .catch(function(err) {
+                                $btn.prop('disabled', false).html(origHtml);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal mencetak',
+                                    text: (err && err.message) ? err.message : 'Proses cetak QZ Tray gagal.',
+                                    confirmButtonText: 'Tutup',
+                                    confirmButtonColor: '#6b7280'
+                                });
+                            });
+                    }).fail(function(err) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Printer tidak ditemukan',
+                            text: (err && err.message) ? err.message : 'Printer untuk ' + documentType + ' belum dikonfigurasi.',
+                            confirmButtonText: 'Tutup',
+                            confirmButtonColor: '#6b7280'
+                        });
+                    });
+                }).fail(function(err) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'QZ Tray tidak terhubung',
+                        text: (err && err.message) ? err.message : 'Pastikan QZ Tray berjalan dan terhubung.',
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#6b7280'
+                    });
+                });
+            }
+
             $(document).on('click', '.btn-kanban-print', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -7425,6 +7537,11 @@
                 var origHtml = $btn.html();
                 $btn.prop('disabled', true).html(
                     '<i class="fas fa-spinner fa-spin mr-1"></i>Print...');
+                if (documentType === 'manifest' || documentType === 'skid') {
+                    printPdfDirectSilent(url, $btn, origHtml, documentType);
+                    return;
+                }
+
                 ensureKanbanPdfJs().done(function() {
                     printKanbanPdfFirstPageOnly(url, $btn, origHtml, documentType);
                 }).fail(function() {
