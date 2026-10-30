@@ -4,7 +4,7 @@ return [
     'printers' => [
         'kanban' => env('QZ_PRINTER_KANBAN', 'Printer Office AIIA'),
         'manifest' => env('QZ_PRINTER_MANIFEST', 'Brother PT-9800PCN'),
-        'skid' => env('QZ_PRINTER_SKID', 'EPSON LQ-2190 ESC/P2 (Copy 20)'),
+        'skid' => env('QZ_PRINTER_SKID', 'HP laserJet PPIC Bpdy'),
         
     ],
     'paper' => [
