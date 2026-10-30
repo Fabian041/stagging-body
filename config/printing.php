@@ -17,8 +17,8 @@ return [
             'copies' => 1,
         ],
         'manifest' => [
-            'width' => 210,
-            'height' => 297,
+            'width' => 218.4,
+            'height' => 279.4,
             'units' => 'mm',
             'margins' => 0,
             'scale_content' => true,
