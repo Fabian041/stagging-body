@@ -3098,8 +3098,8 @@
             } catch (err) {}
             window.DOCUMENT_PAPER_CONFIG = {
                 kanban: {
-                    width: {{ (int) config('printing.paper.kanban.width', 150) }},
-                    height: {{ (int) config('printing.paper.kanban.height', 80) }},
+                    width: {{ (float) config('printing.paper.kanban.width', 80) }},
+                    height: {{ (float) config('printing.paper.kanban.height', 180) }},
                     units: "{{ config('printing.paper.kanban.units', 'mm') }}",
                     margins: {{ (int) config('printing.paper.kanban.margins', 0) }},
                     scale_content: {{ config('printing.paper.kanban.scale_content', true) ? 'true' : 'false' }},
@@ -7537,7 +7537,12 @@
                 var origHtml = $btn.html();
                 $btn.prop('disabled', true).html(
                     '<i class="fas fa-spinner fa-spin mr-1"></i>Print...');
-                if (documentType === 'manifest' || documentType === 'skid') {
+                printPdfDirectSilent(url, $btn, origHtml, documentType);
+            });
+
+            // Print silent PDF via QZ Tray: ukuran kertas per dokumen mengikuti window.DOCUMENT_PAPER_CONFIG
+            var _unusedLegacyPrintKanban = function() {
+                if (false) {
                     printPdfDirectSilent(url, $btn, origHtml, documentType);
                     return;
                 }
