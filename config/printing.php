@@ -10,7 +10,7 @@ return [
     'paper' => [
         'kanban' => [
             'width' => (float) env('QZ_PAPER_KANBAN_WIDTH', 80),
-            'height' => (float) env('QZ_PAPER_KANBAN_HEIGHT', 180),
+            'height' => (float) env('QZ_PAPER_KANBAN_HEIGHT', 150),
             'units' => 'mm',
             'margins' => 0,
             // 'scale_content' => true,
