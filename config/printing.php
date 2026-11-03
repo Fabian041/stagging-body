@@ -9,8 +9,8 @@ return [
     ],
     'paper' => [
         'kanban' => [
-            'width' => 150,
-            'height' => 80,
+            'width' => 80,
+            'height' => 180,
             'units' => 'mm',
             'margins' => 0,
             'scale_content' => true,
