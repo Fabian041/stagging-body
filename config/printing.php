@@ -10,7 +10,7 @@ return [
     'paper' => [
         'kanban' => [
             'width' => 80,
-            'height' => 180,
+            'height' => 150,
             'units' => 'mm',
             'margins' => 0,
             'scale_content' => true,
