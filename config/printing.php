@@ -13,7 +13,7 @@ return [
             'height' => 150,
             'units' => 'mm',
             'margins' => 0,
-            'scale_content' => true,
+            // 'scale_content' => true,
             'copies' => 1,
         ],
         // 'kanban' => [
