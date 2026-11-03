@@ -9,8 +9,8 @@ return [
     ],
     'paper' => [
         'kanban' => [
-            'width' => 150,
-            'height' => 80,
+            'width' => 80,
+            'height' => 150,
             'units' => 'mm',
             'margins' => 0,
             'scale_content' => true,
@@ -43,8 +43,8 @@ return [
         'manifest' => [
             // 'width' => 218.4,
             // 'height' => 279.4,
-            'width' => 228.4,
-            'height' => 289.4,
+            'width' => 218.4,
+            'height' => 279.4,
             'units' => 'mm',
             'margins' => 0,
             'scale_content' => true,
