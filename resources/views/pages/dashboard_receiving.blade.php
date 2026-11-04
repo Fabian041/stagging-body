@@ -590,13 +590,27 @@ document.addEventListener('DOMContentLoaded', function () {
             refreshEl.textContent = refreshLeft;
         }
         if (refreshLeft <= 0) {
-            // Saat fullscreen jangan reload (reload selalu keluar fullscreen).
-            // Tahan dulu, lanjutkan hitungan agar tetap fullscreen.
+            refreshLeft = 120;
+            if (refreshEl) {
+                refreshEl.textContent = refreshLeft;
+            }
+            const autoForm = document.getElementById('receivingFilterForm');
+            if (autoForm) {
+                if (typeof autoForm.requestSubmit === 'function') {
+                    autoForm.requestSubmit();
+                } else {
+                    autoForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            } else if (!document.fullscreenElement) {
+                window.location.reload();
+            }
+            return;
+            /*
             if (document.fullscreenElement) {
                 refreshLeft = 120;
                 return;
             }
-            window.location.reload();
+            window.location.reload(); */
         }
     }, 1000);
 
@@ -614,7 +628,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const params = new URLSearchParams(new FormData(form));
             const startStr = params.get('start_date') || '';
             const endStr = params.get('end_date') || '';
-            params.set('ajax', '1');
+            params.set('ajax', '1'); params.set('_t', Date.now());
             const base = form.getAttribute('action') || window.location.pathname;
             const url = base + '?' + params.toString();
             if (btn) {
@@ -629,7 +643,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     sessionStorage.setItem(RECEIVING_FS_RELOAD_KEY, '1');
                 }
             } catch (e) {}
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
                 .then(function(res) {
                     if (!res.ok) {
                         throw new Error('http ' + res.status);
@@ -1030,8 +1044,10 @@ function showDetailModal(pickList, timeLabel = '') {
                 headerEl.textContent = uoms.length === 1 ? `Qty Ordered (${uoms[0]})` : 'Qty Ordered (UOM)';
             }
 
-            let rows = '';
+            let rows = ''; let totalQtyKbn = 0;
             response.forEach((item, idx) => {
+                const kbnVal = (item.qty_ordered_kbn !== null && item.qty_ordered_kbn !== undefined && item.qty_ordered_kbn !== '') ? Number(String(item.qty_ordered_kbn).replace(/,/g, '.')) : 0;
+                if (!isNaN(kbnVal)) { totalQtyKbn += kbnVal; }
                 rows += `<tr>
                     <td>${idx + 1}</td>
                     <td title="${item.part_number ?? '-'}">${item.part_number ?? '-'}</td>
@@ -1041,6 +1057,10 @@ function showDetailModal(pickList, timeLabel = '') {
                     <td class="text-center">${item.qty_ordered_kbn !== null && item.qty_ordered_kbn !== undefined && item.qty_ordered_kbn !== '' ? formatQty(item.qty_ordered_kbn) : '-'}</td>
                 </tr>`;
             });
+            rows += `<tr style="font-weight: bold; background-color: #f8f9fa;">
+                <td colspan="5" class="text-center font-weight-bold">Total</td>
+                <td class="text-center font-weight-bold">${formatQty(totalQtyKbn)}</td>
+            </tr>`;
             $('#detailTable tbody').html(rows);
         },
         error: function() {
