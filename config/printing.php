@@ -9,13 +9,40 @@ return [
     ],
     'paper' => [
         'kanban' => [
-            'width' => (float) env('QZ_PAPER_KANBAN_WIDTH', 80),
-            'height' => (float) env('QZ_PAPER_KANBAN_HEIGHT', 150),
+            'width' => 80,
+            'height' => 150,
             'units' => 'mm',
             'margins' => 0,
             // 'scale_content' => true,
             'copies' => 1,
         ],
+
+        // 'paper' => [
+        // 'kanban' => [
+        //     'width' => 150, // atau 180 sesuai ukuran fisik kertas label Anda
+        //     'height' => 80,
+        //     'units' => 'mm',
+        //     'margins' => 0,
+        //     'scale_content' => true,
+        //     'copies' => 1,
+        //     'orientation' => 'landscape', // Tambahkan orientasi
+        // ],
+
+        // 'kanban' => [
+        //     'width' => 80,
+        //     'height' => 150,
+        //     'units' => 'mm',
+        //     'margins' => [
+        //         'top' => 2,
+        //         'bottom' => 2,
+        //         'left' => 0,
+        //         'right' => 0,
+        //     ],
+        //     'scale_content' => true,
+        //     'copies' => 1,
+        //     'orientation' => 'landscape', // Merotasi kanban agar tidak mengecil di bagian atas
+        // ],
+
         // 'kanban' => [
         //     'width' => 180,
         //     'height' => 80,

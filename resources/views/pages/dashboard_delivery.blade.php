@@ -7461,7 +7461,7 @@
                                     margins: paperCfg.margins !== undefined ? paperCfg.margins : 0,
                                     scaleContent: paperCfg.scale_content !== undefined ? paperCfg.scale_content : true,
                                     copies: paperCfg.copies || 1,
-                                    rasterize: false
+                                    rasterize: true 
                                 };
                                 if (paperCfg.width && paperCfg.height) {
                                     configOptions.size = {
@@ -7541,8 +7541,8 @@
             });
 
             // Print silent PDF via QZ Tray: ukuran kertas per dokumen mengikuti window.DOCUMENT_PAPER_CONFIG
-            var _unusedLegacyPrintKanban = function() {
-                if (false) {
+            /*
+            */ $(document).on('click', '.btn-unused-legacy', function(e) { if (false) {
                     printPdfDirectSilent(url, $btn, origHtml, documentType);
                     return;
                 }
