@@ -7559,7 +7559,7 @@
                         confirmButtonColor: '#6b7280'
                     });
                 });
-            };
+            });
 
             $('#ganttContainer').on('click', '.gantt-bar-wrap.prep-split-top', function(e) {
                 e.preventDefault();
